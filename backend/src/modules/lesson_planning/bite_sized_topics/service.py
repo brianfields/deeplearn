@@ -10,7 +10,7 @@ import re
 
 from core import ModuleService, ServiceConfig, LLMClient
 from core.prompt_base import create_default_context
-from .prompts import LessonContentPrompt, DidacticSnippetPrompt, GlossaryPrompt, SocraticDialoguePrompt
+from .prompts import LessonContentPrompt, DidacticSnippetPrompt, GlossaryPrompt, SocraticDialoguePrompt, ShortAnswerQuestionsPrompt
 
 
 class BiteSizedTopicError(Exception):
@@ -28,6 +28,7 @@ class BiteSizedTopicService(ModuleService):
             'didactic_snippet': DidacticSnippetPrompt(),
             'glossary': GlossaryPrompt(),
             'socratic_dialogue': SocraticDialoguePrompt(),
+            'short_answer_questions': ShortAnswerQuestionsPrompt(),
             # Future prompts will be added here
         }
 
@@ -465,6 +466,142 @@ class BiteSizedTopicService(ModuleService):
 
         except Exception as e:
             self.logger.error(f"Failed to parse Socratic dialogues: {e}")
+            # Return empty list on parse failure
+            return []
+
+    async def create_short_answer_questions(
+        self,
+        topic_title: str,
+        core_concept: str,
+        user_level: str = "beginner",
+        learning_objectives: Optional[List[str]] = None,
+        previous_topics: Optional[List[str]] = None,
+        key_aspects: Optional[List[str]] = None,
+        avoid_overlap_with: Optional[List[str]] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Create a set of short answer questions for a concept.
+
+        Args:
+            topic_title: Title of the topic
+            core_concept: Core concept to assess
+            user_level: User's skill level
+            learning_objectives: Learning objectives for the concept
+            previous_topics: Previously covered topics
+            key_aspects: Key aspects to cover in questions
+            avoid_overlap_with: Topics/concepts to avoid overlapping with
+
+        Returns:
+            List of question dictionaries with metadata
+
+        Raises:
+            BiteSizedTopicError: If generation fails
+        """
+        try:
+            context = create_default_context(
+                user_level=user_level,
+                time_constraint=15  # Standard time for assessment
+            )
+
+            messages = self.prompts['short_answer_questions'].generate_prompt(
+                context,
+                topic_title=topic_title,
+                core_concept=core_concept,
+                learning_objectives=learning_objectives or [],
+                previous_topics=previous_topics or [],
+                key_aspects=key_aspects or [],
+                avoid_overlap_with=avoid_overlap_with or []
+            )
+
+            response = await self.llm_client.generate_response(messages)
+
+            # Parse the structured output
+            parsed_questions = self._parse_short_answer_questions(response.content)
+
+            self.logger.info(f"Generated {len(parsed_questions)} short answer questions for '{core_concept}'")
+            return parsed_questions
+
+        except Exception as e:
+            self.logger.error(f"Failed to generate short answer questions: {e}")
+            raise BiteSizedTopicError(f"Failed to generate short answer questions: {e}")
+
+    def _parse_short_answer_questions(self, content: str) -> List[Dict[str, Any]]:
+        """
+        Parse the structured output from the short answer questions prompt.
+
+        Args:
+            content: Raw LLM output containing multiple question entries
+
+        Returns:
+            List of question dictionaries with metadata
+
+        Raises:
+            BiteSizedTopicError: If parsing fails
+        """
+        try:
+            # Remove code block markers if present
+            content = content.strip()
+            if content.startswith('```'):
+                content = content[3:]
+            if content.endswith('```'):
+                content = content[:-3]
+
+            questions = []
+
+            # Split by "Question" followed by a number
+            question_sections = re.split(r'\n\s*Question\s+\d+\s*\n', content)
+
+            # Remove empty first section if it exists
+            if question_sections and not question_sections[0].strip():
+                question_sections = question_sections[1:]
+
+            for section in question_sections:
+                section = section.strip()
+                if not section:
+                    continue
+
+                question_data = {}
+
+                # Extract each field using regex
+                fields = {
+                    'question': r'Question:\s*(.+?)(?=\n\s*\w+:|$)',
+                    'purpose': r'Purpose:\s*(.+?)(?=\n\s*\w+:|$)',
+                    'target_concept': r'Target Concept:\s*(.+?)(?=\n\s*\w+:|$)',
+                    'expected_elements': r'Expected Elements of a Good Answer:\s*(.+?)(?=\n\s*\w+:|$)',
+                    'difficulty': r'Difficulty:\s*(\d+)',
+                    'tags': r'Tags:\s*(.+?)(?=\n\s*\w+:|$)'
+                }
+
+                for field, pattern in fields.items():
+                    match = re.search(pattern, section, re.DOTALL | re.IGNORECASE)
+                    if match:
+                        value = match.group(1).strip()
+                        # Clean up multi-line values
+                        value = re.sub(r'\s+', ' ', value).strip()
+
+                        # Special handling for difficulty (convert to int)
+                        if field == 'difficulty':
+                            try:
+                                question_data[field] = int(value)
+                            except ValueError:
+                                question_data[field] = 3  # Default difficulty
+                        else:
+                            question_data[field] = value
+                    else:
+                        # Provide defaults for missing fields
+                        if field == 'difficulty':
+                            question_data[field] = 3
+                        else:
+                            question_data[field] = ""
+
+                # Only add question if it has essential fields
+                if question_data.get('question') and question_data.get('purpose'):
+                    questions.append(question_data)
+
+            return questions
+
+        except Exception as e:
+            self.logger.error(f"Failed to parse short answer questions: {e}")
             # Return empty list on parse failure
             return []
 
