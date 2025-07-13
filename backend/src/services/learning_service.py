@@ -1,8 +1,8 @@
 """
 Learning Service - High-level API for Learning Operations
 
-This module provides a high-level service layer that combines the LLM interface
-with prompt engineering to deliver complete learning functionality. It serves as
+This module provides a high-level service layer that orchestrates the various
+learning modules to deliver complete learning functionality. It serves as
 the main API for the learning application.
 
 Key Features:
@@ -21,14 +21,12 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 from dataclasses import dataclass
 
-from llm_interface import (
-    LLMConfig,
-    create_llm_provider, LLMError, LLMProviderType
-)
-from prompt_engineering import (PromptFactory, PromptType, create_default_context)
-from data_structures import (
-    QuizType, ProgressStatus, QuizQuestion, TopicProgressResponse
-)
+from llm_interface import LLMConfig, LLMProviderType
+from core import LLMClient, ServiceConfig
+from core.service_base import ServiceFactory
+from modules.lesson_planning import LessonPlanningService
+from modules.assessment import AssessmentService
+from data_structures import QuizType, ProgressStatus, QuizQuestion, TopicProgressResponse
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -60,15 +58,24 @@ class LearningService:
     """
     High-level service for learning operations.
 
-    This service provides a clean API for all learning-related operations,
-    handling the complexity of LLM interactions and prompt engineering.
+    This service orchestrates the various learning modules to provide a unified
+    API for all learning-related operations.
     """
 
     def __init__(self, config: LearningServiceConfig):
         self.config = config
-        self.llm_provider = create_llm_provider(config.llm_config)
-        self.prompt_factory = PromptFactory()
-        self._content_cache = {} if config.cache_enabled else None
+        self.llm_client = LLMClient(config.llm_config, config.cache_enabled)
+
+        # Create service configuration for modules
+        service_config = ServiceFactory.create_service_config(
+            llm_config=config.llm_config,
+            cache_enabled=config.cache_enabled,
+            retry_attempts=config.retry_attempts
+        )
+
+        # Initialize module services
+        self.lesson_planning = LessonPlanningService(service_config, self.llm_client)
+        self.assessment = AssessmentService(service_config, self.llm_client)
 
     async def generate_syllabus(
         self,
@@ -93,61 +100,15 @@ class LearningService:
             ContentGenerationError: If syllabus generation fails
         """
         try:
-            context = create_default_context(
+            return await self.lesson_planning.generate_syllabus(
+                topic=topic,
                 user_level=user_level,
-                time_constraint=self.config.default_lesson_duration,
+                user_refinements=user_refinements,
                 custom_instructions=custom_instructions
             )
-
-            messages = self.prompt_factory.create_prompt(
-                PromptType.SYLLABUS_GENERATION,
-                context,
-                topic=topic,
-                user_refinements=user_refinements or []
-            )
-
-            # Define expected schema
-            schema = {
-                "type": "object",
-                "properties": {
-                    "topic_name": {"type": "string"},
-                    "description": {"type": "string"},
-                    "estimated_total_hours": {"type": "number"},
-                    "topics": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "title": {"type": "string"},
-                                "description": {"type": "string"},
-                                "learning_objectives": {"type": "array", "items": {"type": "string"}},
-                                "estimated_duration": {"type": "number"},
-                                "difficulty_level": {"type": "number"},
-                                "prerequisite_topics": {"type": "array", "items": {"type": "string"}},
-                                "assessment_type": {"type": "string"}
-                            },
-                            "required": ["title", "description", "learning_objectives"]
-                        }
-                    }
-                },
-                "required": ["topic_name", "description", "topics"]
-            }
-
-            response = await self.llm_provider.generate_structured_response(
-                messages, schema
-            )
-
-            # Validate response
-            if not response.get("topics") or len(response["topics"]) > 20:
-                raise ContentGenerationError("Invalid syllabus structure or too many topics")
-
-            logger.info(f"Generated syllabus for '{topic}' with {len(response['topics'])} topics")
-            return response
-
-        except LLMError as e:
-            raise ContentGenerationError(f"Failed to generate syllabus: {e}")
         except Exception as e:
-            raise ContentGenerationError(f"Unexpected error generating syllabus: {e}")
+            logger.error(f"Failed to generate syllabus: {e}")
+            raise ContentGenerationError(f"Failed to generate syllabus: {e}")
 
     async def generate_lesson_content(
         self,
@@ -176,41 +137,17 @@ class LearningService:
             ContentGenerationError: If content generation fails
         """
         try:
-            # Check cache first
-            cache_key = f"lesson_{hash(topic_title + topic_description + user_level)}"
-            if self._content_cache and cache_key in self._content_cache:
-                logger.info(f"Using cached lesson content for '{topic_title}'")
-                return self._content_cache[cache_key]
-
-            context = create_default_context(
-                user_level=user_level,
-                time_constraint=self.config.default_lesson_duration,
-                previous_performance=user_performance or {}
-            )
-
-            messages = self.prompt_factory.create_prompt(
-                PromptType.LESSON_CONTENT,
-                context,
+            return await self.lesson_planning.generate_lesson_content(
                 topic_title=topic_title,
                 topic_description=topic_description,
                 learning_objectives=learning_objectives,
-                previous_topics=previous_topics or []
+                user_level=user_level,
+                previous_topics=previous_topics,
+                user_performance=user_performance
             )
-
-            response = await self.llm_provider.generate_response(messages)
-            content = response.content
-
-            # Cache the content
-            if self._content_cache:
-                self._content_cache[cache_key] = content
-
-            logger.info(f"Generated lesson content for '{topic_title}' ({len(content)} characters)")
-            return content
-
-        except LLMError as e:
-            raise ContentGenerationError(f"Failed to generate lesson content: {e}")
         except Exception as e:
-            raise ContentGenerationError(f"Unexpected error generating lesson content: {e}")
+            logger.error(f"Failed to generate lesson content: {e}")
+            raise ContentGenerationError(f"Failed to generate lesson content: {e}")
 
     async def generate_quiz(
         self,
@@ -245,68 +182,17 @@ class LearningService:
                 min(question_count, self.config.max_quiz_questions)
             )
 
-            if question_types is None:
-                question_types = [QuizType.MULTIPLE_CHOICE, QuizType.SHORT_ANSWER]
-
-            context = create_default_context(user_level=user_level)
-
-            messages = self.prompt_factory.create_prompt(
-                PromptType.QUIZ_GENERATION,
-                context,
+            return await self.assessment.generate_quiz(
                 topic_title=topic_title,
                 learning_objectives=learning_objectives,
                 lesson_content=lesson_content,
+                user_level=user_level,
                 question_count=question_count,
                 question_types=question_types
             )
-
-            schema = {
-                "type": "object",
-                "properties": {
-                    "questions": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "id": {"type": "string"},
-                                "type": {"type": "string"},
-                                "question": {"type": "string"},
-                                "options": {"type": "array", "items": {"type": "string"}},
-                                "correct_answer": {"type": "string"},
-                                "explanation": {"type": "string"},
-                                "difficulty": {"type": "number"},
-                                "learning_objective": {"type": "string"}
-                            },
-                            "required": ["id", "type", "question", "correct_answer"]
-                        }
-                    }
-                },
-                "required": ["questions"]
-            }
-
-            response = await self.llm_provider.generate_structured_response(
-                messages, schema
-            )
-
-            # Convert to QuizQuestion objects
-            quiz_questions = []
-            for q_data in response["questions"]:
-                quiz_questions.append(QuizQuestion(
-                    id=q_data["id"],
-                    type=QuizType(q_data["type"]),
-                    question=q_data["question"],
-                    options=q_data.get("options"),
-                    correct_answer=q_data["correct_answer"],
-                    explanation=q_data.get("explanation")
-                ))
-
-            logger.info(f"Generated {len(quiz_questions)} quiz questions for '{topic_title}'")
-            return quiz_questions
-
-        except LLMError as e:
-            raise ContentGenerationError(f"Failed to generate quiz: {e}")
         except Exception as e:
-            raise ContentGenerationError(f"Unexpected error generating quiz: {e}")
+            logger.error(f"Failed to generate quiz: {e}")
+            raise ContentGenerationError(f"Failed to generate quiz: {e}")
 
     async def grade_quiz_response(
         self,
@@ -329,135 +215,156 @@ class LearningService:
             AssessmentError: If grading fails
         """
         try:
-            context = create_default_context(user_level=user_level)
-
-            messages = self.prompt_factory.create_prompt(
-                PromptType.ASSESSMENT_GRADING,
-                context,
-                question=question.question,
-                correct_answer=question.correct_answer,
+            return await self.assessment.grade_quiz_response(
+                question=question,
                 student_answer=student_answer,
-                question_type=question.type
+                user_level=user_level
             )
-
-            schema = {
-                "type": "object",
-                "properties": {
-                    "score": {"type": "number", "minimum": 0, "maximum": 1},
-                    "feedback": {"type": "string"},
-                    "strengths": {"type": "array", "items": {"type": "string"}},
-                    "areas_for_improvement": {"type": "array", "items": {"type": "string"}},
-                    "suggestions": {"type": "array", "items": {"type": "string"}}
-                },
-                "required": ["score", "feedback"]
-            }
-
-            response = await self.llm_provider.generate_structured_response(
-                messages, schema
-            )
-
-            logger.info(f"Graded response for question {question.id}: {response['score']}")
-            return response
-
-        except LLMError as e:
-            raise AssessmentError(f"Failed to grade response: {e}")
         except Exception as e:
-            raise AssessmentError(f"Unexpected error grading response: {e}")
+            logger.error(f"Failed to grade quiz response: {e}")
+            raise AssessmentError(f"Failed to grade quiz response: {e}")
 
-    async def generate_review_content(
+    async def create_complete_lesson_plan(
+        self,
+        topic: str,
+        user_level: str = "beginner",
+        user_refinements: Optional[List[str]] = None,
+        custom_instructions: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Create a complete lesson plan including syllabus and initial content.
+
+        Args:
+            topic: The learning topic
+            user_level: User's skill level
+            user_refinements: User's refinement requests
+            custom_instructions: Additional custom instructions
+
+        Returns:
+            Complete lesson plan with syllabus and content
+
+        Raises:
+            ContentGenerationError: If lesson plan creation fails
+        """
+        try:
+            return await self.lesson_planning.create_complete_lesson_plan(
+                topic=topic,
+                user_level=user_level,
+                user_refinements=user_refinements,
+                custom_instructions=custom_instructions
+            )
+        except Exception as e:
+            logger.error(f"Failed to create complete lesson plan: {e}")
+            raise ContentGenerationError(f"Failed to create complete lesson plan: {e}")
+
+    async def create_didactic_snippet(
         self,
         topic_title: str,
-        original_content: str,
-        time_since_study: int,
-        user_level: str = "beginner",
-        previous_performance: Optional[Dict[str, Any]] = None
+        key_concept: str,
+        user_level: str = "beginner"
     ) -> str:
         """
-        Generate review content for spaced repetition.
+        Create a didactic snippet for a specific concept.
 
         Args:
-            topic_title: Title of the topic to review
-            original_content: Original lesson content
-            time_since_study: Days since original study
+            topic_title: Title of the topic
+            key_concept: Key concept to explain
             user_level: User's skill level
-            previous_performance: Previous performance data
 
         Returns:
-            Generated review content
+            Generated didactic snippet
 
         Raises:
-            ContentGenerationError: If review generation fails
+            ContentGenerationError: If snippet generation fails
         """
         try:
-            context = create_default_context(
-                user_level=user_level,
-                time_constraint=self.config.default_lesson_duration,
-                previous_performance=previous_performance or {}
-            )
-
-            messages = self.prompt_factory.create_prompt(
-                PromptType.REVIEW_CONTENT,
-                context,
+            return await self.lesson_planning.create_didactic_snippet(
                 topic_title=topic_title,
-                original_content=original_content,
-                time_since_study=time_since_study,
-                previous_performance=previous_performance or {}
+                key_concept=key_concept,
+                user_level=user_level
             )
-
-            response = await self.llm_provider.generate_response(messages)
-            content = response.content
-
-            logger.info(f"Generated review content for '{topic_title}' ({time_since_study} days since study)")
-            return content
-
-        except LLMError as e:
-            raise ContentGenerationError(f"Failed to generate review content: {e}")
         except Exception as e:
-            raise ContentGenerationError(f"Unexpected error generating review content: {e}")
+            logger.error(f"Failed to create didactic snippet: {e}")
+            raise ContentGenerationError(f"Failed to create didactic snippet: {e}")
 
-    async def adjust_content_difficulty(
+    async def create_glossary(
         self,
-        current_content: str,
-        performance_data: Dict[str, Any],
-        adjustment_direction: str = "maintain"
-    ) -> str:
+        topic_title: str,
+        terms: List[str],
+        user_level: str = "beginner"
+    ) -> Dict[str, str]:
         """
-        Adjust content difficulty based on performance.
+        Create a glossary of terms for a topic.
 
         Args:
-            current_content: Current content to adjust
-            performance_data: Performance data for analysis
-            adjustment_direction: Direction to adjust (easier, harder, maintain)
+            topic_title: Title of the topic
+            terms: List of terms to define
+            user_level: User's skill level
 
         Returns:
-            Adjusted content
+            Dictionary mapping terms to definitions
 
         Raises:
-            ContentGenerationError: If adjustment fails
+            ContentGenerationError: If glossary generation fails
         """
         try:
-            context = create_default_context(
-                previous_performance=performance_data
+            return await self.lesson_planning.create_glossary(
+                topic_title=topic_title,
+                terms=terms,
+                user_level=user_level
             )
-
-            messages = self.prompt_factory.create_prompt(
-                PromptType.DIFFICULTY_ADJUSTMENT,
-                context,
-                current_content=current_content,
-                performance_data=performance_data,
-                adjustment_direction=adjustment_direction
-            )
-
-            response = await self.llm_provider.generate_response(messages)
-            adjusted_content = response.content
-
-            logger.info(f"Adjusted content difficulty: {adjustment_direction}")
-            return adjusted_content
-
-        except LLMError as e:
-            raise ContentGenerationError(f"Failed to adjust content difficulty: {e}")
         except Exception as e:
-            raise ContentGenerationError(f"Unexpected error adjusting content: {e}")
+            logger.error(f"Failed to create glossary: {e}")
+            raise ContentGenerationError(f"Failed to create glossary: {e}")
+
+    async def grade_quiz(
+        self,
+        quiz_questions: List[QuizQuestion],
+        student_answers: List[str],
+        user_level: str = "beginner"
+    ) -> Dict[str, Any]:
+        """
+        Grade a complete quiz with multiple questions.
+
+        Args:
+            quiz_questions: List of quiz questions
+            student_answers: List of student answers
+            user_level: User's skill level
+
+        Returns:
+            Dictionary containing overall results
+
+        Raises:
+            AssessmentError: If grading fails
+        """
+        try:
+            return await self.assessment.grade_quiz(
+                quiz_questions=quiz_questions,
+                student_answers=student_answers,
+                user_level=user_level
+            )
+        except Exception as e:
+            logger.error(f"Failed to grade quiz: {e}")
+            raise AssessmentError(f"Failed to grade quiz: {e}")
+
+    async def analyze_quiz_results(self, quiz_results: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Analyze quiz results to provide insights and recommendations.
+
+        Args:
+            quiz_results: Results from grade_quiz method
+
+        Returns:
+            Analysis and recommendations
+
+        Raises:
+            AssessmentError: If analysis fails
+        """
+        try:
+            return await self.assessment.analyze_quiz_results(quiz_results)
+        except Exception as e:
+            logger.error(f"Failed to analyze quiz results: {e}")
+            raise AssessmentError(f"Failed to analyze quiz results: {e}")
 
     async def analyze_learning_progress(
         self,
@@ -517,6 +424,30 @@ class LearningService:
             logger.error(f"Error analyzing learning progress: {e}")
             return {"error": str(e)}
 
+    async def get_service_health(self) -> Dict[str, Any]:
+        """
+        Get comprehensive health status of all services.
+
+        Returns:
+            Dictionary containing health status of all services
+        """
+        try:
+            return {
+                "learning_service": {
+                    "status": "healthy",
+                    "config": {
+                        "default_lesson_duration": self.config.default_lesson_duration,
+                        "max_quiz_questions": self.config.max_quiz_questions,
+                        "mastery_threshold": self.config.mastery_threshold
+                    }
+                },
+                "llm_client": await self.llm_client.health_check(),
+                "modules": await self.lesson_planning.get_service_status()
+            }
+        except Exception as e:
+            logger.error(f"Failed to get service health: {e}")
+            return {"error": str(e)}
+
     def get_service_stats(self) -> Dict[str, Any]:
         """
         Get service statistics and health information.
@@ -528,7 +459,7 @@ class LearningService:
             "provider": self.config.llm_config.provider.value,
             "model": self.config.llm_config.model,
             "cache_enabled": self.config.cache_enabled,
-            "cache_size": len(self._content_cache) if self._content_cache else 0,
+            "llm_client_stats": self.llm_client.get_stats(),
             "configuration": {
                 "default_lesson_duration": self.config.default_lesson_duration,
                 "max_quiz_questions": self.config.max_quiz_questions,
@@ -540,7 +471,9 @@ class LearningService:
 def create_learning_service(
     api_key: str,
     model: str = "gpt-3.5-turbo",
-    provider: str = "openai"
+    provider: str = "openai",
+    cache_enabled: bool = True,
+    **kwargs
 ) -> LearningService:
     """
     Create a learning service with common configuration.
@@ -549,6 +482,8 @@ def create_learning_service(
         api_key: API key for the LLM provider
         model: Model to use
         provider: Provider name
+        cache_enabled: Whether to enable caching
+        **kwargs: Additional configuration parameters
 
     Returns:
         Configured LearningService instance
@@ -557,13 +492,18 @@ def create_learning_service(
         provider=LLMProviderType(provider),
         model=model,
         api_key=api_key,
-        temperature=0.7,
-        max_tokens=1500
+        temperature=kwargs.get('temperature', 0.7),
+        max_tokens=kwargs.get('max_tokens', 1500)
     )
 
     service_config = LearningServiceConfig(
         llm_config=llm_config,
-        cache_enabled=True
+        cache_enabled=cache_enabled,
+        default_lesson_duration=kwargs.get('default_lesson_duration', 15),
+        max_quiz_questions=kwargs.get('max_quiz_questions', 10),
+        min_quiz_questions=kwargs.get('min_quiz_questions', 3),
+        mastery_threshold=kwargs.get('mastery_threshold', 0.9),
+        retry_attempts=kwargs.get('retry_attempts', 3)
     )
 
     return LearningService(service_config)
@@ -585,6 +525,13 @@ async def example_usage():
             user_level="beginner"
         )
         print(f"Generated syllabus with {len(syllabus['topics'])} topics")
+
+        # Create complete lesson plan
+        lesson_plan = await service.create_complete_lesson_plan(
+            topic="Data Science Fundamentals",
+            user_level="beginner"
+        )
+        print(f"Created complete lesson plan with {len(lesson_plan['lesson_contents'])} content pieces")
 
         # Generate lesson content
         if syllabus['topics']:
@@ -613,6 +560,10 @@ async def example_usage():
                     user_level="beginner"
                 )
                 print(f"Sample grade: {sample_grade['score']}")
+
+        # Check service health
+        health = await service.get_service_health()
+        print(f"Service health: {health}")
 
     except Exception as e:
         print(f"Error: {e}")

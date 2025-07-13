@@ -305,7 +305,7 @@ export class LearningService {
       const paths = await this.getAllLearningPaths()
 
       const stats: LearningStats = {
-        totalPaths: paths.length,
+        totalPaths: paths?.length || 0,
         completedPaths: 0,
         inProgressPaths: 0,
         totalTopics: 0,
@@ -314,12 +314,22 @@ export class LearningService {
         averageProgress: 0
       }
 
-      for (const path of paths) {
-        stats.totalTopics += path.total_topics
-        stats.completedTopics += path.progress_count
-        stats.totalEstimatedHours += path.estimated_total_hours
+      if (!paths || paths.length === 0) {
+        return stats
+      }
 
-        const progress = (path.progress_count / path.total_topics) * 100
+      for (const path of paths) {
+        // Safely access path properties with fallbacks
+        const totalTopics = path.total_topics || 0
+        const progressCount = path.progress_count || 0
+        const estimatedHours = path.estimated_total_hours || 0
+
+        stats.totalTopics += totalTopics
+        stats.completedTopics += progressCount
+        stats.totalEstimatedHours += estimatedHours
+
+        // Calculate progress with safe division
+        const progress = totalTopics > 0 ? (progressCount / totalTopics) * 100 : 0
         if (progress >= 100) {
           stats.completedPaths++
         } else if (progress > 0) {
@@ -327,7 +337,7 @@ export class LearningService {
         }
       }
 
-      if (paths.length > 0) {
+      if (stats.totalTopics > 0) {
         stats.averageProgress = (stats.completedTopics / stats.totalTopics) * 100
       }
 
@@ -345,23 +355,27 @@ export class LearningService {
    * Enhance learning path with computed properties
    */
   private enhanceLearningPath(path: LearningPath): EnhancedLearningPath {
-    const completedTopics = path.topics.filter(
+    // Safely access topics array with fallback
+    const topics = path.topics || []
+    const currentTopicIndex = path.current_topic_index || 0
+
+    const completedTopics = topics.filter(
       topic => topic.status === 'completed' || topic.status === 'mastery'
     ).length
 
-    const progressPercentage = path.topics.length > 0
-      ? (completedTopics / path.topics.length) * 100
+    const progressPercentage = topics.length > 0
+      ? (completedTopics / topics.length) * 100
       : 0
 
-    const estimatedTimeRemaining = path.topics
-      .slice(path.current_topic_index)
-      .reduce((total, topic) => total + topic.estimated_duration, 0)
+    const estimatedTimeRemaining = topics
+      .slice(currentTopicIndex)
+      .reduce((total, topic) => total + (topic.estimated_duration || 0), 0)
 
-    const nextTopic = path.current_topic_index < path.topics.length
-      ? path.topics[path.current_topic_index]
+    const nextTopic = currentTopicIndex < topics.length
+      ? topics[currentTopicIndex]
       : null
 
-    const isCompleted = completedTopics === path.topics.length && path.topics.length > 0
+    const isCompleted = completedTopics === topics.length && topics.length > 0
 
     return {
       ...path,

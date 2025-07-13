@@ -120,11 +120,21 @@ export function useConversation(
   // Ref to store current conversation
   const conversationRef = useRef<ActiveConversation | null>(null)
 
+  // Ref to store current messages to avoid stale closure
+  const messagesRef = useRef<ChatMessage[]>([])
+
   /**
    * Update specific state properties
    */
   const updateState = useCallback((updates: Partial<UseConversationState>) => {
-    setState(prev => ({ ...prev, ...updates }))
+    setState(prev => {
+      const newState = { ...prev, ...updates }
+      // Keep messages ref in sync
+      if (updates.messages) {
+        messagesRef.current = updates.messages
+      }
+      return newState
+    })
   }, [])
 
   /**
@@ -132,8 +142,12 @@ export function useConversation(
    */
   const createHandlers = useCallback((): ConversationHandlers => ({
     onMessage: (message: ChatMessage) => {
+      // Use the current messages from ref to avoid stale closure
+      const currentMessages = messagesRef.current
+      const newMessages = [...currentMessages, message]
+
       updateState({
-        messages: [...state.messages, message],
+        messages: newMessages,
         isSending: false
       })
       onMessage?.(message)
@@ -165,7 +179,7 @@ export function useConversation(
       })
       onError?.(error)
     }
-  }), [state.messages, updateState, onMessage, onProgress, onSessionState, onConnectionChange, onError])
+  }), [updateState, onMessage, onProgress, onSessionState, onConnectionChange, onError])
 
   /**
    * Start conversation

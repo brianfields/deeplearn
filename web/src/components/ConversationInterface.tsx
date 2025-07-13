@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import ProgressSidebar from './ProgressSidebar'
 import {
@@ -13,31 +12,32 @@ import {
   Target,
   CheckCircle,
   AlertCircle,
-  Wifi,
-  WifiOff,
   User,
   Bot,
   X
 } from 'lucide-react'
-import { ConversationWebSocket, ChatMessage } from '@/lib/api'
-import { ProgressUpdate, SessionState } from '@/types'
+import { useConversation } from '@/hooks/useConversation'
 
 interface ConversationInterfaceProps {
+  pathId: string
   topicId: string
   topicTitle: string
   onClose: () => void
 }
 
-export default function ConversationInterface({ topicId, topicTitle, onClose }: ConversationInterfaceProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [inputMessage, setInputMessage] = useState('')
-  const [isConnected, setIsConnected] = useState(false)
-  const [progress, setProgress] = useState<ProgressUpdate | null>(null)
-  const [sessionState, setSessionState] = useState<SessionState | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+export default function ConversationInterface({ pathId, topicId, topicTitle, onClose }: ConversationInterfaceProps) {
+  const {
+    messages,
+    isConnected,
+    isLoading,
+    error,
+    progress,
+    sessionState,
+    sendMessage,
+    clearError
+  } = useConversation(pathId, topicId)
 
-  const wsRef = useRef<ConversationWebSocket | null>(null)
+  const [inputMessage, setInputMessage] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
@@ -48,66 +48,23 @@ export default function ConversationInterface({ topicId, topicTitle, onClose }: 
     scrollToBottom()
   }, [messages])
 
-  useEffect(() => {
-    const ws = new ConversationWebSocket(topicId)
-    wsRef.current = ws
+  const handleSendMessage = async () => {
+    if (!inputMessage.trim()) return
 
-    ws.onopen = () => {
-      setIsConnected(true)
-      setError(null)
-    }
-
-    ws.onclose = () => {
-      setIsConnected(false)
-    }
-
-    ws.onerror = (error) => {
-      setError('Connection error. Please try again.')
-      setIsConnected(false)
-    }
-
-    ws.onmessage = (data) => {
-      if (data.type === 'chat_message') {
-        setMessages(prev => [...prev, data.message as ChatMessage])
-        setIsLoading(false)
-      } else if (data.type === 'progress_update') {
-        setProgress(data.progress as ProgressUpdate)
-      } else if (data.type === 'session_state') {
-        setSessionState(data.state as SessionState)
-      }
-    }
-
-    return () => {
-      ws.close()
-    }
-  }, [topicId])
-
-  const sendMessage = async () => {
-    if (!inputMessage.trim() || !wsRef.current || !isConnected) return
-
-    const userMessage: ChatMessage = {
-      role: 'user',
-      content: inputMessage,
-      timestamp: new Date().toISOString()
-    }
-
-    setMessages(prev => [...prev, userMessage])
-    setIsLoading(true)
+    const message = inputMessage
     setInputMessage('')
-
-    try {
-      wsRef.current.sendMessage(inputMessage)
-    } catch (error) {
-      setError('Failed to send message. Please try again.')
-      setIsLoading(false)
-    }
+    await sendMessage(message)
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      sendMessage()
+      handleSendMessage()
     }
+  }
+
+  const handleQuickAction = (text: string) => {
+    setInputMessage(text)
   }
 
   const quickActions = [
@@ -219,7 +176,13 @@ export default function ConversationInterface({ topicId, topicTitle, onClose }: 
                 {error && (
                   <div className="flex justify-center">
                     <div className="bg-red-50/80 backdrop-blur-sm border border-red-200/50 rounded-2xl px-4 py-3 text-red-700 text-sm shadow-sm">
-                      {error}
+                      <span>{error}</span>
+                      <button
+                        onClick={() => clearError()}
+                        className="ml-2 text-red-500 hover:text-red-700 underline"
+                      >
+                        Dismiss
+                      </button>
                     </div>
                   </div>
                 )}
@@ -237,7 +200,7 @@ export default function ConversationInterface({ topicId, topicTitle, onClose }: 
                       key={index}
                       variant="outline"
                       size="sm"
-                      onClick={() => setInputMessage(action.text)}
+                      onClick={() => handleQuickAction(action.text)}
                       className="text-xs bg-white/60 border-gray-200/50 hover:bg-white/80 backdrop-blur-sm"
                       disabled={!isConnected}
                     >
@@ -258,7 +221,7 @@ export default function ConversationInterface({ topicId, topicTitle, onClose }: 
                     className="flex-1 bg-white/60 border-gray-200/50 backdrop-blur-sm focus:bg-white/80 transition-all duration-200"
                   />
                   <Button
-                    onClick={sendMessage}
+                    onClick={handleSendMessage}
                     disabled={!inputMessage.trim() || !isConnected || isLoading}
                     className="bg-blue-500 hover:bg-blue-600 text-white shadow-sm px-4"
                   >

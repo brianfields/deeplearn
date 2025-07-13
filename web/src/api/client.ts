@@ -199,8 +199,8 @@ export class ApiClient {
    * Check API health status
    */
   async healthCheck(): Promise<HealthCheck> {
-    const response = await this.request<HealthCheckResponse>('/health')
-    return response.data
+    const response = await this.request<HealthCheck>('/health')
+    return response
   }
 
   /**
@@ -210,62 +210,62 @@ export class ApiClient {
     topic: string,
     userLevel: string = 'beginner'
   ): Promise<LearningPath> {
-    const response = await this.request<CreateLearningPathResponse>(
+    const response = await this.request<LearningPath>(
       '/api/learning-paths',
       {
         method: 'POST',
         body: { topic, user_level: userLevel } as CreateLearningPathRequest
       }
     )
-    return response.data
+    return response
   }
 
   /**
    * Get all learning paths (summary view)
    */
   async getLearningPaths(): Promise<LearningPathSummary[]> {
-    const response = await this.request<GetLearningPathsResponse>('/api/learning-paths')
-    return response.data
+    const response = await this.request<LearningPathSummary[]>('/api/learning-paths')
+    return response
   }
 
   /**
    * Get detailed learning path by ID
    */
   async getLearningPath(pathId: string): Promise<LearningPath> {
-    const response = await this.request<GetLearningPathResponse>(
+    const response = await this.request<LearningPath>(
       `/api/learning-paths/${pathId}`
     )
-    return response.data
+    return response
   }
 
   /**
    * Start a new conversation for a topic
    */
   async startConversation(pathId: string, topicId: string): Promise<ConversationSession> {
-    const response = await this.request<StartConversationResponse>(
+    const response = await this.request<ConversationSession>(
       `/api/conversations/start?path_id=${pathId}&topic_id=${topicId}`,
       { method: 'POST' }
     )
-    return response.data
+    return response
   }
 
   /**
    * Continue an existing conversation
    */
   async continueConversation(pathId: string, topicId: string): Promise<ConversationSession> {
-    const response = await this.request<ContinueConversationResponse>(
+    const response = await this.request<ConversationSession>(
       `/api/conversations/continue?path_id=${pathId}&topic_id=${topicId}`,
       { method: 'POST' }
     )
-    return response.data
+    return response
   }
 
   /**
    * Get overall learning progress
    */
   async getProgress(): Promise<Progress> {
-    const response = await this.request<GetProgressResponse>('/api/progress')
-    return response.data
+    const response = await this.request<Progress>('/api/progress')
+    return response
   }
 
   /**

@@ -68,6 +68,7 @@ try:
 
     ProgressStatus = data_structures.ProgressStatus
     MessageRole = llm_interface.MessageRole
+    create_llm_provider = llm_interface.create_llm_provider
 
 except ImportError as e:
     print(f"Import error: {e}")
@@ -138,9 +139,12 @@ async def startup_event():
         service_config = get_learning_service_config()
         learning_service = LearningService(service_config)
 
+        # Create LLM provider for conversation engine
+        llm_provider = create_llm_provider(service_config.llm_config)
+
         # Initialize enhanced conversation engine
         conversation_engine = EnhancedConversationalLearningEngine(
-            learning_service.llm_provider,
+            llm_provider,
             storage
         )
 

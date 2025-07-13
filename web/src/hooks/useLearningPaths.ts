@@ -149,19 +149,24 @@ export function useLearningPaths(): UseLearningPathsReturn {
 
       const newPath = await learningService.createLearningPath(options)
 
+      // Validate the response
+      if (!newPath || !newPath.id) {
+        throw new Error('Invalid response from server: missing learning path data')
+      }
+
       // Optimistic update - add to local state
       const pathSummary: LearningPathSummary = {
         id: newPath.id,
-        topic_name: newPath.topic_name,
-        description: newPath.description,
-        total_topics: newPath.topics.length,
+        topic_name: newPath.topic_name || 'Untitled Learning Path',
+        description: newPath.description || 'No description available',
+        total_topics: newPath.topics?.length || 0,
         progress_count: 0,
         created_at: newPath.created_at || new Date().toISOString(),
-        estimated_total_hours: newPath.estimated_total_hours
+        estimated_total_hours: newPath.estimated_total_hours || 0
       }
 
       updateState({
-        learningPaths: [pathSummary, ...state.learningPaths],
+        learningPaths: [pathSummary, ...(state.learningPaths || [])],
         isCreating: false
       })
 
@@ -170,7 +175,10 @@ export function useLearningPaths(): UseLearningPathsReturn {
 
       return newPath
     } catch (error) {
+      console.error('Error in createPath:', error)
       const errorMessage = error instanceof ApiError
+        ? error.message
+        : error instanceof Error
         ? error.message
         : 'Failed to create learning path'
       updateState({ error: errorMessage, isCreating: false })
@@ -220,14 +228,14 @@ export function useLearningPaths(): UseLearningPathsReturn {
    * Check if path is loaded
    */
   const isPathLoaded = useCallback((pathId: string): boolean => {
-    return state.learningPaths.some(path => path.id === pathId)
+    return (state.learningPaths || []).some(path => path.id === pathId)
   }, [state.learningPaths])
 
   /**
    * Filter learning paths based on search criteria
    */
   const filteredPaths = useMemo(() => {
-    let filtered = state.learningPaths
+    let filtered = state.learningPaths || []
 
     // Apply search term filter
     if (state.searchFilters.searchTerm) {
@@ -253,8 +261,8 @@ export function useLearningPaths(): UseLearningPathsReturn {
           case 'created_date':
             return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
           case 'progress':
-            const progressA = (a.progress_count / a.total_topics) * 100
-            const progressB = (b.progress_count / b.total_topics) * 100
+            const progressA = a.total_topics > 0 ? (a.progress_count / a.total_topics) * 100 : 0
+            const progressB = b.total_topics > 0 ? (b.progress_count / b.total_topics) * 100 : 0
             return progressB - progressA
           default:
             return 0
