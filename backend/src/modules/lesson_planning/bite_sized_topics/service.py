@@ -10,7 +10,7 @@ import re
 
 from core import ModuleService, ServiceConfig, LLMClient
 from core.prompt_base import create_default_context
-from .prompts import LessonContentPrompt, DidacticSnippetPrompt
+from .prompts import LessonContentPrompt, DidacticSnippetPrompt, GlossaryPrompt
 
 
 class BiteSizedTopicError(Exception):
@@ -26,6 +26,7 @@ class BiteSizedTopicService(ModuleService):
         self.prompts = {
             'lesson_content': LessonContentPrompt(),
             'didactic_snippet': DidacticSnippetPrompt(),
+            'glossary': GlossaryPrompt(),
             # Future prompts will be added here
         }
 
@@ -201,53 +202,132 @@ class BiteSizedTopicService(ModuleService):
     async def create_glossary(
         self,
         topic_title: str,
-        terms: List[str],
-        user_level: str = "beginner"
+        concepts: List[str],
+        user_level: str = "beginner",
+        lesson_context: Optional[str] = None,
+        learning_objectives: Optional[List[str]] = None,
+        previous_topics: Optional[List[str]] = None
     ) -> Dict[str, str]:
         """
-        Create a glossary of terms for a topic.
+        Create a glossary of concepts for a topic.
 
         Args:
             topic_title: Title of the topic
-            terms: List of terms to define
+            concepts: List of concepts to explain
             user_level: User's skill level
+            lesson_context: Additional context about the lesson
+            learning_objectives: Learning objectives for the lesson
+            previous_topics: Previously covered topics
 
         Returns:
-            Dictionary mapping terms to definitions
+            Dictionary mapping concepts to teaching-style explanations
 
         Raises:
             BiteSizedTopicError: If generation fails
         """
-        # Placeholder implementation - will be replaced with proper prompt
         try:
             context = create_default_context(
                 user_level=user_level,
                 time_constraint=10
             )
 
-            # Using lesson content prompt as a temporary solution
-            messages = self.prompts['lesson_content'].generate_prompt(
+            messages = self.prompts['glossary'].generate_prompt(
                 context,
                 topic_title=topic_title,
-                topic_description=f"Definitions for key terms in {topic_title}",
-                learning_objectives=[f"Define and understand: {', '.join(terms)}"],
-                previous_topics=[]
+                concepts=concepts,
+                lesson_context=lesson_context or "",
+                learning_objectives=learning_objectives or [],
+                previous_topics=previous_topics or []
             )
 
             response = await self.llm_client.generate_response(messages)
 
-            # For now, return a simple structure
-            # This will be improved with a proper glossary prompt
-            glossary = {}
-            for term in terms:
-                glossary[term] = f"Definition for {term} (placeholder)"
+            # Parse the structured output
+            parsed_glossary = self._parse_glossary(response.content)
 
-            self.logger.info(f"Generated glossary for '{topic_title}' with {len(terms)} terms")
-            return glossary
+            self.logger.info(f"Generated glossary for '{topic_title}' with {len(parsed_glossary)} concepts")
+            return parsed_glossary
 
         except Exception as e:
             self.logger.error(f"Failed to generate glossary: {e}")
             raise BiteSizedTopicError(f"Failed to generate glossary: {e}")
+
+    def _parse_glossary(self, content: str) -> Dict[str, str]:
+        """
+        Parse the structured output from the glossary prompt.
+
+        Args:
+            content: Raw LLM output containing concept and explanation pairs
+
+        Returns:
+            Dictionary mapping concepts to explanations
+
+        Raises:
+            BiteSizedTopicError: If parsing fails
+        """
+        try:
+            # Remove code block markers if present
+            content = content.strip()
+            if content.startswith('```'):
+                content = content[3:]
+            if content.endswith('```'):
+                content = content[:-3]
+
+            glossary = {}
+
+            # Split by double newlines to separate entries
+            entries = content.split('\n\n')
+
+            for entry in entries:
+                entry = entry.strip()
+                if not entry:
+                    continue
+
+                # Look for Concept: and Explanation: patterns
+                concept_match = re.search(r'Concept:\s*(.+?)(?=\n|$)', entry)
+                explanation_match = re.search(r'Explanation:\s*(.+)', entry, re.DOTALL)
+
+                if concept_match and explanation_match:
+                    concept = concept_match.group(1).strip()
+                    explanation = explanation_match.group(1).strip()
+
+                    # Clean up the explanation (remove extra whitespace)
+                    explanation = re.sub(r'\s+', ' ', explanation).strip()
+
+                    glossary[concept] = explanation
+
+            # If no entries found, try alternate parsing
+            if not glossary:
+                # Try to find entries by looking for lines that start with "Concept:"
+                lines = content.split('\n')
+                current_concept = None
+                current_explanation = []
+
+                for line in lines:
+                    line = line.strip()
+                    if line.startswith('Concept:'):
+                        # Save previous entry if exists
+                        if current_concept and current_explanation:
+                            glossary[current_concept] = ' '.join(current_explanation)
+
+                        # Start new entry
+                        current_concept = line[8:].strip()
+                        current_explanation = []
+                    elif line.startswith('Explanation:'):
+                        current_explanation = [line[12:].strip()]
+                    elif current_concept and line:
+                        current_explanation.append(line)
+
+                # Save last entry
+                if current_concept and current_explanation:
+                    glossary[current_concept] = ' '.join(current_explanation)
+
+            return glossary
+
+        except Exception as e:
+            self.logger.error(f"Failed to parse glossary: {e}")
+            # Return empty glossary on parse failure
+            return {}
 
     async def validate_content(self, content: str) -> Dict[str, Any]:
         """
