@@ -10,7 +10,7 @@ import re
 
 from core import ModuleService, ServiceConfig, LLMClient
 from core.prompt_base import create_default_context
-from .prompts import LessonContentPrompt, DidacticSnippetPrompt, GlossaryPrompt, SocraticDialoguePrompt, ShortAnswerQuestionsPrompt, MultipleChoiceQuestionsPrompt
+from .prompts import LessonContentPrompt, DidacticSnippetPrompt, GlossaryPrompt, SocraticDialoguePrompt, ShortAnswerQuestionsPrompt, MultipleChoiceQuestionsPrompt, PostTopicQuizPrompt
 
 
 class BiteSizedTopicError(Exception):
@@ -30,6 +30,7 @@ class BiteSizedTopicService(ModuleService):
             'socratic_dialogue': SocraticDialoguePrompt(),
             'short_answer_questions': ShortAnswerQuestionsPrompt(),
             'multiple_choice_questions': MultipleChoiceQuestionsPrompt(),
+            'post_topic_quiz': PostTopicQuizPrompt(),
             # Future prompts will be added here
         }
 
@@ -790,6 +791,216 @@ class BiteSizedTopicService(ModuleService):
 
         except Exception as e:
             self.logger.error(f"Failed to parse multiple choice questions: {e}")
+            # Return empty list on parse failure
+            return []
+
+    async def create_post_topic_quiz(
+        self,
+        topic_title: str,
+        core_concept: str,
+        user_level: str = "beginner",
+        learning_objectives: Optional[List[str]] = None,
+        previous_topics: Optional[List[str]] = None,
+        key_aspects: Optional[List[str]] = None,
+        common_misconceptions: Optional[List[str]] = None,
+        preferred_formats: Optional[List[str]] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Create a comprehensive post-topic quiz with mixed question formats.
+
+        Args:
+            topic_title: Title of the topic
+            core_concept: Core concept to assess
+            user_level: User's skill level
+            learning_objectives: Learning objectives for the concept
+            previous_topics: Previously covered topics
+            key_aspects: Key aspects to assess
+            common_misconceptions: Common misconceptions to check
+            preferred_formats: Preferred question formats
+
+        Returns:
+            List of quiz item dictionaries with mixed formats and metadata
+
+        Raises:
+            BiteSizedTopicError: If generation fails
+        """
+        try:
+            context = create_default_context(
+                user_level=user_level,
+                time_constraint=25  # Longer for comprehensive assessment
+            )
+
+            messages = self.prompts['post_topic_quiz'].generate_prompt(
+                context,
+                topic_title=topic_title,
+                core_concept=core_concept,
+                learning_objectives=learning_objectives or [],
+                previous_topics=previous_topics or [],
+                key_aspects=key_aspects or [],
+                common_misconceptions=common_misconceptions or [],
+                preferred_formats=preferred_formats or []
+            )
+
+            response = await self.llm_client.generate_response(messages)
+
+            # Parse the structured output
+            parsed_quiz = self._parse_post_topic_quiz(response.content)
+
+            self.logger.info(f"Generated post-topic quiz with {len(parsed_quiz)} items for '{core_concept}'")
+            return parsed_quiz
+
+        except Exception as e:
+            self.logger.error(f"Failed to generate post-topic quiz: {e}")
+            raise BiteSizedTopicError(f"Failed to generate post-topic quiz: {e}")
+
+    def _parse_post_topic_quiz(self, content: str) -> List[Dict[str, Any]]:
+        """
+        Parse the structured output from the post-topic quiz prompt.
+
+        Args:
+            content: Raw LLM output containing multiple quiz items of different formats
+
+        Returns:
+            List of quiz item dictionaries with mixed formats and metadata
+
+        Raises:
+            BiteSizedTopicError: If parsing fails
+        """
+        try:
+            # Remove code block markers if present
+            content = content.strip()
+            if content.startswith('```'):
+                content = content[3:]
+            if content.endswith('```'):
+                content = content[:-3]
+
+            quiz_items = []
+
+            # Split by "Item" followed by a number
+            item_sections = re.split(r'\n\s*Item\s+\d+\s*\n', content)
+
+            # Remove empty first section if it exists
+            if item_sections and not item_sections[0].strip():
+                item_sections = item_sections[1:]
+
+            for section in item_sections:
+                section = section.strip()
+                if not section:
+                    continue
+
+                item_data = {}
+
+                # Extract common fields first
+                type_match = re.search(r'Type:\s*(.+?)(?=\n|$)', section)
+                if type_match:
+                    item_data['type'] = type_match.group(1).strip()
+
+                question_match = re.search(r'Question or Prompt:\s*(.+?)(?=\n\s*(?:Choices:|Expected Elements|Dialogue Objective:|Target Concept:))', section, re.DOTALL)
+                if question_match:
+                    item_data['question'] = question_match.group(1).strip()
+
+                # Extract metadata fields
+                metadata_fields = {
+                    'target_concept': r'Target Concept:\s*(.+?)(?=\n\s*\w+:|$)',
+                    'difficulty': r'Difficulty:\s*(\d+)',
+                    'tags': r'Tags:\s*(.+?)(?=\n\s*\w+:|$)'
+                }
+
+                for field, pattern in metadata_fields.items():
+                    match = re.search(pattern, section, re.DOTALL | re.IGNORECASE)
+                    if match:
+                        value = match.group(1).strip()
+                        value = re.sub(r'\s+', ' ', value).strip()
+
+                        if field == 'difficulty':
+                            try:
+                                item_data[field] = int(value)
+                            except ValueError:
+                                item_data[field] = 3
+                        else:
+                            item_data[field] = value
+                    else:
+                        if field == 'difficulty':
+                            item_data[field] = 3
+                        else:
+                            item_data[field] = ""
+
+                # Parse format-specific fields based on type
+                item_type = item_data.get('type', '').lower()
+
+                if 'multiple choice' in item_type:
+                    # Parse Multiple Choice specific fields
+                    choices_match = re.search(r'Choices:\s*(.+?)(?=\n\s*Correct Answer:)', section, re.DOTALL)
+                    if choices_match:
+                        choices_text = choices_match.group(1).strip()
+                        choices = {}
+
+                        choice_lines = choices_text.split('\n')
+                        for line in choice_lines:
+                            line = line.strip()
+                            choice_match = re.match(r'^\(?([A-D])\.\s*(.+)$', line)
+                            if choice_match:
+                                choice_letter = choice_match.group(1)
+                                choice_text = choice_match.group(2).strip()
+                                choices[choice_letter] = choice_text
+
+                        item_data['choices'] = choices
+
+                    # Extract correct answer
+                    correct_match = re.search(r'Correct Answer:\s*([A-D])', section)
+                    if correct_match:
+                        item_data['correct_answer'] = correct_match.group(1)
+
+                    # Extract justifications
+                    justification_match = re.search(r'Justification:\s*(.+?)(?=\n\s*Target Concept:|$)', section, re.DOTALL)
+                    if justification_match:
+                        justification_text = justification_match.group(1).strip()
+                        justifications = {}
+
+                        justification_lines = justification_text.split('\n')
+                        for line in justification_lines:
+                            line = line.strip()
+                            just_match = re.match(r'^-\s*([A-D]):\s*(.+)$', line)
+                            if just_match:
+                                choice_letter = just_match.group(1)
+                                justification = just_match.group(2).strip()
+                                justifications[choice_letter] = justification
+
+                        item_data['justifications'] = justifications
+
+                elif 'short answer' in item_type:
+                    # Parse Short Answer specific fields
+                    expected_match = re.search(r'Expected Elements of a Good Answer:\s*(.+?)(?=\n\s*Target Concept:|$)', section, re.DOTALL)
+                    if expected_match:
+                        expected_elements = expected_match.group(1).strip()
+                        expected_elements = re.sub(r'\s+', ' ', expected_elements).strip()
+                        item_data['expected_elements'] = expected_elements
+
+                elif 'assessment dialogue' in item_type or 'dialogue' in item_type:
+                    # Parse Assessment Dialogue specific fields
+                    dialogue_fields = {
+                        'dialogue_objective': r'Dialogue Objective:\s*(.+?)(?=\n\s*\w+:|$)',
+                        'scaffolding_prompts': r'Scaffolding Prompts:\s*(.+?)(?=\n\s*\w+:|$)',
+                        'exit_criteria': r'Exit Criteria:\s*(.+?)(?=\n\s*\w+:|$)'
+                    }
+
+                    for field, pattern in dialogue_fields.items():
+                        match = re.search(pattern, section, re.DOTALL | re.IGNORECASE)
+                        if match:
+                            value = match.group(1).strip()
+                            value = re.sub(r'\s+', ' ', value).strip()
+                            item_data[field] = value
+                        else:
+                            item_data[field] = ""
+
+                # Only add item if it has essential fields
+                if item_data.get('type') and item_data.get('question'):
+                    quiz_items.append(item_data)
+
+            return quiz_items
+
+        except Exception as e:
+            self.logger.error(f"Failed to parse post-topic quiz: {e}")
             # Return empty list on parse failure
             return []
 

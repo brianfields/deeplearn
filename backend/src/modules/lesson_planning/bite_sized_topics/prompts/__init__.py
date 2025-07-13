@@ -10,9 +10,9 @@ from .glossary import GlossaryPrompt
 from .socratic_dialogue import SocraticDialoguePrompt
 from .short_answer_questions import ShortAnswerQuestionsPrompt
 from .multiple_choice_questions import MultipleChoiceQuestionsPrompt
+from .post_topic_quiz import PostTopicQuizPrompt
 
 # Placeholders for future prompts
-# from .post_topic_quiz import PostTopicQuizPrompt
 
 __all__ = [
     'LessonContentPrompt',
@@ -21,5 +21,6 @@ __all__ = [
     'SocraticDialoguePrompt',
     'ShortAnswerQuestionsPrompt',
     'MultipleChoiceQuestionsPrompt',
+    'PostTopicQuizPrompt',
     # Future prompts will be added here
 ]
