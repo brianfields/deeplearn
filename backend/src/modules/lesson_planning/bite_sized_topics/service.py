@@ -10,7 +10,7 @@ import re
 
 from core import ModuleService, ServiceConfig, LLMClient
 from core.prompt_base import create_default_context
-from .prompts import LessonContentPrompt, DidacticSnippetPrompt, GlossaryPrompt
+from .prompts import LessonContentPrompt, DidacticSnippetPrompt, GlossaryPrompt, SocraticDialoguePrompt
 
 
 class BiteSizedTopicError(Exception):
@@ -27,6 +27,7 @@ class BiteSizedTopicService(ModuleService):
             'lesson_content': LessonContentPrompt(),
             'didactic_snippet': DidacticSnippetPrompt(),
             'glossary': GlossaryPrompt(),
+            'socratic_dialogue': SocraticDialoguePrompt(),
             # Future prompts will be added here
         }
 
@@ -328,6 +329,144 @@ class BiteSizedTopicService(ModuleService):
             self.logger.error(f"Failed to parse glossary: {e}")
             # Return empty glossary on parse failure
             return {}
+
+    async def create_socratic_dialogue(
+        self,
+        topic_title: str,
+        core_concept: str,
+        user_level: str = "beginner",
+        learning_objectives: Optional[List[str]] = None,
+        previous_topics: Optional[List[str]] = None,
+        target_insights: Optional[List[str]] = None,
+        common_misconceptions: Optional[List[str]] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Create a set of Socratic dialogue exercises for a concept.
+
+        Args:
+            topic_title: Title of the topic
+            core_concept: Core concept to explore through dialogue
+            user_level: User's skill level
+            learning_objectives: Learning objectives for the concept
+            previous_topics: Previously covered topics
+            target_insights: Key insights the learner should discover
+            common_misconceptions: Common misconceptions to address
+
+        Returns:
+            List of dialogue dictionaries with metadata
+
+        Raises:
+            BiteSizedTopicError: If generation fails
+        """
+        try:
+            context = create_default_context(
+                user_level=user_level,
+                time_constraint=20  # Longer for interactive dialogues
+            )
+
+            messages = self.prompts['socratic_dialogue'].generate_prompt(
+                context,
+                topic_title=topic_title,
+                core_concept=core_concept,
+                learning_objectives=learning_objectives or [],
+                previous_topics=previous_topics or [],
+                target_insights=target_insights or [],
+                common_misconceptions=common_misconceptions or []
+            )
+
+            response = await self.llm_client.generate_response(messages)
+
+            # Parse the structured output
+            parsed_dialogues = self._parse_socratic_dialogues(response.content)
+
+            self.logger.info(f"Generated {len(parsed_dialogues)} Socratic dialogues for '{core_concept}'")
+            return parsed_dialogues
+
+        except Exception as e:
+            self.logger.error(f"Failed to generate Socratic dialogues: {e}")
+            raise BiteSizedTopicError(f"Failed to generate Socratic dialogues: {e}")
+
+    def _parse_socratic_dialogues(self, content: str) -> List[Dict[str, Any]]:
+        """
+        Parse the structured output from the Socratic dialogue prompt.
+
+        Args:
+            content: Raw LLM output containing multiple dialogue entries
+
+        Returns:
+            List of dialogue dictionaries with metadata
+
+        Raises:
+            BiteSizedTopicError: If parsing fails
+        """
+        try:
+            # Remove code block markers if present
+            content = content.strip()
+            if content.startswith('```'):
+                content = content[3:]
+            if content.endswith('```'):
+                content = content[:-3]
+
+            dialogues = []
+
+            # Split by "Dialogue" followed by a number
+            dialogue_sections = re.split(r'\n\s*Dialogue\s+\d+\s*\n', content)
+
+            # Remove empty first section if it exists
+            if dialogue_sections and not dialogue_sections[0].strip():
+                dialogue_sections = dialogue_sections[1:]
+
+            for section in dialogue_sections:
+                section = section.strip()
+                if not section:
+                    continue
+
+                dialogue = {}
+
+                # Extract each field using regex
+                fields = {
+                    'concept': r'Concept:\s*(.+?)(?=\n\s*\w+:|$)',
+                    'dialogue_objective': r'Dialogue Objective:\s*(.+?)(?=\n\s*\w+:|$)',
+                    'starting_prompt': r'Starting Prompt:\s*(.+?)(?=\n\s*\w+:|$)',
+                    'dialogue_style': r'Dialogue Style:\s*(.+?)(?=\n\s*\w+:|$)',
+                    'hints_and_scaffolding': r'Hints and Scaffolding:\s*(.+?)(?=\n\s*\w+:|$)',
+                    'exit_criteria': r'Exit Criteria:\s*(.+?)(?=\n\s*\w+:|$)',
+                    'difficulty': r'Difficulty:\s*(\d+)',
+                    'tags': r'Tags:\s*(.+?)(?=\n\s*\w+:|$)'
+                }
+
+                for field, pattern in fields.items():
+                    match = re.search(pattern, section, re.DOTALL | re.IGNORECASE)
+                    if match:
+                        value = match.group(1).strip()
+                        # Clean up multi-line values
+                        value = re.sub(r'\s+', ' ', value).strip()
+
+                        # Special handling for difficulty (convert to int)
+                        if field == 'difficulty':
+                            try:
+                                dialogue[field] = int(value)
+                            except ValueError:
+                                dialogue[field] = 3  # Default difficulty
+                        else:
+                            dialogue[field] = value
+                    else:
+                        # Provide defaults for missing fields
+                        if field == 'difficulty':
+                            dialogue[field] = 3
+                        else:
+                            dialogue[field] = ""
+
+                # Only add dialogue if it has essential fields
+                if dialogue.get('concept') and dialogue.get('starting_prompt'):
+                    dialogues.append(dialogue)
+
+            return dialogues
+
+        except Exception as e:
+            self.logger.error(f"Failed to parse Socratic dialogues: {e}")
+            # Return empty list on parse failure
+            return []
 
     async def validate_content(self, content: str) -> Dict[str, Any]:
         """
