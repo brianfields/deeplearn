@@ -6,10 +6,11 @@ This module provides services for creating bite-sized topic content.
 
 from typing import Dict, List, Optional, Any
 import logging
+import re
 
 from core import ModuleService, ServiceConfig, LLMClient
 from core.prompt_base import create_default_context
-from .prompts import LessonContentPrompt
+from .prompts import LessonContentPrompt, DidacticSnippetPrompt
 
 
 class BiteSizedTopicError(Exception):
@@ -24,6 +25,7 @@ class BiteSizedTopicService(ModuleService):
         super().__init__(config, llm_client)
         self.prompts = {
             'lesson_content': LessonContentPrompt(),
+            'didactic_snippet': DidacticSnippetPrompt(),
             # Future prompts will be added here
         }
 
@@ -85,8 +87,11 @@ class BiteSizedTopicService(ModuleService):
         self,
         topic_title: str,
         key_concept: str,
-        user_level: str = "beginner"
-    ) -> str:
+        user_level: str = "beginner",
+        concept_context: Optional[str] = None,
+        learning_objectives: Optional[List[str]] = None,
+        previous_topics: Optional[List[str]] = None
+    ) -> Dict[str, str]:
         """
         Create a didactic snippet for a specific concept.
 
@@ -94,42 +99,104 @@ class BiteSizedTopicService(ModuleService):
             topic_title: Title of the topic
             key_concept: Key concept to explain
             user_level: User's skill level
+            concept_context: Additional context about the concept
+            learning_objectives: Learning objectives for the concept
+            previous_topics: Previously covered topics
 
         Returns:
-            Generated didactic snippet
+            Dictionary with 'title' and 'snippet' keys
 
         Raises:
             BiteSizedTopicError: If generation fails
         """
-        # Placeholder implementation - will be replaced with proper prompt
         try:
             context = create_default_context(
                 user_level=user_level,
                 time_constraint=5  # Shorter for snippets
             )
 
-            # Using lesson content prompt as a temporary solution
-            messages = self.prompts['lesson_content'].generate_prompt(
+            messages = self.prompts['didactic_snippet'].generate_prompt(
                 context,
                 topic_title=topic_title,
-                topic_description=f"Brief explanation of {key_concept}",
-                learning_objectives=[f"Understand {key_concept}"],
-                previous_topics=[]
+                key_concept=key_concept,
+                concept_context=concept_context or "",
+                learning_objectives=learning_objectives or [],
+                previous_topics=previous_topics or []
             )
 
             response = await self.llm_client.generate_response(messages)
 
-            # Extract just the first section for a snippet
-            content = response.content
-            if '\n\n' in content:
-                content = content.split('\n\n')[0]
+            # Parse the structured output
+            parsed_snippet = self._parse_didactic_snippet(response.content)
 
-            self.logger.info(f"Generated didactic snippet for '{key_concept}'")
-            return content
+            self.logger.info(f"Generated didactic snippet for '{key_concept}': {parsed_snippet['title']}")
+            return parsed_snippet
 
         except Exception as e:
             self.logger.error(f"Failed to generate didactic snippet: {e}")
             raise BiteSizedTopicError(f"Failed to generate didactic snippet: {e}")
+
+    def _parse_didactic_snippet(self, content: str) -> Dict[str, str]:
+        """
+        Parse the structured output from the didactic snippet prompt.
+
+        Args:
+            content: Raw LLM output containing title and snippet
+
+        Returns:
+            Dictionary with 'title' and 'snippet' keys
+
+        Raises:
+            BiteSizedTopicError: If parsing fails
+        """
+        try:
+            # Remove code block markers if present
+            content = content.strip()
+            if content.startswith('```'):
+                content = content[3:]
+            if content.endswith('```'):
+                content = content[:-3]
+
+            # Split by lines and find title and snippet
+            lines = content.strip().split('\n')
+            title = ""
+            snippet = ""
+
+            for line in lines:
+                if line.startswith('Title:'):
+                    title = line[6:].strip()
+                elif line.startswith('Snippet:'):
+                    snippet = line[8:].strip()
+
+            # If not found in expected format, try to extract from content
+            if not title or not snippet:
+                # Look for Title: and Snippet: in the content
+                title_match = re.search(r'Title:\s*(.+)', content)
+                snippet_match = re.search(r'Snippet:\s*(.+)', content, re.DOTALL)
+
+                if title_match:
+                    title = title_match.group(1).strip()
+                if snippet_match:
+                    snippet = snippet_match.group(1).strip()
+
+            # Fallback: if still not found, use the entire content as snippet
+            if not title:
+                title = "Didactic Snippet"
+            if not snippet:
+                snippet = content.strip()
+
+            return {
+                'title': title,
+                'snippet': snippet
+            }
+
+        except Exception as e:
+            self.logger.error(f"Failed to parse didactic snippet: {e}")
+            # Return a fallback structure
+            return {
+                'title': "Didactic Snippet",
+                'snippet': content.strip()
+            }
 
     async def create_glossary(
         self,
