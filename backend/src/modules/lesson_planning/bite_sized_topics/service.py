@@ -10,7 +10,7 @@ import re
 
 from core import ModuleService, ServiceConfig, LLMClient
 from core.prompt_base import create_default_context
-from .prompts import LessonContentPrompt, DidacticSnippetPrompt, GlossaryPrompt, SocraticDialoguePrompt, ShortAnswerQuestionsPrompt
+from .prompts import LessonContentPrompt, DidacticSnippetPrompt, GlossaryPrompt, SocraticDialoguePrompt, ShortAnswerQuestionsPrompt, MultipleChoiceQuestionsPrompt
 
 
 class BiteSizedTopicError(Exception):
@@ -29,6 +29,7 @@ class BiteSizedTopicService(ModuleService):
             'glossary': GlossaryPrompt(),
             'socratic_dialogue': SocraticDialoguePrompt(),
             'short_answer_questions': ShortAnswerQuestionsPrompt(),
+            'multiple_choice_questions': MultipleChoiceQuestionsPrompt(),
             # Future prompts will be added here
         }
 
@@ -602,6 +603,193 @@ class BiteSizedTopicService(ModuleService):
 
         except Exception as e:
             self.logger.error(f"Failed to parse short answer questions: {e}")
+            # Return empty list on parse failure
+            return []
+
+    async def create_multiple_choice_questions(
+        self,
+        topic_title: str,
+        core_concept: str,
+        user_level: str = "beginner",
+        learning_objectives: Optional[List[str]] = None,
+        previous_topics: Optional[List[str]] = None,
+        key_aspects: Optional[List[str]] = None,
+        common_misconceptions: Optional[List[str]] = None,
+        avoid_overlap_with: Optional[List[str]] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Create a set of multiple choice questions for a concept.
+
+        Args:
+            topic_title: Title of the topic
+            core_concept: Core concept to assess
+            user_level: User's skill level
+            learning_objectives: Learning objectives for the concept
+            previous_topics: Previously covered topics
+            key_aspects: Key aspects to cover in questions
+            common_misconceptions: Common misconceptions to address
+            avoid_overlap_with: Topics/concepts to avoid overlapping with
+
+        Returns:
+            List of MCQ dictionaries with metadata and justifications
+
+        Raises:
+            BiteSizedTopicError: If generation fails
+        """
+        try:
+            context = create_default_context(
+                user_level=user_level,
+                time_constraint=15  # Standard time for assessment
+            )
+
+            messages = self.prompts['multiple_choice_questions'].generate_prompt(
+                context,
+                topic_title=topic_title,
+                core_concept=core_concept,
+                learning_objectives=learning_objectives or [],
+                previous_topics=previous_topics or [],
+                key_aspects=key_aspects or [],
+                common_misconceptions=common_misconceptions or [],
+                avoid_overlap_with=avoid_overlap_with or []
+            )
+
+            response = await self.llm_client.generate_response(messages)
+
+            # Parse the structured output
+            parsed_questions = self._parse_multiple_choice_questions(response.content)
+
+            self.logger.info(f"Generated {len(parsed_questions)} multiple choice questions for '{core_concept}'")
+            return parsed_questions
+
+        except Exception as e:
+            self.logger.error(f"Failed to generate multiple choice questions: {e}")
+            raise BiteSizedTopicError(f"Failed to generate multiple choice questions: {e}")
+
+    def _parse_multiple_choice_questions(self, content: str) -> List[Dict[str, Any]]:
+        """
+        Parse the structured output from the multiple choice questions prompt.
+
+        Args:
+            content: Raw LLM output containing multiple MCQ entries
+
+        Returns:
+            List of MCQ dictionaries with metadata and justifications
+
+        Raises:
+            BiteSizedTopicError: If parsing fails
+        """
+        try:
+            # Remove code block markers if present
+            content = content.strip()
+            if content.startswith('```'):
+                content = content[3:]
+            if content.endswith('```'):
+                content = content[:-3]
+
+            questions = []
+
+            # Split by "Question" followed by a number
+            question_sections = re.split(r'\n\s*Question\s+\d+\s*\n', content)
+
+            # Remove empty first section if it exists
+            if question_sections and not question_sections[0].strip():
+                question_sections = question_sections[1:]
+
+            for section in question_sections:
+                section = section.strip()
+                if not section:
+                    continue
+
+                question_data = {}
+
+                # Extract question stem
+                question_match = re.search(r'Question:\s*(.+?)(?=\n\s*Choices:)', section, re.DOTALL)
+                if question_match:
+                    question_data['question'] = question_match.group(1).strip()
+
+                # Extract choices
+                choices_match = re.search(r'Choices:\s*(.+?)(?=\n\s*Correct Answer:)', section, re.DOTALL)
+                if choices_match:
+                    choices_text = choices_match.group(1).strip()
+                    choices = {}
+
+                    # Parse individual choices
+                    choice_lines = choices_text.split('\n')
+                    for line in choice_lines:
+                        line = line.strip()
+                        # Match pattern like "A. Some text" or "(D. Some text)"
+                        choice_match = re.match(r'^\(?([A-D])\.\s*(.+)$', line)
+                        if choice_match:
+                            choice_letter = choice_match.group(1)
+                            choice_text = choice_match.group(2).strip()
+                            choices[choice_letter] = choice_text
+
+                    question_data['choices'] = choices
+
+                # Extract correct answer
+                correct_match = re.search(r'Correct Answer:\s*([A-D])', section)
+                if correct_match:
+                    question_data['correct_answer'] = correct_match.group(1)
+
+                # Extract justifications
+                justification_match = re.search(r'Justification:\s*(.+?)(?=\n\s*Target Concept:|$)', section, re.DOTALL)
+                if justification_match:
+                    justification_text = justification_match.group(1).strip()
+                    justifications = {}
+
+                    # Parse individual justifications
+                    justification_lines = justification_text.split('\n')
+                    for line in justification_lines:
+                        line = line.strip()
+                        # Match pattern like "- A: Some justification"
+                        just_match = re.match(r'^-\s*([A-D]):\s*(.+)$', line)
+                        if just_match:
+                            choice_letter = just_match.group(1)
+                            justification = just_match.group(2).strip()
+                            justifications[choice_letter] = justification
+
+                    question_data['justifications'] = justifications
+
+                # Extract other metadata
+                metadata_fields = {
+                    'target_concept': r'Target Concept:\s*(.+?)(?=\n\s*\w+:|$)',
+                    'purpose': r'Purpose:\s*(.+?)(?=\n\s*\w+:|$)',
+                    'difficulty': r'Difficulty:\s*(\d+)',
+                    'tags': r'Tags:\s*(.+?)(?=\n\s*\w+:|$)'
+                }
+
+                for field, pattern in metadata_fields.items():
+                    match = re.search(pattern, section, re.DOTALL | re.IGNORECASE)
+                    if match:
+                        value = match.group(1).strip()
+                        # Clean up multi-line values
+                        value = re.sub(r'\s+', ' ', value).strip()
+
+                        # Special handling for difficulty (convert to int)
+                        if field == 'difficulty':
+                            try:
+                                question_data[field] = int(value)
+                            except ValueError:
+                                question_data[field] = 3  # Default difficulty
+                        else:
+                            question_data[field] = value
+                    else:
+                        # Provide defaults for missing fields
+                        if field == 'difficulty':
+                            question_data[field] = 3
+                        else:
+                            question_data[field] = ""
+
+                # Only add question if it has essential fields
+                if (question_data.get('question') and
+                    question_data.get('choices') and
+                    question_data.get('correct_answer')):
+                    questions.append(question_data)
+
+            return questions
+
+        except Exception as e:
+            self.logger.error(f"Failed to parse multiple choice questions: {e}")
             # Return empty list on parse failure
             return []
 
