@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from llm_interface import LLMProvider, LLMMessage, MessageRole
-from simple_storage import SimpleStorage
+from database_service import DatabaseService
 from teaching_engine import (
     TeachingEngine, TopicMetadata, TeachingStrategy, LearningPhase,
     StudentModel, LearningSession
@@ -46,7 +46,7 @@ class EnhancedConversationalLearningEngine:
     Enhanced conversational learning engine using TeachingEngine for strategy selection
     """
 
-    def __init__(self, llm_provider: LLMProvider, storage: SimpleStorage):
+    def __init__(self, llm_provider: LLMProvider, storage: DatabaseService):
         self.llm_provider = llm_provider
         self.storage = storage
         self.teaching_engine = TeachingEngine(llm_provider)
@@ -59,11 +59,11 @@ class EnhancedConversationalLearningEngine:
         """Start a new learning conversation with teaching engine integration"""
 
         # Load learning path and topic
-        learning_path = self.storage.load_learning_path(learning_path_id)
+        learning_path = self.storage.get_learning_path(learning_path_id)
         if not learning_path:
             raise ValueError(f"Learning path {learning_path_id} not found")
 
-        topic = next((t for t in learning_path.topics if t.id == topic_id), None)
+        topic = next((t for t in learning_path.topics if t.get('id') == topic_id), None)
         if not topic:
             raise ValueError(f"Topic {topic_id} not found")
 
@@ -81,8 +81,8 @@ class EnhancedConversationalLearningEngine:
         session = EnhancedConversationSession(
             learning_path_id=learning_path_id,
             topic_id=topic_id,
-            topic_title=topic.title,
-            learning_objectives=topic.learning_objectives,
+            topic_title=topic.get('title', 'Unknown Topic'),
+            learning_objectives=topic.get('learning_objectives', []),
             teaching_session_id=teaching_session_id
         )
 
@@ -97,7 +97,7 @@ class EnhancedConversationalLearningEngine:
         self.current_session = session
         self.session_storage[f"{learning_path_id}_{topic_id}"] = session
 
-        logger.info(f"Started conversation for {topic.title}")
+        logger.info(f"Started conversation for {topic.get('title', 'Unknown Topic')}")
         return session
 
     def continue_conversation(self, learning_path_id: str, topic_id: str) -> Optional[EnhancedConversationSession]:

@@ -21,6 +21,8 @@ class SimpleTopic:
     description: str
     learning_objectives: List[str]
     position: int
+    bite_sized_topic_id: Optional[str] = None  # Reference to bite-sized content
+    has_bite_sized_content: bool = False
 
 @dataclass
 class SimpleProgress:
@@ -130,6 +132,22 @@ class SimpleStorage:
             for path_id, path_data in data.items()
         ]
 
+    def get_all_learning_paths(self) -> List[SimpleLearningPath]:
+        """Get all learning paths as SimpleLearningPath objects"""
+        data = self._load_json(self.learning_paths_file)
+        paths = []
+
+        for path_id in data.keys():
+            path = self.load_learning_path(path_id)
+            if path:
+                paths.append(path)
+
+        return sorted(paths, key=lambda x: x.last_accessed, reverse=True)
+
+    def get_learning_path(self, path_id: str) -> Optional[SimpleLearningPath]:
+        """Alias for load_learning_path for consistency"""
+        return self.load_learning_path(path_id)
+
     def delete_learning_path(self, path_id: str) -> bool:
         """Delete a learning path"""
         data = self._load_json(self.learning_paths_file)
@@ -175,6 +193,17 @@ class SimpleStorage:
             return True
         return False
 
+    def update_topic_bite_sized_content(self, path_id: str, topic_index: int, bite_sized_topic_id: str) -> bool:
+        """Update a topic to include bite-sized content reference"""
+        learning_path = self.load_learning_path(path_id)
+        if learning_path and 0 <= topic_index < len(learning_path.topics):
+            learning_path.topics[topic_index].bite_sized_topic_id = bite_sized_topic_id
+            learning_path.topics[topic_index].has_bite_sized_content = True
+            learning_path.last_accessed = datetime.now().isoformat()
+            self.save_learning_path(learning_path)
+            return True
+        return False
+
     def save_current_session(self, session_data: Dict[str, Any]) -> None:
         """Save current session data"""
         self._save_json(self.current_session_file, session_data)
@@ -212,7 +241,7 @@ class SimpleStorage:
         total_topics = len(learning_path.topics)
         completed_topics = sum(
             1 for p in learning_path.progress.values()
-            if p.status in [ProgressStatus.COMPLETED, ProgressStatus.MASTERED]
+            if p.status in [ProgressStatus.PARTIAL, ProgressStatus.MASTERY]
         )
 
         return {
@@ -232,14 +261,26 @@ def create_learning_path_from_syllabus(syllabus: Dict[str, Any]) -> SimpleLearni
     topics = []
     progress = {}
 
+    # Get bite-sized content info if available
+    bite_sized_info = syllabus.get('bite_sized_content', {})
+    generated_topics = {item['topic_index']: item for item in bite_sized_info.get('generated_topics', [])}
+
     for i, topic_data in enumerate(syllabus['topics']):
         topic_id = generate_unique_id("topic")
+
+        # Check if this topic has bite-sized content
+        bite_sized_data = generated_topics.get(i)
+        bite_sized_topic_id = bite_sized_data.get('topic_id') if bite_sized_data else None
+        has_bite_sized_content = bite_sized_data.get('has_bite_sized_content', False) if bite_sized_data else False
+
         topic = SimpleTopic(
             id=topic_id,
             title=topic_data['title'],
             description=topic_data['description'],
             learning_objectives=topic_data['learning_objectives'],
-            position=i
+            position=i,
+            bite_sized_topic_id=bite_sized_topic_id,
+            has_bite_sized_content=has_bite_sized_content
         )
         topics.append(topic)
 

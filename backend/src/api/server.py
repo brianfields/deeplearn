@@ -47,7 +47,7 @@ try:
     import config.config as config
     import enhanced_conversational_learning
     import services.learning_service as learning_service_module
-    import simple_storage
+    import database_service
     import data_structures
     import llm_interface
 
@@ -62,9 +62,9 @@ try:
 
     LearningService = learning_service_module.LearningService
 
-    SimpleStorage = simple_storage.SimpleStorage
-    create_learning_path_from_syllabus = simple_storage.create_learning_path_from_syllabus
-    SimpleProgress = simple_storage.SimpleProgress
+    DatabaseService = database_service.DatabaseService
+    get_database_service = database_service.get_database_service
+    init_database_service = database_service.init_database_service
 
     ProgressStatus = data_structures.ProgressStatus
     MessageRole = llm_interface.MessageRole
@@ -102,11 +102,17 @@ app.include_router(api_router)
 app.include_router(websocket_router)
 
 # Global services - initialized on startup
-storage: Optional[SimpleStorage] = None
+database: Optional[DatabaseService] = None
 learning_service: Optional[LearningService] = None
 conversation_engine: Optional[EnhancedConversationalLearningEngine] = None
 
 # WebSocket connection manager
+# Global service instances
+database = None
+learning_service = None
+conversation_engine = None
+storage = None  # For backward compatibility
+
 manager = ConnectionManager()
 
 
@@ -115,11 +121,11 @@ async def startup_event():
     """
     Initialize services on startup.
 
-    This function sets up all the core services including storage, learning service,
+    This function sets up all the core services including database, learning service,
     and conversation engine. These services are made available globally to all
     endpoints and modules.
     """
-    global storage, learning_service, conversation_engine
+    global database, learning_service, conversation_engine, storage
 
     # Setup logging
     setup_logging()
@@ -127,14 +133,11 @@ async def startup_event():
     # Load configuration
     config = config_manager.config
 
-    # Initialize storage
-    storage = SimpleStorage(config.data_directory)
-
-    # Create data directory if it doesn't exist
-    data_dir = Path(config.data_directory)
-    data_dir.mkdir(exist_ok=True)
-
     try:
+        # Initialize database service
+        database = init_database_service()
+        storage = database  # For backward compatibility
+
         # Initialize learning service
         service_config = get_learning_service_config()
         learning_service = LearningService(service_config)
@@ -145,7 +148,7 @@ async def startup_event():
         # Initialize enhanced conversation engine
         conversation_engine = EnhancedConversationalLearningEngine(
             llm_provider,
-            storage
+            database  # Pass database service instead of SimpleStorage
         )
 
         logger.info("Conversational Learning API server started successfully")

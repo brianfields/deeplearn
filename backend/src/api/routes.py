@@ -20,7 +20,8 @@ from .models import (
     ChatMessage,
     LearningPathResponse,
     ConversationResponse,
-    ProgressResponse
+    ProgressResponse,
+    TopicResponse
 )
 
 # Import the existing learning components
@@ -117,16 +118,19 @@ async def create_learning_path(request: StartTopicRequest):
             id=learning_path.id,
             topic_name=learning_path.topic_name,
             description=learning_path.description,
-            topics=[{
-                "id": topic.id,
-                "title": topic.title,
-                "description": topic.description,
-                "learning_objectives": topic.learning_objectives,
-                "estimated_duration": 15,  # Default duration
-                "difficulty_level": 1  # Default difficulty
-            } for topic in learning_path.topics],
+            topics=[TopicResponse(
+                id=topic.id,
+                title=topic.title,
+                description=topic.description,
+                learning_objectives=topic.learning_objectives,
+                estimated_duration=15,  # Default duration
+                difficulty_level=1,  # Default difficulty
+                bite_sized_topic_id=topic.bite_sized_topic_id,
+                has_bite_sized_content=topic.has_bite_sized_content
+            ) for topic in learning_path.topics],
             current_topic_index=learning_path.current_topic_index,
-            estimated_total_hours=len(learning_path.topics) * 0.25  # Default estimate
+            estimated_total_hours=len(learning_path.topics) * 0.25,  # Default estimate
+            bite_sized_content_info=syllabus.get('bite_sized_content')
         )
 
         logger.info(f"Created learning path: {learning_path.id}")

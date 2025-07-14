@@ -10,6 +10,8 @@ import logging
 from core import ModuleService, ServiceConfig, LLMClient
 from .syllabus_generation import SyllabusGenerationService
 from .bite_sized_topics import BiteSizedTopicService
+from .bite_sized_topics.orchestrator import TopicOrchestrator, TopicSpec, CreationStrategy
+from .bite_sized_topics.storage import TopicRepository
 
 
 class LessonPlanningError(Exception):
@@ -24,6 +26,8 @@ class LessonPlanningService(ModuleService):
         super().__init__(config, llm_client)
         self.syllabus_service = SyllabusGenerationService(config, llm_client)
         self.bite_sized_service = BiteSizedTopicService(config, llm_client)
+        self.topic_orchestrator = TopicOrchestrator(config, llm_client)
+        self.topic_repository = TopicRepository()
 
     async def create_complete_lesson_plan(
         self,
@@ -106,30 +110,78 @@ class LessonPlanningService(ModuleService):
         custom_instructions: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Generate a learning syllabus for a topic.
+        Generate a learning syllabus with bite-sized content for the first 5 topics.
 
         Args:
             topic: The learning topic
-            user_level: User's skill level
+            user_level: User's skill level (beginner, intermediate, advanced)
             user_refinements: User's refinement requests
             custom_instructions: Additional custom instructions
 
         Returns:
-            Generated syllabus
+            Dictionary containing syllabus data with bite-sized content for first 5 topics
 
         Raises:
             LessonPlanningError: If syllabus generation fails
         """
         try:
-            return await self.syllabus_service.generate_syllabus(
+            # Step 1: Generate syllabus structure
+            syllabus = await self.syllabus_service.generate_syllabus(
                 topic=topic,
                 user_level=user_level,
                 user_refinements=user_refinements,
                 custom_instructions=custom_instructions
             )
+
+            # Step 2: Generate bite-sized content for first 5 topics
+            topics_to_generate = min(5, len(syllabus.get("topics", [])))
+            generated_content = []
+
+            for i in range(topics_to_generate):
+                topic_data = syllabus["topics"][i]
+
+                # Create topic specification
+                topic_spec = TopicSpec(
+                    topic_title=topic_data["title"],
+                    core_concept=topic_data["description"],
+                    user_level=user_level,
+                    learning_objectives=topic_data["learning_objectives"],
+                    key_concepts=topic_data["learning_objectives"][:3],  # Use first 3 objectives as key concepts
+                    key_aspects=[topic_data["title"]],  # Simple fallback
+                    target_insights=topic_data["learning_objectives"][:2],  # Use first 2 as insights
+                    common_misconceptions=[],  # Will be populated by orchestrator
+                    previous_topics=[syllabus["topics"][j]["title"] for j in range(i)],
+                    creation_strategy=CreationStrategy.COMPLETE  # Generate all component types
+                )
+
+                # Generate bite-sized content
+                self.logger.info(f"Generating bite-sized content for topic {i+1}: {topic_data['title']}")
+                topic_content = await self.topic_orchestrator.create_topic(topic_spec)
+
+                # Store the content
+                topic_id = await self.topic_repository.store_topic(topic_content)
+
+                generated_content.append({
+                    "topic_index": i,
+                    "topic_title": topic_data["title"],
+                    "topic_id": topic_id,
+                    "has_bite_sized_content": True
+                })
+
+            # Step 3: Add metadata to syllabus
+            syllabus["bite_sized_content"] = {
+                "generated_topics": generated_content,
+                "total_generated": topics_to_generate,
+                "creation_strategy": CreationStrategy.COMPLETE.value,
+                "user_level": user_level
+            }
+
+            self.logger.info(f"Generated syllabus with {topics_to_generate} bite-sized topics for '{topic}'")
+            return syllabus
+
         except Exception as e:
-            self.logger.error(f"Failed to generate syllabus: {e}")
-            raise LessonPlanningError(f"Failed to generate syllabus: {e}")
+            self.logger.error(f"Failed to generate syllabus with bite-sized content: {e}")
+            raise LessonPlanningError(f"Failed to generate syllabus with bite-sized content: {e}")
 
     async def generate_lesson_content(
         self,
@@ -175,7 +227,7 @@ class LessonPlanningService(ModuleService):
         topic_title: str,
         key_concept: str,
         user_level: str = "beginner"
-    ) -> str:
+    ) -> Dict[str, str]:
         """
         Create a didactic snippet for a specific concept.
 
@@ -185,7 +237,7 @@ class LessonPlanningService(ModuleService):
             user_level: User's skill level
 
         Returns:
-            Generated didactic snippet
+            Generated didactic snippet with title and snippet
 
         Raises:
             LessonPlanningError: If snippet generation fails
@@ -223,7 +275,7 @@ class LessonPlanningService(ModuleService):
         try:
             return await self.bite_sized_service.create_glossary(
                 topic_title=topic_title,
-                terms=terms,
+                concepts=terms,
                 user_level=user_level
             )
         except Exception as e:

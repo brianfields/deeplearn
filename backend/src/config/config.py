@@ -37,6 +37,15 @@ class AppConfig:
     azure_openai_endpoint: Optional[str] = None
     azure_openai_api_version: str = "2023-05-15"
 
+    # Database Configuration
+    database_url: Optional[str] = None
+    database_host: str = "localhost"
+    database_port: int = 5432
+    database_name: str = "deeplearn"
+    database_user: str = "postgres"
+    database_password: Optional[str] = None
+    database_echo: bool = False  # SQLAlchemy echo for debugging
+
     # Learning Configuration
     user_level: str = "beginner"
     lesson_duration: int = 15
@@ -84,7 +93,19 @@ class ConfigManager:
                 load_dotenv(env_path)
                 logger.info(f"Loaded environment variables from {env_path}")
             else:
-                logger.info(f"No .env file found at {env_path}")
+                # Try backend directory as fallback
+                backend_env = Path(__file__).parent.parent.parent / ".env"
+                if backend_env.exists():
+                    load_dotenv(backend_env)
+                    logger.info(f"Loaded environment variables from {backend_env}")
+                else:
+                    # Try root directory as final fallback
+                    root_env = Path(__file__).parent.parent.parent.parent / ".env"
+                    if root_env.exists():
+                        load_dotenv(root_env)
+                        logger.info(f"Loaded environment variables from {root_env}")
+                    else:
+                        logger.info(f"No .env file found in current directory, backend directory, or root directory")
         else:
             logger.warning("python-dotenv not installed. Install with: pip install python-dotenv")
 
@@ -97,6 +118,15 @@ class ConfigManager:
         self.config.azure_openai_api_key = os.getenv("AZURE_OPENAI_API_KEY")
         self.config.azure_openai_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
         self.config.azure_openai_api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2023-05-15")
+
+        # Database Configuration
+        self.config.database_url = os.getenv("DATABASE_URL")
+        self.config.database_host = os.getenv("DATABASE_HOST", "localhost")
+        self.config.database_port = int(os.getenv("DATABASE_PORT", "5432"))
+        self.config.database_name = os.getenv("DATABASE_NAME", "deeplearn")
+        self.config.database_user = os.getenv("DATABASE_USER", "postgres")
+        self.config.database_password = os.getenv("DATABASE_PASSWORD")
+        self.config.database_echo = os.getenv("DATABASE_ECHO", "false").lower() == "true"
 
         # Learning Configuration
         self.config.user_level = os.getenv("USER_LEVEL", "beginner")
@@ -152,6 +182,28 @@ class ConfigManager:
             timeout=self.config.request_timeout,
             max_retries=self.config.max_retries
         )
+
+    def get_database_url(self) -> str:
+        """Get database URL for SQLAlchemy connection"""
+        if self.config.database_url:
+            return self.config.database_url
+
+        if not self.config.database_password:
+            raise ValueError("Database password is required. Set DATABASE_PASSWORD or DATABASE_URL")
+
+        return (f"postgresql://{self.config.database_user}:{self.config.database_password}"
+                f"@{self.config.database_host}:{self.config.database_port}"
+                f"/{self.config.database_name}")
+
+    def get_database_config(self) -> Dict[str, Any]:
+        """Get database configuration for SQLAlchemy engine"""
+        return {
+            "url": self.get_database_url(),
+            "echo": self.config.database_echo,
+            "pool_size": 5,
+            "max_overflow": 10,
+            "pool_recycle": 3600
+        }
 
     def get_learning_service_config(self) -> LearningServiceConfig:
         """Get learning service configuration"""

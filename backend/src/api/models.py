@@ -22,14 +22,27 @@ class ChatMessage(BaseModel):
     topic_id: str = Field(..., description="Topic ID")
 
 
+class TopicResponse(BaseModel):
+    """Response model for individual topic information."""
+    id: str
+    title: str
+    description: str
+    learning_objectives: List[str]
+    estimated_duration: int
+    difficulty_level: int
+    bite_sized_topic_id: Optional[str] = None
+    has_bite_sized_content: bool = False
+
+
 class LearningPathResponse(BaseModel):
     """Response model for learning path information."""
     id: str
     topic_name: str
     description: str
-    topics: List[Dict[str, Any]]
+    topics: List[TopicResponse]
     current_topic_index: int
     estimated_total_hours: float
+    bite_sized_content_info: Optional[Dict[str, Any]] = None
 
 
 class ConversationResponse(BaseModel):

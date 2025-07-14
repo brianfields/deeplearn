@@ -1,0 +1,51 @@
+#!/bin/bash
+# Simple alias script for bite-sized content inspection
+
+case "$1" in
+    "paths" | "p")
+        python quick_inspect.py paths
+        ;;
+    "content" | "c")
+        python quick_inspect.py content
+        ;;
+    "topic" | "t")
+        if [ -z "$2" ]; then
+            echo "Usage: ./inspect topic <topic_id>"
+            exit 1
+        fi
+        python quick_inspect.py topic "$2"
+        ;;
+    "topics-for-path" | "tfp")
+        if [ -z "$2" ]; then
+            echo "Usage: ./inspect topics-for-path <path_id>"
+            exit 1
+        fi
+        python quick_inspect.py topics-for-path "$2"
+        ;;
+    "all" | "a")
+        python quick_inspect.py all
+        ;;
+    "interactive" | "i")
+        python inspect_bite_sized_content.py
+        ;;
+    *)
+        echo "🔍 Bite-Sized Content Inspector"
+        echo "Usage: ./inspect [command] [args]"
+        echo ""
+        echo "Commands:"
+        echo "  paths, p              Show learning paths"
+        echo "  content, c            Show bite-sized content"
+        echo "  topic, t <id>         Show specific topic (UUID)"
+        echo "  topics-for-path, tfp <path_id>  Show topics for a learning path"
+        echo "  all, a                Show everything"
+        echo "  interactive, i        Launch interactive inspector"
+        echo ""
+        echo "Examples:"
+        echo "  ./inspect paths"
+        echo "  ./inspect content"
+        echo "  ./inspect topic c9c3873d-9771-4f14-810f-852f77580374"
+        echo "  ./inspect topics-for-path path_20250713_112548_cca6b3be"
+        echo "  ./inspect all"
+        echo "  ./inspect interactive"
+        ;;
+esac

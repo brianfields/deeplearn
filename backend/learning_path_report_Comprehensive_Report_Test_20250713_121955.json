@@ -1,0 +1,1484 @@
+{
+  "report_metadata": {
+    "generated_at": "2025-07-13T12:19:55.233892",
+    "path_id": "path_20250713_121955_13bb710d",
+    "topic_name": "Comprehensive Report Test"
+  },
+  "learning_path": {
+    "id": "path_20250713_121955_13bb710d",
+    "topic_name": "Comprehensive Report Test",
+    "description": "This learning syllabus focuses on developing skills related to creating comprehensive reports for testing purposes.",
+    "topics": [
+      {
+        "id": "topic_20250713_121955_324805ba",
+        "title": "Understanding the Purpose of Comprehensive Reports",
+        "description": "Introduction to the importance and uses of comprehensive reports in testing.",
+        "learning_objectives": [
+          "Define the purpose of comprehensive reports in testing."
+        ],
+        "estimated_duration": 15,
+        "difficulty_level": 1,
+        "bite_sized_topic_id": "5dab72e7-267d-4b47-9fe1-1bcd1c1cc079",
+        "has_bite_sized_content": true
+      },
+      {
+        "id": "topic_20250713_121955_6230c6b2",
+        "title": "Key Components of a Comprehensive Report",
+        "description": "Exploration of the essential elements that make up a comprehensive report.",
+        "learning_objectives": [
+          "Identify the key components of a comprehensive report."
+        ],
+        "estimated_duration": 15,
+        "difficulty_level": 1,
+        "bite_sized_topic_id": "a7ee0b54-9621-4434-8103-0d8e93116c9f",
+        "has_bite_sized_content": true
+      },
+      {
+        "id": "topic_20250713_121955_246b40e4",
+        "title": "Structuring a Comprehensive Report",
+        "description": "Guidelines on how to effectively structure a comprehensive report for clarity and coherence.",
+        "learning_objectives": [
+          "Outline the structure of a comprehensive report."
+        ],
+        "estimated_duration": 15,
+        "difficulty_level": 1,
+        "bite_sized_topic_id": "29a64a98-53e2-4cfd-8b82-65aa41eb6679",
+        "has_bite_sized_content": true
+      },
+      {
+        "id": "topic_20250713_121955_596cc022",
+        "title": "Data Collection and Analysis for Reports",
+        "description": "Methods for collecting and analyzing data to include in a comprehensive report.",
+        "learning_objectives": [
+          "Explain the process of data collection and analysis for reports."
+        ],
+        "estimated_duration": 15,
+        "difficulty_level": 1,
+        "bite_sized_topic_id": "01dcdbf1-7aee-4ce8-bdc2-ff27d5297c0b",
+        "has_bite_sized_content": true
+      },
+      {
+        "id": "topic_20250713_121955_86f8acbb",
+        "title": "Visual Representation in Reports",
+        "description": "Utilizing visual aids to enhance the presentation of data in comprehensive reports.",
+        "learning_objectives": [
+          "Understand the importance of visual representation in reports."
+        ],
+        "estimated_duration": 15,
+        "difficulty_level": 1,
+        "bite_sized_topic_id": "4e0bd6fc-821c-49c9-b619-212ec4adc0c9",
+        "has_bite_sized_content": true
+      },
+      {
+        "id": "topic_20250713_121955_398bb152",
+        "title": "Writing Style and Tone in Reports",
+        "description": "Choosing the appropriate writing style and tone for different types of comprehensive reports.",
+        "learning_objectives": [
+          "Identify suitable writing styles and tones for reports."
+        ],
+        "estimated_duration": 15,
+        "difficulty_level": 1,
+        "bite_sized_topic_id": null,
+        "has_bite_sized_content": false
+      },
+      {
+        "id": "topic_20250713_121955_d653ab94",
+        "title": "Editing and Proofreading Reports",
+        "description": "Importance of editing and proofreading in ensuring the quality of comprehensive reports.",
+        "learning_objectives": [
+          "Explain the significance of editing and proofreading in reports."
+        ],
+        "estimated_duration": 15,
+        "difficulty_level": 1,
+        "bite_sized_topic_id": null,
+        "has_bite_sized_content": false
+      }
+    ],
+    "current_topic_index": 0,
+    "estimated_total_hours": 1.75,
+    "bite_sized_content_info": {
+      "generated_topics": [
+        {
+          "topic_index": 0,
+          "topic_title": "Understanding the Purpose of Comprehensive Reports",
+          "topic_id": "5dab72e7-267d-4b47-9fe1-1bcd1c1cc079",
+          "has_bite_sized_content": true
+        },
+        {
+          "topic_index": 1,
+          "topic_title": "Key Components of a Comprehensive Report",
+          "topic_id": "a7ee0b54-9621-4434-8103-0d8e93116c9f",
+          "has_bite_sized_content": true
+        },
+        {
+          "topic_index": 2,
+          "topic_title": "Structuring a Comprehensive Report",
+          "topic_id": "29a64a98-53e2-4cfd-8b82-65aa41eb6679",
+          "has_bite_sized_content": true
+        },
+        {
+          "topic_index": 3,
+          "topic_title": "Data Collection and Analysis for Reports",
+          "topic_id": "01dcdbf1-7aee-4ce8-bdc2-ff27d5297c0b",
+          "has_bite_sized_content": true
+        },
+        {
+          "topic_index": 4,
+          "topic_title": "Visual Representation in Reports",
+          "topic_id": "4e0bd6fc-821c-49c9-b619-212ec4adc0c9",
+          "has_bite_sized_content": true
+        }
+      ],
+      "total_generated": 5,
+      "creation_strategy": "complete",
+      "user_level": "beginner"
+    }
+  },
+  "detailed_content_analysis": {
+    "path_info": {
+      "id": "path_20250713_121955_13bb710d",
+      "topic_name": "Comprehensive Report Test",
+      "description": "This learning syllabus focuses on developing skills related to creating comprehensive reports for testing purposes.",
+      "topics": [
+        {
+          "id": "topic_20250713_121955_324805ba",
+          "title": "Understanding the Purpose of Comprehensive Reports",
+          "description": "Introduction to the importance and uses of comprehensive reports in testing.",
+          "learning_objectives": [
+            "Define the purpose of comprehensive reports in testing."
+          ],
+          "position": 0,
+          "bite_sized_topic_id": "5dab72e7-267d-4b47-9fe1-1bcd1c1cc079",
+          "has_bite_sized_content": true
+        },
+        {
+          "id": "topic_20250713_121955_6230c6b2",
+          "title": "Key Components of a Comprehensive Report",
+          "description": "Exploration of the essential elements that make up a comprehensive report.",
+          "learning_objectives": [
+            "Identify the key components of a comprehensive report."
+          ],
+          "position": 1,
+          "bite_sized_topic_id": "a7ee0b54-9621-4434-8103-0d8e93116c9f",
+          "has_bite_sized_content": true
+        },
+        {
+          "id": "topic_20250713_121955_246b40e4",
+          "title": "Structuring a Comprehensive Report",
+          "description": "Guidelines on how to effectively structure a comprehensive report for clarity and coherence.",
+          "learning_objectives": [
+            "Outline the structure of a comprehensive report."
+          ],
+          "position": 2,
+          "bite_sized_topic_id": "29a64a98-53e2-4cfd-8b82-65aa41eb6679",
+          "has_bite_sized_content": true
+        },
+        {
+          "id": "topic_20250713_121955_596cc022",
+          "title": "Data Collection and Analysis for Reports",
+          "description": "Methods for collecting and analyzing data to include in a comprehensive report.",
+          "learning_objectives": [
+            "Explain the process of data collection and analysis for reports."
+          ],
+          "position": 3,
+          "bite_sized_topic_id": "01dcdbf1-7aee-4ce8-bdc2-ff27d5297c0b",
+          "has_bite_sized_content": true
+        },
+        {
+          "id": "topic_20250713_121955_86f8acbb",
+          "title": "Visual Representation in Reports",
+          "description": "Utilizing visual aids to enhance the presentation of data in comprehensive reports.",
+          "learning_objectives": [
+            "Understand the importance of visual representation in reports."
+          ],
+          "position": 4,
+          "bite_sized_topic_id": "4e0bd6fc-821c-49c9-b619-212ec4adc0c9",
+          "has_bite_sized_content": true
+        },
+        {
+          "id": "topic_20250713_121955_398bb152",
+          "title": "Writing Style and Tone in Reports",
+          "description": "Choosing the appropriate writing style and tone for different types of comprehensive reports.",
+          "learning_objectives": [
+            "Identify suitable writing styles and tones for reports."
+          ],
+          "position": 5,
+          "bite_sized_topic_id": null,
+          "has_bite_sized_content": false
+        },
+        {
+          "id": "topic_20250713_121955_d653ab94",
+          "title": "Editing and Proofreading Reports",
+          "description": "Importance of editing and proofreading in ensuring the quality of comprehensive reports.",
+          "learning_objectives": [
+            "Explain the significance of editing and proofreading in reports."
+          ],
+          "position": 6,
+          "bite_sized_topic_id": null,
+          "has_bite_sized_content": false
+        }
+      ],
+      "progress": {
+        "topic_20250713_121955_324805ba": {
+          "topic_id": "topic_20250713_121955_324805ba",
+          "status": "not_started",
+          "score": 0.0,
+          "attempts": 0,
+          "time_spent": 0,
+          "last_studied": null,
+          "lesson_completed": false,
+          "quiz_completed": false
+        },
+        "topic_20250713_121955_6230c6b2": {
+          "topic_id": "topic_20250713_121955_6230c6b2",
+          "status": "not_started",
+          "score": 0.0,
+          "attempts": 0,
+          "time_spent": 0,
+          "last_studied": null,
+          "lesson_completed": false,
+          "quiz_completed": false
+        },
+        "topic_20250713_121955_246b40e4": {
+          "topic_id": "topic_20250713_121955_246b40e4",
+          "status": "not_started",
+          "score": 0.0,
+          "attempts": 0,
+          "time_spent": 0,
+          "last_studied": null,
+          "lesson_completed": false,
+          "quiz_completed": false
+        },
+        "topic_20250713_121955_596cc022": {
+          "topic_id": "topic_20250713_121955_596cc022",
+          "status": "not_started",
+          "score": 0.0,
+          "attempts": 0,
+          "time_spent": 0,
+          "last_studied": null,
+          "lesson_completed": false,
+          "quiz_completed": false
+        },
+        "topic_20250713_121955_86f8acbb": {
+          "topic_id": "topic_20250713_121955_86f8acbb",
+          "status": "not_started",
+          "score": 0.0,
+          "attempts": 0,
+          "time_spent": 0,
+          "last_studied": null,
+          "lesson_completed": false,
+          "quiz_completed": false
+        },
+        "topic_20250713_121955_398bb152": {
+          "topic_id": "topic_20250713_121955_398bb152",
+          "status": "not_started",
+          "score": 0.0,
+          "attempts": 0,
+          "time_spent": 0,
+          "last_studied": null,
+          "lesson_completed": false,
+          "quiz_completed": false
+        },
+        "topic_20250713_121955_d653ab94": {
+          "topic_id": "topic_20250713_121955_d653ab94",
+          "status": "not_started",
+          "score": 0.0,
+          "attempts": 0,
+          "time_spent": 0,
+          "last_studied": null,
+          "lesson_completed": false,
+          "quiz_completed": false
+        }
+      },
+      "created_at": "2025-07-13T12:19:55.216080",
+      "last_accessed": "2025-07-13T12:19:55.216083",
+      "current_topic_index": 0
+    },
+    "topics_detail": [
+      {
+        "topic_info": {
+          "id": "topic_20250713_121955_324805ba",
+          "title": "Understanding the Purpose of Comprehensive Reports",
+          "description": "Introduction to the importance and uses of comprehensive reports in testing.",
+          "learning_objectives": [
+            "Define the purpose of comprehensive reports in testing."
+          ],
+          "position": 0,
+          "bite_sized_topic_id": "5dab72e7-267d-4b47-9fe1-1bcd1c1cc079",
+          "has_bite_sized_content": true
+        },
+        "bite_sized_content": {
+          "id": "5dab72e7-267d-4b47-9fe1-1bcd1c1cc079",
+          "title": "Understanding the Purpose of Comprehensive Reports",
+          "core_concept": "Introduction to the importance and uses of comprehensive reports in testing.",
+          "user_level": "beginner",
+          "creation_strategy": "complete",
+          "created_at": "2025-07-13T19:18:41.613736"
+        },
+        "components": [
+          {
+            "type": "didactic_snippet",
+            "created_at": "2025-07-13T19:18:41.616651",
+            "item_count": 2,
+            "content_summary": {
+              "title": "Why Understanding Comprehensive Reports in Testing is Essential",
+              "snippet_length": 729,
+              "snippet_preview": "Comprehensive reports in testing are like detailed summaries that provide valuable insights into the..."
+            }
+          },
+          {
+            "type": "glossary",
+            "created_at": "2025-07-13T19:18:41.618574",
+            "item_count": 2,
+            "content_summary": {
+              "terms_count": 2,
+              "terms": [
+                "concept",
+                "explanation"
+              ]
+            }
+          },
+          {
+            "type": "glossary",
+            "created_at": "2025-07-13T19:18:41.618915",
+            "item_count": 2,
+            "content_summary": {
+              "terms_count": 2,
+              "terms": [
+                "concept",
+                "explanation"
+              ]
+            }
+          },
+          {
+            "type": "multiple_choice_question",
+            "created_at": "2025-07-13T19:18:41.620052",
+            "item_count": 8,
+            "content_summary": {
+              "questions_count": 8,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "multiple_choice_question",
+            "created_at": "2025-07-13T19:18:41.620168",
+            "item_count": 8,
+            "content_summary": {
+              "questions_count": 8,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "multiple_choice_question",
+            "created_at": "2025-07-13T19:18:41.620227",
+            "item_count": 8,
+            "content_summary": {
+              "questions_count": 8,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "multiple_choice_question",
+            "created_at": "2025-07-13T19:18:41.620281",
+            "item_count": 8,
+            "content_summary": {
+              "questions_count": 8,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "multiple_choice_question",
+            "created_at": "2025-07-13T19:18:41.620337",
+            "item_count": 8,
+            "content_summary": {
+              "questions_count": 8,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "post_topic_quiz",
+            "created_at": "2025-07-13T19:18:41.620395",
+            "item_count": 8,
+            "content_summary": {
+              "quiz_items_count": 8,
+              "question_types": []
+            }
+          },
+          {
+            "type": "post_topic_quiz",
+            "created_at": "2025-07-13T19:18:41.620697",
+            "item_count": 6,
+            "content_summary": {
+              "quiz_items_count": 6,
+              "question_types": []
+            }
+          },
+          {
+            "type": "post_topic_quiz",
+            "created_at": "2025-07-13T19:18:41.620747",
+            "item_count": 8,
+            "content_summary": {
+              "quiz_items_count": 8,
+              "question_types": []
+            }
+          },
+          {
+            "type": "post_topic_quiz",
+            "created_at": "2025-07-13T19:18:41.621057",
+            "item_count": 8,
+            "content_summary": {
+              "quiz_items_count": 8,
+              "question_types": []
+            }
+          },
+          {
+            "type": "short_answer_question",
+            "created_at": "2025-07-13T19:18:41.619785",
+            "item_count": 6,
+            "content_summary": {
+              "questions_count": 6,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "short_answer_question",
+            "created_at": "2025-07-13T19:18:41.619872",
+            "item_count": 6,
+            "content_summary": {
+              "questions_count": 6,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "short_answer_question",
+            "created_at": "2025-07-13T19:18:41.619934",
+            "item_count": 6,
+            "content_summary": {
+              "questions_count": 6,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "short_answer_question",
+            "created_at": "2025-07-13T19:18:41.619994",
+            "item_count": 6,
+            "content_summary": {
+              "questions_count": 6,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "socratic_dialogue",
+            "created_at": "2025-07-13T19:18:41.619325",
+            "item_count": 8,
+            "content_summary": {
+              "dialogues_count": 8,
+              "sample_concepts": []
+            }
+          }
+        ],
+        "component_statistics": {
+          "didactic_snippet": 1,
+          "glossary": 2,
+          "multiple_choice_question": 5,
+          "post_topic_quiz": 4,
+          "short_answer_question": 4,
+          "socratic_dialogue": 1
+        }
+      },
+      {
+        "topic_info": {
+          "id": "topic_20250713_121955_6230c6b2",
+          "title": "Key Components of a Comprehensive Report",
+          "description": "Exploration of the essential elements that make up a comprehensive report.",
+          "learning_objectives": [
+            "Identify the key components of a comprehensive report."
+          ],
+          "position": 1,
+          "bite_sized_topic_id": "a7ee0b54-9621-4434-8103-0d8e93116c9f",
+          "has_bite_sized_content": true
+        },
+        "bite_sized_content": {
+          "id": "a7ee0b54-9621-4434-8103-0d8e93116c9f",
+          "title": "Key Components of a Comprehensive Report",
+          "core_concept": "Exploration of the essential elements that make up a comprehensive report.",
+          "user_level": "beginner",
+          "creation_strategy": "complete",
+          "created_at": "2025-07-13T19:18:59.035084"
+        },
+        "components": [
+          {
+            "type": "didactic_snippet",
+            "created_at": "2025-07-13T19:18:59.037239",
+            "item_count": 2,
+            "content_summary": {
+              "title": "Exploring Key Components of a Comprehensive Report",
+              "snippet_length": 554,
+              "snippet_preview": "Imagine a comprehensive report as a puzzle made up of different pieces. The key components of this r..."
+            }
+          },
+          {
+            "type": "glossary",
+            "created_at": "2025-07-13T19:18:59.037832",
+            "item_count": 2,
+            "content_summary": {
+              "terms_count": 2,
+              "terms": [
+                "concept",
+                "explanation"
+              ]
+            }
+          },
+          {
+            "type": "glossary",
+            "created_at": "2025-07-13T19:18:59.037964",
+            "item_count": 2,
+            "content_summary": {
+              "terms_count": 2,
+              "terms": [
+                "concept",
+                "explanation"
+              ]
+            }
+          },
+          {
+            "type": "multiple_choice_question",
+            "created_at": "2025-07-13T19:18:59.038927",
+            "item_count": 8,
+            "content_summary": {
+              "questions_count": 8,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "post_topic_quiz",
+            "created_at": "2025-07-13T19:18:59.039034",
+            "item_count": 8,
+            "content_summary": {
+              "quiz_items_count": 8,
+              "question_types": []
+            }
+          },
+          {
+            "type": "post_topic_quiz",
+            "created_at": "2025-07-13T19:18:59.039188",
+            "item_count": 6,
+            "content_summary": {
+              "quiz_items_count": 6,
+              "question_types": []
+            }
+          },
+          {
+            "type": "post_topic_quiz",
+            "created_at": "2025-07-13T19:18:59.039267",
+            "item_count": 8,
+            "content_summary": {
+              "quiz_items_count": 8,
+              "question_types": []
+            }
+          },
+          {
+            "type": "post_topic_quiz",
+            "created_at": "2025-07-13T19:18:59.039309",
+            "item_count": 8,
+            "content_summary": {
+              "quiz_items_count": 8,
+              "question_types": []
+            }
+          },
+          {
+            "type": "post_topic_quiz",
+            "created_at": "2025-07-13T19:18:59.039370",
+            "item_count": 6,
+            "content_summary": {
+              "quiz_items_count": 6,
+              "question_types": []
+            }
+          },
+          {
+            "type": "post_topic_quiz",
+            "created_at": "2025-07-13T19:18:59.039400",
+            "item_count": 8,
+            "content_summary": {
+              "quiz_items_count": 8,
+              "question_types": []
+            }
+          },
+          {
+            "type": "short_answer_question",
+            "created_at": "2025-07-13T19:18:59.038464",
+            "item_count": 6,
+            "content_summary": {
+              "questions_count": 6,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "short_answer_question",
+            "created_at": "2025-07-13T19:18:59.038637",
+            "item_count": 6,
+            "content_summary": {
+              "questions_count": 6,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "short_answer_question",
+            "created_at": "2025-07-13T19:18:59.038695",
+            "item_count": 6,
+            "content_summary": {
+              "questions_count": 6,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "short_answer_question",
+            "created_at": "2025-07-13T19:18:59.038750",
+            "item_count": 6,
+            "content_summary": {
+              "questions_count": 6,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "short_answer_question",
+            "created_at": "2025-07-13T19:18:59.038807",
+            "item_count": 6,
+            "content_summary": {
+              "questions_count": 6,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "short_answer_question",
+            "created_at": "2025-07-13T19:18:59.038866",
+            "item_count": 6,
+            "content_summary": {
+              "questions_count": 6,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "socratic_dialogue",
+            "created_at": "2025-07-13T19:18:59.038031",
+            "item_count": 8,
+            "content_summary": {
+              "dialogues_count": 8,
+              "sample_concepts": []
+            }
+          },
+          {
+            "type": "socratic_dialogue",
+            "created_at": "2025-07-13T19:18:59.038262",
+            "item_count": 8,
+            "content_summary": {
+              "dialogues_count": 8,
+              "sample_concepts": []
+            }
+          },
+          {
+            "type": "socratic_dialogue",
+            "created_at": "2025-07-13T19:18:59.038384",
+            "item_count": 8,
+            "content_summary": {
+              "dialogues_count": 8,
+              "sample_concepts": []
+            }
+          }
+        ],
+        "component_statistics": {
+          "didactic_snippet": 1,
+          "glossary": 2,
+          "multiple_choice_question": 1,
+          "post_topic_quiz": 6,
+          "short_answer_question": 6,
+          "socratic_dialogue": 3
+        }
+      },
+      {
+        "topic_info": {
+          "id": "topic_20250713_121955_246b40e4",
+          "title": "Structuring a Comprehensive Report",
+          "description": "Guidelines on how to effectively structure a comprehensive report for clarity and coherence.",
+          "learning_objectives": [
+            "Outline the structure of a comprehensive report."
+          ],
+          "position": 2,
+          "bite_sized_topic_id": "29a64a98-53e2-4cfd-8b82-65aa41eb6679",
+          "has_bite_sized_content": true
+        },
+        "bite_sized_content": {
+          "id": "29a64a98-53e2-4cfd-8b82-65aa41eb6679",
+          "title": "Structuring a Comprehensive Report",
+          "core_concept": "Guidelines on how to effectively structure a comprehensive report for clarity and coherence.",
+          "user_level": "beginner",
+          "creation_strategy": "complete",
+          "created_at": "2025-07-13T19:19:14.968769"
+        },
+        "components": [
+          {
+            "type": "didactic_snippet",
+            "created_at": "2025-07-13T19:19:14.971785",
+            "item_count": 2,
+            "content_summary": {
+              "title": "Structuring a Comprehensive Report",
+              "snippet_length": 726,
+              "snippet_preview": "To effectively structure a comprehensive report for clarity and coherence, you typically start with ..."
+            }
+          },
+          {
+            "type": "glossary",
+            "created_at": "2025-07-13T19:19:14.972681",
+            "item_count": 2,
+            "content_summary": {
+              "terms_count": 2,
+              "terms": [
+                "concept",
+                "explanation"
+              ]
+            }
+          },
+          {
+            "type": "glossary",
+            "created_at": "2025-07-13T19:19:14.973126",
+            "item_count": 2,
+            "content_summary": {
+              "terms_count": 2,
+              "terms": [
+                "concept",
+                "explanation"
+              ]
+            }
+          },
+          {
+            "type": "multiple_choice_question",
+            "created_at": "2025-07-13T19:19:14.974384",
+            "item_count": 8,
+            "content_summary": {
+              "questions_count": 8,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "multiple_choice_question",
+            "created_at": "2025-07-13T19:19:14.974470",
+            "item_count": 8,
+            "content_summary": {
+              "questions_count": 8,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "multiple_choice_question",
+            "created_at": "2025-07-13T19:19:14.974530",
+            "item_count": 8,
+            "content_summary": {
+              "questions_count": 8,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "multiple_choice_question",
+            "created_at": "2025-07-13T19:19:14.974582",
+            "item_count": 8,
+            "content_summary": {
+              "questions_count": 8,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "post_topic_quiz",
+            "created_at": "2025-07-13T19:19:14.974622",
+            "item_count": 8,
+            "content_summary": {
+              "quiz_items_count": 8,
+              "question_types": []
+            }
+          },
+          {
+            "type": "post_topic_quiz",
+            "created_at": "2025-07-13T19:19:14.974953",
+            "item_count": 6,
+            "content_summary": {
+              "quiz_items_count": 6,
+              "question_types": []
+            }
+          },
+          {
+            "type": "post_topic_quiz",
+            "created_at": "2025-07-13T19:19:14.974995",
+            "item_count": 8,
+            "content_summary": {
+              "quiz_items_count": 8,
+              "question_types": []
+            }
+          },
+          {
+            "type": "post_topic_quiz",
+            "created_at": "2025-07-13T19:19:14.975042",
+            "item_count": 8,
+            "content_summary": {
+              "quiz_items_count": 8,
+              "question_types": []
+            }
+          },
+          {
+            "type": "post_topic_quiz",
+            "created_at": "2025-07-13T19:19:14.975083",
+            "item_count": 6,
+            "content_summary": {
+              "quiz_items_count": 6,
+              "question_types": []
+            }
+          },
+          {
+            "type": "post_topic_quiz",
+            "created_at": "2025-07-13T19:19:14.975115",
+            "item_count": 8,
+            "content_summary": {
+              "quiz_items_count": 8,
+              "question_types": []
+            }
+          },
+          {
+            "type": "short_answer_question",
+            "created_at": "2025-07-13T19:19:14.973755",
+            "item_count": 6,
+            "content_summary": {
+              "questions_count": 6,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "short_answer_question",
+            "created_at": "2025-07-13T19:19:14.973812",
+            "item_count": 6,
+            "content_summary": {
+              "questions_count": 6,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "short_answer_question",
+            "created_at": "2025-07-13T19:19:14.973853",
+            "item_count": 6,
+            "content_summary": {
+              "questions_count": 6,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "short_answer_question",
+            "created_at": "2025-07-13T19:19:14.974234",
+            "item_count": 6,
+            "content_summary": {
+              "questions_count": 6,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "short_answer_question",
+            "created_at": "2025-07-13T19:19:14.974285",
+            "item_count": 6,
+            "content_summary": {
+              "questions_count": 6,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "short_answer_question",
+            "created_at": "2025-07-13T19:19:14.974335",
+            "item_count": 6,
+            "content_summary": {
+              "questions_count": 6,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "socratic_dialogue",
+            "created_at": "2025-07-13T19:19:14.973237",
+            "item_count": 8,
+            "content_summary": {
+              "dialogues_count": 8,
+              "sample_concepts": []
+            }
+          },
+          {
+            "type": "socratic_dialogue",
+            "created_at": "2025-07-13T19:19:14.973351",
+            "item_count": 8,
+            "content_summary": {
+              "dialogues_count": 8,
+              "sample_concepts": []
+            }
+          },
+          {
+            "type": "socratic_dialogue",
+            "created_at": "2025-07-13T19:19:14.973436",
+            "item_count": 8,
+            "content_summary": {
+              "dialogues_count": 8,
+              "sample_concepts": []
+            }
+          }
+        ],
+        "component_statistics": {
+          "didactic_snippet": 1,
+          "glossary": 2,
+          "multiple_choice_question": 4,
+          "post_topic_quiz": 6,
+          "short_answer_question": 6,
+          "socratic_dialogue": 3
+        }
+      },
+      {
+        "topic_info": {
+          "id": "topic_20250713_121955_596cc022",
+          "title": "Data Collection and Analysis for Reports",
+          "description": "Methods for collecting and analyzing data to include in a comprehensive report.",
+          "learning_objectives": [
+            "Explain the process of data collection and analysis for reports."
+          ],
+          "position": 3,
+          "bite_sized_topic_id": "01dcdbf1-7aee-4ce8-bdc2-ff27d5297c0b",
+          "has_bite_sized_content": true
+        },
+        "bite_sized_content": {
+          "id": "01dcdbf1-7aee-4ce8-bdc2-ff27d5297c0b",
+          "title": "Data Collection and Analysis for Reports",
+          "core_concept": "Methods for collecting and analyzing data to include in a comprehensive report.",
+          "user_level": "beginner",
+          "creation_strategy": "complete",
+          "created_at": "2025-07-13T19:19:36.284584"
+        },
+        "components": [
+          {
+            "type": "didactic_snippet",
+            "created_at": "2025-07-13T19:19:36.286876",
+            "item_count": 2,
+            "content_summary": {
+              "title": "Data Collection and Analysis Essentials",
+              "snippet_length": 631,
+              "snippet_preview": "To create a comprehensive report, you first need to gather data through methods like surveys, interv..."
+            }
+          },
+          {
+            "type": "glossary",
+            "created_at": "2025-07-13T19:19:36.287144",
+            "item_count": 2,
+            "content_summary": {
+              "terms_count": 2,
+              "terms": [
+                "concept",
+                "explanation"
+              ]
+            }
+          },
+          {
+            "type": "glossary",
+            "created_at": "2025-07-13T19:19:36.287209",
+            "item_count": 2,
+            "content_summary": {
+              "terms_count": 2,
+              "terms": [
+                "concept",
+                "explanation"
+              ]
+            }
+          },
+          {
+            "type": "multiple_choice_question",
+            "created_at": "2025-07-13T19:19:36.288515",
+            "item_count": 8,
+            "content_summary": {
+              "questions_count": 8,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "multiple_choice_question",
+            "created_at": "2025-07-13T19:19:36.288728",
+            "item_count": 8,
+            "content_summary": {
+              "questions_count": 8,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "multiple_choice_question",
+            "created_at": "2025-07-13T19:19:36.288786",
+            "item_count": 8,
+            "content_summary": {
+              "questions_count": 8,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "multiple_choice_question",
+            "created_at": "2025-07-13T19:19:36.288834",
+            "item_count": 8,
+            "content_summary": {
+              "questions_count": 8,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "multiple_choice_question",
+            "created_at": "2025-07-13T19:19:36.288888",
+            "item_count": 8,
+            "content_summary": {
+              "questions_count": 8,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "multiple_choice_question",
+            "created_at": "2025-07-13T19:19:36.288932",
+            "item_count": 8,
+            "content_summary": {
+              "questions_count": 8,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "post_topic_quiz",
+            "created_at": "2025-07-13T19:19:36.288979",
+            "item_count": 8,
+            "content_summary": {
+              "quiz_items_count": 8,
+              "question_types": []
+            }
+          },
+          {
+            "type": "post_topic_quiz",
+            "created_at": "2025-07-13T19:19:36.289026",
+            "item_count": 6,
+            "content_summary": {
+              "quiz_items_count": 6,
+              "question_types": []
+            }
+          },
+          {
+            "type": "post_topic_quiz",
+            "created_at": "2025-07-13T19:19:36.289061",
+            "item_count": 8,
+            "content_summary": {
+              "quiz_items_count": 8,
+              "question_types": []
+            }
+          },
+          {
+            "type": "post_topic_quiz",
+            "created_at": "2025-07-13T19:19:36.289160",
+            "item_count": 8,
+            "content_summary": {
+              "quiz_items_count": 8,
+              "question_types": []
+            }
+          },
+          {
+            "type": "short_answer_question",
+            "created_at": "2025-07-13T19:19:36.287793",
+            "item_count": 6,
+            "content_summary": {
+              "questions_count": 6,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "short_answer_question",
+            "created_at": "2025-07-13T19:19:36.287889",
+            "item_count": 6,
+            "content_summary": {
+              "questions_count": 6,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "short_answer_question",
+            "created_at": "2025-07-13T19:19:36.287957",
+            "item_count": 6,
+            "content_summary": {
+              "questions_count": 6,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "short_answer_question",
+            "created_at": "2025-07-13T19:19:36.288111",
+            "item_count": 6,
+            "content_summary": {
+              "questions_count": 6,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "short_answer_question",
+            "created_at": "2025-07-13T19:19:36.288273",
+            "item_count": 6,
+            "content_summary": {
+              "questions_count": 6,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "short_answer_question",
+            "created_at": "2025-07-13T19:19:36.288333",
+            "item_count": 6,
+            "content_summary": {
+              "questions_count": 6,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "socratic_dialogue",
+            "created_at": "2025-07-13T19:19:36.287286",
+            "item_count": 8,
+            "content_summary": {
+              "dialogues_count": 8,
+              "sample_concepts": []
+            }
+          },
+          {
+            "type": "socratic_dialogue",
+            "created_at": "2025-07-13T19:19:36.287356",
+            "item_count": 8,
+            "content_summary": {
+              "dialogues_count": 8,
+              "sample_concepts": []
+            }
+          },
+          {
+            "type": "socratic_dialogue",
+            "created_at": "2025-07-13T19:19:36.287555",
+            "item_count": 8,
+            "content_summary": {
+              "dialogues_count": 8,
+              "sample_concepts": []
+            }
+          },
+          {
+            "type": "socratic_dialogue",
+            "created_at": "2025-07-13T19:19:36.287670",
+            "item_count": 8,
+            "content_summary": {
+              "dialogues_count": 8,
+              "sample_concepts": []
+            }
+          },
+          {
+            "type": "socratic_dialogue",
+            "created_at": "2025-07-13T19:19:36.287729",
+            "item_count": 8,
+            "content_summary": {
+              "dialogues_count": 8,
+              "sample_concepts": []
+            }
+          }
+        ],
+        "component_statistics": {
+          "didactic_snippet": 1,
+          "glossary": 2,
+          "multiple_choice_question": 6,
+          "post_topic_quiz": 4,
+          "short_answer_question": 6,
+          "socratic_dialogue": 5
+        }
+      },
+      {
+        "topic_info": {
+          "id": "topic_20250713_121955_86f8acbb",
+          "title": "Visual Representation in Reports",
+          "description": "Utilizing visual aids to enhance the presentation of data in comprehensive reports.",
+          "learning_objectives": [
+            "Understand the importance of visual representation in reports."
+          ],
+          "position": 4,
+          "bite_sized_topic_id": "4e0bd6fc-821c-49c9-b619-212ec4adc0c9",
+          "has_bite_sized_content": true
+        },
+        "bite_sized_content": {
+          "id": "4e0bd6fc-821c-49c9-b619-212ec4adc0c9",
+          "title": "Visual Representation in Reports",
+          "core_concept": "Utilizing visual aids to enhance the presentation of data in comprehensive reports.",
+          "user_level": "beginner",
+          "creation_strategy": "complete",
+          "created_at": "2025-07-13T19:19:55.209941"
+        },
+        "components": [
+          {
+            "type": "didactic_snippet",
+            "created_at": "2025-07-13T19:19:55.212042",
+            "item_count": 2,
+            "content_summary": {
+              "title": "Importance of Visual Representation in Reports",
+              "snippet_length": 679,
+              "snippet_preview": "Visual representation in reports is crucial because it helps readers quickly grasp complex informati..."
+            }
+          },
+          {
+            "type": "glossary",
+            "created_at": "2025-07-13T19:19:55.212405",
+            "item_count": 2,
+            "content_summary": {
+              "terms_count": 2,
+              "terms": [
+                "concept",
+                "explanation"
+              ]
+            }
+          },
+          {
+            "type": "glossary",
+            "created_at": "2025-07-13T19:19:55.212490",
+            "item_count": 2,
+            "content_summary": {
+              "terms_count": 2,
+              "terms": [
+                "concept",
+                "explanation"
+              ]
+            }
+          },
+          {
+            "type": "multiple_choice_question",
+            "created_at": "2025-07-13T19:19:55.213185",
+            "item_count": 8,
+            "content_summary": {
+              "questions_count": 8,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "multiple_choice_question",
+            "created_at": "2025-07-13T19:19:55.213337",
+            "item_count": 8,
+            "content_summary": {
+              "questions_count": 8,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "multiple_choice_question",
+            "created_at": "2025-07-13T19:19:55.213440",
+            "item_count": 8,
+            "content_summary": {
+              "questions_count": 8,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "multiple_choice_question",
+            "created_at": "2025-07-13T19:19:55.213491",
+            "item_count": 8,
+            "content_summary": {
+              "questions_count": 8,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "multiple_choice_question",
+            "created_at": "2025-07-13T19:19:55.213526",
+            "item_count": 8,
+            "content_summary": {
+              "questions_count": 8,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "multiple_choice_question",
+            "created_at": "2025-07-13T19:19:55.213570",
+            "item_count": 8,
+            "content_summary": {
+              "questions_count": 8,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "post_topic_quiz",
+            "created_at": "2025-07-13T19:19:55.213613",
+            "item_count": 8,
+            "content_summary": {
+              "quiz_items_count": 8,
+              "question_types": []
+            }
+          },
+          {
+            "type": "post_topic_quiz",
+            "created_at": "2025-07-13T19:19:55.213689",
+            "item_count": 6,
+            "content_summary": {
+              "quiz_items_count": 6,
+              "question_types": []
+            }
+          },
+          {
+            "type": "post_topic_quiz",
+            "created_at": "2025-07-13T19:19:55.213723",
+            "item_count": 8,
+            "content_summary": {
+              "quiz_items_count": 8,
+              "question_types": []
+            }
+          },
+          {
+            "type": "post_topic_quiz",
+            "created_at": "2025-07-13T19:19:55.213769",
+            "item_count": 8,
+            "content_summary": {
+              "quiz_items_count": 8,
+              "question_types": []
+            }
+          },
+          {
+            "type": "short_answer_question",
+            "created_at": "2025-07-13T19:19:55.212794",
+            "item_count": 6,
+            "content_summary": {
+              "questions_count": 6,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "short_answer_question",
+            "created_at": "2025-07-13T19:19:55.212841",
+            "item_count": 6,
+            "content_summary": {
+              "questions_count": 6,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "short_answer_question",
+            "created_at": "2025-07-13T19:19:55.212881",
+            "item_count": 6,
+            "content_summary": {
+              "questions_count": 6,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "short_answer_question",
+            "created_at": "2025-07-13T19:19:55.213017",
+            "item_count": 6,
+            "content_summary": {
+              "questions_count": 6,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "short_answer_question",
+            "created_at": "2025-07-13T19:19:55.213061",
+            "item_count": 6,
+            "content_summary": {
+              "questions_count": 6,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "short_answer_question",
+            "created_at": "2025-07-13T19:19:55.213102",
+            "item_count": 6,
+            "content_summary": {
+              "questions_count": 6,
+              "sample_questions": []
+            }
+          },
+          {
+            "type": "socratic_dialogue",
+            "created_at": "2025-07-13T19:19:55.212569",
+            "item_count": 8,
+            "content_summary": {
+              "dialogues_count": 8,
+              "sample_concepts": []
+            }
+          },
+          {
+            "type": "socratic_dialogue",
+            "created_at": "2025-07-13T19:19:55.212670",
+            "item_count": 8,
+            "content_summary": {
+              "dialogues_count": 8,
+              "sample_concepts": []
+            }
+          },
+          {
+            "type": "socratic_dialogue",
+            "created_at": "2025-07-13T19:19:55.212734",
+            "item_count": 8,
+            "content_summary": {
+              "dialogues_count": 8,
+              "sample_concepts": []
+            }
+          }
+        ],
+        "component_statistics": {
+          "didactic_snippet": 1,
+          "glossary": 2,
+          "multiple_choice_question": 6,
+          "post_topic_quiz": 4,
+          "short_answer_question": 6,
+          "socratic_dialogue": 3
+        }
+      },
+      {
+        "topic_info": {
+          "id": "topic_20250713_121955_398bb152",
+          "title": "Writing Style and Tone in Reports",
+          "description": "Choosing the appropriate writing style and tone for different types of comprehensive reports.",
+          "learning_objectives": [
+            "Identify suitable writing styles and tones for reports."
+          ],
+          "position": 5,
+          "bite_sized_topic_id": null,
+          "has_bite_sized_content": false
+        },
+        "bite_sized_content": null,
+        "components": []
+      },
+      {
+        "topic_info": {
+          "id": "topic_20250713_121955_d653ab94",
+          "title": "Editing and Proofreading Reports",
+          "description": "Importance of editing and proofreading in ensuring the quality of comprehensive reports.",
+          "learning_objectives": [
+            "Explain the significance of editing and proofreading in reports."
+          ],
+          "position": 6,
+          "bite_sized_topic_id": null,
+          "has_bite_sized_content": false
+        },
+        "bite_sized_content": null,
+        "components": []
+      }
+    ],
+    "content_statistics": {
+      "total_topics": 7,
+      "topics_with_content": 5,
+      "total_components": 104,
+      "component_breakdown": {
+        "didactic_snippet": 5,
+        "glossary": 10,
+        "multiple_choice_question": 22,
+        "post_topic_quiz": 24,
+        "short_answer_question": 28,
+        "socratic_dialogue": 15
+      },
+      "total_items": 672
+    }
+  },
+  "summary_statistics": {
+    "total_topics": 7,
+    "topics_with_content": 5,
+    "total_components": 104,
+    "total_items": 672,
+    "component_breakdown": {
+      "didactic_snippet": 5,
+      "glossary": 10,
+      "multiple_choice_question": 22,
+      "post_topic_quiz": 24,
+      "short_answer_question": 28,
+      "socratic_dialogue": 15
+    }
+  }
+}
