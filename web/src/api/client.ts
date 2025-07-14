@@ -22,7 +22,9 @@ import type {
   ConversationSession,
   Progress,
   HealthCheck,
-  CreateLearningPathRequest
+  CreateLearningPathRequest,
+  BiteSizedTopic,
+  BiteSizedTopicDetail
 } from '@/types'
 
 import type {
@@ -265,6 +267,39 @@ export class ApiClient {
    */
   async getProgress(): Promise<Progress> {
     const response = await this.request<Progress>('/api/progress')
+    return response
+  }
+
+  // ================================
+  // Bite-Sized Topic Methods
+  // ================================
+
+  /**
+   * Get all bite-sized topics
+   */
+  async getBiteSizedTopics(): Promise<BiteSizedTopic[]> {
+    const response = await this.request<BiteSizedTopic[]>('/api/bite-sized-topics')
+    return response
+  }
+
+  /**
+   * Get detailed bite-sized topic by ID
+   */
+  async getBiteSizedTopicDetail(topicId: string): Promise<BiteSizedTopicDetail> {
+    const response = await this.request<BiteSizedTopicDetail>(
+      `/api/bite-sized-topics/${topicId}`
+    )
+    return response
+  }
+
+  /**
+   * Start a conversation for a bite-sized topic
+   */
+  async startBiteSizedTopicConversation(topicId: string): Promise<ConversationSession> {
+    const response = await this.request<ConversationSession>(
+      `/api/bite-sized-topics/${topicId}/start-conversation`,
+      { method: 'POST' }
+    )
     return response
   }
 

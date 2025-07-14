@@ -12,17 +12,9 @@
  */
 
 // Learning paths hooks
-export {
-  useLearningPaths,
-  useLearningPath
-} from './useLearningPaths'
-
-// Conversation hooks
-export {
-  useConversation,
-  useConversationProgress,
-  useConversationStats
-} from './useConversation'
+export { useConversation, useConversationProgress, useConversationStats } from './useConversation'
+export { useLearningPaths, useLearningPath } from './useLearningPaths'
+export { default as useBiteSizedTopics } from './useBiteSizedTopics'
 
 // Re-export hook option types for convenience
 export type { UseConversationOptions } from './useConversation'

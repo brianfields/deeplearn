@@ -15,9 +15,9 @@ from sqlalchemy import select, delete
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
-from database_service import get_database_service
 from data_structures import BiteSizedTopic, BiteSizedComponent
-from .service import TopicContent, TopicSpec, StoredTopic, StoredComponent, CreationStrategy
+from .orchestrator import TopicContent, TopicSpec, CreationStrategy
+from .storage import StoredTopic, StoredComponent
 
 
 class PostgreSQLTopicRepository:
@@ -25,12 +25,22 @@ class PostgreSQLTopicRepository:
 
     def __init__(self):
         """Initialize the repository with database service"""
-        self.db_service = get_database_service()
+        pass
+
+    def _get_db_service(self):
+        """Get database service instance"""
+        try:
+            from database_service import get_database_service
+            return get_database_service()
+        except ImportError:
+            from database_service import DatabaseService
+            return DatabaseService()
 
     @asynccontextmanager
     async def _get_session(self):
         """Get database session (async context manager)"""
-        session = self.db_service.get_session()
+        db_service = self._get_db_service()
+        session = db_service.get_session()
         try:
             yield session
         except Exception:
@@ -365,4 +375,70 @@ class PostgreSQLTopicRepository:
 
             except SQLAlchemyError as e:
                 print(f"Error getting topic components: {e}")
+                return []
+
+    async def find_components_for_tutoring(
+        self,
+        topic_id: str,
+        component_types: Optional[List[str]] = None,
+        difficulty_range: Optional[tuple] = None,
+        tags: Optional[List[str]] = None
+    ) -> List[StoredComponent]:
+        """
+        Find specific components for tutoring sessions.
+
+        Args:
+            topic_id: Topic ID
+            component_types: List of component types to include
+            difficulty_range: (min_difficulty, max_difficulty) tuple
+            tags: List of tags to match
+
+        Returns:
+            List of matching components
+        """
+        async with self._get_session() as session:
+            try:
+                query = select(BiteSizedComponent).where(BiteSizedComponent.topic_id == topic_id)
+
+                if component_types:
+                    query = query.where(BiteSizedComponent.component_type.in_(component_types))
+
+                components = session.execute(query).scalars().all()
+
+                result = []
+                for component in components:
+                    stored_component = StoredComponent(
+                        id=component.id,
+                        topic_id=component.topic_id,
+                        component_type=component.component_type,
+                        content=component.content,
+                        metadata=component.component_metadata,
+                        created_at=component.created_at.isoformat() if component.created_at else "",
+                        updated_at=component.updated_at.isoformat() if component.updated_at else "",
+                        version=component.version
+                    )
+                    result.append(stored_component)
+
+                # Filter by difficulty range if specified
+                if difficulty_range:
+                    min_diff, max_diff = difficulty_range
+                    result = [
+                        c for c in result
+                        if min_diff <= c.metadata.get('difficulty', 3) <= max_diff
+                    ]
+
+                # Filter by tags if specified
+                if tags:
+                    filtered_components = []
+                    for component in result:
+                        comp_tags = component.metadata.get('tags', '').split(',')
+                        comp_tags = [tag.strip().lower() for tag in comp_tags]
+                        if any(tag.lower() in comp_tags for tag in tags):
+                            filtered_components.append(component)
+                    result = filtered_components
+
+                return result
+
+            except SQLAlchemyError as e:
+                print(f"Error finding components for tutoring: {e}")
                 return []

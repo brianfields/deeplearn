@@ -17,273 +17,197 @@ import {
   Brain,
   BarChart3
 } from 'lucide-react'
-import { useLearningPaths } from '@/hooks/useLearningPaths'
+import { useBiteSizedTopics } from '@/hooks'
 import { useRouter } from 'next/navigation'
+import type { BiteSizedTopic } from '@/types'
 
 export default function Dashboard() {
-  const { learningPaths: rawLearningPaths, isLoading, error, stats, refreshPaths } = useLearningPaths()
+  const { topics, isLoading, error } = useBiteSizedTopics()
   const router = useRouter()
-
-  // Ensure learningPaths is always an array to prevent undefined errors
-  const learningPaths = rawLearningPaths || []
-
-  const handleViewAllPaths = () => {
-    router.push('/learn')
-  }
 
   const handleStartLearning = () => {
     router.push('/learn')
   }
 
-  const handleOpenPath = (pathId: string) => {
-    router.push(`/learn?path=${pathId}`)
-  }
-
-  const dashboardStats = stats ? [
+  // Simple stats based on available topics
+  const dashboardStats = [
     {
-      name: 'Learning Paths',
-      value: stats.totalPaths.toString(),
+      name: 'Available Topics',
+      value: topics.length.toString(),
       icon: BookOpen,
       color: 'bg-blue-500'
     },
     {
-      name: 'Completed',
-      value: stats.completedPaths.toString(),
-      icon: CheckCircle,
+      name: 'Ready to Learn',
+      value: topics.length.toString(),
+      icon: Brain,
       color: 'bg-green-500'
     },
     {
-      name: 'Average Progress',
-      value: `${Math.round(stats.averageProgress)}%`,
-      icon: Brain,
+      name: 'Avg Duration',
+      value: topics.length > 0 ? `${Math.round(topics.reduce((acc: number, topic: BiteSizedTopic) => acc + topic.estimated_duration, 0) / topics.length)} min` : '0 min',
+      icon: Clock,
       color: 'bg-purple-500'
     },
     {
-      name: 'Total Topics',
-      value: stats.totalTopics.toString(),
-      icon: Trophy,
+      name: 'Difficulty Levels',
+              value: Array.from(new Set(topics.map((t: BiteSizedTopic) => t.user_level))).length.toString(),
+      icon: Target,
       color: 'bg-orange-500'
     },
-  ] : []
-
-  if (isLoading) {
-    return (
-      <div className="space-y-8">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
-                <div className="h-8 bg-gray-200 rounded w-1/3"></div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="space-y-8">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex items-center space-x-2">
-            <Circle className="h-5 w-5 text-red-500" />
-            <span className="text-red-700">{error}</span>
-          </div>
-          <button
-            onClick={refreshPaths}
-            className="mt-2 px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    )
-  }
+  ]
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Welcome back, Brian!</h1>
-            <p className="text-gray-600 mt-1">Ready to continue your learning journey?</p>
+    <div className="min-h-screen bg-gray-50">
+      {/* Hero Section */}
+      <div className="bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-600 text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center"
+          >
+            <h1 className="text-4xl font-bold mb-4">
+              Welcome to Bite-Sized Learning
+            </h1>
+            <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
+              Learn complex topics through focused, interactive sessions designed to fit into your schedule.
+            </p>
+            <button
+              onClick={handleStartLearning}
+              className="inline-flex items-center gap-2 px-8 py-4 bg-white text-blue-600 rounded-xl font-semibold hover:bg-blue-50 transition-colors shadow-lg"
+            >
+              <Play className="w-5 h-5" />
+              Start Learning Now
+            </button>
+          </motion.div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Stats Section */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+          {dashboardStats.map((stat, index) => (
+            <motion.div
+              key={stat.name}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.1 }}
+              className="bg-white rounded-xl p-6 shadow-sm border border-gray-200"
+            >
+              <div className="flex items-center">
+                <div className={`p-3 rounded-lg ${stat.color}`}>
+                  <stat.icon className="w-6 h-6 text-white" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">{stat.name}</p>
+                  <p className="text-2xl font-semibold text-gray-900">{stat.value}</p>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Quick Access Topics */}
+        <div className="mb-12">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-gray-900">Quick Start Topics</h2>
+            <button
+              onClick={handleStartLearning}
+              className="flex items-center gap-2 text-blue-600 hover:text-blue-700 transition-colors"
+            >
+              View All Topics
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
-          <div className="flex items-center space-x-3">
-            <div className="text-right">
-              <p className="text-sm text-gray-500">Total Progress</p>
-              <p className="text-2xl font-bold text-blue-500">
-                {stats ? `${Math.round(stats.averageProgress)}%` : '0%'}
-              </p>
+
+          {isLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 animate-pulse">
+                  <div className="h-6 bg-gray-200 rounded mb-4"></div>
+                  <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                </div>
+              ))}
+            </div>
+          ) : error ? (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+              <p className="text-red-600">{error}</p>
+            </div>
+          ) : topics.length === 0 ? (
+            <div className="bg-white rounded-xl p-12 shadow-sm border border-gray-200 text-center">
+              <BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No topics available</h3>
+              <p className="text-gray-600">Check back later for new learning topics.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                             {topics.slice(0, 6).map((topic: BiteSizedTopic, index: number) => (
+                <motion.div
+                  key={topic.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={handleStartLearning}
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">{topic.title}</h3>
+                      <p className="text-gray-600 text-sm">{topic.core_concept}</p>
+                    </div>
+                    <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                      {topic.user_level}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
+                    <div className="flex items-center gap-1">
+                      <Clock className="w-4 h-4" />
+                      {topic.estimated_duration} min
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Brain className="w-4 h-4" />
+                      {topic.key_concepts.length} concepts
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1 text-sm text-gray-500">
+                      <Target className="w-4 h-4" />
+                      {topic.learning_objectives.length} objectives
+                    </div>
+                    <div className="flex items-center gap-1 text-blue-600">
+                      <span className="text-sm font-medium">Start</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Getting Started Section */}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-8 border border-blue-200">
+          <div className="max-w-2xl">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Ready to Learn?</h2>
+            <p className="text-gray-600 mb-6">
+              Our bite-sized learning approach breaks down complex topics into manageable, interactive sessions.
+              Each topic is designed to be completed in 15 minutes or less, making it easy to fit learning into your day.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <button
+                onClick={handleStartLearning}
+                className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <MessageSquare className="w-5 h-5" />
+                Browse Topics
+              </button>
             </div>
           </div>
         </div>
-      </motion.div>
-
-      {/* Stats Grid */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.1 }}
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
-      >
-        {dashboardStats.map((stat, index) => (
-          <motion.div
-            key={stat.name}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: index * 0.1 }}
-            className="card hover:shadow-strong transition-all duration-200"
-          >
-            <div className="flex items-center">
-              <div className={`p-3 rounded-lg ${stat.color}`}>
-                <stat.icon className="h-6 w-6 text-white" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">{stat.name}</p>
-                <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-              </div>
-            </div>
-          </motion.div>
-        ))}
-      </motion.div>
-
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Continue Learning */}
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-          className="lg:col-span-2"
-        >
-          <div className="card">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">Continue Learning</h2>
-              <button
-                onClick={handleViewAllPaths}
-                className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center"
-              >
-                View all <ChevronRight className="h-4 w-4 ml-1" />
-              </button>
-            </div>
-            {learningPaths.length === 0 ? (
-              <div className="text-center py-8">
-                <BookOpen className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Start Your Learning Journey</h3>
-                <p className="text-gray-500 mb-4">Create your first learning path to begin conversational learning with AI.</p>
-                <button
-                  onClick={handleStartLearning}
-                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center space-x-2 mx-auto"
-                >
-                  <Plus className="h-4 w-4" />
-                  <span>Start Learning</span>
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {learningPaths.slice(0, 3).map((path) => (
-                  <div
-                    key={path.id}
-                    onClick={() => handleOpenPath(path.id)}
-                    className="flex items-center space-x-4 p-4 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50/50 transition-all duration-200 group cursor-pointer"
-                  >
-                    <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-lg font-bold">
-                      {path.topic_name.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-medium text-gray-900 group-hover:text-blue-700">{path.topic_name}</h3>
-                      <p className="text-sm text-gray-500 mt-1">{path.description}</p>
-                                              <div className="flex items-center space-x-4 mt-2">
-                          <div className="flex items-center space-x-1 text-xs text-gray-500">
-                            <BookOpen className="h-3 w-3" />
-                            <span>{path.total_topics || 0} topics</span>
-                          </div>
-                          <div className="flex items-center space-x-1 text-xs text-gray-500">
-                            <Clock className="h-3 w-3" />
-                            <span>{path.estimated_total_hours || 0}h</span>
-                          </div>
-                        </div>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="text-right">
-                        <p className="text-sm font-medium text-gray-900">
-                          {path.total_topics > 0 ? Math.round((path.progress_count / path.total_topics) * 100) : 0}%
-                        </p>
-                        <p className="text-xs text-gray-500">Complete</p>
-                      </div>
-                      <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
-                        <Play className="h-4 w-4 text-gray-600 group-hover:text-blue-600" />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </motion.div>
-
-        {/* Quick Actions */}
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5, delay: 0.4 }}
-        >
-          <div className="card">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">Quick Actions</h2>
-            <div className="space-y-4">
-              <button
-                onClick={handleStartLearning}
-                className="w-full flex items-center space-x-3 p-4 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50/50 transition-all duration-200 group"
-              >
-                <div className="w-10 h-10 rounded-lg bg-blue-500 flex items-center justify-center">
-                  <Plus className="h-5 w-5 text-white" />
-                </div>
-                <div className="flex-1 text-left">
-                  <p className="font-medium text-gray-900 group-hover:text-blue-700">New Learning Path</p>
-                  <p className="text-sm text-gray-500">Start learning something new</p>
-                </div>
-              </button>
-
-              <button className="w-full flex items-center space-x-3 p-4 rounded-lg border border-gray-200 hover:border-purple-300 hover:bg-purple-50/50 transition-all duration-200 group">
-                <div className="w-10 h-10 rounded-lg bg-purple-500 flex items-center justify-center">
-                  <MessageSquare className="h-5 w-5 text-white" />
-                </div>
-                <div className="flex-1 text-left">
-                  <p className="font-medium text-gray-900 group-hover:text-purple-700">AI Tutor Chat</p>
-                  <p className="text-sm text-gray-500">Get help with any topic</p>
-                </div>
-              </button>
-
-              <button className="w-full flex items-center space-x-3 p-4 rounded-lg border border-gray-200 hover:border-green-300 hover:bg-green-50/50 transition-all duration-200 group">
-                <div className="w-10 h-10 rounded-lg bg-green-500 flex items-center justify-center">
-                  <Target className="h-5 w-5 text-white" />
-                </div>
-                <div className="flex-1 text-left">
-                  <p className="font-medium text-gray-900 group-hover:text-green-700">Practice Quiz</p>
-                  <p className="text-sm text-gray-500">Test your knowledge</p>
-                </div>
-              </button>
-
-              <button className="w-full flex items-center space-x-3 p-4 rounded-lg border border-gray-200 hover:border-orange-300 hover:bg-orange-50/50 transition-all duration-200 group">
-                <div className="w-10 h-10 rounded-lg bg-orange-500 flex items-center justify-center">
-                  <BarChart3 className="h-5 w-5 text-white" />
-                </div>
-                <div className="flex-1 text-left">
-                  <p className="font-medium text-gray-900 group-hover:text-orange-700">Progress Report</p>
-                  <p className="text-sm text-gray-500">View detailed analytics</p>
-                </div>
-              </button>
-            </div>
-          </div>
-        </motion.div>
       </div>
     </div>
   )

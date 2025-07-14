@@ -8,10 +8,10 @@ from typing import Dict, List, Optional, Any
 import logging
 
 from core import ModuleService, ServiceConfig, LLMClient
-from .syllabus_generation import SyllabusGenerationService
-from .bite_sized_topics import BiteSizedTopicService
+from .syllabus_generation.service import SyllabusGenerationService
+from .bite_sized_topics.service import BiteSizedTopicService
 from .bite_sized_topics.orchestrator import TopicOrchestrator, TopicSpec, CreationStrategy
-from .bite_sized_topics.storage import TopicRepository
+from .bite_sized_topics.postgresql_storage import PostgreSQLTopicRepository
 
 
 class LessonPlanningError(Exception):
@@ -27,7 +27,7 @@ class LessonPlanningService(ModuleService):
         self.syllabus_service = SyllabusGenerationService(config, llm_client)
         self.bite_sized_service = BiteSizedTopicService(config, llm_client)
         self.topic_orchestrator = TopicOrchestrator(config, llm_client)
-        self.topic_repository = TopicRepository()
+        self.topic_repository = PostgreSQLTopicRepository()
 
     async def create_complete_lesson_plan(
         self,

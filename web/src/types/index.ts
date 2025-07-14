@@ -23,6 +23,7 @@ export interface LearningPath {
   current_topic_index: number
   estimated_total_hours: number
   created_at?: string
+  bite_sized_content_info?: BiteSizedContentInfo
 }
 
 /**
@@ -50,6 +51,8 @@ export interface Topic {
   difficulty_level: number
   position: number
   status: TopicStatus
+  bite_sized_topic_id?: string
+  has_bite_sized_content: boolean
 }
 
 /**
@@ -61,6 +64,64 @@ export type TopicStatus = 'not_started' | 'in_progress' | 'completed' | 'mastery
  * User's skill level options
  */
 export type UserLevel = 'beginner' | 'intermediate' | 'advanced'
+
+// ================================
+// Bite-Sized Topic Types
+// ================================
+
+/**
+ * Bite-sized topic for simplified learning interface
+ */
+export interface BiteSizedTopic {
+  id: string
+  title: string
+  core_concept: string
+  user_level: UserLevel
+  learning_objectives: string[]
+  key_concepts: string[]
+  estimated_duration: number
+  created_at: string
+}
+
+/**
+ * Detailed bite-sized topic with all components
+ */
+export interface BiteSizedTopicDetail {
+  id: string
+  title: string
+  core_concept: string
+  user_level: UserLevel
+  learning_objectives: string[]
+  key_concepts: string[]
+  key_aspects: string[]
+  target_insights: string[]
+  common_misconceptions: string[]
+  previous_topics: string[]
+  creation_strategy: string
+  components: TopicComponent[]
+  created_at: string
+  updated_at: string
+}
+
+/**
+ * Individual component within a bite-sized topic
+ */
+export interface TopicComponent {
+  component_type: ComponentType
+  content: any // Can be different structures based on component type
+  metadata: Record<string, any>
+}
+
+/**
+ * Types of components in a bite-sized topic
+ */
+export type ComponentType =
+  | 'didactic_snippet'
+  | 'glossary'
+  | 'socratic_dialogue'
+  | 'short_answer_question'
+  | 'multiple_choice_question'
+  | 'post_topic_quiz'
 
 // ================================
 // Conversation Types
@@ -386,4 +447,24 @@ export interface FeatureFlags {
   enableProgressAnalytics: boolean
   enableVoiceInterface: boolean
   enableCollaborativeLearning: boolean
+}
+
+/**
+ * Information about bite-sized content generation
+ */
+export interface BiteSizedContentInfo {
+  generated_topics: BiteSizedTopicMetadata[]
+  total_generated: number
+  creation_strategy: string
+  user_level: string
+}
+
+/**
+ * Metadata for generated bite-sized topics
+ */
+export interface BiteSizedTopicMetadata {
+  topic_index: number
+  topic_title: string
+  topic_id: string
+  has_bite_sized_content: boolean
 }

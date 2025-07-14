@@ -19,13 +19,14 @@ import {
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
-  { name: 'AI Learning', href: '/learn', icon: MessageSquare },
-  { name: 'My Courses', href: '/courses', icon: BookOpen },
-  { name: 'Achievements', href: '/achievements', icon: Trophy },
-  { name: 'Progress', href: '/progress', icon: BarChart3 },
-  { name: 'Study Groups', href: '/groups', icon: Users },
-  { name: 'Schedule', href: '/schedule', icon: Calendar },
-  { name: 'Settings', href: '/settings', icon: Settings },
+  { name: 'Bite-Sized Learning', href: '/learn', icon: MessageSquare },
+  // Simplified for prototyping - remove unimplemented features
+  // { name: 'My Courses', href: '/courses', icon: BookOpen },
+  // { name: 'Achievements', href: '/achievements', icon: Trophy },
+  // { name: 'Progress', href: '/progress', icon: BarChart3 },
+  // { name: 'Study Groups', href: '/groups', icon: Users },
+  // { name: 'Schedule', href: '/schedule', icon: Calendar },
+  // { name: 'Settings', href: '/settings', icon: Settings },
 ]
 
 interface SidebarProps {

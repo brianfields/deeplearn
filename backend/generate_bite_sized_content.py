@@ -35,7 +35,7 @@ from config.config import get_llm_config
 from modules.lesson_planning.bite_sized_topics.orchestrator import (
     TopicOrchestrator, TopicSpec, CreationStrategy
 )
-from modules.lesson_planning.bite_sized_topics.storage import TopicRepository
+from modules.lesson_planning.bite_sized_topics.postgresql_storage import PostgreSQLTopicRepository
 from simple_storage import SimpleStorage, SimpleLearningPath
 
 # Configure logging
@@ -55,7 +55,7 @@ class BatchContentGenerator:
         self.config = ServiceFactory.create_service_config(llm_config)
         self.llm_client = LLMClient(llm_config)
         self.orchestrator = TopicOrchestrator(self.config, self.llm_client)
-        self.repository = TopicRepository()
+        self.repository = PostgreSQLTopicRepository()
         self.storage = SimpleStorage()
 
     async def initialize(self):

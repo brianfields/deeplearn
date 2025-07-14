@@ -157,6 +157,46 @@ export default function LearnInterface({}: LearnInterfaceProps) {
           </div>
         </div>
 
+        {/* Bite-Sized Content Summary */}
+        {selectedPath.bite_sized_content_info && (
+          <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl border border-emerald-200 shadow-sm">
+            <div className="p-6">
+              <div className="flex items-center space-x-2 mb-4">
+                <div className="h-8 w-8 bg-emerald-100 rounded-full flex items-center justify-center">
+                  <svg className="h-5 w-5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-emerald-900">Enhanced Learning Content</h3>
+                  <p className="text-sm text-emerald-700">Rich, interactive content available for select topics</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white/70 rounded-lg p-4 border border-emerald-200/50">
+                  <div className="text-2xl font-bold text-emerald-800 mb-1">
+                    {selectedPath.bite_sized_content_info.total_generated}
+                  </div>
+                  <div className="text-sm text-emerald-600">Topics with enhanced content</div>
+                </div>
+                <div className="bg-white/70 rounded-lg p-4 border border-emerald-200/50">
+                  <div className="text-sm font-medium text-emerald-800 mb-1">Content Strategy</div>
+                  <div className="text-xs text-emerald-600 capitalize">
+                    {selectedPath.bite_sized_content_info.creation_strategy.replace('_', ' ')}
+                  </div>
+                </div>
+                <div className="bg-white/70 rounded-lg p-4 border border-emerald-200/50">
+                  <div className="text-sm font-medium text-emerald-800 mb-1">Optimized For</div>
+                  <div className="text-xs text-emerald-600 capitalize">
+                    {selectedPath.bite_sized_content_info.user_level} level
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Topics List */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100">
           <div className="p-6 border-b border-gray-100">
@@ -192,7 +232,17 @@ export default function LearnInterface({}: LearnInterfaceProps) {
 
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
-                        <h3 className="font-medium text-gray-900">{topic.title}</h3>
+                        <div className="flex items-center space-x-2">
+                          <h3 className="font-medium text-gray-900">{topic.title}</h3>
+                          {topic.has_bite_sized_content && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200">
+                              <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                              </svg>
+                              Enhanced Content
+                            </span>
+                          )}
+                        </div>
                         <div className="flex items-center space-x-2">
                           <span className="text-sm text-gray-500">{topic.estimated_duration}min</span>
                           <ArrowRight className="h-4 w-4 text-gray-400" />

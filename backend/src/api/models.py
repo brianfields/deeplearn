@@ -58,3 +58,41 @@ class ProgressResponse(BaseModel):
     learning_paths: List[Dict[str, Any]]
     current_session: Optional[Dict[str, Any]]
     overall_stats: Dict[str, Any]
+
+
+# Bite-Sized Topic Models
+class BiteSizedTopicResponse(BaseModel):
+    """Response model for bite-sized topic listing."""
+    id: str
+    title: str
+    core_concept: str
+    user_level: str
+    learning_objectives: List[str]
+    key_concepts: List[str]
+    estimated_duration: int = 15  # Default 15 minutes
+    created_at: str
+
+
+class ComponentResponse(BaseModel):
+    """Response model for individual topic components."""
+    component_type: str
+    content: Any  # Can be dict, list, or string depending on component type
+    metadata: Dict[str, Any] = {}
+
+
+class BiteSizedTopicDetailResponse(BaseModel):
+    """Response model for complete bite-sized topic content."""
+    id: str
+    title: str
+    core_concept: str
+    user_level: str
+    learning_objectives: List[str]
+    key_concepts: List[str]
+    key_aspects: List[str]
+    target_insights: List[str]
+    common_misconceptions: List[str]
+    previous_topics: List[str]
+    creation_strategy: str
+    components: List[ComponentResponse]
+    created_at: str
+    updated_at: str

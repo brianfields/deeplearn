@@ -428,6 +428,31 @@ class TopicRepository:
 
         return topic_content
 
+    async def list_topics(self, limit: Optional[int] = None, offset: int = 0) -> List[StoredTopic]:
+        """List all topics with pagination"""
+        query = "SELECT * FROM topics ORDER BY created_at DESC"
+        params = []
+
+        if limit:
+            query += " LIMIT ?"
+            params.append(limit)
+        if offset:
+            query += " OFFSET ?"
+            params.append(offset)
+
+        async with self._get_connection() as conn:
+            rows = conn.execute(query, params).fetchall()
+            return [StoredTopic.from_dict(dict(row)) for row in rows]
+
+    async def get_topic_components(self, topic_id: str) -> List[StoredComponent]:
+        """Get all components for a topic"""
+        async with self._get_connection() as conn:
+            rows = conn.execute(
+                "SELECT * FROM components WHERE topic_id = ? ORDER BY component_type, created_at",
+                (topic_id,)
+            ).fetchall()
+            return [StoredComponent.from_dict(dict(row)) for row in rows]
+
     async def find_topics(
         self,
         core_concept: Optional[str] = None,

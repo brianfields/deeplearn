@@ -1,63 +1,122 @@
-# Learning App LLM Modules
+# DeepLearn - AI-Powered Learning Platform
 
-This directory contains well-structured, documented modules for integrating Large Language Models (LLMs) into the proactive learning application. The modules are designed to be modular, testable, and easily swappable between different LLM providers.
+An intelligent learning platform that creates personalized educational experiences using AI, built with modern web technologies and PostgreSQL.
 
-## 📁 Project Structure
+## 🌟 Features
 
-This project is organized as a multi-platform application with the following structure:
+- **AI-Generated Learning Paths**: Create comprehensive syllabi tailored to your learning goals
+- **Bite-Sized Content**: Break down complex topics into digestible learning modules
+- **Interactive Conversations**: Socratic dialogue system for deeper understanding
+- **Real-Time Progress Tracking**: Monitor your learning journey with detailed analytics
+- **Modern Architecture**: FastAPI backend, Next.js frontend, PostgreSQL database
+
+## 🏗️ Architecture
 
 ```
-deeplearn/
-├── backend/                 # Python backend API
-│   ├── src/
-│   │   ├── api/            # API endpoints and main app
-│   │   ├── services/       # Business logic and services
-│   │   ├── config/         # Configuration files
-│   │   ├── models/         # Data models
-│   │   └── utils/          # Utility functions
-│   ├── tests/              # Backend tests
-│   ├── logs/               # Application logs
-│   └── requirements.txt    # Python dependencies
-├── web/                    # NextJS web application
-│   ├── src/
-│   │   ├── app/           # NextJS app router pages
-│   │   ├── components/    # React components
-│   │   ├── lib/           # Shared utilities
-│   │   └── styles/        # Styling files
-│   ├── public/            # Static assets
-│   └── prisma/            # Database schema
-├── mobile/                 # React Native mobile app
-│   ├── src/
-│   │   ├── screens/       # Mobile screens
-│   │   ├── components/    # Mobile components
-│   │   ├── services/      # API services
-│   │   ├── utils/         # Utility functions
-│   │   └── assets/        # Images and assets
-│   ├── android/           # Android-specific code
-│   └── ios/               # iOS-specific code
-├── README.md              # This file
-├── QUICKSTART.md          # Quick start guide
-└── learning_app_spec.md   # Application specification
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Next.js Web   │    │  FastAPI API    │    │   PostgreSQL    │
+│    Frontend     │◄──►│     Backend     │◄──►│    Database     │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+                              │
+                       ┌─────────────────┐
+                       │   OpenAI API    │
+                       │  (GPT Models)   │
+                       └─────────────────┘
 ```
-
-## 📁 Module Overview
-
-### Core Modules
-
-1. **`llm_interface.py`** - Abstract LLM interface with OpenAI implementation
-2. **`prompt_engineering.py`** - Structured prompt templates and helpers
-3. **`learning_service.py`** - High-level service combining LLM and prompts
-4. **`data_structures.py`** - Data models and structures
-5. **`learning_app_spec.md`** - Complete application specification
 
 ## 🚀 Quick Start
 
-### Web Application Setup
+### Prerequisites
 
-To run the NextJS frontend locally:
+- **Node.js** 18+ and npm
+- **Python** 3.9+ and pip
+- **PostgreSQL** 12+
+- **OpenAI API Key** (for content generation)
+
+### 1. Database Setup
+
+#### Install PostgreSQL
+
+**macOS (Homebrew):**
+```bash
+brew install postgresql
+brew services start postgresql
+```
+
+**Ubuntu/Debian:**
+```bash
+sudo apt update
+sudo apt install postgresql postgresql-contrib
+sudo systemctl start postgresql
+sudo systemctl enable postgresql
+```
+
+**Windows:**
+Download and install from [postgresql.org](https://www.postgresql.org/download/windows/)
+
+#### Create Database
 
 ```bash
-# Navigate to web directory
+# Create database and user
+createdb deeplearn
+createuser --interactive deeplearn_user
+
+# Grant permissions
+psql -d deeplearn -c "GRANT ALL PRIVILEGES ON DATABASE deeplearn TO deeplearn_user;"
+```
+
+### 2. Backend Setup
+
+```bash
+# Navigate to backend
+cd backend
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure environment
+cp .env.example .env
+# Edit .env with your PostgreSQL credentials and OpenAI API key
+```
+
+**Required Environment Variables:**
+```bash
+# Database (choose one method)
+DATABASE_URL=postgresql://username:password@localhost:5432/deeplearn
+# OR individual components:
+# DATABASE_HOST=localhost
+# DATABASE_PORT=5432
+# DATABASE_NAME=deeplearn
+# DATABASE_USER=username
+# DATABASE_PASSWORD=password
+
+# OpenAI
+OPENAI_API_KEY=your_openai_api_key_here
+```
+
+#### Initialize Database Schema
+
+```bash
+# Generate initial migration
+alembic revision --autogenerate -m "Initial migration"
+
+# Apply migration
+alembic upgrade head
+```
+
+#### Start Backend Server
+
+```bash
+# Development mode
+python -m src.api.server
+
+# Server will run on http://localhost:8000
+```
+
+### 3. Frontend Setup
+
+```bash
+# Navigate to frontend
 cd web
 
 # Install dependencies
@@ -65,570 +124,221 @@ npm install
 
 # Start development server
 npm run dev
+
+# Frontend will run on http://localhost:3000
 ```
 
-The application will be available at `http://localhost:3000`
+### 4. Verify Installation
 
-### Backend API Setup
+Visit `http://localhost:3000` and:
+1. Create a new learning path
+2. Generate bite-sized content
+3. Start a conversation
+4. Check progress tracking
 
-To run the Python backend:
+## 📖 Usage
 
-```bash
-# Navigate to backend directory
-cd backend
+### Creating Learning Paths
 
-# Install dependencies
-pip install -r requirements.txt
+1. **Via Web Interface**: Go to `/learn` and enter your topic
+2. **Via API**: POST to `/api/start-topic` with topic and user level
+3. **Via CLI**: Use backend CLI tools for batch operations
 
-# Set up environment variables
-export OPENAI_API_KEY="your-openai-api-key"
+### Managing Content
 
-# Run the backend server
-python src/api/main.py
-```
-
-### Development Commands
-
-**Web Application:**
-```bash
-cd web
-npm run dev      # Start development server
-npm run build    # Build for production
-npm run start    # Start production server
-npm run lint     # Run linting
-```
-
-**Backend API:**
+**Inspect Learning Content:**
 ```bash
 cd backend
-python src/api/main.py           # Start API server
-python -m pytest tests/         # Run tests
+
+# Quick overview
+python quick_inspect.py --all
+
+# Interactive inspector
+python inspect_bite_sized_content.py
+
+# Specific topic details
+python quick_inspect.py --topic "Machine Learning"
 ```
 
-### Basic Usage
+**Generate Bite-Sized Content:**
+```bash
+# Generate for all learning paths
+python generate_bite_sized_content.py
 
-```python
-import asyncio
-from learning_service import create_learning_service
-
-async def main():
-    # Create service
-    service = create_learning_service(
-        api_key="your-openai-api-key",
-        model="gpt-3.5-turbo"
-    )
-    
-    # Generate syllabus
-    syllabus = await service.generate_syllabus(
-        topic="Python Programming",
-        user_level="beginner"
-    )
-    
-    # Generate lesson content
-    lesson = await service.generate_lesson_content(
-        topic_title=syllabus['topics'][0]['title'],
-        topic_description=syllabus['topics'][0]['description'],
-        learning_objectives=syllabus['topics'][0]['learning_objectives']
-    )
-    
-    print(f"Generated lesson: {len(lesson)} characters")
-
-asyncio.run(main())
+# Generate for specific path
+python generate_bite_sized_content.py --path-id your_path_id
 ```
 
-## 📚 Module Documentation
+### API Endpoints
 
-### LLM Interface (`llm_interface.py`)
+- `GET /api/progress` - Get learning progress
+- `GET /api/learning-paths` - List all learning paths
+- `POST /api/start-topic` - Create new learning path
+- `POST /api/chat` - Send chat message
+- `WebSocket /ws/{client_id}` - Real-time conversations
 
-Provides a clean abstraction layer for interacting with different LLM providers.
+## 🛠️ Development
 
-#### Key Features:
-- **Provider Abstraction**: Easy to swap between OpenAI, Anthropic, etc.
-- **Error Handling**: Comprehensive error handling with custom exceptions
-- **Retry Logic**: Built-in exponential backoff for rate limits
-- **Token Tracking**: Automatic token counting and cost estimation
-- **Structured Responses**: Support for JSON schema validation
+### Project Structure
 
-#### Usage Example:
-
-```python
-from llm_interface import LLMConfig, LLMProvider, OpenAIProvider, LLMMessage, MessageRole
-
-# Configure provider
-config = LLMConfig(
-    provider=LLMProvider.OPENAI,
-    model="gpt-3.5-turbo",
-    api_key="your-api-key",
-    temperature=0.7,
-    max_tokens=1000
-)
-
-# Create provider
-provider = OpenAIProvider(config)
-
-# Generate response
-messages = [
-    LLMMessage(role=MessageRole.SYSTEM, content="You are a helpful assistant."),
-    LLMMessage(role=MessageRole.USER, content="Explain machine learning")
-]
-
-response = await provider.generate_response(messages)
-print(response.content)
+```
+deeplearn/
+├── backend/                 # Python FastAPI backend
+│   ├── src/
+│   │   ├── api/            # REST API endpoints
+│   │   ├── modules/        # Learning engine modules
+│   │   ├── config/         # Configuration management
+│   │   └── database_service.py # PostgreSQL data access
+│   ├── alembic/            # Database migrations
+│   ├── migrate_to_postgres.py # Data migration script
+│   └── requirements.txt    # Python dependencies
+├── web/                    # Next.js frontend
+│   ├── src/
+│   │   ├── app/           # Next.js 13+ app router
+│   │   ├── components/    # React components
+│   │   ├── hooks/         # Custom React hooks
+│   │   └── services/      # API client services
+│   └── package.json       # Node.js dependencies
+└── README.md              # This file
 ```
 
-#### Error Handling:
+### Key Technologies
 
-```python
-from llm_interface import LLMError, LLMRateLimitError, LLMAuthenticationError
+**Backend:**
+- **FastAPI**: Modern Python web framework
+- **SQLAlchemy**: Database ORM with PostgreSQL
+- **Alembic**: Database migration management
+- **Pydantic**: Data validation and serialization
+- **OpenAI API**: GPT models for content generation
 
-try:
-    response = await provider.generate_response(messages)
-except LLMRateLimitError:
-    print("Rate limit exceeded, implement backoff")
-except LLMAuthenticationError:
-    print("Check your API key")
-except LLMError as e:
-    print(f"General LLM error: {e}")
-```
+**Frontend:**
+- **Next.js 13+**: React framework with app router
+- **TypeScript**: Type-safe JavaScript
+- **Tailwind CSS**: Utility-first CSS framework
+- **Shadcn/ui**: Modern React component library
 
-### Prompt Engineering (`prompt_engineering.py`)
+**Database:**
+- **PostgreSQL**: Production-grade relational database
+- **Connection pooling**: Optimized database connections
+- **Migrations**: Version-controlled schema changes
 
-Structured prompt templates for consistent, effective LLM interactions.
+### Database Schema
 
-#### Key Features:
-- **Template System**: Reusable prompt templates for different tasks
-- **Context Management**: Structured context passing
-- **Validation**: Response format validation
-- **Extensibility**: Easy to add new prompt types
+Key tables:
+- `learning_paths`: User learning journeys
+- `topics`: Individual learning topics
+- `bite_sized_topics`: AI-generated educational content
+- `bite_sized_components`: Content components (lessons, quizzes, etc.)
+- `learning_sessions`: User interaction tracking
 
-#### Available Prompt Types:
-- **SYLLABUS_GENERATION**: Generate learning syllabi
-- **LESSON_CONTENT**: Create lesson content
-- **QUIZ_GENERATION**: Generate quiz questions
-- **ASSESSMENT_GRADING**: Grade student responses
-- **REVIEW_CONTENT**: Create review sessions
-- **DIFFICULTY_ADJUSTMENT**: Adjust content difficulty
+### Adding New Features
 
-#### Usage Example:
+1. **Backend**: Add new API endpoints in `src/api/routes.py`
+2. **Frontend**: Create components in `src/components/`
+3. **Database**: Create migrations with `alembic revision --autogenerate`
+4. **AI Integration**: Extend modules in `src/modules/`
 
-```python
-from prompt_engineering import PromptFactory, PromptType, create_default_context
+## 🗄️ Data Migration
 
-# Create context
-context = create_default_context(
-    user_level="intermediate",
-    time_constraint=15
-)
+If you have existing SQLite data, use the migration script:
 
-# Generate syllabus prompt
-prompt = PromptFactory.create_prompt(
-    PromptType.SYLLABUS_GENERATION,
-    context,
-    topic="Data Science",
-    user_refinements=["Focus on practical applications"]
-)
+```bash
+cd backend
 
-# Use with LLM provider
-response = await provider.generate_response(prompt)
-```
+# See what would be migrated
+python migrate_to_postgres.py --dry-run
 
-### Learning Service (`learning_service.py`)
+# Migrate with backup
+python migrate_to_postgres.py --backup
 
-High-level service combining LLM interface with prompt engineering.
-
-#### Key Features:
-- **Complete Learning Operations**: Syllabus, lessons, quizzes, grading
-- **Caching**: Optional content caching for performance
-- **Progress Analysis**: Learning progress tracking and recommendations
-- **Error Recovery**: Comprehensive error handling and retry logic
-
-#### Main Methods:
-
-```python
-from learning_service import LearningService, LearningServiceConfig
-
-service = LearningService(config)
-
-# Generate syllabus
-syllabus = await service.generate_syllabus(
-    topic="Machine Learning",
-    user_level="beginner"
-)
-
-# Create lesson content
-lesson = await service.generate_lesson_content(
-    topic_title="Linear Regression",
-    topic_description="Introduction to linear regression",
-    learning_objectives=["Understand linear relationships", "Apply regression analysis"]
-)
-
-# Generate quiz
-quiz = await service.generate_quiz(
-    topic_title="Linear Regression",
-    learning_objectives=["Understand linear relationships"],
-    lesson_content=lesson,
-    question_count=5
-)
-
-# Grade responses
-grade = await service.grade_quiz_response(
-    question=quiz[0],
-    student_answer="Linear regression models relationships between variables",
-    user_level="beginner"
-)
-
-# Generate review content
-review = await service.generate_review_content(
-    topic_title="Linear Regression",
-    original_content=lesson,
-    time_since_study=7,  # days
-    user_level="beginner"
-)
+# Check migration success
+python quick_inspect.py --all
 ```
 
 ## 🔧 Configuration
 
 ### Environment Variables
 
-```bash
-# OpenAI Configuration
-OPENAI_API_KEY=your-openai-api-key
-OPENAI_MODEL=gpt-3.5-turbo
-
-# Azure OpenAI Configuration
-AZURE_OPENAI_API_KEY=your-azure-key
-AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
-AZURE_OPENAI_API_VERSION=2023-05-15
-```
-
-### Configuration Objects
-
-```python
-from llm_interface import LLMConfig, LLMProvider
-from learning_service import LearningServiceConfig
-
-# LLM Configuration
-llm_config = LLMConfig(
-    provider=LLMProvider.OPENAI,
-    model="gpt-3.5-turbo",
-    api_key="your-api-key",
-    temperature=0.7,
-    max_tokens=1500,
-    timeout=30,
-    max_retries=3
-)
-
-# Service Configuration
-service_config = LearningServiceConfig(
-    llm_config=llm_config,
-    default_lesson_duration=15,
-    max_quiz_questions=10,
-    mastery_threshold=0.9,
-    cache_enabled=True
-)
-```
-
-## 🧪 Testing
-
-### Unit Tests Example
-
-```python
-import pytest
-from unittest.mock import AsyncMock, MagicMock
-from learning_service import LearningService
-
-@pytest.fixture
-def mock_service():
-    config = MagicMock()
-    service = LearningService(config)
-    service.llm_provider = AsyncMock()
-    return service
-
-@pytest.mark.asyncio
-async def test_generate_syllabus(mock_service):
-    # Mock LLM response
-    mock_response = {
-        "topic_name": "Test Topic",
-        "description": "Test Description",
-        "topics": [
-            {
-                "title": "Topic 1",
-                "description": "Description 1",
-                "learning_objectives": ["Objective 1"]
-            }
-        ]
-    }
-    
-    mock_service.llm_provider.generate_structured_response.return_value = mock_response
-    
-    result = await mock_service.generate_syllabus("Test Topic")
-    
-    assert result["topic_name"] == "Test Topic"
-    assert len(result["topics"]) == 1
-```
-
-### Integration Tests
-
-```python
-import asyncio
-from learning_service import create_learning_service
-
-async def test_full_workflow():
-    """Test complete learning workflow"""
-    service = create_learning_service(
-        api_key="test-key",
-        model="gpt-3.5-turbo"
-    )
-    
-    # Test syllabus generation
-    syllabus = await service.generate_syllabus(
-        topic="Test Topic",
-        user_level="beginner"
-    )
-    
-    assert "topics" in syllabus
-    assert len(syllabus["topics"]) > 0
-    
-    # Test lesson generation
-    first_topic = syllabus["topics"][0]
-    lesson = await service.generate_lesson_content(
-        topic_title=first_topic["title"],
-        topic_description=first_topic["description"],
-        learning_objectives=first_topic["learning_objectives"]
-    )
-    
-    assert isinstance(lesson, str)
-    assert len(lesson) > 100  # Reasonable content length
-```
-
-## 📈 Performance Considerations
-
-### Caching Strategy
-
-```python
-# Enable caching for better performance
-service_config = LearningServiceConfig(
-    llm_config=llm_config,
-    cache_enabled=True  # Cache lesson content
-)
-
-# Cache is automatically used for:
-# - Lesson content (based on topic + user level)
-# - Reduces API calls for repeated requests
-```
-
-### Token Management
-
-```python
-# Monitor token usage
-response = await provider.generate_response(messages)
-print(f"Tokens used: {response.tokens_used}")
-print(f"Estimated cost: ${response.cost_estimate}")
-
-# Optimize token usage
-config = LLMConfig(
-    model="gpt-3.5-turbo",  # More cost-effective than GPT-4
-    max_tokens=1000,        # Limit response length
-    temperature=0.7         # Balance creativity vs consistency
-)
-```
-
-## 🔄 Extending the System
-
-### Adding New LLM Providers
-
-```python
-from llm_interface import LLMProvider
-
-class AnthropicProvider(LLMProvider):
-    def __init__(self, config: LLMConfig):
-        super().__init__(config)
-        # Setup Anthropic client
-    
-    async def generate_response(self, messages, **kwargs):
-        # Implement Anthropic-specific logic
-        pass
-    
-    async def generate_structured_response(self, messages, schema, **kwargs):
-        # Implement structured response
-        pass
-```
-
-### Adding New Prompt Types
-
-```python
-from prompt_engineering import PromptTemplate, PromptType
-
-class CustomPromptTemplate(PromptTemplate):
-    def __init__(self):
-        super().__init__(PromptType.CUSTOM_TYPE)
-    
-    def _get_base_instructions(self):
-        return "Your custom instructions here"
-    
-    def generate_prompt(self, context, **kwargs):
-        # Generate custom prompt
-        pass
-
-# Register in PromptFactory
-PromptFactory._templates[PromptType.CUSTOM_TYPE] = CustomPromptTemplate
-```
-
-## 🐛 Error Handling
-
-### Common Error Patterns
-
-```python
-from llm_interface import LLMError, LLMRateLimitError
-from learning_service import ContentGenerationError
-
-try:
-    result = await service.generate_syllabus(topic)
-except LLMRateLimitError:
-    # Implement exponential backoff
-    await asyncio.sleep(2 ** retry_count)
-    retry_count += 1
-except ContentGenerationError as e:
-    # Log error and provide fallback
-    logger.error(f"Content generation failed: {e}")
-    result = get_fallback_content()
-except Exception as e:
-    # Unexpected error
-    logger.error(f"Unexpected error: {e}")
-    raise
-```
-
-## 📊 Monitoring and Logging
-
-### Structured Logging
-
-```python
-import logging
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-
-# Service logs automatically include:
-# - API call metrics
-# - Error details
-# - Performance statistics
-```
-
-### Usage Metrics
-
-```python
-# Get service statistics
-stats = service.get_service_stats()
-print(f"Cache hit rate: {stats['cache_size']}")
-print(f"Provider: {stats['provider']}")
-print(f"Model: {stats['model']}")
-```
-
-## 🔐 Security Considerations
-
-### API Key Management
-
-```python
-import os
-from pathlib import Path
-
-# Use environment variables
-api_key = os.getenv("OPENAI_API_KEY")
-
-# Or secure key management
-def load_api_key():
-    key_file = Path.home() / ".config" / "learning_app" / "api_key"
-    if key_file.exists():
-        return key_file.read_text().strip()
-    raise ValueError("API key not found")
-```
-
-### Input Validation
-
-```python
-# All inputs are validated
-from learning_service import LearningServiceError
-
-try:
-    # Invalid topic length
-    await service.generate_syllabus("x" * 1000)
-except LearningServiceError as e:
-    print(f"Validation error: {e}")
-```
-
-## 🚀 Production Deployment
-
-### Docker Configuration
-
-```dockerfile
-FROM python:3.9-slim
-
-WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-
-COPY . .
-
-CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
-```
-
-### Health Checks
-
-```python
-async def health_check():
-    """Health check endpoint"""
-    try:
-        service = create_learning_service(
-            api_key=os.getenv("OPENAI_API_KEY"),
-            model="gpt-3.5-turbo"
-        )
-        
-        # Simple test
-        stats = service.get_service_stats()
-        return {"status": "healthy", "stats": stats}
-    except Exception as e:
-        return {"status": "unhealthy", "error": str(e)}
-```
-
-## 📝 Contributing
-
-### Code Style
-
-- Follow PEP 8
-- Use type hints
-- Add docstrings to all functions
-- Include comprehensive error handling
-- Write tests for new features
-
-### Testing Requirements
-
-```bash
-# Run tests
-pytest tests/
-
-# Run with coverage
-pytest --cov=. tests/
-
-# Run specific test file
-pytest tests/test_learning_service.py
-```
-
-## 📄 Copyright
-
-Copyright 2025 by Brian Fields. All rights reserved.
-
-## 🤝 Support
-
-For questions or issues:
-1. Check the documentation above
-2. Review the code comments
-3. Create an issue with detailed description
-4. Include error messages and stack traces
+See `backend/.env.example` for all configuration options including:
+- Database connection settings
+- OpenAI API configuration
+- Learning algorithm parameters
+- Logging and debugging options
+
+### Database Tuning
+
+For production deployments:
+- Adjust PostgreSQL connection pool settings
+- Configure appropriate indexes for your query patterns
+- Set up regular maintenance (VACUUM, ANALYZE)
+- Consider read replicas for scaling
+
+## 🐛 Troubleshooting
+
+### Database Issues
+
+**Connection errors:**
+- Verify PostgreSQL is running: `pg_isready`
+- Check DATABASE_URL format and credentials
+- Ensure database exists: `psql -l | grep deeplearn`
+
+**Migration issues:**
+- Reset migrations: `alembic downgrade base && alembic upgrade head`
+- Check Alembic configuration in `alembic.ini`
+
+### API Issues
+
+**Import errors:**
+- Ensure you're in the backend directory
+- Verify virtual environment is activated
+- Check all dependencies are installed: `pip install -r requirements.txt`
+
+**OpenAI API errors:**
+- Verify API key is valid and has credits
+- Check rate limits and quota usage
+- Ensure proper model access permissions
+
+### Frontend Issues
+
+**Build errors:**
+- Clear Next.js cache: `rm -rf .next`
+- Reinstall dependencies: `rm -rf node_modules && npm install`
+- Check Node.js version compatibility
+
+## 📚 Documentation
+
+- [Backend Architecture](backend/ARCHITECTURE.md)
+- [PostgreSQL Migration Guide](backend/POSTGRES_MIGRATION_GUIDE.md)
+- [API Documentation](backend/CLI_COMPREHENSIVE_GUIDE.md)
+- [Frontend Components](web/ARCHITECTURE.md)
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Make your changes and add tests
+4. Commit your changes: `git commit -m 'Add amazing feature'`
+5. Push to the branch: `git push origin feature/amazing-feature`
+6. Open a Pull Request
+
+### Development Workflow
+
+1. **Database changes**: Create migrations with Alembic
+2. **API changes**: Update both backend and frontend
+3. **Testing**: Run backend tests and frontend type checking
+4. **Documentation**: Update relevant docs for changes
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🙏 Acknowledgments
+
+- OpenAI for providing the GPT models
+- FastAPI and Next.js communities
+- PostgreSQL development team
+- All contributors and users of this platform
 
 ---
 
-*This module system provides a solid foundation for building AI-powered learning applications with proper separation of concerns, comprehensive error handling, and easy extensibility.*
+**Need help?** Check our troubleshooting guide above or open an issue on GitHub.

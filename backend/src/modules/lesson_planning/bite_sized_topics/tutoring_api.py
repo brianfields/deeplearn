@@ -10,7 +10,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 import logging
 
-from .storage import TopicRepository, ComponentType, StoredComponent
+from .postgresql_storage import PostgreSQLTopicRepository
+from .storage import ComponentType, StoredComponent
 from .orchestrator import TopicContent, TopicSpec
 
 
@@ -251,7 +252,7 @@ class ContentSelector:
 class TutoringAPI:
     """High-level API for tutoring system integration"""
 
-    def __init__(self, repository: TopicRepository):
+    def __init__(self, repository: PostgreSQLTopicRepository):
         self.repository = repository
         self.content_selector = ContentSelector()
         self.logger = logging.getLogger(__name__)
