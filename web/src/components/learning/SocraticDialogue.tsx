@@ -2,11 +2,14 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Send, MessageCircle, User, Bot, Lightbulb, HelpCircle } from 'lucide-react'
+import { Send, MessageCircle, Lightbulb, CheckCircle, Brain, Sparkles, HelpCircle, User, Bot } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import type { SocraticDialogueProps } from '@/types/components'
 
 interface SocraticMessage {
   id: string
@@ -16,28 +19,16 @@ interface SocraticMessage {
   isGuiding?: boolean
 }
 
-interface SocraticDialogueProps {
-  content: {
-    title: string
-    topic: string
-    initial_question: string
-    context: string
-    guidance_hints: string[]
-  }
-  onComplete: (insights: string[]) => void
-  isLoading?: boolean
-}
-
-export default function SocraticDialogue({ 
-  content, 
-  onComplete, 
-  isLoading = false 
+export default function SocraticDialogue({
+  dialogue,
+  onComplete,
+  isLoading = false
 }: SocraticDialogueProps) {
   const [messages, setMessages] = useState<SocraticMessage[]>([
     {
       id: '1',
       role: 'assistant',
-      content: content.initial_question,
+      content: dialogue.starting_prompt,
       timestamp: new Date(),
       isGuiding: true
     }
@@ -80,7 +71,7 @@ export default function SocraticDialogue({
         "Can you think of an example that illustrates this concept?",
         "What would happen if we changed one variable in this scenario?"
       ]
-      
+
       const assistantMessage: SocraticMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
@@ -108,7 +99,16 @@ export default function SocraticDialogue({
   }
 
   const handleComplete = () => {
-    onComplete(insights)
+    const insights = messages
+      .filter(msg => msg.role === 'user')
+      .map(msg => msg.content)
+
+    onComplete({
+      componentType: 'socratic_dialogue',
+      timeSpent: 0,
+      completed: true,
+      data: { insights }
+    })
   }
 
   const quickPrompts = [
@@ -131,11 +131,14 @@ export default function SocraticDialogue({
             <MessageCircle className="w-5 h-5 text-purple-600" />
             <span className="text-sm font-medium text-purple-600">Explore</span>
           </div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1">
-            {content.title}
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
+            {dialogue.title}
           </h1>
-          <p className="text-gray-600 text-sm">
-            Let&apos;s explore {content.topic} through guided questioning
+          <p className="text-gray-600 text-sm sm:text-base mb-4">
+            Exploring: {dialogue.concept}
+          </p>
+          <p className="text-gray-500 text-xs sm:text-sm">
+            {dialogue.dialogue_objective}
           </p>
         </div>
       </motion.div>

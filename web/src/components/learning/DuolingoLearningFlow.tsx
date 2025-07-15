@@ -165,7 +165,7 @@ export default function DuolingoLearningFlow({ topic, onComplete, onBack }: Duol
         console.log('Raw didactic snippet content:', currentComponent.content)
         return (
           <DidacticSnippet
-            content={currentComponent.content}
+            snippet={currentComponent.content}
             onContinue={() => handleStepComplete('didactic')}
             isLoading={isLoading}
           />
@@ -176,25 +176,31 @@ export default function DuolingoLearningFlow({ topic, onComplete, onBack }: Duol
         const mcContent = currentComponent.content
         console.log('Raw multiple choice content:', mcContent)
 
-        // Ensure the content has the right structure
-        const transformedQuestion = {
-          id: mcContent.id || `mc-${Date.now()}`,
+        // Transform to match MultipleChoiceQuestion interface
+        const transformedMCQuestion = {
+          type: 'multiple_choice_question' as const,
+          number: 1,
+          title: mcContent.title || mcContent.question || 'Question',
           question: mcContent.question || mcContent.title || 'Question',
-          options: Array.isArray(mcContent.options) ? mcContent.options.map((opt: any, index: number) => ({
-            id: opt.id || `option-${index}`,
-            text: opt.text || opt.option || opt,
-            is_correct: opt.is_correct || opt.correct || false,
-            explanation: opt.explanation || ''
-          })) : [],
-          explanation: mcContent.explanation || '',
-          hint: mcContent.hint || ''
+          choices: mcContent.choices || (Array.isArray(mcContent.options) ?
+            mcContent.options.reduce((acc: Record<string, string>, opt: any, index: number) => {
+              const letter = String.fromCharCode(65 + index); // A, B, C, D
+              acc[letter] = opt.text || opt.option || opt;
+              return acc;
+            }, {}) : { 'A': 'Option A', 'B': 'Option B' }),
+          correct_answer: mcContent.correct_answer || 'A',
+          justifications: mcContent.justifications || {},
+          target_concept: mcContent.target_concept || '',
+          purpose: mcContent.purpose || 'Test understanding',
+          difficulty: mcContent.difficulty || 2,
+          tags: mcContent.tags || mcContent.hint || ''
         }
 
-        console.log('Transformed multiple choice question:', transformedQuestion)
+        console.log('Transformed multiple choice question:', transformedMCQuestion)
 
         // Safety check
-        if (!transformedQuestion.options || transformedQuestion.options.length === 0) {
-          console.error('No valid options found for multiple choice question:', mcContent)
+        if (!transformedMCQuestion.choices || Object.keys(transformedMCQuestion.choices).length === 0) {
+          console.error('No valid choices found for multiple choice question:', mcContent)
           return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
               <div className="text-center max-w-md">
@@ -214,7 +220,7 @@ export default function DuolingoLearningFlow({ topic, onComplete, onBack }: Duol
 
         return (
           <MultipleChoice
-            questions={[transformedQuestion]}
+            quiz={{ questions: [transformedMCQuestion] }}
             onComplete={(results) => handleStepComplete('multiple_choice', results)}
             isLoading={isLoading}
           />
@@ -226,26 +232,25 @@ export default function DuolingoLearningFlow({ topic, onComplete, onBack }: Duol
         console.log('Raw short answer content:', saContent)
 
         const transformedSAQuestion = {
-          id: saContent.id || `sa-${Date.now()}`,
+          type: 'short_answer_question' as const,
+          number: 1,
+          title: saContent.title || saContent.question || 'Question',
           question: saContent.question || saContent.title || 'Question',
-          context: saContent.context || '',
-          sample_answers: Array.isArray(saContent.sample_answers) ? saContent.sample_answers :
-                         Array.isArray(saContent.answers) ? saContent.answers :
-                         ['Sample answer'],
-          key_concepts: Array.isArray(saContent.key_concepts) ? saContent.key_concepts :
-                       Array.isArray(saContent.concepts) ? saContent.concepts :
-                       [],
-          evaluation_criteria: Array.isArray(saContent.evaluation_criteria) ? saContent.evaluation_criteria :
-                              Array.isArray(saContent.criteria) ? saContent.criteria :
-                              ['Demonstrates understanding of the concept'],
-          hint: saContent.hint || ''
+          purpose: saContent.purpose || 'Demonstrate understanding',
+          target_concept: saContent.target_concept || 'Core concept',
+          expected_elements: saContent.expected_elements ||
+                           (Array.isArray(saContent.sample_answers) ? saContent.sample_answers.join(', ') :
+                           Array.isArray(saContent.answers) ? saContent.answers.join(', ') :
+                           'Key points to include in your answer'),
+          difficulty: saContent.difficulty || 2,
+          tags: saContent.tags || saContent.hint || ''
         }
 
         console.log('Transformed short answer question:', transformedSAQuestion)
 
         return (
           <ShortAnswer
-            questions={[transformedSAQuestion]}
+            assessment={{ questions: [transformedSAQuestion] }}
             onComplete={(results) => handleStepComplete('short_answer', results)}
             isLoading={isLoading}
           />
@@ -255,7 +260,7 @@ export default function DuolingoLearningFlow({ topic, onComplete, onBack }: Duol
         console.log('Raw socratic dialogue content:', currentComponent.content)
         return (
           <SocraticDialogue
-            content={currentComponent.content}
+            dialogue={currentComponent.content}
             onComplete={(insights) => handleStepComplete('socratic', { insights })}
             isLoading={isLoading}
           />
@@ -265,7 +270,7 @@ export default function DuolingoLearningFlow({ topic, onComplete, onBack }: Duol
         console.log('Raw post topic quiz content:', currentComponent.content)
         return (
           <PostTopicQuiz
-            quizData={currentComponent.content}
+            quiz={currentComponent.content}
             onComplete={(results) => handleStepComplete('quiz', results)}
             onRetry={() => {}} // No retry in Duolingo mode
           />

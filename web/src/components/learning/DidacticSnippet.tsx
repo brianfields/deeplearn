@@ -5,33 +5,21 @@ import { motion } from 'framer-motion'
 import { ChevronRight, BookOpen, Target, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import type { DidacticSnippetProps } from '@/types/components'
 
-interface DidacticSnippetProps {
-  content: {
-    title: string
-    core_concept: string
-    main_content: string
-    key_points: string[]
-    learning_objectives: string[]
-    estimated_duration: number
-  }
-  onContinue: () => void
-  isLoading?: boolean
-}
-
-export default function DidacticSnippet({ 
-  content, 
-  onContinue, 
-  isLoading = false 
+export default function DidacticSnippet({
+  snippet,
+  onContinue,
+  isLoading = false
 }: DidacticSnippetProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
   // Debug log to check what content we're receiving
-  console.log('DidacticSnippet received content:', content)
-  
+  console.log('DidacticSnippet received snippet:', snippet)
+
   // Ensure we have valid content structure
-  if (!content) {
-    console.error('DidacticSnippet: No content provided')
+  if (!snippet) {
+    console.error('DidacticSnippet: No snippet provided')
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
         <div className="max-w-2xl mx-auto">
@@ -57,10 +45,10 @@ export default function DidacticSnippet({
             <span className="text-sm font-medium text-blue-600">Learn</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
-            {content.title || 'Learning Topic'}
+            {snippet.title || 'Learning Topic'}
           </h1>
           <p className="text-gray-600 text-sm sm:text-base">
-            {content.core_concept || 'Educational Content'}
+            {snippet.core_concept || 'Educational Content'}
           </p>
         </motion.div>
 
@@ -72,7 +60,7 @@ export default function DidacticSnippet({
           className="flex items-center gap-2 mb-6 text-sm text-gray-600"
         >
           <Clock className="w-4 h-4" />
-          <span>{content.estimated_duration || 5} min read</span>
+          <span>{snippet.estimated_duration || 5} min read</span>
         </motion.div>
 
         {/* Main Content */}
@@ -84,14 +72,14 @@ export default function DidacticSnippet({
           <Card className="p-6 mb-6 bg-white/90 backdrop-blur-sm border-0 shadow-lg">
             <div className="prose prose-sm sm:prose-base max-w-none">
               <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
-                {content.main_content || 'Content will be displayed here.'}
+                {snippet.snippet || 'Content will be displayed here.'}
               </p>
             </div>
           </Card>
         </motion.div>
 
         {/* Key Points */}
-        {content.key_points && content.key_points.length > 0 && (
+        {snippet.key_points && snippet.key_points.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -100,7 +88,7 @@ export default function DidacticSnippet({
             <Card className="p-6 mb-6 bg-white/90 backdrop-blur-sm border-0 shadow-lg">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Key Points</h3>
               <ul className="space-y-3">
-                {content.key_points.map((point, index) => (
+                {snippet.key_points.map((point, index) => (
                   <motion.li
                     key={index}
                     initial={{ opacity: 0, x: -10 }}
@@ -134,7 +122,7 @@ export default function DidacticSnippet({
                   <Target className="w-4 h-4 text-blue-600" />
                   <span className="font-medium text-gray-900">Learning Objectives</span>
                 </div>
-                <ChevronRight 
+                <ChevronRight
                   className={`w-4 h-4 text-gray-500 transition-transform ${
                     isExpanded ? 'rotate-90' : ''
                   }`}
@@ -142,7 +130,7 @@ export default function DidacticSnippet({
               </div>
             </Card>
           </button>
-          
+
           {isExpanded && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
@@ -152,7 +140,7 @@ export default function DidacticSnippet({
             >
               <Card className="p-4 bg-white/90 backdrop-blur-sm border-0 shadow-lg">
                 <ul className="space-y-2">
-                  {(content.learning_objectives || []).map((objective, index) => (
+                  {(snippet.learning_objectives || []).map((objective, index) => (
                     <li key={index} className="flex items-start gap-2">
                       <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0" />
                       <span className="text-gray-700 text-sm">{objective}</span>

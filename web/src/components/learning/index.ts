@@ -6,7 +6,15 @@ export { default as PostTopicQuiz } from './PostTopicQuiz'
 export { default as ShortAnswer } from './ShortAnswer'
 export { default as SocraticDialogue } from './SocraticDialogue'
 
-// Type exports for learning components
+// Generic component renderer and utilities
+export {
+  default as ComponentRenderer,
+  useComponentSequence,
+  createTypedComponent,
+  exampleComponents
+} from './ComponentRenderer'
+
+// Type exports for learning components (deprecated - use typed system instead)
 export type { default as DidacticSnippetProps } from './DidacticSnippet'
 export type { default as SocraticDialogueProps } from './SocraticDialogue'
 export type { default as MultipleChoiceProps } from './MultipleChoice'

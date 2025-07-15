@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  Trophy, 
-  Target, 
-  Clock, 
-  CheckCircle, 
-  XCircle, 
+import {
+  Trophy,
+  Target,
+  Clock,
+  CheckCircle,
+  XCircle,
   RotateCcw,
   ArrowRight,
   Star,
@@ -32,11 +32,28 @@ interface QuizQuestion {
 }
 
 interface PostTopicQuizProps {
-  quizData: {
-    title: string
-    description: string
-    questions: QuizQuestion[]
-    passing_score: number
+  quiz: {
+    title?: string
+    description?: string
+    items: Array<{
+      title: string
+      type: string
+      question: string
+      target_concept: string
+      difficulty: number
+      tags?: string
+      // Multiple Choice fields
+      choices?: Record<string, string>
+      correct_answer?: string
+      justifications?: Record<string, string>
+      // Short Answer fields
+      expected_elements?: string
+      // Assessment Dialogue fields
+      dialogue_objective?: string
+      scaffolding_prompts?: string
+      exit_criteria?: string
+    }>
+    passing_score?: number
     time_limit?: number
   }
   onComplete: (results: QuizResults) => void
@@ -57,7 +74,7 @@ interface QuizResults {
   answers: any[]
 }
 
-export default function PostTopicQuiz({ quizData, onComplete, onRetry }: PostTopicQuizProps) {
+export default function PostTopicQuiz({ quiz, onComplete, onRetry }: PostTopicQuizProps) {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
   const [shortAnswer, setShortAnswer] = useState('')
@@ -65,19 +82,20 @@ export default function PostTopicQuiz({ quizData, onComplete, onRetry }: PostTop
   const [showResult, setShowResult] = useState(false)
   const [quizCompleted, setQuizCompleted] = useState(false)
   const [startTime] = useState(Date.now())
-  const [timeLeft, setTimeLeft] = useState(quizData.time_limit || 0)
+  const [timeLeft, setTimeLeft] = useState(quiz.time_limit || 0)
   const [finalResults, setFinalResults] = useState<QuizResults | null>(null)
 
-  const currentQuestion = quizData.questions[currentQuestionIndex]
-  const isLastQuestion = currentQuestionIndex === quizData.questions.length - 1
+  const currentQuestion = quiz.items[currentQuestionIndex]
+  const isLastQuestion = currentQuestionIndex === quiz.items.length - 1
 
   const handleQuizComplete = useCallback(() => {
     const timeSpent = Math.round((Date.now() - startTime) / 1000)
     const totalPoints = answers.reduce((sum, answer) => sum + answer.points, 0)
-    const maxPoints = quizData.questions.reduce((sum, q) => sum + q.points, 0)
+    // Calculate max points from difficulty (using difficulty as base points)
+    const maxPoints = quiz.items.reduce((sum, item) => sum + item.difficulty * 10, 0)
     const score = Math.round((totalPoints / maxPoints) * 100)
     const correctAnswers = answers.filter(a => a.isCorrect).length
-    const passed = score >= quizData.passing_score
+    const passed = score >= (quiz.passing_score || 70)
 
     // Calculate breakdown by difficulty
     const breakdown = {
@@ -96,7 +114,7 @@ export default function PostTopicQuiz({ quizData, onComplete, onRetry }: PostTop
 
     const results: QuizResults = {
       score,
-      totalQuestions: quizData.questions.length,
+      totalQuestions: quiz.items.length,
       correctAnswers,
       timeSpent,
       passed,
@@ -107,11 +125,11 @@ export default function PostTopicQuiz({ quizData, onComplete, onRetry }: PostTop
     setFinalResults(results)
     setQuizCompleted(true)
     onComplete(results)
-  }, [startTime, answers, quizData.questions, quizData.passing_score, onComplete])
+  }, [startTime, answers, quiz.items, quiz.passing_score, onComplete])
 
   // Timer effect
   useEffect(() => {
-    if (quizData.time_limit && timeLeft > 0 && !quizCompleted) {
+    if (quiz.time_limit && timeLeft > 0 && !quizCompleted) {
       const timer = setInterval(() => {
         setTimeLeft(prev => {
           if (prev <= 1) {
@@ -123,7 +141,7 @@ export default function PostTopicQuiz({ quizData, onComplete, onRetry }: PostTop
       }, 1000)
       return () => clearInterval(timer)
     }
-  }, [timeLeft, quizCompleted, quizData.time_limit, handleQuizComplete])
+  }, [timeLeft, quizCompleted, quiz.time_limit, handleQuizComplete])
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
@@ -133,7 +151,7 @@ export default function PostTopicQuiz({ quizData, onComplete, onRetry }: PostTop
 
   const handleAnswerSelect = (answer: string) => {
     if (showResult) return
-    
+
     if (currentQuestion.type === 'multiple_choice' || currentQuestion.type === 'true_false') {
       setSelectedAnswer(answer)
     }
@@ -152,14 +170,17 @@ export default function PostTopicQuiz({ quizData, onComplete, onRetry }: PostTop
       : currentQuestion.correct_answer === userAnswer
 
     const answerData = {
-      questionId: currentQuestion.id,
+              questionId: (currentQuestionIndex + 1).toString(),
       question: currentQuestion.question,
       userAnswer,
       correctAnswer: currentQuestion.correct_answer,
       isCorrect,
-      difficulty: currentQuestion.difficulty,
-      points: isCorrect ? currentQuestion.points : 0,
-      explanation: currentQuestion.explanation
+              difficulty: currentQuestion.difficulty > 3 ? 'hard' as const :
+                   currentQuestion.difficulty > 1 ? 'medium' as const : 'easy' as const,
+      points: isCorrect ? currentQuestion.difficulty * 10 : 0,
+      explanation: currentQuestion.justifications ?
+        Object.values(currentQuestion.justifications).join(' ') :
+        currentQuestion.target_concept
     }
 
     setAnswers(prev => [...prev, answerData])
@@ -244,7 +265,7 @@ export default function PostTopicQuiz({ quizData, onComplete, onRetry }: PostTop
               </div>
 
               <div className="text-sm text-gray-600 mb-4">
-                Minimum passing score: {quizData.passing_score}%
+                Minimum passing score: {quiz.passing_score}%
               </div>
 
               <Progress value={finalResults.score} className="mb-4" />
@@ -263,7 +284,7 @@ export default function PostTopicQuiz({ quizData, onComplete, onRetry }: PostTop
                 {Object.entries(finalResults.breakdown).map(([difficulty, data]) => (
                   <div key={difficulty} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Badge 
+                      <Badge
                         variant={difficulty === 'easy' ? 'secondary' : difficulty === 'medium' ? 'default' : 'destructive'}
                         className="capitalize"
                       >
@@ -329,25 +350,25 @@ export default function PostTopicQuiz({ quizData, onComplete, onRetry }: PostTop
           </div>
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
-                {quizData.title}
-              </h1>
+                              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+                  {quiz.title || 'Quiz'}
+                </h1>
               <p className="text-gray-600 text-sm">
-                Question {currentQuestionIndex + 1} of {quizData.questions.length}
+                Question {currentQuestionIndex + 1} of {quiz.items.length}
               </p>
             </div>
             <div className="text-right">
-              {quizData.time_limit && (
+              {quiz.time_limit && (
                 <div className="text-sm text-gray-600 mb-1">Time Left</div>
               )}
-              {quizData.time_limit && (
+              {quiz.time_limit && (
                 <div className={`font-bold ${timeLeft < 60 ? 'text-red-600' : 'text-gray-900'}`}>
                   {formatTime(timeLeft)}
                 </div>
               )}
             </div>
           </div>
-          <Progress value={(currentQuestionIndex / quizData.questions.length) * 100} />
+          <Progress value={(currentQuestionIndex / quiz.items.length) * 100} />
         </motion.div>
 
         {/* Question */}
@@ -359,12 +380,12 @@ export default function PostTopicQuiz({ quizData, onComplete, onRetry }: PostTop
         >
           <Card className="p-6 mb-6 bg-white/90 backdrop-blur-sm border-0 shadow-lg">
             <div className="flex items-center gap-2 mb-4">
-              <Badge variant={currentQuestion.difficulty === 'easy' ? 'secondary' : currentQuestion.difficulty === 'medium' ? 'default' : 'destructive'}>
+              <Badge variant={currentQuestion.difficulty <= 1 ? 'secondary' : currentQuestion.difficulty <= 3 ? 'default' : 'destructive'}>
                 {currentQuestion.difficulty}
               </Badge>
-              <span className="text-sm text-gray-600">{currentQuestion.points} points</span>
+              <span className="text-sm text-gray-600">{currentQuestion.difficulty * 10} points</span>
             </div>
-            
+
             <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-6 leading-relaxed">
               {currentQuestion.question}
             </h2>
@@ -381,10 +402,10 @@ export default function PostTopicQuiz({ quizData, onComplete, onRetry }: PostTop
               />
             ) : (
               <div className="space-y-3">
-                {currentQuestion.options?.map((option, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleAnswerSelect(option)}
+                {Object.entries(currentQuestion.choices || {}).map(([key, option]) => (
+                                      <button
+                      key={key}
+                                          onClick={() => setSelectedAnswer(key)}
                     disabled={showResult}
                     className={`w-full p-4 rounded-lg border-2 transition-all duration-200 text-left ${
                       selectedAnswer === option
@@ -432,7 +453,7 @@ export default function PostTopicQuiz({ quizData, onComplete, onRetry }: PostTop
                       {answers[answers.length - 1]?.isCorrect ? 'Correct!' : 'Incorrect'}
                     </h3>
                     <p className="text-gray-700 text-sm leading-relaxed">
-                      {currentQuestion.explanation}
+                      {currentQuestion.expected_elements || currentQuestion.target_concept}
                     </p>
                   </div>
                 </div>

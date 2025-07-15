@@ -105,6 +105,7 @@ export interface BiteSizedTopicDetail {
 
 /**
  * Individual component within a bite-sized topic
+ * @deprecated Use TypedTopicComponent from @/types/components instead
  */
 export interface TopicComponent {
   component_type: ComponentType
@@ -114,6 +115,7 @@ export interface TopicComponent {
 
 /**
  * Types of components in a bite-sized topic
+ * @deprecated Use ComponentType from @/types/components instead
  */
 export type ComponentType =
   | 'didactic_snippet'
@@ -480,3 +482,65 @@ export interface LearningResults {
   finalScore: number
   completed: boolean
 }
+
+// ================================
+// Re-export Component Types
+// ================================
+
+// Export new typed component system
+export type {
+  // Base types
+  BaseLearningComponentProps,
+  ComponentResults,
+  OnComponentComplete,
+
+  // Specific component types
+  DidacticSnippetContent,
+  DidacticSnippetProps,
+  DidacticSnippetResults,
+
+  MultipleChoiceContent,
+  MultipleChoiceProps,
+  MultipleChoiceResults,
+  MultipleChoiceOption,
+  MultipleChoiceQuestion,
+
+  SocraticDialogueContent,
+  SocraticDialogueProps,
+  SocraticDialogueResults,
+
+  ShortAnswerContent,
+  ShortAnswerProps,
+  ShortAnswerResults,
+  ShortAnswerQuestion,
+
+  PostTopicQuizContent,
+  PostTopicQuizProps,
+  PostTopicQuizResults,
+  QuizQuestion,
+
+  GlossaryContent,
+  GlossaryProps,
+  GlossaryResults,
+  GlossaryTerm,
+
+  // Union types
+  ComponentContent,
+  ComponentProps,
+  ComponentResultsData,
+  ComponentType as NewComponentType,
+
+  // Enhanced interface
+  TypedTopicComponent,
+
+  // Type guards
+} from './components'
+
+export {
+  isDidacticSnippetContent,
+  isMultipleChoiceContent,
+  isSocraticDialogueContent,
+  isShortAnswerContent,
+  isPostTopicQuizContent,
+  isGlossaryContent,
+} from './components'

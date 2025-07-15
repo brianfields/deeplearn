@@ -2,122 +2,107 @@
 
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, X, ChevronRight, HelpCircle, AlertCircle, CheckCircle } from 'lucide-react'
+import { CheckCircle, XCircle, ArrowRight, RotateCcw, Trophy, HelpCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-
-interface MultipleChoiceOption {
-  id: string
-  text: string
-  is_correct: boolean
-  explanation?: string
-}
+import type { MultipleChoiceProps } from '@/types/components'
 
 interface MultipleChoiceQuestion {
-  id: string
+  type: 'multiple_choice_question'
+  number: number
+  title: string
   question: string
-  options: MultipleChoiceOption[]
-  explanation?: string
-  hint?: string
+  choices: Record<string, string>
+  correct_answer: string
+  justifications?: Record<string, string>
+  target_concept?: string
+  purpose?: string
+  difficulty: number
+  tags?: string
 }
 
-interface MultipleChoiceProps {
-  questions: MultipleChoiceQuestion[]
-  onComplete: (results: { correct: number; total: number; details: any[] }) => void
-  isLoading?: boolean
-}
-
-export default function MultipleChoice({ 
-  questions, 
-  onComplete, 
-  isLoading = false 
+export default function MultipleChoice({
+  quiz,
+  onComplete,
+  isLoading = false
 }: MultipleChoiceProps) {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
-  const [selectedOption, setSelectedOption] = useState<string | null>(null)
+  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
   const [showResult, setShowResult] = useState(false)
   const [showHint, setShowHint] = useState(false)
   const [results, setResults] = useState<any[]>([])
-  const [progress, setProgress] = useState(0)
-
-  const currentQuestion = questions[currentQuestionIndex]
-  const isLastQuestion = currentQuestionIndex === questions.length - 1
 
   useEffect(() => {
-    setProgress((currentQuestionIndex / questions.length) * 100)
-  }, [currentQuestionIndex, questions.length])
+    setSelectedAnswer(null)
+    setShowResult(false)
+    setShowHint(false)
+  }, [currentQuestionIndex])
 
-  const handleOptionSelect = (optionId: string) => {
-    if (showResult) return
-    setSelectedOption(optionId)
-  }
+  const currentQuestion = quiz.questions[currentQuestionIndex]
+  const isLastQuestion = currentQuestionIndex === quiz.questions.length - 1
 
-  const handleSubmitAnswer = () => {
-    if (!selectedOption) return
+  const handleSubmit = () => {
+    if (!selectedAnswer) return
 
-    const selectedOptionObj = currentQuestion.options.find(opt => opt.id === selectedOption)
-    const isCorrect = selectedOptionObj?.is_correct || false
-
+    const isCorrect = selectedAnswer === currentQuestion.correct_answer
     const result = {
-      questionId: currentQuestion.id,
+      questionId: currentQuestion.number.toString(),
       question: currentQuestion.question,
-      selectedOption: selectedOption,
-      selectedText: selectedOptionObj?.text || '',
+      selectedOption: selectedAnswer,
+      selectedText: currentQuestion.choices[selectedAnswer],
       isCorrect,
-      explanation: selectedOptionObj?.explanation || currentQuestion.explanation
+      explanation: currentQuestion.justifications?.[selectedAnswer] || ''
     }
 
     setResults(prev => [...prev, result])
     setShowResult(true)
   }
 
-  const handleNextQuestion = () => {
+  const handleNext = () => {
     if (isLastQuestion) {
-      const correctCount = results.filter(r => r.isCorrect).length + 
-                          (showResult && currentQuestion.options.find(opt => opt.id === selectedOption)?.is_correct ? 1 : 0)
-      
+      const finalResults = [...results]
+      const correctCount = finalResults.filter(r => r.isCorrect).length
       onComplete({
-        correct: correctCount,
-        total: questions.length,
-        details: [...results, {
-          questionId: currentQuestion.id,
-          question: currentQuestion.question,
-          selectedOption: selectedOption,
-          selectedText: currentQuestion.options.find(opt => opt.id === selectedOption)?.text || '',
-          isCorrect: currentQuestion.options.find(opt => opt.id === selectedOption)?.is_correct || false,
-          explanation: currentQuestion.options.find(opt => opt.id === selectedOption)?.explanation || currentQuestion.explanation
-        }]
+        componentType: 'multiple_choice_question',
+        timeSpent: 0,
+        completed: true,
+        data: {
+          correct: correctCount,
+          total: finalResults.length,
+          details: finalResults
+        }
       })
     } else {
       setCurrentQuestionIndex(prev => prev + 1)
-      setSelectedOption(null)
-      setShowResult(false)
-      setShowHint(false)
     }
   }
 
-  const getOptionStyle = (option: MultipleChoiceOption) => {
-    const isSelected = selectedOption === option.id
-    
+    const getOptionStyle = (choiceKey: string) => {
+    const isSelected = selectedAnswer === choiceKey
+
     if (!showResult) {
-      return isSelected 
+      return isSelected
         ? 'bg-blue-100 border-blue-500 text-blue-900'
         : 'bg-white border-gray-200 hover:border-gray-300 text-gray-700'
     }
 
-    if (option.is_correct) {
+    const isCorrect = choiceKey === currentQuestion.correct_answer
+
+    if (isCorrect) {
       return 'bg-green-100 border-green-500 text-green-900'
     }
 
-    if (isSelected && !option.is_correct) {
+    if (isSelected && !isCorrect) {
       return 'bg-red-100 border-red-500 text-red-900'
     }
 
     return 'bg-gray-50 border-gray-200 text-gray-500'
   }
 
-  const getOptionIcon = (option: MultipleChoiceOption) => {
-    const isSelected = selectedOption === option.id
+  const getOptionIcon = (choiceKey: string) => {
+    const isSelected = selectedAnswer === choiceKey
 
     if (!showResult) {
       return isSelected ? (
@@ -129,18 +114,20 @@ export default function MultipleChoice({
       )
     }
 
-    if (option.is_correct) {
+    const isCorrect = choiceKey === currentQuestion.correct_answer
+
+    if (isCorrect) {
       return (
         <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
-          <Check className="w-3 h-3 text-white" />
+          <CheckCircle className="w-3 h-3 text-white" />
         </div>
       )
     }
 
-    if (isSelected && !option.is_correct) {
+    if (isSelected && !isCorrect) {
       return (
         <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
-          <X className="w-3 h-3 text-white" />
+          <XCircle className="w-3 h-3 text-white" />
         </div>
       )
     }
@@ -164,15 +151,15 @@ export default function MultipleChoice({
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
-                Question {currentQuestionIndex + 1} of {questions.length}
+                Question {currentQuestionIndex + 1} of {quiz.questions.length}
               </h1>
               <p className="text-gray-600 text-sm">
-                Choose the best answer
+                {currentQuestion.title}
               </p>
             </div>
             <div className="text-right">
               <div className="text-sm text-gray-600 mb-1">Progress</div>
-              <Progress value={progress} className="w-24" />
+              <Progress value={((currentQuestionIndex + 1) / quiz.questions.length) * 100} className="w-24" />
             </div>
           </div>
         </motion.div>
@@ -191,20 +178,20 @@ export default function MultipleChoice({
 
             {/* Options */}
             <div className="space-y-3">
-              {currentQuestion.options.map((option, index) => (
+              {Object.entries(currentQuestion.choices).map(([choiceKey, choiceText], index) => (
                 <motion.button
-                  key={option.id}
+                  key={choiceKey}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  onClick={() => handleOptionSelect(option.id)}
+                  onClick={() => setSelectedAnswer(choiceKey)}
                   disabled={showResult}
-                  className={`w-full p-4 rounded-lg border-2 transition-all duration-200 ${getOptionStyle(option)}`}
+                  className={`w-full p-4 rounded-lg border-2 transition-all duration-200 ${getOptionStyle(choiceKey)}`}
                 >
                   <div className="flex items-center gap-3">
-                    {getOptionIcon(option)}
+                    {getOptionIcon(choiceKey)}
                     <span className="text-left text-sm sm:text-base font-medium flex-1">
-                      {option.text}
+                      {choiceKey}. {choiceText}
                     </span>
                   </div>
                 </motion.button>
@@ -213,7 +200,7 @@ export default function MultipleChoice({
           </Card>
         </motion.div>
 
-        {/* Explanation */}
+                {/* Explanation */}
         <AnimatePresence>
           {showResult && (
             <motion.div
@@ -224,20 +211,20 @@ export default function MultipleChoice({
             >
               <Card className="p-6 bg-white/90 backdrop-blur-sm border-0 shadow-lg">
                 <div className="flex items-start gap-3">
-                  {currentQuestion.options.find(opt => opt.id === selectedOption)?.is_correct ? (
+                  {selectedAnswer === currentQuestion.correct_answer ? (
                     <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
                   ) : (
-                    <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
+                    <XCircle className="w-5 h-5 text-red-600 mt-0.5" />
                   )}
                   <div className="flex-1">
                     <h3 className="font-semibold text-gray-900 mb-2">
-                      {currentQuestion.options.find(opt => opt.id === selectedOption)?.is_correct 
-                        ? 'Correct!' 
+                      {selectedAnswer === currentQuestion.correct_answer
+                        ? 'Correct!'
                         : 'Not quite right'}
                     </h3>
                     <p className="text-gray-700 text-sm leading-relaxed">
-                      {currentQuestion.options.find(opt => opt.id === selectedOption)?.explanation || 
-                       currentQuestion.explanation}
+                      {selectedAnswer && currentQuestion.justifications?.[selectedAnswer] ||
+                       'Good attempt! The correct answer is ' + currentQuestion.correct_answer + '.'}
                     </p>
                   </div>
                 </div>
@@ -247,7 +234,7 @@ export default function MultipleChoice({
         </AnimatePresence>
 
         {/* Hint */}
-        {currentQuestion.hint && !showResult && (
+        {currentQuestion.tags && !showResult && (
           <div className="mb-6">
             <Button
               variant="outline"
@@ -258,7 +245,7 @@ export default function MultipleChoice({
               <HelpCircle className="w-4 h-4 mr-2" />
               {showHint ? 'Hide Hint' : 'Show Hint'}
             </Button>
-            
+
             <AnimatePresence>
               {showHint && (
                 <motion.div
@@ -270,7 +257,7 @@ export default function MultipleChoice({
                   <Card className="p-4 bg-yellow-50 border-yellow-200">
                     <div className="flex items-start gap-2">
                       <HelpCircle className="w-4 h-4 text-yellow-600 mt-0.5" />
-                      <p className="text-yellow-800 text-sm">{currentQuestion.hint}</p>
+                      <p className="text-yellow-800 text-sm">{currentQuestion.tags}</p>
                     </div>
                   </Card>
                 </motion.div>
@@ -288,8 +275,8 @@ export default function MultipleChoice({
         >
           {!showResult ? (
             <Button
-              onClick={handleSubmitAnswer}
-              disabled={!selectedOption || isLoading}
+              onClick={handleSubmit}
+              disabled={!selectedAnswer || isLoading}
               className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 text-base font-medium"
             >
               {isLoading ? (
@@ -303,12 +290,12 @@ export default function MultipleChoice({
             </Button>
           ) : (
             <Button
-              onClick={handleNextQuestion}
+              onClick={handleNext}
               className="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 text-base font-medium"
             >
               <div className="flex items-center gap-2">
                 {isLastQuestion ? 'Complete' : 'Next Question'}
-                <ChevronRight className="w-4 h-4" />
+                <ArrowRight className="w-4 h-4" />
               </div>
             </Button>
           )}

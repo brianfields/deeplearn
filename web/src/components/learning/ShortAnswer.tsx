@@ -2,12 +2,12 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  Send, 
-  CheckCircle, 
-  AlertCircle, 
-  Lightbulb, 
-  RotateCcw, 
+import {
+  Send,
+  CheckCircle,
+  AlertCircle,
+  Lightbulb,
+  RotateCcw,
   Edit3,
   HelpCircle,
   Star,
@@ -18,22 +18,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-
-interface ShortAnswerQuestion {
-  id: string
-  question: string
-  context?: string
-  sample_answers: string[]
-  key_concepts: string[]
-  evaluation_criteria: string[]
-  hint?: string
-}
-
-interface ShortAnswerProps {
-  questions: ShortAnswerQuestion[]
-  onComplete: (results: { responses: any[], feedback: any[] }) => void
-  isLoading?: boolean
-}
+import type { ShortAnswerProps, ShortAnswerQuestion } from '@/types/components'
 
 type FeedbackType = 'excellent' | 'good' | 'needs_improvement' | 'incomplete'
 
@@ -46,10 +31,10 @@ interface AnswerFeedback {
   overallComment: string
 }
 
-export default function ShortAnswer({ 
-  questions, 
-  onComplete, 
-  isLoading = false 
+export default function ShortAnswer({
+  assessment,
+  onComplete,
+  isLoading = false
 }: ShortAnswerProps) {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [answer, setAnswer] = useState('')
@@ -60,8 +45,8 @@ export default function ShortAnswer({
   const [allFeedback, setAllFeedback] = useState<any[]>([])
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  const currentQuestion = questions[currentQuestionIndex]
-  const isLastQuestion = currentQuestionIndex === questions.length - 1
+  const currentQuestion = assessment.questions[currentQuestionIndex]
+  const isLastQuestion = currentQuestionIndex === assessment.questions.length - 1
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -74,10 +59,19 @@ export default function ShortAnswer({
     // This would normally call your AI service for evaluation
     // For now, we'll simulate feedback based on answer length and key concepts
     const wordCount = answer.split(/\s+/).filter(word => word.length > 0).length
-    const keyConceptsFound = question.key_concepts.filter(concept => 
-      answer.toLowerCase().includes(concept.toLowerCase())
+
+    // Extract key concepts from expected_elements string
+    const expectedElements = question.expected_elements.toLowerCase()
+    const keyTerms = [question.target_concept.toLowerCase()]
+
+    // Simple heuristic: check if answer contains target concept and some keywords from expected elements
+    const answerLower = answer.toLowerCase()
+    const conceptMentioned = answerLower.includes(question.target_concept.toLowerCase())
+    const hasSubstantialContent = wordCount >= 20
+    const seemsRelevant = expectedElements.split(' ').slice(0, 5).some(word =>
+      word.length > 3 && answerLower.includes(word)
     )
-    
+
     let type: FeedbackType
     let score: number
     let strengths: string[] = []
@@ -93,28 +87,28 @@ export default function ShortAnswer({
         'Address all parts of the question'
       ]
       overallComment = 'Your answer needs more development. Try to elaborate on your main points.'
-    } else if (keyConceptsFound.length === question.key_concepts.length) {
+    } else if (conceptMentioned && hasSubstantialContent && seemsRelevant) {
       type = 'excellent'
       score = 5
       strengths = [
-        'Covers all key concepts',
+        'Addresses the target concept',
         'Well-structured response',
         'Clear understanding demonstrated'
       ]
       overallComment = 'Excellent work! You\'ve demonstrated a strong understanding of the topic.'
-    } else if (keyConceptsFound.length >= Math.ceil(question.key_concepts.length / 2)) {
+    } else if (conceptMentioned || seemsRelevant) {
       type = 'good'
       score = 4
       strengths = ['Good understanding shown', 'Clear explanations']
-      improvements = ['Consider addressing all key concepts']
-      overallComment = 'Good response! You could strengthen it by covering a few more key concepts.'
+      improvements = ['Consider addressing the core concept more directly']
+      overallComment = 'Good response! You could strengthen it by focusing more on the key concepts.'
     } else {
       type = 'needs_improvement'
       score = 3
       strengths = ['Shows some understanding']
       improvements = [
-        'Include more key concepts',
-        'Provide clearer explanations',
+        'Focus on the target concept',
+        'Include expected elements from the question',
         'Connect ideas more explicitly'
       ]
       overallComment = 'Your answer shows some understanding but could be improved.'
@@ -125,7 +119,7 @@ export default function ShortAnswer({
       score,
       strengths,
       improvements,
-      keyConceptsCovered: keyConceptsFound,
+      keyConceptsCovered: conceptMentioned ? [question.target_concept] : [],
       overallComment
     }
   }
@@ -134,10 +128,10 @@ export default function ShortAnswer({
     if (!answer.trim()) return
 
     setIsSubmitting(true)
-    
+
     // Simulate API call delay
     await new Promise(resolve => setTimeout(resolve, 1500))
-    
+
     const answerFeedback = generateFeedback(answer, currentQuestion)
     setFeedback(answerFeedback)
     setIsSubmitting(false)
@@ -147,7 +141,7 @@ export default function ShortAnswer({
     if (!feedback) return
 
     const response = {
-      questionId: currentQuestion.id,
+      questionId: currentQuestion.number.toString(),
       question: currentQuestion.question,
       answer: answer,
       feedback: feedback
@@ -158,8 +152,13 @@ export default function ShortAnswer({
 
     if (isLastQuestion) {
       onComplete({
-        responses: [...responses, response],
-        feedback: [...allFeedback, feedback]
+        componentType: 'short_answer_question',
+        timeSpent: 0,
+        completed: true,
+        data: {
+          responses: [...responses, response],
+          feedback: [...allFeedback, feedback]
+        }
       })
     } else {
       setCurrentQuestionIndex(prev => prev + 1)
@@ -222,7 +221,7 @@ export default function ShortAnswer({
             <span className="text-sm font-medium text-indigo-600">Reflect</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
-            Question {currentQuestionIndex + 1} of {questions.length}
+            Question {currentQuestionIndex + 1} of {assessment.questions.length}
           </h1>
           <p className="text-gray-600 text-sm">
             Write a thoughtful response
@@ -240,24 +239,20 @@ export default function ShortAnswer({
             <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 leading-relaxed">
               {currentQuestion.question}
             </h2>
-            
-            {currentQuestion.context && (
-              <div className="mb-4 p-4 bg-indigo-50 rounded-lg border border-indigo-200">
-                <p className="text-indigo-800 text-sm leading-relaxed">
-                  <strong>Context:</strong> {currentQuestion.context}
-                </p>
-              </div>
-            )}
 
-            {/* Key Concepts */}
+            <div className="mb-4 p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+              <p className="text-indigo-800 text-sm leading-relaxed">
+                <strong>Purpose:</strong> {currentQuestion.purpose}
+              </p>
+            </div>
+
+            {/* Target Concept */}
             <div className="mb-4">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Key concepts to consider:</h3>
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Focus on this concept:</h3>
               <div className="flex flex-wrap gap-2">
-                {currentQuestion.key_concepts.map((concept, index) => (
-                  <Badge key={index} variant="secondary" className="text-xs">
-                    {concept}
-                  </Badge>
-                ))}
+                <Badge variant="secondary" className="text-xs">
+                  {currentQuestion.target_concept}
+                </Badge>
               </div>
             </div>
           </Card>
@@ -291,7 +286,7 @@ export default function ShortAnswer({
         </motion.div>
 
         {/* Hint */}
-        {currentQuestion.hint && !feedback && (
+        {!feedback && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -307,7 +302,7 @@ export default function ShortAnswer({
               <HelpCircle className="w-4 h-4 mr-2" />
               {showHint ? 'Hide Hint' : 'Show Hint'}
             </Button>
-            
+
             <AnimatePresence>
               {showHint && (
                 <motion.div
@@ -316,12 +311,23 @@ export default function ShortAnswer({
                   exit={{ opacity: 0, height: 0 }}
                   className="mt-3"
                 >
-                  <Card className="p-4 bg-blue-50 border-blue-200">
-                    <div className="flex items-start gap-2">
-                      <Lightbulb className="w-4 h-4 text-blue-600 mt-0.5" />
-                      <p className="text-blue-800 text-sm">{currentQuestion.hint}</p>
+                                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        <Lightbulb className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="text-blue-800 font-medium mb-2">Hint</p>
+                          <p className="text-blue-700 text-sm mb-2">
+                            <strong>Purpose:</strong> {currentQuestion.purpose}
+                          </p>
+                          <p className="text-blue-700 text-sm mb-2">
+                            <strong>Focus on:</strong> {currentQuestion.target_concept}
+                          </p>
+                          <p className="text-blue-700 text-sm">
+                            <strong>Consider including:</strong> {currentQuestion.expected_elements}
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                  </Card>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -391,20 +397,17 @@ export default function ShortAnswer({
 
                 {/* Key Concepts Covered */}
                 <div>
-                  <h4 className="font-medium text-gray-900 mb-2">Key concepts covered:</h4>
+                  <h4 className="font-medium text-gray-900 mb-2">Target concept coverage:</h4>
                   <div className="flex flex-wrap gap-2">
-                    {currentQuestion.key_concepts.map((concept, index) => (
-                      <Badge 
-                        key={index} 
-                        variant={feedback.keyConceptsCovered.includes(concept) ? "default" : "secondary"}
-                        className="text-xs"
-                      >
-                        {concept}
-                        {feedback.keyConceptsCovered.includes(concept) && (
-                          <CheckCircle className="w-3 h-3 ml-1" />
-                        )}
-                      </Badge>
-                    ))}
+                    <Badge
+                      variant={feedback.keyConceptsCovered.includes(currentQuestion.target_concept) ? "default" : "secondary"}
+                      className="text-xs"
+                    >
+                      {currentQuestion.target_concept}
+                      {feedback.keyConceptsCovered.includes(currentQuestion.target_concept) && (
+                        <CheckCircle className="w-3 h-3 ml-1" />
+                      )}
+                    </Badge>
                   </div>
                 </div>
               </Card>
