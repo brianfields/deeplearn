@@ -468,3 +468,15 @@ export interface BiteSizedTopicMetadata {
   topic_id: string
   has_bite_sized_content: boolean
 }
+
+/**
+ * Results from completing a learning topic
+ */
+export interface LearningResults {
+  topicId: string
+  timeSpent: number
+  stepsCompleted: string[]
+  interactionResults: any[]
+  finalScore: number
+  completed: boolean
+}

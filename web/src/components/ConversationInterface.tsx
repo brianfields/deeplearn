@@ -77,7 +77,7 @@ export default function ConversationInterface({ pathId, topicId, topicTitle, onC
   return (
     <div className="h-full flex bg-gray-50/30 backdrop-blur-sm">
       {/* Main conversation area - uses flex column with proper height management */}
-      <div className="flex-1 flex flex-col min-h-0">
+      <div className="flex-1 flex flex-col h-full">
         {/* Fixed Header - explicit height */}
         <header className="h-20 flex-shrink-0 border-b border-gray-200/50 bg-white/80 backdrop-blur-md">
           <div className="h-full px-6 flex items-center justify-between">
@@ -118,7 +118,7 @@ export default function ConversationInterface({ pathId, topicId, topicTitle, onC
           {/* Messages area - scrollable content */}
           <div className="flex-1 flex flex-col min-h-0">
             {/* Scrollable Messages - THIS IS THE ONLY SCROLLING AREA */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto min-h-0">
               <div className="px-6 py-4 space-y-6">
                 {messages.map((message, index) => (
                   <div

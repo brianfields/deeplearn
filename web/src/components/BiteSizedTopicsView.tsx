@@ -12,13 +12,12 @@ import {
   Loader2,
   AlertCircle,
   RefreshCw,
-  Eye
+  Eye,
+  Zap,
+  Flame
 } from 'lucide-react'
-import { useBiteSizedTopics } from '@/hooks'
-import ConversationInterface from './ConversationInterface'
-import type { BiteSizedTopic, ConversationSession } from '@/types'
-
-
+import { useBiteSizedTopics, useDuolingoLearning } from '@/hooks'
+import type { BiteSizedTopic } from '@/types'
 
 export default function BiteSizedTopicsView() {
   const {
@@ -26,19 +25,14 @@ export default function BiteSizedTopicsView() {
     isLoading,
     isLoadingDetail,
     error,
-    refreshTopics,
-    startConversation
+    refreshTopics
   } = useBiteSizedTopics()
 
-  const [activeConversation, setActiveConversation] = useState<ConversationSession | null>(null)
+  const { cacheStats, isOfflineAvailable } = useDuolingoLearning()
 
-  const handleRunTopic = async (topic: BiteSizedTopic) => {
-    try {
-      const session = await startConversation(topic.id)
-      setActiveConversation(session)
-    } catch (error) {
-      console.error('Failed to start conversation:', error)
-    }
+  const handleRunTopic = (topic: BiteSizedTopic) => {
+    // Navigate to topic page with Duolingo-style learning mode
+    window.location.href = `/topic/${topic.id}?mode=learning&duolingo=true`
   }
 
   const handleViewContent = (topic: BiteSizedTopic) => {
@@ -46,20 +40,33 @@ export default function BiteSizedTopicsView() {
     window.open(`/topic/${topic.id}`, '_blank')
   }
 
-
-
-  const handleCloseConversation = () => {
-    setActiveConversation(null)
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-4" />
+          <p className="text-gray-600">Loading bite-sized topics...</p>
+        </div>
+      </div>
+    )
   }
 
-  if (activeConversation) {
+  if (error) {
     return (
-      <ConversationInterface
-        pathId="bite-sized"
-        topicId={activeConversation.session_id}
-        topicTitle={activeConversation.topic_title}
-        onClose={handleCloseConversation}
-      />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Error Loading Topics</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button
+            onClick={refreshTopics}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 mx-auto"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Try Again
+          </button>
+        </div>
+      </div>
     )
   }
 
@@ -67,114 +74,139 @@ export default function BiteSizedTopicsView() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-6xl mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Bite-Sized Learning Topics</h1>
-              <p className="text-gray-600 mt-2">
-                Choose a topic to start an interactive learning session or explore the content
-              </p>
+              <h1 className="text-3xl font-bold text-gray-900">Bite-Sized Learning</h1>
+              <p className="text-gray-600 mt-1">Quick, focused topics you can complete in 15 minutes</p>
             </div>
-            <button
-              onClick={refreshTopics}
-              disabled={isLoading}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-            >
-              {isLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <RefreshCw className="w-4 h-4" />
+
+            {/* Stats display */}
+            <div className="flex items-center gap-6">
+              {cacheStats.currentStreak > 0 && (
+                <div className="flex items-center gap-2 text-orange-600">
+                  <Flame className="w-5 h-5" />
+                  <div className="text-right">
+                    <div className="text-xl font-bold">{cacheStats.currentStreak}</div>
+                    <div className="text-xs">Day Streak</div>
+                  </div>
+                </div>
               )}
-              Refresh
-            </button>
+
+              <div className="flex items-center gap-2 text-green-600">
+                <Target className="w-5 h-5" />
+                <div className="text-right">
+                  <div className="text-xl font-bold">{cacheStats.todayProgress}</div>
+                  <div className="text-xs">Today</div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 text-blue-600">
+                <Book className="w-5 h-5" />
+                <div className="text-right">
+                  <div className="text-xl font-bold">{cacheStats.cachedTopics}</div>
+                  <div className="text-xs">Cached</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Error State */}
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-red-500" />
-            <span className="text-red-700">{error}</span>
-          </div>
-        )}
-
-        {/* Loading State */}
-        {isLoading && topics.length === 0 ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="text-center">
-              <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-4" />
-              <p className="text-gray-600">Loading topics...</p>
-            </div>
+      {/* Topics grid */}
+      <div className="max-w-6xl mx-auto px-4 py-8">
+        {topics.length === 0 ? (
+          <div className="text-center py-12">
+            <Book className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">No Topics Available</h3>
+            <p className="text-gray-600 mb-4">Create a learning path to generate bite-sized topics.</p>
+            <button
+              onClick={() => window.location.href = '/learn'}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Create Learning Path
+            </button>
           </div>
         ) : (
-          /* Topics Grid */
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {topics.map((topic) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {topics.map((topic: BiteSizedTopic) => (
               <motion.div
                 key={topic.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
               >
-                {/* Topic Card Header */}
+                {/* Topic header */}
                 <div className="p-6">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">{topic.title}</h3>
-                      <p className="text-gray-600 text-sm mb-3">{topic.core_concept}</p>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
+                        {topic.title}
+                      </h3>
+                      <p className="text-gray-600 text-sm mb-3 line-clamp-2">
+                        {topic.core_concept}
+                      </p>
                     </div>
-                    <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
-                      {topic.user_level}
-                    </span>
+
+                    {/* Offline indicator */}
+                    {isOfflineAvailable && (
+                      <div className="w-2 h-2 bg-green-500 rounded-full ml-2 mt-1"
+                           title="Available offline" />
+                    )}
                   </div>
 
-                  {/* Learning Objectives Preview */}
+                  {/* Topic metadata */}
+                  <div className="flex items-center gap-4 text-xs text-gray-500 mb-4">
+                    <div className="flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      <span>~15 min</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Target className="w-3 h-3" />
+                      <span>{topic.learning_objectives.length} objectives</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Brain className="w-3 h-3" />
+                      <span>{topic.user_level}</span>
+                    </div>
+                  </div>
+
+                  {/* Learning objectives preview */}
                   <div className="mb-4">
-                    <h4 className="text-sm font-medium text-gray-900 mb-2">Learning Goals</h4>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">You'll learn:</h4>
                     <ul className="space-y-1">
-                      {topic.learning_objectives.slice(0, 2).map((objective, index) => (
-                        <li key={index} className="flex items-start gap-2 text-sm text-gray-600">
-                          <Target className="w-3 h-3 mt-0.5 text-blue-500 shrink-0" />
-                          {objective}
+                      {topic.learning_objectives.slice(0, 2).map((objective: string, index: number) => (
+                        <li key={index} className="text-xs text-gray-600 flex items-start gap-2">
+                          <span className="text-blue-500 mt-1">•</span>
+                          <span className="line-clamp-1">{objective}</span>
                         </li>
                       ))}
                       {topic.learning_objectives.length > 2 && (
-                        <li className="text-sm text-gray-500">
-                          +{topic.learning_objectives.length - 2} more objectives
+                        <li className="text-xs text-gray-500">
+                          +{topic.learning_objectives.length - 2} more...
                         </li>
                       )}
                     </ul>
                   </div>
+                </div>
 
-                  {/* Metadata */}
-                  <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
-                    <div className="flex items-center gap-1">
-                      <Clock className="w-4 h-4" />
-                      {topic.estimated_duration} min
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Brain className="w-4 h-4" />
-                      {topic.key_concepts.length} concepts
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
+                {/* Action buttons */}
+                <div className="px-6 pb-6">
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleRunTopic(topic)}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      className="flex-1 bg-gradient-to-r from-green-600 to-blue-600 text-white py-3 px-4 rounded-lg font-medium flex items-center justify-center gap-2 hover:from-green-700 hover:to-blue-700 transition-all text-sm"
                     >
-                      <Play className="w-4 h-4" />
+                      <Zap className="w-4 h-4" />
                       Start Learning
                     </button>
+
                     <button
                       onClick={() => handleViewContent(topic)}
-                      className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                      className="px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                      title="View content"
                     >
                       <Eye className="w-4 h-4" />
-                      View Content
                     </button>
                   </div>
                 </div>
@@ -182,32 +214,7 @@ export default function BiteSizedTopicsView() {
             ))}
           </div>
         )}
-
-        {/* Empty State */}
-        {!isLoading && topics.length === 0 && !error && (
-          <div className="text-center py-12">
-            <Book className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No topics available</h3>
-            <p className="text-gray-600">
-              There are no bite-sized topics available at the moment.
-            </p>
-          </div>
-        )}
       </div>
-
-
-
-      {/* Loading Detail Overlay */}
-      {isLoadingDetail && (
-        <div className="fixed inset-0 bg-black/20 z-40 flex items-center justify-center">
-          <div className="bg-white rounded-lg p-6 shadow-xl">
-            <div className="flex items-center gap-3">
-              <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
-              <span className="text-gray-700">Loading topic content...</span>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

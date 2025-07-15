@@ -113,7 +113,7 @@ export default function QuizInterface({ quizId }: QuizInterfaceProps) {
       const userAnswer = answers[question.id]
       if (question.type === 'multiple-choice' && userAnswer === question.correct) {
         correct++
-      } else if (question.type === 'fill-in-blank' && userAnswer?.toLowerCase() === question.answer.toLowerCase()) {
+      } else if (question.type === 'fill-in-blank' && userAnswer?.toLowerCase() === question.answer?.toLowerCase()) {
         correct++
       }
     })
@@ -161,7 +161,7 @@ export default function QuizInterface({ quizId }: QuizInterfaceProps) {
                 {quiz.questions.filter(q => {
                   const userAnswer = answers[q.id]
                   return q.type === 'multiple-choice' ? userAnswer === q.correct : 
-                         userAnswer?.toLowerCase() === q.answer.toLowerCase()
+                         userAnswer?.toLowerCase() === q.answer?.toLowerCase()
                 }).length}
               </div>
               <div className="text-sm text-gray-600">Correct Answers</div>
@@ -204,7 +204,7 @@ export default function QuizInterface({ quizId }: QuizInterfaceProps) {
               const userAnswer = answers[question.id]
               const isCorrect = question.type === 'multiple-choice' ? 
                 userAnswer === question.correct : 
-                userAnswer?.toLowerCase() === question.answer.toLowerCase()
+                userAnswer?.toLowerCase() === question.answer?.toLowerCase()
 
               return (
                 <div key={question.id} className="card">
@@ -225,7 +225,7 @@ export default function QuizInterface({ quizId }: QuizInterfaceProps) {
                       
                       {question.type === 'multiple-choice' && (
                         <div className="space-y-2 mb-4">
-                          {question.options.map((option, optionIndex) => (
+                          {question.options?.map((option, optionIndex) => (
                             <div 
                               key={optionIndex}
                               className={`p-3 rounded-lg border ${
@@ -330,7 +330,7 @@ export default function QuizInterface({ quizId }: QuizInterfaceProps) {
 
           {currentQ.type === 'multiple-choice' && (
             <div className="space-y-3">
-              {currentQ.options.map((option, index) => (
+              {currentQ.options?.map((option, index) => (
                 <button
                   key={index}
                   onClick={() => handleAnswer(currentQ.id, index)}

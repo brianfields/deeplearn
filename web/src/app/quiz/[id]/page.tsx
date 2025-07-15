@@ -2,15 +2,16 @@ import Layout from '@/components/Layout'
 import QuizInterface from '@/components/QuizInterface'
 
 interface QuizPageProps {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
-export default function QuizPage({ params }: QuizPageProps) {
+export default async function QuizPage({ params }: QuizPageProps) {
+  const { id } = await params
   return (
     <Layout>
-      <QuizInterface quizId={params.id} />
+      <QuizInterface quizId={id} />
     </Layout>
   )
 }

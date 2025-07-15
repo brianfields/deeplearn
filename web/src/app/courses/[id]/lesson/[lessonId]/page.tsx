@@ -2,16 +2,17 @@ import Layout from '@/components/Layout'
 import LessonViewer from '@/components/LessonViewer'
 
 interface LessonPageProps {
-  params: {
+  params: Promise<{
     id: string
     lessonId: string
-  }
+  }>
 }
 
-export default function LessonPage({ params }: LessonPageProps) {
+export default async function LessonPage({ params }: LessonPageProps) {
+  const { id, lessonId } = await params
   return (
     <Layout>
-      <LessonViewer courseId={params.id} lessonId={params.lessonId} />
+      <LessonViewer courseId={id} lessonId={lessonId} />
     </Layout>
   )
 }
