@@ -178,11 +178,11 @@ class EnhancedConversationalLearningEngine:
         recommended_strategies = []
 
         # If topic title suggests it's introductory, start with direct instruction
-        if any(word in topic.title.lower() for word in ['introduction', 'basics', 'overview', 'fundamentals']):
+        if any(word in topic['title'].lower() for word in ['introduction', 'basics', 'overview', 'fundamentals']):
             recommended_strategies.extend([TeachingStrategy.DIRECT_INSTRUCTION, TeachingStrategy.SOCRATIC_INQUIRY])
 
         # If it's about application or practice, use guided practice
-        if any(word in topic.title.lower() for word in ['application', 'practice', 'implementation', 'example']):
+        if any(word in topic['title'].lower() for word in ['application', 'practice', 'implementation', 'example']):
             recommended_strategies.extend([TeachingStrategy.GUIDED_PRACTICE, TeachingStrategy.SOCRATIC_INQUIRY])
 
         # Default to socratic inquiry for engagement
@@ -190,12 +190,12 @@ class EnhancedConversationalLearningEngine:
             recommended_strategies = [TeachingStrategy.SOCRATIC_INQUIRY, TeachingStrategy.DIRECT_INSTRUCTION]
 
         # Estimate difficulty based on position in learning path
-        topic_position = next((i for i, t in enumerate(learning_path.topics) if t.id == topic.id), 0)
+        topic_position = next((i for i, t in enumerate(learning_path.topics) if t['id'] == topic['id']), 0)
         difficulty_level = min(5, max(1, (topic_position // 2) + 1))  # 1-5 scale
 
         return TopicMetadata(
-            topic_id=topic.id,
-            topic_name=topic.title,
+            topic_id=topic['id'],
+            topic_name=topic['title'],
             difficulty_level=difficulty_level,
             recommended_strategies=recommended_strategies,
             requires_visual_aids=False,  # Could be enhanced with topic analysis

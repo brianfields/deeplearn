@@ -140,19 +140,30 @@ async def websocket_conversation(websocket: WebSocket, topic_id: str):
 
         # Find the learning path that contains this topic
         learning_path_id = None
-        learning_paths = storage.list_learning_paths()
 
-        for path_data in learning_paths:
-            # Load the full learning path to check its topics
-            learning_path = storage.load_learning_path(path_data["id"])
-            if learning_path:
-                # Check if any topic in this learning path matches our topic_id
-                for topic in learning_path.topics:
-                    if topic.id == topic_id:
-                        learning_path_id = learning_path.id
+        # First, check if this is a bite-sized topic
+        bite_sized_path_id = f"bite-sized-{topic_id}"
+        bite_sized_path = storage.get_learning_path(bite_sized_path_id)
+
+        if bite_sized_path:
+            # This is a bite-sized topic
+            learning_path_id = bite_sized_path_id
+            logger.info(f"Found bite-sized topic learning path: {learning_path_id}")
+        else:
+            # Fall back to searching through all learning paths
+            learning_paths = storage.list_learning_paths()
+
+            for path_data in learning_paths:
+                # Load the full learning path to check its topics
+                learning_path = storage.get_learning_path(path_data["id"])
+                if learning_path:
+                    # Check if any topic in this learning path matches our topic_id
+                    for topic in learning_path.topics:
+                        if topic.get('id') == topic_id:
+                            learning_path_id = learning_path.id
+                            break
+                    if learning_path_id:
                         break
-                if learning_path_id:
-                    break
 
         if not learning_path_id:
             await websocket.send_json({
@@ -171,18 +182,18 @@ async def websocket_conversation(websocket: WebSocket, topic_id: str):
                 session = conversation_engine.start_conversation(learning_path_id, topic_id)
 
                 # Send welcome message for new conversations
-                learning_path = storage.load_learning_path(learning_path_id)
+                learning_path = storage.get_learning_path(learning_path_id)
                 if learning_path:
-                    topic = next((t for t in learning_path.topics if t.id == topic_id), None)
+                    topic = next((t for t in learning_path.topics if t.get('id') == topic_id), None)
 
                     if topic:
-                        logger.info(f"Preparing welcome message for topic: {topic.title}")
-                        welcome_message = f"""Welcome to your learning journey on {topic.title}!
+                        logger.info(f"Preparing welcome message for topic: {topic.get('title', 'Unknown Topic')}")
+                        welcome_message = f"""Welcome to your learning journey on {topic.get('title', 'Unknown Topic')}!
 
 I'm your AI tutor, and I'm excited to guide you through this topic. Here's what we'll explore together:
 
 Learning Objectives:
-{chr(10).join(f"• {obj}" for obj in topic.learning_objectives)}
+{chr(10).join(f"• {obj}" for obj in topic.get('learning_objectives', []))}
 
 I'll adapt my teaching style based on how you're doing, using different approaches like:
 - Direct instruction when you need clear explanations
@@ -192,11 +203,11 @@ I'll adapt my teaching style based on how you're doing, using different approach
 
 Feel free to ask questions, request examples, or let me know if you'd like me to explain something differently. Let's start learning!
 
-What would you like to begin with, or do you have any questions about {topic.title}?"""
+What would you like to begin with, or do you have any questions about {topic.get('title', 'Unknown Topic')}?"""
 
                         # Send the welcome message
                         try:
-                            logger.info(f"Sending welcome message for topic: {topic.title}")
+                            logger.info(f"Sending welcome message for topic: {topic.get('title', 'Unknown Topic')}")
                             await websocket.send_json({
                                 "type": "chat_message",
                                 "message": {
@@ -205,7 +216,7 @@ What would you like to begin with, or do you have any questions about {topic.tit
                                     "timestamp": datetime.now().isoformat()
                                 }
                             })
-                            logger.info(f"Successfully sent welcome message for topic: {topic.title}")
+                            logger.info(f"Successfully sent welcome message for topic: {topic.get('title', 'Unknown Topic')}")
                         except Exception as e:
                             logger.error(f"Failed to send welcome message: {str(e)}")
                             logger.exception("Welcome message error details:")
@@ -372,15 +383,15 @@ async def send_progress_update(websocket: WebSocket, session: "EnhancedConversat
                 # Find the learning path containing this topic
                 all_paths = storage.list_learning_paths()
                 for path_data in all_paths:
-                    learning_path = storage.load_learning_path(path_data["id"])
+                    learning_path = storage.get_learning_path(path_data["id"])
                     if learning_path:
                         for topic in learning_path.topics:
-                            if topic.id == topic_id:
-                                topic_title = topic.title
+                            if topic.get('id') == topic_id:
+                                topic_title = topic.get('title', 'Unknown Topic')
                                 # Convert learning objectives to status format
                                 learning_objectives = [
                                     {"text": obj, "status": "introduced" if i == 0 else "not_started"}
-                                    for i, obj in enumerate(topic.learning_objectives)
+                                    for i, obj in enumerate(topic.get('learning_objectives', []))
                                 ]
                                 logger.info(f"Found topic: {topic_title} with {len(learning_objectives)} objectives")
                                 break

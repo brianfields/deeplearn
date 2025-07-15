@@ -266,7 +266,12 @@ async def start_conversation(path_id: str, topic_id: str):
         raise HTTPException(status_code=503, detail="Conversation engine not available")
 
     try:
-        session = conversation_engine.start_conversation(path_id, topic_id)
+        # Handle bite-sized topics special case
+        actual_path_id = path_id
+        if path_id == "bite-sized":
+            actual_path_id = f"bite-sized-{topic_id}"
+
+        session = conversation_engine.start_conversation(actual_path_id, topic_id)
 
         # Get the initial AI message
         initial_message = ""
@@ -276,7 +281,7 @@ async def start_conversation(path_id: str, topic_id: str):
                 initial_message = last_message.content
 
         return {
-            "session_id": f"{path_id}_{topic_id}",
+            "session_id": topic_id if path_id == "bite-sized" else f"{actual_path_id}_{topic_id}",
             "ai_message": initial_message,
             "conversation_state": session.conversation_state.value if hasattr(session.conversation_state, 'value') else str(session.conversation_state),
             "topic_title": session.topic_title
@@ -311,7 +316,12 @@ async def continue_conversation(path_id: str, topic_id: str):
         raise HTTPException(status_code=503, detail="Conversation engine not available")
 
     try:
-        session = conversation_engine.continue_conversation(path_id, topic_id)
+        # Handle bite-sized topics special case
+        actual_path_id = path_id
+        if path_id == "bite-sized":
+            actual_path_id = f"bite-sized-{topic_id}"
+
+        session = conversation_engine.continue_conversation(actual_path_id, topic_id)
 
         if not session:
             # No existing conversation, start a new one
@@ -325,7 +335,7 @@ async def continue_conversation(path_id: str, topic_id: str):
                 break
 
         return {
-            "session_id": f"{path_id}_{topic_id}",
+            "session_id": topic_id if path_id == "bite-sized" else f"{path_id}_{topic_id}",
             "ai_message": last_ai_message,
             "conversation_state": session.conversation_state.value if hasattr(session.conversation_state, 'value') else str(session.conversation_state),
             "topic_title": session.topic_title,
@@ -522,14 +532,18 @@ async def start_bite_sized_topic_conversation(topic_id: str):
     Raises:
         HTTPException: 404 if topic not found, 503 if conversation engine unavailable, 500 for other errors
     """
-    from .server import conversation_engine
+    from .server import conversation_engine, storage
 
     if not conversation_engine:
         raise HTTPException(status_code=503, detail="Conversation engine not available")
 
+    if not storage:
+        raise HTTPException(status_code=503, detail="Storage service not available")
+
     try:
         # Import here to avoid circular imports
         from modules.lesson_planning.bite_sized_topics.postgresql_storage import PostgreSQLTopicRepository
+        from datetime import datetime
 
         repository = PostgreSQLTopicRepository()
         topic_content = await repository.get_topic(topic_id)
@@ -537,9 +551,40 @@ async def start_bite_sized_topic_conversation(topic_id: str):
         if not topic_content:
             raise HTTPException(status_code=404, detail="Bite-sized topic not found")
 
-        # For now, we'll create a simple session using existing conversation engine
-        # In the future, this would be replaced with a bite-sized topic specific engine
-        session = conversation_engine.start_conversation("bite-sized", topic_id)
+        # Create a temporary learning path for this bite-sized topic
+        learning_path_id = f"bite-sized-{topic_id}"
+
+        # Create a temporary learning path that wraps the bite-sized topic
+        from data_structures import SimpleLearningPath
+
+        # Convert bite-sized topic to dictionary format expected by database service
+        topic_dict = {
+            'id': topic_id,
+            'title': topic_content.topic_spec.topic_title,
+            'description': topic_content.topic_spec.core_concept,
+            'learning_objectives': topic_content.topic_spec.learning_objectives,
+            'estimated_duration': 15,  # Default duration
+            'difficulty_level': 1,  # Default difficulty
+            'bite_sized_topic_id': topic_id,
+            'has_bite_sized_content': True
+        }
+
+        temp_learning_path = SimpleLearningPath(
+            id=learning_path_id,
+            topic_name=topic_content.topic_spec.topic_title,
+            description=f"Bite-sized topic: {topic_content.topic_spec.core_concept}",
+            topics=[topic_dict],
+            current_topic_index=0,
+            estimated_total_hours=0.25,  # 15 minutes
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
+        )
+
+        # Temporarily store this learning path so the conversation engine can find it
+        storage.save_learning_path(temp_learning_path)
+
+        # Start the conversation using the temporary learning path
+        session = conversation_engine.start_conversation(learning_path_id, topic_id)
 
         # Get the initial AI message
         initial_message = ""
@@ -549,7 +594,7 @@ async def start_bite_sized_topic_conversation(topic_id: str):
                 initial_message = last_message.content
 
         return {
-            "session_id": f"bite-sized_{topic_id}",
+            "session_id": topic_id,
             "ai_message": initial_message,
             "conversation_state": session.conversation_state.value if hasattr(session.conversation_state, 'value') else str(session.conversation_state),
             "topic_title": topic_content.topic_spec.topic_title
