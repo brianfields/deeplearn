@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft,
   Book,
@@ -20,7 +20,6 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { apiClient } from '@/api'
-import { LearningFlow } from '@/components/learning'
 import DuolingoLearningFlow from '@/components/learning/DuolingoLearningFlow'
 import { duolingoLearningService } from '@/services/duolingo-learning'
 import type { BiteSizedTopicDetail } from '@/types'
@@ -375,7 +374,7 @@ export default function TopicContentPage() {
   // Show regular learning flow if in learning mode but not Duolingo
   if (viewMode === 'learning') {
     return (
-      <LearningFlow
+      <DuolingoLearningFlow
         topic={topic}
         onComplete={handleLearningComplete}
         onBack={handleBackToOverview}

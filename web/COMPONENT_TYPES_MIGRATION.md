@@ -1,4 +1,8 @@
-# Learning Component Types Migration Guide
+# Component Types Migration Guide
+
+> **⚠️ DEPRECATED**: This guide is for historical reference. The `ComponentRenderer` system has been replaced by `DuolingoLearningFlow.tsx` which handles component rendering directly. The generic `ComponentRenderer`, `useComponentSequence`, and `createTypedComponent` utilities have been removed as dead code.
+
+This document provides a comprehensive guide for migrating from generic `content` props to specific TypeScript types for bite-sized learning components.
 
 ## Overview
 
