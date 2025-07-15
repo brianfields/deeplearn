@@ -37,14 +37,21 @@ class GlossaryPrompt(PromptTemplate):
         - Focus on teaching and understanding, not just definition
         - Make connections to related concepts when relevant
 
-        REQUIRED FORMAT FOR EACH ENTRY:
-        ```
-        Concept: [The name of the idea or construct]
-        Explanation: [3–7 sentence teaching-style explanation that covers what it is, why it exists, what it connects to, and optionally an example or metaphor]
-        ```
+        REQUIRED OUTPUT FORMAT:
+        You must respond with valid JSON containing an array of glossary entries:
+        {
+            "glossary_entries": [
+                {
+                    "concept": "The name of the idea or construct",
+                    "title": "1-8 word title capturing the essence of this concept",
+                    "explanation": "3–7 sentence teaching-style explanation that covers what it is, why it exists, what it connects to, and optionally an example or metaphor",
+                    "type": "glossary_entry",
+                    "difficulty": 2
+                }
+            ]
+        }
 
-        When multiple concepts are requested, provide each entry in this format, separated by blank lines.
-        The output must be exactly in this format to allow for easy parsing and extraction.
+        Do not include any additional text outside the JSON object. The response must be parseable as JSON.
         """
 
     def generate_prompt(self, context: PromptContext, **kwargs) -> List[LLMMessage]:

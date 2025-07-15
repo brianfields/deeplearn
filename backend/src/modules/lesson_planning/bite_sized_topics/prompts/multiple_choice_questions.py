@@ -32,32 +32,38 @@ class MultipleChoiceQuestionsPrompt(PromptTemplate):
         Each question should include a justification for why the correct answer is correct,
         and why each distractor is incorrect (and tempting).
 
-        REQUIRED FORMAT FOR EACH MCQ:
-        ```
-        Question [Number]
-        Title: [1-8 word title that captures what this question tests]
-        Question: [The question stem, clearly phrased and unambiguous]
-        Choices:
-        A. [Option A]
-        B. [Option B]
-        C. [Option C]
-        (D. [Optional Option D])
-        Correct Answer: [The correct choice letter]
-        Justification:
-        - A: [Is it correct or incorrect? Why might a learner pick it? Why is it right or wrong?]
-        - B: [Same]
-        - C: [Same]
-        - D: [Optional]
-        Target Concept: [The key concept this question tests]
-        Purpose: [e.g., Misconception check, Concept contrast, Process reasoning, Definition verification, Consequence analysis]
-        Difficulty: [1–5]
-        Tags: [Optional — e.g., "early lesson check-in", "good pre-assessment", "reveals faulty intuition"]
-        ```
+        REQUIRED OUTPUT FORMAT:
+        You must respond with valid JSON containing an array of multiple choice questions:
+        {
+            "questions": [
+                {
+                    "title": "1-8 word title that captures what this question tests",
+                    "question": "The question stem, clearly phrased and unambiguous",
+                    "choices": {
+                        "A": "Option A text",
+                        "B": "Option B text",
+                        "C": "Option C text",
+                        "D": "Option D text (optional)"
+                    },
+                    "correct_answer": "A",
+                    "justifications": {
+                        "A": "Why this is correct or incorrect and why learners might choose it",
+                        "B": "Why this is correct or incorrect and why learners might choose it",
+                        "C": "Why this is correct or incorrect and why learners might choose it",
+                        "D": "Why this is correct or incorrect and why learners might choose it (optional)"
+                    },
+                    "target_concept": "The key concept this question tests",
+                    "purpose": "e.g., Misconception check, Concept contrast, Process reasoning, Definition verification, Consequence analysis",
+                    "difficulty": 3,
+                    "tags": "Optional metadata e.g., early lesson check-in, good pre-assessment, reveals faulty intuition",
+                    "type": "multiple_choice_question"
+                }
+            ]
+        }
 
         Create 4-6 questions that work together to comprehensively assess understanding.
         Each question should test a different aspect with high-quality distractors that
-        reflect real learner confusion. The output must be exactly in this format to
-        allow for easy parsing and extraction.
+        reflect real learner confusion. Do not include any additional text outside the JSON object.
         """
 
     def generate_prompt(self, context: PromptContext, **kwargs) -> List[LLMMessage]:

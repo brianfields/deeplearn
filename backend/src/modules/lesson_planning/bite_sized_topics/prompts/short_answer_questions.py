@@ -31,21 +31,26 @@ class ShortAnswerQuestionsPrompt(PromptTemplate):
 
         Each question should be followed by metadata to support tutor usage, grading, and sequencing.
 
-        REQUIRED FORMAT FOR EACH QUESTION:
-        ```
-        Question [Number]
-        Title: [1-8 word title that captures what this question assesses]
-        Question: [The question, stated clearly and concisely]
-        Purpose: [What kind of thinking this question is meant to evoke — e.g., definition recall, conceptual explanation, contrast, consequence reasoning, generalization, error detection]
-        Target Concept: [What idea this question is focused on]
-        Expected Elements of a Good Answer: [What the learner should ideally say, in natural language — not a rigid rubric, but the core ideas they should touch on]
-        Difficulty: [1–5 scale, where 1 = very basic and 5 = advanced reasoning]
-        Tags: [Optional metadata to support adaptivity, e.g., "mid-lesson check-in", "good exit question", "reveals partial understanding"]
-        ```
+        REQUIRED OUTPUT FORMAT:
+        You must respond with valid JSON containing an array of short answer questions:
+        {
+            "questions": [
+                {
+                    "title": "1-8 word title that captures what this question assesses",
+                    "question": "The question, stated clearly and concisely",
+                    "purpose": "What kind of thinking this question is meant to evoke — e.g., definition recall, conceptual explanation, contrast, consequence reasoning, generalization, error detection",
+                    "target_concept": "What idea this question is focused on",
+                    "expected_elements": "What the learner should ideally say, in natural language — not a rigid rubric, but the core ideas they should touch on",
+                    "difficulty": 3,
+                    "tags": "Optional metadata to support adaptivity, e.g., mid-lesson check-in, good exit question, reveals partial understanding",
+                    "type": "short_answer_question"
+                }
+            ]
+        }
 
         Create 4-6 questions that work together to comprehensively assess understanding of the concept.
-        Each question should target a different aspect or thinking level. The output must be exactly
-        in this format to allow for easy parsing and extraction.
+        Each question should target a different aspect or thinking level. Do not include any additional
+        text outside the JSON object.
         """
 
     def generate_prompt(self, context: PromptContext, **kwargs) -> List[LLMMessage]:

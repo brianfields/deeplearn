@@ -34,23 +34,27 @@ class SocraticDialoguePrompt(PromptTemplate):
         - Lead to a distinct learner "aha" insight — a mental shift or realization
         - Include metadata so a tutor or adaptive system can choose which one to use
 
-        REQUIRED FORMAT FOR EACH DIALOGUE:
-        ```
-        Dialogue [Number]
-        Title: [1-8 word title that captures what this dialogue explores]
-        Concept: [What idea this dialogue is about — this can be more specific than the overall lesson topic]
-        Dialogue Objective: [The insight the learner should construct by the end. What shift in mental model or realization are we aiming for? Avoid mere fact recall.]
-        Starting Prompt: [A tutor's natural-sounding first line to start the dialogue — open-ended and curiosity-provoking. Avoid trivia questions.]
-        Dialogue Style: [e.g., Misconception correction, Analogy exploration, Thought experiment, Contrast of cases, Step-by-step reasoning, Consequence tracing]
-        Hints and Scaffolding: [List 2–3 tutor strategies that could help if the learner gets stuck. These might be reframings, examples, analogies, simplifications.]
-        Exit Criteria: [How does the tutor know to end the dialogue? Include both cognitive signals (e.g., learner articulates the core idea) and emotional/engagement signals (e.g., visible frustration, diminishing returns).]
-        Difficulty: [1–5, where 1 = very introductory and 5 = advanced reasoning]
-        Tags: [Optional metadata to support adaptive tutoring — e.g., "good for stuck learners", "reveals misconception", "builds intuition", "post-lesson reflection"]
-        ```
+        REQUIRED OUTPUT FORMAT:
+        You must respond with valid JSON containing an array of Socratic dialogues:
+        {
+            "dialogues": [
+                {
+                    "title": "1-8 word title that captures what this dialogue explores",
+                    "concept": "What idea this dialogue is about — this can be more specific than the overall lesson topic",
+                    "dialogue_objective": "The insight the learner should construct by the end. What shift in mental model or realization are we aiming for? Avoid mere fact recall.",
+                    "starting_prompt": "A tutor's natural-sounding first line to start the dialogue — open-ended and curiosity-provoking. Avoid trivia questions.",
+                    "dialogue_style": "e.g., Misconception correction, Analogy exploration, Thought experiment, Contrast of cases, Step-by-step reasoning, Consequence tracing",
+                    "hints_and_scaffolding": "List 2–3 tutor strategies that could help if the learner gets stuck. These might be reframings, examples, analogies, simplifications.",
+                    "exit_criteria": "How does the tutor know to end the dialogue? Include both cognitive signals (e.g., learner articulates the core idea) and emotional/engagement signals (e.g., visible frustration, diminishing returns).",
+                    "difficulty": 3,
+                    "tags": "Optional metadata to support adaptive tutoring — e.g., good for stuck learners, reveals misconception, builds intuition, post-lesson reflection",
+                    "type": "socratic_dialogue"
+                }
+            ]
+        }
 
         Create 3-5 dialogues that work together as a pedagogical set. Each should offer a different
-        path to understanding the concept. The output must be exactly in this format to allow
-        for easy parsing and extraction.
+        path to understanding the concept. Do not include any additional text outside the JSON object.
         """
 
     def generate_prompt(self, context: PromptContext, **kwargs) -> List[LLMMessage]:

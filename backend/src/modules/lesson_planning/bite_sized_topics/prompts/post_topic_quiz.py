@@ -36,42 +36,47 @@ class PostTopicQuizPrompt(PromptTemplate):
         - Difficulty (1–5)
         - Optional tags (e.g. "core idea", "misconception check", "synthesis")
 
-        REQUIRED FORMAT FOR EACH ITEM:
-        ```
-        Item [Number]
-        Title: [1-8 word title that captures what this item assesses]
-        Type: [Multiple Choice, Short Answer, or Assessment Dialogue]
-        Question or Prompt: [The question stem or tutor's first line for the dialogue]
+        REQUIRED OUTPUT FORMAT:
+        You must respond with valid JSON containing an array of quiz items:
+        {
+            "quiz_items": [
+                {
+                    "title": "1-8 word title that captures what this item assesses",
+                    "type": "Multiple Choice | Short Answer | Assessment Dialogue",
+                    "question": "The question stem or tutor's first line for dialogue",
 
-        (For Multiple Choice:)
-        Choices:
-        A. [Option A]
-        B. [Option B]
-        C. [Option C]
-        (D. [Optional Option D])
-        Correct Answer: [Letter]
-        Justification:
-        - A: [Why someone might choose it and why it's wrong or right]
-        - B: [Same]
-        - C: [Same]
-        - D: [Optional]
+                    // For Multiple Choice only:
+                    "choices": {
+                        "A": "Option A text",
+                        "B": "Option B text",
+                        "C": "Option C text",
+                        "D": "Option D text (optional)"
+                    },
+                    "correct_answer": "A",
+                    "justifications": {
+                        "A": "Why someone might choose it and why it's wrong or right",
+                        "B": "Same for B",
+                        "C": "Same for C",
+                        "D": "Same for D (optional)"
+                    },
 
-        (For Short Answer:)
-        Expected Elements of a Good Answer: [Main points a strong answer should contain]
+                    // For Short Answer only:
+                    "expected_elements": "Main points a strong answer should contain",
 
-        (For Assessment Dialogue:)
-        Dialogue Objective: [What insight or articulation the learner should reach]
-        Scaffolding Prompts: [1–2 questions a tutor might use to push if learner stalls]
-        Exit Criteria: [How the tutor knows the dialogue is complete]
+                    // For Assessment Dialogue only:
+                    "dialogue_objective": "What insight or articulation the learner should reach",
+                    "scaffolding_prompts": "1–2 questions a tutor might use to push if learner stalls",
+                    "exit_criteria": "How the tutor knows the dialogue is complete",
 
-        Target Concept: [What idea this item is testing]
-        Difficulty: [1–5]
-        Tags: [Optional metadata]
-        ```
+                    "target_concept": "What idea this item is testing",
+                    "difficulty": 3,
+                    "tags": "Optional metadata"
+                }
+            ]
+        }
 
         Create a comprehensive quiz that uses the most appropriate question formats for
-        assessing the specific concept. The output must be exactly in this format to
-        allow for easy parsing and extraction.
+        assessing the specific concept. Do not include any additional text outside the JSON object.
         """
 
     def generate_prompt(self, context: PromptContext, **kwargs) -> List[LLMMessage]:
