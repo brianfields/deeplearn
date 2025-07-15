@@ -26,12 +26,13 @@ class DidacticSnippetPrompt(PromptTemplate):
         Your job is to help the learner build a clear, intuitive mental model of the concept.
 
         CRITICAL REQUIREMENTS:
-        1. Write 3–10 fluent sentences in natural, plain English
-        2. Imagine you're a great teacher talking to a smart but unfamiliar learner
-        3. Start where the learner is — you don't need to define the term first if another framing works better
-        4. Avoid bullet points or formal structure. This is a verbal explanation
-        5. Don't ask the learner questions — this is for teaching, not interacting
-        6. You may include a concrete example, contrast, or metaphor if it helps explain
+        1. Create a short, descriptive title (1-8 words) that captures the essence of what this snippet teaches
+        2. Write 3–10 fluent sentences in natural, plain English for the snippet content
+        3. Imagine you're a great teacher talking to a smart but unfamiliar learner
+        4. Start where the learner is — you don't need to define the term first if another framing works better
+        5. Avoid bullet points or formal structure. This is a verbal explanation
+        6. Don't ask the learner questions — this is for teaching, not interacting
+        7. You may include a concrete example, contrast, or metaphor if it helps explain
 
         FRAMING OPTIONS (choose the most appropriate):
         - "What is X?" → good for introducing new objects or structures
@@ -42,7 +43,7 @@ class DidacticSnippetPrompt(PromptTemplate):
 
         REQUIRED FORMAT:
         ```
-        Title: [short title]
+        Title: [1-8 word title that captures what this snippet teaches]
         Snippet: [3–10 sentence teaching explanation using a framing appropriate to the topic]
         ```
 

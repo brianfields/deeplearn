@@ -8,7 +8,7 @@ implementation using the same interface.
 import uuid
 import json
 from datetime import datetime
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Sequence
 from contextlib import asynccontextmanager
 
 from sqlalchemy import select, delete
@@ -18,6 +18,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from data_structures import BiteSizedTopic, BiteSizedComponent
 from .orchestrator import TopicContent, TopicSpec, CreationStrategy
 from .storage import StoredTopic, StoredComponent
+from .storage import ComponentType
 
 
 class PostgreSQLTopicRepository:
@@ -102,88 +103,97 @@ class PostgreSQLTopicRepository:
 
         # Add didactic snippet
         if hasattr(topic_content, 'didactic_snippet') and topic_content.didactic_snippet:
+            # Extract generation metadata from content
+            content_copy = topic_content.didactic_snippet.copy()
+            generation_metadata = content_copy.pop('_generation_metadata', {})
+
             components_to_store.append({
                 'type': 'didactic_snippet',
-                'content': topic_content.didactic_snippet.content,
-                'metadata': {
-                    'section_title': topic_content.didactic_snippet.section_title,
-                    'teaching_approach': topic_content.didactic_snippet.teaching_approach,
-                    'key_points': topic_content.didactic_snippet.key_points
-                }
+                'title': content_copy.get('title', 'Didactic Snippet'),
+                'content': content_copy,  # Content without metadata
+                'generation_prompt': generation_metadata.get('generation_prompt'),
+                'raw_llm_response': generation_metadata.get('raw_llm_response')
             })
 
         # Add glossary
         if hasattr(topic_content, 'glossary') and topic_content.glossary:
-            components_to_store.append({
-                'type': 'glossary',
-                'content': json.dumps(topic_content.glossary.definitions),
-                'metadata': {
-                    'overview': topic_content.glossary.overview,
-                    'term_count': len(topic_content.glossary.definitions)
-                }
-            })
+            # Store each glossary entry as a separate component
+            for entry in topic_content.glossary:
+                # Extract generation metadata from entry
+                entry_copy = entry.copy()
+                generation_metadata = entry_copy.pop('_generation_metadata', {})
 
-        # Add lesson content
-        if hasattr(topic_content, 'lesson_content') and topic_content.lesson_content:
-            components_to_store.append({
-                'type': 'lesson_content',
-                'content': json.dumps({
-                    'sections': topic_content.lesson_content.sections,
-                    'practical_examples': topic_content.lesson_content.practical_examples,
-                    'key_takeaways': topic_content.lesson_content.key_takeaways
-                }),
-                'metadata': {
-                    'introduction': topic_content.lesson_content.introduction,
-                    'conclusion': topic_content.lesson_content.conclusion
-                }
-            })
+                components_to_store.append({
+                    'type': 'glossary',
+                    'title': entry_copy.get('title', f"Glossary: {entry_copy.get('concept', 'Term')}"),
+                    'content': entry_copy,  # Content without metadata
+                    'generation_prompt': generation_metadata.get('generation_prompt'),
+                    'raw_llm_response': generation_metadata.get('raw_llm_response')
+                })
 
         # Add multiple choice questions
         if hasattr(topic_content, 'multiple_choice_questions') and topic_content.multiple_choice_questions:
-            components_to_store.append({
-                'type': 'multiple_choice_questions',
-                'content': json.dumps([q.dict() for q in topic_content.multiple_choice_questions.questions]),
-                'metadata': {
-                    'instructions': topic_content.multiple_choice_questions.instructions,
-                    'question_count': len(topic_content.multiple_choice_questions.questions)
-                }
-            })
+            # Store each question as a separate component
+            for i, question in enumerate(topic_content.multiple_choice_questions, 1):
+                # Extract generation metadata from question
+                question_copy = question.copy()
+                generation_metadata = question_copy.pop('_generation_metadata', {})
+
+                components_to_store.append({
+                    'type': 'multiple_choice_question',
+                    'title': question_copy.get('title', f"Multiple Choice Question {i}"),
+                    'content': question_copy,  # Content without metadata
+                    'generation_prompt': generation_metadata.get('generation_prompt'),
+                    'raw_llm_response': generation_metadata.get('raw_llm_response')
+                })
 
         # Add short answer questions
         if hasattr(topic_content, 'short_answer_questions') and topic_content.short_answer_questions:
-            components_to_store.append({
-                'type': 'short_answer_questions',
-                'content': json.dumps([q.dict() for q in topic_content.short_answer_questions.questions]),
-                'metadata': {
-                    'instructions': topic_content.short_answer_questions.instructions,
-                    'question_count': len(topic_content.short_answer_questions.questions)
-                }
-            })
+            # Store each question as a separate component
+            for i, question in enumerate(topic_content.short_answer_questions, 1):
+                # Extract generation metadata from question
+                question_copy = question.copy()
+                generation_metadata = question_copy.pop('_generation_metadata', {})
+
+                components_to_store.append({
+                    'type': 'short_answer_question',
+                    'title': question_copy.get('title', f"Short Answer Question {i}"),
+                    'content': question_copy,  # Content without metadata
+                    'generation_prompt': generation_metadata.get('generation_prompt'),
+                    'raw_llm_response': generation_metadata.get('raw_llm_response')
+                })
 
         # Add post topic quiz
         if hasattr(topic_content, 'post_topic_quiz') and topic_content.post_topic_quiz:
-            components_to_store.append({
-                'type': 'post_topic_quiz',
-                'content': json.dumps([q.dict() for q in topic_content.post_topic_quiz.questions]),
-                'metadata': {
-                    'instructions': topic_content.post_topic_quiz.instructions,
-                    'time_limit_minutes': topic_content.post_topic_quiz.time_limit_minutes,
-                    'question_count': len(topic_content.post_topic_quiz.questions)
-                }
-            })
+            # Store each quiz item as a separate component
+            for i, item in enumerate(topic_content.post_topic_quiz, 1):
+                # Extract generation metadata from item
+                item_copy = item.copy()
+                generation_metadata = item_copy.pop('_generation_metadata', {})
+
+                components_to_store.append({
+                    'type': 'post_topic_quiz',
+                    'title': item_copy.get('title', f"Post-Topic Quiz Item {i}"),
+                    'content': item_copy,  # Content without metadata
+                    'generation_prompt': generation_metadata.get('generation_prompt'),
+                    'raw_llm_response': generation_metadata.get('raw_llm_response')
+                })
 
         # Add socratic dialogue
-        if hasattr(topic_content, 'socratic_dialogue') and topic_content.socratic_dialogue:
-            components_to_store.append({
-                'type': 'socratic_dialogue',
-                'content': json.dumps([turn.dict() for turn in topic_content.socratic_dialogue.dialogue_turns]),
-                'metadata': {
-                    'introduction': topic_content.socratic_dialogue.introduction,
-                    'learning_objective': topic_content.socratic_dialogue.learning_objective,
-                    'conclusion': topic_content.socratic_dialogue.conclusion,
-                    'turn_count': len(topic_content.socratic_dialogue.dialogue_turns)
-                }
-            })
+        if hasattr(topic_content, 'socratic_dialogues') and topic_content.socratic_dialogues:
+            # Store each dialogue as a separate component
+            for i, dialogue in enumerate(topic_content.socratic_dialogues, 1):
+                # Extract generation metadata from dialogue
+                dialogue_copy = dialogue.copy()
+                generation_metadata = dialogue_copy.pop('_generation_metadata', {})
+
+                components_to_store.append({
+                    'type': 'socratic_dialogue',
+                    'title': dialogue_copy.get('title', f"Socratic Dialogue {i}"),
+                    'content': dialogue_copy,  # Content without metadata
+                    'generation_prompt': generation_metadata.get('generation_prompt'),
+                    'raw_llm_response': generation_metadata.get('raw_llm_response')
+                })
 
         # Store all components
         for component_data in components_to_store:
@@ -191,8 +201,10 @@ class PostgreSQLTopicRepository:
                 id=str(uuid.uuid4()),
                 topic_id=topic_id,
                 component_type=component_data['type'],
+                title=component_data['title'],
                 content=component_data['content'],
-                metadata=component_data['metadata'],
+                generation_prompt=component_data.get('generation_prompt'),
+                raw_llm_response=component_data.get('raw_llm_response'),
                 created_at=datetime.utcnow(),
                 updated_at=datetime.utcnow()
             )
@@ -227,42 +239,55 @@ class PostgreSQLTopicRepository:
                 print(f"Error retrieving topic: {e}")
                 return None
 
-    def _reconstruct_topic_content(self, stored_topic: BiteSizedTopic, component_rows: List[BiteSizedComponent]) -> TopicContent:
+    def _reconstruct_topic_content(self, stored_topic: BiteSizedTopic, component_rows: Sequence[BiteSizedComponent]) -> TopicContent:
         """Reconstruct TopicContent from stored data"""
         # Convert stored topic back to TopicSpec
         topic_spec = TopicSpec(
-            topic_title=stored_topic.title,
-            core_concept=stored_topic.core_concept,
-            user_level=stored_topic.user_level,
-            learning_objectives=stored_topic.learning_objectives,
-            key_concepts=stored_topic.key_concepts,
-            key_aspects=stored_topic.key_aspects,
-            target_insights=stored_topic.target_insights,
-            common_misconceptions=stored_topic.common_misconceptions,
-            previous_topics=stored_topic.previous_topics,
+            topic_title=str(stored_topic.title),
+            core_concept=str(stored_topic.core_concept),
+            user_level=str(stored_topic.user_level),
+            learning_objectives=list(stored_topic.learning_objectives) if stored_topic.learning_objectives is not None else [],
+            key_concepts=list(stored_topic.key_concepts) if stored_topic.key_concepts is not None else [],
+            key_aspects=list(stored_topic.key_aspects) if stored_topic.key_aspects is not None else [],
+            target_insights=list(stored_topic.target_insights) if stored_topic.target_insights is not None else [],
+            common_misconceptions=list(stored_topic.common_misconceptions) if stored_topic.common_misconceptions is not None else [],
+            previous_topics=list(stored_topic.previous_topics) if stored_topic.previous_topics is not None else [],
             creation_strategy=CreationStrategy(stored_topic.creation_strategy)
         )
 
         # Start with base TopicContent
         topic_content = TopicContent(
             topic_spec=topic_spec,
-            creation_metadata=stored_topic.creation_metadata
+            creation_metadata=stored_topic.creation_metadata if stored_topic.creation_metadata else {}
         )
 
-        # Add components based on type
-        # Note: This is a simplified reconstruction. Full reconstruction would
-        # require importing the specific component classes and rebuilding them.
-        # For now, we'll store the components as raw data.
-
-        component_dict = {}
+        # Group components by type
+        components_by_type = {}
         for component in component_rows:
-            component_dict[component.component_type] = {
-                'content': component.content,
-                'metadata': component.component_metadata
-            }
+            comp_type = component.component_type
+            if comp_type not in components_by_type:
+                components_by_type[comp_type] = []
+            components_by_type[comp_type].append(component.content)
 
-        # Store components in topic_content for access
-        topic_content._components = component_dict
+        # Reconstruct each component type
+        if 'didactic_snippet' in components_by_type:
+            topic_content.didactic_snippet = components_by_type['didactic_snippet'][0]
+
+        if 'glossary' in components_by_type:
+            # Keep as list of entries instead of converting back to dictionary
+            topic_content.glossary = components_by_type['glossary']
+
+        if 'socratic_dialogue' in components_by_type:
+            topic_content.socratic_dialogues = components_by_type['socratic_dialogue']
+
+        if 'short_answer_question' in components_by_type:
+            topic_content.short_answer_questions = components_by_type['short_answer_question']
+
+        if 'multiple_choice_question' in components_by_type:
+            topic_content.multiple_choice_questions = components_by_type['multiple_choice_question']
+
+        if 'post_topic_quiz' in components_by_type:
+            topic_content.post_topic_quiz = components_by_type['post_topic_quiz']
 
         return topic_content
 
@@ -362,11 +387,13 @@ class PostgreSQLTopicRepository:
                     stored_component = StoredComponent(
                         id=component.id,
                         topic_id=component.topic_id,
-                        component_type=component.component_type,
+                        component_type=ComponentType(component.component_type),
+                        title=component.title,
                         content=component.content,
-                        metadata=component.component_metadata,
-                        created_at=component.created_at.isoformat() if component.created_at else "",
-                        updated_at=component.updated_at.isoformat() if component.updated_at else "",
+                        generation_prompt=component.generation_prompt,
+                        raw_llm_response=component.raw_llm_response,
+                        created_at=component.created_at if component.created_at else datetime.utcnow(),
+                        updated_at=component.updated_at if component.updated_at else datetime.utcnow(),
                         version=component.version
                     )
                     result.append(stored_component)
@@ -410,9 +437,9 @@ class PostgreSQLTopicRepository:
                     stored_component = StoredComponent(
                         id=component.id,
                         topic_id=component.topic_id,
-                        component_type=component.component_type,
+                        component_type=ComponentType(component.component_type),
+                        title=component.title,
                         content=component.content,
-                        metadata=component.component_metadata,
                         created_at=component.created_at.isoformat() if component.created_at else "",
                         updated_at=component.updated_at.isoformat() if component.updated_at else "",
                         version=component.version

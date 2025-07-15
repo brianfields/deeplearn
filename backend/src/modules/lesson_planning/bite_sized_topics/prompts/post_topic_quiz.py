@@ -39,6 +39,7 @@ class PostTopicQuizPrompt(PromptTemplate):
         REQUIRED FORMAT FOR EACH ITEM:
         ```
         Item [Number]
+        Title: [1-8 word title that captures what this item assesses]
         Type: [Multiple Choice, Short Answer, or Assessment Dialogue]
         Question or Prompt: [The question stem or tutor's first line for the dialogue]
 

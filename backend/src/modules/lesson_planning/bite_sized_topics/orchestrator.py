@@ -38,10 +38,11 @@ class TopicSpec:
     previous_topics: List[str] = field(default_factory=list)
     creation_strategy: CreationStrategy = CreationStrategy.COMPLETE
     custom_components: Optional[List[str]] = None
+    auto_identify_concepts: bool = False  # If True, don't auto-add core_concept
 
     def __post_init__(self):
-        """Ensure key_concepts includes core_concept"""
-        if self.core_concept not in self.key_concepts:
+        """Ensure key_concepts includes core_concept unless auto-identification is enabled"""
+        if not self.auto_identify_concepts and self.core_concept not in self.key_concepts:
             self.key_concepts.insert(0, self.core_concept)
 
 
@@ -49,8 +50,8 @@ class TopicSpec:
 class TopicContent:
     """Complete content package for a bite-sized topic"""
     topic_spec: TopicSpec
-    didactic_snippet: Optional[Dict[str, str]] = None
-    glossary: Optional[Dict[str, str]] = None
+    didactic_snippet: Optional[Dict[str, Any]] = None
+    glossary: Optional[List[Dict[str, Any]]] = None
     socratic_dialogues: Optional[List[Dict[str, Any]]] = None
     short_answer_questions: Optional[List[Dict[str, Any]]] = None
     multiple_choice_questions: Optional[List[Dict[str, Any]]] = None
@@ -224,7 +225,7 @@ class TopicOrchestrator(ModuleService):
         """Create glossary component"""
         spec = topic_content.topic_spec
 
-        glossary = await self.topic_service.create_glossary(
+        glossary_entries = await self.topic_service.create_glossary(
             topic_title=spec.topic_title,
             concepts=spec.key_concepts,
             user_level=spec.user_level,
@@ -232,8 +233,9 @@ class TopicOrchestrator(ModuleService):
             previous_topics=spec.previous_topics
         )
 
-        topic_content.glossary = glossary
-        self.logger.debug(f"Created glossary with {len(glossary)} concepts")
+        # Store as list of entries instead of dictionary
+        topic_content.glossary = glossary_entries
+        self.logger.debug(f"Created glossary with {len(glossary_entries)} entries")
 
     async def _create_socratic_dialogues(self, topic_content: TopicContent):
         """Create Socratic dialogues component"""

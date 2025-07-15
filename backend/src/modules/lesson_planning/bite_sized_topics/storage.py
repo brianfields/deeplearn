@@ -34,8 +34,10 @@ class StoredComponent:
     id: str
     topic_id: str
     component_type: ComponentType
+    title: str
     content: Dict[str, Any]
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    generation_prompt: Optional[str] = None
+    raw_llm_response: Optional[str] = None
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
     version: int = 1
@@ -46,8 +48,10 @@ class StoredComponent:
             'id': self.id,
             'topic_id': self.topic_id,
             'component_type': self.component_type.value,
+            'title': self.title,
             'content': json.dumps(self.content),
-            'metadata': json.dumps(self.metadata),
+            'generation_prompt': self.generation_prompt,
+            'raw_llm_response': self.raw_llm_response,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat(),
             'version': self.version
@@ -60,8 +64,10 @@ class StoredComponent:
             id=data['id'],
             topic_id=data['topic_id'],
             component_type=ComponentType(data['component_type']),
+            title=data['title'],
             content=json.loads(data['content']),
-            metadata=json.loads(data['metadata']),
+            generation_prompt=data.get('generation_prompt'),
+            raw_llm_response=data.get('raw_llm_response'),
             created_at=datetime.fromisoformat(data['created_at']),
             updated_at=datetime.fromisoformat(data['updated_at']),
             version=data['version']
@@ -164,8 +170,8 @@ class TopicRepository:
                     id TEXT PRIMARY KEY,
                     topic_id TEXT NOT NULL,
                     component_type TEXT NOT NULL,
+                    title TEXT NOT NULL,
                     content TEXT NOT NULL,
-                    metadata TEXT NOT NULL,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL,
                     version INTEGER NOT NULL DEFAULT 1,
@@ -250,20 +256,20 @@ class TopicRepository:
                 id=str(uuid.uuid4()),
                 topic_id=topic_id,
                 component_type=ComponentType.DIDACTIC_SNIPPET,
-                content=topic_content.didactic_snippet,
-                metadata={'difficulty': 2, 'type': 'introduction'}
+                title=topic_content.didactic_snippet.get('title', 'Didactic Snippet'),
+                content=topic_content.didactic_snippet
             )
             self._insert_component(conn, component)
 
         # Store glossary entries (each as separate component)
         if topic_content.glossary:
-            for concept, explanation in topic_content.glossary.items():
+            for entry in topic_content.glossary:
                 component = StoredComponent(
                     id=str(uuid.uuid4()),
                     topic_id=topic_id,
                     component_type=ComponentType.GLOSSARY,
-                    content={'concept': concept, 'explanation': explanation},
-                    metadata={'difficulty': 2, 'type': 'definition'}
+                    title=entry.get('title', f"Glossary: {entry.get('concept', 'Term')}"),
+                    content=entry
                 )
                 self._insert_component(conn, component)
 
@@ -274,12 +280,8 @@ class TopicRepository:
                     id=str(uuid.uuid4()),
                     topic_id=topic_id,
                     component_type=ComponentType.SOCRATIC_DIALOGUE,
-                    content=dialogue,
-                    metadata={
-                        'difficulty': dialogue.get('difficulty', 3),
-                        'style': dialogue.get('dialogue_style', ''),
-                        'tags': dialogue.get('tags', '')
-                    }
+                    title=f"Socratic Dialogue: {dialogue.get('title', 'Dialogue')}",
+                    content=dialogue
                 )
                 self._insert_component(conn, component)
 
@@ -290,12 +292,8 @@ class TopicRepository:
                     id=str(uuid.uuid4()),
                     topic_id=topic_id,
                     component_type=ComponentType.SHORT_ANSWER_QUESTION,
-                    content=question,
-                    metadata={
-                        'difficulty': question.get('difficulty', 3),
-                        'purpose': question.get('purpose', ''),
-                        'tags': question.get('tags', '')
-                    }
+                    title=f"Short Answer Question: {question.get('title', 'Question')}",
+                    content=question
                 )
                 self._insert_component(conn, component)
 
@@ -306,12 +304,8 @@ class TopicRepository:
                     id=str(uuid.uuid4()),
                     topic_id=topic_id,
                     component_type=ComponentType.MULTIPLE_CHOICE_QUESTION,
-                    content=question,
-                    metadata={
-                        'difficulty': question.get('difficulty', 3),
-                        'purpose': question.get('purpose', ''),
-                        'tags': question.get('tags', '')
-                    }
+                    title=f"Multiple Choice Question: {question.get('title', 'Question')}",
+                    content=question
                 )
                 self._insert_component(conn, component)
 
@@ -322,12 +316,8 @@ class TopicRepository:
                     id=str(uuid.uuid4()),
                     topic_id=topic_id,
                     component_type=ComponentType.POST_TOPIC_QUIZ,
-                    content=item,
-                    metadata={
-                        'difficulty': item.get('difficulty', 3),
-                        'item_type': item.get('type', ''),
-                        'tags': item.get('tags', '')
-                    }
+                    title=f"Post-Topic Quiz Item: {item.get('title', 'Item')}",
+                    content=item
                 )
                 self._insert_component(conn, component)
 
@@ -336,7 +326,7 @@ class TopicRepository:
         component_data = component.to_dict()
         conn.execute("""
             INSERT INTO components
-            (id, topic_id, component_type, content, metadata, created_at, updated_at, version)
+            (id, topic_id, component_type, title, content, created_at, updated_at, version)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, tuple(component_data.values()))
 
@@ -409,10 +399,8 @@ class TopicRepository:
             topic_content.didactic_snippet = components_by_type[ComponentType.DIDACTIC_SNIPPET][0]
 
         if ComponentType.GLOSSARY in components_by_type:
-            glossary = {}
-            for item in components_by_type[ComponentType.GLOSSARY]:
-                glossary[item['concept']] = item['explanation']
-            topic_content.glossary = glossary
+            # Keep as list of entries instead of converting back to dictionary
+            topic_content.glossary = components_by_type[ComponentType.GLOSSARY]
 
         if ComponentType.SOCRATIC_DIALOGUE in components_by_type:
             topic_content.socratic_dialogues = components_by_type[ComponentType.SOCRATIC_DIALOGUE]
@@ -519,14 +507,14 @@ class TopicRepository:
                 min_diff, max_diff = difficulty_range
                 components = [
                     c for c in components
-                    if min_diff <= c.metadata.get('difficulty', 3) <= max_diff
+                    if min_diff <= c.content.get('difficulty', 3) <= max_diff
                 ]
 
             # Filter by tags
             if tags:
                 filtered_components = []
                 for component in components:
-                    comp_tags = component.metadata.get('tags', '').split(',')
+                    comp_tags = component.content.get('tags', '').split(',')
                     comp_tags = [tag.strip().lower() for tag in comp_tags]
                     if any(tag.lower() in comp_tags for tag in tags):
                         filtered_components.append(component)

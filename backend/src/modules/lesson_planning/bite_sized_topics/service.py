@@ -34,6 +34,23 @@ class BiteSizedTopicService(ModuleService):
             # Future prompts will be added here
         }
 
+    def _format_messages_for_storage(self, messages: List[Any]) -> str:
+        """
+        Format LLM messages for storage in database.
+
+        Args:
+            messages: List of LLM messages
+
+        Returns:
+            String representation of messages suitable for storage
+        """
+        formatted_messages = []
+        for msg in messages:
+            role = getattr(msg, 'role', 'unknown')
+            content = getattr(msg, 'content', '')
+            formatted_messages.append(f"[{role}]: {content}")
+        return "\n\n".join(formatted_messages)
+
     async def create_lesson_content(
         self,
         topic_title: str,
@@ -96,7 +113,7 @@ class BiteSizedTopicService(ModuleService):
         concept_context: Optional[str] = None,
         learning_objectives: Optional[List[str]] = None,
         previous_topics: Optional[List[str]] = None
-    ) -> Dict[str, str]:
+    ) -> Dict[str, Any]:
         """
         Create a didactic snippet for a specific concept.
 
@@ -134,6 +151,12 @@ class BiteSizedTopicService(ModuleService):
             # Parse the structured output
             parsed_snippet = self._parse_didactic_snippet(response.content)
 
+            # Add generation metadata separately (not in content)
+            parsed_snippet['_generation_metadata'] = {
+                'generation_prompt': self._format_messages_for_storage(messages),
+                'raw_llm_response': response.content
+            }
+
             self.logger.info(f"Generated didactic snippet for '{key_concept}': {parsed_snippet['title']}")
             return parsed_snippet
 
@@ -141,7 +164,7 @@ class BiteSizedTopicService(ModuleService):
             self.logger.error(f"Failed to generate didactic snippet: {e}")
             raise BiteSizedTopicError(f"Failed to generate didactic snippet: {e}")
 
-    def _parse_didactic_snippet(self, content: str) -> Dict[str, str]:
+    def _parse_didactic_snippet(self, content: str) -> Dict[str, Any]:
         """
         Parse the structured output from the didactic snippet prompt.
 
@@ -149,7 +172,7 @@ class BiteSizedTopicService(ModuleService):
             content: Raw LLM output containing title and snippet
 
         Returns:
-            Dictionary with 'title' and 'snippet' keys
+            Dictionary with consolidated content including title and all snippet data
 
         Raises:
             BiteSizedTopicError: If parsing fails
@@ -190,9 +213,12 @@ class BiteSizedTopicService(ModuleService):
             if not snippet:
                 snippet = content.strip()
 
+            # Return consolidated content structure
             return {
                 'title': title,
-                'snippet': snippet
+                'snippet': snippet,
+                'type': 'didactic_snippet',
+                'difficulty': 2  # Default difficulty for didactic snippets
             }
 
         except Exception as e:
@@ -200,7 +226,9 @@ class BiteSizedTopicService(ModuleService):
             # Return a fallback structure
             return {
                 'title': "Didactic Snippet",
-                'snippet': content.strip()
+                'snippet': content.strip(),
+                'type': 'didactic_snippet',
+                'difficulty': 2
             }
 
     async def create_glossary(
@@ -211,13 +239,13 @@ class BiteSizedTopicService(ModuleService):
         lesson_context: Optional[str] = None,
         learning_objectives: Optional[List[str]] = None,
         previous_topics: Optional[List[str]] = None
-    ) -> Dict[str, str]:
+    ) -> List[Dict[str, Any]]:
         """
         Create a glossary of concepts for a topic.
 
         Args:
             topic_title: Title of the topic
-            concepts: List of concepts to explain
+            concepts: List of concepts to explain (if empty, LLM will identify concepts)
             user_level: User's skill level
             lesson_context: Additional context about the lesson
             learning_objectives: Learning objectives for the lesson
@@ -235,6 +263,10 @@ class BiteSizedTopicService(ModuleService):
                 time_constraint=10
             )
 
+            # If no concepts provided, let LLM identify meaningful concepts
+            if not concepts:
+                concepts = [f"IDENTIFY_CONCEPTS_FROM:{topic_title}"]
+
             messages = self.prompts['glossary'].generate_prompt(
                 context,
                 topic_title=topic_title,
@@ -249,6 +281,14 @@ class BiteSizedTopicService(ModuleService):
             # Parse the structured output
             parsed_glossary = self._parse_glossary(response.content)
 
+            # Add generation metadata to each glossary entry
+            generation_metadata = {
+                'generation_prompt': self._format_messages_for_storage(messages),
+                'raw_llm_response': response.content
+            }
+            for entry in parsed_glossary:
+                entry['_generation_metadata'] = generation_metadata
+
             self.logger.info(f"Generated glossary for '{topic_title}' with {len(parsed_glossary)} concepts")
             return parsed_glossary
 
@@ -256,7 +296,7 @@ class BiteSizedTopicService(ModuleService):
             self.logger.error(f"Failed to generate glossary: {e}")
             raise BiteSizedTopicError(f"Failed to generate glossary: {e}")
 
-    def _parse_glossary(self, content: str) -> Dict[str, str]:
+    def _parse_glossary(self, content: str) -> List[Dict[str, Any]]:
         """
         Parse the structured output from the glossary prompt.
 
@@ -264,7 +304,7 @@ class BiteSizedTopicService(ModuleService):
             content: Raw LLM output containing concept and explanation pairs
 
         Returns:
-            Dictionary mapping concepts to explanations
+            List of glossary entry dictionaries with consolidated content
 
         Raises:
             BiteSizedTopicError: If parsing fails
@@ -277,34 +317,53 @@ class BiteSizedTopicService(ModuleService):
             if content.endswith('```'):
                 content = content[:-3]
 
-            glossary = {}
+            glossary_entries = []
 
             # Split by double newlines to separate entries
             entries = content.split('\n\n')
 
-            for entry in entries:
+            for i, entry in enumerate(entries, 1):
                 entry = entry.strip()
                 if not entry:
                     continue
 
-                # Look for Concept: and Explanation: patterns
+                glossary_entry = {
+                    'type': 'glossary_entry',
+                    'number': i
+                }
+
+                # Look for Concept:, Title:, and Explanation: patterns
                 concept_match = re.search(r'Concept:\s*(.+?)(?=\n|$)', entry)
+                title_match = re.search(r'Title:\s*(.+?)(?=\n|$)', entry)
                 explanation_match = re.search(r'Explanation:\s*(.+)', entry, re.DOTALL)
 
-                if concept_match and explanation_match:
-                    concept = concept_match.group(1).strip()
-                    explanation = explanation_match.group(1).strip()
+                if concept_match:
+                    glossary_entry['concept'] = concept_match.group(1).strip()
 
+                if title_match:
+                    glossary_entry['title'] = title_match.group(1).strip()
+                else:
+                    glossary_entry['title'] = f"Glossary: {glossary_entry.get('concept', f'Term {i}')}"
+
+                if explanation_match:
+                    explanation = explanation_match.group(1).strip()
                     # Clean up the explanation (remove extra whitespace)
                     explanation = re.sub(r'\s+', ' ', explanation).strip()
+                    glossary_entry['explanation'] = explanation
 
-                    glossary[concept] = explanation
+                # Add metadata
+                glossary_entry['difficulty'] = 2  # Default difficulty for glossary entries
+
+                # Only add if we have essential fields
+                if glossary_entry.get('concept') and glossary_entry.get('explanation'):
+                    glossary_entries.append(glossary_entry)
 
             # If no entries found, try alternate parsing
-            if not glossary:
+            if not glossary_entries:
                 # Try to find entries by looking for lines that start with "Concept:"
                 lines = content.split('\n')
                 current_concept = None
+                current_title = None
                 current_explanation = []
 
                 for line in lines:
@@ -312,11 +371,21 @@ class BiteSizedTopicService(ModuleService):
                     if line.startswith('Concept:'):
                         # Save previous entry if exists
                         if current_concept and current_explanation:
-                            glossary[current_concept] = ' '.join(current_explanation)
+                            glossary_entries.append({
+                                'type': 'glossary_entry',
+                                'number': len(glossary_entries) + 1,
+                                'concept': current_concept,
+                                'title': current_title or f"Glossary: {current_concept}",
+                                'explanation': ' '.join(current_explanation),
+                                'difficulty': 2
+                            })
 
                         # Start new entry
                         current_concept = line[8:].strip()
+                        current_title = None
                         current_explanation = []
+                    elif line.startswith('Title:'):
+                        current_title = line[6:].strip()
                     elif line.startswith('Explanation:'):
                         current_explanation = [line[12:].strip()]
                     elif current_concept and line:
@@ -324,14 +393,21 @@ class BiteSizedTopicService(ModuleService):
 
                 # Save last entry
                 if current_concept and current_explanation:
-                    glossary[current_concept] = ' '.join(current_explanation)
+                    glossary_entries.append({
+                        'type': 'glossary_entry',
+                        'number': len(glossary_entries) + 1,
+                        'concept': current_concept,
+                        'title': current_title or f"Glossary: {current_concept}",
+                        'explanation': ' '.join(current_explanation),
+                        'difficulty': 2
+                    })
 
-            return glossary
+            return glossary_entries
 
         except Exception as e:
             self.logger.error(f"Failed to parse glossary: {e}")
-            # Return empty glossary on parse failure
-            return {}
+            # Return empty list on parse failure
+            return []
 
     async def create_socratic_dialogue(
         self,
@@ -382,6 +458,14 @@ class BiteSizedTopicService(ModuleService):
             # Parse the structured output
             parsed_dialogues = self._parse_socratic_dialogues(response.content)
 
+            # Add generation metadata to each dialogue
+            generation_metadata = {
+                'generation_prompt': self._format_messages_for_storage(messages),
+                'raw_llm_response': response.content
+            }
+            for dialogue in parsed_dialogues:
+                dialogue['_generation_metadata'] = generation_metadata
+
             self.logger.info(f"Generated {len(parsed_dialogues)} Socratic dialogues for '{core_concept}'")
             return parsed_dialogues
 
@@ -397,7 +481,7 @@ class BiteSizedTopicService(ModuleService):
             content: Raw LLM output containing multiple dialogue entries
 
         Returns:
-            List of dialogue dictionaries with metadata
+            List of dialogue dictionaries with consolidated content and metadata
 
         Raises:
             BiteSizedTopicError: If parsing fails
@@ -419,31 +503,52 @@ class BiteSizedTopicService(ModuleService):
             if dialogue_sections and not dialogue_sections[0].strip():
                 dialogue_sections = dialogue_sections[1:]
 
-            for section in dialogue_sections:
+            for i, section in enumerate(dialogue_sections, 1):
                 section = section.strip()
                 if not section:
                     continue
 
-                dialogue = {}
-
-                # Extract each field using regex
-                fields = {
-                    'concept': r'Concept:\s*(.+?)(?=\n\s*\w+:|$)',
-                    'dialogue_objective': r'Dialogue Objective:\s*(.+?)(?=\n\s*\w+:|$)',
-                    'starting_prompt': r'Starting Prompt:\s*(.+?)(?=\n\s*\w+:|$)',
-                    'dialogue_style': r'Dialogue Style:\s*(.+?)(?=\n\s*\w+:|$)',
-                    'hints_and_scaffolding': r'Hints and Scaffolding:\s*(.+?)(?=\n\s*\w+:|$)',
-                    'exit_criteria': r'Exit Criteria:\s*(.+?)(?=\n\s*\w+:|$)',
-                    'difficulty': r'Difficulty:\s*(\d+)',
-                    'tags': r'Tags:\s*(.+?)(?=\n\s*\w+:|$)'
+                dialogue = {
+                    'type': 'socratic_dialogue',
+                    'number': i
                 }
 
-                for field, pattern in fields.items():
-                    match = re.search(pattern, section, re.DOTALL | re.IGNORECASE)
-                    if match:
-                        value = match.group(1).strip()
-                        # Clean up multi-line values
+                # Parse each field more carefully to handle malformed output
+                field_patterns = {
+                    'title': r'Title:\s*([^\n]+)',
+                    'concept': r'Concept:\s*([^\n]+?)(?=\s+Dialogue\s+Objective:|$)',
+                    'dialogue_objective': r'Dialogue\s+Objective:\s*([^\n]+?)(?=\s+Starting\s+Prompt:|$)',
+                    'starting_prompt': r'Starting\s+Prompt:\s*([^\n]+?)(?=\s+Dialogue\s+Style:|$)',
+                    'dialogue_style': r'Dialogue\s+Style:\s*([^\n]+?)(?=\s+Hints\s+and\s+Scaffolding:|$)',
+                    'hints_and_scaffolding': r'Hints\s+and\s+Scaffolding:\s*([^\n]+?)(?=\s+Exit\s+Criteria:|$)',
+                    'exit_criteria': r'Exit\s+Criteria:\s*([^\n]+?)(?=\s+Difficulty:|$)',
+                    'difficulty': r'Difficulty:\s*(\d+)',
+                    'tags': r'Tags:\s*([^\n]+)'
+                }
+
+                                # Try to extract from properly formatted lines first
+                for field, pattern in field_patterns.items():
+                    # Look for the field on its own line (proper format)
+                    proper_match = re.search(f'\n{pattern}', section, re.IGNORECASE)
+
+                    if proper_match:
+                        value = proper_match.group(1).strip()
+                    else:
+                        # Fall back to the original regex for edge cases
+                        field_title = field.replace("_", "\\s+").title()
+                        fallback_pattern = f'{field_title}:\\s*(.+?)(?=\\n\\s*\\w+:|$)'
+                        fallback_match = re.search(fallback_pattern, section, re.DOTALL | re.IGNORECASE)
+                        if fallback_match:
+                            value = fallback_match.group(1).strip()
+                        else:
+                            value = None
+
+                    if value:
+                        # Clean up multi-line values and remove embedded field names
                         value = re.sub(r'\s+', ' ', value).strip()
+
+                        # Remove any embedded field names that might have been captured
+                        value = re.sub(r'\s+(Title|Concept|Dialogue\s+Objective|Starting\s+Prompt|Dialogue\s+Style|Hints\s+and\s+Scaffolding|Exit\s+Criteria|Difficulty|Tags):\s*', '', value, flags=re.IGNORECASE)
 
                         # Special handling for difficulty (convert to int)
                         if field == 'difficulty':
@@ -457,6 +562,8 @@ class BiteSizedTopicService(ModuleService):
                         # Provide defaults for missing fields
                         if field == 'difficulty':
                             dialogue[field] = 3
+                        elif field == 'title':
+                            dialogue[field] = f"Socratic Dialogue {i}"
                         else:
                             dialogue[field] = ""
 
@@ -520,6 +627,14 @@ class BiteSizedTopicService(ModuleService):
             # Parse the structured output
             parsed_questions = self._parse_short_answer_questions(response.content)
 
+            # Add generation metadata to each question
+            generation_metadata = {
+                'generation_prompt': self._format_messages_for_storage(messages),
+                'raw_llm_response': response.content
+            }
+            for question in parsed_questions:
+                question['_generation_metadata'] = generation_metadata
+
             self.logger.info(f"Generated {len(parsed_questions)} short answer questions for '{core_concept}'")
             return parsed_questions
 
@@ -535,7 +650,7 @@ class BiteSizedTopicService(ModuleService):
             content: Raw LLM output containing multiple question entries
 
         Returns:
-            List of question dictionaries with metadata
+            List of question dictionaries with consolidated content and metadata
 
         Raises:
             BiteSizedTopicError: If parsing fails
@@ -557,15 +672,19 @@ class BiteSizedTopicService(ModuleService):
             if question_sections and not question_sections[0].strip():
                 question_sections = question_sections[1:]
 
-            for section in question_sections:
+            for i, section in enumerate(question_sections, 1):
                 section = section.strip()
                 if not section:
                     continue
 
-                question_data = {}
+                question_data = {
+                    'type': 'short_answer_question',
+                    'number': i
+                }
 
                 # Extract each field using regex
                 fields = {
+                    'title': r'Title:\s*(.+?)(?=\n\s*\w+:|$)',
                     'question': r'Question:\s*(.+?)(?=\n\s*\w+:|$)',
                     'purpose': r'Purpose:\s*(.+?)(?=\n\s*\w+:|$)',
                     'target_concept': r'Target Concept:\s*(.+?)(?=\n\s*\w+:|$)',
@@ -593,6 +712,8 @@ class BiteSizedTopicService(ModuleService):
                         # Provide defaults for missing fields
                         if field == 'difficulty':
                             question_data[field] = 3
+                        elif field == 'title':
+                            question_data[field] = f"Short Answer Question {i}"
                         else:
                             question_data[field] = ""
 
@@ -659,6 +780,14 @@ class BiteSizedTopicService(ModuleService):
             # Parse the structured output
             parsed_questions = self._parse_multiple_choice_questions(response.content)
 
+            # Add generation metadata to each question
+            generation_metadata = {
+                'generation_prompt': self._format_messages_for_storage(messages),
+                'raw_llm_response': response.content
+            }
+            for question in parsed_questions:
+                question['_generation_metadata'] = generation_metadata
+
             self.logger.info(f"Generated {len(parsed_questions)} multiple choice questions for '{core_concept}'")
             return parsed_questions
 
@@ -696,12 +825,22 @@ class BiteSizedTopicService(ModuleService):
             if question_sections and not question_sections[0].strip():
                 question_sections = question_sections[1:]
 
-            for section in question_sections:
+            for i, section in enumerate(question_sections, 1):
                 section = section.strip()
                 if not section:
                     continue
 
-                question_data = {}
+                question_data = {
+                    'type': 'multiple_choice_question',
+                    'number': i
+                }
+
+                # Extract title
+                title_match = re.search(r'Title:\s*(.+?)(?=\n\s*Question:)', section, re.DOTALL)
+                if title_match:
+                    question_data['title'] = title_match.group(1).strip()
+                else:
+                    question_data['title'] = f"Multiple Choice Question {i}"
 
                 # Extract question stem
                 question_match = re.search(r'Question:\s*(.+?)(?=\n\s*Choices:)', section, re.DOTALL)
@@ -846,6 +985,14 @@ class BiteSizedTopicService(ModuleService):
             # Parse the structured output
             parsed_quiz = self._parse_post_topic_quiz(response.content)
 
+            # Add generation metadata to each quiz item
+            generation_metadata = {
+                'generation_prompt': self._format_messages_for_storage(messages),
+                'raw_llm_response': response.content
+            }
+            for item in parsed_quiz:
+                item['_generation_metadata'] = generation_metadata
+
             self.logger.info(f"Generated post-topic quiz with {len(parsed_quiz)} items for '{core_concept}'")
             return parsed_quiz
 
@@ -891,6 +1038,17 @@ class BiteSizedTopicService(ModuleService):
                 item_data = {}
 
                 # Extract common fields first
+                title_match = re.search(r'Title:\s*(.+?)(?=\n|$)', section)
+                if title_match:
+                    item_data['title'] = title_match.group(1).strip()
+                else:
+                    # Default title based on type if available
+                    type_match = re.search(r'Type:\s*(.+?)(?=\n|$)', section)
+                    if type_match:
+                        item_data['title'] = type_match.group(1).strip()
+                    else:
+                        item_data['title'] = "Quiz Item"
+
                 type_match = re.search(r'Type:\s*(.+?)(?=\n|$)', section)
                 if type_match:
                     item_data['type'] = type_match.group(1).strip()

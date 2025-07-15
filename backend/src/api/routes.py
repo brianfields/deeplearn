@@ -470,7 +470,14 @@ async def get_bite_sized_topic_detail(topic_id: str):
             ComponentResponse(
                 component_type=comp.component_type if isinstance(comp.component_type, str) else comp.component_type.value,
                 content=comp.content,
-                metadata=comp.metadata
+                metadata={
+                    "title": comp.title,
+                    "created_at": comp.created_at.isoformat() if hasattr(comp.created_at, 'isoformat') else str(comp.created_at),
+                    "updated_at": comp.updated_at.isoformat() if hasattr(comp.updated_at, 'isoformat') else str(comp.updated_at),
+                    "version": comp.version,
+                    "generation_prompt": comp.generation_prompt,
+                    "raw_llm_response": comp.raw_llm_response
+                }
             )
             for comp in components
         ]

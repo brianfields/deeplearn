@@ -71,7 +71,22 @@ class GlossaryPrompt(PromptTemplate):
         """
 
         # Build the user prompt with all the context
-        user_content = f"""
+        # Check if we need to identify concepts from the topic
+        needs_concept_identification = any(c.startswith("IDENTIFY_CONCEPTS_FROM:") for c in concepts)
+
+        if needs_concept_identification:
+            user_content = f"""
+        You need to identify meaningful concepts within this topic and create glossary entries for them.
+
+        Topic: {topic_title}
+
+        TASK: First identify 3-5 key concepts, terms, or ideas that learners would encounter in this topic.
+        These should be specific terms or concepts that would benefit from explanation, not just the topic title itself.
+
+        Then create glossary entries for each identified concept.
+        """
+        else:
+            user_content = f"""
         Create glossary entries for the following concepts in the context of:
 
         Topic: {topic_title}
@@ -84,7 +99,26 @@ class GlossaryPrompt(PromptTemplate):
         if learning_objectives:
             user_content += f"\nLearning Objectives:\n{chr(10).join(f'- {obj}' for obj in learning_objectives)}"
 
-        user_content += f"""
+        if needs_concept_identification:
+            user_content += f"""
+
+        For each concept you identify, provide a teaching-style explanation that helps learners understand:
+        - What it means in plain English
+        - Why it exists or matters
+        - How it connects to other ideas
+        - An example or metaphor if helpful
+
+        Output each entry in the exact format specified:
+        ```
+        Concept: [concept name]
+        Title: [1-8 word title capturing the essence of this concept]
+        Explanation: [3–7 sentence teaching explanation]
+        ```
+
+        Identify and provide entries for 3-5 meaningful concepts, separated by blank lines.
+        """
+        else:
+            user_content += f"""
 
         For each concept, provide a teaching-style explanation that helps learners understand:
         - What it means in plain English
@@ -95,6 +129,7 @@ class GlossaryPrompt(PromptTemplate):
         Output each entry in the exact format specified:
         ```
         Concept: [concept name]
+        Title: [1-8 word title capturing the essence of this concept]
         Explanation: [3–7 sentence teaching explanation]
         ```
 

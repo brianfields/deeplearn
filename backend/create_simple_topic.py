@@ -99,28 +99,48 @@ def create_simple_content(topic_title: str, user_level: str = "beginner"):
             session.add(topic_record)
 
             # Create didactic snippet component
+            snippet_title = snippet_data.get("title", "Didactic Snippet")
+            snippet_content = {
+                **snippet_data,
+                "title": snippet_title,
+                "type": "didactic_snippet",
+                "difficulty": 2
+            }
+
             snippet_component = BiteSizedComponent(
                 id=str(uuid.uuid4()),
                 topic_id=topic_id,
                 component_type="didactic_snippet",
-                content=json.dumps(snippet_data),
-                component_metadata={"title": snippet_data.get("title", topic_title)},
+                title=snippet_title,
+                content=snippet_content,
                 created_at=datetime.utcnow(),
                 updated_at=datetime.utcnow()
             )
             session.add(snippet_component)
 
-            # Create glossary component
-            glossary_component = BiteSizedComponent(
-                id=str(uuid.uuid4()),
-                topic_id=topic_id,
-                component_type="glossary",
-                content=json.dumps(glossary_data),
-                component_metadata={"term_count": len(glossary_data)},
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow()
-            )
-            session.add(glossary_component)
+            # Create glossary components (each term as separate component)
+            for entry in glossary_data:
+                concept = entry.get("term", "Unknown Term")
+                explanation = entry.get("definition", "No definition provided")
+                glossary_title = f"Glossary: {concept}"
+                glossary_content = {
+                    "concept": concept,
+                    "explanation": explanation,
+                    "title": glossary_title,
+                    "type": "glossary_entry",
+                    "difficulty": 2
+                }
+
+                glossary_component = BiteSizedComponent(
+                    id=str(uuid.uuid4()),
+                    topic_id=topic_id,
+                    component_type="glossary",
+                    title=glossary_title,
+                    content=glossary_content,
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow()
+                )
+                session.add(glossary_component)
 
             session.commit()
 

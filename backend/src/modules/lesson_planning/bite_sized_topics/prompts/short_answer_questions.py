@@ -34,6 +34,7 @@ class ShortAnswerQuestionsPrompt(PromptTemplate):
         REQUIRED FORMAT FOR EACH QUESTION:
         ```
         Question [Number]
+        Title: [1-8 word title that captures what this question assesses]
         Question: [The question, stated clearly and concisely]
         Purpose: [What kind of thinking this question is meant to evoke — e.g., definition recall, conceptual explanation, contrast, consequence reasoning, generalization, error detection]
         Target Concept: [What idea this question is focused on]

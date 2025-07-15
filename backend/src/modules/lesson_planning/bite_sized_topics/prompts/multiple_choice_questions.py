@@ -35,6 +35,7 @@ class MultipleChoiceQuestionsPrompt(PromptTemplate):
         REQUIRED FORMAT FOR EACH MCQ:
         ```
         Question [Number]
+        Title: [1-8 word title that captures what this question tests]
         Question: [The question stem, clearly phrased and unambiguous]
         Choices:
         A. [Option A]

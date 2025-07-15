@@ -37,6 +37,7 @@ class SocraticDialoguePrompt(PromptTemplate):
         REQUIRED FORMAT FOR EACH DIALOGUE:
         ```
         Dialogue [Number]
+        Title: [1-8 word title that captures what this dialogue explores]
         Concept: [What idea this dialogue is about — this can be more specific than the overall lesson topic]
         Dialogue Objective: [The insight the learner should construct by the end. What shift in mental model or realization are we aiming for? Avoid mere fact recall.]
         Starting Prompt: [A tutor's natural-sounding first line to start the dialogue — open-ended and curiosity-provoking. Avoid trivia questions.]
@@ -104,6 +105,7 @@ class SocraticDialoguePrompt(PromptTemplate):
         For each dialogue, provide all the metadata in the exact format specified:
         ```
         Dialogue [Number]
+        Title: [1-8 word title that captures what this dialogue explores]
         Concept: [specific concept]
         Dialogue Objective: [target insight]
         Starting Prompt: [tutor's opening line]

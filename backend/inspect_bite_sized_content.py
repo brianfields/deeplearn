@@ -94,8 +94,8 @@ class ContentInspector:
                         'id': component.id,
                         'topic_id': component.topic_id,
                         'component_type': component.component_type,
+                        'title': component.title,
                         'content': component.content,
-                        'metadata': component.component_metadata or {},
                         'created_at': component.created_at.isoformat() if component.created_at else "",
                         'updated_at': component.updated_at.isoformat() if component.updated_at else "",
                         'version': component.version

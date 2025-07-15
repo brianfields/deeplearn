@@ -197,13 +197,19 @@ class BiteSizedTopic(Base):
 
 
 class BiteSizedComponent(Base):
+    """A component of a bite-sized topic (e.g., didactic snippet, glossary entry, question)"""
+
     __tablename__ = "bite_sized_components"
 
     id = Column(String, primary_key=True)  # UUID string
     topic_id = Column(String, ForeignKey("bite_sized_topics.id"), nullable=False)
     component_type = Column(String, nullable=False)  # didactic_snippet, glossary, etc.
-    content = Column(Text, nullable=False)
-    component_metadata = Column(JSON)
+    title = Column(String, nullable=False)  # 1-8 word title to identify the component
+    content = Column(JSON, nullable=False)  # All component data consolidated into single JSON field
+
+    # Generation metadata
+    generation_prompt = Column(Text, nullable=True)  # The prompt used to generate this component
+    raw_llm_response = Column(Text, nullable=True)  # The full unedited response from the LLM
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)

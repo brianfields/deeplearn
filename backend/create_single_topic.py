@@ -30,7 +30,7 @@ except ImportError as e:
 
 
 async def create_topic(topic_title: str, user_level: str = "beginner"):
-    """Create a single topic using direct service calls"""
+    """Create a single topic using the orchestrator"""
     print(f"🎯 Creating: {topic_title} (level: {user_level})")
 
     try:
@@ -38,83 +38,56 @@ async def create_topic(topic_title: str, user_level: str = "beginner"):
         llm_config = get_llm_config()
         config = ServiceFactory.create_service_config(llm_config)
         llm_client = LLMClient(llm_config)
-        service = BiteSizedTopicService(config, llm_client)
 
-        # Create didactic snippet
-        print("📝 Creating didactic snippet...")
-        didactic_snippet = await service.create_didactic_snippet(
+        # Use the orchestrator instead of direct service calls
+        from modules.lesson_planning.bite_sized_topics.orchestrator import TopicOrchestrator, TopicSpec, CreationStrategy
+
+        orchestrator = TopicOrchestrator(config, llm_client)
+
+        # Create a proper topic specification
+        topic_spec = TopicSpec(
             topic_title=topic_title,
-            key_concept=topic_title,
+            core_concept=topic_title,
             user_level=user_level,
-            learning_objectives=[f"Understand {topic_title}"]
+            learning_objectives=[f"Understand {topic_title}"],
+            key_concepts=[],  # Will be populated by LLM during generation
+            key_aspects=[],   # Will be populated by LLM during generation
+            target_insights=[f"Key insights about {topic_title}"],
+            common_misconceptions=[],
+            previous_topics=[],
+            creation_strategy=CreationStrategy.COMPLETE,  # Generate all components
+            auto_identify_concepts=True  # Let LLM identify meaningful concepts
         )
 
-        # Create glossary
-        print("📚 Creating glossary...")
-        glossary = await service.create_glossary(
-            topic_title=topic_title,
-            concepts=[topic_title],
-            user_level=user_level,
-            learning_objectives=[f"Define key terms in {topic_title}"]
-        )
+        # Generate all components using the orchestrator
+        print("📝 Generating all components...")
+        topic_content = await orchestrator.create_topic(topic_spec)
 
-        # Store directly to database using SQLAlchemy models
+        # Store using the repository
         print("💾 Storing to PostgreSQL...")
-        db_service = get_database_service()
+        from modules.lesson_planning.bite_sized_topics.postgresql_storage import PostgreSQLTopicRepository
 
-        # Create topic record
-        topic_id = str(uuid.uuid4())
-        with db_service.get_session() as session:
-            # Create main topic
-            topic_record = BiteSizedTopic(
-                id=topic_id,
-                title=topic_title,
-                core_concept=topic_title,
-                user_level=user_level,
-                learning_objectives=[f"Understand {topic_title}"],
-                key_concepts=[topic_title],
-                key_aspects=[topic_title],
-                target_insights=[f"Key insights about {topic_title}"],
-                common_misconceptions=[],
-                previous_topics=[],
-                creation_strategy="core_only",
-                creation_metadata={"created_by": "create_single_topic.py"},
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow()
-            )
-            session.add(topic_record)
+        repository = PostgreSQLTopicRepository()
+        topic_id = await repository.store_topic(topic_content)
 
-            # Create didactic snippet component
-            snippet_id = str(uuid.uuid4())
-            snippet_component = BiteSizedComponent(
-                id=snippet_id,
-                topic_id=topic_id,
-                component_type="didactic_snippet",
-                content=str(didactic_snippet),
-                component_metadata={"title": didactic_snippet.get("title", topic_title)},
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow()
-            )
-            session.add(snippet_component)
-
-            # Create glossary component
-            glossary_id = str(uuid.uuid4())
-            glossary_component = BiteSizedComponent(
-                id=glossary_id,
-                topic_id=topic_id,
-                component_type="glossary",
-                content=str(glossary),
-                component_metadata={"term_count": len(glossary) if isinstance(glossary, list) else 1},
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow()
-            )
-            session.add(glossary_component)
-
-            session.commit()
-
+        # Report what was created
         print(f"✅ Success! Topic ID: {topic_id}")
-        print(f"   • Didactic snippet: {didactic_snippet.get('title', 'Created')}")
-        print(f"   • Glossary: {len(glossary) if isinstance(glossary, list) else 1} terms")
+        if topic_content.didactic_snippet:
+            print(f"   • Didactic snippet: {topic_content.didactic_snippet.get('title', 'Created')}")
+        if topic_content.glossary:
+            print(f"   • Glossary: {len(topic_content.glossary)} terms")
+        if topic_content.socratic_dialogues:
+            print(f"   • Socratic dialogues: {len(topic_content.socratic_dialogues)} dialogues")
+        if topic_content.short_answer_questions:
+            print(f"   • Short answer questions: {len(topic_content.short_answer_questions)} questions")
+        if topic_content.multiple_choice_questions:
+            print(f"   • Multiple choice questions: {len(topic_content.multiple_choice_questions)} questions")
+        if topic_content.post_topic_quiz:
+            print(f"   • Post-topic quiz: {len(topic_content.post_topic_quiz)} items")
+
+        print(f"   • Total components: {topic_content.component_count}")
+        print(f"   • Total items: {topic_content.total_items}")
+
         return topic_id
 
     except Exception as e:
