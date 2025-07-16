@@ -44,11 +44,11 @@ export default function CoursesView() {
   }
 
   const handleOpenPath = (pathId: string) => {
-    router.push(`/learn?path=${pathId}`)
+          router.push(`/?path=${pathId}`)
   }
 
   const handleCreatePath = () => {
-    router.push('/learn')
+          router.push('/')
   }
 
   const filteredPaths = learningPaths.filter(path => {

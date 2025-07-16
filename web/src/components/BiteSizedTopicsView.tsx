@@ -36,8 +36,8 @@ export default function BiteSizedTopicsView() {
   }
 
   const handleViewContent = (topic: BiteSizedTopic) => {
-    // Open topic content in new tab
-    window.open(`/topic/${topic.id}`, '_blank')
+    // Go directly to content view, skipping the overview
+    window.location.href = `/topic/${topic.id}?mode=content`
   }
 
   if (isLoading) {
@@ -121,10 +121,11 @@ export default function BiteSizedTopicsView() {
             <h3 className="text-xl font-semibold text-gray-900 mb-2">No Topics Available</h3>
             <p className="text-gray-600 mb-4">Create a learning path to generate bite-sized topics.</p>
             <button
-              onClick={() => window.location.href = '/learn'}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              onClick={refreshTopics}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
             >
-              Create Learning Path
+              <RefreshCw className="w-4 h-4" />
+              Refresh Topics
             </button>
           </div>
         ) : (

@@ -249,8 +249,9 @@ export default function TopicContentPage() {
   const [error, setError] = useState<string | null>(null)
   const [isPreloading, setIsPreloading] = useState(false)
 
-  // Check if we should start in learning mode and which flow to use
-  const initialMode = searchParams.get('mode') === 'learning' ? 'learning' : 'overview'
+  // Check what mode to start in
+  const modeParam = searchParams.get('mode')
+  const initialMode = modeParam === 'learning' ? 'learning' : modeParam === 'content' ? 'content' : 'overview'
   const useDuolingoFlow = searchParams.get('duolingo') === 'true' || searchParams.get('mode') === 'learning'
   const [viewMode, setViewMode] = useState<'overview' | 'content' | 'learning'>(initialMode)
 
@@ -289,10 +290,10 @@ export default function TopicContentPage() {
 
   const handleLearningComplete = (results: any) => {
     console.log('Learning completed:', results)
-    // If we came from learning mode, go back to learn page after completion
+    // If we came from learning mode, go back to main page after completion
     if (searchParams.get('mode') === 'learning') {
       setTimeout(() => {
-        window.location.href = '/learn'
+        window.location.href = '/'
       }, 3000) // Give user time to see completion screen
     } else {
       setViewMode('overview')
@@ -300,9 +301,9 @@ export default function TopicContentPage() {
   }
 
   const handleBackToOverview = () => {
-    // If we came from learning mode, go back to learn page
+    // If we came from learning mode, go back to main page
     if (searchParams.get('mode') === 'learning') {
-      window.location.href = '/learn'
+      window.location.href = '/'
     } else {
       setViewMode('overview')
     }
@@ -389,11 +390,11 @@ export default function TopicContentPage() {
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <Link
-              href="/learn"
+              href="/"
               className="inline-flex items-center text-gray-600 hover:text-gray-900 transition-colors"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Learn
+              Back to Topics
             </Link>
 
             {/* Cache status indicators */}
@@ -446,37 +447,27 @@ export default function TopicContentPage() {
             </div>
           </div>
 
-          {/* Action buttons */}
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={() => setViewMode('learning')}
-                className="flex-1 bg-gradient-to-r from-green-600 to-blue-600 text-white py-3 px-6 rounded-lg font-medium flex items-center justify-center gap-2 hover:from-green-700 hover:to-blue-700 transition-all"
-              >
-                <Zap className="w-5 h-5" />
-                Start Duolingo-style Learning
-              </button>
-              <button
-                onClick={() => {
-                  const url = new URL(window.location.href)
-                  url.searchParams.set('duolingo', 'false')
-                  window.location.href = url.toString()
-                  setViewMode('learning')
-                }}
-                className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors"
-              >
-                <Play className="w-5 h-5" />
-                Standard Learning Mode
-              </button>
-              <button
-                onClick={() => setViewMode('content')}
-                className="flex-1 border border-gray-300 text-gray-700 py-3 px-6 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-gray-50 transition-colors"
-              >
-                <Eye className="w-5 h-5" />
-                Browse Content
-              </button>
+          {/* Action buttons - only show in overview mode */}
+          {viewMode === 'overview' && (
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={() => setViewMode('learning')}
+                  className="flex-1 bg-gradient-to-r from-green-600 to-blue-600 text-white py-3 px-6 rounded-lg font-medium flex items-center justify-center gap-2 hover:from-green-700 hover:to-blue-700 transition-all"
+                >
+                  <Zap className="w-5 h-5" />
+                  Start Learning
+                </button>
+                <button
+                  onClick={() => setViewMode('content')}
+                  className="flex-1 border border-gray-300 text-gray-700 py-3 px-6 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-gray-50 transition-colors"
+                >
+                  <Eye className="w-5 h-5" />
+                  Browse Content
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Overview Section */}
           {viewMode === 'overview' && (

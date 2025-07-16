@@ -1,10 +1,10 @@
 import Layout from '@/components/Layout'
-import Dashboard from '@/components/Dashboard'
+import BiteSizedTopicsView from '@/components/BiteSizedTopicsView'
 
 export default function Home() {
   return (
     <Layout>
-      <Dashboard />
+      <BiteSizedTopicsView />
     </Layout>
   )
 }
