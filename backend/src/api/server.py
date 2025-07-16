@@ -34,19 +34,15 @@ from .models import (
     ConversationResponse,
     ProgressResponse
 )
-from .connection_manager import ConnectionManager
 from .routes import router as api_router
-from .websocket import router as websocket_router
 
 # Import the existing learning components
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 try:
-        # Import using absolute imports from the src directory
+    # Import using absolute imports from the src directory
     import config.config as config
-    import enhanced_conversational_learning
-    import services.learning_service as learning_service_module
     import database_service
     import data_structures
     import llm_interface
@@ -55,12 +51,6 @@ try:
     config_manager = config.config_manager
     setup_logging = config.setup_logging
     validate_config = config.validate_config
-    get_learning_service_config = config.get_learning_service_config
-
-    EnhancedConversationalLearningEngine = enhanced_conversational_learning.EnhancedConversationalLearningEngine
-    EnhancedConversationSession = enhanced_conversational_learning.EnhancedConversationSession
-
-    LearningService = learning_service_module.LearningService
 
     DatabaseService = database_service.DatabaseService
     get_database_service = database_service.get_database_service
@@ -99,21 +89,13 @@ app.add_middleware(
 
 # Include routers
 app.include_router(api_router)
-app.include_router(websocket_router)
 
 # Global services - initialized on startup
 database: Optional[DatabaseService] = None
-learning_service: Optional[LearningService] = None
-conversation_engine: Optional[EnhancedConversationalLearningEngine] = None
 
-# WebSocket connection manager
 # Global service instances
 database = None
-learning_service = None
-conversation_engine = None
 storage = None  # For backward compatibility
-
-manager = ConnectionManager()
 
 
 @app.on_event("startup")
@@ -121,11 +103,9 @@ async def startup_event():
     """
     Initialize services on startup.
 
-    This function sets up all the core services including database, learning service,
-    and conversation engine. These services are made available globally to all
-    endpoints and modules.
+    This function sets up the core database service for bite-sized topics.
     """
-    global database, learning_service, conversation_engine, storage
+    global database, storage
 
     # Setup logging
     setup_logging()
@@ -138,20 +118,7 @@ async def startup_event():
         database = init_database_service()
         storage = database  # For backward compatibility
 
-        # Initialize learning service
-        service_config = get_learning_service_config()
-        learning_service = LearningService(service_config)
-
-        # Create LLM provider for conversation engine
-        llm_provider = create_llm_provider(service_config.llm_config)
-
-        # Initialize enhanced conversation engine
-        conversation_engine = EnhancedConversationalLearningEngine(
-            llm_provider,
-            database  # Pass database service instead of SimpleStorage
-        )
-
-        logger.info("Conversational Learning API server started successfully")
+        logger.info("Bite-Sized Topics API server started successfully")
 
     except Exception as e:
         logger.error(f"Failed to initialize services: {e}")

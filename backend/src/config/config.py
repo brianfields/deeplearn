@@ -19,7 +19,6 @@ except ImportError:
     DOTENV_AVAILABLE = False
 
 from llm_interface import LLMConfig, LLMProviderType
-from services.learning_service import LearningServiceConfig
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -205,19 +204,7 @@ class ConfigManager:
             "pool_recycle": 3600
         }
 
-    def get_learning_service_config(self) -> LearningServiceConfig:
-        """Get learning service configuration"""
 
-        llm_config = self.get_llm_config()
-
-        return LearningServiceConfig(
-            llm_config=llm_config,
-            default_lesson_duration=self.config.lesson_duration,
-            max_quiz_questions=self.config.max_quiz_questions,
-            min_quiz_questions=self.config.min_quiz_questions,
-            mastery_threshold=self.config.mastery_threshold,
-            cache_enabled=self.config.cache_enabled
-        )
 
     def get_settings_dict(self) -> Dict[str, Any]:
         """Get settings dictionary for backward compatibility"""
@@ -333,9 +320,7 @@ def get_llm_config() -> LLMConfig:
     """Get LLM configuration"""
     return config_manager.get_llm_config()
 
-def get_learning_service_config() -> LearningServiceConfig:
-    """Get learning service configuration"""
-    return config_manager.get_learning_service_config()
+
 
 def setup_logging() -> None:
     """Setup logging"""
@@ -375,12 +360,7 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"⚠️  LLM configuration creation failed: {e}")
 
-        # Test learning service config
-        try:
-            service_config = get_learning_service_config()
-            print("✅ Learning service configuration created successfully")
-        except Exception as e:
-            print(f"⚠️  Learning service configuration creation failed: {e}")
+
 
     except Exception as e:
         print(f"❌ Configuration loading failed: {e}")

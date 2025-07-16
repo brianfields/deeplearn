@@ -1,13 +1,11 @@
 """
 Lesson Planning Module
 
-This module handles all aspects of lesson planning, including:
-- Syllabus generation
-- Lesson content creation
-- Bite-sized topic planning
-- Content structuring and organization
+This module handles bite-sized topic planning functionality.
+The module has been simplified to focus on bite-sized learning content only.
 """
 
-from .service import LessonPlanningService
+# Import bite-sized topics functionality
+from .bite_sized_topics.service import BiteSizedTopicService
 
-__all__ = ['LessonPlanningService']
+__all__ = ['BiteSizedTopicService']

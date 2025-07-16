@@ -1,4 +1,0 @@
-#!/bin/bash
-# Check content strategy status
-
-python check_content_strategy.py
