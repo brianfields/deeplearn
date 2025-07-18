@@ -6,72 +6,49 @@
   "refined_material": {
     "topics": [
       {
-        "topic": "Creating Tensors in PyTorch",
+        "topic": "PyTorch Tensor Usage: Fundamentals and Operations",
         "learning_objectives": [
-          "Identify the methods to create tensors in PyTorch (Bloom's level: Remember)",
-          "Differentiate between the methods for creating tensors (Bloom's level: Understand)",
-          "Apply the appropriate method to create a tensor in a given scenario (Bloom's level: Apply)"
+          "Explain what PyTorch tensors are and their importance in deep learning (Bloom's Level 2)",
+          "Describe methods to create PyTorch tensors (Bloom's Level 1)",
+          "Identify key properties of PyTorch tensors and how to access them (Bloom's Level 1)",
+          "Apply basic operations on PyTorch tensors (Bloom's Level 3)",
+          "Demonstrate how to index and slice PyTorch tensors (Bloom's Level 3)",
+          "Explain GPU acceleration in PyTorch and how to apply it (Bloom's Level 2)",
+          "Apply automatic differentiation on PyTorch tensors (Bloom's Level 3)",
+          "Identify common pitfalls and best practices when working with PyTorch tensors (Bloom's Level 1)"
         ],
         "key_facts": [
-          "PyTorch tensors can be created from Python lists using torch.tensor().",
-          "PyTorch tensors can be created from NumPy arrays using torch.from_numpy().",
-          "PyTorch provides factory functions to create tensors such as torch.zeros(), torch.ones(), torch.randn(), and torch.arange()."
+          "PyTorch tensors are fundamental data structures in PyTorch, similar to NumPy arrays, but with additional capabilities for GPU acceleration and automatic differentiation.",
+          "Tensors can be created from Python lists, NumPy arrays, or using factory functions.",
+          "Key properties of tensors include shape, data type, device, and whether it requires gradient.",
+          "Tensors support various mathematical operations including element-wise operations, matrix operations, and reshaping.",
+          "PyTorch tensors support NumPy-style indexing and slicing.",
+          "PyTorch supports seamless GPU acceleration by moving tensors to GPU.",
+          "PyTorch tensors can automatically track gradients for backpropagation.",
+          "Common pitfalls when working with PyTorch include in-place operations, broadcasting, memory management, and consistent data types. Best practices include using torch.tensor() for creating tensors, specifying device and dtype at creation, using .detach() and torch.no_grad() when needed."
         ],
         "common_misconceptions": [
           {
-            "misconception": "Tensors can only be created from Python lists.",
-            "correct_concept": "Tensors can be created from Python lists, NumPy arrays, or using factory functions."
-          }
-        ],
-        "assessment_angles": [
-          "Ask for the syntax of creating tensor from Python lists or NumPy arrays.",
-          "Present a scenario and ask which method would be suitable for creating tensors."
-        ]
-      },
-      {
-        "topic": "Tensor Properties in PyTorch",
-        "learning_objectives": [
-          "Identify the properties of a PyTorch tensor (Bloom's level: Remember)",
-          "Explain the significance of each property (Bloom's level: Understand)"
-        ],
-        "key_facts": [
-          "Every tensor has properties such as shape, data type, device, and requires gradient.",
-          "Shape of the tensor can be accessed via .shape or .size().",
-          "Data type of the tensor can be accessed via .dtype.",
-          "The device where the tensor is stored can be accessed via .device.",
-          "Whether the tensor should track gradients can be accessed via .requires_grad."
-        ],
-        "common_misconceptions": [
+            "misconception": "PyTorch tensors are just like NumPy arrays.",
+            "correct_concept": "While similar, PyTorch tensors have additional capabilities for GPU acceleration and automatic differentiation."
+          },
           {
-            "misconception": "The shape of a tensor is always a scalar.",
-            "correct_concept": "The shape of a tensor describes the dimensions of the tensor and is not necessarily a scalar."
-          }
-        ],
-        "assessment_angles": [
-          "Ask for the property to check if a tensor is stored on GPU or CPU.",
-          "Ask for the method to access the shape of a tensor."
-        ]
-      },
-      {
-        "topic": "Basic Operations with PyTorch Tensors",
-        "learning_objectives": [
-          "Identify the types of operations that can be performed on PyTorch tensors (Bloom's level: Remember)",
-          "Apply basic operations such as element-wise operations, matrix operations, and reshaping on PyTorch tensors (Bloom's level: Apply)"
-        ],
-        "key_facts": [
-          "PyTorch tensors support element-wise operations like addition, subtraction, multiplication, division.",
-          "Matrix operations like matrix multiplication and transpose can be performed on PyTorch tensors.",
-          "Reshaping of PyTorch tensors can be done using the view() method."
-        ],
-        "common_misconceptions": [
+            "misconception": "All operations on PyTorch tensors are element-wise.",
+            "correct_concept": "PyTorch tensors support various mathematical operations, including both element-wise and matrix operations."
+          },
           {
-            "misconception": "Matrix multiplication in PyTorch is done using the '*' operator.",
-            "correct_concept": "Matrix multiplication in PyTorch is done using the torch.mm() method."
+            "misconception": "Broadcasting in PyTorch automatically adjusts the shape of all tensors involved.",
+            "correct_concept": "Broadcasting in PyTorch will adjust the dimensions of tensors to match, but can lead to unexpected results if not handled carefully."
           }
         ],
         "assessment_angles": [
-          "Ask for the method to perform matrix multiplication on tensors.",
-          "Present a scenario and ask how to reshape a tensor."
+          "Ask for definition and importance of PyTorch tensors.",
+          "Ask to write a code snippet to create a tensor using different methods.",
+          "Ask to write a code snippet to perform a specific operation on tensors.",
+          "Ask to write a code snippet that demonstrates indexing and slicing on a tensor.",
+          "Present a scenario where GPU acceleration is needed and ask to write a code snippet for it.",
+          "Present a scenario where automatic differentiation is needed and ask to write a code snippet for it.",
+          "Ask to identify common pitfalls and best practices when working with PyTorch tensors."
         ]
       }
     ]
@@ -79,187 +56,209 @@
   "mcqs": [
     {
       "mcq": {
-        "stem": "Which of the following methods can be used to create tensors in PyTorch?",
+        "stem": "Which of the following statements accurately describes the properties and capabilities of PyTorch tensors in the context of deep learning?",
         "options": [
-          "Using Python lists with the torch.tensor() function.",
-          "Using NumPy arrays with the torch.from_numpy() function.",
-          "Using factory functions like torch.zeros(), torch.ones(), torch.randn(), and torch.arange().",
-          "Tensors can only be created from Python lists."
+          "PyTorch tensors are identical to NumPy arrays and do not offer any additional functionalities.",
+          "All operations on PyTorch tensors are element-wise, and matrix operations are not supported.",
+          "Broadcasting in PyTorch automatically adjusts the shape of all tensors involved without any potential issues.",
+          "PyTorch tensors are like NumPy arrays, but offer additional capabilities for GPU acceleration and automatic differentiation."
         ],
-        "correct_answer": "Using Python lists with the torch.tensor() function.",
-        "rationale": "PyTorch provides several methods to create tensors. These include using Python lists with the torch.tensor() function, using NumPy arrays with the torch.from_numpy() function, and using factory functions such as torch.zeros(), torch.ones(), torch.randn(), and torch.arange(). The belief that tensors can only be created from Python lists is a common misconception."
+        "correct_answer": "PyTorch tensors are like NumPy arrays, but offer additional capabilities for GPU acceleration and automatic differentiation.",
+        "rationale": "The correct answer highlights that PyTorch tensors, while similar to NumPy arrays, are designed to be more suitable for deep learning by offering GPU acceleration and automatic differentiation. The first option is incorrect because it ignores these additional capabilities. The second option is also incorrect because PyTorch tensors support a variety of mathematical operations, including both element-wise and matrix operations. The third option is incorrect because, while broadcasting does adjust tensor dimensions to match, it can lead to unexpected results if not handled carefully.",
+        "correct_answer_index": 3
       },
       "evaluation": {
-        "alignment": "The MCQ aligns with the learning objective of identifying methods to create tensors in PyTorch. It also matches the intended Bloom's level of 'Remember'. However, given the complexity of the options, the question may inadvertently test higher levels of understanding rather than simple recall.",
-        "stem_quality": "The stem is a clear, complete question that can be understood without reading the options. It is concise, free of irrelevant detail, and avoids negatives.",
-        "options_quality": "The correct answer is unambiguous, but the distractors are not all plausible and based on likely errors or misconceptions. Option D contradicts the correct answer, which may confuse test-takers. All options are homogeneous in grammar and complexity, but vary in length. The options are free of clues, and logically ordered. However, the options could benefit from more concise wording.",
-        "cognitive_challenge": "The MCQ tests understanding rather than trivial recall due to the complexity of the options and the need to distinguish between multiple correct methods. The difficulty is appropriate and does not rely on trickery.",
+        "alignment": "The MCQ aligns well with the learning objective of explaining what PyTorch tensors are and their importance in deep learning, and it matches the intended Bloom's level of 'Understanding'.",
+        "stem_quality": "The stem is clear, concise and presents a complete question that can be understood without reading the options. It does not use any negatives.",
+        "options_quality": "There is one unambiguously correct answer, and the distractors are plausible, based on likely misconceptions. All options are homogeneous in grammar, length, and complexity. The options do not provide any clues, and 'all of the above' or 'none of the above' type options are avoided. The options are logically ordered.",
+        "cognitive_challenge": "The MCQ tests meaningful understanding of the topic, not trivial recall. The difficulty level is appropriate for intermediate learners, and it does not involve any trickery.",
+        "clarity_fairness": "The language is clear, technical yet understandable for the intended user level. The item is free from cultural, regional, or gender bias.",
+        "overall": "Overall, the MCQ adheres to best-practice item-writing guidelines. It would validly discriminate between students who have and have not attained the learning objective. The MCQ is well-designed and does not require any improvements."
+      },
+      "topic": "PyTorch Tensor Usage: Fundamentals and Operations",
+      "learning_objective": "Explain what PyTorch tensors are and their importance in deep learning (Bloom's Level 2)"
+    },
+    {
+      "mcq": {
+        "stem": "Which of the following describes a correct method for creating a PyTorch tensor?",
+        "options": [
+          "Using the numpy.array() function",
+          "Using the torch.tensor() function",
+          "Using the tensor.tensor() function",
+          "Using the pytorch.tensor() function"
+        ],
+        "correct_answer": "Using the torch.tensor() function",
+        "rationale": "PyTorch tensors can be created using the torch.tensor() function. The numpy.array() function is used for creating NumPy arrays, not PyTorch tensors. There is no tensor.tensor() or pytorch.tensor() function in PyTorch.",
+        "correct_answer_index": 1
+      },
+      "evaluation": {
+        "alignment": "The MCQ aligns well with the stated learning objective and matches the intended Bloom's level of 'Remember'. The question directly assesses the student's ability to recall the correct method to create a PyTorch tensor.",
+        "stem_quality": "The stem is clear, concise, and presents a complete question. It can be understood without reading the options. There is no unnecessary information or negative phrasing.",
+        "options_quality": "The options are homogeneous in terms of grammar, length, and complexity. Each option is plausible, reflecting likely misconceptions about syntax in PyTorch. There is exactly one unambiguously correct answer. The options do not provide any clues to the correct answer, and there are no 'all of the above' or 'none of the above' options. The options could be ordered more logically if they were all related to PyTorch functions, but this is a minor point.",
+        "cognitive_challenge": "The MCQ tests recall, which is appropriate given the learning objective and Bloom's level. The question is not too easy for someone unfamiliar with PyTorch, but not tricky either. It requires the student to discriminate between similar-looking functions.",
+        "clarity_fairness": "The language is clear and at an appropriate reading level for an intermediate user. The question is free of any cultural, regional, or gender bias.",
+        "overall": "Overall, this MCQ adheres to best-practice item-writing guidelines. It would validly discriminate between students who know and do not know how to create a PyTorch tensor. The options are well-designed distractors based on likely misconceptions or errors. The stem is clear and the question aligns with the learning objective."
+      },
+      "topic": "PyTorch Tensor Usage: Fundamentals and Operations",
+      "learning_objective": "Describe methods to create PyTorch tensors (Bloom's Level 1)"
+    },
+    {
+      "mcq": {
+        "stem": "Which of the following statements about PyTorch tensors is correct?",
+        "options": [
+          "All operations on PyTorch tensors are element-wise.",
+          "Broadcasting in PyTorch automatically adjusts the shape of all tensors involved.",
+          "PyTorch tensors are identical to NumPy arrays.",
+          "Key properties of tensors include shape, data type, device, and whether it requires gradient."
+        ],
+        "correct_answer": "Key properties of tensors include shape, data type, device, and whether it requires gradient.",
+        "rationale": "The correct answer is 'Key properties of tensors include shape, data type, device, and whether it requires gradient.' This is a fundamental fact about PyTorch tensors. The other options are common misconceptions. Not all operations on PyTorch tensors are element-wise, PyTorch also supports matrix operations. Broadcasting in PyTorch does adjust the dimensions of tensors to match, but can lead to unexpected results if not handled carefully. PyTorch tensors are not identical to NumPy arrays, they have additional capabilities for GPU acceleration and automatic differentiation.",
+        "correct_answer_index": 3
+      },
+      "evaluation": {
+        "alignment": "The MCQ aligns well with the stated learning objective of identifying key properties of PyTorch tensors, and it matches the intended Bloom's level of 'Remember'.",
+        "stem_quality": "The stem is a clear, complete question and can be understood without reading the options. The wording is concise and free of irrelevant detail. No negatives are used.",
+        "options_quality": "There is one unambiguously correct answer. The distractors are plausible and based on likely misconceptions or errors. All options are homogeneous in grammar, length, and complexity. The options are free of clues. 'All of the above,' 'none of the above,' or combination options are avoided. The options are logically ordered.",
+        "cognitive_challenge": "The MCQ tests meaningful understanding about the properties of PyTorch tensors, not trivial recall. The difficulty is appropriate as it requires knowing specific properties of tensors.",
         "clarity_fairness": "The language is clear and at an appropriate reading level. The item is free of cultural, regional, or gender bias.",
-        "overall": "The MCQ mostly adheres to best-practice item-writing guidelines. However, the options could be improved for clarity and consistency. The item would likely discriminate between students who have and have not attained the learning objective, but it might also challenge students beyond the intended 'Remember' level."
+        "overall": "The MCQ adheres to best-practice item-writing guidelines. This item would validly discriminate between students who have and have not attained the learning objective."
       },
-      "topic": "Creating Tensors in PyTorch",
-      "learning_objective": "Identify the methods to create tensors in PyTorch (Bloom's level: Remember)"
+      "topic": "PyTorch Tensor Usage: Fundamentals and Operations",
+      "learning_objective": "Identify key properties of PyTorch tensors and how to access them (Bloom's Level 1)"
     },
     {
       "mcq": {
-        "stem": "A data scientist wants to create a PyTorch tensor from a pre-existing NumPy array. Which method should they use?",
+        "stem": "You have two PyTorch tensors A and B of the same shape. You want to compute the dot product of these tensors. Which of the following operations will correctly yield this result?",
         "options": [
-          "torch.tensor()",
-          "torch.zeros()",
-          "torch.from_numpy()",
-          "torch.ones()"
+          "torch.dot(A, B)",
+          "torch.matmul(A, B)",
+          "A * B",
+          "torch.sum(A * B)"
         ],
-        "correct_answer": "torch.from_numpy()",
-        "rationale": "The method torch.tensor() creates a tensor from a Python list, not a NumPy array. The methods torch.zeros() and torch.ones() create tensors filled with zeros or ones, respectively, and are not used to create a tensor from an existing array. The correct method for creating a tensor from a NumPy array is torch.from_numpy()."
+        "correct_answer": "torch.sum(A * B)",
+        "rationale": "In PyTorch, the operation to compute the dot product of two tensors of the same shape is to element-wise multiply the tensors and then sum the result. Therefore, torch.sum(A * B) is correct. torch.dot(A, B) is incorrect because it only works for 1-D tensors. torch.matmul(A, B) is incorrect because it computes matrix multiplication, not element-wise multiplication. A * B is incorrect because it only performs element-wise multiplication without summing the results.",
+        "correct_answer_index": 3
       },
       "evaluation": {
-        "alignment": "The MCQ aligns well with the stated learning objective of differentiating between the methods for creating tensors. It requires understanding of the specific use-cases of different PyTorch methods, which matches the 'Understand' level in Bloom's Taxonomy.",
-        "stem_quality": "The stem is clear, concise, and contains a complete question. It can be understood without looking at the options. It avoids negatives and irrelevant details.",
-        "options_quality": "There is exactly one correct answer, and the distractors are plausible, relevant, and based on likely misconceptions about tensor creation methods. The options are homogeneous in grammar, length, and complexity. There are no obvious clues to the correct answer, nor are there 'all of the above' or 'none of the above' options. The options are logically ordered by the alphabetical order of the methods.",
-        "cognitive_challenge": "The MCQ tests meaningful understanding of PyTorch tensor creation methods, and does not rely on trivial recall. The difficulty level seems appropriate for intermediate learners. It does not involve trickery, instead it requires comprehension of different tensor creation methods.",
-        "clarity_fairness": "The question and options are clear and at an appropriate reading level for intermediate learners. The item does not seem to contain any cultural, regional, or gender bias.",
-        "overall": "Overall, the MCQ adheres to authoritative item-writing guidelines and should validly discriminate between students who have and have not attained the learning objective. The question is well-structured, assesses a relevant skill, and provides plausible distractors. It could be improved by including a brief description of what each method does in the stem to increase the cognitive challenge."
+        "alignment": "The MCQ aligns well with the stated learning objective. It requires the application of PyTorch tensor operations, which fits perfectly with the Bloom's Level 3.",
+        "stem_quality": "The stem is a clear, complete question. It can be understood without reading the options. The wording is concise and free of irrelevant detail.",
+        "options_quality": "There is exactly one unambiguously correct answer. The distractors are plausible and based on likely misconceptions. All options are homogeneous in grammar, length, and complexity. The options are free of clues and they do not include 'all of the above', 'none of the above' or combination options. The options are logically ordered.",
+        "cognitive_challenge": "The MCQ tests meaningful understanding of PyTorch tensor operations and is not based on trivial recall. The difficulty seems appropriate for the intermediate user level.",
+        "clarity_fairness": "The language is clear and at an appropriate reading level. There is no cultural, regional, or gender bias.",
+        "overall": "Overall, the MCQ adheres to best-practice item-writing guidelines. It is likely to validly discriminate between students who have and have not attained the learning objective."
       },
-      "topic": "Creating Tensors in PyTorch",
-      "learning_objective": "Differentiate between the methods for creating tensors (Bloom's level: Understand)"
+      "topic": "PyTorch Tensor Usage: Fundamentals and Operations",
+      "learning_objective": "Apply basic operations on PyTorch tensors (Bloom's Level 3)"
     },
     {
       "mcq": {
-        "stem": "A machine learning model requires a tensor filled with zeros as an initial placeholder for weights. Which function in PyTorch would be the most suitable to use in this scenario?",
+        "stem": "Given a PyTorch tensor 't' with shape (5, 5), which of the following options will correctly index and extract a sub-tensor with shape (2, 3) from 't' starting from the second row and third column?",
         "options": [
-          "torch.tensor()",
-          "torch.from_numpy()",
-          "torch.zeros()",
-          "torch.ones()"
+          "t[2:4, 3:6]",
+          "t[1:3, 2:5]",
+          "t[2:3, 3:5]",
+          "t[1:2, 2:4]"
         ],
-        "correct_answer": "torch.zeros()",
-        "rationale": "In this scenario, the tensor is needed as a placeholder for weights and it needs to be filled with zeros. The most suitable function to use is torch.zeros(). The torch.tensor() function creates a tensor from a Python list, not filled with zeros. The torch.from_numpy() function creates a tensor from a NumPy array, not filled with zeros. The torch.ones() function creates a tensor filled with ones, not zeros."
+        "correct_answer": "t[1:3, 2:5]",
+        "rationale": "In PyTorch, tensor indexing follows the format t[start:stop], where 'start' is inclusive and 'stop' is exclusive. The correct answer 't[1:3, 2:5]' starts from the second row (index 1) and third column (index 2) and extracts 2 rows and 3 columns. The other options do not extract the required shape (2, 3). 't[2:4, 3:6]' starts from the third row and fourth column and extracts 2 rows and 3 columns. 't[2:3, 3:5]' starts from the third row and fourth column but only extracts 1 row and 2 columns. 't[1:2, 2:4]' starts from the second row and third column but only extracts 1 row and 2 columns.",
+        "correct_answer_index": 1
       },
       "evaluation": {
-        "alignment": "The MCQ aligns well with the stated learning objective and is at the appropriate Bloom's level of 'Apply'. It requires the application of knowledge about PyTorch functions to choose the correct method for creating a tensor filled with zeros.",
-        "stem_quality": "The stem is clear, concise, and complete. It sets up an application problem requiring PyTorch knowledge, and can be understood without reading the options. It does not contain irrelevant detail or unnecessary negatives.",
-        "options_quality": "The options are well-constructed. There is one unambiguously correct answer, and the distractors are plausible, based on likely misconceptions or errors. All options are homogeneous in grammar, length, and complexity, and are free of clues. The options do not use 'all of the above', 'none of the above', or combination options. They are logically ordered, following the alphabetical pattern.",
-        "cognitive_challenge": "The MCQ tests meaningful application of knowledge, not trivial recall. The difficulty is appropriate; it is not too easy for the intended user level, and it does not rely on trickery.",
-        "clarity_fairness": "The language is clear and at an appropriate reading level for intermediate users. The item is free of cultural, regional, or gender bias.",
-        "overall": "Overall, this MCQ adheres to best-practice item-writing guidelines. It would validly discriminate between students who have and have not attained the learning objective of applying the appropriate method to create a tensor in a given scenario using PyTorch."
+        "alignment": "The MCQ is aligned with the learning objective of demonstrating how to index and slice PyTorch tensors, and it matches the intended Bloom's level (Apply).",
+        "stem_quality": "The stem is a clear, complete problem that can be understood without reading the options. It is concise and free of irrelevant detail. Negatives are avoided.",
+        "options_quality": "There is exactly one unambiguously correct answer. Distractors are plausible and based on likely misconceptions or errors. All options are homogeneous in grammar, length, and complexity. Options are free of clues, and 'all of the above,' 'none of the above,' or combination options are avoided. The options are logically ordered.",
+        "cognitive_challenge": "The MCQ tests application of knowledge rather than trivial recall. The difficulty is appropriate and not based on trickery.",
+        "clarity_fairness": "The language is clear and at an appropriate reading level. The item is free of cultural, regional, or gender bias.",
+        "overall": "This MCQ adheres to best-practice item-writing guidelines. It would validly discriminate between students who have and have not attained the learning objective of demonstrating how to index and slice PyTorch tensors."
       },
-      "topic": "Creating Tensors in PyTorch",
-      "learning_objective": "Apply the appropriate method to create a tensor in a given scenario (Bloom's level: Apply)"
+      "topic": "PyTorch Tensor Usage: Fundamentals and Operations",
+      "learning_objective": "Demonstrate how to index and slice PyTorch tensors (Bloom's Level 3)"
     },
     {
       "mcq": {
-        "stem": "Which property of a PyTorch tensor should be accessed to identify whether the tensor is stored on GPU or CPU?",
+        "stem": "What is the primary advantage of using PyTorch tensors over NumPy arrays?",
         "options": [
-          ".requires_grad",
-          ".shape",
-          ".dtype",
-          ".device"
+          "PyTorch tensors can be used on a GPU for faster computations",
+          "PyTorch tensors have more mathematical operations than NumPy arrays",
+          "Broadcasting in PyTorch automatically adjusts the shape of all tensors",
+          "All operations on PyTorch tensors are element-wise"
         ],
-        "correct_answer": ".device",
+        "correct_answer": "PyTorch tensors can be used on a GPU for faster computations",
         "rationale": {
-          "correct": "The .device property of a PyTorch tensor provides information about the device (GPU or CPU) where the tensor is stored.",
+          "correct": "PyTorch tensors have additional capabilities for GPU acceleration, which can significantly speed up computations, especially on large datasets. This is the primary advantage over NumPy arrays, which do not have built-in GPU support.",
           "incorrect": {
-            ".requires_grad": "This property is used to check if a tensor should track gradients for backward passes, not the storage device.",
-            ".shape": "This property is used to access the shape or dimensions of the tensor, not the storage device.",
-            ".dtype": "This property is used to check the data type of the tensor's elements, not the storage device."
+            "PyTorch tensors have more mathematical operations than NumPy arrays": "While PyTorch tensors do support a wide range of mathematical operations, this is also true for NumPy arrays. The primary advantage of PyTorch tensors is their GPU acceleration capabilities.",
+            "Broadcasting in PyTorch automatically adjusts the shape of all tensors": "While broadcasting can adjust the dimensions of tensors to match, it can lead to unexpected results if not handled carefully. It's not a unique advantage of PyTorch tensors.",
+            "All operations on PyTorch tensors are element-wise": "PyTorch tensors support various mathematical operations, including both element-wise and matrix operations. This is not a unique advantage of PyTorch tensors over NumPy arrays."
           }
-        }
+        },
+        "correct_answer_index": 0
       },
       "evaluation": {
-        "alignment": "The MCQ directly assesses the stated learning objective and matches the appropriate Bloom's level of 'Remember'.",
-        "stem_quality": "The stem is a clear, complete question and can be understood without reading the options. Negatives are avoided and the wording is concise without irrelevant detail.",
-        "options_quality": "There is exactly one unambiguously correct answer. The distractors are plausible and based on likely misconceptions or errors. All options are homogeneous in grammar, length, and complexity. The options are free of clues and logically ordered.",
-        "cognitive_challenge": "The MCQ tests meaningful understanding of PyTorch tensor properties, not trivial recall. The difficulty is appropriate.",
-        "clarity_fairness": "The language is clear and at an appropriate reading level. The item is free of cultural, regional, or gender bias.",
-        "overall": "The MCQ adheres to best-practice item-writing guidelines and would validly discriminate between students who have and have not attained the learning objective of identifying the properties of a PyTorch tensor."
+        "alignment": "The MCQ directly assesses the stated learning objective and matches the intended Bloom's level of understanding.",
+        "stem_quality": "The stem is a clear, complete question and can be understood without reading the options. The wording is concise and free of irrelevant detail. Negatives are not used in the stem.",
+        "options_quality": "There is one unambiguously correct answer, and the distractors are plausible and based on likely misconceptions or errors. All options are homogeneous in grammar, length, and complexity. There are no clues in the options, and combination options are avoided. The options are logically ordered.",
+        "cognitive_challenge": "The MCQ tests meaningful understanding of the use of PyTorch tensors and their benefits over NumPy arrays. The difficulty is appropriate and does not involve trickery.",
+        "clarity_fairness": "The language used in the MCQ is clear and at an appropriate reading level. The item is free of cultural, regional, or gender bias.",
+        "overall": "The MCQ adheres to best-practice item-writing guidelines. It would validly discriminate between students who have and have not attained the learning objective of understanding the benefits of using PyTorch tensors over NumPy arrays."
       },
-      "topic": "Tensor Properties in PyTorch",
-      "learning_objective": "Identify the properties of a PyTorch tensor (Bloom's level: Remember)"
+      "topic": "PyTorch Tensor Usage: Fundamentals and Operations",
+      "learning_objective": "Explain GPU acceleration in PyTorch and how to apply it (Bloom's Level 2)"
     },
     {
       "mcq": {
-        "stem": "In the context of PyTorch, which property of a tensor should you check to identify the device where the tensor is stored?",
+        "stem": "You are working on a PyTorch project and you have a tensor 'x' for which you need to calculate the gradient. Which of the following operations will enable automatic differentiation on this tensor?",
         "options": [
-          "Shape",
-          "DataType",
-          "Device",
-          "Requires Gradient"
+          "Setting x.requires_grad = True",
+          "Calling x.detach()",
+          "Calling torch.no_grad() on x",
+          "Performing element-wise operations on x"
         ],
-        "correct_answer": "Device",
-        "rationale": "The 'Device' property of a tensor in PyTorch indicates where the tensor is stored (e.g., on a CPU or a GPU). 'Shape' refers to the dimensions of the tensor, not its location. 'DataType' refers to the type of data stored in the tensor, not its location. 'Requires Gradient' indicates whether the tensor should track gradients for automatic differentiation, not its location."
+        "correct_answer": "Setting x.requires_grad = True",
+        "rationale": "In PyTorch, to enable automatic differentiation on a tensor, you need to set its 'requires_grad' attribute to True. When this is done, PyTorch starts to track all operations on the tensor, and it will automatically calculate the gradients during backpropagation. On the other hand, 'x.detach()' returns a new tensor that shares the same data but does not require gradients. 'torch.no_grad()' is a context-manager that disables gradient calculation, which can be useful for inference when you are sure that you will not call Tensor.backward(). Element-wise operations on a tensor do not inherently enable automatic differentiation.",
+        "correct_answer_index": 0
       },
       "evaluation": {
-        "alignment": "The MCQ is aligned with the stated learning objective and matches the intended Bloom's level of 'Understand'. The question assesses the student's understanding of the different properties of a tensor in PyTorch and their significance, specifically the 'device' property.",
-        "stem_quality": "The stem is well-constructed. It presents a clear, complete question which can be understood without reading the options. The wording is concise and free of irrelevant detail. There are no negatives used in the stem.",
-        "options_quality": "All options are plausible, based on likely misconceptions or errors. There is only one unambiguously correct answer, and all options are homogeneous in grammar, length, and complexity. The options are free of clues, and there are no 'all of the above' or 'none of the above' options. The options are logically ordered.",
-        "cognitive_challenge": "The MCQ tests meaningful understanding of PyTorch tensor's properties, not trivial recall. The difficulty level appears to be appropriate for the user level and is not based on trickery.",
-        "clarity_fairness": "The language is clear and seems to be at an appropriate reading level. The MCQ does not appear to contain any cultural, regional, or gender bias.",
-        "overall": "Overall, this MCQ adheres to best-practice item-writing guidelines. It is likely to validly discriminate between students who have and have not attained the learning objective of understanding the significance of each property of a tensor in PyTorch."
+        "alignment": "The MCQ aligns well with the stated learning objective, which is to 'Apply automatic differentiation on PyTorch tensors'. The question asks a specific application question related to this objective, matching the Bloom's level 3 (Apply).",
+        "stem_quality": "The stem is a complete question that can be understood without reading the options. It is concise and does not contain any irrelevant details. The phrasing is clear, and negatives are not used in the stem.",
+        "options_quality": "There is one unambiguously correct answer (A). The distractors are plausible and based on likely misconceptions or errors. All options are homogeneous in grammar, length, and complexity. The options are free of clues and they are logically ordered. The options do not use 'all of the above,' 'none of the above,' or combination options.",
+        "cognitive_challenge": "The MCQ tests the application of a concept, which is a meaningful understanding rather than a trivial recall. The difficulty is appropriate; it is not too easy, and it does not involve trickery.",
+        "clarity_fairness": "The language is clear and at an appropriate reading level for an intermediate learner. The item is free of cultural, regional, or gender bias.",
+        "overall": "The overall quality of this MCQ is high. It adheres to best practice item-writing guidelines. This item would validly discriminate between students who have and have not attained the learning objective."
       },
-      "topic": "Tensor Properties in PyTorch",
-      "learning_objective": "Explain the significance of each property (Bloom's level: Understand)"
+      "topic": "PyTorch Tensor Usage: Fundamentals and Operations",
+      "learning_objective": "Apply automatic differentiation on PyTorch tensors (Bloom's Level 3)"
     },
     {
       "mcq": {
-        "stem": "Which of the following operations can be performed on PyTorch tensors?",
+        "stem": "Which of the following statements about PyTorch tensors is incorrect?",
         "options": [
-          "Element-wise operations such as addition and subtraction",
-          "Matrix multiplication using the '*' operator",
-          "Reshaping using the view() method",
-          "All of the above"
+          "PyTorch tensors are fundamental data structures in PyTorch, similar to NumPy arrays, but with additional capabilities for GPU acceleration and automatic differentiation.",
+          "PyTorch tensors support both element-wise and matrix operations.",
+          "Broadcasting in PyTorch automatically adjusts the shape of all tensors involved.",
+          "Best practices when working with PyTorch tensors include using torch.tensor() for creating tensors, specifying device and dtype at creation, and using .detach() and torch.no_grad() when needed."
         ],
-        "correct_answer": "Element-wise operations such as addition and subtraction",
-        "rationale": {
-          "correct": "PyTorch tensors support element-wise operations like addition, subtraction, multiplication, division.",
-          "incorrect": [
-            "Matrix multiplication in PyTorch is not performed using the '*' operator, but with the torch.mm() method.",
-            "Reshaping of PyTorch tensors can indeed be performed using the view() method, but the question asks for the operations that can be performed, which does not include reshaping.",
-            "All of the above is not correct because matrix multiplication in PyTorch is not done using the '*' operator."
-          ]
-        }
+        "correct_answer": "Broadcasting in PyTorch automatically adjusts the shape of all tensors involved.",
+        "rationale": "While broadcasting in PyTorch does adjust the shape of tensors to allow operations between them, it does not adjust the shape of all tensors involved. It only modifies the shapes temporarily for the operation and can lead to unexpected results if not handled carefully. The other options are accurate descriptions of PyTorch tensors and their best practices.",
+        "correct_answer_index": 2
       },
       "evaluation": {
-        "alignment": "The MCQ aligns with the learning objective of identifying the types of operations that can be performed on PyTorch tensors. However, the Bloom's level seems to be more of 'Understand' than 'Remember', as the student needs to understand the operations and not just recall them.",
-        "stem_quality": "The stem forms a clear question, and it can be understood without reading the options. The wording is concise and free of irrelevant detail, but it might be interpreted in different ways. Some might consider reshaping as an operation, which could lead to confusion.",
-        "options_quality": "There is not exactly one unambiguously correct answer. All the options are plausible, but option D ('All of the above') is problematic because reshaping might be considered an operation. The options are homogeneous in grammar, length, and complexity, and they are free of clues. However, using 'All of the above' should be avoided, as it can lead to confusion.",
-        "cognitive_challenge": "The MCQ tests meaningful understanding of PyTorch operations rather than trivial recall, but the difficulty might not be appropriate due to the potential confusion around what constitutes an 'operation'.",
-        "clarity_fairness": "The language is clear and at an appropriate reading level. The item is free of cultural, regional, or gender bias.",
-        "overall": "The MCQ mostly adheres to best-practice item-writing guidelines, but there is potential for confusion around what constitutes an 'operation' and the use of 'All of the above'. The item might validly discriminate between students who have and have not attained the learning objective, but only if they interpret 'operation' in the same way as the question setter."
+        "alignment": "The MCQ is aligned with the learning objective of identifying common pitfalls and best practices when working with PyTorch tensors. However, the Bloom's level might be higher than 1 (Remember), as it requires understanding and application of knowledge about PyTorch tensors.",
+        "stem_quality": "The stem of the MCQ is a clear, complete question that can be understood without reading the options. It is concise and avoids unnecessary details. The negative phrasing ('incorrect') is clearly emphasized.",
+        "options_quality": "The MCQ has one unambiguously correct answer. The distractors are plausible and based on likely misconceptions. All options are homogeneous in length, complexity, and grammar. The options do not contain any clues and avoid the use of 'all of the above', 'none of the above', or combination options. However, the options are not logically ordered; they could be rearranged to flow better conceptually.",
+        "cognitive_challenge": "The MCQ tests meaningful understanding of PyTorch tensor properties and best practices. It is not too easy, and it does not involve trickery.",
+        "clarity_fairness": "The language of the MCQ is clear and at an appropriate reading level. The item is free of cultural, regional, or gender bias.",
+        "overall": "Overall, this MCQ adheres to best-practice item-writing guidelines and would validly discriminate between students who have and have not attained the learning objective. However, the Bloom's level might be higher than initially stated, and the options could be rearranged for better conceptual flow."
       },
-      "topic": "Basic Operations with PyTorch Tensors",
-      "learning_objective": "Identify the types of operations that can be performed on PyTorch tensors (Bloom's level: Remember)"
-    },
-    {
-      "mcq": {
-        "stem": "Given two PyTorch tensors, tensorA and tensorB, which are both of size (3,3). How would you perform a matrix multiplication operation on these tensors?",
-        "options": [
-          "result = tensorA * tensorB",
-          "result = tensorA.mm(tensorB)",
-          "result = torch.multiply(tensorA, tensorB)",
-          "result = torch.add(tensorA, tensorB)"
-        ],
-        "correct_answer": "result = tensorA.mm(tensorB)",
-        "rationale": "In PyTorch, matrix multiplication between two tensors is performed using the .mm() method. The '*' operator performs element-wise multiplication, not matrix multiplication. torch.multiply() is also for element-wise multiplication and torch.add() is for element-wise addition."
-      },
-      "evaluation": {
-        "alignment": "The MCQ aligns well with the stated learning objective and matches the intended Bloom's level 'Apply'. It directly tests the learner's ability to apply a specific operation (matrix multiplication) on PyTorch tensors.",
-        "stem_quality": "The stem is a clear and complete problem that can be understood without reading the options. The wording is concise and free of irrelevant detail. There's no use of negatives.",
-        "options_quality": "There's exactly one unambiguously correct answer and the distractors are plausible, being based on likely misconceptions or errors about tensor operations. All options are homogeneous in grammar, length, and complexity. There are no clues in the options and they avoid the use of 'all of the above' or 'none of the above'. The options are logically ordered.",
-        "cognitive_challenge": "The MCQ tests meaningful understanding and application of matrix multiplication on PyTorch tensors, rather than trivial recall. The difficulty is appropriate and there's no trickery involved.",
-        "clarity_fairness": "The language is clear and at an appropriate reading level for intermediate users. The item is free of cultural, regional, or gender bias.",
-        "overall": "The MCQ adheres to best-practice item-writing guidelines and would validly discriminate between students who have and have not attained the learning objective. The question is well designed and requires the application of knowledge about tensor operations in PyTorch, specifically matrix multiplication."
-      },
-      "topic": "Basic Operations with PyTorch Tensors",
-      "learning_objective": "Apply basic operations such as element-wise operations, matrix operations, and reshaping on PyTorch tensors (Bloom's level: Apply)"
+      "topic": "PyTorch Tensor Usage: Fundamentals and Operations",
+      "learning_objective": "Identify common pitfalls and best practices when working with PyTorch tensors (Bloom's Level 1)"
     }
   ],
   "summary": {
-    "total_topics": 3,
-    "total_mcqs": 7,
+    "total_topics": 1,
+    "total_mcqs": 8,
     "topics_covered": [
-      "Creating Tensors in PyTorch",
-      "Tensor Properties in PyTorch",
-      "Basic Operations with PyTorch Tensors"
+      "PyTorch Tensor Usage: Fundamentals and Operations"
     ]
   }
 }

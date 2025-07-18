@@ -35,6 +35,7 @@ from .models import (
     ProgressResponse
 )
 from .routes import router as api_router
+from .content_creation_routes import router as content_creation_router
 
 # Import the existing learning components
 import sys
@@ -89,6 +90,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(api_router)
+app.include_router(content_creation_router)
 
 # Global services - initialized on startup
 database: Optional[DatabaseService] = None

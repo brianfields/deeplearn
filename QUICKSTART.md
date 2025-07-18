@@ -20,7 +20,7 @@ Experience ChatGPT-like learning with a Socratic AI tutor that adapts to your re
    ```bash
    # Copy the example file
    cp .env.example .env
-   
+
    # Edit .env file with your API key
    # OPENAI_API_KEY=your-api-key-here
    ```
@@ -29,7 +29,7 @@ Experience ChatGPT-like learning with a Socratic AI tutor that adapts to your re
    ```bash
    python learn.py
    ```
-   
+
    Or use the original interface:
    ```bash
    python main.py
@@ -130,7 +130,7 @@ I'm curious about your perspective before we start our journey together! 🤔
 
 You: I think variables are like containers that hold information?
 
-🤖 AI Tutor: Exactly! That's a great way to think about it. Variables are indeed like containers or boxes that hold information. 
+🤖 AI Tutor: Exactly! That's a great way to think about it. Variables are indeed like containers or boxes that hold information.
 
 Since you mentioned containers, let me ask you this: when you organize things at home, do you use different types of containers for different things? Like maybe a glass jar for cookies and a plastic bag for vegetables?
 
@@ -146,14 +146,13 @@ I'm wondering if you can see a connection between that and how we might handle d
 
 - **User Level**: beginner, intermediate, advanced
 - **OpenAI API Key**: Your OpenAI API key
-- **OpenAI Model**: gpt-3.5-turbo, gpt-4, gpt-4-turbo
+- **OpenAI Model**: gpt-3.5-turbo, gpt-4o
 - **Lesson Duration**: Default 15 minutes
 
 ### Cost Optimization
 
 - **gpt-3.5-turbo**: Most cost-effective option
-- **gpt-4**: Higher quality but more expensive
-- **gpt-4-turbo**: Balance of quality and cost
+- **gpt-4o**: Higher quality but more expensive
 
 ## 📊 Progress Tracking
 
