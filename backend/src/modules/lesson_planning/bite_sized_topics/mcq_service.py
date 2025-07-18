@@ -115,9 +115,25 @@ class MCQService:
         response = await self.llm_client.generate_response(messages)
         
         try:
-            refined_material = json.loads(response.content.strip())
-            return refined_material
+            # Clean and extract JSON from response
+            content = response.content.strip()
+            
+            # Try to find JSON in the response
+            json_start = content.find('{')
+            json_end = content.rfind('}') + 1
+            
+            if json_start != -1 and json_end != -1:
+                json_content = content[json_start:json_end]
+                refined_material = json.loads(json_content)
+                return refined_material
+            else:
+                # If no JSON found, try parsing the entire response
+                refined_material = json.loads(content)
+                return refined_material
+                
         except json.JSONDecodeError as e:
+            # Log the actual response for debugging
+            print(f"Raw LLM Response: {response.content}")
             raise ValueError(f"Failed to parse refined material JSON: {e}")
 
     async def _create_single_mcq(
@@ -143,7 +159,20 @@ class MCQService:
         response = await self.llm_client.generate_response(messages)
         
         try:
-            mcq = json.loads(response.content.strip())
+            # Clean and extract JSON from response
+            content = response.content.strip()
+            
+            # Try to find JSON in the response
+            json_start = content.find('{')
+            json_end = content.rfind('}') + 1
+            
+            if json_start != -1 and json_end != -1:
+                json_content = content[json_start:json_end]
+                mcq = json.loads(json_content)
+            else:
+                # If no JSON found, try parsing the entire response
+                mcq = json.loads(content)
+            
             # Convert string-based correct answer to index-based format
             mcq = self._convert_mcq_to_index_format(mcq)
             return mcq
@@ -204,9 +233,24 @@ class MCQService:
         response = await self.llm_client.generate_response(messages)
         
         try:
-            evaluation = json.loads(response.content.strip())
+            # Clean and extract JSON from response
+            content = response.content.strip()
+            
+            # Try to find JSON in the response
+            json_start = content.find('{')
+            json_end = content.rfind('}') + 1
+            
+            if json_start != -1 and json_end != -1:
+                json_content = content[json_start:json_end]
+                evaluation = json.loads(json_content)
+            else:
+                # If no JSON found, try parsing the entire response
+                evaluation = json.loads(content)
+            
             return evaluation
         except json.JSONDecodeError as e:
+            # Log the actual response for debugging
+            print(f"Raw LLM Evaluation Response: {response.content}")
             raise ValueError(f"Failed to parse evaluation JSON: {e}")
 
     def save_refined_material_as_component(

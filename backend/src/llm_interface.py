@@ -218,7 +218,7 @@ class OpenAIProvider(LLMProvider):
         try:
             model_name = self.config.model
             if "gpt-4o" in model_name.lower():
-                self.token_encoder = tiktoken.encoding_for_model("gpt-  4o")
+                self.token_encoder = tiktoken.encoding_for_model("gpt-4o")
             elif "gpt-3.5" in model_name.lower():
                 self.token_encoder = tiktoken.encoding_for_model("gpt-3.5-turbo")
             else:

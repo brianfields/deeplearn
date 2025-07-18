@@ -4,7 +4,7 @@ This directory contains GitHub Actions workflows for automated testing and CI/CD
 
 ## Workflows
 
-### 1. `backend-tests.yml` - Comprehensive Backend Testing
+### 1. `tests.yml` - Comprehensive Backend Testing
 
 **Purpose**: Run all backend tests including database migrations and comprehensive test coverage.
 
@@ -26,46 +26,6 @@ This directory contains GitHub Actions workflows for automated testing and CI/CD
 - MCQ functionality tests (new)
 - All existing backend tests
 - Database integration tests
-
-### 2. `mcq-tests.yml` - MCQ Functionality Testing
-
-**Purpose**: Focused testing of the new MCQ (Multiple Choice Question) functionality.
-
-**Triggers**:
-- Push to `main` or `develop` branches
-- Pull requests to `main` or `develop` branches  
-- Changes to MCQ-related files:
-  - `backend/src/modules/lesson_planning/bite_sized_topics/mcq_service.py`
-  - `backend/src/modules/lesson_planning/bite_sized_topics/prompts/mcq_*.py`
-  - `backend/src/modules/lesson_planning/bite_sized_topics/orchestrator.py`
-  - `backend/scripts/create_mcqs.py`
-  - `backend/tests/test_mcq_*.py`
-
-**Features**:
-- Fast execution (15 minute timeout)
-- Detailed test breakdown by component
-- Comprehensive test summary
-- No database required (unit tests only)
-
-**Test Coverage**:
-- MCQ Prompts: Refined material extraction, single MCQ creation, MCQ evaluation
-- MCQ Service: Two-pass MCQ creation system
-- MCQ Script: Command-line interface for MCQ creation
-- MCQ Orchestrator: Integration with existing topic orchestrator
-
-### 3. `test-workflow.yml` - Workflow Validation
-
-**Purpose**: Validate that the workflow files are correctly structured and the backend setup is functional.
-
-**Triggers**:
-- Manual dispatch
-- Push to `main` or `develop` branches
-- Changes to this workflow file
-
-**Features**:
-- Quick validation (5 minute timeout)
-- Backend structure verification
-- Workflow file validation
 
 ## Environment Variables
 
