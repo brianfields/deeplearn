@@ -29,7 +29,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 from api.server import app
 from api import routes
 from modules.lesson_planning.bite_sized_topics.service import BiteSizedTopicService, BiteSizedTopicError
-from data_structures import BiteSizedTopic, BiteSizedComponent, ComponentType, CreationStrategy
+from data_structures import BiteSizedTopic, BiteSizedComponent
 
 
 class TestAPIEndpoints:

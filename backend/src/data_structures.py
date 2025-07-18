@@ -106,10 +106,37 @@ class BiteSizedComponent(Base):
 # Simple data structures for API responses
 @dataclass
 class QuizQuestion:
-    """Quiz question data structure"""
+    """Quiz question data structure with index-based correct answer"""
     id: str
     type: QuizType
     question: str
-    correct_answer: str
-    options: Optional[List[str]] = None
+    options: List[str]
+    correct_answer_index: int  # 0-based index into options
     explanation: Optional[str] = None
+    
+    def __post_init__(self):
+        """Validate that correct_answer_index is within bounds"""
+        if not (0 <= self.correct_answer_index < len(self.options)):
+            raise ValueError(f"correct_answer_index {self.correct_answer_index} out of range for {len(self.options)} options")
+    
+    @property
+    def correct_answer(self) -> str:
+        """Get the correct answer text for backward compatibility"""
+        return self.options[self.correct_answer_index]
+    
+    @classmethod
+    def from_legacy_format(cls, id: str, type: QuizType, question: str, correct_answer: str, options: List[str], explanation: Optional[str] = None) -> 'QuizQuestion':
+        """Create QuizQuestion from legacy string-based correct answer format"""
+        try:
+            correct_answer_index = options.index(correct_answer)
+        except ValueError:
+            raise ValueError(f"correct_answer '{correct_answer}' not found in options: {options}")
+        
+        return cls(
+            id=id,
+            type=type,
+            question=question,
+            options=options,
+            correct_answer_index=correct_answer_index,
+            explanation=explanation
+        )

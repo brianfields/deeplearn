@@ -9,8 +9,9 @@ import logging
 import re
 
 from core import ModuleService, ServiceConfig, LLMClient
-from core.prompt_base import create_default_context
+from core.prompt_base import create_default_context, PromptContext
 from .prompts import LessonContentPrompt, DidacticSnippetPrompt, GlossaryPrompt, SocraticDialoguePrompt, ShortAnswerQuestionsPrompt, MultipleChoiceQuestionsPrompt, PostTopicQuizPrompt
+from .mcq_service import MCQService
 
 
 class BiteSizedTopicError(Exception):
@@ -29,10 +30,12 @@ class BiteSizedTopicService(ModuleService):
             'glossary': GlossaryPrompt(),
             'socratic_dialogue': SocraticDialoguePrompt(),
             'short_answer_questions': ShortAnswerQuestionsPrompt(),
-            'multiple_choice_questions': MultipleChoiceQuestionsPrompt(),
+            'multiple_choice_questions': MultipleChoiceQuestionsPrompt(),  # Legacy prompt kept for backward compatibility
             'post_topic_quiz': PostTopicQuizPrompt(),
             # Future prompts will be added here
         }
+        # Use the modern two-pass MCQ service
+        self.mcq_service = MCQService(llm_client)
 
     def _format_messages_for_storage(self, messages: List[Any]) -> str:
         """
@@ -810,8 +813,8 @@ class BiteSizedTopicService(ModuleService):
         avoid_overlap_with: Optional[List[str]] = None
     ) -> List[Dict[str, Any]]:
         """
-        Create a set of multiple choice questions for a concept.
-
+        Create a set of multiple choice questions for a concept using the modern two-pass approach.
+        
         Args:
             topic_title: Title of the topic
             core_concept: Core concept to assess
@@ -823,47 +826,133 @@ class BiteSizedTopicService(ModuleService):
             avoid_overlap_with: Topics/concepts to avoid overlapping with
 
         Returns:
-            List of MCQ dictionaries with metadata and justifications
+            List of MCQ dictionaries with metadata and justifications (backward compatible format)
 
         Raises:
             BiteSizedTopicError: If generation fails
         """
         try:
-            context = create_default_context(
+            # Create structured material from the provided information
+            source_material = self._create_source_material_from_concept(
+                topic_title, core_concept, learning_objectives, key_aspects, 
+                common_misconceptions, previous_topics, avoid_overlap_with
+            )
+            
+            # Create PromptContext for the MCQ service
+            context = PromptContext(
                 user_level=user_level,
                 time_constraint=15  # Standard time for assessment
             )
-
-            messages = self.prompts['multiple_choice_questions'].generate_prompt(
-                context,
+            
+            # Use the modern two-pass MCQ service
+            refined_material, mcqs_with_evaluations = await self.mcq_service.create_mcqs_from_text(
+                source_material=source_material,
                 topic_title=topic_title,
-                core_concept=core_concept,
-                learning_objectives=learning_objectives or [],
-                previous_topics=previous_topics or [],
-                key_aspects=key_aspects or [],
-                common_misconceptions=common_misconceptions or [],
-                avoid_overlap_with=avoid_overlap_with or []
+                domain="",  # No domain specified
+                user_level=user_level,
+                context=context
             )
-
-            response = await self.llm_client.generate_response(messages)
-
-            # Parse the structured output
-            parsed_questions = self._parse_multiple_choice_questions(response.content)
-
-            # Add generation metadata to each question
-            generation_metadata = {
-                'generation_prompt': self._format_messages_for_storage(messages),
-                'raw_llm_response': response.content
-            }
-            for question in parsed_questions:
-                question['_generation_metadata'] = generation_metadata
-
-            self.logger.info(f"Generated {len(parsed_questions)} multiple choice questions for '{core_concept}'")
+            
+            # Convert to backward-compatible format
+            parsed_questions = []
+            for i, mcq_data in enumerate(mcqs_with_evaluations, 1):
+                mcq = mcq_data['mcq']
+                evaluation = mcq_data['evaluation']
+                
+                # Create backward-compatible MCQ format
+                parsed_question = {
+                    'type': 'multiple_choice_question',
+                    'number': i,
+                    'title': mcq.get('stem', '')[:50] + '...' if len(mcq.get('stem', '')) > 50 else mcq.get('stem', ''),
+                    'question': mcq.get('stem', ''),
+                    'choices': self._convert_options_to_dict(mcq.get('options', [])),
+                    'correct_answer': mcq.get('correct_answer', ''),
+                    'correct_answer_index': mcq.get('correct_answer_index', 0),  # Include modern index format
+                    'justifications': {
+                        'rationale': mcq.get('rationale', ''),
+                        'evaluation': evaluation
+                    },
+                    'target_concept': mcq_data.get('topic', core_concept),
+                    'purpose': f"Assess understanding of {mcq_data.get('learning_objective', '')}",
+                    'difficulty': 3,  # Default difficulty
+                    'tags': core_concept,
+                    '_generation_metadata': {
+                        'generation_method': 'two_pass_mcq_service',
+                        'topic': mcq_data.get('topic', ''),
+                        'learning_objective': mcq_data.get('learning_objective', ''),
+                        'evaluation': evaluation
+                    }
+                }
+                parsed_questions.append(parsed_question)
+            
+            self.logger.info(f"Generated {len(parsed_questions)} multiple choice questions for '{core_concept}' using two-pass approach")
             return parsed_questions
-
+            
         except Exception as e:
             self.logger.error(f"Failed to generate multiple choice questions: {e}")
             raise BiteSizedTopicError(f"Failed to generate multiple choice questions: {e}")
+    
+    def _create_source_material_from_concept(
+        self,
+        topic_title: str,
+        core_concept: str,
+        learning_objectives: Optional[List[str]] = None,
+        key_aspects: Optional[List[str]] = None,
+        common_misconceptions: Optional[List[str]] = None,
+        previous_topics: Optional[List[str]] = None,
+        avoid_overlap_with: Optional[List[str]] = None
+    ) -> str:
+        """Create structured source material from concept information for the MCQ service."""
+        material_parts = [
+            f"# {topic_title}",
+            f"## Core Concept: {core_concept}",
+            ""
+        ]
+        
+        if learning_objectives:
+            material_parts.extend([
+                "## Learning Objectives",
+                *[f"- {obj}" for obj in learning_objectives],
+                ""
+            ])
+        
+        if key_aspects:
+            material_parts.extend([
+                "## Key Aspects",
+                *[f"- {aspect}" for aspect in key_aspects],
+                ""
+            ])
+        
+        if common_misconceptions:
+            material_parts.extend([
+                "## Common Misconceptions",
+                *[f"- {misconception}" for misconception in common_misconceptions],
+                ""
+            ])
+        
+        if previous_topics:
+            material_parts.extend([
+                "## Previous Topics (for context)",
+                *[f"- {topic}" for topic in previous_topics],
+                ""
+            ])
+        
+        if avoid_overlap_with:
+            material_parts.extend([
+                "## Topics to Avoid Overlapping With",
+                *[f"- {topic}" for topic in avoid_overlap_with],
+                ""
+            ])
+        
+        return "\n".join(material_parts)
+    
+    def _convert_options_to_dict(self, options: List[str]) -> Dict[str, str]:
+        """Convert list of options to dictionary format for backward compatibility."""
+        option_dict = {}
+        for i, option in enumerate(options):
+            letter = chr(ord('A') + i)
+            option_dict[letter] = option
+        return option_dict
 
     def _parse_multiple_choice_questions(self, content: str) -> List[Dict[str, Any]]:
         """

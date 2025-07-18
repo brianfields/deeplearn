@@ -5,6 +5,7 @@ This script demonstrates the complete workflow from syllabus creation
 to bite-sized content generation and storage.
 """
 
+import pytest
 import asyncio
 import json
 from typing import Dict, Any
@@ -76,6 +77,7 @@ class MockServiceConfig:
         self.cache_enabled = False
         self.retry_attempts = 3
 
+@pytest.mark.asyncio
 async def test_bite_sized_integration():
     """Test the complete bite-sized content integration workflow"""
 
@@ -215,6 +217,7 @@ async def test_bite_sized_integration():
 
     return True
 
+@pytest.mark.asyncio
 async def test_tutoring_integration():
     """Test tutoring system integration with bite-sized content"""
 

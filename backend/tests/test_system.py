@@ -5,6 +5,7 @@ System Test for Proactive Learning App
 This script tests the core functionality to ensure everything is working correctly.
 """
 
+import pytest
 import asyncio
 import os
 import sys
@@ -104,6 +105,7 @@ def test_progress_tracker():
         traceback.print_exc()
         return False
 
+@pytest.mark.asyncio
 async def test_llm_service():
     """Test LLM service functionality"""
     print("Testing LLM service...")

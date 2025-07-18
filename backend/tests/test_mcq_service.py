@@ -76,6 +76,7 @@ class TestMCQService:
                 "define my_function():"
             ],
             "correct_answer": "def my_function():",
+            "correct_answer_index": 0,
             "rationale": "The 'def' keyword is required for function definitions in Python"
         }
         
@@ -341,6 +342,62 @@ class TestMCQService:
         assert component.title.endswith("...")
         assert len(component.title.split()) <= 9  # 8 words + "..."
 
+    def test_convert_mcq_to_index_format_success(self):
+        """Test successful conversion from string to index format."""
+        mcq_string_format = {
+            "stem": "What is the correct syntax for defining a function in Python?",
+            "options": [
+                "def my_function():",
+                "function my_function():",
+                "def my_function[]:",
+                "define my_function():"
+            ],
+            "correct_answer": "def my_function():",
+            "rationale": "The 'def' keyword is required for function definitions in Python"
+        }
+        
+        result = self.service._convert_mcq_to_index_format(mcq_string_format)
+        
+        assert result['correct_answer_index'] == 0
+        assert result['correct_answer'] == "def my_function():"
+        assert result['options'] == mcq_string_format['options']
+    
+    def test_convert_mcq_to_index_format_with_whitespace(self):
+        """Test conversion handles whitespace differences."""
+        mcq_string_format = {
+            "stem": "What is the correct syntax for defining a function in Python?",
+            "options": [
+                "def my_function():",
+                "function my_function():",
+                "def my_function[]:",
+                "define my_function():"
+            ],
+            "correct_answer": " def my_function(): ",  # Extra whitespace
+            "rationale": "The 'def' keyword is required for function definitions in Python"
+        }
+        
+        result = self.service._convert_mcq_to_index_format(mcq_string_format)
+        
+        assert result['correct_answer_index'] == 0
+        assert result['correct_answer'] == "def my_function():"  # Cleaned up
+    
+    def test_convert_mcq_to_index_format_not_found(self):
+        """Test conversion fails when correct answer not found."""
+        mcq_string_format = {
+            "stem": "What is the correct syntax for defining a function in Python?",
+            "options": [
+                "def my_function():",
+                "function my_function():",
+                "def my_function[]:",
+                "define my_function():"
+            ],
+            "correct_answer": "invalid answer",
+            "rationale": "The 'def' keyword is required for function definitions in Python"
+        }
+        
+        with pytest.raises(ValueError, match="correct_answer 'invalid answer' not found in options"):
+            self.service._convert_mcq_to_index_format(mcq_string_format)
+
 
 class TestMCQServiceIntegration:
     """Integration tests for MCQService with mocked dependencies."""
@@ -396,6 +453,7 @@ class TestMCQServiceIntegration:
                 "Machine learning and AI are unrelated fields"
             ],
             "correct_answer": "Machine learning is a subset of artificial intelligence",
+            "correct_answer_index": 0,
             "rationale": "Machine learning is specifically a subset of AI that focuses on learning from data"
         }
         

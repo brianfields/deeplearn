@@ -238,9 +238,9 @@ class TestMCQScriptCLI:
                             assert output_data['summary']['total_topics'] == 1
                             
                             # Verify success messages
-                            mock_print.assert_any_call("✓ Successfully created 2 MCQs")
-                            mock_print.assert_any_call("✓ Refined material extracted for 1 topics")
-                            mock_print.assert_any_call(f"✓ Results saved to: {output_file_path}")
+                            mock_print.assert_any_call("\n🎉 Success! Created 2 MCQs")
+                            mock_print.assert_any_call("📚 Refined material extracted for 1 topics")
+                            mock_print.assert_any_call(f"💾 Results saved to: {output_file_path}")
         
         finally:
             if os.path.exists(tmp_file_path):
@@ -279,9 +279,9 @@ class TestMCQScriptCLI:
                             asyncio.run(main())
                             
                             # Verify verbose output was printed
-                            mock_print.assert_any_call("\nTopics covered:")
+                            mock_print.assert_any_call("\n📋 Topics covered:")
                             mock_print.assert_any_call("  - Python Function Basics (2 learning objectives)")
-                            mock_print.assert_any_call("\nMCQ Quality Summary:")
+                            mock_print.assert_any_call("\n🎯 MCQ Quality Summary:")
                             mock_print.assert_any_call("  MCQ 1: High quality MCQ following best practices")
                             mock_print.assert_any_call("  MCQ 2: Well-constructed MCQ for the learning objective")
         
@@ -355,7 +355,7 @@ class TestMCQScriptCLI:
                             asyncio.run(main())
                             
                             # Verify default output file was mentioned
-                            mock_print.assert_any_call(f"✓ Results saved to: {default_output}")
+                            mock_print.assert_any_call(f"💾 Results saved to: {default_output}")
         
         finally:
             if os.path.exists(tmp_file_path):

@@ -144,9 +144,39 @@ class MCQService:
         
         try:
             mcq = json.loads(response.content.strip())
+            # Convert string-based correct answer to index-based format
+            mcq = self._convert_mcq_to_index_format(mcq)
             return mcq
         except json.JSONDecodeError as e:
             raise ValueError(f"Failed to parse MCQ JSON: {e}")
+
+    def _convert_mcq_to_index_format(self, mcq: Dict[str, Any]) -> Dict[str, Any]:
+        """Convert MCQ from string-based correct answer to index-based format"""
+        if 'correct_answer' in mcq and 'options' in mcq:
+            correct_answer_text = mcq['correct_answer']
+            options = mcq['options']
+            
+            try:
+                # Find the index of the correct answer
+                correct_answer_index = options.index(correct_answer_text)
+                
+                # Update the MCQ with index-based format
+                mcq['correct_answer_index'] = correct_answer_index
+                # Keep the text version for backward compatibility
+                mcq['correct_answer'] = correct_answer_text
+                
+            except ValueError:
+                # If exact match fails, try to find closest match
+                correct_answer_text_stripped = correct_answer_text.strip()
+                for i, option in enumerate(options):
+                    if option.strip() == correct_answer_text_stripped:
+                        mcq['correct_answer_index'] = i
+                        mcq['correct_answer'] = option
+                        break
+                else:
+                    raise ValueError(f"correct_answer '{correct_answer_text}' not found in options: {options}")
+        
+        return mcq
 
     async def _evaluate_mcq(
         self,
@@ -158,6 +188,7 @@ class MCQService:
         
         stem = mcq.get('stem', '')
         options = mcq.get('options', [])
+        # Use the text version for evaluation (backward compatibility)
         correct_answer = mcq.get('correct_answer', '')
         rationale = mcq.get('rationale', '')
         
