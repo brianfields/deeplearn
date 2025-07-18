@@ -39,17 +39,6 @@ export default function Header() {
               <BookOpen className="h-4 w-4 mr-1 inline-block" />
               Learning
             </Link>
-            <Link
-              href="/content-creation"
-              className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                pathname.startsWith('/content-creation')
-                  ? 'bg-purple-100 text-purple-700'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-              }`}
-            >
-              <Brain className="h-4 w-4 mr-1 inline-block" />
-              Content Studio
-            </Link>
           </nav>
 
           {/* Search */}

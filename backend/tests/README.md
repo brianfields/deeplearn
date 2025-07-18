@@ -1,26 +1,46 @@
 # Backend Tests
 
-This directory contains all tests for the backend application.
+This directory contains all tests for the backend application, organized around our clean two-layer API architecture.
+
+## Test Organization Philosophy
+
+Our tests are organized to match the **two-layer architecture**:
+1. **Content Creation Layer** - For content creators using the studio interface
+2. **Learning Layer** - For learners consuming educational content
 
 ## Test Structure
 
-### Core Tests
+### Core Service Tests
+- **`test_services.py`** - Tests for core business logic services
+  - `RefinedMaterialService`: Extracting structured material from unstructured content
+  - `MCQService`: Creating and evaluating multiple choice questions
+  - Service integration workflows
+
+### API Layer Tests
+- **`test_api_content_creation.py`** - Tests for Content Creation API (`/api/content/*`)
+  - Refined material extraction endpoints
+  - MCQ creation workflows
+  - Topic creation and management
+  - Session management
+  - Input validation
+
+- **`test_api_learning.py`** - Tests for Learning API (`/api/learning/*`)
+  - Topic discovery and browsing
+  - Learning-optimized topic access
+  - Component consumption
+  - Health monitoring
+  - Error handling
+
+### Integration Tests
+- **`test_integration.py`** - End-to-end workflow tests
+  - Complete content creation workflow (source material → topics → components)
+  - Complete learning consumption workflow (discovery → access → consumption)
+  - Cross-layer integration (content creation → learning consumption)
+
+### Supporting Tests
 - **`test_data_structures.py`** - Tests for core data structures like `QuizQuestion`
-- **`test_very_simple.py`** - Basic functionality tests for the simplified backend
-
-### MCQ System Tests
-- **`test_mcq_prompts.py`** - Tests for MCQ prompt templates
-- **`test_mcq_service.py`** - Tests for the two-pass MCQ service
-- **`test_orchestrator_mcq.py`** - Tests for MCQ orchestration
-- **`test_mcq_script.py`** - Tests for MCQ CLI scripts
-
-### Backend Service Tests
-- **`test_conversational.py`** - Tests for conversational AI features
-- **`test_bite_sized_integration.py`** - Integration tests for bite-sized topics
-- **`test_system.py`** - System-level tests
-
-### Excluded Tests
-- **`test_simplified_backend.py`** - Excluded due to architectural incompatibilities with old codebase
+- **`test_mcq_prompts.py`** - Tests for MCQ prompt templates and generation
+- **`test_mcq_script.py`** - Tests for MCQ CLI scripts and command-line tools
 
 ## Running Tests
 
@@ -34,70 +54,77 @@ python run_all_tests.py
 python run_all_tests.py -v
 
 # Run specific test file
-python run_all_tests.py --file test_mcq_service.py
+python run_all_tests.py --file test_services.py
 ```
 
 ### Test Categories
 
 ```bash
-# Run only quick tests
-python run_all_tests.py --quick
+# Run only service layer tests
+python -m pytest test_services.py -v
 
-# Run only MCQ-related tests
-python run_all_tests.py --mcq
+# Run only API tests
+python -m pytest test_api_*.py -v
 
 # Run only integration tests
-python run_all_tests.py --integration
+python -m pytest test_integration.py -v
+
+# Run specific test class
+python -m pytest test_services.py::TestMCQService -v
 ```
 
-### Advanced Options
+### Test Coverage by Layer
 
-```bash
-# Run with coverage report
-python run_all_tests.py --coverage
+**Service Layer Coverage:**
+- ✅ Refined material extraction from unstructured text
+- ✅ MCQ creation and evaluation
+- ✅ Service integration workflows
+- ✅ Error handling and edge cases
 
-# Run tests in parallel
-python run_all_tests.py --parallel
+**Content Creation API Coverage:**
+- ✅ All `/api/content/*` endpoints
+- ✅ Topic creation from source material
+- ✅ Component generation and management
+- ✅ Session-based workflows
+- ✅ Input validation and error handling
 
-# Combine options
-python run_all_tests.py --mcq --verbose --coverage
-```
+**Learning API Coverage:**
+- ✅ All `/api/learning/*` endpoints
+- ✅ Topic discovery with filtering
+- ✅ Learning-optimized content access
+- ✅ Component consumption interfaces
+- ✅ Health monitoring
 
-### Using pytest directly
+**Integration Coverage:**
+- ✅ End-to-end content creation workflows
+- ✅ End-to-end learning consumption workflows
+- ✅ Cross-layer integration scenarios
 
-```bash
-# Run all tests
-pytest tests/
+## Test Naming Convention
 
-# Run specific test file
-pytest tests/test_mcq_service.py
+Tests follow a clear naming pattern that indicates what's being tested:
 
-# Run with verbose output
-pytest tests/ -v
+- `test_services.py` - Core business logic services
+- `test_api_[layer].py` - API layer for specific layer (content_creation, learning)
+- `test_integration.py` - End-to-end workflow integration tests
+- `test_[component].py` - Specific component or utility tests
 
-# Run with coverage
-pytest tests/ --cov=src --cov-report=html
-```
+## Architecture Alignment
 
-## Test Organization
+These tests are designed to verify our two-layer architecture principles:
 
-Tests are organized by functionality:
+1. **Clear Separation**: Content Creation and Learning APIs are tested separately
+2. **Service Reusability**: Services are tested independently and can be used by either API layer
+3. **Workflow Integrity**: Integration tests verify complete user workflows work correctly
+4. **Error Boundaries**: Each layer's error handling is tested appropriately
 
-1. **Core Data Structures** - Basic data models and validation
-2. **MCQ System** - Multiple choice question generation and evaluation
-3. **Backend Services** - API endpoints and service layer
-4. **Integration Tests** - End-to-end functionality
+## Deprecated Tests
 
-Each test file is self-contained and can be run independently.
-
-## Writing New Tests
-
-- Place new tests in the appropriate category
-- Follow the existing naming convention: `test_<component>.py`
-- Use descriptive test method names
-- Include docstrings explaining what each test verifies
-- Mock external dependencies (LLM calls, database operations)
-
-## CI/CD Integration
-
-These tests are designed to run in CI/CD environments. The `run_all_tests.py` script returns proper exit codes for automated testing.
+The following test files were removed during the architecture cleanup:
+- `test_simplified_backend.py` - Tested old API structure
+- `test_orchestrator_mcq.py` - Redundant with service tests
+- `test_bite_sized_integration.py` - Replaced by `test_integration.py`
+- `test_system.py` - Tested obsolete components
+- `test_conversational.py` - Tested features not in current architecture
+- `test_very_simple.py` - Tested obsolete service classes
+- `test_mcq_service.py` - Redundant with `test_services.py`

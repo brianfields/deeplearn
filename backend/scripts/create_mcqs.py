@@ -9,7 +9,7 @@ This script creates MCQs from unstructured material using the two-pass approach:
 
 Example Usage:
     # Create MCQs about PyTorch tensor usage (reference material included)
-    python scripts/create_mcqs.py --topic "PyTorch Tensor Usage" --file pytorch_tensor_material.txt --output pytorch_mcqs.json --domain "Machine Learning" --level intermediate --verbose
+    python scripts/create_mcqs.py --topic "PyTorch Tensor Usage" --file scripts/examples/pytorch_tensor_material.txt --output scripts/examples/pytorch_mcqs.json --domain "Machine Learning" --level intermediate --verbose
 
     # Basic usage
     python scripts/create_mcqs.py --topic "Your Topic" --file your_material.txt

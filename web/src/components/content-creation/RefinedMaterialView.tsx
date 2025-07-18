@@ -14,15 +14,17 @@ import {
   AlertTriangle,
   CheckCircle,
   Brain,
-  Loader2
+  Loader2,
+  Plus
 } from 'lucide-react'
 
 interface RefinedMaterialViewProps {
-  session: any
-  onMCQCreated: (session: any) => void
+  topic: any
+  onMCQCreated: (updatedTopic: any) => void
+  onProceedToComponents: () => void
 }
 
-export default function RefinedMaterialView({ session, onMCQCreated }: RefinedMaterialViewProps) {
+export default function RefinedMaterialView({ topic, onMCQCreated, onProceedToComponents }: RefinedMaterialViewProps) {
   const [openSections, setOpenSections] = useState<Set<string>>(new Set())
   const [creatingMCQ, setCreatingMCQ] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -43,20 +45,20 @@ export default function RefinedMaterialView({ session, onMCQCreated }: RefinedMa
     setError(null)
 
     try {
-      const response = await fetch('/api/content/mcq', {
+      const response = await fetch(`/api/content/topics/${topic.id}/components`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          session_id: session.session_id,
-          topic: topicData.topic,
+          component_type: 'mcq',
           learning_objective: learningObjective,
-          key_facts: topicData.key_facts || [],
-          common_misconceptions: topicData.common_misconceptions || [],
-          assessment_angles: topicData.assessment_angles || [],
-          level: session.level,
-          model: 'gpt-4o'
+          topic_context: {
+            topic: topicData.topic,
+            key_facts: topicData.key_facts || [],
+            common_misconceptions: topicData.common_misconceptions || [],
+            assessment_angles: topicData.assessment_angles || []
+          }
         }),
       })
 
@@ -65,15 +67,15 @@ export default function RefinedMaterialView({ session, onMCQCreated }: RefinedMa
         throw new Error(errorData.detail || 'Failed to create MCQ')
       }
 
-      // Get updated session data
-      const sessionResponse = await fetch(`/api/content/sessions/${session.session_id}`)
+      // Get updated topic data
+      const topicResponse = await fetch(`/api/content/topics/${topic.id}`)
 
-      if (!sessionResponse.ok) {
-        throw new Error('Failed to get updated session data')
+      if (!topicResponse.ok) {
+        throw new Error('Failed to get updated topic data')
       }
 
-      const updatedSession = await sessionResponse.json()
-      onMCQCreated(updatedSession)
+      const updatedTopic = await topicResponse.json()
+      onMCQCreated(updatedTopic)
 
     } catch (error) {
       console.error('Error creating MCQ:', error)
@@ -83,15 +85,16 @@ export default function RefinedMaterialView({ session, onMCQCreated }: RefinedMa
     }
   }
 
-  const isMCQCreated = (topic: string, learningObjective: string) => {
-    return session.mcqs.some((mcq: any) =>
-      mcq.topic === topic && mcq.learning_objective === learningObjective
+  const isMCQCreated = (topicName: string, learningObjective: string) => {
+    return topic.components.some((component: any) =>
+      component.component_type === 'mcq' &&
+      component.content?.learning_objective === learningObjective
     )
   }
 
-  if (!session.refined_material) {
+  if (!topic.refined_material) {
     return (
-      <Card>
+      <Card className="max-w-4xl mx-auto">
         <CardContent className="py-8 text-center">
           <p className="text-gray-500">No refined material available</p>
         </CardContent>
@@ -100,17 +103,23 @@ export default function RefinedMaterialView({ session, onMCQCreated }: RefinedMa
   }
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold">Refined Material</h2>
           <p className="text-gray-600 text-sm">
-            {session.refined_material.topics.length} topics extracted from your source material
+            {topic.refined_material.topics.length} topics extracted from your source material
           </p>
         </div>
-        <Badge variant="outline" className="text-xs">
-          {session.level} level
-        </Badge>
+        <div className="flex items-center gap-3">
+          <Badge variant="outline" className="text-xs">
+            {topic.source_level} level
+          </Badge>
+          <Button onClick={onProceedToComponents} className="bg-purple-600 hover:bg-purple-700">
+            <Plus className="w-4 h-4 mr-2" />
+            Proceed to Components
+          </Button>
+        </div>
       </div>
 
       {error && (
@@ -121,7 +130,7 @@ export default function RefinedMaterialView({ session, onMCQCreated }: RefinedMa
       )}
 
       <div className="space-y-4">
-        {session.refined_material.topics.map((topic: any, index: number) => {
+        {topic.refined_material.topics.map((topicData: any, index: number) => {
           const sectionId = `topic-${index}`
           const isOpen = openSections.has(sectionId)
 
@@ -136,11 +145,11 @@ export default function RefinedMaterialView({ session, onMCQCreated }: RefinedMa
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-lg flex items-center gap-2">
                         <Brain className="h-5 w-5" />
-                        {topic.topic}
+                        {topicData.topic}
                       </CardTitle>
                       <div className="flex items-center gap-2">
                         <Badge variant="secondary" className="text-xs">
-                          {topic.learning_objectives?.length || 0} objectives
+                          {topicData.learning_objectives?.length || 0} objectives
                         </Badge>
                         {isOpen ? (
                           <ChevronDown className="h-4 w-4" />
@@ -156,21 +165,21 @@ export default function RefinedMaterialView({ session, onMCQCreated }: RefinedMa
                   <CardContent className="pt-0">
                     <div className="space-y-6">
                       {/* Learning Objectives */}
-                      {topic.learning_objectives && topic.learning_objectives.length > 0 && (
+                      {topicData.learning_objectives && topicData.learning_objectives.length > 0 && (
                         <div>
                           <h4 className="font-medium flex items-center gap-2 mb-3">
                             <Target className="h-4 w-4" />
                             Learning Objectives
                           </h4>
                           <div className="space-y-2">
-                            {topic.learning_objectives.map((objective: string, objIndex: number) => (
+                            {topicData.learning_objectives.map((objective: string, objIndex: number) => (
                               <div
                                 key={objIndex}
                                 className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200"
                               >
                                 <span className="text-sm text-blue-900">{objective}</span>
                                 <div className="flex items-center gap-2">
-                                  {isMCQCreated(topic.topic, objective) ? (
+                                  {isMCQCreated(topicData.topic, objective) ? (
                                     <Badge variant="default" className="text-xs bg-green-600">
                                       <CheckCircle className="h-3 w-3 mr-1" />
                                       MCQ Created
@@ -179,10 +188,10 @@ export default function RefinedMaterialView({ session, onMCQCreated }: RefinedMa
                                     <Button
                                       size="sm"
                                       variant="outline"
-                                      onClick={() => handleCreateMCQ(topic, objective)}
-                                      disabled={creatingMCQ === `${topic.topic}-${objective}`}
+                                      onClick={() => handleCreateMCQ(topicData, objective)}
+                                      disabled={creatingMCQ === `${topicData.topic}-${objective}`}
                                     >
-                                      {creatingMCQ === `${topic.topic}-${objective}` ? (
+                                      {creatingMCQ === `${topicData.topic}-${objective}` ? (
                                         <>
                                           <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                                           Creating...
@@ -200,14 +209,14 @@ export default function RefinedMaterialView({ session, onMCQCreated }: RefinedMa
                       )}
 
                       {/* Key Facts */}
-                      {topic.key_facts && topic.key_facts.length > 0 && (
+                      {topicData.key_facts && topicData.key_facts.length > 0 && (
                         <div>
                           <h4 className="font-medium flex items-center gap-2 mb-3">
                             <Lightbulb className="h-4 w-4" />
                             Key Facts
                           </h4>
                           <ul className="space-y-1">
-                            {topic.key_facts.map((fact: string, factIndex: number) => (
+                            {topicData.key_facts.map((fact: string, factIndex: number) => (
                               <li key={factIndex} className="text-sm text-gray-700 flex items-start gap-2">
                                 <span className="text-green-600 mt-1">•</span>
                                 {fact}
@@ -218,14 +227,14 @@ export default function RefinedMaterialView({ session, onMCQCreated }: RefinedMa
                       )}
 
                       {/* Common Misconceptions */}
-                      {topic.common_misconceptions && topic.common_misconceptions.length > 0 && (
+                      {topicData.common_misconceptions && topicData.common_misconceptions.length > 0 && (
                         <div>
                           <h4 className="font-medium flex items-center gap-2 mb-3">
                             <AlertTriangle className="h-4 w-4" />
                             Common Misconceptions
                           </h4>
                           <div className="space-y-2">
-                            {topic.common_misconceptions.map((misconception: any, miscIndex: number) => (
+                            {topicData.common_misconceptions.map((misconception: any, miscIndex: number) => (
                               <div key={miscIndex} className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
                                 <div className="text-sm">
                                   <p className="text-red-700 font-medium mb-1">
@@ -242,14 +251,14 @@ export default function RefinedMaterialView({ session, onMCQCreated }: RefinedMa
                       )}
 
                       {/* Assessment Angles */}
-                      {topic.assessment_angles && topic.assessment_angles.length > 0 && (
+                      {topicData.assessment_angles && topicData.assessment_angles.length > 0 && (
                         <div>
                           <h4 className="font-medium flex items-center gap-2 mb-3">
                             <CheckCircle className="h-4 w-4" />
                             Assessment Angles
                           </h4>
                           <div className="flex flex-wrap gap-2">
-                            {topic.assessment_angles.map((angle: string, angleIndex: number) => (
+                            {topicData.assessment_angles.map((angle: string, angleIndex: number) => (
                               <Badge key={angleIndex} variant="outline" className="text-xs">
                                 {angle}
                               </Badge>
@@ -266,7 +275,7 @@ export default function RefinedMaterialView({ session, onMCQCreated }: RefinedMa
         })}
       </div>
 
-      {session.refined_material.topics.length === 0 && (
+      {topic.refined_material.topics.length === 0 && (
         <Card>
           <CardContent className="py-8 text-center">
             <p className="text-gray-500">No topics found in the refined material</p>

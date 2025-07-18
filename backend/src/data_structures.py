@@ -51,6 +51,12 @@ class BiteSizedTopic(Base):
     common_misconceptions = Column(JSON)  # List of strings
     previous_topics = Column(JSON)  # List of strings
 
+    # Source material and refined content
+    source_material = Column(Text, nullable=True)  # Original input text
+    source_domain = Column(String, nullable=True)  # Domain specified during creation
+    source_level = Column(String, nullable=True)  # Level specified during creation
+    refined_material = Column(JSON, nullable=True)  # Structured extraction from source
+
     # Creation metadata
     creation_strategy = Column(String, nullable=False)  # CreationStrategy enum value
     creation_metadata = Column(JSON)
@@ -113,17 +119,17 @@ class QuizQuestion:
     options: List[str]
     correct_answer_index: int  # 0-based index into options
     explanation: Optional[str] = None
-    
+
     def __post_init__(self):
         """Validate that correct_answer_index is within bounds"""
         if not (0 <= self.correct_answer_index < len(self.options)):
             raise ValueError(f"correct_answer_index {self.correct_answer_index} out of range for {len(self.options)} options")
-    
+
     @property
     def correct_answer(self) -> str:
         """Get the correct answer text for backward compatibility"""
         return self.options[self.correct_answer_index]
-    
+
     @classmethod
     def from_legacy_format(cls, id: str, type: QuizType, question: str, correct_answer: str, options: List[str], explanation: Optional[str] = None) -> 'QuizQuestion':
         """Create QuizQuestion from legacy string-based correct answer format"""
@@ -131,7 +137,7 @@ class QuizQuestion:
             correct_answer_index = options.index(correct_answer)
         except ValueError:
             raise ValueError(f"correct_answer '{correct_answer}' not found in options: {options}")
-        
+
         return cls(
             id=id,
             type=type,
@@ -140,3 +146,33 @@ class QuizQuestion:
             correct_answer_index=correct_answer_index,
             explanation=explanation
         )
+
+# Domain Models for Service Layer (Pydantic)
+# These are used by services to return data without SQLAlchemy coupling
+
+class ComponentResult(BaseModel):
+    """Base result model for component creation."""
+    id: str
+    topic_id: str
+    component_type: str
+    title: str
+    content: Dict[str, Any]
+    generation_prompt: str
+    raw_llm_response: str
+    created_at: datetime
+    updated_at: datetime
+    evaluation: Optional[Dict[str, Any]] = None
+
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
+        }
+
+class RefinedMaterialResult(ComponentResult):
+    """Result model for refined material extraction."""
+    component_type: str = "refined_material"
+    title: str = "Refined Material"
+
+class MCQResult(ComponentResult):
+    """Result model for MCQ creation."""
+    component_type: str = "multiple_choice_question"

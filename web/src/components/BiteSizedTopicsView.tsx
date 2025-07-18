@@ -14,7 +14,9 @@ import {
   RefreshCw,
   Eye,
   Zap,
-  Flame
+  Flame,
+  Plus,
+  Settings
 } from 'lucide-react'
 import { useBiteSizedTopics, useDuolingoLearning } from '@/hooks'
 import type { BiteSizedTopic } from '@/types'
@@ -38,6 +40,16 @@ export default function BiteSizedTopicsView() {
   const handleViewContent = (topic: BiteSizedTopic) => {
     // Go directly to content view, skipping the overview
     window.location.href = `/topic/${topic.id}?mode=content`
+  }
+
+  const handleEditTopic = (topic: BiteSizedTopic) => {
+    // Navigate to content creation studio for this topic
+    window.location.href = `/content-creation/${topic.id}`
+  }
+
+  const handleNewTopic = () => {
+    // Navigate to content creation studio for new topic
+    window.location.href = `/content-creation/new`
   }
 
   if (isLoading) {
@@ -81,7 +93,7 @@ export default function BiteSizedTopicsView() {
               <p className="text-gray-600 mt-1">Quick, focused topics you can complete in 15 minutes</p>
             </div>
 
-            {/* Stats display */}
+            {/* Stats display and New Topic Button */}
             <div className="flex items-center gap-6">
               {cacheStats.currentStreak > 0 && (
                 <div className="flex items-center gap-2 text-orange-600">
@@ -108,6 +120,15 @@ export default function BiteSizedTopicsView() {
                   <div className="text-xs">Cached</div>
                 </div>
               </div>
+
+              {/* New Topic Button */}
+              <button
+                onClick={handleNewTopic}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2 font-medium"
+              >
+                <Plus className="w-4 h-4" />
+                New Topic
+              </button>
             </div>
           </div>
         </div>
@@ -208,6 +229,14 @@ export default function BiteSizedTopicsView() {
                       title="View content"
                     >
                       <Eye className="w-4 h-4" />
+                    </button>
+
+                    <button
+                      onClick={() => handleEditTopic(topic)}
+                      className="px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                      title="Edit topic"
+                    >
+                      <Settings className="w-4 h-4" />
                     </button>
                   </div>
                 </div>

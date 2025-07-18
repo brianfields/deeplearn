@@ -34,7 +34,7 @@ from .models import (
     ConversationResponse,
     ProgressResponse
 )
-from .routes import router as api_router
+from .learning_routes import router as api_router
 from .content_creation_routes import router as content_creation_router
 
 # Import the existing learning components
