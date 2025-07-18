@@ -34,6 +34,7 @@ class PromptTemplate(ABC):
 
     def __init__(self, template_name: str):
         self.template_name = template_name
+        self.name = template_name  # Add name property for compatibility
         self.base_instructions = self._get_base_instructions()
 
     @abstractmethod

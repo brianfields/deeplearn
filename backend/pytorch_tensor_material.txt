@@ -1,0 +1,114 @@
+PyTorch Tensor Usage: Fundamentals and Operations
+
+PyTorch tensors are the fundamental data structure in PyTorch, similar to NumPy arrays but with additional capabilities for GPU acceleration and automatic differentiation. Understanding tensors is crucial for effective deep learning with PyTorch.
+
+## Creating Tensors
+
+There are multiple ways to create tensors in PyTorch:
+
+1. **From Python lists**: You can create tensors directly from Python lists using torch.tensor()
+   ```python
+   import torch
+   data = [[1, 2], [3, 4]]
+   tensor = torch.tensor(data)
+   ```
+
+2. **From NumPy arrays**: PyTorch tensors can be created from NumPy arrays
+   ```python
+   import numpy as np
+   numpy_array = np.array([1, 2, 3, 4])
+   tensor = torch.from_numpy(numpy_array)
+   ```
+
+3. **Using factory functions**: PyTorch provides several factory functions
+   - torch.zeros(shape) creates a tensor filled with zeros
+   - torch.ones(shape) creates a tensor filled with ones
+   - torch.randn(shape) creates a tensor with random values from normal distribution
+   - torch.arange(start, end, step) creates a tensor with values in a range
+
+## Tensor Properties
+
+Every tensor has important properties:
+
+- **Shape**: The dimensions of the tensor, accessed via .shape or .size()
+- **Data type**: The type of data stored (float32, int64, etc.), accessed via .dtype
+- **Device**: Where the tensor is stored (CPU or GPU), accessed via .device
+- **Requires gradient**: Whether the tensor should track gradients, accessed via .requires_grad
+
+## Basic Operations
+
+PyTorch tensors support various mathematical operations:
+
+1. **Element-wise operations**: Addition, subtraction, multiplication, division
+   ```python
+   a = torch.tensor([1, 2, 3])
+   b = torch.tensor([4, 5, 6])
+   result = a + b  # Element-wise addition
+   ```
+
+2. **Matrix operations**: Matrix multiplication, transpose
+   ```python
+   a = torch.randn(3, 4)
+   b = torch.randn(4, 5)
+   result = torch.mm(a, b)  # Matrix multiplication
+   ```
+
+3. **Reshaping**: Changing tensor dimensions
+   ```python
+   tensor = torch.randn(2, 3, 4)
+   reshaped = tensor.view(6, 4)  # Reshape to 6x4
+   ```
+
+## Indexing and Slicing
+
+PyTorch tensors support NumPy-style indexing and slicing:
+
+```python
+tensor = torch.randn(4, 4)
+print(tensor[0])      # First row
+print(tensor[:, 1])   # Second column
+print(tensor[1:3, 1:3])  # 2x2 sub-tensor
+```
+
+## GPU Acceleration
+
+One of PyTorch's key advantages is seamless GPU acceleration:
+
+```python
+# Move tensor to GPU if available
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+tensor = tensor.to(device)
+
+# Create tensor directly on GPU
+gpu_tensor = torch.randn(3, 3, device=device)
+```
+
+## Automatic Differentiation
+
+PyTorch tensors can automatically track gradients for backpropagation:
+
+```python
+x = torch.randn(2, 2, requires_grad=True)
+y = x + 2
+z = y * y * 3
+out = z.mean()
+out.backward()  # Compute gradients
+print(x.grad)   # Gradients with respect to x
+```
+
+## Common Pitfalls
+
+1. **In-place operations**: Operations ending with underscore modify tensors in-place
+2. **Broadcasting**: PyTorch automatically broadcasts tensors of different shapes
+3. **Memory management**: Be careful with large tensors and GPU memory
+4. **Data types**: Ensure consistent data types for operations
+
+## Best Practices
+
+- Use torch.tensor() for creating tensors from data
+- Specify device and dtype when creating tensors
+- Use .detach() to stop gradient tracking when needed
+- Leverage broadcasting for efficient operations
+- Use torch.no_grad() context manager for inference
+
+Understanding these tensor fundamentals is essential for building and training neural networks effectively in PyTorch. Tensors form the backbone of all computations in deep learning frameworks.

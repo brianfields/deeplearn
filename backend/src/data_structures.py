@@ -85,6 +85,7 @@ class BiteSizedComponent(Base):
     # Generation metadata
     generation_prompt = Column(Text, nullable=True)  # The prompt used to generate this component
     raw_llm_response = Column(Text, nullable=True)  # The full unedited response from the LLM
+    evaluation = Column(JSON, nullable=True)  # Quality evaluation results for the component
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)

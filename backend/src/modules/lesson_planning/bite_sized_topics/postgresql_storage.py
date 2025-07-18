@@ -32,7 +32,12 @@ class PostgreSQLTopicRepository:
         """Get database service instance"""
         try:
             from database_service import get_database_service
-            return get_database_service()
+            db_service = get_database_service()
+            if db_service is None:
+                # Fallback: create a new instance
+                from database_service import DatabaseService
+                db_service = DatabaseService()
+            return db_service
         except ImportError:
             from database_service import DatabaseService
             return DatabaseService()
@@ -41,6 +46,8 @@ class PostgreSQLTopicRepository:
     async def _get_session(self):
         """Get database session (async context manager)"""
         db_service = self._get_db_service()
+        if db_service is None:
+            raise ValueError("Database service not available")
         session = db_service.get_session()
         try:
             yield session
@@ -241,33 +248,34 @@ class PostgreSQLTopicRepository:
 
     def _reconstruct_topic_content(self, stored_topic: BiteSizedTopic, component_rows: Sequence[BiteSizedComponent]) -> TopicContent:
         """Reconstruct TopicContent from stored data"""
-        # Convert stored topic back to TopicSpec
+        # Convert stored topic back to TopicSpec with explicit type conversions
+        # Note: SQLAlchemy model attributes contain actual values at runtime, not Column objects
         topic_spec = TopicSpec(
-            topic_title=str(stored_topic.title),
-            core_concept=str(stored_topic.core_concept),
-            user_level=str(stored_topic.user_level),
-            learning_objectives=list(stored_topic.learning_objectives) if stored_topic.learning_objectives is not None else [],
-            key_concepts=list(stored_topic.key_concepts) if stored_topic.key_concepts is not None else [],
-            key_aspects=list(stored_topic.key_aspects) if stored_topic.key_aspects is not None else [],
-            target_insights=list(stored_topic.target_insights) if stored_topic.target_insights is not None else [],
-            common_misconceptions=list(stored_topic.common_misconceptions) if stored_topic.common_misconceptions is not None else [],
-            previous_topics=list(stored_topic.previous_topics) if stored_topic.previous_topics is not None else [],
-            creation_strategy=CreationStrategy(stored_topic.creation_strategy)
+            topic_title=str(stored_topic.title),  # type: ignore
+            core_concept=str(stored_topic.core_concept),  # type: ignore
+            user_level=str(stored_topic.user_level),  # type: ignore
+            learning_objectives=list(stored_topic.learning_objectives) if stored_topic.learning_objectives is not None else [],  # type: ignore
+            key_concepts=list(stored_topic.key_concepts) if stored_topic.key_concepts is not None else [],  # type: ignore
+            key_aspects=list(stored_topic.key_aspects) if stored_topic.key_aspects is not None else [],  # type: ignore
+            target_insights=list(stored_topic.target_insights) if stored_topic.target_insights is not None else [],  # type: ignore
+            common_misconceptions=list(stored_topic.common_misconceptions) if stored_topic.common_misconceptions is not None else [],  # type: ignore
+            previous_topics=list(stored_topic.previous_topics) if stored_topic.previous_topics is not None else [],  # type: ignore
+            creation_strategy=CreationStrategy(stored_topic.creation_strategy)  # type: ignore
         )
 
         # Start with base TopicContent
         topic_content = TopicContent(
             topic_spec=topic_spec,
-            creation_metadata=stored_topic.creation_metadata if stored_topic.creation_metadata else {}
+            creation_metadata=dict(stored_topic.creation_metadata) if stored_topic.creation_metadata is not None else {}  # type: ignore
         )
 
         # Group components by type
         components_by_type = {}
         for component in component_rows:
-            comp_type = component.component_type
+            comp_type = component.component_type  # type: ignore
             if comp_type not in components_by_type:
                 components_by_type[comp_type] = []
-            components_by_type[comp_type].append(component.content)
+            components_by_type[comp_type].append(component.content)  # type: ignore
 
         # Reconstruct each component type
         if 'didactic_snippet' in components_by_type:
@@ -315,22 +323,23 @@ class PostgreSQLTopicRepository:
 
                 result = []
                 for topic in topics:
+                    # SQLAlchemy model attributes contain actual values at runtime
                     stored_topic = StoredTopic(
-                        id=topic.id,
-                        title=topic.title,
-                        core_concept=topic.core_concept,
-                        user_level=topic.user_level,
-                        learning_objectives=topic.learning_objectives,
-                        key_concepts=topic.key_concepts,
-                        key_aspects=topic.key_aspects,
-                        target_insights=topic.target_insights,
-                        common_misconceptions=topic.common_misconceptions,
-                        previous_topics=topic.previous_topics,
-                        creation_strategy=topic.creation_strategy,
-                        creation_metadata=topic.creation_metadata,
-                        created_at=topic.created_at.isoformat() if topic.created_at else "",
-                        updated_at=topic.updated_at.isoformat() if topic.updated_at else "",
-                        version=topic.version
+                        id=str(topic.id),  # type: ignore
+                        title=str(topic.title),  # type: ignore
+                        core_concept=str(topic.core_concept),  # type: ignore
+                        user_level=str(topic.user_level),  # type: ignore
+                        learning_objectives=list(topic.learning_objectives) if topic.learning_objectives else [],  # type: ignore
+                        key_concepts=list(topic.key_concepts) if topic.key_concepts else [],  # type: ignore
+                        key_aspects=list(topic.key_aspects) if topic.key_aspects else [],  # type: ignore
+                        target_insights=list(topic.target_insights) if topic.target_insights else [],  # type: ignore
+                        common_misconceptions=list(topic.common_misconceptions) if topic.common_misconceptions else [],  # type: ignore
+                        previous_topics=list(topic.previous_topics) if topic.previous_topics else [],  # type: ignore
+                        creation_strategy=str(topic.creation_strategy),  # type: ignore
+                        creation_metadata=dict(topic.creation_metadata) if topic.creation_metadata else {},  # type: ignore
+                        created_at=topic.created_at if topic.created_at else datetime.utcnow(),  # type: ignore
+                        updated_at=topic.updated_at if topic.updated_at else datetime.utcnow(),  # type: ignore
+                        version=int(topic.version) if topic.version else 1  # type: ignore
                     )
                     result.append(stored_topic)
 
@@ -384,17 +393,18 @@ class PostgreSQLTopicRepository:
 
                 result = []
                 for component in components:
+                    # SQLAlchemy model attributes contain actual values at runtime
                     stored_component = StoredComponent(
-                        id=component.id,
-                        topic_id=component.topic_id,
-                        component_type=ComponentType(component.component_type),
-                        title=component.title,
-                        content=component.content,
-                        generation_prompt=component.generation_prompt,
-                        raw_llm_response=component.raw_llm_response,
-                        created_at=component.created_at if component.created_at else datetime.utcnow(),
-                        updated_at=component.updated_at if component.updated_at else datetime.utcnow(),
-                        version=component.version
+                        id=str(component.id),  # type: ignore
+                        topic_id=str(component.topic_id),  # type: ignore
+                        component_type=ComponentType(component.component_type),  # type: ignore
+                        title=str(component.title),  # type: ignore
+                        content=dict(component.content) if component.content else {},  # type: ignore
+                        generation_prompt=str(component.generation_prompt) if component.generation_prompt else None,  # type: ignore
+                        raw_llm_response=str(component.raw_llm_response) if component.raw_llm_response else None,  # type: ignore
+                        created_at=component.created_at if component.created_at else datetime.utcnow(),  # type: ignore
+                        updated_at=component.updated_at if component.updated_at else datetime.utcnow(),  # type: ignore
+                        version=int(component.version) if component.version else 1  # type: ignore
                     )
                     result.append(stored_component)
 
@@ -434,15 +444,18 @@ class PostgreSQLTopicRepository:
 
                 result = []
                 for component in components:
+                    # SQLAlchemy model attributes contain actual values at runtime
                     stored_component = StoredComponent(
-                        id=component.id,
-                        topic_id=component.topic_id,
-                        component_type=ComponentType(component.component_type),
-                        title=component.title,
-                        content=component.content,
-                        created_at=component.created_at.isoformat() if component.created_at else "",
-                        updated_at=component.updated_at.isoformat() if component.updated_at else "",
-                        version=component.version
+                        id=str(component.id),  # type: ignore
+                        topic_id=str(component.topic_id),  # type: ignore
+                        component_type=ComponentType(component.component_type),  # type: ignore
+                        title=str(component.title),  # type: ignore
+                        content=dict(component.content) if component.content else {},  # type: ignore
+                        generation_prompt=str(component.generation_prompt) if component.generation_prompt else None,  # type: ignore
+                        raw_llm_response=str(component.raw_llm_response) if component.raw_llm_response else None,  # type: ignore
+                        created_at=component.created_at if component.created_at else datetime.utcnow(),  # type: ignore
+                        updated_at=component.updated_at if component.updated_at else datetime.utcnow(),  # type: ignore
+                        version=int(component.version) if component.version else 1  # type: ignore
                     )
                     result.append(stored_component)
 
@@ -451,14 +464,14 @@ class PostgreSQLTopicRepository:
                     min_diff, max_diff = difficulty_range
                     result = [
                         c for c in result
-                        if min_diff <= c.metadata.get('difficulty', 3) <= max_diff
+                        if min_diff <= c.content.get('difficulty', 3) <= max_diff
                     ]
 
                 # Filter by tags if specified
                 if tags:
                     filtered_components = []
                     for component in result:
-                        comp_tags = component.metadata.get('tags', '').split(',')
+                        comp_tags = component.content.get('tags', '').split(',') if isinstance(component.content.get('tags'), str) else []
                         comp_tags = [tag.strip().lower() for tag in comp_tags]
                         if any(tag.lower() in comp_tags for tag in tags):
                             filtered_components.append(component)
