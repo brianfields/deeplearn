@@ -7,17 +7,15 @@ the learning system modules.
 
 import asyncio
 import logging
-from typing import Dict, List, Optional, Any
 from datetime import datetime
+from typing import Any
 
-from llm_interface import (
-    LLMConfig, LLMMessage, LLMResponse, LLMError,
-    create_llm_provider, LLMProvider, MessageRole
-)
+from src.llm_interface import LLMConfig, LLMError, LLMMessage, LLMResponse, MessageRole, create_llm_provider
 
 
 class LLMClientError(Exception):
     """Exception raised by LLM client operations"""
+
     pass
 
 
@@ -35,19 +33,9 @@ class LLMClient:
         self.cache_enabled = cache_enabled
         self.logger = logging.getLogger(__name__)
         self._response_cache = {} if cache_enabled else None
-        self._stats = {
-            "total_requests": 0,
-            "cache_hits": 0,
-            "errors": 0,
-            "last_request": None
-        }
+        self._stats = {"total_requests": 0, "cache_hits": 0, "errors": 0, "last_request": None}
 
-    async def generate_response(
-        self,
-        messages: List[LLMMessage],
-        max_retries: int = 3,
-        use_cache: bool = True
-    ) -> LLMResponse:
+    async def generate_response(self, messages: list[LLMMessage], max_retries: int = 3, use_cache: bool = True) -> LLMResponse:
         """
         Generate a text response from the LLM.
 
@@ -89,23 +77,17 @@ class LLMClient:
             except LLMError as e:
                 self._stats["errors"] += 1
                 if attempt < max_retries:
-                    wait_time = (2 ** attempt)  # Exponential backoff
+                    wait_time = 2**attempt  # Exponential backoff
                     self.logger.warning(f"LLM request failed (attempt {attempt + 1}), retrying in {wait_time}s: {e}")
                     await asyncio.sleep(wait_time)
                 else:
                     self.logger.error(f"LLM request failed after {max_retries} retries: {e}")
-                    raise LLMClientError(f"Failed to generate response after {max_retries} retries: {e}")
+                    raise LLMClientError(f"Failed to generate response after {max_retries} retries: {e}") from e
 
         # This should never be reached due to the raise above, but satisfies type checker
         raise LLMClientError("Unexpected error in generate_response")
 
-    async def generate_structured_response(
-        self,
-        messages: List[LLMMessage],
-        schema: Dict[str, Any],
-        max_retries: int = 3,
-        use_cache: bool = True
-    ) -> Dict[str, Any]:
+    async def generate_structured_response(self, messages: list[LLMMessage], schema: dict[str, Any], max_retries: int = 3, use_cache: bool = True) -> dict[str, Any]:
         """
         Generate a structured response from the LLM.
 
@@ -148,17 +130,17 @@ class LLMClient:
             except LLMError as e:
                 self._stats["errors"] += 1
                 if attempt < max_retries:
-                    wait_time = (2 ** attempt)  # Exponential backoff
+                    wait_time = 2**attempt  # Exponential backoff
                     self.logger.warning(f"Structured LLM request failed (attempt {attempt + 1}), retrying in {wait_time}s: {e}")
                     await asyncio.sleep(wait_time)
                 else:
                     self.logger.error(f"Structured LLM request failed after {max_retries} retries: {e}")
-                    raise LLMClientError(f"Failed to generate structured response after {max_retries} retries: {e}")
+                    raise LLMClientError(f"Failed to generate structured response after {max_retries} retries: {e}") from e
 
         # This should never be reached due to the raise above, but satisfies type checker
         raise LLMClientError("Unexpected error in generate_structured_response")
 
-    def _create_cache_key(self, messages: List[LLMMessage], schema: Optional[Dict] = None) -> str:
+    def _create_cache_key(self, messages: list[LLMMessage], schema: dict | None = None) -> str:
         """Create a cache key for the given messages and schema"""
         messages_str = "|".join(f"{msg.role}:{msg.content}" for msg in messages)
         if schema:
@@ -172,21 +154,15 @@ class LLMClient:
             self._response_cache.clear()
             self.logger.info("Response cache cleared")
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get client statistics"""
-        return {
-            **self._stats,
-            "cache_size": len(self._response_cache) if self._response_cache else 0,
-            "cache_enabled": self.cache_enabled,
-            "provider": self.config.provider.value,
-            "model": self.config.model
-        }
+        return {**self._stats, "cache_size": len(self._response_cache) if self._response_cache else 0, "cache_enabled": self.cache_enabled, "provider": self.config.provider.value, "model": self.config.model}
 
     def get_cache_size(self) -> int:
         """Get the current cache size"""
         return len(self._response_cache) if self._response_cache else 0
 
-    async def health_check(self) -> Dict[str, Any]:
+    async def health_check(self) -> dict[str, Any]:
         """
         Perform a health check on the LLM client.
 
@@ -195,36 +171,16 @@ class LLMClient:
         """
         try:
             # Simple test message
-            test_messages = [
-                LLMMessage(role=MessageRole.USER, content="Hello, are you working?")
-            ]
+            test_messages = [LLMMessage(role=MessageRole.USER, content="Hello, are you working?")]
 
             response = await self.generate_response(test_messages, use_cache=False)
 
-            return {
-                "status": "healthy",
-                "provider": self.config.provider.value,
-                "model": self.config.model,
-                "response_length": len(response.content),
-                "stats": self.get_stats()
-            }
+            return {"status": "healthy", "provider": self.config.provider.value, "model": self.config.model, "response_length": len(response.content), "stats": self.get_stats()}
         except Exception as e:
-            return {
-                "status": "unhealthy",
-                "error": str(e),
-                "provider": self.config.provider.value,
-                "model": self.config.model,
-                "stats": self.get_stats()
-            }
+            return {"status": "unhealthy", "error": str(e), "provider": self.config.provider.value, "model": self.config.model, "stats": self.get_stats()}
 
 
-def create_llm_client(
-    api_key: str,
-    model: str = "gpt-3.5-turbo",
-    provider: str = "openai",
-    cache_enabled: bool = True,
-    **kwargs
-) -> LLMClient:
+def create_llm_client(api_key: str, model: str = "gpt-3.5-turbo", provider: str = "openai", cache_enabled: bool = True, **kwargs) -> LLMClient:
     """
     Create an LLM client with common configuration.
 
@@ -241,12 +197,7 @@ def create_llm_client(
     from llm_interface import LLMProviderType
 
     llm_config = LLMConfig(
-        provider=LLMProviderType(provider),
-        model=model,
-        api_key=api_key,
-        temperature=kwargs.get('temperature', 0.7),
-        max_tokens=kwargs.get('max_tokens', 1500),
-        **{k: v for k, v in kwargs.items() if k not in ['temperature', 'max_tokens']}
+        provider=LLMProviderType(provider), model=model, api_key=api_key, temperature=kwargs.get("temperature", 0.7), max_tokens=kwargs.get("max_tokens", 1500), **{k: v for k, v in kwargs.items() if k not in ["temperature", "max_tokens"]}
     )
 
     return LLMClient(llm_config, cache_enabled=cache_enabled)

@@ -6,10 +6,9 @@ This script provides an easy way to completely wipe and recreate
 both PostgreSQL and SQLite databases for the deeplearn project.
 """
 
-import os
-import sys
 import subprocess
 from pathlib import Path
+
 
 def reset_postgresql():
     """Reset PostgreSQL database using Alembic"""
@@ -47,17 +46,13 @@ def reset_postgresql():
         print(f"❌ Error resetting PostgreSQL: {e}")
         return False
 
+
 def reset_sqlite():
     """Reset SQLite databases"""
     print("🗑️  Resetting SQLite databases...")
 
     # Common SQLite database file patterns
-    sqlite_patterns = [
-        "*.db",
-        "bite_sized_topics.db",
-        "test_*.db",
-        "example_*.db"
-    ]
+    sqlite_patterns = ["*.db", "bite_sized_topics.db", "test_*.db", "example_*.db"]
 
     removed_files = []
 
@@ -89,6 +84,7 @@ def reset_sqlite():
 
     return True
 
+
 def main():
     """Main reset function"""
     print("🚀 Database Reset Script")
@@ -96,7 +92,7 @@ def main():
 
     # Check if user wants to proceed
     response = input("⚠️  This will PERMANENTLY delete all data. Continue? (y/N): ")
-    if response.lower() not in ['y', 'yes']:
+    if response.lower() not in ["y", "yes"]:
         print("❌ Reset cancelled")
         return
 
@@ -117,10 +113,11 @@ def main():
         print("   1. Run your scripts to create new test data")
         print("   2. Or start with a clean database")
         print("\nTest commands:")
-        print("   python create_single_topic.py \"Test topic\"")
+        print('   python create_single_topic.py "Test topic"')
         print("   python inspect_bite_sized_content.py")
     else:
         print("\n⚠️  Some operations failed. Check the errors above.")
+
 
 if __name__ == "__main__":
     main()

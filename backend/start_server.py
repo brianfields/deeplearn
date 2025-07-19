@@ -15,7 +15,8 @@ if src_path not in sys.path:
     sys.path.insert(0, src_path)
 
 # Set environment variables if needed
-os.environ['PYTHONPATH'] = f"{src_path}:{os.getenv('PYTHONPATH', '')}"
+os.environ["PYTHONPATH"] = f"{src_path}:{os.getenv('PYTHONPATH', '')}"
+
 
 def main():
     """Start the server"""
@@ -32,13 +33,7 @@ def main():
         os.chdir(Path(__file__).parent / "src")
 
         # Start the server
-        uvicorn.run(
-            "api.server:app",
-            host="0.0.0.0",
-            port=8000,
-            reload=True,
-            log_level="info"
-        )
+        uvicorn.run("api.server:app", host="0.0.0.0", port=8000, reload=True, log_level="info")
 
     except ImportError as e:
         print(f"❌ Missing dependency: {e}")
@@ -48,6 +43,7 @@ def main():
     except Exception as e:
         print(f"❌ Error starting server: {e}")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

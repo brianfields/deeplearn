@@ -5,10 +5,8 @@ This module contains the prompt template for the first pass of MCQ creation:
 extracting refined material from unstructured source material.
 """
 
-from typing import List, Optional
-
-from core import PromptTemplate, PromptContext
-from llm_interface import LLMMessage, MessageRole
+from src.core.prompt_base import PromptContext, PromptTemplate
+from src.llm_interface import LLMMessage, MessageRole
 
 
 class RefinedMaterialExtractionPrompt(PromptTemplate):
@@ -77,13 +75,13 @@ class RefinedMaterialExtractionPrompt(PromptTemplate):
         Do not include any additional text outside the JSON object.
         """
 
-    def generate_prompt(self, context: PromptContext, **kwargs) -> List[LLMMessage]:
+    def generate_prompt(self, context: PromptContext, **kwargs) -> list[LLMMessage]:
         # Validate required parameters
-        self.validate_kwargs(['source_material'], **kwargs)
+        self.validate_kwargs(["source_material"], **kwargs)
 
-        source_material = kwargs.get('source_material', '')
-        domain = kwargs.get('domain', '')
-        user_level = kwargs.get('user_level', 'intermediate')
+        source_material = kwargs.get("source_material", "")
+        domain = kwargs.get("domain", "")
+        user_level = kwargs.get("user_level", "intermediate")
 
         system_message = f"""
         {self.base_instructions}
@@ -104,7 +102,4 @@ class RefinedMaterialExtractionPrompt(PromptTemplate):
         {source_material}
         """
 
-        return [
-            LLMMessage(role=MessageRole.SYSTEM, content=system_message),
-            LLMMessage(role=MessageRole.USER, content=user_content)
-        ]
+        return [LLMMessage(role=MessageRole.SYSTEM, content=system_message), LLMMessage(role=MessageRole.USER, content=user_content)]

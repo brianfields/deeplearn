@@ -39,50 +39,47 @@ NOTE: The legacy /api/bite-sized-topics endpoints should be migrated to
 
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional, Any
-from pathlib import Path
 
-from fastapi import HTTPException, Depends
-from fastapi.responses import JSONResponse
+from fastapi import HTTPException
 from fastapi.routing import APIRouter
 
-# Import the models
-from .models import (
-    BiteSizedTopicResponse,
-    ComponentResponse,
-    BiteSizedTopicDetailResponse
-)
-
 # Additional models for learning-focused endpoints
-from pydantic import BaseModel, Field
-from typing import List, Dict, Any, Optional
+from pydantic import BaseModel
+
+# Import the models
+from .models import BiteSizedTopicDetailResponse, BiteSizedTopicResponse, ComponentResponse
+
 
 class LearningTopicSummary(BaseModel):
     """Summary model for topic discovery in learning context"""
+
     id: str
     title: str
     core_concept: str
     user_level: str
-    learning_objectives: List[str]
-    key_concepts: List[str]
+    learning_objectives: list[str]
+    key_concepts: list[str]
     estimated_duration: int  # in minutes
     component_count: int
     created_at: str
 
+
 class LearningTopicDetail(BaseModel):
     """Detailed model for topic consumption in learning context"""
+
     id: str
     title: str
     core_concept: str
     user_level: str
-    learning_objectives: List[str]
-    key_concepts: List[str]
-    key_aspects: List[str]
-    target_insights: List[str]
-    components: List[ComponentResponse]
+    learning_objectives: list[str]
+    key_concepts: list[str]
+    key_aspects: list[str]
+    target_insights: list[str]
+    components: list[ComponentResponse]
     estimated_duration: int
     created_at: str
     updated_at: str
+
 
 logger = logging.getLogger(__name__)
 
@@ -110,13 +107,14 @@ async def health_check():
         "timestamp": datetime.utcnow().isoformat(),
         "services": {
             "database": database is not None,
-        }
+        },
     }
 
 
 # Bite-Sized Topic Endpoints
 
-@router.get("/api/bite-sized-topics", response_model=List[BiteSizedTopicResponse])
+
+@router.get("/api/bite-sized-topics", response_model=list[BiteSizedTopicResponse])
 async def get_bite_sized_topics():
     """
     Get all bite-sized topics.
@@ -130,11 +128,10 @@ async def get_bite_sized_topics():
         HTTPException: 503 if database service unavailable, 500 for other errors
     """
     try:
-        # Import here to avoid circular imports
-        from modules.lesson_planning.bite_sized_topics.postgresql_storage import PostgreSQLTopicRepository
+        from database_service import DatabaseService
 
-        repository = PostgreSQLTopicRepository()
-        topics = await repository.list_topics(limit=100)  # Get up to 100 topics
+        db_service = DatabaseService()
+        topics = db_service.list_bite_sized_topics(limit=100)
 
         return [
             BiteSizedTopicResponse(
@@ -145,13 +142,13 @@ async def get_bite_sized_topics():
                 learning_objectives=topic.learning_objectives,
                 key_concepts=topic.key_concepts,
                 estimated_duration=15,  # Default 15 minutes
-                created_at=topic.created_at if isinstance(topic.created_at, str) else topic.created_at.isoformat()
+                created_at=topic.created_at.isoformat(),
             )
             for topic in topics
         ]
     except Exception as e:
         logger.error(f"Error fetching bite-sized topics: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch bite-sized topics")
+        raise HTTPException(status_code=500, detail="Failed to fetch bite-sized topics") from e
 
 
 @router.get("/api/bite-sized-topics/{topic_id}", response_model=BiteSizedTopicDetailResponse)
@@ -171,51 +168,49 @@ async def get_bite_sized_topic_detail(topic_id: str):
         HTTPException: 404 if topic not found, 500 for other errors
     """
     try:
-        # Import here to avoid circular imports
-        from modules.lesson_planning.bite_sized_topics.postgresql_storage import PostgreSQLTopicRepository
+        from database_service import DatabaseService
 
-        repository = PostgreSQLTopicRepository()
+        db_service = DatabaseService()
 
         # Get topic details
-        topic_content = await repository.get_topic(topic_id)
-        if not topic_content:
+        topic = db_service.get_bite_sized_topic(topic_id)
+        if not topic:
             raise HTTPException(status_code=404, detail="Bite-sized topic not found")
 
         # Get topic components
-        components = await repository.get_topic_components(topic_id)
+        components = db_service.get_topic_components(topic_id)
 
         # Convert components to response format
         component_responses = [
             ComponentResponse(
-                component_type=comp.component_type if isinstance(comp.component_type, str) else comp.component_type.value,
+                component_type=comp.component_type,
                 content=comp.content,
                 metadata={
                     "title": comp.title,
-                    "created_at": comp.created_at.isoformat() if hasattr(comp.created_at, 'isoformat') else str(comp.created_at),
-                    "updated_at": comp.updated_at.isoformat() if hasattr(comp.updated_at, 'isoformat') else str(comp.updated_at),
-                    "version": comp.version,
+                    "created_at": comp.created_at.isoformat(),
+                    "updated_at": comp.updated_at.isoformat(),
                     "generation_prompt": comp.generation_prompt,
-                    "raw_llm_response": comp.raw_llm_response
-                }
+                    "raw_llm_response": comp.raw_llm_response,
+                    "evaluation": comp.evaluation,
+                },
             )
             for comp in components
         ]
 
         return BiteSizedTopicDetailResponse(
-            id=topic_id,
-            title=topic_content.topic_spec.topic_title,
-            core_concept=topic_content.topic_spec.core_concept,
-            user_level=topic_content.topic_spec.user_level,
-            learning_objectives=topic_content.topic_spec.learning_objectives,
-            key_concepts=topic_content.topic_spec.key_concepts,
-            key_aspects=topic_content.topic_spec.key_aspects,
-            target_insights=topic_content.topic_spec.target_insights,
-            common_misconceptions=topic_content.topic_spec.common_misconceptions,
-            previous_topics=topic_content.topic_spec.previous_topics,
-            creation_strategy=topic_content.topic_spec.creation_strategy.value if hasattr(topic_content.topic_spec.creation_strategy, 'value') else str(topic_content.topic_spec.creation_strategy),
+            id=topic.id,
+            title=topic.title,
+            core_concept=topic.core_concept,
+            user_level=topic.user_level,
+            learning_objectives=topic.learning_objectives,
+            key_concepts=topic.key_concepts,
+            key_aspects=topic.key_aspects,
+            target_insights=topic.target_insights,
+            common_misconceptions=[],  # Not available in new model
+            previous_topics=[],  # Not available in new model
             components=component_responses,
-            created_at=datetime.utcnow().isoformat(),  # Fallback timestamp
-            updated_at=datetime.utcnow().isoformat()   # Fallback timestamp
+            created_at=topic.created_at.isoformat(),
+            updated_at=topic.updated_at.isoformat(),
         )
 
     except HTTPException:
@@ -223,96 +218,14 @@ async def get_bite_sized_topic_detail(topic_id: str):
         raise
     except Exception as e:
         logger.error(f"Error fetching bite-sized topic detail: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch bite-sized topic details")
-
-
-@router.post("/api/bite-sized-topics")
-async def create_bite_sized_topic(
-    title: str,
-    core_concept: str,
-    user_level: str = "beginner",
-    learning_objectives: Optional[List[str]] = None,
-    key_concepts: Optional[List[str]] = None
-):
-    """
-    Create a new bite-sized topic.
-
-    Args:
-        title: Title of the topic
-        core_concept: Core concept to be taught
-        user_level: Target user level (beginner, intermediate, advanced)
-        learning_objectives: List of learning objectives
-        key_concepts: List of key concepts to cover
-
-    Returns:
-        dict: Created topic information with ID
-
-    Raises:
-        HTTPException: 500 for creation errors
-    """
-    try:
-        # Import here to avoid circular imports
-        from modules.lesson_planning.bite_sized_topics.orchestrator import TopicOrchestrator, TopicSpec, CreationStrategy
-        from core import LLMClient, ServiceConfig
-        from core.service_base import ServiceFactory
-        from config.config import config_manager
-        from llm_interface import LLMConfig, LLMProviderType
-
-        # Create service configuration
-        llm_config = LLMConfig(
-            provider=LLMProviderType.OPENAI,
-            model=config_manager.config.openai_model,
-            api_key=config_manager.config.openai_api_key,
-            max_tokens=2000,
-            temperature=0.7
-        )
-
-        service_config = ServiceFactory.create_service_config(
-            llm_config=llm_config,
-            cache_enabled=True,
-            retry_attempts=3
-        )
-
-        llm_client = LLMClient(llm_config, cache_enabled=True)
-        orchestrator = TopicOrchestrator(service_config, llm_client)
-
-        # Create topic specification
-        topic_spec = TopicSpec(
-            topic_title=title,
-            core_concept=core_concept,
-            user_level=user_level,
-            learning_objectives=learning_objectives or [],
-            key_concepts=key_concepts or []
-        )
-
-        # Create the topic
-        topic_content = await orchestrator.create_topic(topic_spec)
-
-        # The topic ID would need to be saved to database to get an actual ID
-        # For now, generate a simple ID based on the title
-        import uuid
-        topic_id = str(uuid.uuid4())
-
-        return {
-            "id": topic_id,
-            "title": title,
-            "status": "created",
-            "message": "Bite-sized topic created successfully"
-        }
-
-    except Exception as e:
-        logger.error(f"Error creating bite-sized topic: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to create bite-sized topic: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch bite-sized topic details") from e
 
 
 # Topic Discovery and Consumption Endpoints (moved from topic_routes.py)
 
-@router.get("/api/learning/topics", response_model=List[LearningTopicSummary])
-async def get_learning_topics(
-    user_level: Optional[str] = None,
-    limit: int = 50,
-    offset: int = 0
-):
+
+@router.get("/api/learning/topics", response_model=list[LearningTopicSummary])
+async def get_learning_topics(user_level: str | None = None, limit: int = 50, offset: int = 0):
     """
     Get topics optimized for learning discovery.
 
@@ -320,8 +233,8 @@ async def get_learning_topics(
     estimated durations and component counts.
     """
     try:
+        from data_structures import BiteSizedComponent, BiteSizedTopic
         from database_service import DatabaseService
-        from data_structures import BiteSizedTopic, BiteSizedComponent
 
         db_service = DatabaseService()
 
@@ -339,30 +252,30 @@ async def get_learning_topics(
             # Get component counts for each topic
             topic_summaries = []
             for topic in topics:
-                component_count = session.query(BiteSizedComponent).filter(
-                    BiteSizedComponent.topic_id == topic.id
-                ).count()
+                component_count = session.query(BiteSizedComponent).filter(BiteSizedComponent.topic_id == topic.id).count()
 
                 # Estimate duration based on components (5 minutes per component + 5 base)
                 estimated_duration = max(5 + (component_count * 5), 10)
 
-                topic_summaries.append(LearningTopicSummary(
-                    id=str(topic.id),
-                    title=str(topic.title),
-                    core_concept=str(topic.core_concept),
-                    user_level=str(topic.user_level),
-                    learning_objectives=list(topic.learning_objectives) if topic.learning_objectives is not None else [],
-                    key_concepts=list(topic.key_concepts) if topic.key_concepts is not None else [],
-                    estimated_duration=estimated_duration,
-                    component_count=component_count,
-                    created_at=topic.created_at.isoformat() if hasattr(topic.created_at, 'isoformat') else str(topic.created_at)
-                ))
+                topic_summaries.append(
+                    LearningTopicSummary(
+                        id=str(topic.id),
+                        title=str(topic.title),
+                        core_concept=str(topic.core_concept),
+                        user_level=str(topic.user_level),
+                        learning_objectives=list(topic.learning_objectives) if topic.learning_objectives is not None else [],
+                        key_concepts=list(topic.key_concepts) if topic.key_concepts is not None else [],
+                        estimated_duration=estimated_duration,
+                        component_count=component_count,
+                        created_at=topic.created_at.isoformat() if hasattr(topic.created_at, "isoformat") else str(topic.created_at),
+                    )
+                )
 
             return topic_summaries
 
     except Exception as e:
         logger.error(f"Failed to get learning topics: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get learning topics: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get learning topics: {str(e)}") from e
 
 
 @router.get("/api/learning/topics/{topic_id}", response_model=LearningTopicDetail)
@@ -374,8 +287,8 @@ async def get_learning_topic(topic_id: str):
     with components optimized for consumption rather than editing.
     """
     try:
+        from data_structures import BiteSizedComponent, BiteSizedTopic
         from database_service import DatabaseService
-        from data_structures import BiteSizedTopic, BiteSizedComponent
 
         db_service = DatabaseService()
 
@@ -386,22 +299,22 @@ async def get_learning_topic(topic_id: str):
                 raise HTTPException(status_code=404, detail="Topic not found")
 
             # Get components for this topic
-            components = session.query(BiteSizedComponent).filter(
-                BiteSizedComponent.topic_id == topic_id
-            ).all()
+            components = session.query(BiteSizedComponent).filter(BiteSizedComponent.topic_id == topic_id).all()
 
             # Convert components to learning-optimized format
             component_responses = []
             for component in components:
-                component_responses.append(ComponentResponse(
-                    component_type=component.component_type,
-                    content=component.content,
-                    metadata={
-                        "title": component.title,
-                        "created_at": component.created_at.isoformat() if hasattr(component.created_at, 'isoformat') else str(component.created_at),
-                        "updated_at": component.updated_at.isoformat() if hasattr(component.updated_at, 'isoformat') else str(component.updated_at)
-                    }
-                ))
+                component_responses.append(
+                    ComponentResponse(
+                        component_type=component.component_type,
+                        content=component.content,
+                        metadata={
+                            "title": component.title,
+                            "created_at": component.created_at.isoformat() if hasattr(component.created_at, "isoformat") else str(component.created_at),
+                            "updated_at": component.updated_at.isoformat() if hasattr(component.updated_at, "isoformat") else str(component.updated_at),
+                        },
+                    )
+                )
 
             # Estimate duration based on components
             estimated_duration = max(5 + (len(components) * 5), 10)
@@ -417,8 +330,8 @@ async def get_learning_topic(topic_id: str):
                 target_insights=topic.target_insights if topic.target_insights is not None else [],
                 components=component_responses,
                 estimated_duration=estimated_duration,
-                created_at=topic.created_at.isoformat() if hasattr(topic.created_at, 'isoformat') else str(topic.created_at),
-                updated_at=topic.updated_at.isoformat() if hasattr(topic.updated_at, 'isoformat') else str(topic.updated_at)
+                created_at=topic.created_at.isoformat() if hasattr(topic.created_at, "isoformat") else str(topic.created_at),
+                updated_at=topic.updated_at.isoformat() if hasattr(topic.updated_at, "isoformat") else str(topic.updated_at),
             )
 
     except HTTPException:
@@ -426,7 +339,7 @@ async def get_learning_topic(topic_id: str):
         raise
     except Exception as e:
         logger.error(f"Failed to get learning topic {topic_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get learning topic: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get learning topic: {str(e)}") from e
 
 
 @router.get("/api/learning/topics/{topic_id}/components")
@@ -437,8 +350,8 @@ async def get_learning_topic_components(topic_id: str):
     Returns components formatted specifically for learning consumption.
     """
     try:
+        from data_structures import BiteSizedComponent, BiteSizedTopic
         from database_service import DatabaseService
-        from data_structures import BiteSizedTopic, BiteSizedComponent
 
         db_service = DatabaseService()
 
@@ -449,22 +362,22 @@ async def get_learning_topic_components(topic_id: str):
                 raise HTTPException(status_code=404, detail="Topic not found")
 
             # Get components
-            components = session.query(BiteSizedComponent).filter(
-                BiteSizedComponent.topic_id == topic_id
-            ).all()
+            components = session.query(BiteSizedComponent).filter(BiteSizedComponent.topic_id == topic_id).all()
 
             # Convert to learning-optimized response format
             component_responses = []
             for component in components:
-                component_responses.append(ComponentResponse(
-                    component_type=component.component_type,
-                    content=component.content,
-                    metadata={
-                        "title": component.title,
-                        "created_at": component.created_at.isoformat() if hasattr(component.created_at, 'isoformat') else str(component.created_at),
-                        "updated_at": component.updated_at.isoformat() if hasattr(component.updated_at, 'isoformat') else str(component.updated_at)
-                    }
-                ))
+                component_responses.append(
+                    ComponentResponse(
+                        component_type=component.component_type,
+                        content=component.content,
+                        metadata={
+                            "title": component.title,
+                            "created_at": component.created_at.isoformat() if hasattr(component.created_at, "isoformat") else str(component.created_at),
+                            "updated_at": component.updated_at.isoformat() if hasattr(component.updated_at, "isoformat") else str(component.updated_at),
+                        },
+                    )
+                )
 
             return component_responses
 
@@ -473,4 +386,4 @@ async def get_learning_topic_components(topic_id: str):
         raise
     except Exception as e:
         logger.error(f"Failed to get learning components for topic {topic_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get learning components: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get learning components: {str(e)}") from e

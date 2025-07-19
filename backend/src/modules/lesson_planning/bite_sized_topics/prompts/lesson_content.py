@@ -4,10 +4,8 @@ Lesson Content Generation Prompts
 This module contains the prompt templates for generating lesson content.
 """
 
-from typing import List
-
-from core import PromptTemplate, PromptContext
-from llm_interface import LLMMessage, MessageRole
+from src.core.prompt_base import PromptContext, PromptTemplate
+from src.llm_interface import LLMMessage, MessageRole
 
 
 class LessonContentPrompt(PromptTemplate):
@@ -32,14 +30,14 @@ class LessonContentPrompt(PromptTemplate):
         8. Encourage reflection and critical thinking
         """
 
-    def generate_prompt(self, context: PromptContext, **kwargs) -> List[LLMMessage]:
+    def generate_prompt(self, context: PromptContext, **kwargs) -> list[LLMMessage]:
         # Validate required parameters
-        self.validate_kwargs(['topic_title', 'topic_description', 'learning_objectives'], **kwargs)
+        self.validate_kwargs(["topic_title", "topic_description", "learning_objectives"], **kwargs)
 
-        topic_title = kwargs.get('topic_title', '')
-        topic_description = kwargs.get('topic_description', '')
-        learning_objectives = kwargs.get('learning_objectives', [])
-        previous_topics = kwargs.get('previous_topics', [])
+        topic_title = kwargs.get("topic_title", "")
+        topic_description = kwargs.get("topic_description", "")
+        learning_objectives = kwargs.get("learning_objectives", [])
+        previous_topics = kwargs.get("previous_topics", [])
 
         system_message = f"""
         {self.base_instructions}
@@ -47,7 +45,7 @@ class LessonContentPrompt(PromptTemplate):
         Context Information:
         {self._format_context(context)}
 
-        Previous Topics Covered: {', '.join(previous_topics) if previous_topics else 'None'}
+        Previous Topics Covered: {", ".join(previous_topics) if previous_topics else "None"}
 
         Lesson Structure:
         1. Opening Hook (1 minute) - Engaging question or scenario
@@ -70,7 +68,4 @@ class LessonContentPrompt(PromptTemplate):
         Include real-world examples and practical applications.
         """
 
-        return [
-            LLMMessage(role=MessageRole.SYSTEM, content=system_message),
-            LLMMessage(role=MessageRole.USER, content=user_content)
-        ]
+        return [LLMMessage(role=MessageRole.SYSTEM, content=system_message), LLMMessage(role=MessageRole.USER, content=user_content)]

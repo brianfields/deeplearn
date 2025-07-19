@@ -5,10 +5,8 @@ This module contains the prompt template for creating a single MCQ
 from a refined topic and learning objective.
 """
 
-from typing import List, Optional
-
-from core import PromptTemplate, PromptContext
-from llm_interface import LLMMessage, MessageRole
+from src.core.prompt_base import PromptContext, PromptTemplate
+from src.llm_interface import LLMMessage, MessageRole
 
 
 class SingleMCQCreationPrompt(PromptTemplate):
@@ -60,15 +58,15 @@ class SingleMCQCreationPrompt(PromptTemplate):
         Do not include any additional text outside the JSON object.
         """
 
-    def generate_prompt(self, context: PromptContext, **kwargs) -> List[LLMMessage]:
+    def generate_prompt(self, context: PromptContext, **kwargs) -> list[LLMMessage]:
         # Validate required parameters
-        self.validate_kwargs(['subtopic', 'learning_objective'], **kwargs)
+        self.validate_kwargs(["subtopic", "learning_objective"], **kwargs)
 
-        subtopic = kwargs.get('subtopic', '')
-        learning_objective = kwargs.get('learning_objective', '')
-        key_facts = kwargs.get('key_facts', [])
-        common_misconceptions = kwargs.get('common_misconceptions', [])
-        assessment_angles = kwargs.get('assessment_angles', [])
+        subtopic = kwargs.get("subtopic", "")
+        learning_objective = kwargs.get("learning_objective", "")
+        key_facts = kwargs.get("key_facts", [])
+        common_misconceptions = kwargs.get("common_misconceptions", [])
+        assessment_angles = kwargs.get("assessment_angles", [])
 
         system_message = f"""
         {self.base_instructions}
@@ -103,7 +101,4 @@ class SingleMCQCreationPrompt(PromptTemplate):
 
         user_content += "\n\nNow create the MCQ."
 
-        return [
-            LLMMessage(role=MessageRole.SYSTEM, content=system_message),
-            LLMMessage(role=MessageRole.USER, content=user_content)
-        ]
+        return [LLMMessage(role=MessageRole.SYSTEM, content=system_message), LLMMessage(role=MessageRole.USER, content=user_content)]

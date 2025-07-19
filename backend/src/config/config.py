@@ -5,44 +5,47 @@ This module handles environment variable loading and configuration management.
 Supports both .env files and environment variables.
 """
 
-import os
 import logging
-from pathlib import Path
-from typing import Optional, Dict, Any
+import os
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 # Try to import python-dotenv for .env file support
 try:
     from dotenv import load_dotenv
+
     DOTENV_AVAILABLE = True
 except ImportError:
     DOTENV_AVAILABLE = False
 
-from llm_interface import LLMConfig, LLMProviderType
+from src.llm_interface import LLMConfig, LLMProviderType
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class AppConfig:
     """Main application configuration"""
+
     # OpenAI Configuration
-    openai_api_key: Optional[str] = None
+    openai_api_key: str | None = None
     openai_model: str = "gpt-3.5-turbo"
     openai_base_url: str = "https://api.openai.com/v1"
 
     # Azure OpenAI Configuration
-    azure_openai_api_key: Optional[str] = None
-    azure_openai_endpoint: Optional[str] = None
+    azure_openai_api_key: str | None = None
+    azure_openai_endpoint: str | None = None
     azure_openai_api_version: str = "2023-05-15"
 
     # Database Configuration
-    database_url: Optional[str] = None
+    database_url: str | None = None
     database_host: str = "localhost"
     database_port: int = 5432
     database_name: str = "deeplearn"
     database_user: str = "postgres"
-    database_password: Optional[str] = None
+    database_password: str | None = None
     database_echo: bool = False  # SQLAlchemy echo for debugging
 
     # Learning Configuration
@@ -68,16 +71,17 @@ class AppConfig:
 
     # Logging Configuration
     log_level: str = "INFO"
-    log_file: Optional[str] = None
+    log_file: str | None = None
 
     # Development Configuration
     debug: bool = False
     rich_console: bool = True
 
+
 class ConfigManager:
     """Configuration manager for the learning app"""
 
-    def __init__(self, env_file: Optional[str] = None):
+    def __init__(self, env_file: str | None = None):
         self.env_file = env_file or ".env"
         self.config = AppConfig()
         self._load_configuration()
@@ -104,7 +108,7 @@ class ConfigManager:
                         load_dotenv(root_env)
                         logger.info(f"Loaded environment variables from {root_env}")
                     else:
-                        logger.info(f"No .env file found in current directory, backend directory, or root directory")
+                        logger.info("No .env file found in current directory, backend directory, or root directory")
         else:
             logger.warning("python-dotenv not installed. Install with: pip install python-dotenv")
 
@@ -179,7 +183,7 @@ class ConfigManager:
             temperature=self.config.temperature,
             max_tokens=self.config.max_tokens,
             timeout=self.config.request_timeout,
-            max_retries=self.config.max_retries
+            max_retries=self.config.max_retries,
         )
 
     def get_database_url(self) -> str:
@@ -190,34 +194,24 @@ class ConfigManager:
         if not self.config.database_password:
             raise ValueError("Database password is required. Set DATABASE_PASSWORD or DATABASE_URL")
 
-        return (f"postgresql://{self.config.database_user}:{self.config.database_password}"
-                f"@{self.config.database_host}:{self.config.database_port}"
-                f"/{self.config.database_name}")
+        return f"postgresql://{self.config.database_user}:{self.config.database_password}@{self.config.database_host}:{self.config.database_port}/{self.config.database_name}"
 
-    def get_database_config(self) -> Dict[str, Any]:
+    def get_database_config(self) -> dict[str, Any]:
         """Get database configuration for SQLAlchemy engine"""
-        return {
-            "url": self.get_database_url(),
-            "echo": self.config.database_echo,
-            "pool_size": 5,
-            "max_overflow": 10,
-            "pool_recycle": 3600
-        }
+        return {"url": self.get_database_url(), "echo": self.config.database_echo, "pool_size": 5, "max_overflow": 10, "pool_recycle": 3600}
 
-
-
-    def get_settings_dict(self) -> Dict[str, Any]:
+    def get_settings_dict(self) -> dict[str, Any]:
         """Get settings dictionary for backward compatibility"""
 
         return {
-            'user_level': self.config.user_level,
-            'lesson_duration': self.config.lesson_duration,
-            'openai_api_key': self.config.openai_api_key or '',
-            'openai_model': self.config.openai_model,
-            'mastery_threshold': self.config.mastery_threshold,
-            'passing_threshold': self.config.passing_threshold,
-            'cache_enabled': self.config.cache_enabled,
-            'debug': self.config.debug
+            "user_level": self.config.user_level,
+            "lesson_duration": self.config.lesson_duration,
+            "openai_api_key": self.config.openai_api_key or "",
+            "openai_model": self.config.openai_model,
+            "mastery_threshold": self.config.mastery_threshold,
+            "passing_threshold": self.config.passing_threshold,
+            "cache_enabled": self.config.cache_enabled,
+            "debug": self.config.debug,
         }
 
     def setup_logging(self) -> None:
@@ -227,24 +221,20 @@ class ConfigManager:
         log_level = getattr(logging, self.config.log_level.upper(), logging.INFO)
 
         # Setup logging configuration
-        logging_config = {
-            'level': log_level,
-            'format': '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            'datefmt': '%Y-%m-%d %H:%M:%S'
-        }
+        logging_config = {"level": log_level, "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s", "datefmt": "%Y-%m-%d %H:%M:%S"}
 
         # Add file handler if log file is specified
         if self.config.log_file:
-            logging_config['filename'] = self.config.log_file
-            logging_config['filemode'] = 'a'
+            logging_config["filename"] = self.config.log_file
+            logging_config["filemode"] = "a"
 
         logging.basicConfig(**logging_config)
 
         # Set specific logger levels
         if self.config.debug:
-            logging.getLogger('learning_app').setLevel(logging.DEBUG)
+            logging.getLogger("learning_app").setLevel(logging.DEBUG)
         else:
-            logging.getLogger('learning_app').setLevel(log_level)
+            logging.getLogger("learning_app").setLevel(log_level)
 
     def validate_config(self) -> bool:
         """Validate configuration"""
@@ -308,31 +298,36 @@ class ConfigManager:
         print(f"Data Directory: {self.config.data_directory}")
         print("=" * 40)
 
+
 # Global configuration manager instance
 config_manager = ConfigManager()
+
 
 # Convenience functions
 def get_config() -> AppConfig:
     """Get application configuration"""
     return config_manager.config
 
+
 def get_llm_config() -> LLMConfig:
     """Get LLM configuration"""
     return config_manager.get_llm_config()
-
 
 
 def setup_logging() -> None:
     """Setup logging"""
     config_manager.setup_logging()
 
+
 def validate_config() -> bool:
     """Validate configuration"""
     return config_manager.validate_config()
 
+
 def print_config_summary() -> None:
     """Print configuration summary"""
     config_manager.print_config_summary()
+
 
 # Example usage and testing
 if __name__ == "__main__":
@@ -360,9 +355,8 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"⚠️  LLM configuration creation failed: {e}")
 
-
-
     except Exception as e:
         print(f"❌ Configuration loading failed: {e}")
         import traceback
+
         traceback.print_exc()

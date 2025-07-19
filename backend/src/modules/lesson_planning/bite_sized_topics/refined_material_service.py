@@ -6,13 +6,14 @@ This service can be used across different content creation workflows, not just f
 """
 
 import json
-from typing import Dict, Any, Optional
-from datetime import datetime
 import uuid
+from datetime import datetime
+from typing import Any
 
-from core.llm_client import LLMClient
-from core.prompt_base import PromptContext
-from data_structures import RefinedMaterialResult
+from src.core.llm_client import LLMClient
+from src.core.prompt_base import PromptContext
+from src.data_structures import RefinedMaterialResult
+
 from .prompts.refined_material_extraction import RefinedMaterialExtractionPrompt
 
 
@@ -23,13 +24,7 @@ class RefinedMaterialService:
         self.llm_client = llm_client
         self.refined_material_prompt = RefinedMaterialExtractionPrompt()
 
-    async def extract_refined_material(
-        self,
-        source_material: str,
-        domain: str = "",
-        user_level: str = "intermediate",
-        context: Optional[PromptContext] = None
-    ) -> Dict[str, Any]:
+    async def extract_refined_material(self, source_material: str, domain: str = "", user_level: str = "intermediate", context: PromptContext | None = None) -> dict[str, Any]:
         """
         Extract refined material from unstructured content
 
@@ -45,12 +40,7 @@ class RefinedMaterialService:
         if context is None:
             context = PromptContext()
 
-        messages = self.refined_material_prompt.generate_prompt(
-            context=context,
-            source_material=source_material,
-            domain=domain,
-            user_level=user_level
-        )
+        messages = self.refined_material_prompt.generate_prompt(context=context, source_material=source_material, domain=domain, user_level=user_level)
 
         response = await self.llm_client.generate_response(messages)
 
@@ -59,8 +49,8 @@ class RefinedMaterialService:
             content = response.content.strip()
 
             # Try to find JSON in the response
-            json_start = content.find('{')
-            json_end = content.rfind('}') + 1
+            json_start = content.find("{")
+            json_end = content.rfind("}") + 1
 
             if json_start != -1 and json_end != -1:
                 json_content = content[json_start:json_end]
@@ -74,15 +64,9 @@ class RefinedMaterialService:
         except json.JSONDecodeError as e:
             # Log the actual response for debugging
             print(f"Raw LLM Response: {response.content}")
-            raise ValueError(f"Failed to parse refined material JSON: {e}")
+            raise ValueError(f"Failed to parse refined material JSON: {e}") from e
 
-    def save_refined_material_as_component(
-        self,
-        topic_id: str,
-        refined_material: Dict[str, Any],
-        generation_prompt: str,
-        raw_llm_response: str
-    ) -> RefinedMaterialResult:
+    def save_refined_material_as_component(self, topic_id: str, refined_material: dict[str, Any], generation_prompt: str, raw_llm_response: str) -> RefinedMaterialResult:
         """Save refined material as a bite-sized component"""
 
         component_id = str(uuid.uuid4())
@@ -97,7 +81,7 @@ class RefinedMaterialService:
             generation_prompt=generation_prompt,
             raw_llm_response=raw_llm_response,
             created_at=now,
-            updated_at=now
+            updated_at=now,
         )
 
         return result

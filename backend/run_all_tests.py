@@ -6,11 +6,12 @@ This script runs all backend tests for our clean two-layer architecture.
 Designed for both local development and CI/CD environments.
 """
 
-import sys
-import subprocess
 import argparse
-from pathlib import Path
 import os
+import subprocess
+import sys
+from pathlib import Path
+
 
 def run_command(cmd, description):
     """Run a command and return the result."""
@@ -25,10 +26,10 @@ def run_command(cmd, description):
         print(f"✅ {description} - PASSED")
         if result.stdout.strip():
             # Only show stdout if it contains useful info (not just dots)
-            stdout_lines = result.stdout.strip().split('\n')
-            useful_lines = [line for line in stdout_lines if line.strip() and not line.strip().startswith('.')]
+            stdout_lines = result.stdout.strip().split("\n")
+            useful_lines = [line for line in stdout_lines if line.strip() and not line.strip().startswith(".")]
             if useful_lines:
-                print('\n'.join(useful_lines))
+                print("\n".join(useful_lines))
     else:
         print(f"❌ {description} - FAILED")
         if result.stderr:
@@ -38,10 +39,11 @@ def run_command(cmd, description):
 
     return result.returncode == 0
 
+
 def main():
-    parser = argparse.ArgumentParser(description='Run backend tests for two-layer architecture')
-    parser.add_argument('--verbose', '-v', action='store_true', help='Verbose output')
-    parser.add_argument('--file', type=str, help='Run specific test file (optional)')
+    parser = argparse.ArgumentParser(description="Run backend tests for two-layer architecture")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
+    parser.add_argument("--file", type=str, help="Run specific test file (optional)")
 
     args = parser.parse_args()
 
@@ -70,7 +72,7 @@ def main():
         ("Learning API", "tests/test_api_learning.py"),
         ("Integration Workflows", "tests/test_integration.py"),
         ("MCQ Prompts", "tests/test_mcq_prompts.py"),
-        ("MCQ Scripts", "tests/test_mcq_script.py")
+        ("MCQ Scripts", "tests/test_mcq_script.py"),
     ]
 
     test_results = []
@@ -123,6 +125,7 @@ def main():
     else:
         print(f"\n💥 {total - passed} tests failed. Please check the output above.")
         return 1
+
 
 if __name__ == "__main__":
     sys.exit(main())

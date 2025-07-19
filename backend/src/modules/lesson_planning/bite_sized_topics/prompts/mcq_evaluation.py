@@ -5,10 +5,8 @@ This module contains the prompt template for evaluating the quality
 of a single MCQ.
 """
 
-from typing import List, Optional
-
-from core import PromptTemplate, PromptContext
-from llm_interface import LLMMessage, MessageRole
+from src.core.prompt_base import PromptContext, PromptTemplate
+from src.llm_interface import LLMMessage, MessageRole
 
 
 class MCQEvaluationPrompt(PromptTemplate):
@@ -76,15 +74,15 @@ class MCQEvaluationPrompt(PromptTemplate):
         Do not include any additional text outside the JSON object.
         """
 
-    def generate_prompt(self, context: PromptContext, **kwargs) -> List[LLMMessage]:
+    def generate_prompt(self, context: PromptContext, **kwargs) -> list[LLMMessage]:
         # Validate required parameters
-        self.validate_kwargs(['stem', 'options', 'correct_answer'], **kwargs)
+        self.validate_kwargs(["stem", "options", "correct_answer"], **kwargs)
 
-        stem = kwargs.get('stem', '')
-        options = kwargs.get('options', [])
-        correct_answer = kwargs.get('correct_answer', '')
-        learning_objective = kwargs.get('learning_objective', '')
-        rationale = kwargs.get('rationale', '')
+        stem = kwargs.get("stem", "")
+        options = kwargs.get("options", [])
+        correct_answer = kwargs.get("correct_answer", "")
+        learning_objective = kwargs.get("learning_objective", "")
+        rationale = kwargs.get("rationale", "")
 
         system_message = f"""
         {self.base_instructions}
@@ -111,7 +109,7 @@ class MCQEvaluationPrompt(PromptTemplate):
         user_content = f"""
         ### MCQ to Evaluate:
         - **STEM:** {stem}
-        - **OPTIONS:** 
+        - **OPTIONS:**
         {options_text}
         - **CORRECT ANSWER:** {correct_answer}
         """
@@ -124,7 +122,4 @@ class MCQEvaluationPrompt(PromptTemplate):
 
         user_content += "\nNow perform the evaluation."
 
-        return [
-            LLMMessage(role=MessageRole.SYSTEM, content=system_message),
-            LLMMessage(role=MessageRole.USER, content=user_content)
-        ]
+        return [LLMMessage(role=MessageRole.SYSTEM, content=system_message), LLMMessage(role=MessageRole.USER, content=user_content)]

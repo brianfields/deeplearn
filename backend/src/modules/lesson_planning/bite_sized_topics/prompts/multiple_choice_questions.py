@@ -5,10 +5,8 @@ This module contains the prompt templates for generating multiple choice questio
 assessment questions that check conceptual understanding and uncover misconceptions.
 """
 
-from typing import List, Optional
-
-from core import PromptTemplate, PromptContext
-from llm_interface import LLMMessage, MessageRole
+from src.core.prompt_base import PromptContext, PromptTemplate
+from src.llm_interface import LLMMessage, MessageRole
 
 
 class MultipleChoiceQuestionsPrompt(PromptTemplate):
@@ -66,17 +64,17 @@ class MultipleChoiceQuestionsPrompt(PromptTemplate):
         reflect real learner confusion. Do not include any additional text outside the JSON object.
         """
 
-    def generate_prompt(self, context: PromptContext, **kwargs) -> List[LLMMessage]:
+    def generate_prompt(self, context: PromptContext, **kwargs) -> list[LLMMessage]:
         # Validate required parameters
-        self.validate_kwargs(['topic_title', 'core_concept'], **kwargs)
+        self.validate_kwargs(["topic_title", "core_concept"], **kwargs)
 
-        topic_title = kwargs.get('topic_title', '')
-        core_concept = kwargs.get('core_concept', '')
-        learning_objectives = kwargs.get('learning_objectives', [])
-        previous_topics = kwargs.get('previous_topics', [])
-        key_aspects = kwargs.get('key_aspects', [])
-        common_misconceptions = kwargs.get('common_misconceptions', [])
-        avoid_overlap_with = kwargs.get('avoid_overlap_with', [])
+        topic_title = kwargs.get("topic_title", "")
+        core_concept = kwargs.get("core_concept", "")
+        learning_objectives = kwargs.get("learning_objectives", [])
+        previous_topics = kwargs.get("previous_topics", [])
+        key_aspects = kwargs.get("key_aspects", [])
+        common_misconceptions = kwargs.get("common_misconceptions", [])
+        avoid_overlap_with = kwargs.get("avoid_overlap_with", [])
 
         system_message = f"""
         {self.base_instructions}
@@ -84,7 +82,7 @@ class MultipleChoiceQuestionsPrompt(PromptTemplate):
         Context Information:
         {self._format_context(context)}
 
-        Previous Topics Covered: {', '.join(previous_topics) if previous_topics else 'None'}
+        Previous Topics Covered: {", ".join(previous_topics) if previous_topics else "None"}
 
         Remember: These are multiple choice questions for assessment. Focus on high-quality
         distractors that reflect real learner confusion. Each question should have clear
@@ -111,7 +109,7 @@ class MultipleChoiceQuestionsPrompt(PromptTemplate):
         if avoid_overlap_with:
             user_content += f"\nAvoid Overlap With:\n{chr(10).join(f'- {item}' for item in avoid_overlap_with)}"
 
-        user_content += f"""
+        user_content += """
 
         Create 4-6 multiple choice questions that:
         1. Cover different aspects of the concept
@@ -144,7 +142,4 @@ class MultipleChoiceQuestionsPrompt(PromptTemplate):
         Ensure each question has high-quality distractors that reflect realistic learner confusion.
         """
 
-        return [
-            LLMMessage(role=MessageRole.SYSTEM, content=system_message),
-            LLMMessage(role=MessageRole.USER, content=user_content)
-        ]
+        return [LLMMessage(role=MessageRole.SYSTEM, content=system_message), LLMMessage(role=MessageRole.USER, content=user_content)]

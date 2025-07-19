@@ -5,10 +5,8 @@ This module contains the prompt templates for generating didactic snippets -
 short, engaging explanations that introduce concepts in lessons.
 """
 
-from typing import List, Optional
-
-from core import PromptTemplate, PromptContext
-from llm_interface import LLMMessage, MessageRole
+from src.core.prompt_base import PromptContext, PromptTemplate
+from src.llm_interface import LLMMessage, MessageRole
 
 
 class DidacticSnippetPrompt(PromptTemplate):
@@ -53,15 +51,15 @@ class DidacticSnippetPrompt(PromptTemplate):
         Do not include any additional text outside the JSON object. The response must be parseable as JSON.
         """
 
-    def generate_prompt(self, context: PromptContext, **kwargs) -> List[LLMMessage]:
+    def generate_prompt(self, context: PromptContext, **kwargs) -> list[LLMMessage]:
         # Validate required parameters
-        self.validate_kwargs(['topic_title', 'key_concept'], **kwargs)
+        self.validate_kwargs(["topic_title", "key_concept"], **kwargs)
 
-        topic_title = kwargs.get('topic_title', '')
-        key_concept = kwargs.get('key_concept', '')
-        learning_objectives = kwargs.get('learning_objectives', [])
-        previous_topics = kwargs.get('previous_topics', [])
-        concept_context = kwargs.get('concept_context', '')
+        topic_title = kwargs.get("topic_title", "")
+        key_concept = kwargs.get("key_concept", "")
+        learning_objectives = kwargs.get("learning_objectives", [])
+        previous_topics = kwargs.get("previous_topics", [])
+        concept_context = kwargs.get("concept_context", "")
 
         system_message = f"""
         {self.base_instructions}
@@ -69,7 +67,7 @@ class DidacticSnippetPrompt(PromptTemplate):
         Context Information:
         {self._format_context(context)}
 
-        Previous Topics Covered: {', '.join(previous_topics) if previous_topics else 'None'}
+        Previous Topics Covered: {", ".join(previous_topics) if previous_topics else "None"}
 
         Remember: This is a didactic snippet, not a full lesson. Keep it concise but impactful.
         The learner should walk away with a clear mental model of the concept.
@@ -101,7 +99,4 @@ class DidacticSnippetPrompt(PromptTemplate):
         ```
         """
 
-        return [
-            LLMMessage(role=MessageRole.SYSTEM, content=system_message),
-            LLMMessage(role=MessageRole.USER, content=user_content)
-        ]
+        return [LLMMessage(role=MessageRole.SYSTEM, content=system_message), LLMMessage(role=MessageRole.USER, content=user_content)]

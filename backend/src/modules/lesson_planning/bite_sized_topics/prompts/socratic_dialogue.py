@@ -5,10 +5,8 @@ This module contains the prompt templates for generating Socratic dialogue exerc
 guided discovery conversations that help learners construct understanding through questioning.
 """
 
-from typing import List, Optional
-
-from core import PromptTemplate, PromptContext
-from llm_interface import LLMMessage, MessageRole
+from src.core.prompt_base import PromptContext, PromptTemplate
+from src.llm_interface import LLMMessage, MessageRole
 
 
 class SocraticDialoguePrompt(PromptTemplate):
@@ -57,16 +55,16 @@ class SocraticDialoguePrompt(PromptTemplate):
         path to understanding the concept. Do not include any additional text outside the JSON object.
         """
 
-    def generate_prompt(self, context: PromptContext, **kwargs) -> List[LLMMessage]:
+    def generate_prompt(self, context: PromptContext, **kwargs) -> list[LLMMessage]:
         # Validate required parameters
-        self.validate_kwargs(['topic_title', 'core_concept'], **kwargs)
+        self.validate_kwargs(["topic_title", "core_concept"], **kwargs)
 
-        topic_title = kwargs.get('topic_title', '')
-        core_concept = kwargs.get('core_concept', '')
-        learning_objectives = kwargs.get('learning_objectives', [])
-        previous_topics = kwargs.get('previous_topics', [])
-        target_insights = kwargs.get('target_insights', [])
-        common_misconceptions = kwargs.get('common_misconceptions', [])
+        topic_title = kwargs.get("topic_title", "")
+        core_concept = kwargs.get("core_concept", "")
+        learning_objectives = kwargs.get("learning_objectives", [])
+        previous_topics = kwargs.get("previous_topics", [])
+        target_insights = kwargs.get("target_insights", [])
+        common_misconceptions = kwargs.get("common_misconceptions", [])
 
         system_message = f"""
         {self.base_instructions}
@@ -74,7 +72,7 @@ class SocraticDialoguePrompt(PromptTemplate):
         Context Information:
         {self._format_context(context)}
 
-        Previous Topics Covered: {', '.join(previous_topics) if previous_topics else 'None'}
+        Previous Topics Covered: {", ".join(previous_topics) if previous_topics else "None"}
 
         Remember: These are Socratic dialogues for guided discovery, not quiz questions.
         Each dialogue should lead to a distinct "aha" moment and use a different pedagogical approach.
@@ -98,7 +96,7 @@ class SocraticDialoguePrompt(PromptTemplate):
         if common_misconceptions:
             user_content += f"\nCommon Misconceptions to Address:\n{chr(10).join(f'- {misconception}' for misconception in common_misconceptions)}"
 
-        user_content += f"""
+        user_content += """
 
         Create 3-5 Socratic dialogues that:
         1. Use different pedagogical approaches (misconception correction, thought experiments, analogies, etc.)
@@ -123,7 +121,4 @@ class SocraticDialoguePrompt(PromptTemplate):
         Ensure each dialogue targets a different aspect of understanding and uses a unique pedagogical function.
         """
 
-        return [
-            LLMMessage(role=MessageRole.SYSTEM, content=system_message),
-            LLMMessage(role=MessageRole.USER, content=user_content)
-        ]
+        return [LLMMessage(role=MessageRole.SYSTEM, content=system_message), LLMMessage(role=MessageRole.USER, content=user_content)]

@@ -5,10 +5,8 @@ This module contains the prompt templates for generating glossary entries -
 teaching-style explanations of concepts that help learners understand ideas.
 """
 
-from typing import List, Optional
-
-from core import PromptTemplate, PromptContext
-from llm_interface import LLMMessage, MessageRole
+from src.core.prompt_base import PromptContext, PromptTemplate
+from src.llm_interface import LLMMessage, MessageRole
 
 
 class GlossaryPrompt(PromptTemplate):
@@ -54,15 +52,15 @@ class GlossaryPrompt(PromptTemplate):
         Do not include any additional text outside the JSON object. The response must be parseable as JSON.
         """
 
-    def generate_prompt(self, context: PromptContext, **kwargs) -> List[LLMMessage]:
+    def generate_prompt(self, context: PromptContext, **kwargs) -> list[LLMMessage]:
         # Validate required parameters
-        self.validate_kwargs(['topic_title', 'concepts'], **kwargs)
+        self.validate_kwargs(["topic_title", "concepts"], **kwargs)
 
-        topic_title = kwargs.get('topic_title', '')
-        concepts = kwargs.get('concepts', [])
-        lesson_context = kwargs.get('lesson_context', '')
-        learning_objectives = kwargs.get('learning_objectives', [])
-        previous_topics = kwargs.get('previous_topics', [])
+        topic_title = kwargs.get("topic_title", "")
+        concepts = kwargs.get("concepts", [])
+        lesson_context = kwargs.get("lesson_context", "")
+        learning_objectives = kwargs.get("learning_objectives", [])
+        previous_topics = kwargs.get("previous_topics", [])
 
         system_message = f"""
         {self.base_instructions}
@@ -70,7 +68,7 @@ class GlossaryPrompt(PromptTemplate):
         Context Information:
         {self._format_context(context)}
 
-        Previous Topics Covered: {', '.join(previous_topics) if previous_topics else 'None'}
+        Previous Topics Covered: {", ".join(previous_topics) if previous_topics else "None"}
 
         Remember: These are teaching explanations, not dictionary definitions.
         Help the learner understand not just what each concept is, but why it matters
@@ -97,7 +95,7 @@ class GlossaryPrompt(PromptTemplate):
         Create glossary entries for the following concepts in the context of:
 
         Topic: {topic_title}
-        Concepts to explain: {', '.join(concepts)}
+        Concepts to explain: {", ".join(concepts)}
         """
 
         if lesson_context:
@@ -107,7 +105,7 @@ class GlossaryPrompt(PromptTemplate):
             user_content += f"\nLearning Objectives:\n{chr(10).join(f'- {obj}' for obj in learning_objectives)}"
 
         if needs_concept_identification:
-            user_content += f"""
+            user_content += """
 
         For each concept you identify, provide a teaching-style explanation that helps learners understand:
         - What it means in plain English
@@ -143,7 +141,4 @@ class GlossaryPrompt(PromptTemplate):
         Provide entries for all {len(concepts)} concepts, separated by blank lines.
         """
 
-        return [
-            LLMMessage(role=MessageRole.SYSTEM, content=system_message),
-            LLMMessage(role=MessageRole.USER, content=user_content)
-        ]
+        return [LLMMessage(role=MessageRole.SYSTEM, content=system_message), LLMMessage(role=MessageRole.USER, content=user_content)]

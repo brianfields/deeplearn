@@ -5,10 +5,8 @@ This module contains the prompt templates for generating short answer questions 
 assessment questions that encourage learners to articulate understanding and reasoning.
 """
 
-from typing import List, Optional
-
-from core import PromptTemplate, PromptContext
-from llm_interface import LLMMessage, MessageRole
+from src.core.prompt_base import PromptContext, PromptTemplate
+from src.llm_interface import LLMMessage, MessageRole
 
 
 class ShortAnswerQuestionsPrompt(PromptTemplate):
@@ -53,16 +51,16 @@ class ShortAnswerQuestionsPrompt(PromptTemplate):
         text outside the JSON object.
         """
 
-    def generate_prompt(self, context: PromptContext, **kwargs) -> List[LLMMessage]:
+    def generate_prompt(self, context: PromptContext, **kwargs) -> list[LLMMessage]:
         # Validate required parameters
-        self.validate_kwargs(['topic_title', 'core_concept'], **kwargs)
+        self.validate_kwargs(["topic_title", "core_concept"], **kwargs)
 
-        topic_title = kwargs.get('topic_title', '')
-        core_concept = kwargs.get('core_concept', '')
-        learning_objectives = kwargs.get('learning_objectives', [])
-        previous_topics = kwargs.get('previous_topics', [])
-        key_aspects = kwargs.get('key_aspects', [])
-        avoid_overlap_with = kwargs.get('avoid_overlap_with', [])
+        topic_title = kwargs.get("topic_title", "")
+        core_concept = kwargs.get("core_concept", "")
+        learning_objectives = kwargs.get("learning_objectives", [])
+        previous_topics = kwargs.get("previous_topics", [])
+        key_aspects = kwargs.get("key_aspects", [])
+        avoid_overlap_with = kwargs.get("avoid_overlap_with", [])
 
         system_message = f"""
         {self.base_instructions}
@@ -70,7 +68,7 @@ class ShortAnswerQuestionsPrompt(PromptTemplate):
         Context Information:
         {self._format_context(context)}
 
-        Previous Topics Covered: {', '.join(previous_topics) if previous_topics else 'None'}
+        Previous Topics Covered: {", ".join(previous_topics) if previous_topics else "None"}
 
         Remember: These are short answer questions for assessment, not interactive dialogues.
         Focus on clear, unambiguous questions that test understanding and reasoning.
@@ -94,7 +92,7 @@ class ShortAnswerQuestionsPrompt(PromptTemplate):
         if avoid_overlap_with:
             user_content += f"\nAvoid Overlap With:\n{chr(10).join(f'- {item}' for item in avoid_overlap_with)}"
 
-        user_content += f"""
+        user_content += """
 
         Create 4-6 short answer questions that:
         1. Cover different thinking levels (recall, explanation, application, analysis)
@@ -117,7 +115,4 @@ class ShortAnswerQuestionsPrompt(PromptTemplate):
         Ensure each question targets a different aspect and thinking level for comprehensive assessment.
         """
 
-        return [
-            LLMMessage(role=MessageRole.SYSTEM, content=system_message),
-            LLMMessage(role=MessageRole.USER, content=user_content)
-        ]
+        return [LLMMessage(role=MessageRole.SYSTEM, content=system_message), LLMMessage(role=MessageRole.USER, content=user_content)]

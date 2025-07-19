@@ -13,39 +13,28 @@ The server is organized into several modules:
 - server.py: Main application, startup, and configuration
 """
 
-import asyncio
-import json
 import logging
-import os
-from datetime import datetime
-from pathlib import Path
-from typing import Dict, List, Optional, Any
-
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Depends
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-import uvicorn
-
-# Import the modular components
-from .models import (
-    StartTopicRequest,
-    ChatMessage,
-    LearningPathResponse,
-    ConversationResponse,
-    ProgressResponse
-)
-from .learning_routes import router as api_router
-from .content_creation_routes import router as content_creation_router
 
 # Import the existing learning components
 import sys
+from pathlib import Path
+
+import uvicorn
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from .content_creation_routes import router as content_creation_router
+from .learning_routes import router as api_router
+
+# Import the modular components
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 try:
     # Import using absolute imports from the src directory
     import config.config as config
-    import database_service
     import data_structures
+    import database_service
     import llm_interface
 
     # Extract the needed classes and functions
@@ -65,6 +54,7 @@ except ImportError as e:
     print(f"Import error: {e}")
     print("Make sure you're running from the backend directory and have installed dependencies")
     import traceback
+
     traceback.print_exc()
     sys.exit(1)
 
@@ -73,11 +63,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app
-app = FastAPI(
-    title="Conversational Learning API",
-    description="AI-powered conversational learning platform",
-    version="1.0.0"
-)
+app = FastAPI(title="Conversational Learning API", description="AI-powered conversational learning platform", version="1.0.0")
 
 # Add CORS middleware
 app.add_middleware(
@@ -93,7 +79,7 @@ app.include_router(api_router)
 app.include_router(content_creation_router)
 
 # Global services - initialized on startup
-database: Optional[DatabaseService] = None
+database: DatabaseService | None = None
 
 # Global service instances
 database = None
@@ -112,9 +98,6 @@ async def startup_event():
     # Setup logging
     setup_logging()
 
-    # Load configuration
-    config = config_manager.config
-
     try:
         # Initialize database service
         database = init_database_service()
@@ -132,10 +115,4 @@ if __name__ == "__main__":
     config = config_manager.config
 
     # Run the server
-    uvicorn.run(
-        "server:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="info"
-    )
+    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True, log_level="info")

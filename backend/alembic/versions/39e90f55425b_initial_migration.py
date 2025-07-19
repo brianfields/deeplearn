@@ -1,7 +1,7 @@
 """Initial migration
 
 Revision ID: 39e90f55425b
-Revises: 
+Revises:
 Create Date: 2025-07-14 11:06:52.102075
 
 """
@@ -32,7 +32,6 @@ def upgrade() -> None:
     sa.Column('common_misconceptions', sa.JSON(), nullable=True),
     sa.Column('previous_topics', sa.JSON(), nullable=True),
     sa.Column('creation_strategy', sa.String(), nullable=False),
-    sa.Column('creation_metadata', sa.JSON(), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=True),
     sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.Column('version', sa.Integer(), nullable=True),

@@ -5,10 +5,8 @@ This module contains the prompt templates for generating post-topic quizzes -
 comprehensive assessments that use multiple question formats to evaluate understanding.
 """
 
-from typing import List, Optional
-
-from core import PromptTemplate, PromptContext
-from llm_interface import LLMMessage, MessageRole
+from src.core.prompt_base import PromptContext, PromptTemplate
+from src.llm_interface import LLMMessage, MessageRole
 
 
 class PostTopicQuizPrompt(PromptTemplate):
@@ -79,17 +77,17 @@ class PostTopicQuizPrompt(PromptTemplate):
         assessing the specific concept. Do not include any additional text outside the JSON object.
         """
 
-    def generate_prompt(self, context: PromptContext, **kwargs) -> List[LLMMessage]:
+    def generate_prompt(self, context: PromptContext, **kwargs) -> list[LLMMessage]:
         # Validate required parameters
-        self.validate_kwargs(['topic_title', 'core_concept'], **kwargs)
+        self.validate_kwargs(["topic_title", "core_concept"], **kwargs)
 
-        topic_title = kwargs.get('topic_title', '')
-        core_concept = kwargs.get('core_concept', '')
-        learning_objectives = kwargs.get('learning_objectives', [])
-        previous_topics = kwargs.get('previous_topics', [])
-        key_aspects = kwargs.get('key_aspects', [])
-        common_misconceptions = kwargs.get('common_misconceptions', [])
-        preferred_formats = kwargs.get('preferred_formats', [])
+        topic_title = kwargs.get("topic_title", "")
+        core_concept = kwargs.get("core_concept", "")
+        learning_objectives = kwargs.get("learning_objectives", [])
+        previous_topics = kwargs.get("previous_topics", [])
+        key_aspects = kwargs.get("key_aspects", [])
+        common_misconceptions = kwargs.get("common_misconceptions", [])
+        preferred_formats = kwargs.get("preferred_formats", [])
 
         system_message = f"""
         {self.base_instructions}
@@ -97,7 +95,7 @@ class PostTopicQuizPrompt(PromptTemplate):
         Context Information:
         {self._format_context(context)}
 
-        Previous Topics Covered: {', '.join(previous_topics) if previous_topics else 'None'}
+        Previous Topics Covered: {", ".join(previous_topics) if previous_topics else "None"}
 
         Remember: This is a comprehensive post-topic quiz that should diagnose understanding
         across multiple dimensions. Choose question formats strategically based on what
@@ -124,7 +122,7 @@ class PostTopicQuizPrompt(PromptTemplate):
         if preferred_formats:
             user_content += f"\nPreferred Question Formats:\n{chr(10).join(f'- {format_type}' for format_type in preferred_formats)}"
 
-        user_content += f"""
+        user_content += """
 
         Create a 4-6 item quiz that:
         1. Uses multiple question formats (Multiple Choice, Short Answer, Assessment Dialogue)
@@ -147,7 +145,4 @@ class PostTopicQuizPrompt(PromptTemplate):
         Choose question formats strategically based on what best assesses each aspect of understanding.
         """
 
-        return [
-            LLMMessage(role=MessageRole.SYSTEM, content=system_message),
-            LLMMessage(role=MessageRole.USER, content=user_content)
-        ]
+        return [LLMMessage(role=MessageRole.SYSTEM, content=system_message), LLMMessage(role=MessageRole.USER, content=user_content)]

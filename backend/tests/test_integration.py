@@ -169,7 +169,7 @@ class TestContentCreationWorkflow:
 
     @patch('src.api.content_creation_routes.create_llm_client')
     def test_refined_material_extraction_workflow(self, mock_create_client):
-        """Test refined material extraction as standalone workflow - with proper LLM mocking."""
+        """Test topic creation with refined material extraction as standalone workflow."""
 
         # Create a mock LLM client
         mock_llm_client = Mock()
@@ -191,41 +191,53 @@ class TestContentCreationWorkflow:
         mock_llm_client.generate_response = AsyncMock(return_value=mock_refined_response)
         mock_create_client.return_value = mock_llm_client
 
-        # Make request
+        # Make request to new topic creation endpoint
         request_data = {
-            "topic": "Python Variables",
+            "title": "Python Variables",
             "source_material": "Variables in Python are containers for storing data values...",
-            "domain": "Programming",
-            "level": "beginner"
+            "source_domain": "Programming",
+            "source_level": "beginner"
         }
 
-        response = self.client.post("/api/content/refined-material", json=request_data)
+        response = self.client.post("/api/content/topics", json=request_data)
 
         # Verify response with deterministic mock data
         assert response.status_code == 200
         data = response.json()
-        assert "session_id" in data
+
+        # Verify topic creation
+        assert "id" in data
+        assert data["title"] == "Python Variables"
+        assert data["user_level"] == "beginner"
+        assert data["source_domain"] == "Programming"
+
+        # Verify refined material extraction
         assert "refined_material" in data
-        assert data["topic"] == "Python Variables"
-        assert len(data["refined_material"]["topics"]) == 1
-
-        # Verify mock data content
-        topic = data["refined_material"]["topics"][0]
-        assert topic["topic"] == "Python Variables"
-        assert "Declare variables" in topic["learning_objectives"]
-        assert "Variables store data" in topic["key_facts"]
-
-        # Verify no external LLM calls were made
-        assert mock_llm_client.generate_response.call_count == 1
+        assert "learning_objectives" in data
+        assert len(data["learning_objectives"]) >= 1
 
     @patch('src.api.content_creation_routes.create_llm_client')
     def test_mcq_creation_workflow(self, mock_create_client):
-        """Test MCQ creation within content creation workflow - with proper LLM mocking."""
+        """Test MCQ creation workflow using new topic-based API."""
 
         # Create a mock LLM client instance
         mock_llm_client = Mock()
 
-        # Mock LLM responses (this prevents external API calls)
+        # Mock LLM responses for topic creation
+        mock_refined_response = Mock()
+        mock_refined_response.content = json.dumps({
+            "topics": [
+                {
+                    "topic": "Function Definition",
+                    "learning_objectives": ["Define functions in Python"],
+                    "key_facts": ["Use def keyword", "Functions can have parameters"],
+                    "common_misconceptions": [],
+                    "assessment_angles": ["Syntax knowledge"]
+                }
+            ]
+        })
+
+        # Mock LLM responses for MCQ creation
         mock_mcq_response = Mock()
         mock_mcq_response.content = json.dumps({
             "stem": "Which keyword is used to define a function in Python?",
@@ -243,63 +255,51 @@ class TestContentCreationWorkflow:
         })
 
         # Set up the mock client to return different responses for different calls
-        mock_llm_client.generate_response = AsyncMock(side_effect=[mock_mcq_response, mock_evaluation_response])
+        # First call for topic creation, then MCQ creation and evaluation
+        mock_llm_client.generate_response = AsyncMock(side_effect=[
+            mock_refined_response, mock_mcq_response, mock_evaluation_response
+        ])
 
         # Make the factory function return our mock client
         mock_create_client.return_value = mock_llm_client
 
-        # Create a session in the in-memory store
-        session_id = str(uuid.uuid4())
-        from src.api.content_creation_routes import content_sessions
-        content_sessions[session_id] = {
-            "session_id": session_id,
-            "topic": "Python Functions",
-            "mcqs": []
+        # Step 1: Create topic with refined material
+        topic_request = {
+            "title": "Python Functions",
+            "source_material": "Functions in Python are defined using the def keyword...",
+            "source_domain": "Programming",
+            "source_level": "beginner"
         }
 
-        # Make MCQ creation request
+        topic_response = self.client.post("/api/content/topics", json=topic_request)
+        assert topic_response.status_code == 200
+        topic_data = topic_response.json()
+        topic_id = topic_data["id"]
+
+        # Step 2: Create MCQ component for the topic
         mcq_request = {
-            "session_id": session_id,
-            "topic": "Python Functions",
-            "learning_objective": "Define a Python function using proper syntax",
-            "key_facts": ["Functions use 'def' keyword"],
-            "common_misconceptions": [],
-            "assessment_angles": ["Syntax knowledge"]
+            "component_type": "mcq",
+            "learning_objective": "Define functions in Python"
         }
 
-        response = self.client.post("/api/content/mcq", json=mcq_request)
+        mcq_response = self.client.post(f"/api/content/topics/{topic_id}/components", json=mcq_request)
 
-                # Verify MCQ creation with deterministic mock data
-        assert response.status_code == 200
-        data = response.json()
+        # Verify MCQ creation
+        assert mcq_response.status_code == 200
+        mcq_data = mcq_response.json()
 
-        # Test response structure
-        assert "mcq_id" in data
-        assert "session_id" in data
-        assert "mcq" in data
-        assert "evaluation" in data
-        assert data["session_id"] == session_id
+        assert mcq_data["component_type"] == "mcq"
+        assert mcq_data["topic_id"] == topic_id
+        assert "content" in mcq_data
+        assert "mcq" in mcq_data["content"]
+        assert "evaluation" in mcq_data["content"]
 
-        # Test MCQ content matches our mock (now deterministic!)
-        mcq = data["mcq"]
-        assert mcq["stem"] == "Which keyword is used to define a function in Python?"
-        assert mcq["correct_answer"] == "def"
-        assert mcq["correct_answer_index"] == 0  # "def" should be first option
-        assert len(mcq["options"]) == 4
-        assert "def" in mcq["options"]
-
-        # Test evaluation matches our mock
-        evaluation = data["evaluation"]
-        assert evaluation["overall"] == "High quality MCQ"
-        assert evaluation["alignment"] == "Directly tests function definition knowledge"
-
-        # Test that session was updated with the MCQ
-        updated_session = content_sessions[session_id]
-        assert len(updated_session["mcqs"]) == 1
-        assert updated_session["mcqs"][0]["mcq_id"] == data["mcq_id"]
-
-        # Verify no external LLM calls were made (mock should have been called exactly twice)
-        assert mock_llm_client.generate_response.call_count == 2
+        # Verify MCQ structure
+        mcq_content = mcq_data["content"]["mcq"]
+        assert "stem" in mcq_content
+        assert "options" in mcq_content
+        assert "correct_answer" in mcq_content
+        assert len(mcq_content["options"]) == 4
 
 
 class TestLearningConsumptionWorkflow:

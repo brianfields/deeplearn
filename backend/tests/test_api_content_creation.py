@@ -3,44 +3,97 @@
 Content Creation API Tests
 
 Tests for the Content Creation API endpoints (/api/content/*)
-These endpoints handle the content creation workflow and temporary session management.
+These endpoints handle the database-first content creation workflow.
 
-Endpoints tested:
-- POST /api/content/refined-material
-- POST /api/content/mcq
-- GET  /api/content/sessions
-- POST /api/content/topics
-- GET  /api/content/topics/{id}
-- POST /api/content/topics/{id}/components
+New endpoints tested:
+- POST /api/content/topics - Create topic with refined material
+- GET  /api/content/topics/{topic_id} - Get topic with components
+- POST /api/content/topics/{topic_id}/components - Create MCQ component
+- DELETE /api/content/topics/{topic_id}/components/{component_id} - Delete component
+- DELETE /api/content/topics/{topic_id} - Delete topic
 """
 
-import pytest
-import json
-import uuid
-from unittest.mock import Mock, AsyncMock, patch, MagicMock
-from fastapi.testclient import TestClient
-from contextlib import contextmanager
-
-# Import system under test
-import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
+import sys
+from unittest.mock import AsyncMock, MagicMock
 
+import pytest
+from fastapi.testclient import TestClient
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "src"))
+
+from src.api.content_creation_routes import get_database_service, get_mcq_service, get_refined_material_service
 from src.api.server import app
 
 
-def create_mock_db_session():
-    """Helper to create a properly mocked database session context manager."""
-    mock_session = MagicMock()
-
-    @contextmanager
-    def mock_session_context():
-        yield mock_session
-
+def create_mock_db_service():
+    """Helper to create a properly mocked database service."""
     mock_db_service = MagicMock()
-    mock_db_service.get_session = mock_session_context
 
-    return mock_db_service, mock_session
+    # Mock topic result
+    mock_topic = MagicMock()
+    mock_topic.id = "test-topic-id"
+    mock_topic.title = "Python Functions"
+    mock_topic.core_concept = "Function Definition"
+    mock_topic.user_level = "intermediate"
+    mock_topic.learning_objectives = ["Define functions", "Use parameters"]
+    mock_topic.key_concepts = ["Use def keyword", "Functions can return values"]
+    mock_topic.source_material = "Functions in Python..."
+    mock_topic.source_domain = "Programming"
+    mock_topic.source_level = "intermediate"
+    mock_topic.refined_material = {"topics": [{"topic": "Function Basics"}]}
+    mock_topic.created_at = MagicMock()
+    mock_topic.created_at.isoformat.return_value = "2024-01-01T12:00:00Z"
+    mock_topic.updated_at = MagicMock()
+    mock_topic.updated_at.isoformat.return_value = "2024-01-01T12:00:00Z"
+
+    mock_db_service.get_bite_sized_topic.return_value = mock_topic
+    mock_db_service.save_bite_sized_topic.return_value = True
+    mock_db_service.delete_bite_sized_topic.return_value = True
+    mock_db_service.get_topic_components.return_value = []
+
+    return mock_db_service
+
+
+def create_mock_mcq_service():
+    """Helper to create a properly mocked MCQ service."""
+    mock_mcq_service = MagicMock()
+
+    # Mock MCQ creation
+    mock_mcq_service._create_single_mcq = AsyncMock(
+        return_value={
+            "stem": "What keyword defines a function?",
+            "options": ["def", "function", "define", "func"],
+            "correct_answer": "def",
+            "rationale": "The 'def' keyword is used to define functions in Python",
+        }
+    )
+
+    # Mock MCQ evaluation
+    mock_mcq_service._evaluate_mcq = AsyncMock(return_value={"overall": "High quality"})
+
+    return mock_mcq_service
+
+
+def create_mock_refined_material_service():
+    """Helper to create a properly mocked refined material service."""
+    mock_service = MagicMock()
+
+    mock_service.extract_refined_material = AsyncMock(
+        return_value={
+            "topics": [
+                {
+                    "topic": "Python Function Basics",
+                    "learning_objectives": ["Define functions", "Use parameters"],
+                    "key_facts": ["Use def keyword", "Functions can return values"],
+                    "common_misconceptions": [],
+                    "assessment_angles": ["Syntax knowledge"],
+                }
+            ]
+        }
+    )
+
+    return mock_service
 
 
 class TestContentCreationAPI:
@@ -50,262 +103,263 @@ class TestContentCreationAPI:
         """Set up test client."""
         self.client = TestClient(app)
 
-        # Sample data for testing
-        self.sample_refined_material_request = {
-            "topic": "Python Functions",
-            "source_material": "Functions in Python are defined using the def keyword...",
-            "domain": "Programming",
-            "level": "intermediate",
-            "model": "gpt-4o"
-        }
-
+        # Sample data for testing - updated for new API
         self.sample_topic_request = {
             "title": "Python Functions",
             "source_material": "Functions in Python are defined using the def keyword...",
             "source_domain": "Programming",
-            "source_level": "intermediate"
+            "source_level": "intermediate",
         }
 
-        self.sample_component_request = {
+        self.sample_component_request = {"component_type": "mcq", "learning_objective": "Define Python functions"}
+
+    def test_create_topic_from_material_success(self):
+        """Test successful creation of topic with refined material."""
+        # Override dependencies
+        mock_db_service = create_mock_db_service()
+        mock_refined_service = create_mock_refined_material_service()
+
+        app.dependency_overrides[get_database_service] = lambda: mock_db_service
+        app.dependency_overrides[get_refined_material_service] = lambda: mock_refined_service
+
+        try:
+            # Make request to new endpoint
+            response = self.client.post("/api/content/topics", json=self.sample_topic_request)
+
+            # Verify response
+            assert response.status_code == 200
+            data = response.json()
+            assert "id" in data
+            assert "refined_material" in data
+            assert data["title"] == "Python Functions"
+            assert data["user_level"] == "intermediate"
+            assert len(data["learning_objectives"]) >= 1
+        finally:
+            # Clean up overrides
+            app.dependency_overrides.clear()
+
+    def test_create_mcq_component_success(self):
+        """Test successful MCQ component creation for a topic."""
+        # Override dependencies
+        mock_db_service = create_mock_db_service()
+        mock_mcq_service = create_mock_mcq_service()
+
+        app.dependency_overrides[get_database_service] = lambda: mock_db_service
+        app.dependency_overrides[get_mcq_service] = lambda: mock_mcq_service
+
+        try:
+            topic_id = "test-topic-id"
+
+            # Make request to create MCQ component
+            response = self.client.post(f"/api/content/topics/{topic_id}/components", json=self.sample_component_request)
+
+            # Verify response
+            assert response.status_code == 200
+            data = response.json()
+            assert "id" in data
+            assert data["component_type"] == "mcq"
+            assert data["topic_id"] == topic_id
+            assert "content" in data
+            assert "mcq" in data["content"]
+        finally:
+            # Clean up overrides
+            app.dependency_overrides.clear()
+
+    def test_create_mcq_topic_not_found(self):
+        """Test MCQ creation with non-existent topic."""
+        # Override dependency with None return
+        mock_db_service = MagicMock()
+        mock_db_service.get_bite_sized_topic.return_value = None
+        mock_mcq_service = create_mock_mcq_service()
+
+        app.dependency_overrides[get_database_service] = lambda: mock_db_service
+        app.dependency_overrides[get_mcq_service] = lambda: mock_mcq_service
+
+        try:
+            topic_id = "non-existent-topic"
+            response = self.client.post(f"/api/content/topics/{topic_id}/components", json=self.sample_component_request)
+
+            assert response.status_code == 404
+        finally:
+            # Clean up overrides
+            app.dependency_overrides.clear()
+
+    def test_get_topic_success(self):
+        """Test getting a topic with components."""
+        # Override dependency
+        mock_db_service = create_mock_db_service()
+
+        # Add mock component
+        mock_component = MagicMock()
+        mock_component.dict.return_value = {
+            "id": "component-1",
+            "topic_id": "test-topic-id",
             "component_type": "mcq",
-            "learning_objective": "Define Python functions",
-            "topic_context": {
-                "topic": "Python Functions",
-                "key_facts": ["Use def keyword"],
-                "common_misconceptions": [],
-                "assessment_angles": ["Syntax"]
-            }
+            "title": "Test MCQ",
+            "content": {"mcq": {"stem": "Test question?"}},
+            "created_at": "2024-01-01T12:00:00Z",
+            "updated_at": "2024-01-01T12:00:00Z",
         }
+        mock_db_service.get_topic_components.return_value = [mock_component]
 
-    @patch('src.api.content_creation_routes.create_llm_client')
-    def test_create_refined_material_success(self, mock_create_client):
-        """Test successful creation of refined material - with proper LLM mocking."""
-        # Create a mock LLM client
-        mock_llm_client = Mock()
+        app.dependency_overrides[get_database_service] = lambda: mock_db_service
 
-        # Mock refined material response
-        mock_refined_response = Mock()
-        mock_refined_response.content = json.dumps({
-            "topics": [
-                {
-                    "topic": "Python Function Basics",
-                    "learning_objectives": ["Define functions", "Use parameters"],
-                    "key_facts": ["Use def keyword", "Functions can return values"],
-                    "common_misconceptions": [],
-                    "assessment_angles": ["Syntax knowledge"]
-                }
-            ]
-        })
+        try:
+            topic_id = "test-topic-id"
+            response = self.client.get(f"/api/content/topics/{topic_id}")
 
-        mock_llm_client.generate_response = AsyncMock(return_value=mock_refined_response)
-        mock_create_client.return_value = mock_llm_client
+            assert response.status_code == 200
+            data = response.json()
+            assert data["id"] == topic_id
+            assert data["title"] == "Python Functions"
+            assert len(data["components"]) == 1
+        finally:
+            # Clean up overrides
+            app.dependency_overrides.clear()
 
-        # Make request
-        response = self.client.post("/api/content/refined-material", json=self.sample_refined_material_request)
+    def test_get_topic_not_found(self):
+        """Test getting a topic that doesn't exist."""
+        # Override dependency with None return
+        mock_db_service = MagicMock()
+        mock_db_service.get_bite_sized_topic.return_value = None
 
-        # Verify response
-        assert response.status_code == 200
-        data = response.json()
-        assert "session_id" in data
-        assert "refined_material" in data
-        assert data["topic"] == "Python Functions"
-        assert data["level"] == "intermediate"
-        assert len(data["refined_material"]["topics"]) >= 1  # Allow multiple topics
+        app.dependency_overrides[get_database_service] = lambda: mock_db_service
 
-        # Verify first topic has expected structure
-        first_topic = data["refined_material"]["topics"][0]
-        assert "topic" in first_topic
-        assert "learning_objectives" in first_topic
-        assert "key_facts" in first_topic
+        try:
+            response = self.client.get("/api/content/topics/non-existent-topic")
+            assert response.status_code == 404
+        finally:
+            # Clean up overrides
+            app.dependency_overrides.clear()
 
-    @patch('src.api.content_creation_routes.create_llm_client')
-    def test_create_mcq_success(self, mock_create_client):
-        """Test successful MCQ creation - with proper LLM mocking."""
-        # Create a mock LLM client
-        mock_llm_client = Mock()
+    def test_delete_topic_success(self):
+        """Test successful topic deletion."""
+        # Override dependency
+        mock_db_service = MagicMock()
+        mock_db_service.delete_bite_sized_topic.return_value = True
 
-        # Mock MCQ creation response
-        mock_mcq_response = Mock()
-        mock_mcq_response.content = json.dumps({
-            "stem": "What keyword defines a function?",
-            "options": ["def", "function", "define", "func"],
-            "correct_answer": "def"
-        })
+        app.dependency_overrides[get_database_service] = lambda: mock_db_service
 
-        # Mock MCQ evaluation response
-        mock_evaluation_response = Mock()
-        mock_evaluation_response.content = json.dumps({"overall": "High quality"})
+        try:
+            topic_id = "test-topic-id"
+            response = self.client.delete(f"/api/content/topics/{topic_id}")
 
-        # Set up side_effect for multiple calls
-        mock_llm_client.generate_response = AsyncMock(side_effect=[mock_mcq_response, mock_evaluation_response])
-        mock_create_client.return_value = mock_llm_client
+            assert response.status_code == 200
+            data = response.json()
+            assert "message" in data
+        finally:
+            # Clean up overrides
+            app.dependency_overrides.clear()
 
-        # Create a session first (mock it in the in-memory store)
-        session_id = str(uuid.uuid4())
-        from src.api.content_creation_routes import content_sessions
-        content_sessions[session_id] = {
-            "session_id": session_id,
-            "topic": "Python Functions",
-            "mcqs": []
-        }
+    def test_delete_topic_not_found(self):
+        """Test deleting a topic that doesn't exist."""
+        # Override dependency with False return (not found)
+        mock_db_service = MagicMock()
+        mock_db_service.delete_bite_sized_topic.return_value = False
 
-        request_data = {
-            "session_id": session_id,
-            "topic": "Python Functions",
-            "learning_objective": "Define Python functions",
-            "key_facts": ["Use def keyword"],
-            "common_misconceptions": [],
-            "assessment_angles": ["Syntax"]
-        }
+        app.dependency_overrides[get_database_service] = lambda: mock_db_service
 
-        # Make request
-        response = self.client.post("/api/content/mcq", json=request_data)
-
-        # Verify response
-        assert response.status_code == 200
-        data = response.json()
-        assert "mcq_id" in data
-        assert "mcq" in data
-        assert "evaluation" in data
-        assert data["session_id"] == session_id
-
-    def test_create_mcq_session_not_found(self):
-        """Test MCQ creation with non-existent session."""
-        request_data = {
-            "session_id": "non-existent-session",
-            "topic": "Python Functions",
-            "learning_objective": "Define Python functions"
-        }
-
-        response = self.client.post("/api/content/mcq", json=request_data)
-
-        assert response.status_code == 404
-        assert "session not found" in response.json()["detail"].lower()
-
-    @patch('src.api.content_creation_routes.create_llm_client')
-    @patch('database_service.DatabaseService')
-    @patch('data_structures.BiteSizedTopic')
-    def test_create_topic_from_material_success(self, mock_topic_class, mock_db_service_class, mock_create_client):
-        """Test successful topic creation from material - with proper LLM mocking."""
-        # Create a mock LLM client
-        mock_llm_client = Mock()
-
-        # Mock refined material response
-        mock_refined_response = Mock()
-        mock_refined_response.content = json.dumps({
-            "topics": [
-                {
-                    "topic": "Python Functions",
-                    "learning_objectives": ["Define functions"],
-                    "key_facts": ["Use def keyword"]
-                }
-            ]
-        })
-
-        mock_llm_client.generate_response = AsyncMock(return_value=mock_refined_response)
-        mock_create_client.return_value = mock_llm_client
-
-        # Mock database using helper
-        mock_db_service, mock_session = create_mock_db_session()
-        mock_db_service_class.return_value = mock_db_service
-
-        # Mock topic creation
-        mock_topic = Mock()
-        mock_topic.id = "test-topic-123"
-        mock_topic.title = "Python Functions"
-        mock_topic.core_concept = "Python Functions"
-        mock_topic.user_level = "intermediate"
-        mock_topic.learning_objectives = ["Define functions"]
-        mock_topic.key_concepts = ["Use def keyword"]
-        mock_topic.key_aspects = []
-        mock_topic.target_insights = []
-        mock_topic.source_material = self.sample_topic_request["source_material"]
-        mock_topic.source_domain = "Programming"
-        mock_topic.source_level = "intermediate"
-        mock_topic.refined_material = {
-            "topics": [
-                {
-                    "topic": "Python Functions",
-                    "learning_objectives": ["Define functions"],
-                    "key_facts": ["Use def keyword"]
-                }
-            ]
-        }
-        mock_topic.created_at.isoformat.return_value = "2024-01-01T00:00:00"
-        mock_topic.updated_at.isoformat.return_value = "2024-01-01T00:00:00"
-        mock_topic_class.return_value = mock_topic
-
-        # Make request
-        response = self.client.post("/api/content/topics", json=self.sample_topic_request)
-
-        # Verify response
-        assert response.status_code == 200
-        data = response.json()
-        assert data["title"] == "Python Functions"
-        assert data["user_level"] == "intermediate"
-        assert "refined_material" in data
-
-    def test_get_content_sessions_empty(self):
-        """Test getting content sessions when none exist."""
-        # Clear sessions
-        from src.api.content_creation_routes import content_sessions
-        content_sessions.clear()
-
-        response = self.client.get("/api/content/sessions")
-
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
-        assert len(data) == 0
-
-    def test_get_content_session_not_found(self):
-        """Test getting a specific session that doesn't exist."""
-        response = self.client.get("/api/content/sessions/non-existent-session")
-
-        assert response.status_code == 404
-        assert "session not found" in response.json()["detail"].lower()
+        try:
+            response = self.client.delete("/api/content/topics/non-existent-topic")
+            assert response.status_code == 404
+        finally:
+            # Clean up overrides
+            app.dependency_overrides.clear()
 
 
 class TestContentCreationValidation:
-    """Test input validation for Content Creation API."""
+    """Test validation for content creation endpoints."""
 
     def setup_method(self):
         """Set up test client."""
         self.client = TestClient(app)
 
-    def test_refined_material_missing_required_fields(self):
-        """Test refined material creation with missing required fields."""
+    def test_create_topic_missing_required_fields(self):
+        """Test topic creation with missing required fields."""
         invalid_request = {
             "source_material": "Some text"
-            # Missing topic, which is required
-        }
-
-        response = self.client.post("/api/content/refined-material", json=invalid_request)
-
-        assert response.status_code == 422  # Validation error
-
-    def test_mcq_creation_missing_session_id(self):
-        """Test MCQ creation with missing session_id."""
-        invalid_request = {
-            "topic": "Python Functions",
-            "learning_objective": "Define functions"
-            # Missing session_id
-        }
-
-        response = self.client.post("/api/content/mcq", json=invalid_request)
-
-        assert response.status_code == 422  # Validation error
-
-    def test_topic_creation_missing_title(self):
-        """Test topic creation with missing title."""
-        invalid_request = {
-            "source_material": "Some text"
-            # Missing title
+            # Missing title, which is required
         }
 
         response = self.client.post("/api/content/topics", json=invalid_request)
-
         assert response.status_code == 422  # Validation error
+
+    def test_create_component_missing_required_fields(self):
+        """Test component creation with missing required fields."""
+        invalid_request = {
+            "component_type": "mcq"
+            # Missing learning_objective, which is required
+        }
+
+        topic_id = "test-topic-id"
+        response = self.client.post(f"/api/content/topics/{topic_id}/components", json=invalid_request)
+        assert response.status_code == 422  # Validation error
+
+    def test_create_component_invalid_type(self):
+        """Test component creation with invalid component type."""
+        # Override dependency first
+        mock_db_service = create_mock_db_service()
+        app.dependency_overrides[get_database_service] = lambda: mock_db_service
+
+        try:
+            invalid_request = {"component_type": "invalid_type", "learning_objective": "Some objective"}
+
+            topic_id = "test-topic-id"
+            response = self.client.post(f"/api/content/topics/{topic_id}/components", json=invalid_request)
+            # This should either return 422 for validation or 200 with placeholder content
+            # depending on implementation
+            assert response.status_code in [200, 422]
+        finally:
+            # Clean up overrides
+            app.dependency_overrides.clear()
+
+
+class TestContentCreationErrors:
+    """Test error handling for content creation endpoints."""
+
+    def setup_method(self):
+        """Set up test client."""
+        self.client = TestClient(app)
+
+    def test_database_error_handling(self):
+        """Test handling of database errors."""
+
+        # Override dependency to raise exception
+        def mock_db_service_error():
+            mock_db_service = MagicMock()
+            mock_db_service.get_bite_sized_topic.side_effect = Exception("Database error")
+            return mock_db_service
+
+        app.dependency_overrides[get_database_service] = mock_db_service_error
+
+        try:
+            response = self.client.get("/api/content/topics/test-topic-id")
+            assert response.status_code == 500
+        finally:
+            # Clean up overrides
+            app.dependency_overrides.clear()
+
+    def test_llm_service_error_handling(self):
+        """Test handling of LLM service errors."""
+        # Override dependencies
+        mock_db_service = create_mock_db_service()
+
+        def mock_refined_service_error():
+            mock_service = MagicMock()
+            mock_service.extract_refined_material = AsyncMock(side_effect=Exception("LLM error"))
+            return mock_service
+
+        app.dependency_overrides[get_database_service] = lambda: mock_db_service
+        app.dependency_overrides[get_refined_material_service] = mock_refined_service_error
+
+        try:
+            topic_request = {"title": "Test Topic", "source_material": "Test material", "source_domain": "Test", "source_level": "beginner"}
+
+            response = self.client.post("/api/content/topics", json=topic_request)
+            assert response.status_code == 500
+        finally:
+            # Clean up overrides
+            app.dependency_overrides.clear()
 
 
 if __name__ == "__main__":

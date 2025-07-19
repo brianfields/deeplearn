@@ -19,76 +19,95 @@ import json
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from enum import Enum
-from typing import Dict, List, Optional, Any, Union, Callable
 from datetime import datetime
+from enum import Enum
+from typing import Any
 
 import openai
-from openai import OpenAI, AsyncOpenAI
-from pydantic import BaseModel, Field
 import tiktoken
+from openai import AsyncOpenAI
+from pydantic import BaseModel, Field
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
+
 # Types and Enums
 class LLMProviderType(str, Enum):
     """Supported LLM providers"""
+
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
     AZURE_OPENAI = "azure_openai"
 
+
 class MessageRole(str, Enum):
     """Message roles for conversation"""
+
     SYSTEM = "system"
     USER = "user"
     ASSISTANT = "assistant"
 
+
 @dataclass
 class LLMMessage:
     """Structured message for LLM conversations"""
+
     role: MessageRole
     content: str
-    timestamp: Optional[datetime] = None
-    metadata: Optional[Dict[str, Any]] = None
+    timestamp: datetime | None = None
+    metadata: dict[str, Any] | None = None
+
 
 @dataclass
 class LLMResponse:
     """Structured response from LLM"""
+
     content: str
     provider: LLMProviderType
     model: str
     tokens_used: int
-    cost_estimate: Optional[float] = None
-    finish_reason: Optional[str] = None
-    metadata: Dict[str, Any] = None
+    cost_estimate: float | None = None
+    finish_reason: str | None = None
+    metadata: dict[str, Any] | None = None
+
 
 class LLMConfig(BaseModel):
     """Configuration for LLM providers"""
+
     provider: LLMProviderType
     model: str
-    api_key: Optional[str] = None
-    base_url: Optional[str] = None
+    api_key: str | None = None
+    base_url: str | None = None
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     max_tokens: int = Field(default=1000, gt=0)
     timeout: int = Field(default=30, gt=0)
     max_retries: int = Field(default=3, ge=0)
 
+
 class LLMError(Exception):
     """Base exception for LLM-related errors"""
+
     pass
+
 
 class LLMRateLimitError(LLMError):
     """Rate limit exceeded"""
+
     pass
+
 
 class LLMAuthenticationError(LLMError):
     """Authentication failed"""
+
     pass
+
 
 class LLMContentError(LLMError):
     """Content policy violation"""
+
     pass
+
 
 # Abstract Base Class
 class LLMProvider(ABC):
@@ -111,11 +130,7 @@ class LLMProvider(ABC):
         pass
 
     @abstractmethod
-    async def generate_response(
-        self,
-        messages: List[LLMMessage],
-        **kwargs
-    ) -> LLMResponse:
+    async def generate_response(self, messages: list[LLMMessage], **kwargs) -> LLMResponse:
         """
         Generate a response from the LLM.
 
@@ -132,12 +147,7 @@ class LLMProvider(ABC):
         pass
 
     @abstractmethod
-    async def generate_structured_response(
-        self,
-        messages: List[LLMMessage],
-        response_schema: Dict[str, Any],
-        **kwargs
-    ) -> Dict[str, Any]:
+    async def generate_structured_response(self, messages: list[LLMMessage], response_schema: dict[str, Any], **kwargs) -> dict[str, Any]:
         """
         Generate a structured response (JSON) from the LLM.
 
@@ -166,7 +176,7 @@ class LLMProvider(ABC):
         """
         if self.token_encoder is None:
             # Fallback: approximate token count
-            return len(text.split()) * 1.3
+            return int(len(text.split()) * 1.3)
         return len(self.token_encoder.encode(text))
 
     def estimate_cost(self, tokens: int) -> float:
@@ -182,6 +192,7 @@ class LLMProvider(ABC):
         # This should be implemented by each provider
         # Default implementation returns 0
         return 0.0
+
 
 # OpenAI Implementation
 class OpenAIProvider(LLMProvider):
@@ -200,18 +211,11 @@ class OpenAIProvider(LLMProvider):
         """Setup OpenAI client"""
         try:
             if self.config.provider == LLMProviderType.AZURE_OPENAI:
-                self.client = AsyncOpenAI(
-                    api_key=self.config.api_key,
-                    base_url=self.config.base_url,
-                    timeout=self.config.timeout
-                )
+                self.client = AsyncOpenAI(api_key=self.config.api_key, base_url=self.config.base_url, timeout=self.config.timeout)
             else:
-                self.client = AsyncOpenAI(
-                    api_key=self.config.api_key,
-                    timeout=self.config.timeout
-                )
+                self.client = AsyncOpenAI(api_key=self.config.api_key, timeout=self.config.timeout)
         except Exception as e:
-            raise LLMAuthenticationError(f"Failed to setup OpenAI client: {e}")
+            raise LLMAuthenticationError(f"Failed to setup OpenAI client: {e}") from e
 
     def _setup_token_encoder(self) -> None:
         """Setup tiktoken encoder for OpenAI models"""
@@ -227,18 +231,11 @@ class OpenAIProvider(LLMProvider):
             logger.warning(f"Failed to setup token encoder: {e}")
             self.token_encoder = None
 
-    async def generate_response(
-        self,
-        messages: List[LLMMessage],
-        **kwargs
-    ) -> LLMResponse:
+    async def generate_response(self, messages: list[LLMMessage], **kwargs) -> LLMResponse:
         """Generate response from OpenAI API"""
 
         # Convert messages to OpenAI format
-        openai_messages = [
-            {"role": msg.role.value, "content": msg.content}
-            for msg in messages
-        ]
+        openai_messages = [{"role": msg.role.value, "content": msg.content} for msg in messages]
 
         # Prepare request parameters
         request_params = {
@@ -274,38 +271,36 @@ class OpenAIProvider(LLMProvider):
                     metadata={
                         "prompt_tokens": response.usage.prompt_tokens,
                         "completion_tokens": response.usage.completion_tokens,
-                        "attempt": attempt + 1
-                    }
+                        "attempt": attempt + 1,
+                    },
                 )
 
             except openai.RateLimitError as e:
                 if attempt == self.config.max_retries:
-                    raise LLMRateLimitError(f"Rate limit exceeded after {attempt + 1} attempts")
-                wait_time = 2 ** attempt
+                    raise LLMRateLimitError(f"Rate limit exceeded after {attempt + 1} attempts") from e
+                wait_time = 2**attempt
                 logger.warning(f"Rate limit hit, waiting {wait_time}s before retry {attempt + 1}")
                 await asyncio.sleep(wait_time)
 
             except openai.AuthenticationError as e:
-                raise LLMAuthenticationError(f"Authentication failed: {e}")
+                raise LLMAuthenticationError(f"Authentication failed: {e}") from e
 
             except openai.BadRequestError as e:
                 if "content_policy" in str(e).lower():
-                    raise LLMContentError(f"Content policy violation: {e}")
-                raise LLMError(f"Bad request: {e}")
+                    raise LLMContentError(f"Content policy violation: {e}") from e
+                raise LLMError(f"Bad request: {e}") from e
 
             except Exception as e:
                 if attempt == self.config.max_retries:
-                    raise LLMError(f"Unexpected error after {attempt + 1} attempts: {e}")
-                wait_time = 2 ** attempt
+                    raise LLMError(f"Unexpected error after {attempt + 1} attempts: {e}") from e
+                wait_time = 2**attempt
                 logger.warning(f"Unexpected error, waiting {wait_time}s before retry {attempt + 1}: {e}")
                 await asyncio.sleep(wait_time)
 
-    async def generate_structured_response(
-        self,
-        messages: List[LLMMessage],
-        response_schema: Dict[str, Any],
-        **kwargs
-    ) -> Dict[str, Any]:
+        # This should never be reached, but satisfies type checker
+        raise LLMError("Failed to generate response after all retry attempts")
+
+    async def generate_structured_response(self, messages: list[LLMMessage], response_schema: dict[str, Any], **kwargs) -> dict[str, Any]:
         """Generate structured JSON response from OpenAI"""
 
         # Add schema instruction to system message
@@ -322,18 +317,12 @@ class OpenAIProvider(LLMProvider):
 
         for msg in messages:
             if msg.role == MessageRole.SYSTEM:
-                system_message = LLMMessage(
-                    role=MessageRole.SYSTEM,
-                    content=msg.content + "\n\n" + schema_instruction
-                )
+                system_message = LLMMessage(role=MessageRole.SYSTEM, content=msg.content + "\n\n" + schema_instruction)
             else:
                 user_messages.append(msg)
 
         if system_message is None:
-            system_message = LLMMessage(
-                role=MessageRole.SYSTEM,
-                content=schema_instruction
-            )
+            system_message = LLMMessage(role=MessageRole.SYSTEM, content=schema_instruction)
 
         # Combine messages
         structured_messages = [system_message] + user_messages
@@ -342,7 +331,7 @@ class OpenAIProvider(LLMProvider):
         response = await self.generate_response(
             structured_messages,
             temperature=kwargs.get("temperature", 0.3),  # Lower temperature for structured output
-            **kwargs
+            **kwargs,
         )
 
         # Parse JSON response
@@ -350,22 +339,22 @@ class OpenAIProvider(LLMProvider):
             content = response.content.strip()
 
             # Handle markdown code blocks
-            if content.startswith('```json'):
+            if content.startswith("```json"):
                 # Extract JSON from markdown code block
-                start_idx = content.find('```json') + 7
-                end_idx = content.rfind('```')
+                start_idx = content.find("```json") + 7
+                end_idx = content.rfind("```")
                 if end_idx > start_idx:
                     content = content[start_idx:end_idx].strip()
-            elif content.startswith('```'):
+            elif content.startswith("```"):
                 # Handle generic code block
-                start_idx = content.find('```') + 3
-                end_idx = content.rfind('```')
+                start_idx = content.find("```") + 3
+                end_idx = content.rfind("```")
                 if end_idx > start_idx:
                     content = content[start_idx:end_idx].strip()
 
             return json.loads(content)
         except json.JSONDecodeError as e:
-            raise LLMError(f"Failed to parse JSON response: {e}\nResponse: {response.content}")
+            raise LLMError(f"Failed to parse JSON response: {e}\nResponse: {response.content}") from e
 
     def estimate_cost(self, tokens: int) -> float:
         """Estimate cost for OpenAI API usage"""
@@ -393,6 +382,7 @@ class OpenAIProvider(LLMProvider):
 
         return prompt_cost + completion_cost
 
+
 # Factory function
 def create_llm_provider(config: LLMConfig) -> LLMProvider:
     """
@@ -412,22 +402,17 @@ def create_llm_provider(config: LLMConfig) -> LLMProvider:
     else:
         raise ValueError(f"Unsupported LLM provider: {config.provider}")
 
+
 # Example usage and testing
 async def test_llm_provider():
     """Test function for LLM provider"""
-    config = LLMConfig(
-        provider=LLMProviderType.OPENAI,
-        model="gpt-3.5-turbo",
-        api_key="your-api-key-here",
-        temperature=0.7,
-        max_tokens=500
-    )
+    config = LLMConfig(provider=LLMProviderType.OPENAI, model="gpt-3.5-turbo", api_key="your-api-key-here", temperature=0.7, max_tokens=500)
 
     provider = create_llm_provider(config)
 
     messages = [
         LLMMessage(role=MessageRole.SYSTEM, content="You are a helpful assistant."),
-        LLMMessage(role=MessageRole.USER, content="What is machine learning?")
+        LLMMessage(role=MessageRole.USER, content="What is machine learning?"),
     ]
 
     try:
@@ -437,6 +422,7 @@ async def test_llm_provider():
         print(f"Cost estimate: ${response.cost_estimate:.4f}")
     except LLMError as e:
         print(f"LLM Error: {e}")
+
 
 if __name__ == "__main__":
     asyncio.run(test_llm_provider())

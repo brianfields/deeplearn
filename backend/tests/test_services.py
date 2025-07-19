@@ -9,21 +9,19 @@ Tests for the core business logic services in our two-layer architecture:
 These tests focus on the business logic and don't test API endpoints directly.
 """
 
-import pytest
 import json
-from unittest.mock import Mock, AsyncMock, patch, MagicMock
-from datetime import datetime
-
-# Import system under test
-import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
+import sys
+from unittest.mock import AsyncMock, Mock
+
+import pytest
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from src.core.llm_client import LLMClient
 from src.core.prompt_base import PromptContext
-from src.data_structures import BiteSizedComponent
-from src.modules.lesson_planning.bite_sized_topics.refined_material_service import RefinedMaterialService
 from src.modules.lesson_planning.bite_sized_topics.mcq_service import MCQService
+from src.modules.lesson_planning.bite_sized_topics.refined_material_service import RefinedMaterialService
 
 
 class TestRefinedMaterialService:
@@ -50,26 +48,19 @@ class TestRefinedMaterialService:
             "topics": [
                 {
                     "topic": "Python Function Basics",
-                    "learning_objectives": [
-                        "Define a Python function using proper syntax",
-                        "Explain the purpose of function parameters"
-                    ],
+                    "learning_objectives": ["Define a Python function using proper syntax", "Explain the purpose of function parameters"],
                     "key_facts": [
                         "Functions are defined with the 'def' keyword",
                         "Parameters allow input to functions",
-                        "Return statements send values back"
+                        "Return statements send values back",
                     ],
                     "common_misconceptions": [
                         {
                             "misconception": "Functions can only return one value",
-                            "correct_concept": "Functions can return multiple values using tuples"
+                            "correct_concept": "Functions can return multiple values using tuples",
                         }
                     ],
-                    "assessment_angles": [
-                        "Function definition syntax",
-                        "Parameter usage",
-                        "Return value concepts"
-                    ]
+                    "assessment_angles": ["Function definition syntax", "Parameter usage", "Return value concepts"],
                 }
             ]
         }
@@ -89,10 +80,7 @@ class TestRefinedMaterialService:
 
         # Call method
         result = await self.service.extract_refined_material(
-            source_material=self.sample_source_material,
-            domain="Programming",
-            user_level="beginner",
-            context=self.context
+            source_material=self.sample_source_material, domain="Programming", user_level="beginner", context=self.context
         )
 
         # Verify results
@@ -112,10 +100,7 @@ class TestRefinedMaterialService:
 
         # Should raise ValueError
         with pytest.raises(ValueError, match="Failed to parse refined material JSON"):
-            await self.service.extract_refined_material(
-                source_material=self.sample_source_material,
-                context=self.context
-            )
+            await self.service.extract_refined_material(source_material=self.sample_source_material, context=self.context)
 
     def test_save_refined_material_as_component(self):
         """Test saving refined material as a component."""
@@ -127,7 +112,7 @@ class TestRefinedMaterialService:
             topic_id=topic_id,
             refined_material=self.sample_refined_material,
             generation_prompt=generation_prompt,
-            raw_llm_response=raw_response
+            raw_llm_response=raw_response,
         )
 
         # Test Pydantic model attributes
@@ -156,14 +141,14 @@ class TestMCQService:
             "stem": "What keyword is used to define a function in Python?",
             "options": ["def", "function", "define", "func"],
             "correct_answer": "def",
-            "rationale": "The 'def' keyword is used to define functions in Python"
+            "rationale": "The 'def' keyword is used to define functions in Python",
         }
 
         self.sample_evaluation = {
             "alignment": "Directly tests knowledge of Python function syntax",
             "stem_quality": "Clear and unambiguous question",
             "options_quality": "Good distractors with one clearly correct answer",
-            "overall": "High quality MCQ following best practices"
+            "overall": "High quality MCQ following best practices",
         }
 
     def test_service_initialization(self):
@@ -188,7 +173,7 @@ class TestMCQService:
             key_facts=["Functions use 'def' keyword"],
             common_misconceptions=[],
             assessment_angles=["Syntax knowledge"],
-            context=self.context
+            context=self.context,
         )
 
         # Verify results
@@ -208,9 +193,7 @@ class TestMCQService:
 
         # Call method
         result = await self.service._evaluate_mcq(
-            mcq=self.sample_mcq,
-            learning_objective="Define a Python function using proper syntax",
-            context=self.context
+            mcq=self.sample_mcq, learning_objective="Define a Python function using proper syntax", context=self.context
         )
 
         # Verify results
@@ -221,11 +204,7 @@ class TestMCQService:
 
     def test_convert_mcq_to_index_format_success(self):
         """Test conversion of MCQ to index-based format."""
-        mcq_input = {
-            "stem": "What is 2+2?",
-            "options": ["3", "4", "5", "6"],
-            "correct_answer": "4"
-        }
+        mcq_input = {"stem": "What is 2+2?", "options": ["3", "4", "5", "6"], "correct_answer": "4"}
 
         result = self.service._convert_mcq_to_index_format(mcq_input)
 
@@ -237,7 +216,7 @@ class TestMCQService:
         mcq_input = {
             "stem": "What is 2+2?",
             "options": ["3", "5", "6", "7"],
-            "correct_answer": "4"  # Not in options
+            "correct_answer": "4",  # Not in options
         }
 
         with pytest.raises(ValueError, match="correct_answer '4' not found in options"):
@@ -249,16 +228,13 @@ class TestMCQService:
         mcq_with_evaluation = {
             "mcq": self.sample_mcq,
             "evaluation": self.sample_evaluation,
-            "learning_objective": "Define Python function syntax"
+            "learning_objective": "Define Python function syntax",
         }
         generation_prompt = "Create MCQ for function syntax"
         raw_response = json.dumps(self.sample_mcq)
 
         result = self.service.save_mcq_as_component(
-            topic_id=topic_id,
-            mcq_with_evaluation=mcq_with_evaluation,
-            generation_prompt=generation_prompt,
-            raw_llm_response=raw_response
+            topic_id=topic_id, mcq_with_evaluation=mcq_with_evaluation, generation_prompt=generation_prompt, raw_llm_response=raw_response
         )
 
         # Test Pydantic model attributes
@@ -293,17 +269,13 @@ class TestServiceIntegration:
                     "learning_objectives": ["Define Python functions"],
                     "key_facts": ["Use 'def' keyword"],
                     "common_misconceptions": [],
-                    "assessment_angles": ["Syntax knowledge"]
+                    "assessment_angles": ["Syntax knowledge"],
                 }
             ]
         }
 
         # Sample MCQ
-        sample_mcq = {
-            "stem": "What keyword defines a function?",
-            "options": ["def", "function", "define", "func"],
-            "correct_answer": "def"
-        }
+        sample_mcq = {"stem": "What keyword defines a function?", "options": ["def", "function", "define", "func"], "correct_answer": "def"}
 
         # Mock responses
         refined_response = Mock()
@@ -315,14 +287,11 @@ class TestServiceIntegration:
         eval_response = Mock()
         eval_response.content = json.dumps({"overall": "Good quality"})
 
-        self.mock_llm_client.generate_response = AsyncMock(
-            side_effect=[refined_response, mcq_response, eval_response]
-        )
+        self.mock_llm_client.generate_response = AsyncMock(side_effect=[refined_response, mcq_response, eval_response])
 
         # Step 1: Extract refined material
         refined_result = await self.refined_service.extract_refined_material(
-            source_material="Python functions use def keyword",
-            context=self.context
+            source_material="Python functions use def keyword", context=self.context
         )
 
         # Step 2: Create MCQ from first topic
@@ -333,14 +302,12 @@ class TestServiceIntegration:
             key_facts=topic["key_facts"],
             common_misconceptions=topic["common_misconceptions"],
             assessment_angles=topic["assessment_angles"],
-            context=self.context
+            context=self.context,
         )
 
         # Step 3: Evaluate MCQ
         evaluation = await self.mcq_service._evaluate_mcq(
-            mcq=mcq_result,
-            learning_objective=topic["learning_objectives"][0],
-            context=self.context
+            mcq=mcq_result, learning_objective=topic["learning_objectives"][0], context=self.context
         )
 
         # Verify complete workflow

@@ -36,9 +36,9 @@ from pathlib import Path
 # Add the src directory to the path so we can import modules
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from core.llm_client import LLMClient
-from core.prompt_base import PromptContext
-from modules.lesson_planning.bite_sized_topics.mcq_service import MCQService
+from src.core.llm_client import LLMClient
+from src.core.prompt_base import PromptContext
+from src.modules.lesson_planning.bite_sized_topics.mcq_service import MCQService
 
 
 async def main():
@@ -77,7 +77,7 @@ async def main():
         sys.exit(1)
 
     # Initialize services
-    from core.llm_client import create_llm_client
+    from src.core.llm_client import create_llm_client
     import os
 
     # Get API key from environment variable

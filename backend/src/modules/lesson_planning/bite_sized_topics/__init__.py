@@ -10,4 +10,4 @@ This submodule handles the creation of bite-sized topic content including:
 
 from .service import BiteSizedTopicService
 
-__all__ = ['BiteSizedTopicService']
+__all__ = ["BiteSizedTopicService"]

@@ -12,15 +12,14 @@ Endpoints tested:
 - GET /api/learning/topics/{id}/components
 """
 
-import pytest
-import json
-from unittest.mock import Mock, patch, MagicMock
-from fastapi.testclient import TestClient
-from contextlib import contextmanager
-
-# Import system under test
-import sys
 import os
+import sys
+from contextlib import contextmanager
+from unittest.mock import MagicMock, Mock, patch
+
+import pytest
+from fastapi.testclient import TestClient
+
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from src.api.server import app
