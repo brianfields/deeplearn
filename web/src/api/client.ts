@@ -241,28 +241,6 @@ export class ApiClient {
   }
 
   /**
-   * Start a new conversation for a topic
-   */
-  async startConversation(pathId: string, topicId: string): Promise<ConversationSession> {
-    const response = await this.request<ConversationSession>(
-      `/api/conversations/start?path_id=${pathId}&topic_id=${topicId}`,
-      { method: 'POST' }
-    )
-    return response
-  }
-
-  /**
-   * Continue an existing conversation
-   */
-  async continueConversation(pathId: string, topicId: string): Promise<ConversationSession> {
-    const response = await this.request<ConversationSession>(
-      `/api/conversations/continue?path_id=${pathId}&topic_id=${topicId}`,
-      { method: 'POST' }
-    )
-    return response
-  }
-
-  /**
    * Get overall learning progress
    */
   async getProgress(): Promise<Progress> {
@@ -288,17 +266,6 @@ export class ApiClient {
   async getBiteSizedTopicDetail(topicId: string): Promise<BiteSizedTopicDetail> {
     const response = await this.request<BiteSizedTopicDetail>(
       `/api/bite-sized-topics/${topicId}`
-    )
-    return response
-  }
-
-  /**
-   * Start a conversation for a bite-sized topic
-   */
-  async startBiteSizedTopicConversation(topicId: string): Promise<ConversationSession> {
-    const response = await this.request<ConversationSession>(
-      `/api/bite-sized-topics/${topicId}/start-conversation`,
-      { method: 'POST' }
     )
     return response
   }

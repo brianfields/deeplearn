@@ -97,7 +97,6 @@ export interface BiteSizedTopicDetail {
   target_insights: string[]
   common_misconceptions: string[]
   previous_topics: string[]
-  creation_strategy: string
   components: TopicComponent[]
   created_at: string
   updated_at: string
@@ -457,7 +456,6 @@ export interface FeatureFlags {
 export interface BiteSizedContentInfo {
   generated_topics: BiteSizedTopicMetadata[]
   total_generated: number
-  creation_strategy: string
   user_level: string
 }
 
