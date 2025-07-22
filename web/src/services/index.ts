@@ -10,23 +10,8 @@
  * ```
  */
 
-// Export learning service
-export {
-  LearningService,
-  learningService,
-  createLearningService,
-  type CreateLearningPathOptions,
-  type EnhancedLearningPath,
-  type LearningStats
-} from './learning'
+// Learning services
+export { duolingoLearningService } from './learning/learning-flow'
 
-// Export conversation service
-export {
-  ConversationService,
-  conversationService,
-  createConversationService,
-  type ConversationHandlers,
-  type ActiveConversation,
-  type StartConversationOptions,
-  type ConversationStats
-} from './conversation'
+// Re-export other services
+export * from './conversation'

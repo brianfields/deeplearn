@@ -311,6 +311,7 @@ export type ComponentResultsData =
 export type ComponentType =
   | 'didactic_snippet'
   | 'multiple_choice_question'
+  | 'mcq'  // Backend uses 'mcq' for multiple choice questions
   | 'socratic_dialogue'
   | 'short_answer_question'
   | 'post_topic_quiz'

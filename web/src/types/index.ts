@@ -122,6 +122,7 @@ export type ComponentType =
   | 'socratic_dialogue'
   | 'short_answer_question'
   | 'multiple_choice_question'
+  | 'mcq'  // Backend uses 'mcq' for multiple choice questions
   | 'post_topic_quiz'
 
 // ================================

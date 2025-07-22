@@ -1,0 +1,130 @@
+PyTorch Cross-Entropy Loss Function: Comprehensive Guide
+
+Cross-entropy loss is one of the most commonly used loss functions in deep learning, particularly for classification tasks. In PyTorch, the cross-entropy loss function is implemented as `torch.nn.CrossEntropyLoss` and `torch.nn.functional.cross_entropy`.
+
+## What is Cross-Entropy Loss?
+
+Cross-entropy loss measures the performance of a classification model whose output is a probability value between 0 and 1. The loss increases as the predicted probability diverges from the actual label. Perfect predictions have a cross-entropy loss of 0.
+
+The mathematical formula for cross-entropy loss is:
+Loss = -Σ(yi * log(ŷi))
+
+Where:
+- yi is the true label (one-hot encoded)
+- ŷi is the predicted probability for class i
+
+## PyTorch Implementation
+
+In PyTorch, you can use cross-entropy loss in two ways:
+
+### 1. Using torch.nn.CrossEntropyLoss (Class-based)
+```python
+import torch
+import torch.nn as nn
+
+criterion = nn.CrossEntropyLoss()
+input = torch.randn(3, 5, requires_grad=True)  # 3 samples, 5 classes
+target = torch.randint(0, 5, (3,))  # target class indices
+loss = criterion(input, target)
+```
+
+### 2. Using torch.nn.functional.cross_entropy (Functional)
+```python
+import torch.nn.functional as F
+
+input = torch.randn(3, 5, requires_grad=True)
+target = torch.randint(0, 5, (3,))
+loss = F.cross_entropy(input, target)
+```
+
+## Input and Target Shapes
+
+Understanding the correct input and target shapes is crucial:
+
+**Input Tensor:**
+- Shape: (N, C) where N is batch size, C is number of classes
+- For higher dimensions: (N, C, d1, d2, ..., dk) where k ≥ 1
+- Contains raw logits (unnormalized log probabilities)
+
+**Target Tensor (Class Indices):**
+- Shape: (N,) for basic case
+- For higher dimensions: (N, d1, d2, ..., dk) where k ≥ 1
+- Contains class indices as integers (0 to C-1)
+
+**Target Tensor (Class Probabilities):**
+- Shape must match input shape: (N, C) or (N, C, d1, d2, ..., dk)
+- Contains probability distributions
+
+## Key Parameters
+
+### weight
+- Type: Tensor, optional
+- Manual rescaling weight given to each class
+- Useful for imbalanced datasets
+
+### size_average and reduce (DEPRECATED)
+- These parameters have been deprecated
+- Use 'reduction' parameter instead
+
+### reduction
+- Options: 'none', 'mean', 'sum'
+- 'mean': Returns the mean of losses
+- 'sum': Returns the sum of losses
+- 'none': Returns losses for each sample
+
+### ignore_index
+- Type: int, optional
+- Specifies a target value that is ignored and doesn't contribute to gradient
+- Useful when you want to ignore certain classes (like padding tokens)
+
+### label_smoothing
+- Type: float, default: 0.0
+- Specifies the amount of smoothing when computing loss
+- Helps prevent overfitting and overconfident predictions
+
+## Common Use Cases
+
+### 1. Multi-class Classification
+```python
+# 10 samples, 3 classes
+input = torch.randn(10, 3)
+target = torch.randint(0, 3, (10,))
+loss = F.cross_entropy(input, target)
+```
+
+### 2. Image Segmentation
+```python
+# Batch of 4 images, 21 classes, 256x256 pixels
+input = torch.randn(4, 21, 256, 256)
+target = torch.randint(0, 21, (4, 256, 256))
+loss = F.cross_entropy(input, target)
+```
+
+### 3. With Class Weights
+```python
+# Give more weight to rare classes
+weights = torch.tensor([1.0, 2.0, 1.5])  # 3 classes
+criterion = nn.CrossEntropyLoss(weight=weights)
+loss = criterion(input, target)
+```
+
+## Important Notes
+
+1. **No Softmax Needed**: Cross-entropy loss applies softmax internally, so input should be raw logits
+2. **Target Format**: When using class indices, targets should be integer class labels, not one-hot vectors
+3. **Gradient Flow**: Cross-entropy loss provides better gradient flow compared to other loss functions for classification
+4. **Numerical Stability**: PyTorch's implementation includes numerical stability optimizations
+
+## Common Errors and Solutions
+
+### Error: "Expected target size (N,) but got size (N, C)"
+**Problem**: Providing one-hot encoded targets instead of class indices
+**Solution**: Use class indices (integers) or set targets to proper probability distributions
+
+### Error: "Input and target shapes don't match"
+**Problem**: Mismatch between input and target dimensions
+**Solution**: Ensure target shape is (N,) for input shape (N, C), or (N, d1, ..., dk) for input shape (N, C, d1, ..., dk)
+
+### Error: "Target out of bounds"
+**Problem**: Target class index exceeds number of classes
+**Solution**: Ensure all target values are in range [0, C-1] where C is number of classes

@@ -253,21 +253,28 @@ export class ApiClient {
   // ================================
 
   /**
-   * Get all bite-sized topics
+   * Get all bite-sized topics (using learning-optimized endpoint)
    */
   async getBiteSizedTopics(): Promise<BiteSizedTopic[]> {
-    const response = await this.request<BiteSizedTopic[]>('/api/bite-sized-topics')
+    const response = await this.request<BiteSizedTopic[]>('/api/learning/topics')
     return response
   }
 
   /**
-   * Get detailed bite-sized topic by ID
+   * Get detailed bite-sized topic by ID (using learning-optimized endpoint)
    */
   async getBiteSizedTopicDetail(topicId: string): Promise<BiteSizedTopicDetail> {
-    const response = await this.request<BiteSizedTopicDetail>(
-      `/api/bite-sized-topics/${topicId}`
-    )
-    return response
+    console.log('📡 [API Client] Making request to:', `/api/learning/topics/${topicId}`)
+    try {
+      const response = await this.request<BiteSizedTopicDetail>(
+        `/api/learning/topics/${topicId}`
+      )
+      console.log('✅ [API Client] Request succeeded:', response?.title)
+      return response
+    } catch (error) {
+      console.error('❌ [API Client] Request failed:', error)
+      throw error
+    }
   }
 
   /**

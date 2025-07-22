@@ -11,11 +11,15 @@
  * ```
  */
 
-// Learning paths hooks
-export { default as useBiteSizedTopics } from './useBiteSizedTopics'
+// Dashboard hooks
+export { default as useBiteSizedTopics } from './dashboard/useBiteSizedTopics'
+
+// Learning hooks
+export { useDuolingoLearning } from './learning/useDuolingoLearning'
+export { default as useDuolingoLearning } from './learning/useDuolingoLearning'
+
+// Re-export conversation hook (if it exists)
 export { default as useConversation } from './useConversation'
-export { default as useLearningPaths } from './useLearningPaths'
-export { default as useDuolingoLearning } from './useDuolingoLearning'
 
 // Re-export hook option types for convenience
 export type { UseConversationOptions } from './useConversation'

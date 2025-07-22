@@ -20,12 +20,10 @@ import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 
 import DidacticSnippet from './DidacticSnippet'
-import SocraticDialogue from './SocraticDialogue'
 import MultipleChoice from './MultipleChoice'
-import ShortAnswer from './ShortAnswer'
-import PostTopicQuiz from './PostTopicQuiz'
+// TODO: Re-add other imports when we expand beyond MCQs
 
-import { duolingoLearningService } from '@/services/duolingo-learning'
+import { duolingoLearningService } from '@/services/learning/learning-flow'
 import type { BiteSizedTopicDetail, ComponentType, LearningResults } from '@/types'
 
 interface DuolingoLearningFlowProps {
@@ -34,13 +32,10 @@ interface DuolingoLearningFlowProps {
   onBack: () => void
 }
 
-// Optimized component ordering for engagement
+// Simplified flow: didactic snippet then individual MCQs
 const COMPONENT_ORDER: ComponentType[] = [
-  'didactic_snippet',    // 1. Learn
-  'multiple_choice_question', // 2. Quick check
-  'short_answer_question',    // 3. Apply
-  'socratic_dialogue',        // 4. Explore (if available)
-  'post_topic_quiz'          // 5. Master
+  'didactic_snippet',  // 1. Learn the concept
+  'mcq'               // 2. Individual MCQ questions
 ]
 
 interface ComponentStep {
@@ -51,6 +46,9 @@ interface ComponentStep {
 }
 
 export default function DuolingoLearningFlow({ topic, onComplete, onBack }: DuolingoLearningFlowProps) {
+  console.log('🎯 [DuolingoLearningFlow] Component mounted with topic:', topic?.title)
+  console.log('🎯 [DuolingoLearningFlow] Topic components count:', topic?.components?.length)
+
   const [currentStepIndex, setCurrentStepIndex] = useState(0)
   const [startTime] = useState(Date.now())
   const [completedSteps, setCompletedSteps] = useState<string[]>([])
@@ -59,28 +57,53 @@ export default function DuolingoLearningFlow({ topic, onComplete, onBack }: Duol
   const [streakCount, setStreakCount] = useState(0)
   const [showCelebration, setShowCelebration] = useState(false)
 
-  // Organize components into steps
+  // Organize components into individual steps (each MCQ gets its own step)
   const componentSteps = useMemo((): ComponentStep[] => {
+    console.log('🔧 [DuolingoLearningFlow] Organizing components:', topic.components)
+    console.log('🔧 [DuolingoLearningFlow] Backend component types:', topic.components.map(c => c.component_type))
     const steps: ComponentStep[] = []
 
-    for (const componentType of COMPONENT_ORDER) {
-      const components = topic.components.filter(c => c.component_type === componentType)
-      if (components.length > 0) {
-        steps.push({
-          type: componentType,
-          components,
-          currentIndex: 0,
-          isCompleted: false
-        })
-      }
+    // Add didactic snippet first (if available)
+    const didacticComponents = topic.components.filter(c => c.component_type === 'didactic_snippet')
+    console.log(`🔍 [DuolingoLearningFlow] Looking for didactic snippets in ${topic.components.length} components`)
+    console.log(`🔍 [DuolingoLearningFlow] Component types found:`, topic.components.map(c => c.component_type))
+    console.log(`🔍 [DuolingoLearningFlow] Didactic components found:`, didacticComponents.length)
+
+    if (didacticComponents.length > 0) {
+      console.log(`✅ [DuolingoLearningFlow] Adding ${didacticComponents.length} didactic snippet(s) to steps`)
+      steps.push({
+        type: 'didactic_snippet',
+        components: didacticComponents,
+        currentIndex: 0,
+        isCompleted: false
+      })
+    } else {
+      console.log(`⚠️ [DuolingoLearningFlow] No didactic snippets found, starting with MCQs`)
     }
 
+    // Add each MCQ as an individual step
+    const mcqComponents = topic.components.filter(c => c.component_type === 'mcq')
+    console.log(`🔧 [DuolingoLearningFlow] Found ${mcqComponents.length} MCQ components`)
+    mcqComponents.forEach((mcqComponent, index) => {
+      steps.push({
+        type: 'mcq',
+        components: [mcqComponent], // Single MCQ per step
+        currentIndex: 0,
+        isCompleted: false
+      })
+    })
+
+    console.log('🔧 [DuolingoLearningFlow] Created steps:', steps.map(s => ({ type: s.type, componentCount: s.components.length })))
     return steps
   }, [topic.components])
 
   const currentStep = componentSteps[currentStepIndex]
   const totalSteps = componentSteps.length
   const progress = totalSteps > 0 ? (currentStepIndex / totalSteps) * 100 : 0
+
+  console.log('🔧 [DuolingoLearningFlow] Current step:', currentStep)
+  console.log('🔧 [DuolingoLearningFlow] Current step index:', currentStepIndex)
+  console.log('🔧 [DuolingoLearningFlow] Total steps:', totalSteps)
 
   // Load streak count on mount
   useEffect(() => {
@@ -156,9 +179,19 @@ export default function DuolingoLearningFlow({ topic, onComplete, onBack }: Duol
   }, [startTime, completedSteps, interactionResults, topic.id, onComplete])
 
   const renderCurrentComponent = () => {
-    if (!currentStep) return null
+    console.log('🎨 [DuolingoLearningFlow] renderCurrentComponent called')
+    console.log('🎨 [DuolingoLearningFlow] currentStep:', currentStep)
+
+    if (!currentStep) {
+      console.log('❌ [DuolingoLearningFlow] No current step available!')
+      return <div className="text-center p-8">
+        <p className="text-red-600">No learning steps available</p>
+        <p className="text-sm text-gray-600 mt-2">Debug: currentStep is {currentStep}</p>
+      </div>
+    }
 
     const currentComponent = currentStep.components[currentStep.currentIndex]
+    console.log('🎨 [DuolingoLearningFlow] Current component:', currentComponent)
 
     switch (currentStep.type) {
       case 'didactic_snippet':
@@ -171,36 +204,49 @@ export default function DuolingoLearningFlow({ topic, onComplete, onBack }: Duol
           />
         )
 
-      case 'multiple_choice_question':
-        // Transform the content to match MultipleChoice component interface
-        const mcContent = currentComponent.content
-        console.log('Raw multiple choice content:', mcContent)
+      case 'mcq':
+        // Transform single MCQ component (since each step now has only one MCQ)
+        console.log(`🔍 [MCQ Debug] Processing single MCQ component`)
 
-        // Transform to match MultipleChoiceQuestion interface
-        const transformedMCQuestion = {
-          type: 'multiple_choice_question' as const,
-          number: 1,
-          title: mcContent.title || mcContent.question || 'Question',
-          question: mcContent.question || mcContent.title || 'Question',
-          choices: mcContent.choices || (Array.isArray(mcContent.options) ?
-            mcContent.options.reduce((acc: Record<string, string>, opt: any, index: number) => {
-              const letter = String.fromCharCode(65 + index); // A, B, C, D
-              acc[letter] = opt.text || opt.option || opt;
-              return acc;
-            }, {}) : { 'A': 'Option A', 'B': 'Option B' }),
-          correct_answer: mcContent.correct_answer || 'A',
-          justifications: mcContent.justifications || {},
-          target_concept: mcContent.target_concept || '',
-          purpose: mcContent.purpose || 'Test understanding',
-          difficulty: mcContent.difficulty || 2,
-          tags: mcContent.tags || mcContent.hint || ''
+        const mcContent = currentComponent.content
+        console.log(`🔍 [MCQ Debug] MCQ content:`, JSON.stringify(mcContent, null, 2))
+
+        // Transform backend MCQ format to component format
+        const mcqData = mcContent.mcq || mcContent;
+
+        // Convert options array to choices object with A/B/C/D keys
+        const choices: Record<string, string> = {};
+        if (Array.isArray(mcqData.options)) {
+          mcqData.options.forEach((option: string, optIndex: number) => {
+            const letter = String.fromCharCode(65 + optIndex); // A, B, C, D
+            choices[letter] = option;
+          });
         }
 
-        console.log('Transformed multiple choice question:', transformedMCQuestion)
+        // Find correct answer key using the index
+        const correctAnswerKey = mcqData.correct_answer_index !== undefined
+          ? String.fromCharCode(65 + mcqData.correct_answer_index)
+          : 'A';
+
+        const transformedQuestion = {
+          type: 'multiple_choice_question' as const,
+          number: 1,
+          title: mcqData.stem || 'Question',
+          question: mcqData.stem || 'Question',
+          choices: choices,
+          correct_answer: correctAnswerKey,
+          justifications: mcqData.justifications || {},
+          target_concept: mcContent.learning_objective || '',
+          purpose: 'Test understanding',
+          difficulty: 2,
+          tags: mcqData.rationale || ''
+        }
+
+        console.log(`🔍 [MCQ Debug] Transformed question:`, JSON.stringify(transformedQuestion, null, 2))
 
         // Safety check
-        if (!transformedMCQuestion.choices || Object.keys(transformedMCQuestion.choices).length === 0) {
-          console.error('No valid choices found for multiple choice question:', mcContent)
+        if (!transformedQuestion.choices || Object.keys(transformedQuestion.choices).length === 0) {
+          console.error('No valid choices found for MCQ:', mcContent)
           return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
               <div className="text-center max-w-md">
@@ -208,7 +254,7 @@ export default function DuolingoLearningFlow({ topic, onComplete, onBack }: Duol
                 <h2 className="text-xl font-semibold text-gray-900 mb-2">Content Error</h2>
                 <p className="text-gray-600 mb-4">This question doesn't have valid options to display.</p>
                 <button
-                  onClick={() => handleStepComplete('multiple_choice', { correct: 0, total: 1 })}
+                  onClick={() => handleStepComplete('mcq', { correct: 0, total: 1 })}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
                   Skip Question
@@ -218,63 +264,19 @@ export default function DuolingoLearningFlow({ topic, onComplete, onBack }: Duol
           )
         }
 
+        // Create quiz structure with single question
+        const quiz = { questions: [transformedQuestion] };
+        console.log('🎯 [MCQ Debug] Final single question quiz:', JSON.stringify(quiz, null, 2))
+
         return (
           <MultipleChoice
-            quiz={{ questions: [transformedMCQuestion] }}
-            onComplete={(results) => handleStepComplete('multiple_choice', results)}
+            quiz={quiz}
+            onComplete={(results) => handleStepComplete('mcq', results)}
             isLoading={isLoading}
           />
         )
 
-      case 'short_answer_question':
-        // Transform the content to match ShortAnswer component interface
-        const saContent = currentComponent.content
-        console.log('Raw short answer content:', saContent)
-
-        const transformedSAQuestion = {
-          type: 'short_answer_question' as const,
-          number: 1,
-          title: saContent.title || saContent.question || 'Question',
-          question: saContent.question || saContent.title || 'Question',
-          purpose: saContent.purpose || 'Demonstrate understanding',
-          target_concept: saContent.target_concept || 'Core concept',
-          expected_elements: saContent.expected_elements ||
-                           (Array.isArray(saContent.sample_answers) ? saContent.sample_answers.join(', ') :
-                           Array.isArray(saContent.answers) ? saContent.answers.join(', ') :
-                           'Key points to include in your answer'),
-          difficulty: saContent.difficulty || 2,
-          tags: saContent.tags || saContent.hint || ''
-        }
-
-        console.log('Transformed short answer question:', transformedSAQuestion)
-
-        return (
-          <ShortAnswer
-            assessment={{ questions: [transformedSAQuestion] }}
-            onComplete={(results) => handleStepComplete('short_answer', results)}
-            isLoading={isLoading}
-          />
-        )
-
-      case 'socratic_dialogue':
-        console.log('Raw socratic dialogue content:', currentComponent.content)
-        return (
-          <SocraticDialogue
-            dialogue={currentComponent.content}
-            onComplete={(insights) => handleStepComplete('socratic', { insights })}
-            isLoading={isLoading}
-          />
-        )
-
-      case 'post_topic_quiz':
-        console.log('Raw post topic quiz content:', currentComponent.content)
-        return (
-          <PostTopicQuiz
-            quiz={currentComponent.content}
-            onComplete={(results) => handleStepComplete('quiz', results)}
-            onRetry={() => {}} // No retry in Duolingo mode
-          />
-        )
+      // TODO: Add back other component types later
 
       default:
         return null
