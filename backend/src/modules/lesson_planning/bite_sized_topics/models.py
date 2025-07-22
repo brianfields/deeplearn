@@ -5,7 +5,21 @@ These models define the expected structure for LLM responses and enable
 automatic parsing and validation using the instructor library.
 """
 
+from typing import Any
+
 from pydantic import BaseModel, Field
+
+
+class GenerationMetadata(BaseModel):
+    """Metadata about how content was generated."""
+
+    generation_prompt: str | None = Field(default=None, description="The prompt used to generate this content")
+    raw_llm_response: str | None = Field(default=None, description="Raw response from the LLM")
+    generation_method: str | None = Field(default=None, description="Method used for generation")
+    topic: str | None = Field(default=None, description="Topic this content relates to")
+    learning_objective: str | None = Field(default=None, description="Learning objective this content addresses")
+    evaluation: dict[str, Any] | None = Field(default=None, description="Evaluation results for this content")
+    refined_material: str | None = Field(default=None, description="Source material used for generation")
 
 
 class DidacticSnippet(BaseModel):
@@ -15,6 +29,7 @@ class DidacticSnippet(BaseModel):
     snippet: str = Field(description="3-10 sentence teaching explanation using appropriate framing")
     type: str = Field(default="didactic_snippet", description="Content type identifier")
     difficulty: int = Field(default=2, ge=1, le=5, description="Difficulty level from 1-5")
+    generation_metadata: GenerationMetadata | None = Field(default=None, description="Metadata about content generation")
 
 
 class GlossaryEntry(BaseModel):
@@ -25,6 +40,8 @@ class GlossaryEntry(BaseModel):
     explanation: str = Field(description="3-7 sentence teaching-style explanation")
     type: str = Field(default="glossary_entry", description="Content type identifier")
     difficulty: int = Field(default=2, ge=1, le=5, description="Difficulty level from 1-5")
+    number: int | None = Field(default=None, description="Position number in the glossary")
+    generation_metadata: GenerationMetadata | None = Field(default=None, description="Metadata about content generation")
 
 
 class GlossaryResponse(BaseModel):
@@ -46,6 +63,8 @@ class SocraticDialogue(BaseModel):
     type: str = Field(default="socratic_dialogue", description="Content type identifier")
     difficulty: int = Field(default=3, ge=1, le=5, description="Difficulty level from 1-5")
     tags: str = Field(default="", description="Optional tags for categorization")
+    number: int | None = Field(default=None, description="Position number in the dialogue set")
+    generation_metadata: GenerationMetadata | None = Field(default=None, description="Metadata about content generation")
 
 
 class SocraticDialogueResponse(BaseModel):
@@ -65,6 +84,8 @@ class ShortAnswerQuestion(BaseModel):
     type: str = Field(default="short_answer_question", description="Content type identifier")
     difficulty: int = Field(default=3, ge=1, le=5, description="Difficulty level from 1-5")
     tags: str = Field(default="", description="Optional tags for categorization")
+    number: int | None = Field(default=None, description="Position number in the question set")
+    generation_metadata: GenerationMetadata | None = Field(default=None, description="Metadata about content generation")
 
 
 class ShortAnswerResponse(BaseModel):
@@ -80,12 +101,15 @@ class MultipleChoiceQuestion(BaseModel):
     question: str = Field(description="The question stem, clearly phrased")
     choices: dict[str, str] = Field(description="Answer choices keyed by letter (A, B, C, D)")
     correct_answer: str = Field(description="Letter of the correct answer")
+    correct_answer_index: int | None = Field(default=None, description="Zero-based index of correct answer")
     justifications: dict[str, str] = Field(description="Explanations for why each choice is correct/incorrect")
     target_concept: str = Field(description="The key concept this question tests")
     purpose: str = Field(description="Type of assessment (e.g., misconception check, concept contrast)")
     type: str = Field(default="multiple_choice_question", description="Content type identifier")
     difficulty: int = Field(default=3, ge=1, le=5, description="Difficulty level from 1-5")
     tags: str = Field(default="", description="Optional tags for usage metadata")
+    number: int | None = Field(default=None, description="Position number in the question set")
+    generation_metadata: GenerationMetadata | None = Field(default=None, description="Metadata about content generation")
 
 
 class MultipleChoiceResponse(BaseModel):
@@ -103,6 +127,7 @@ class QuizItem(BaseModel):
     target_concept: str = Field(description="Concept being assessed")
     difficulty: int = Field(default=3, ge=1, le=5, description="Difficulty level from 1-5")
     tags: str = Field(default="", description="Optional tags")
+    generation_metadata: GenerationMetadata | None = Field(default=None, description="Metadata about content generation")
 
     # Multiple choice specific fields
     choices: dict[str, str] = Field(default_factory=dict, description="Answer choices for MC questions")

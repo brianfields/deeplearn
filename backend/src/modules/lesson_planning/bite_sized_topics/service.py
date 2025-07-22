@@ -13,7 +13,9 @@ from src.core.service_base import ModuleService, ServiceConfig
 from .mcq_service import MCQService
 from .models import (
     DidacticSnippet,
+    GenerationMetadata,
     GlossaryResponse,
+    MultipleChoiceQuestion,
     PostTopicQuizResponse,
     ShortAnswerResponse,
     SocraticDialogueResponse,
@@ -101,7 +103,7 @@ class BiteSizedTopicService(ModuleService):
             self.logger.error(f"Failed to generate lesson content: {e}")
             raise BiteSizedTopicError(f"Failed to generate lesson content: {e}") from e
 
-    async def create_didactic_snippet(self, topic_title: str, key_concept: str, user_level: str = "beginner", concept_context: str | None = None, learning_objectives: list[str] | None = None, previous_topics: list[str] | None = None) -> dict[str, Any]:
+    async def create_didactic_snippet(self, topic_title: str, key_concept: str, user_level: str = "beginner", concept_context: str | None = None, learning_objectives: list[str] | None = None, previous_topics: list[str] | None = None) -> DidacticSnippet:
         """
         Create a didactic snippet for a specific concept.
 
@@ -114,7 +116,7 @@ class BiteSizedTopicService(ModuleService):
             previous_topics: Previously covered topics
 
         Returns:
-            Dictionary with 'title' and 'snippet' keys
+            DidacticSnippet object with metadata
 
         Raises:
             BiteSizedTopicError: If generation fails
@@ -130,26 +132,20 @@ class BiteSizedTopicService(ModuleService):
             # Use instructor to get structured output
             snippet = await self.llm_client.generate_structured_object(messages, DidacticSnippet)
 
-            # Convert to the expected dictionary format and add metadata
-            result = {
-                "title": snippet.title,
-                "snippet": snippet.snippet,
-                "type": snippet.type,
-                "difficulty": snippet.difficulty,
-                "_generation_metadata": {
-                    "generation_prompt": self._format_messages_for_storage(messages),
-                    "raw_llm_response": "Generated using instructor library",
-                },
-            }
+            # Add generation metadata
+            snippet.generation_metadata = GenerationMetadata(
+                generation_prompt=self._format_messages_for_storage(messages),
+                raw_llm_response="Generated using instructor library",
+            )
 
             self.logger.info(f"Generated didactic snippet for '{key_concept}': {snippet.title}")
-            return result
+            return snippet
 
         except Exception as e:
             self.logger.error(f"Failed to generate didactic snippet: {e}")
             raise BiteSizedTopicError(f"Failed to generate didactic snippet: {e}") from e
 
-    async def create_glossary(self, topic_title: str, concepts: list[str], user_level: str = "beginner", lesson_context: str | None = None, learning_objectives: list[str] | None = None, previous_topics: list[str] | None = None) -> list[dict[str, Any]]:
+    async def create_glossary(self, topic_title: str, concepts: list[str], user_level: str = "beginner", lesson_context: str | None = None, learning_objectives: list[str] | None = None, previous_topics: list[str] | None = None) -> GlossaryResponse:
         """
         Create a glossary of concepts for a topic.
 
@@ -162,7 +158,7 @@ class BiteSizedTopicService(ModuleService):
             previous_topics: Previously covered topics
 
         Returns:
-            Dictionary mapping concepts to teaching-style explanations
+            GlossaryResponse object with metadata
 
         Raises:
             BiteSizedTopicError: If generation fails
@@ -179,27 +175,18 @@ class BiteSizedTopicService(ModuleService):
             # Use instructor to get structured output
             glossary_response = await self.llm_client.generate_structured_object(messages, GlossaryResponse)
 
-            # Convert to the expected format and add metadata
-            glossary_entries = []
-            generation_metadata = {
-                "generation_prompt": self._format_messages_for_storage(messages),
-                "raw_llm_response": "Generated using instructor library",
-            }
+            # Add metadata to each entry
+            generation_metadata = GenerationMetadata(
+                generation_prompt=self._format_messages_for_storage(messages),
+                raw_llm_response="Generated using instructor library",
+            )
 
             for i, entry in enumerate(glossary_response.glossary_entries, 1):
-                glossary_entry = {
-                    "type": entry.type,
-                    "number": i,
-                    "concept": entry.concept,
-                    "title": entry.title,
-                    "explanation": entry.explanation,
-                    "difficulty": entry.difficulty,
-                    "_generation_metadata": generation_metadata,
-                }
-                glossary_entries.append(glossary_entry)
+                entry.number = i
+                entry.generation_metadata = generation_metadata
 
-            self.logger.info(f"Generated glossary for '{topic_title}' with {len(glossary_entries)} concepts")
-            return glossary_entries
+            self.logger.info(f"Generated glossary for '{topic_title}' with {len(glossary_response.glossary_entries)} concepts")
+            return glossary_response
 
         except Exception as e:
             self.logger.error(f"Failed to generate glossary: {e}")
@@ -214,7 +201,7 @@ class BiteSizedTopicService(ModuleService):
         previous_topics: list[str] | None = None,
         target_insights: list[str] | None = None,
         common_misconceptions: list[str] | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> SocraticDialogueResponse:
         """
         Create a set of Socratic dialogue exercises for a concept.
 
@@ -228,7 +215,7 @@ class BiteSizedTopicService(ModuleService):
             common_misconceptions: Common misconceptions to address
 
         Returns:
-            List of dialogue dictionaries with metadata
+            SocraticDialogueResponse object with metadata
 
         Raises:
             BiteSizedTopicError: If generation fails
@@ -252,32 +239,18 @@ class BiteSizedTopicService(ModuleService):
             # Use instructor to get structured output
             dialogue_response = await self.llm_client.generate_structured_object(messages, SocraticDialogueResponse)
 
-            # Convert to the expected format and add metadata
-            dialogues = []
-            generation_metadata = {
-                "generation_prompt": self._format_messages_for_storage(messages),
-                "raw_llm_response": "Generated using instructor library",
-            }
+            # Add metadata to each dialogue
+            generation_metadata = GenerationMetadata(
+                generation_prompt=self._format_messages_for_storage(messages),
+                raw_llm_response="Generated using instructor library",
+            )
 
             for i, dialogue in enumerate(dialogue_response.dialogues, 1):
-                dialogue_dict = {
-                    "type": dialogue.type,
-                    "number": i,
-                    "title": dialogue.title,
-                    "concept": dialogue.concept,
-                    "dialogue_objective": dialogue.dialogue_objective,
-                    "starting_prompt": dialogue.starting_prompt,
-                    "dialogue_style": dialogue.dialogue_style,
-                    "hints_and_scaffolding": dialogue.hints_and_scaffolding,
-                    "exit_criteria": dialogue.exit_criteria,
-                    "difficulty": dialogue.difficulty,
-                    "tags": dialogue.tags,
-                    "_generation_metadata": generation_metadata,
-                }
-                dialogues.append(dialogue_dict)
+                dialogue.number = i
+                dialogue.generation_metadata = generation_metadata
 
-            self.logger.info(f"Generated {len(dialogues)} Socratic dialogues for '{core_concept}'")
-            return dialogues
+            self.logger.info(f"Generated {len(dialogue_response.dialogues)} Socratic dialogues for '{core_concept}'")
+            return dialogue_response
 
         except Exception as e:
             self.logger.error(f"Failed to generate Socratic dialogues: {e}")
@@ -292,7 +265,7 @@ class BiteSizedTopicService(ModuleService):
         previous_topics: list[str] | None = None,
         key_aspects: list[str] | None = None,
         avoid_overlap_with: list[str] | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> ShortAnswerResponse:
         """
         Create a set of short answer questions for a concept.
 
@@ -306,7 +279,7 @@ class BiteSizedTopicService(ModuleService):
             avoid_overlap_with: Topics/concepts to avoid overlapping with
 
         Returns:
-            List of question dictionaries with metadata
+            ShortAnswerResponse object with metadata
 
         Raises:
             BiteSizedTopicError: If generation fails
@@ -322,30 +295,18 @@ class BiteSizedTopicService(ModuleService):
             # Use instructor to get structured output
             questions_response = await self.llm_client.generate_structured_object(messages, ShortAnswerResponse)
 
-            # Convert to the expected format and add metadata
-            questions = []
-            generation_metadata = {
-                "generation_prompt": self._format_messages_for_storage(messages),
-                "raw_llm_response": "Generated using instructor library",
-            }
+            # Add metadata to each question
+            generation_metadata = GenerationMetadata(
+                generation_prompt=self._format_messages_for_storage(messages),
+                raw_llm_response="Generated using instructor library",
+            )
 
             for i, question in enumerate(questions_response.questions, 1):
-                question_dict = {
-                    "type": question.type,
-                    "number": i,
-                    "title": question.title,
-                    "question": question.question,
-                    "purpose": question.purpose,
-                    "target_concept": question.target_concept,
-                    "expected_elements": question.expected_elements,
-                    "difficulty": question.difficulty,
-                    "tags": question.tags,
-                    "_generation_metadata": generation_metadata,
-                }
-                questions.append(question_dict)
+                question.number = i
+                question.generation_metadata = generation_metadata
 
-            self.logger.info(f"Generated {len(questions)} short answer questions for '{core_concept}'")
-            return questions
+            self.logger.info(f"Generated {len(questions_response.questions)} short answer questions for '{core_concept}'")
+            return questions_response
 
         except Exception as e:
             self.logger.error(f"Failed to generate short answer questions: {e}")
@@ -361,7 +322,7 @@ class BiteSizedTopicService(ModuleService):
         key_aspects: list[str] | None = None,
         common_misconceptions: list[str] | None = None,
         avoid_overlap_with: list[str] | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> list[MultipleChoiceQuestion]:
         """
         Create a set of multiple choice questions for a concept using the modern two-pass approach.
 
@@ -376,7 +337,7 @@ class BiteSizedTopicService(ModuleService):
             avoid_overlap_with: Topics/concepts to avoid overlapping with
 
         Returns:
-            List of MCQ dictionaries with metadata and justifications (backward compatible format)
+            List of MultipleChoiceQuestion objects with metadata
 
         Raises:
             BiteSizedTopicError: If generation fails
@@ -404,35 +365,37 @@ class BiteSizedTopicService(ModuleService):
                 context=context,
             )
 
-            # Step 4: Convert to backward-compatible format
+            # Step 4: Convert to MultipleChoiceQuestion objects
             parsed_questions = []
             for i, mcq_data in enumerate(mcqs_with_evaluations, 1):
                 mcq = mcq_data["mcq"]
                 evaluation = mcq_data["evaluation"]
 
-                # Create backward-compatible MCQ format
-                parsed_question = {
-                    "type": "multiple_choice_question",
-                    "number": i,
-                    "title": mcq.get("stem", "")[:50] + "..." if len(mcq.get("stem", "")) > 50 else mcq.get("stem", ""),
-                    "question": mcq.get("stem", ""),
-                    "choices": self._convert_options_to_dict(mcq.get("options", [])),
-                    "correct_answer": mcq.get("correct_answer", ""),
-                    "correct_answer_index": mcq.get("correct_answer_index", 0),  # Include modern index format
-                    "justifications": {"rationale": mcq.get("rationale", ""), "evaluation": evaluation},
-                    "target_concept": mcq_data.get("topic", core_concept),
-                    "purpose": f"Assess understanding of {mcq_data.get('learning_objective', '')}",
-                    "difficulty": 3,  # Default difficulty
-                    "tags": core_concept,
-                    "_generation_metadata": {
-                        "generation_method": "two_pass_mcq_service",
-                        "topic": mcq_data.get("topic", ""),
-                        "learning_objective": mcq_data.get("learning_objective", ""),
-                        "evaluation": evaluation,
-                        "refined_material": refined_material,
-                    },
-                }
-                parsed_questions.append(parsed_question)
+                # Create generation metadata
+                generation_metadata = GenerationMetadata(
+                    generation_method="two_pass_mcq_service",
+                    topic=mcq_data.get("topic", ""),
+                    learning_objective=mcq_data.get("learning_objective", ""),
+                    evaluation=evaluation,
+                    refined_material=str(refined_material) if refined_material else None,
+                )
+
+                # Create MultipleChoiceQuestion object
+                mcq_question = MultipleChoiceQuestion(
+                    title=mcq.get("stem", "")[:50] + "..." if len(mcq.get("stem", "")) > 50 else mcq.get("stem", ""),
+                    question=mcq.get("stem", ""),
+                    choices=self._convert_options_to_dict(mcq.get("options", [])),
+                    correct_answer=mcq.get("correct_answer", ""),
+                    correct_answer_index=mcq.get("correct_answer_index", 0),
+                    justifications={"rationale": mcq.get("rationale", ""), "evaluation": evaluation},
+                    target_concept=mcq_data.get("topic", core_concept),
+                    purpose=f"Assess understanding of {mcq_data.get('learning_objective', '')}",
+                    difficulty=3,  # Default difficulty
+                    tags=core_concept,
+                    number=i,
+                    generation_metadata=generation_metadata,
+                )
+                parsed_questions.append(mcq_question)
 
             self.logger.info(f"Generated {len(parsed_questions)} multiple choice questions for '{core_concept}' using two-pass approach")
             return parsed_questions
@@ -489,7 +452,7 @@ class BiteSizedTopicService(ModuleService):
         key_aspects: list[str] | None = None,
         common_misconceptions: list[str] | None = None,
         preferred_formats: list[str] | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> PostTopicQuizResponse:
         """
         Create a comprehensive post-topic quiz with mixed question formats.
 
@@ -504,7 +467,7 @@ class BiteSizedTopicService(ModuleService):
             preferred_formats: Preferred question formats
 
         Returns:
-            List of quiz item dictionaries with mixed formats and metadata
+            PostTopicQuizResponse object with metadata
 
         Raises:
             BiteSizedTopicError: If generation fails
@@ -529,44 +492,17 @@ class BiteSizedTopicService(ModuleService):
             # Use instructor to get structured output
             quiz_response = await self.llm_client.generate_structured_object(messages, PostTopicQuizResponse)
 
-            # Convert to the expected format and add metadata
-            quiz_items = []
-            generation_metadata = {
-                "generation_prompt": self._format_messages_for_storage(messages),
-                "raw_llm_response": "Generated using instructor library",
-            }
+            # Add metadata to each quiz item
+            generation_metadata = GenerationMetadata(
+                generation_prompt=self._format_messages_for_storage(messages),
+                raw_llm_response="Generated using instructor library",
+            )
 
             for item in quiz_response.quiz_items:
-                item_dict = {
-                    "title": item.title,
-                    "type": item.type,
-                    "question": item.question,
-                    "target_concept": item.target_concept,
-                    "difficulty": item.difficulty,
-                    "tags": item.tags,
-                    "_generation_metadata": generation_metadata,
-                }
+                item.generation_metadata = generation_metadata
 
-                # Add type-specific fields
-                if item.choices:
-                    item_dict["choices"] = item.choices
-                if item.correct_answer:
-                    item_dict["correct_answer"] = item.correct_answer
-                if item.justifications:
-                    item_dict["justifications"] = item.justifications
-                if item.expected_elements:
-                    item_dict["expected_elements"] = item.expected_elements
-                if item.dialogue_objective:
-                    item_dict["dialogue_objective"] = item.dialogue_objective
-                if item.scaffolding_prompts:
-                    item_dict["scaffolding_prompts"] = item.scaffolding_prompts
-                if item.exit_criteria:
-                    item_dict["exit_criteria"] = item.exit_criteria
-
-                quiz_items.append(item_dict)
-
-            self.logger.info(f"Generated post-topic quiz with {len(quiz_items)} items for '{core_concept}'")
-            return quiz_items
+            self.logger.info(f"Generated post-topic quiz with {len(quiz_response.quiz_items)} items for '{core_concept}'")
+            return quiz_response
 
         except Exception as e:
             self.logger.error(f"Failed to generate post-topic quiz: {e}")

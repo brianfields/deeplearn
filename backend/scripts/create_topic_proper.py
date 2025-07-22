@@ -34,6 +34,7 @@ from src.data_structures import BiteSizedComponent, BiteSizedTopic
 from src.database_service import DatabaseService
 from src.llm_interface import LLMConfig, LLMProviderType
 from src.modules.lesson_planning.bite_sized_topics.mcq_service import MCQService
+from src.modules.lesson_planning.bite_sized_topics.models import DidacticSnippet
 from src.modules.lesson_planning.bite_sized_topics.refined_material_service import RefinedMaterialService
 from src.modules.lesson_planning.bite_sized_topics.service import BiteSizedTopicService
 
@@ -74,7 +75,7 @@ async def extract_refined_material_and_mcqs(mcq_service: MCQService, source_mate
     return refined_material, mcqs_with_evaluations
 
 
-async def create_didactic_snippet_with_ai(topic_service: BiteSizedTopicService, topic_title: str, core_concept: str, user_level: str, source_material: str, learning_objectives: list[str], verbose: bool = False) -> dict:
+async def create_didactic_snippet_with_ai(topic_service: BiteSizedTopicService, topic_title: str, core_concept: str, user_level: str, source_material: str, learning_objectives: list[str], verbose: bool = False) -> DidacticSnippet:
     """Create a didactic snippet using the AI service."""
     if verbose:
         print("🔄 Creating didactic snippet using AI...")
@@ -83,13 +84,13 @@ async def create_didactic_snippet_with_ai(topic_service: BiteSizedTopicService, 
     didactic_snippet = await topic_service.create_didactic_snippet(topic_title=topic_title, key_concept=core_concept, user_level=user_level, concept_context=source_material[:500] + "..." if len(source_material) > 500 else source_material, learning_objectives=learning_objectives)
 
     if verbose:
-        snippet_preview = didactic_snippet.get("snippet", "")[:100] + "..." if len(didactic_snippet.get("snippet", "")) > 100 else didactic_snippet.get("snippet", "")
+        snippet_preview = didactic_snippet.snippet[:100] + "..." if len(didactic_snippet.snippet) > 100 else didactic_snippet.snippet
         print(f"✅ Created didactic snippet: {snippet_preview}")
 
     return didactic_snippet
 
 
-async def save_complete_topic_to_database(db_service: DatabaseService, topic_title: str, core_concept: str, user_level: str, source_material: str, domain: str, refined_material: dict, didactic_snippet: dict, mcqs_with_evaluations: list[dict], verbose: bool = False) -> str:
+async def save_complete_topic_to_database(db_service: DatabaseService, topic_title: str, core_concept: str, user_level: str, source_material: str, domain: str, refined_material: dict, didactic_snippet: DidacticSnippet, mcqs_with_evaluations: list[dict], verbose: bool = False) -> str:
     """Save the complete topic and all components to database."""
     topic_id = str(uuid.uuid4())
 
@@ -121,8 +122,14 @@ async def save_complete_topic_to_database(db_service: DatabaseService, topic_tit
     # Create components
     components = []
 
-    # Didactic snippet component
-    didactic_component = BiteSizedComponent(id=str(uuid.uuid4()), topic_id=topic_id, component_type="didactic_snippet", title=didactic_snippet.get("title", f"Learn: {core_concept}"), content=didactic_snippet)
+    # Didactic snippet component - convert DidacticSnippet to dict for storage
+    didactic_component = BiteSizedComponent(
+        id=str(uuid.uuid4()),
+        topic_id=topic_id,
+        component_type="didactic_snippet",
+        title=didactic_snippet.title,
+        content=didactic_snippet.dict(),  # Convert Pydantic object to dict for storage
+    )
     components.append(didactic_component)
 
     # MCQ components (one for each MCQ with evaluation)
