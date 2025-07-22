@@ -19,6 +19,7 @@ from .models import (
     SocraticDialogueResponse,
 )
 from .prompts import DidacticSnippetPrompt, GlossaryPrompt, LessonContentPrompt, MultipleChoiceQuestionsPrompt, PostTopicQuizPrompt, ShortAnswerQuestionsPrompt, SocraticDialoguePrompt
+from .refined_material_service import RefinedMaterialService
 
 
 class BiteSizedTopicError(Exception):
@@ -42,8 +43,9 @@ class BiteSizedTopicService(ModuleService):
             "post_topic_quiz": PostTopicQuizPrompt(),
             # Future prompts will be added here
         }
-        # Use the modern two-pass MCQ service
+        # Services for different workflows
         self.mcq_service = MCQService(llm_client)
+        self.refined_material_service = RefinedMaterialService(llm_client)
 
     async def initialize(self) -> None:
         """Initialize the service."""
@@ -380,25 +382,29 @@ class BiteSizedTopicService(ModuleService):
             BiteSizedTopicError: If generation fails
         """
         try:
-            # Create structured material from the provided information
+            # Step 1: Create structured source material from the provided information
             source_material = self._create_source_material_from_concept(topic_title, core_concept, learning_objectives, key_aspects, common_misconceptions, previous_topics, avoid_overlap_with)
 
-            # Create PromptContext for the MCQ service
+            # Step 2: Extract refined material using the refined material service
             context = PromptContext(
                 user_level=user_level,
                 time_constraint=15,  # Standard time for assessment
             )
 
-            # Use the modern two-pass MCQ service
-            refined_material, mcqs_with_evaluations = await self.mcq_service.create_mcqs_from_text(
+            refined_material = await self.refined_material_service.extract_refined_material(
                 source_material=source_material,
-                topic_title=topic_title,
                 domain="",  # No domain specified
                 user_level=user_level,
                 context=context,
             )
 
-            # Convert to backward-compatible format
+            # Step 3: Create MCQs from the refined material using the MCQ service
+            mcqs_with_evaluations = await self.mcq_service.create_mcqs_from_refined_material(
+                refined_material=refined_material,
+                context=context,
+            )
+
+            # Step 4: Convert to backward-compatible format
             parsed_questions = []
             for i, mcq_data in enumerate(mcqs_with_evaluations, 1):
                 mcq = mcq_data["mcq"]
@@ -418,7 +424,13 @@ class BiteSizedTopicService(ModuleService):
                     "purpose": f"Assess understanding of {mcq_data.get('learning_objective', '')}",
                     "difficulty": 3,  # Default difficulty
                     "tags": core_concept,
-                    "_generation_metadata": {"generation_method": "two_pass_mcq_service", "topic": mcq_data.get("topic", ""), "learning_objective": mcq_data.get("learning_objective", ""), "evaluation": evaluation},
+                    "_generation_metadata": {
+                        "generation_method": "two_pass_mcq_service",
+                        "topic": mcq_data.get("topic", ""),
+                        "learning_objective": mcq_data.get("learning_objective", ""),
+                        "evaluation": evaluation,
+                        "refined_material": refined_material,
+                    },
                 }
                 parsed_questions.append(parsed_question)
 

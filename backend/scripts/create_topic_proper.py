@@ -32,8 +32,9 @@ from src.core.prompt_base import PromptContext
 from src.core.service_base import ServiceConfig
 from src.data_structures import BiteSizedComponent, BiteSizedTopic
 from src.database_service import DatabaseService
-from src.llm_interface import LLMConfig
+from src.llm_interface import LLMConfig, LLMProviderType
 from src.modules.lesson_planning.bite_sized_topics.mcq_service import MCQService
+from src.modules.lesson_planning.bite_sized_topics.refined_material_service import RefinedMaterialService
 from src.modules.lesson_planning.bite_sized_topics.service import BiteSizedTopicService
 
 
@@ -45,8 +46,15 @@ async def extract_refined_material_and_mcqs(mcq_service: MCQService, source_mate
     # Create context for the services
     context = PromptContext(user_level=user_level, time_constraint=15)
 
-    # Use the two-pass MCQ service to extract refined material and create MCQs
-    refined_material, mcqs_with_evaluations = await mcq_service.create_mcqs_from_text(source_material=source_material, topic_title=topic_title, domain=domain, user_level=user_level, context=context)
+    # Get the llm_client from the mcq_service
+    llm_client = mcq_service.llm_client
+
+    # Step 1: Extract refined material
+    refined_material_service = RefinedMaterialService(llm_client)
+    refined_material = await refined_material_service.extract_refined_material(source_material=source_material, domain=domain, user_level=user_level, context=context)
+
+    # Step 2: Create MCQs from refined material
+    mcqs_with_evaluations = await mcq_service.create_mcqs_from_refined_material(refined_material=refined_material, context=context)
 
     if verbose:
         print(f"✅ Extracted refined material with {len(refined_material.get('topics', []))} topics")
@@ -181,8 +189,8 @@ async def main():
         print()
 
     try:
-                # Initialize services
-        llm_config = LLMConfig(provider="openai", model="gpt-4", temperature=0.7)
+        # Initialize services
+        llm_config = LLMConfig(provider=LLMProviderType.OPENAI, model="gpt-4", temperature=0.7)
         llm_client = LLMClient(llm_config)
         config = ServiceConfig(llm_config=llm_config)
 
@@ -190,8 +198,12 @@ async def main():
         mcq_service = MCQService(llm_client)
         db_service = DatabaseService()
 
-        # Step 1: Extract refined material and create MCQs
-        refined_material, mcqs_with_evaluations = await extract_refined_material_and_mcqs(mcq_service=mcq_service, source_material=source_material, topic_title=args.topic, domain=args.domain, user_level=args.level, verbose=args.verbose)
+        # Step 1: Extract refined material
+        refined_material_service = RefinedMaterialService(llm_client)
+        refined_material = await refined_material_service.extract_refined_material(source_material=source_material, domain=args.domain, user_level=args.level, context=PromptContext(user_level=args.level, time_constraint=15))
+
+        # Step 2: Create MCQs from refined material
+        mcqs_with_evaluations = await mcq_service.create_mcqs_from_refined_material(refined_material=refined_material, context=PromptContext(user_level=args.level, time_constraint=15))
 
         # Extract learning objectives for didactic snippet
         all_learning_objectives = []

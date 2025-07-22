@@ -79,9 +79,7 @@ class TestRefinedMaterialService:
         self.mock_llm_client.generate_response = AsyncMock(return_value=mock_response)
 
         # Call method
-        result = await self.service.extract_refined_material(
-            source_material=self.sample_source_material, domain="Programming", user_level="beginner", context=self.context
-        )
+        result = await self.service.extract_refined_material(source_material=self.sample_source_material, domain="Programming", user_level="beginner", context=self.context)
 
         # Verify results
         assert "topics" in result
@@ -154,7 +152,6 @@ class TestMCQService:
     def test_service_initialization(self):
         """Test that MCQService initializes correctly."""
         assert self.service.llm_client == self.mock_llm_client
-        assert self.service.refined_material_service is not None
         assert self.service.single_mcq_prompt is not None
         assert self.service.evaluation_prompt is not None
 
@@ -192,9 +189,7 @@ class TestMCQService:
         self.mock_llm_client.generate_response = AsyncMock(return_value=mock_response)
 
         # Call method
-        result = await self.service._evaluate_mcq(
-            mcq=self.sample_mcq, learning_objective="Define a Python function using proper syntax", context=self.context
-        )
+        result = await self.service._evaluate_mcq(mcq=self.sample_mcq, learning_objective="Define a Python function using proper syntax", context=self.context)
 
         # Verify results
         assert "alignment" in result
@@ -233,9 +228,7 @@ class TestMCQService:
         generation_prompt = "Create MCQ for function syntax"
         raw_response = json.dumps(self.sample_mcq)
 
-        result = self.service.save_mcq_as_component(
-            topic_id=topic_id, mcq_with_evaluation=mcq_with_evaluation, generation_prompt=generation_prompt, raw_llm_response=raw_response
-        )
+        result = self.service.save_mcq_as_component(topic_id=topic_id, mcq_with_evaluation=mcq_with_evaluation, generation_prompt=generation_prompt, raw_llm_response=raw_response)
 
         # Test Pydantic model attributes
         assert result.topic_id == topic_id
@@ -290,9 +283,7 @@ class TestServiceIntegration:
         self.mock_llm_client.generate_response = AsyncMock(side_effect=[refined_response, mcq_response, eval_response])
 
         # Step 1: Extract refined material
-        refined_result = await self.refined_service.extract_refined_material(
-            source_material="Python functions use def keyword", context=self.context
-        )
+        refined_result = await self.refined_service.extract_refined_material(source_material="Python functions use def keyword", context=self.context)
 
         # Step 2: Create MCQ from first topic
         topic = refined_result["topics"][0]
@@ -306,9 +297,7 @@ class TestServiceIntegration:
         )
 
         # Step 3: Evaluate MCQ
-        evaluation = await self.mcq_service._evaluate_mcq(
-            mcq=mcq_result, learning_objective=topic["learning_objectives"][0], context=self.context
-        )
+        evaluation = await self.mcq_service._evaluate_mcq(mcq=mcq_result, learning_objective=topic["learning_objectives"][0], context=self.context)
 
         # Verify complete workflow
         assert "topics" in refined_result

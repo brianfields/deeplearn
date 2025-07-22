@@ -1,10 +1,8 @@
 """
-MCQ Service for Two-Pass Creation
+MCQ Service for Creating MCQs from Refined Material
 
-This module implements the new two-pass MCQ creation system:
-1. First pass: Extract refined material from unstructured content
-2. Second pass: Create individual MCQs for each topic/learning objective
-3. Evaluation: Assess MCQ quality
+This module creates individual MCQs from structured, refined material.
+It expects the material to already be extracted and structured.
 """
 
 import json
@@ -18,46 +16,34 @@ from src.data_structures import MCQResult
 
 from .prompts.mcq_evaluation import MCQEvaluationPrompt
 from .prompts.single_mcq_creation import SingleMCQCreationPrompt
-from .refined_material_service import RefinedMaterialService
 
 
 class MCQService:
-    """Service for creating MCQs using the two-pass approach"""
+    """Service for creating MCQs from structured, refined material"""
 
     def __init__(self, llm_client: LLMClient):
         self.llm_client = llm_client
-        self.refined_material_service = RefinedMaterialService(llm_client)
         self.single_mcq_prompt = SingleMCQCreationPrompt()
         self.evaluation_prompt = MCQEvaluationPrompt()
 
-    async def create_mcqs_from_text(
+    async def create_mcqs_from_refined_material(
         self,
-        source_material: str,
-        topic_title: str,
-        domain: str = "",
-        user_level: str = "intermediate",
+        refined_material: dict[str, Any],
         context: PromptContext | None = None,
-    ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    ) -> list[dict[str, Any]]:
         """
-        Create MCQs from unstructured text using two-pass approach
+        Create MCQs from structured, refined material
 
         Args:
-            source_material: Unstructured text content
-            topic_title: Title for the overall topic
-            domain: Subject domain (optional)
-            user_level: Target user level (beginner, intermediate, advanced)
+            refined_material: Already structured material with topics, learning objectives, etc.
             context: Optional prompt context
 
         Returns:
-            Tuple of (refined_material, mcqs_with_evaluations)
+            List of MCQs with evaluations
         """
         if context is None:
             context = PromptContext()
 
-        # First pass: Extract refined material
-        refined_material = await self._extract_refined_material(source_material, domain, user_level, context)
-
-        # Second pass: Create individual MCQs
         mcqs_with_evaluations = []
 
         for topic in refined_material.get("topics", []):
@@ -88,12 +74,7 @@ class MCQService:
                     print(f"Error creating MCQ for {topic_name} - {learning_objective}: {e}")
                     continue
 
-        return refined_material, mcqs_with_evaluations
-
-    async def _extract_refined_material(self, source_material: str, domain: str, user_level: str, context: PromptContext) -> dict[str, Any]:
-        """Extract refined material from unstructured content"""
-
-        return await self.refined_material_service.extract_refined_material(source_material=source_material, domain=domain, user_level=user_level, context=context)
+        return mcqs_with_evaluations
 
     async def _create_single_mcq(
         self,
