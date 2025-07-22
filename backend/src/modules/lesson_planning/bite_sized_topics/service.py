@@ -4,6 +4,7 @@ Bite-sized Topics Service
 This module provides services for creating bite-sized topic content.
 """
 
+import asyncio
 from typing import Any
 
 from src.core.llm_client import LLMClient
@@ -16,11 +17,8 @@ from .models import (
     GenerationMetadata,
     GlossaryResponse,
     MultipleChoiceQuestion,
-    PostTopicQuizResponse,
-    ShortAnswerResponse,
-    SocraticDialogueResponse,
 )
-from .prompts import DidacticSnippetPrompt, GlossaryPrompt, LessonContentPrompt, MultipleChoiceQuestionsPrompt, PostTopicQuizPrompt, ShortAnswerQuestionsPrompt, SocraticDialoguePrompt
+from .prompts import DidacticSnippetPrompt, GlossaryPrompt, MultipleChoiceQuestionsPrompt
 from .refined_material_service import RefinedMaterialService
 
 
@@ -30,20 +28,31 @@ class BiteSizedTopicError(Exception):
     pass
 
 
+class BiteSizedTopicContent:
+    """Container for all bite-sized topic content"""
+
+    def __init__(
+        self,
+        topic_title: str,
+        didactic_snippet: DidacticSnippet,
+        glossary: GlossaryResponse,
+        multiple_choice_questions: list[MultipleChoiceQuestion],
+    ):
+        self.topic_title = topic_title
+        self.didactic_snippet = didactic_snippet
+        self.glossary = glossary
+        self.multiple_choice_questions = multiple_choice_questions
+
+
 class BiteSizedTopicService(ModuleService):
     """Service for creating bite-sized topic content"""
 
     def __init__(self, config: ServiceConfig, llm_client: LLMClient):
         super().__init__(config, llm_client)
         self.prompts = {
-            "lesson_content": LessonContentPrompt(),
             "didactic_snippet": DidacticSnippetPrompt(),
             "glossary": GlossaryPrompt(),
-            "socratic_dialogue": SocraticDialoguePrompt(),
-            "short_answer_questions": ShortAnswerQuestionsPrompt(),
             "multiple_choice_questions": MultipleChoiceQuestionsPrompt(),  # Legacy prompt kept for backward compatibility
-            "post_topic_quiz": PostTopicQuizPrompt(),
-            # Future prompts will be added here
         }
         # Services for different workflows
         self.mcq_service = MCQService(llm_client)
@@ -69,39 +78,6 @@ class BiteSizedTopicService(ModuleService):
             content = getattr(msg, "content", "")
             formatted_messages.append(f"[{role}]: {content}")
         return "\n\n".join(formatted_messages)
-
-    async def create_lesson_content(self, topic_title: str, topic_description: str, learning_objectives: list[str], user_level: str = "beginner", previous_topics: list[str] | None = None, user_performance: dict[str, Any] | None = None) -> str:
-        """
-        Generate lesson content for a specific topic.
-
-        Args:
-            topic_title: Title of the topic
-            topic_description: Description of the topic
-            learning_objectives: List of learning objectives
-            user_level: User's skill level
-            previous_topics: Previously covered topics
-            user_performance: User's previous performance data
-
-        Returns:
-            Generated lesson content in markdown format
-
-        Raises:
-            BiteSizedTopicError: If content generation fails
-        """
-        try:
-            context = create_default_context(user_level=user_level, time_constraint=15, previous_performance=user_performance or {})
-
-            messages = self.prompts["lesson_content"].generate_prompt(context, topic_title=topic_title, topic_description=topic_description, learning_objectives=learning_objectives, previous_topics=previous_topics or [])
-
-            response = await self.llm_client.generate_response(messages)
-            content = response.content
-
-            self.logger.info(f"Generated lesson content for '{topic_title}' ({len(content)} characters)")
-            return content
-
-        except Exception as e:
-            self.logger.error(f"Failed to generate lesson content: {e}")
-            raise BiteSizedTopicError(f"Failed to generate lesson content: {e}") from e
 
     async def create_didactic_snippet(self, topic_title: str, key_concept: str, user_level: str = "beginner", concept_context: str | None = None, learning_objectives: list[str] | None = None, previous_topics: list[str] | None = None) -> DidacticSnippet:
         """
@@ -191,126 +167,6 @@ class BiteSizedTopicService(ModuleService):
         except Exception as e:
             self.logger.error(f"Failed to generate glossary: {e}")
             raise BiteSizedTopicError(f"Failed to generate glossary: {e}") from e
-
-    async def create_socratic_dialogue(
-        self,
-        topic_title: str,
-        core_concept: str,
-        user_level: str = "beginner",
-        learning_objectives: list[str] | None = None,
-        previous_topics: list[str] | None = None,
-        target_insights: list[str] | None = None,
-        common_misconceptions: list[str] | None = None,
-    ) -> SocraticDialogueResponse:
-        """
-        Create a set of Socratic dialogue exercises for a concept.
-
-        Args:
-            topic_title: Title of the topic
-            core_concept: Core concept to explore through dialogue
-            user_level: User's skill level
-            learning_objectives: Learning objectives for the concept
-            previous_topics: Previously covered topics
-            target_insights: Key insights the learner should discover
-            common_misconceptions: Common misconceptions to address
-
-        Returns:
-            SocraticDialogueResponse object with metadata
-
-        Raises:
-            BiteSizedTopicError: If generation fails
-        """
-        try:
-            context = create_default_context(
-                user_level=user_level,
-                time_constraint=20,  # Longer for interactive dialogues
-            )
-
-            messages = self.prompts["socratic_dialogue"].generate_prompt(
-                context,
-                topic_title=topic_title,
-                core_concept=core_concept,
-                learning_objectives=learning_objectives or [],
-                previous_topics=previous_topics or [],
-                target_insights=target_insights or [],
-                common_misconceptions=common_misconceptions or [],
-            )
-
-            # Use instructor to get structured output
-            dialogue_response = await self.llm_client.generate_structured_object(messages, SocraticDialogueResponse)
-
-            # Add metadata to each dialogue
-            generation_metadata = GenerationMetadata(
-                generation_prompt=self._format_messages_for_storage(messages),
-                raw_llm_response="Generated using instructor library",
-            )
-
-            for i, dialogue in enumerate(dialogue_response.dialogues, 1):
-                dialogue.number = i
-                dialogue.generation_metadata = generation_metadata
-
-            self.logger.info(f"Generated {len(dialogue_response.dialogues)} Socratic dialogues for '{core_concept}'")
-            return dialogue_response
-
-        except Exception as e:
-            self.logger.error(f"Failed to generate Socratic dialogues: {e}")
-            raise BiteSizedTopicError(f"Failed to generate Socratic dialogues: {e}") from e
-
-    async def create_short_answer_questions(
-        self,
-        topic_title: str,
-        core_concept: str,
-        user_level: str = "beginner",
-        learning_objectives: list[str] | None = None,
-        previous_topics: list[str] | None = None,
-        key_aspects: list[str] | None = None,
-        avoid_overlap_with: list[str] | None = None,
-    ) -> ShortAnswerResponse:
-        """
-        Create a set of short answer questions for a concept.
-
-        Args:
-            topic_title: Title of the topic
-            core_concept: Core concept to assess
-            user_level: User's skill level
-            learning_objectives: Learning objectives for the concept
-            previous_topics: Previously covered topics
-            key_aspects: Key aspects to cover in questions
-            avoid_overlap_with: Topics/concepts to avoid overlapping with
-
-        Returns:
-            ShortAnswerResponse object with metadata
-
-        Raises:
-            BiteSizedTopicError: If generation fails
-        """
-        try:
-            context = create_default_context(
-                user_level=user_level,
-                time_constraint=15,  # Standard time for assessment
-            )
-
-            messages = self.prompts["short_answer_questions"].generate_prompt(context, topic_title=topic_title, core_concept=core_concept, learning_objectives=learning_objectives or [], previous_topics=previous_topics or [], key_aspects=key_aspects or [], avoid_overlap_with=avoid_overlap_with or [])
-
-            # Use instructor to get structured output
-            questions_response = await self.llm_client.generate_structured_object(messages, ShortAnswerResponse)
-
-            # Add metadata to each question
-            generation_metadata = GenerationMetadata(
-                generation_prompt=self._format_messages_for_storage(messages),
-                raw_llm_response="Generated using instructor library",
-            )
-
-            for i, question in enumerate(questions_response.questions, 1):
-                question.number = i
-                question.generation_metadata = generation_metadata
-
-            self.logger.info(f"Generated {len(questions_response.questions)} short answer questions for '{core_concept}'")
-            return questions_response
-
-        except Exception as e:
-            self.logger.error(f"Failed to generate short answer questions: {e}")
-            raise BiteSizedTopicError(f"Failed to generate short answer questions: {e}") from e
 
     async def create_multiple_choice_questions(
         self,
@@ -442,110 +298,143 @@ class BiteSizedTopicService(ModuleService):
             option_dict[letter] = option
         return option_dict
 
-    async def create_post_topic_quiz(
+    async def create_complete_bite_sized_topic(
         self,
         topic_title: str,
         core_concept: str,
+        source_material: str,
         user_level: str = "beginner",
-        learning_objectives: list[str] | None = None,
-        previous_topics: list[str] | None = None,
-        key_aspects: list[str] | None = None,
-        common_misconceptions: list[str] | None = None,
-        preferred_formats: list[str] | None = None,
-    ) -> PostTopicQuizResponse:
+        domain: str = "",
+        concepts_for_glossary: list[str] | None = None,
+    ) -> BiteSizedTopicContent:
         """
-        Create a comprehensive post-topic quiz with mixed question formats.
+        Generate all content for a complete bite-sized topic from raw source material.
 
         Args:
             topic_title: Title of the topic
-            core_concept: Core concept to assess
+            core_concept: Core concept to teach
+            source_material: Raw source material text
             user_level: User's skill level
-            learning_objectives: Learning objectives for the concept
-            previous_topics: Previously covered topics
-            key_aspects: Key aspects to assess
-            common_misconceptions: Common misconceptions to check
-            preferred_formats: Preferred question formats
+            domain: Subject domain (e.g., "Machine Learning")
+            concepts_for_glossary: Specific concepts for glossary (if empty, will use refined material)
 
         Returns:
-            PostTopicQuizResponse object with metadata
+            BiteSizedTopicContent with all generated components
 
         Raises:
             BiteSizedTopicError: If generation fails
         """
         try:
-            context = create_default_context(
+            self.logger.info(f"Starting complete bite-sized topic generation for '{topic_title}' from raw source material")
+
+            # Step 1: Extract refined material from source material
+            context = PromptContext(user_level=user_level, time_constraint=15)
+
+            self.logger.info("Extracting refined material from source material")
+            refined_material = await self.refined_material_service.extract_refined_material(
+                source_material=source_material,
+                domain=domain,
                 user_level=user_level,
-                time_constraint=25,  # Longer for comprehensive assessment
+                context=context,
             )
 
-            messages = self.prompts["post_topic_quiz"].generate_prompt(
-                context,
+            # Extract learning objectives from refined material for use in other components
+            all_learning_objectives = []
+            all_concepts = []
+            for topic in refined_material.get("topics", []):
+                objectives = topic.get("learning_objectives", [])
+                all_learning_objectives.extend(objectives)
+                # Collect key concepts from the refined material
+                key_facts = topic.get("key_facts", [])
+                all_concepts.extend(key_facts)
+
+            self.logger.info(f"Extracted refined material with {len(refined_material.get('topics', []))} topics and {len(all_learning_objectives)} learning objectives")
+
+            # Step 2: Generate all components in parallel using the refined material
+            didactic_task = self.create_didactic_snippet(
                 topic_title=topic_title,
-                core_concept=core_concept,
-                learning_objectives=learning_objectives or [],
-                previous_topics=previous_topics or [],
-                key_aspects=key_aspects or [],
-                common_misconceptions=common_misconceptions or [],
-                preferred_formats=preferred_formats or [],
+                key_concept=core_concept,
+                user_level=user_level,
+                concept_context=source_material[:500] + "..." if len(source_material) > 500 else source_material,
+                learning_objectives=all_learning_objectives,
+                previous_topics=None,
             )
 
-            # Use instructor to get structured output
-            quiz_response = await self.llm_client.generate_structured_object(messages, PostTopicQuizResponse)
+            # Use concepts from refined material if not provided
+            glossary_concepts = concepts_for_glossary or []
+            if not glossary_concepts:
+                # Extract concepts from refined material
+                for topic in refined_material.get("topics", []):
+                    # Add the topic name itself as a concept
+                    topic_name = topic.get("topic", "")
+                    if topic_name:
+                        glossary_concepts.append(topic_name)
+                    # Add key concepts if available
+                    key_facts = topic.get("key_facts", [])
+                    # Take first few key facts as concepts for glossary
+                    glossary_concepts.extend(key_facts[:3])  # Limit to avoid too many
 
-            # Add metadata to each quiz item
-            generation_metadata = GenerationMetadata(
-                generation_prompt=self._format_messages_for_storage(messages),
-                raw_llm_response="Generated using instructor library",
+            glossary_task = self.create_glossary(
+                topic_title=topic_title,
+                concepts=glossary_concepts,
+                user_level=user_level,
+                lesson_context=source_material[:300] + "..." if len(source_material) > 300 else source_material,
+                learning_objectives=all_learning_objectives,
+                previous_topics=None,
             )
 
-            for item in quiz_response.quiz_items:
-                item.generation_metadata = generation_metadata
+            # Create MCQs from refined material (this uses the new parallel MCQ service)
+            mcq_task = self.mcq_service.create_mcqs_from_refined_material(
+                refined_material=refined_material,
+                context=context,
+            )
 
-            self.logger.info(f"Generated post-topic quiz with {len(quiz_response.quiz_items)} items for '{core_concept}'")
-            return quiz_response
+            # Execute all tasks in parallel
+            didactic_snippet, glossary, mcqs_with_evaluations = await asyncio.gather(didactic_task, glossary_task, mcq_task)
+
+            # Convert MCQ results to MultipleChoiceQuestion objects for consistency
+            mcq_questions = []
+            for i, mcq_data in enumerate(mcqs_with_evaluations, 1):
+                mcq = mcq_data["mcq"]
+                evaluation = mcq_data["evaluation"]
+
+                # Create generation metadata
+                generation_metadata = GenerationMetadata(
+                    generation_method="refined_material_mcq_service",
+                    topic=mcq_data.get("topic", ""),
+                    learning_objective=mcq_data.get("learning_objective", ""),
+                    evaluation=evaluation,
+                    refined_material=str(refined_material),
+                )
+
+                # Create MultipleChoiceQuestion object
+                mcq_question = MultipleChoiceQuestion(
+                    title=mcq.get("stem", "")[:50] + "..." if len(mcq.get("stem", "")) > 50 else mcq.get("stem", ""),
+                    question=mcq.get("stem", ""),
+                    choices=self._convert_options_to_dict(mcq.get("options", [])),
+                    correct_answer=mcq.get("correct_answer", ""),
+                    correct_answer_index=mcq.get("correct_answer_index", 0),
+                    justifications={"rationale": mcq.get("rationale", ""), "evaluation": evaluation},
+                    target_concept=mcq_data.get("topic", core_concept),
+                    purpose=f"Assess understanding of {mcq_data.get('learning_objective', '')}",
+                    difficulty=3,  # Default difficulty
+                    tags=core_concept,
+                    number=i,
+                    generation_metadata=generation_metadata,
+                )
+                mcq_questions.append(mcq_question)
+
+            content = BiteSizedTopicContent(
+                topic_title=topic_title,
+                didactic_snippet=didactic_snippet,
+                glossary=glossary,
+                multiple_choice_questions=mcq_questions,
+            )
+
+            self.logger.info(f"Successfully generated complete bite-sized topic '{topic_title}': didactic snippet, {len(glossary.glossary_entries)} glossary entries, {len(mcq_questions)} MCQs (from {len(refined_material.get('topics', []))} extracted topics)")
+
+            return content
 
         except Exception as e:
-            self.logger.error(f"Failed to generate post-topic quiz: {e}")
-            raise BiteSizedTopicError(f"Failed to generate post-topic quiz: {e}") from e
-
-    async def validate_content(self, content: str) -> dict[str, Any]:
-        """
-        Validate generated content for quality and structure.
-
-        Args:
-            content: Content to validate
-
-        Returns:
-            Validation results
-
-        Raises:
-            BiteSizedTopicError: If validation fails
-        """
-        try:
-            issues = []
-
-            # Basic content checks
-            if not content or len(content.strip()) < 100:
-                issues.append("Content too short")
-
-            if len(content) > 5000:
-                issues.append("Content too long for 15-minute lesson")
-
-            # Check for markdown formatting
-            if not any(marker in content for marker in ["#", "**", "*", "-", "1."]):
-                issues.append("Content lacks proper formatting")
-
-            # Check for interactive elements
-            if not any(marker in content for marker in ["?", "exercise", "question", "think", "consider"]):
-                issues.append("Content lacks interactive elements")
-
-            return {
-                "valid": len(issues) == 0,
-                "issues": issues,
-                "word_count": len(content.split()),
-                "estimated_reading_time": len(content.split()) / 200,  # Words per minute
-            }
-
-        except Exception as e:
-            self.logger.error(f"Failed to validate content: {e}")
-            raise BiteSizedTopicError(f"Failed to validate content: {e}") from e
+            self.logger.error(f"Failed to generate complete bite-sized topic: {e}")
+            raise BiteSizedTopicError(f"Failed to generate complete bite-sized topic: {e}") from e
