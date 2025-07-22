@@ -38,17 +38,6 @@ class DidacticSnippetPrompt(PromptTemplate):
         - "You might expect X, but actually…" → good for surprising or unintuitive ideas
         - "To do Y, we need X…" → good for prerequisite ideas
         - "Let's walk through an example…" → good for process-oriented ideas
-
-        REQUIRED OUTPUT FORMAT:
-        You must respond with valid JSON in exactly this structure:
-        {
-            "title": "1-8 word title that captures what this snippet teaches",
-            "snippet": "3–10 sentence teaching explanation using a framing appropriate to the topic",
-            "type": "didactic_snippet",
-            "difficulty": 2
-        }
-
-        Do not include any additional text outside the JSON object. The response must be parseable as JSON.
         """
 
     def generate_prompt(self, context: PromptContext, **kwargs) -> list[LLMMessage]:
@@ -91,12 +80,6 @@ class DidacticSnippetPrompt(PromptTemplate):
 
         Choose the most appropriate framing from the options provided and create a snippet
         that will help the learner build an intuitive understanding of this concept.
-
-        Output in the exact format specified:
-        ```
-        Title: [short title]
-        Snippet: [3–10 sentence teaching explanation]
-        ```
         """
 
         return [LLMMessage(role=MessageRole.SYSTEM, content=system_message), LLMMessage(role=MessageRole.USER, content=user_content)]

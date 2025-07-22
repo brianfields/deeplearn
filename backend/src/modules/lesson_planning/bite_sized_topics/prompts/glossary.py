@@ -34,22 +34,6 @@ class GlossaryPrompt(PromptTemplate):
         - Each entry should be 3 to 7 sentences and stand on its own
         - Focus on teaching and understanding, not just definition
         - Make connections to related concepts when relevant
-
-        REQUIRED OUTPUT FORMAT:
-        You must respond with valid JSON containing an array of glossary entries:
-        {
-            "glossary_entries": [
-                {
-                    "concept": "The name of the idea or construct",
-                    "title": "1-8 word title capturing the essence of this concept",
-                    "explanation": "3–7 sentence teaching-style explanation that covers what it is, why it exists, what it connects to, and optionally an example or metaphor",
-                    "type": "glossary_entry",
-                    "difficulty": 2
-                }
-            ]
-        }
-
-        Do not include any additional text outside the JSON object. The response must be parseable as JSON.
         """
 
     def generate_prompt(self, context: PromptContext, **kwargs) -> list[LLMMessage]:
@@ -113,14 +97,7 @@ class GlossaryPrompt(PromptTemplate):
         - How it connects to other ideas
         - An example or metaphor if helpful
 
-        Output each entry in the exact format specified:
-        ```
-        Concept: [concept name]
-        Title: [1-8 word title capturing the essence of this concept]
-        Explanation: [3–7 sentence teaching explanation]
-        ```
-
-        Identify and provide entries for 3-5 meaningful concepts, separated by blank lines.
+        Identify and provide entries for 3-5 meaningful concepts.
         """
         else:
             user_content += f"""
@@ -131,14 +108,7 @@ class GlossaryPrompt(PromptTemplate):
         - How it connects to other ideas
         - An example or metaphor if helpful
 
-        Output each entry in the exact format specified:
-        ```
-        Concept: [concept name]
-        Title: [1-8 word title capturing the essence of this concept]
-        Explanation: [3–7 sentence teaching explanation]
-        ```
-
-        Provide entries for all {len(concepts)} concepts, separated by blank lines.
+        Provide entries for all {len(concepts)} concepts.
         """
 
         return [LLMMessage(role=MessageRole.SYSTEM, content=system_message), LLMMessage(role=MessageRole.USER, content=user_content)]

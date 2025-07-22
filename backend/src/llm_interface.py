@@ -8,7 +8,7 @@ consistent API interfaces for the learning application.
 Key Features:
 - Abstract base class for easy provider switching
 - OpenAI implementation with proper error handling
-- Structured response parsing
+- Structured response parsing using instructor library
 - Token usage tracking
 - Retry logic with exponential backoff
 - Type hints and comprehensive documentation
@@ -21,12 +21,16 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, TypeVar
 
+import instructor
 import openai
 import tiktoken
 from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
+
+# Type variable for Pydantic models
+T = TypeVar("T", bound=BaseModel)
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -158,6 +162,24 @@ class LLMProvider(ABC):
 
         Returns:
             Parsed JSON response
+
+        Raises:
+            LLMError: For various LLM-related errors
+        """
+        pass
+
+    @abstractmethod
+    async def generate_structured_object(self, messages: list[LLMMessage], response_model: type[T], **kwargs) -> T:
+        """
+        Generate a structured response using instructor and Pydantic models.
+
+        Args:
+            messages: List of conversation messages
+            response_model: Pydantic model class defining the expected response structure
+            **kwargs: Additional provider-specific parameters
+
+        Returns:
+            Instance of the response_model with parsed data
 
         Raises:
             LLMError: For various LLM-related errors
@@ -381,6 +403,55 @@ class OpenAIProvider(LLMProvider):
         completion_cost = (completion_tokens / 1000) * pricing[model_key]["completion"]
 
         return prompt_cost + completion_cost
+
+    async def generate_structured_object(self, messages: list[LLMMessage], response_model: type[T], **kwargs) -> T:
+        """Generate structured response using instructor and Pydantic models"""
+
+        # Create instructor-patched client
+        client = instructor.from_openai(self.client)
+
+        # Convert messages to OpenAI format
+        openai_messages = [{"role": msg.role.value, "content": msg.content} for msg in messages]
+
+        # Prepare request parameters
+        request_params = {
+            "model": self.config.model,
+            "messages": openai_messages,
+            "temperature": kwargs.get("temperature", self.config.temperature),
+            "max_tokens": kwargs.get("max_tokens", self.config.max_tokens),
+            "response_model": response_model,
+        }
+
+        # Execute request with retry logic
+        for attempt in range(self.config.max_retries + 1):
+            try:
+                response = await client.chat.completions.create(**request_params)
+                return response
+
+            except openai.RateLimitError as e:
+                if attempt == self.config.max_retries:
+                    raise LLMRateLimitError(f"Rate limit exceeded after {attempt + 1} attempts") from e
+                wait_time = 2**attempt
+                logger.warning(f"Rate limit hit, waiting {wait_time}s before retry {attempt + 1}")
+                await asyncio.sleep(wait_time)
+
+            except openai.AuthenticationError as e:
+                raise LLMAuthenticationError(f"Authentication failed: {e}") from e
+
+            except openai.BadRequestError as e:
+                if "content_policy" in str(e).lower():
+                    raise LLMContentError(f"Content policy violation: {e}") from e
+                raise LLMError(f"Bad request: {e}") from e
+
+            except Exception as e:
+                if attempt == self.config.max_retries:
+                    raise LLMError(f"Unexpected error after {attempt + 1} attempts: {e}") from e
+                wait_time = 2**attempt
+                logger.warning(f"Unexpected error, waiting {wait_time}s before retry {attempt + 1}: {e}")
+                await asyncio.sleep(wait_time)
+
+        # This should never be reached, but satisfies type checker
+        raise LLMError("Failed to generate structured response after all retry attempts")
 
 
 # Factory function
