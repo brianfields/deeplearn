@@ -5,7 +5,9 @@ This module creates individual MCQs from structured, refined material.
 It expects the material to already be extracted and structured.
 """
 
+import asyncio
 import json
+import logging
 import uuid
 from datetime import datetime
 from typing import Any
@@ -16,6 +18,11 @@ from src.data_structures import MCQResult
 
 from .prompts.mcq_evaluation import MCQEvaluationPrompt
 from .prompts.single_mcq_creation import SingleMCQCreationPrompt
+
+# Maximum number of concurrent MCQ creation tasks
+MAX_CONCURRENT_MCQ_CREATION = 5
+
+logger = logging.getLogger(__name__)
 
 
 class MCQService:
@@ -32,7 +39,7 @@ class MCQService:
         context: PromptContext | None = None,
     ) -> list[dict[str, Any]]:
         """
-        Create MCQs from structured, refined material
+        Create MCQs from structured, refined material using parallel processing
 
         Args:
             refined_material: Already structured material with topics, learning objectives, etc.
@@ -44,7 +51,11 @@ class MCQService:
         if context is None:
             context = PromptContext()
 
-        mcqs_with_evaluations = []
+        # Create semaphore to limit concurrent operations
+        semaphore = asyncio.Semaphore(MAX_CONCURRENT_MCQ_CREATION)
+
+        # Collect all MCQ creation tasks
+        mcq_tasks = []
 
         for topic in refined_material.get("topics", []):
             topic_name = topic.get("topic", "")
@@ -53,28 +64,79 @@ class MCQService:
             common_misconceptions = topic.get("common_misconceptions", [])
             assessment_angles = topic.get("assessment_angles", [])
 
-            # Create one MCQ for each learning objective
+            # Create one MCQ task for each learning objective
             for learning_objective in learning_objectives:
-                try:
-                    mcq = await self._create_single_mcq(
-                        subtopic=topic_name,
-                        learning_objective=learning_objective,
-                        key_facts=key_facts,
-                        common_misconceptions=common_misconceptions,
-                        assessment_angles=assessment_angles,
-                        context=context,
-                    )
+                task = self._create_mcq_with_evaluation_task(
+                    semaphore=semaphore,
+                    topic_name=topic_name,
+                    learning_objective=learning_objective,
+                    key_facts=key_facts,
+                    common_misconceptions=common_misconceptions,
+                    assessment_angles=assessment_angles,
+                    context=context,
+                )
+                mcq_tasks.append(task)
 
-                    # Evaluate the MCQ
-                    evaluation = await self._evaluate_mcq(mcq, learning_objective, context)
+        logger.info(f"Starting parallel MCQ creation for {len(mcq_tasks)} tasks with max concurrency of {MAX_CONCURRENT_MCQ_CREATION}")
 
-                    mcqs_with_evaluations.append({"mcq": mcq, "evaluation": evaluation, "topic": topic_name, "learning_objective": learning_objective})
+        # Execute all tasks in parallel
+        mcq_results = await asyncio.gather(*mcq_tasks, return_exceptions=True)
 
-                except Exception as e:
-                    print(f"Error creating MCQ for {topic_name} - {learning_objective}: {e}")
-                    continue
+        # Filter out exceptions and collect successful results
+        mcqs_with_evaluations = []
+        failed_count = 0
+        for result in mcq_results:
+            if isinstance(result, Exception):
+                print(f"Error creating MCQ: {result}")
+                failed_count += 1
+                continue
+            if result is not None:
+                mcqs_with_evaluations.append(result)
+
+        logger.info(f"MCQ creation completed: {len(mcqs_with_evaluations)} successful, {failed_count} failed")
 
         return mcqs_with_evaluations
+
+    async def _create_mcq_with_evaluation_task(
+        self,
+        semaphore: asyncio.Semaphore,
+        topic_name: str,
+        learning_objective: str,
+        key_facts: list[str],
+        common_misconceptions: list[dict[str, Any]],
+        assessment_angles: list[str],
+        context: PromptContext,
+    ) -> dict[str, Any] | None:
+        """
+        Create a single MCQ with evaluation, using semaphore for concurrency control
+
+        Returns:
+            MCQ with evaluation dict, or None if creation failed
+        """
+        task_id = f"{topic_name}:{learning_objective[:50]}{'...' if len(learning_objective) > 50 else ''}"
+
+        async with semaphore:
+            logger.info(f"Starting MCQ creation task: {task_id}")
+            try:
+                mcq = await self._create_single_mcq(
+                    subtopic=topic_name,
+                    learning_objective=learning_objective,
+                    key_facts=key_facts,
+                    common_misconceptions=common_misconceptions,
+                    assessment_angles=assessment_angles,
+                    context=context,
+                )
+
+                # Evaluate the MCQ
+                evaluation = await self._evaluate_mcq(mcq, learning_objective, context)
+
+                logger.info(f"Successfully completed MCQ creation task: {task_id}")
+                return {"mcq": mcq, "evaluation": evaluation, "topic": topic_name, "learning_objective": learning_objective}
+
+            except Exception as e:
+                logger.warning(f"Failed MCQ creation task: {task_id} - Error: {e}")
+                print(f"Error creating MCQ for {topic_name} - {learning_objective}: {e}")
+                return None
 
     async def _create_single_mcq(
         self,
