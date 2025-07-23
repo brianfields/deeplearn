@@ -80,12 +80,12 @@ class LLMConfig(BaseModel):
     """Configuration for LLM providers"""
 
     provider: LLMProviderType
-    model: str
+    model: str = "gpt-4o"
     api_key: str | None = None
     base_url: str | None = None
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
-    max_tokens: int = Field(default=1000, gt=0)
-    timeout: int = Field(default=30, gt=0)
+    max_tokens: int = Field(default=16384, gt=0)
+    timeout: int = Field(default=180, gt=0)
     max_retries: int = Field(default=3, ge=0)
 
 
@@ -295,6 +295,14 @@ class OpenAIProvider(LLMProvider):
         if "function_call" in kwargs:
             request_params["function_call"] = kwargs["function_call"]
 
+        # Debug logging: Log the request being sent
+        logger.debug(f"OpenAI API Request - Model: {self.config.model}")
+        logger.debug(f"OpenAI API Request - Temperature: {request_params['temperature']}")
+        logger.debug(f"OpenAI API Request - Max Tokens: {request_params['max_tokens']}")
+        logger.debug("OpenAI API Request - Messages:")
+        for i, msg in enumerate(openai_messages):
+            logger.debug(f"  Message {i + 1} ({msg['role']}): {msg['content']}")
+
         # Execute request with retry logic
         for attempt in range(self.config.max_retries + 1):
             try:
@@ -304,6 +312,14 @@ class OpenAIProvider(LLMProvider):
                 content = response.choices[0].message.content
                 finish_reason = response.choices[0].finish_reason
                 tokens_used = response.usage.total_tokens
+
+                # Debug logging: Log the raw response
+                logger.debug("OpenAI API Response received:")
+                logger.debug(f"  Content: {content}")
+                logger.debug(f"  Finish Reason: {finish_reason}")
+                logger.debug(f"  Tokens Used: {tokens_used}")
+                logger.debug(f"  Prompt Tokens: {response.usage.prompt_tokens}")
+                logger.debug(f"  Completion Tokens: {response.usage.completion_tokens}")
 
                 return LLMResponse(
                     content=content,
@@ -457,10 +473,25 @@ class OpenAIProvider(LLMProvider):
             "response_model": response_model,
         }
 
+        # Debug logging: Log the structured request being sent
+        logger.debug(f"OpenAI Instructor API Request - Model: {self.config.model}")
+        logger.debug(f"OpenAI Instructor API Request - Temperature: {request_params['temperature']}")
+        logger.debug(f"OpenAI Instructor API Request - Max Tokens: {request_params['max_tokens']}")
+        logger.debug(f"OpenAI Instructor API Request - Response Model: {response_model.__name__}")
+        logger.debug("OpenAI Instructor API Request - Messages:")
+        for i, msg in enumerate(openai_messages):
+            logger.debug(f"  Message {i + 1} ({msg['role']}): {msg['content']}")
+
         # Execute request with retry logic
         for attempt in range(self.config.max_retries + 1):
             try:
                 response = await client.chat.completions.create(**request_params)
+
+                # Debug logging: Log the structured response
+                logger.debug("OpenAI Instructor API Response received:")
+                logger.debug(f"  Structured Response: {response}")
+                logger.debug(f"  Response Type: {type(response).__name__}")
+
                 return response
 
             except openai.RateLimitError as e:

@@ -31,7 +31,7 @@ class AppConfig:
 
     # OpenAI Configuration
     openai_api_key: str | None = None
-    openai_model: str = "gpt-3.5-turbo"
+    openai_model: str = "gpt-4o"
     openai_base_url: str = "https://api.openai.com/v1"
 
     # Azure OpenAI Configuration
@@ -91,24 +91,32 @@ class ConfigManager:
 
         # Load .env file if available
         if DOTENV_AVAILABLE:
-            env_path = Path(self.env_file)
-            if env_path.exists():
-                load_dotenv(env_path)
-                logger.info(f"Loaded environment variables from {env_path}")
-            else:
-                # Try backend directory as fallback
-                backend_env = Path(__file__).parent.parent.parent / ".env"
-                if backend_env.exists():
-                    load_dotenv(backend_env)
-                    logger.info(f"Loaded environment variables from {backend_env}")
-                else:
-                    # Try root directory as final fallback
-                    root_env = Path(__file__).parent.parent.parent.parent / ".env"
-                    if root_env.exists():
-                        load_dotenv(root_env)
-                        logger.info(f"Loaded environment variables from {root_env}")
-                    else:
-                        logger.info("No .env file found in current directory, backend directory, or root directory")
+            env_paths_to_try = []
+
+            # If PROJECT_ROOT is set (from start_server.py), use it first
+            project_root = os.getenv("PROJECT_ROOT")
+            if project_root:
+                env_paths_to_try.append(Path(project_root) / ".env")
+
+            # Add other potential locations
+            env_paths_to_try.extend(
+                [
+                    Path(self.env_file),  # Current directory
+                    Path(__file__).parent.parent.parent / ".env",  # Backend directory
+                    Path(__file__).parent.parent.parent.parent / ".env",  # Root directory
+                ]
+            )
+
+            env_loaded = False
+            for env_path in env_paths_to_try:
+                if env_path.exists():
+                    load_dotenv(env_path)
+                    logger.info(f"Loaded environment variables from {env_path}")
+                    env_loaded = True
+                    break
+
+            if not env_loaded:
+                logger.info("No .env file found in any of the expected locations")
         else:
             logger.warning("python-dotenv not installed. Install with: pip install python-dotenv")
 

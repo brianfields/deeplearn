@@ -7,7 +7,7 @@ Creates a complete learning topic using the BiteSizedTopicService to generate re
 2. Save everything to database
 
 Usage:
-    python scripts/create_topic_proper.py \
+    python scripts/create_topic.py \
         --topic "PyTorch Cross-Entropy Loss" \
         --concept "Cross-Entropy Loss Function" \
         --material scripts/examples/cross_entropy_material.txt \
@@ -28,15 +28,15 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from src.core.llm_client import LLMClient
 from src.core.service_base import ServiceConfig
-from src.data_structures import BiteSizedComponent, BiteSizedTopic, TopicResult
+from src.data_structures import BiteSizedComponent, BiteSizedTopic
 from src.database_service import DatabaseService
 from src.llm_interface import LLMConfig, LLMProviderType
-from src.modules.content_creation.service import BiteSizedTopicService
+from src.modules.content_creation.service import BiteSizedTopicContent, BiteSizedTopicService
 
 
 async def save_complete_topic_to_database(
     db_service: DatabaseService,
-    topic_content: TopicResult,
+    topic_content: BiteSizedTopicContent,
     topic_title: str,
     core_concept: str,
     user_level: str,
@@ -80,7 +80,7 @@ async def save_complete_topic_to_database(
         topic_id=topic_id,
         component_type="didactic_snippet",
         title=topic_content.didactic_snippet.title,
-        content=topic_content.didactic_snippet.dict(),  # Convert Pydantic object to dict for storage
+        content=topic_content.didactic_snippet.model_dump(),  # Convert Pydantic object to dict for storage
     )
     components.append(didactic_component)
 
@@ -90,18 +90,18 @@ async def save_complete_topic_to_database(
         topic_id=topic_id,
         component_type="glossary",
         title=f"Glossary for {topic_title}",
-        content=topic_content.glossary.dict(),  # Convert Pydantic object to dict for storage
+        content=topic_content.glossary.model_dump(),  # Convert Pydantic object to dict for storage
     )
     components.append(glossary_component)
 
     # MCQ components (one for each MCQ)
-    for i, mcq_question in enumerate(topic_content.multiple_choice_questions, 1):
+    for mcq_question in topic_content.multiple_choice_questions:
         mcq_component = BiteSizedComponent(
             id=str(uuid.uuid4()),
             topic_id=topic_id,
             component_type="mcq",
             title=f"MCQ: {mcq_question.title}",
-            content=mcq_question.dict(),  # Convert Pydantic object to dict for storage
+            content=mcq_question.model_dump(),  # Convert Pydantic object to dict for storage
         )
         components.append(mcq_component)
 
@@ -121,7 +121,7 @@ async def save_complete_topic_to_database(
         raise Exception("Failed to save topic to database")
 
 
-async def main():
+async def main() -> None:  # noqa: PLR0915
     # Parse arguments first to check verbose setting
     parser = argparse.ArgumentParser(description="Create complete learning topic using AI services")
     parser.add_argument("--topic", required=True, help="Topic title")
@@ -135,12 +135,21 @@ async def main():
     )
     parser.add_argument("--domain", default="Machine Learning", help="Subject domain")
     parser.add_argument("--verbose", action="store_true", help="Show detailed progress and service logs")
+    parser.add_argument("--debug", action="store_true", help="Enable debug logging (includes OpenAI API calls)")
     parser.add_argument("--output", help="Save content to JSON file for inspection")
 
     args = parser.parse_args()
 
-    # Configure logging based on verbose setting
-    if args.verbose:
+    # Configure logging based on verbose/debug settings
+    if args.debug:
+        log_level = logging.DEBUG
+        logging.basicConfig(
+            level=log_level,
+            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            datefmt="%H:%M:%S",
+        )
+        print("🔧 Debug mode: All service logs including OpenAI API calls enabled")
+    elif args.verbose:
         log_level = logging.INFO
         logging.basicConfig(
             level=log_level,
@@ -176,7 +185,7 @@ async def main():
 
     try:
         # Initialize services
-        llm_config = LLMConfig(provider=LLMProviderType.OPENAI, model="gpt-4", temperature=0.7)
+        llm_config = LLMConfig(provider=LLMProviderType.OPENAI, model="gpt-4o", temperature=0.7)
         llm_client = LLMClient(llm_config)
         config = ServiceConfig(llm_config=llm_config)
 
@@ -229,14 +238,14 @@ async def main():
                 "mcqs": [mcq.dict() for mcq in topic_content.multiple_choice_questions],
             }
 
-            with open(args.output, "w") as f:
+            with Path.open(args.output, "w") as f:
                 json.dump(output_data, f, indent=2, default=str)
             print(f"📁 Content also saved to: {args.output}")
 
     except Exception as e:
         print(f"❌ Error: {e}")
         if args.verbose:
-            import traceback
+            import traceback  # noqa: PLC0415
 
             traceback.print_exc()
         sys.exit(1)

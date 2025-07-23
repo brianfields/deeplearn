@@ -301,7 +301,7 @@ class LLMClient:
 
 def create_llm_client(
     api_key: str,
-    model: str = "gpt-3.5-turbo",
+    model: str = "gpt-4o",
     provider: str = "openai",
     cache_enabled: bool = True,
     **kwargs: Any,  # noqa: ANN401

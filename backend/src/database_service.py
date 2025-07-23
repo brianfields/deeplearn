@@ -204,9 +204,24 @@ def init_database_service(database_url: str | None = None) -> DatabaseService:
     """Initialize the global database service"""
     global _database_service  # noqa: PLW0603
     _database_service = DatabaseService(database_url)
+    print(f"Initialized database service: {_database_service}")
     return _database_service
 
 
 def get_database_service() -> DatabaseService | None:
-    """Get the global database service instance"""
+    """Get the global database service instance, initializing if needed"""
+    global _database_service  # noqa: PLW0603
+
+    print(f"Getting database service: {_database_service}")
+
+    # Lazy initialization - initialize if not already done
+    if _database_service is None:
+        try:
+            print("Database service not initialized, initializing now...")
+            _database_service = DatabaseService()
+            print(f"Lazy initialization successful: {_database_service}")
+        except Exception as e:
+            print(f"Failed to lazy initialize database service: {e}")
+            return None
+
     return _database_service

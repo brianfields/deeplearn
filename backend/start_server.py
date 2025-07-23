@@ -29,8 +29,16 @@ def main():
         print("💡 Make sure your .env file is configured with your OpenAI API key")
         print()
 
+        # Store the project root directory (where .env file is located)
+        project_root = Path(__file__).parent.parent
+        backend_dir = Path(__file__).parent
+        src_dir = backend_dir / "src"
+
+        # Set environment variables to help find .env file
+        os.environ["PROJECT_ROOT"] = str(project_root)
+
         # Change to src directory for proper imports
-        os.chdir(Path(__file__).parent / "src")
+        os.chdir(src_dir)
 
         # Start the server
         uvicorn.run("api.server:app", host="0.0.0.0", port=8000, reload=True, log_level="info")

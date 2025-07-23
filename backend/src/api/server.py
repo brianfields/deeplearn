@@ -24,6 +24,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
+from config import config
+
 if TYPE_CHECKING:
     pass
 
@@ -35,19 +37,12 @@ from .learning_routes import router as api_router
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 try:
-    # Import using absolute imports from the src directory
-    from config import config
+    # Import modules but defer config loading to startup event
     import data_structures
     import database_service
-    import llm_interface
-
-    # Extract the needed classes and functions
-    config_manager = config.config_manager
-    setup_logging = config.setup_logging
-    validate_config = config.validate_config
 
     # Import DatabaseService properly for type checking
-    from database_service import DatabaseService
+    import llm_interface
 
     get_database_service = database_service.get_database_service
     init_database_service = database_service.init_database_service
@@ -99,6 +94,10 @@ async def startup_event() -> None:
 
     This function sets up the core database service for bite-sized topics.
     """
+    # Import config module here after environment is set up
+
+    setup_logging = config.setup_logging
+
     # Setup logging
     setup_logging()
 
@@ -115,7 +114,6 @@ async def startup_event() -> None:
 
 if __name__ == "__main__":
     # Load configuration
-    config = config_manager.config
 
     # Run the server
     uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True, log_level="info")  # noqa: S104

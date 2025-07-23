@@ -191,9 +191,7 @@ class BiteSizedTopicService(ModuleService):
                 entry.number = i
                 entry.generation_metadata = generation_metadata
 
-            self.logger.info(
-                f"Generated glossary for '{topic_title}' with {len(glossary_response.glossary_entries)} concepts"
-            )
+            self.logger.info(f"Generated glossary for '{topic_title}' with {len(glossary_response.glossary_entries)} concepts")
             return glossary_response
 
         except Exception as e:
@@ -283,7 +281,7 @@ class BiteSizedTopicService(ModuleService):
                     choices=self._convert_options_to_dict(mcq.options),
                     correct_answer=mcq.correct_answer,
                     correct_answer_index=self._get_correct_answer_index(mcq.options, mcq.correct_answer),
-                    justifications={"rationale": mcq.rationale, "evaluation": evaluation.dict()},
+                    justifications={"rationale": mcq.rationale},
                     target_concept=mcq_data.get("topic", core_concept),
                     purpose=f"Assess understanding of {mcq_data.get('learning_objective', '')}",
                     difficulty=3,  # Default difficulty
@@ -293,9 +291,7 @@ class BiteSizedTopicService(ModuleService):
                 )
                 parsed_questions.append(mcq_question)
 
-            self.logger.info(
-                f"Generated {len(parsed_questions)} multiple choice questions for '{core_concept}' using two-pass approach"
-            )
+            self.logger.info(f"Generated {len(parsed_questions)} multiple choice questions for '{core_concept}' using two-pass approach")
             return parsed_questions
 
         except Exception as e:
@@ -322,19 +318,13 @@ class BiteSizedTopicService(ModuleService):
             material_parts.extend(["## Key Aspects", *[f"- {aspect}" for aspect in key_aspects], ""])
 
         if common_misconceptions:
-            material_parts.extend(
-                ["## Common Misconceptions", *[f"- {misconception}" for misconception in common_misconceptions], ""]
-            )
+            material_parts.extend(["## Common Misconceptions", *[f"- {misconception}" for misconception in common_misconceptions], ""])
 
         if previous_topics:
-            material_parts.extend(
-                ["## Previous Topics (for context)", *[f"- {topic}" for topic in previous_topics], ""]
-            )
+            material_parts.extend(["## Previous Topics (for context)", *[f"- {topic}" for topic in previous_topics], ""])
 
         if avoid_overlap_with:
-            material_parts.extend(
-                ["## Topics to Avoid Overlapping With", *[f"- {topic}" for topic in avoid_overlap_with], ""]
-            )
+            material_parts.extend(["## Topics to Avoid Overlapping With", *[f"- {topic}" for topic in avoid_overlap_with], ""])
 
         return "\n".join(material_parts)
 
@@ -386,9 +376,7 @@ class BiteSizedTopicService(ModuleService):
             BiteSizedTopicError: If generation fails
         """
         try:
-            self.logger.info(
-                f"Starting complete bite-sized topic generation for '{topic_title}' from raw source material"
-            )
+            self.logger.info(f"Starting complete bite-sized topic generation for '{topic_title}' from raw source material")
 
             # Step 1: Extract refined material from source material
             context = PromptContext(user_level=user_level, time_constraint=15)
@@ -409,9 +397,7 @@ class BiteSizedTopicService(ModuleService):
                 # Collect key concepts from the refined material
                 all_concepts.extend(topic.key_facts)
 
-            self.logger.info(
-                f"Extracted refined material with {len(refined_material.topics)} topics and {len(all_learning_objectives)} learning objectives"
-            )
+            self.logger.info(f"Extracted refined material with {len(refined_material.topics)} topics and {len(all_learning_objectives)} learning objectives")
 
             # Step 2: Generate all components in parallel using the refined material
             didactic_task = self.create_didactic_snippet(
@@ -453,9 +439,7 @@ class BiteSizedTopicService(ModuleService):
             )
 
             # Execute all tasks in parallel
-            didactic_snippet, glossary, mcqs_with_evaluations = await asyncio.gather(
-                didactic_task, glossary_task, mcq_task
-            )
+            didactic_snippet, glossary, mcqs_with_evaluations = await asyncio.gather(didactic_task, glossary_task, mcq_task)
 
             # Convert MCQ results to MultipleChoiceQuestion objects for consistency
             mcq_questions = []
@@ -479,7 +463,7 @@ class BiteSizedTopicService(ModuleService):
                     choices=self._convert_options_to_dict(mcq.options),
                     correct_answer=mcq.correct_answer,
                     correct_answer_index=self._get_correct_answer_index(mcq.options, mcq.correct_answer),
-                    justifications={"rationale": mcq.rationale, "evaluation": evaluation.dict()},
+                    justifications={"rationale": mcq.rationale},
                     target_concept=mcq_data.get("topic", core_concept),
                     purpose=f"Assess understanding of {mcq_data.get('learning_objective', '')}",
                     difficulty=3,  # Default difficulty
@@ -496,9 +480,7 @@ class BiteSizedTopicService(ModuleService):
                 multiple_choice_questions=mcq_questions,
             )
 
-            self.logger.info(
-                f"Successfully generated complete bite-sized topic '{topic_title}': didactic snippet, {len(glossary.glossary_entries)} glossary entries, {len(mcq_questions)} MCQs (from {len(refined_material.topics)} extracted topics)"
-            )
+            self.logger.info(f"Successfully generated complete bite-sized topic '{topic_title}': didactic snippet, {len(glossary.glossary_entries)} glossary entries, {len(mcq_questions)} MCQs (from {len(refined_material.topics)} extracted topics)")
 
             return content
 
