@@ -6,13 +6,29 @@ the learning system modules.
 """
 
 import asyncio
+from datetime import UTC, datetime
 import logging
-from datetime import datetime
-from typing import Any, TypeVar
+from typing import Any, TypedDict, TypeVar
 
 from pydantic import BaseModel
 
-from src.llm_interface import LLMConfig, LLMError, LLMMessage, LLMResponse, MessageRole, create_llm_provider
+from src.llm_interface import (
+    LLMConfig,
+    LLMError,
+    LLMMessage,
+    LLMProviderType,
+    LLMResponse,
+    MessageRole,
+    create_llm_provider,
+)
+
+
+class LLMStats(TypedDict):
+    total_requests: int
+    cache_hits: int
+    errors: int
+    last_request: datetime | None
+
 
 # Type variable for Pydantic models
 T = TypeVar("T", bound=BaseModel)
@@ -32,15 +48,22 @@ class LLMClient:
     handling retries, caching, and error management across all modules.
     """
 
-    def __init__(self, config: LLMConfig, cache_enabled: bool = True):
+    def __init__(self, config: LLMConfig, cache_enabled: bool = True) -> None:
         self.config = config
         self.provider = create_llm_provider(config)
         self.cache_enabled = cache_enabled
         self.logger = logging.getLogger(__name__)
-        self._response_cache = {} if cache_enabled else None
-        self._stats = {"total_requests": 0, "cache_hits": 0, "errors": 0, "last_request": None}
+        self._response_cache: dict[str, Any] | None = {} if cache_enabled else None
+        self._stats: LLMStats = {
+            "total_requests": 0,
+            "cache_hits": 0,
+            "errors": 0,
+            "last_request": None,
+        }
 
-    async def generate_response(self, messages: list[LLMMessage], max_retries: int = 3, use_cache: bool = True) -> LLMResponse:
+    async def generate_response(
+        self, messages: list[LLMMessage], max_retries: int = 3, use_cache: bool = True
+    ) -> LLMResponse:
         """
         Generate a text response from the LLM.
 
@@ -56,7 +79,7 @@ class LLMClient:
             LLMClientError: If generation fails after retries
         """
         self._stats["total_requests"] += 1
-        self._stats["last_request"] = datetime.utcnow()
+        self._stats["last_request"] = datetime.now(UTC)
 
         # Check cache first
         if use_cache and self._response_cache:
@@ -92,7 +115,13 @@ class LLMClient:
         # This should never be reached due to the raise above, but satisfies type checker
         raise LLMClientError("Unexpected error in generate_response")
 
-    async def generate_structured_response(self, messages: list[LLMMessage], schema: dict[str, Any], max_retries: int = 3, use_cache: bool = True) -> dict[str, Any]:
+    async def generate_structured_response(
+        self,
+        messages: list[LLMMessage],
+        schema: dict[str, Any],
+        max_retries: int = 3,
+        use_cache: bool = True,
+    ) -> dict[str, Any]:
         """
         Generate a structured response from the LLM.
 
@@ -136,16 +165,26 @@ class LLMClient:
                 self._stats["errors"] += 1
                 if attempt < max_retries:
                     wait_time = 2**attempt  # Exponential backoff
-                    self.logger.warning(f"Structured LLM request failed (attempt {attempt + 1}), retrying in {wait_time}s: {e}")
+                    self.logger.warning(
+                        f"Structured LLM request failed (attempt {attempt + 1}), retrying in {wait_time}s: {e}"
+                    )
                     await asyncio.sleep(wait_time)
                 else:
                     self.logger.error(f"Structured LLM request failed after {max_retries} retries: {e}")
-                    raise LLMClientError(f"Failed to generate structured response after {max_retries} retries: {e}") from e
+                    raise LLMClientError(
+                        f"Failed to generate structured response after {max_retries} retries: {e}"
+                    ) from e
 
         # This should never be reached due to the raise above, but satisfies type checker
         raise LLMClientError("Unexpected error in generate_structured_response")
 
-    async def generate_structured_object(self, messages: list[LLMMessage], response_model: type[T], max_retries: int = 3, use_cache: bool = True) -> T:
+    async def generate_structured_object(
+        self,
+        messages: list[LLMMessage],
+        response_model: type[T],
+        max_retries: int = 3,
+        use_cache: bool = True,
+    ) -> T:
         """
         Generate a structured response using instructor and Pydantic models.
 
@@ -189,11 +228,15 @@ class LLMClient:
                 self._stats["errors"] += 1
                 if attempt < max_retries:
                     wait_time = 2**attempt  # Exponential backoff
-                    self.logger.warning(f"Structured object LLM request failed (attempt {attempt + 1}), retrying in {wait_time}s: {e}")
+                    self.logger.warning(
+                        f"Structured object LLM request failed (attempt {attempt + 1}), retrying in {wait_time}s: {e}"
+                    )
                     await asyncio.sleep(wait_time)
                 else:
                     self.logger.error(f"Structured object LLM request failed after {max_retries} retries: {e}")
-                    raise LLMClientError(f"Failed to generate structured object after {max_retries} retries: {e}") from e
+                    raise LLMClientError(
+                        f"Failed to generate structured object after {max_retries} retries: {e}"
+                    ) from e
 
         # This should never be reached due to the raise above, but satisfies type checker
         raise LLMClientError("Unexpected error in generate_structured_object")
@@ -214,7 +257,13 @@ class LLMClient:
 
     def get_stats(self) -> dict[str, Any]:
         """Get client statistics"""
-        return {**self._stats, "cache_size": len(self._response_cache) if self._response_cache else 0, "cache_enabled": self.cache_enabled, "provider": self.config.provider.value, "model": self.config.model}
+        return {
+            **self._stats,
+            "cache_size": len(self._response_cache) if self._response_cache else 0,
+            "cache_enabled": self.cache_enabled,
+            "provider": self.config.provider.value,
+            "model": self.config.model,
+        }
 
     def get_cache_size(self) -> int:
         """Get the current cache size"""
@@ -233,12 +282,30 @@ class LLMClient:
 
             response = await self.generate_response(test_messages, use_cache=False)
 
-            return {"status": "healthy", "provider": self.config.provider.value, "model": self.config.model, "response_length": len(response.content), "stats": self.get_stats()}
+            return {
+                "status": "healthy",
+                "provider": self.config.provider.value,
+                "model": self.config.model,
+                "response_length": len(response.content),
+                "stats": self.get_stats(),
+            }
         except Exception as e:
-            return {"status": "unhealthy", "error": str(e), "provider": self.config.provider.value, "model": self.config.model, "stats": self.get_stats()}
+            return {
+                "status": "unhealthy",
+                "error": str(e),
+                "provider": self.config.provider.value,
+                "model": self.config.model,
+                "stats": self.get_stats(),
+            }
 
 
-def create_llm_client(api_key: str, model: str = "gpt-3.5-turbo", provider: str = "openai", cache_enabled: bool = True, **kwargs) -> LLMClient:
+def create_llm_client(
+    api_key: str,
+    model: str = "gpt-3.5-turbo",
+    provider: str = "openai",
+    cache_enabled: bool = True,
+    **kwargs: Any,  # noqa: ANN401
+) -> LLMClient:
     """
     Create an LLM client with common configuration.
 
@@ -252,8 +319,14 @@ def create_llm_client(api_key: str, model: str = "gpt-3.5-turbo", provider: str 
     Returns:
         Configured LLMClient instance
     """
-    from llm_interface import LLMProviderType
 
-    llm_config = LLMConfig(provider=LLMProviderType(provider), model=model, api_key=api_key, temperature=kwargs.get("temperature", 0.7), max_tokens=kwargs.get("max_tokens", 1500), **{k: v for k, v in kwargs.items() if k not in ["temperature", "max_tokens"]})
+    llm_config = LLMConfig(
+        provider=LLMProviderType(provider),
+        model=model,
+        api_key=api_key,
+        temperature=kwargs.get("temperature", 0.7),
+        max_tokens=kwargs.get("max_tokens", 1500),
+        **{k: v for k, v in kwargs.items() if k not in ["temperature", "max_tokens"]},
+    )
 
     return LLMClient(llm_config, cache_enabled=cache_enabled)

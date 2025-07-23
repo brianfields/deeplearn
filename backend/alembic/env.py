@@ -1,17 +1,16 @@
 from logging.config import fileConfig
-
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
-
-from alembic import context
-
-import sys
 import os
 from pathlib import Path
+import sys
+
+from sqlalchemy import engine_from_config, pool
+
+from alembic import context
 
 # Load environment variables from .env file
 try:
     from dotenv import load_dotenv
+
     # Look for .env file in the backend directory (parent of alembic directory)
     backend_dir = Path(__file__).parent.parent
     env_file = backend_dir / ".env"
@@ -34,6 +33,7 @@ sys.path.insert(0, str(src_dir))
 # Import our models - handle import errors gracefully
 try:
     from data_structures import Base
+
     target_metadata = Base.metadata
 except ImportError as e:
     print(f"Warning: Could not import models: {e}")
@@ -62,13 +62,14 @@ if config.config_file_name is not None:
 def get_database_url():
     """Get database URL from environment or config"""
     # First try environment variable
-    database_url = os.getenv('DATABASE_URL')
+    database_url = os.getenv("DATABASE_URL")
     if database_url:
         return database_url
 
     # Try to get from our config system
     try:
         from config.config import config_manager
+
         return config_manager.get_database_url()
     except Exception:
         # Fallback - provide helpful error message
@@ -125,9 +126,7 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()

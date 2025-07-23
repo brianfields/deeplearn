@@ -6,8 +6,8 @@ This script provides an easy way to completely wipe and recreate
 both PostgreSQL and SQLite databases for the deeplearn project.
 """
 
-import subprocess
 from pathlib import Path
+import subprocess
 
 
 def reset_postgresql():
@@ -17,7 +17,7 @@ def reset_postgresql():
     try:
         # Test database connection by trying to run alembic current
         print("   Testing database connection...")
-        result = subprocess.run(["alembic", "current"], capture_output=True, text=True)
+        result = subprocess.run(["alembic", "current"], capture_output=True, text=True, check=False)
 
         if result.returncode != 0:
             print("⚠️  PostgreSQL connection failed - database may not be configured")
@@ -27,14 +27,14 @@ def reset_postgresql():
 
         # Downgrade to base (removes all tables)
         print("   Downgrading database...")
-        result = subprocess.run(["alembic", "downgrade", "base"], capture_output=True, text=True)
+        result = subprocess.run(["alembic", "downgrade", "base"], capture_output=True, text=True, check=False)
         if result.returncode != 0:
             print(f"   Error downgrading: {result.stderr}")
             return False
 
         # Upgrade to head (recreates all tables)
         print("   Upgrading database...")
-        result = subprocess.run(["alembic", "upgrade", "head"], capture_output=True, text=True)
+        result = subprocess.run(["alembic", "upgrade", "head"], capture_output=True, text=True, check=False)
         if result.returncode != 0:
             print(f"   Error upgrading: {result.stderr}")
             return False
@@ -58,7 +58,7 @@ def reset_sqlite():
 
     # Search in current directory and subdirectories
     for pattern in sqlite_patterns:
-        for db_file in Path(".").glob(pattern):
+        for db_file in Path().glob(pattern):
             if db_file.is_file():
                 try:
                     db_file.unlink()
@@ -68,7 +68,7 @@ def reset_sqlite():
                     print(f"   Error removing {db_file}: {e}")
 
         # Also check subdirectories
-        for db_file in Path(".").glob(f"**/{pattern}"):
+        for db_file in Path().glob(f"**/{pattern}"):
             if db_file.is_file():
                 try:
                     db_file.unlink()

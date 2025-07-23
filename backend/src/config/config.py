@@ -5,9 +5,9 @@ This module handles environment variable loading and configuration management.
 Supports both .env files and environment variables.
 """
 
+from dataclasses import dataclass
 import logging
 import os
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -81,7 +81,7 @@ class AppConfig:
 class ConfigManager:
     """Configuration manager for the learning app"""
 
-    def __init__(self, env_file: str | None = None):
+    def __init__(self, env_file: str | None = None) -> None:
         self.env_file = env_file or ".env"
         self.config = AppConfig()
         self._load_configuration()
@@ -198,7 +198,13 @@ class ConfigManager:
 
     def get_database_config(self) -> dict[str, Any]:
         """Get database configuration for SQLAlchemy engine"""
-        return {"url": self.get_database_url(), "echo": self.config.database_echo, "pool_size": 5, "max_overflow": 10, "pool_recycle": 3600}
+        return {
+            "url": self.get_database_url(),
+            "echo": self.config.database_echo,
+            "pool_size": 5,
+            "max_overflow": 10,
+            "pool_recycle": 3600,
+        }
 
     def get_settings_dict(self) -> dict[str, Any]:
         """Get settings dictionary for backward compatibility"""
@@ -220,15 +226,21 @@ class ConfigManager:
         # Configure logging level
         log_level = getattr(logging, self.config.log_level.upper(), logging.INFO)
 
-        # Setup logging configuration
-        logging_config = {"level": log_level, "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s", "datefmt": "%Y-%m-%d %H:%M:%S"}
-
-        # Add file handler if log file is specified
+        # Setup logging configuration with explicit parameters
         if self.config.log_file:
-            logging_config["filename"] = self.config.log_file
-            logging_config["filemode"] = "a"
-
-        logging.basicConfig(**logging_config)
+            logging.basicConfig(
+                level=log_level,
+                format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S",
+                filename=self.config.log_file,
+                filemode="a",
+            )
+        else:
+            logging.basicConfig(
+                level=log_level,
+                format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S",
+            )
 
         # Set specific logger levels
         if self.config.debug:

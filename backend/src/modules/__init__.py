@@ -6,4 +6,4 @@ Each module is a self-contained capability that can be composed together.
 """
 
 # Module exports will be added as modules are created
-__all__ = []
+__all__: list[str] = []

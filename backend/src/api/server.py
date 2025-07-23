@@ -14,14 +14,18 @@ The server is organized into several modules:
 """
 
 import logging
+from pathlib import Path
 
 # Import the existing learning components
 import sys
-from pathlib import Path
+from typing import TYPE_CHECKING
 
-import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
+
+if TYPE_CHECKING:
+    pass
 
 from .content_creation_routes import router as content_creation_router
 from .learning_routes import router as api_router
@@ -32,7 +36,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 try:
     # Import using absolute imports from the src directory
-    import config.config as config
+    from config import config
     import data_structures
     import database_service
     import llm_interface
@@ -42,7 +46,9 @@ try:
     setup_logging = config.setup_logging
     validate_config = config.validate_config
 
-    DatabaseService = database_service.DatabaseService
+    # Import DatabaseService properly for type checking
+    from database_service import DatabaseService
+
     get_database_service = database_service.get_database_service
     init_database_service = database_service.init_database_service
 
@@ -63,45 +69,42 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app
-app = FastAPI(title="Conversational Learning API", description="AI-powered conversational learning platform", version="1.0.0")
+app = FastAPI(
+    title="Conversational Learning API",
+    description="AI-powered conversational learning platform",
+    version="1.0.0",
+)
 
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001"],  # Next.js frontend (multiple ports)
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001",
+    ],  # Next.js frontend (multiple ports)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Include routers
-app.include_router(api_router)
+app.include_router(api_router)  # type: ignore[has-type]
 app.include_router(content_creation_router)
-
-# Global services - initialized on startup
-database: DatabaseService | None = None
-
-# Global service instances
-database = None
-storage = None  # For backward compatibility
 
 
 @app.on_event("startup")
-async def startup_event():
+async def startup_event() -> None:
     """
     Initialize services on startup.
 
     This function sets up the core database service for bite-sized topics.
     """
-    global database, storage
-
     # Setup logging
     setup_logging()
 
     try:
         # Initialize database service
-        database = init_database_service()
-        storage = database  # For backward compatibility
+        init_database_service()
 
         logger.info("Bite-Sized Topics API server started successfully")
 
@@ -115,4 +118,4 @@ if __name__ == "__main__":
     config = config_manager.config
 
     # Run the server
-    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True, log_level="info")
+    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True, log_level="info")  # noqa: S104

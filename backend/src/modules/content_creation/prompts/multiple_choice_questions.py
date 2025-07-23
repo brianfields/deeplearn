@@ -5,6 +5,8 @@ This module contains the prompt templates for generating multiple choice questio
 assessment questions that check conceptual understanding and uncover misconceptions.
 """
 
+from typing import Any
+
 from src.core.prompt_base import PromptContext, PromptTemplate
 from src.llm_interface import LLMMessage, MessageRole
 
@@ -12,7 +14,7 @@ from src.llm_interface import LLMMessage, MessageRole
 class MultipleChoiceQuestionsPrompt(PromptTemplate):
     """Template for generating multiple choice questions"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("multiple_choice_questions")
 
     def _get_base_instructions(self) -> str:
@@ -64,7 +66,7 @@ class MultipleChoiceQuestionsPrompt(PromptTemplate):
         reflect real learner confusion. Do not include any additional text outside the JSON object.
         """
 
-    def generate_prompt(self, context: PromptContext, **kwargs) -> list[LLMMessage]:
+    def generate_prompt(self, context: PromptContext, **kwargs: Any) -> list[LLMMessage]:  # noqa: ANN401
         # Validate required parameters
         self.validate_kwargs(["topic_title", "core_concept"], **kwargs)
 
@@ -142,4 +144,7 @@ class MultipleChoiceQuestionsPrompt(PromptTemplate):
         Ensure each question has high-quality distractors that reflect realistic learner confusion.
         """
 
-        return [LLMMessage(role=MessageRole.SYSTEM, content=system_message), LLMMessage(role=MessageRole.USER, content=user_content)]
+        return [
+            LLMMessage(role=MessageRole.SYSTEM, content=system_message),
+            LLMMessage(role=MessageRole.USER, content=user_content),
+        ]

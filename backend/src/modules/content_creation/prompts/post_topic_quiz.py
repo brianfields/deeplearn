@@ -12,7 +12,7 @@ from src.llm_interface import LLMMessage, MessageRole
 class PostTopicQuizPrompt(PromptTemplate):
     """Template for generating post-topic quizzes"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("post_topic_quiz")
 
     def _get_base_instructions(self) -> str:
@@ -145,4 +145,7 @@ class PostTopicQuizPrompt(PromptTemplate):
         Choose question formats strategically based on what best assesses each aspect of understanding.
         """
 
-        return [LLMMessage(role=MessageRole.SYSTEM, content=system_message), LLMMessage(role=MessageRole.USER, content=user_content)]
+        return [
+            LLMMessage(role=MessageRole.SYSTEM, content=system_message),
+            LLMMessage(role=MessageRole.USER, content=user_content),
+        ]

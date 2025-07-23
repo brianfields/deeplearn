@@ -12,7 +12,7 @@ from src.llm_interface import LLMMessage, MessageRole
 class ShortAnswerQuestionsPrompt(PromptTemplate):
     """Template for generating short answer questions"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("short_answer_questions")
 
     def _get_base_instructions(self) -> str:
@@ -115,4 +115,7 @@ class ShortAnswerQuestionsPrompt(PromptTemplate):
         Ensure each question targets a different aspect and thinking level for comprehensive assessment.
         """
 
-        return [LLMMessage(role=MessageRole.SYSTEM, content=system_message), LLMMessage(role=MessageRole.USER, content=user_content)]
+        return [
+            LLMMessage(role=MessageRole.SYSTEM, content=system_message),
+            LLMMessage(role=MessageRole.USER, content=user_content),
+        ]

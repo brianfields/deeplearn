@@ -4,16 +4,28 @@ Data structures for the Bite-Sized Topics Learning App
 Simplified data model focused on bite-sized learning content.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import JSON, DateTime, ForeignKey, Index, Integer, String, Text
-from sqlalchemy.orm import Mapped, declarative_base, mapped_column, relationship
+from sqlalchemy.orm import (  # type: ignore[attr-defined]
+    DeclarativeBase,
+    Mapped,
+    mapped_column,
+    relationship,
+)
 
-Base = declarative_base()
+if TYPE_CHECKING:
+    pass
+
+
+class Base(DeclarativeBase):
+    pass
 
 
 # Essential Enums
@@ -60,15 +72,19 @@ class BiteSizedTopic(Base):
     source_material: Mapped[str | None] = mapped_column(Text, nullable=True)  # Original input text
     source_domain: Mapped[str | None] = mapped_column(String, nullable=True)  # Domain specified during creation
     source_level: Mapped[str | None] = mapped_column(String, nullable=True)  # Level specified during creation
-    refined_material: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)  # Structured extraction from source
+    refined_material: Mapped[dict[str, Any] | None] = mapped_column(
+        JSON, nullable=True
+    )  # Structured extraction from source
 
     # Timestamps
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(UTC), onupdate=datetime.now(UTC))
     version: Mapped[int] = mapped_column(Integer, default=1)
 
     # Relationships
-    components = relationship("BiteSizedComponent", back_populates="topic", cascade="all, delete-orphan")
+    components: Mapped[list[BiteSizedComponent]] = relationship(
+        "BiteSizedComponent", back_populates="topic", cascade="all, delete-orphan"
+    )
 
     # Indexes
     __table_args__ = (
@@ -86,20 +102,26 @@ class BiteSizedComponent(Base):
     topic_id: Mapped[str] = mapped_column(String, ForeignKey("bite_sized_topics.id"), nullable=False)
     component_type: Mapped[str] = mapped_column(String, nullable=False)  # didactic_snippet, glossary, etc.
     title: Mapped[str] = mapped_column(String, nullable=False)  # 1-8 word title to identify the component
-    content: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)  # All component data consolidated into single JSON field
+    content: Mapped[dict[str, Any]] = mapped_column(
+        JSON, nullable=False
+    )  # All component data consolidated into single JSON field
 
     # Generation metadata
-    generation_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)  # The prompt used to generate this component
+    generation_prompt: Mapped[str | None] = mapped_column(
+        Text, nullable=True
+    )  # The prompt used to generate this component
     raw_llm_response: Mapped[str | None] = mapped_column(Text, nullable=True)  # The full unedited response from the LLM
-    evaluation: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)  # Quality evaluation results for the component
+    evaluation: Mapped[dict[str, Any] | None] = mapped_column(
+        JSON, nullable=True
+    )  # Quality evaluation results for the component
 
     # Timestamps
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(UTC), onupdate=datetime.now(UTC))
     version: Mapped[int] = mapped_column(Integer, default=1)
 
     # Relationships
-    topic = relationship("BiteSizedTopic", back_populates="components")
+    topic: Mapped[BiteSizedTopic] = relationship("BiteSizedTopic", back_populates="components")
 
     # Indexes
     __table_args__ = (
@@ -121,10 +143,12 @@ class QuizQuestion:
     correct_answer_index: int  # 0-based index into options
     explanation: str | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validate that correct_answer_index is within bounds"""
         if not (0 <= self.correct_answer_index < len(self.options)):
-            raise ValueError(f"correct_answer_index {self.correct_answer_index} out of range for {len(self.options)} options")
+            raise ValueError(
+                f"correct_answer_index {self.correct_answer_index} out of range for {len(self.options)} options"
+            )
 
     @property
     def correct_answer(self) -> str:
@@ -133,15 +157,28 @@ class QuizQuestion:
 
     @classmethod
     def from_legacy_format(
-        cls, id: str, type: QuizType, question: str, correct_answer: str, options: list[str], explanation: str | None = None
-    ) -> "QuizQuestion":
+        cls,
+        id: str,
+        type: QuizType,
+        question: str,
+        correct_answer: str,
+        options: list[str],
+        explanation: str | None = None,
+    ) -> QuizQuestion:
         """Create QuizQuestion from legacy string-based correct answer format"""
         try:
             correct_answer_index = options.index(correct_answer)
         except ValueError:
             raise ValueError(f"correct_answer '{correct_answer}' not found in options: {options}") from None
 
-        return cls(id=id, type=type, question=question, options=options, correct_answer_index=correct_answer_index, explanation=explanation)
+        return cls(
+            id=id,
+            type=type,
+            question=question,
+            options=options,
+            correct_answer_index=correct_answer_index,
+            explanation=explanation,
+        )
 
 
 # Domain Models for Service Layer (Pydantic)

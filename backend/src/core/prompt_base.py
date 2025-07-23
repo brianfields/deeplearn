@@ -5,9 +5,9 @@ This module provides the foundation for all prompt templates used across
 the learning system modules.
 """
 
-import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+import json
 from typing import Any
 
 from src.llm_interface import LLMMessage
@@ -33,7 +33,7 @@ class PromptTemplate(ABC):
     All module-specific prompt templates should inherit from this class.
     """
 
-    def __init__(self, template_name: str):
+    def __init__(self, template_name: str) -> None:
         self.template_name = template_name
         self.name = template_name  # Add name property for compatibility
         self.base_instructions = self._get_base_instructions()
@@ -44,7 +44,7 @@ class PromptTemplate(ABC):
         pass
 
     @abstractmethod
-    def generate_prompt(self, context: PromptContext, **kwargs) -> list[LLMMessage]:
+    def generate_prompt(self, context: PromptContext, **kwargs: Any) -> list[LLMMessage]:  # noqa: ANN401
         """Generate prompt messages for the given context"""
         pass
 
@@ -65,14 +65,18 @@ class PromptTemplate(ABC):
 
         return context_str.strip()
 
-    def validate_kwargs(self, required_kwargs: list[str], **kwargs) -> None:
+    def validate_kwargs(self, required_kwargs: list[str], **kwargs: Any) -> None:  # noqa: ANN401
         """Validate that required kwargs are present"""
         missing = [k for k in required_kwargs if k not in kwargs]
         if missing:
             raise ValueError(f"Missing required parameters for {self.template_name}: {missing}")
 
 
-def create_default_context(user_level: str = "beginner", time_constraint: int = 15, **kwargs) -> PromptContext:
+def create_default_context(
+    user_level: str = "beginner",
+    time_constraint: int = 15,
+    **kwargs: Any,  # noqa: ANN401
+) -> PromptContext:
     """
     Create a default prompt context with common settings.
 

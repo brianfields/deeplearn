@@ -22,6 +22,51 @@ class GenerationMetadata(BaseModel):
     refined_material: str | None = Field(default=None, description="Source material used for generation")
 
 
+class SingleMCQResponse(BaseModel):
+    """Response for a single MCQ creation."""
+
+    stem: str = Field(description="The question stem")
+    options: list[str] = Field(description="List of answer choices")
+    correct_answer: str = Field(description="The exact text of the correct answer")
+    rationale: str = Field(
+        description="Brief explanation of why the correct answer is correct and distractors are incorrect"
+    )
+
+
+class MCQEvaluationResponse(BaseModel):
+    """Response for MCQ evaluation."""
+
+    alignment: str = Field(description="Comments on alignment with learning objective")
+    stem_quality: str = Field(description="Comments on stem quality")
+    options_quality: str = Field(description="Comments on options quality")
+    cognitive_challenge: str = Field(description="Comments on cognitive challenge")
+    clarity_fairness: str = Field(description="Comments on clarity and fairness")
+    overall: str = Field(description="Summary judgment and reasoning")
+
+
+class CommonMisconception(BaseModel):
+    """A common misconception with its correction."""
+
+    misconception: str = Field(description="The incorrect belief")
+    correct_concept: str = Field(description="The correct idea")
+
+
+class RefinedTopic(BaseModel):
+    """A single refined topic extracted from source material."""
+
+    topic: str = Field(description="The topic name")
+    learning_objectives: list[str] = Field(description="Learning objectives with Bloom levels")
+    key_facts: list[str] = Field(description="Essential facts, principles, or relationships")
+    common_misconceptions: list[CommonMisconception] = Field(description="Common misconceptions and corrections")
+    assessment_angles: list[str] = Field(description="Notes on how each concept might be assessed")
+
+
+class RefinedMaterialResponse(BaseModel):
+    """Response for refined material extraction."""
+
+    topics: list[RefinedTopic] = Field(description="List of refined topics extracted from source material")
+
+
 class DidacticSnippet(BaseModel):
     """A didactic snippet - short engaging explanation that introduces a concept."""
 
@@ -29,7 +74,9 @@ class DidacticSnippet(BaseModel):
     snippet: str = Field(description="3-10 sentence teaching explanation using appropriate framing")
     type: str = Field(default="didactic_snippet", description="Content type identifier")
     difficulty: int = Field(default=2, ge=1, le=5, description="Difficulty level from 1-5")
-    generation_metadata: GenerationMetadata | None = Field(default=None, description="Metadata about content generation")
+    generation_metadata: GenerationMetadata | None = Field(
+        default=None, description="Metadata about content generation"
+    )
 
 
 class GlossaryEntry(BaseModel):
@@ -41,7 +88,9 @@ class GlossaryEntry(BaseModel):
     type: str = Field(default="glossary_entry", description="Content type identifier")
     difficulty: int = Field(default=2, ge=1, le=5, description="Difficulty level from 1-5")
     number: int | None = Field(default=None, description="Position number in the glossary")
-    generation_metadata: GenerationMetadata | None = Field(default=None, description="Metadata about content generation")
+    generation_metadata: GenerationMetadata | None = Field(
+        default=None, description="Metadata about content generation"
+    )
 
 
 class GlossaryResponse(BaseModel):
@@ -64,7 +113,9 @@ class SocraticDialogue(BaseModel):
     difficulty: int = Field(default=3, ge=1, le=5, description="Difficulty level from 1-5")
     tags: str = Field(default="", description="Optional tags for categorization")
     number: int | None = Field(default=None, description="Position number in the dialogue set")
-    generation_metadata: GenerationMetadata | None = Field(default=None, description="Metadata about content generation")
+    generation_metadata: GenerationMetadata | None = Field(
+        default=None, description="Metadata about content generation"
+    )
 
 
 class SocraticDialogueResponse(BaseModel):
@@ -85,7 +136,9 @@ class ShortAnswerQuestion(BaseModel):
     difficulty: int = Field(default=3, ge=1, le=5, description="Difficulty level from 1-5")
     tags: str = Field(default="", description="Optional tags for categorization")
     number: int | None = Field(default=None, description="Position number in the question set")
-    generation_metadata: GenerationMetadata | None = Field(default=None, description="Metadata about content generation")
+    generation_metadata: GenerationMetadata | None = Field(
+        default=None, description="Metadata about content generation"
+    )
 
 
 class ShortAnswerResponse(BaseModel):
@@ -109,7 +162,9 @@ class MultipleChoiceQuestion(BaseModel):
     difficulty: int = Field(default=3, ge=1, le=5, description="Difficulty level from 1-5")
     tags: str = Field(default="", description="Optional tags for usage metadata")
     number: int | None = Field(default=None, description="Position number in the question set")
-    generation_metadata: GenerationMetadata | None = Field(default=None, description="Metadata about content generation")
+    generation_metadata: GenerationMetadata | None = Field(
+        default=None, description="Metadata about content generation"
+    )
 
 
 class MultipleChoiceResponse(BaseModel):
@@ -127,7 +182,9 @@ class QuizItem(BaseModel):
     target_concept: str = Field(description="Concept being assessed")
     difficulty: int = Field(default=3, ge=1, le=5, description="Difficulty level from 1-5")
     tags: str = Field(default="", description="Optional tags")
-    generation_metadata: GenerationMetadata | None = Field(default=None, description="Metadata about content generation")
+    generation_metadata: GenerationMetadata | None = Field(
+        default=None, description="Metadata about content generation"
+    )
 
     # Multiple choice specific fields
     choices: dict[str, str] = Field(default_factory=dict, description="Answer choices for MC questions")

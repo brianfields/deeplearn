@@ -16,25 +16,34 @@ Usage:
 
 import argparse
 import asyncio
+from datetime import datetime
 import json
 import logging
+from pathlib import Path
 import sys
 import uuid
-from datetime import datetime
-from pathlib import Path
 
 # Add the src directory to the path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from src.core.llm_client import LLMClient
 from src.core.service_base import ServiceConfig
-from src.data_structures import BiteSizedComponent, BiteSizedTopic
+from src.data_structures import BiteSizedComponent, BiteSizedTopic, TopicResult
 from src.database_service import DatabaseService
 from src.llm_interface import LLMConfig, LLMProviderType
-from src.modules.lesson_planning.bite_sized_topics.service import BiteSizedTopicService
+from src.modules.content_creation.service import BiteSizedTopicService
 
 
-async def save_complete_topic_to_database(db_service: DatabaseService, topic_content, topic_title: str, core_concept: str, user_level: str, source_material: str, domain: str, verbose: bool = False) -> str:
+async def save_complete_topic_to_database(
+    db_service: DatabaseService,
+    topic_content: TopicResult,
+    topic_title: str,
+    core_concept: str,
+    user_level: str,
+    source_material: str,
+    domain: str,
+    verbose: bool = False,
+) -> str:
     """Save the complete topic and all components to database."""
     topic_id = str(uuid.uuid4())
 
@@ -118,7 +127,12 @@ async def main():
     parser.add_argument("--topic", required=True, help="Topic title")
     parser.add_argument("--concept", required=True, help="Core concept to focus on")
     parser.add_argument("--material", required=True, help="Path to source material text file")
-    parser.add_argument("--level", default="intermediate", choices=["beginner", "intermediate", "advanced"], help="Target user level")
+    parser.add_argument(
+        "--level",
+        default="intermediate",
+        choices=["beginner", "intermediate", "advanced"],
+        help="Target user level",
+    )
     parser.add_argument("--domain", default="Machine Learning", help="Subject domain")
     parser.add_argument("--verbose", action="store_true", help="Show detailed progress and service logs")
     parser.add_argument("--output", help="Save content to JSON file for inspection")
@@ -128,7 +142,11 @@ async def main():
     # Configure logging based on verbose setting
     if args.verbose:
         log_level = logging.INFO
-        logging.basicConfig(level=log_level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", datefmt="%H:%M:%S")
+        logging.basicConfig(
+            level=log_level,
+            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            datefmt="%H:%M:%S",
+        )
         print("🔧 Verbose mode: Detailed service logs enabled")
     else:
         # Only show warnings and errors from services

@@ -12,7 +12,7 @@ from src.llm_interface import LLMMessage, MessageRole
 class SingleMCQCreationPrompt(PromptTemplate):
     """Template for creating a single MCQ from refined material"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("single_mcq_creation")
 
     def _get_base_instructions(self) -> str:
@@ -91,7 +91,9 @@ class SingleMCQCreationPrompt(PromptTemplate):
             misconception_text = []
             for misconception in common_misconceptions:
                 if isinstance(misconception, dict):
-                    misconception_text.append(f"Misconception: {misconception.get('misconception', '')}, Correct: {misconception.get('correct_concept', '')}")
+                    misconception_text.append(
+                        f"Misconception: {misconception.get('misconception', '')}, Correct: {misconception.get('correct_concept', '')}"
+                    )
                 else:
                     misconception_text.append(str(misconception))
             user_content += f"\n- **Known Misconceptions:** {'; '.join(misconception_text)}"
@@ -101,4 +103,7 @@ class SingleMCQCreationPrompt(PromptTemplate):
 
         user_content += "\n\nNow create the MCQ."
 
-        return [LLMMessage(role=MessageRole.SYSTEM, content=system_message), LLMMessage(role=MessageRole.USER, content=user_content)]
+        return [
+            LLMMessage(role=MessageRole.SYSTEM, content=system_message),
+            LLMMessage(role=MessageRole.USER, content=user_content),
+        ]

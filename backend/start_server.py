@@ -6,8 +6,8 @@ This script starts the FastAPI web server for the conversational learning app.
 """
 
 import os
-import sys
 from pathlib import Path
+import sys
 
 # Add src directory to Python path
 src_path = str(Path(__file__).parent / "src")

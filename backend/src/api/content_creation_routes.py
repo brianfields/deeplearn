@@ -31,12 +31,13 @@ RELATIONSHIP TO OTHER MODULES:
 - Consumed by Content Creation Studio frontend interface
 """
 
+from datetime import UTC, datetime
 import logging
-import sys
-import uuid
-from datetime import datetime
+import os
 from pathlib import Path
+import sys
 from typing import Any
+import uuid
 
 from fastapi import Depends, HTTPException
 from fastapi.routing import APIRouter
@@ -44,12 +45,14 @@ from pydantic import BaseModel, Field
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from core.llm_client import create_llm_client
-from core.prompt_base import PromptContext
-from data_structures import BiteSizedComponent, BiteSizedTopic
-from database_service import DatabaseService
-from modules.lesson_planning.bite_sized_topics.mcq_service import MCQService
-from modules.lesson_planning.bite_sized_topics.refined_material_service import RefinedMaterialService
+from src.core.llm_client import create_llm_client
+from src.core.prompt_base import PromptContext
+from src.data_structures import BiteSizedComponent, BiteSizedTopic
+from src.modules.content_creation.mcq_service import MCQService
+from src.modules.content_creation.refined_material_service import RefinedMaterialService
+
+# Import shared dependencies
+from .dependencies import DatabaseDep
 
 
 # Simplified Request/Response Models for Direct Database Usage
@@ -108,20 +111,10 @@ router = APIRouter(prefix="/api/content", tags=["content-creation"])
 # Request/Response Models for New Database-First API
 
 
-async def get_database_service() -> DatabaseService:
-    """Dependency to get database service instance"""
-    try:
-        return DatabaseService()
-    except Exception as e:
-        logger.error(f"Failed to create database service: {e}")
-        raise HTTPException(status_code=500, detail="Failed to initialize database service") from e
-
-
 async def get_mcq_service() -> MCQService:
     """Dependency to get MCQ service instance"""
     try:
         # Get API key from environment or use dummy for testing
-        import os
 
         api_key = os.environ.get("OPENAI_API_KEY", "dummy_key")
 
@@ -136,7 +129,6 @@ async def get_refined_material_service() -> RefinedMaterialService:
     """Dependency to get RefinedMaterialService instance"""
     try:
         # Get API key from environment or use dummy for testing
-        import os
 
         api_key = os.environ.get("OPENAI_API_KEY", "dummy_key")
 
@@ -157,17 +149,39 @@ async def get_refined_material_service() -> RefinedMaterialService:
 
 
 @router.post("/topics", response_model=TopicResponse)
-async def create_topic_from_material(request: CreateTopicFromMaterialRequest, refined_material_service: RefinedMaterialService = Depends(get_refined_material_service), db_service: DatabaseService = Depends(get_database_service)):
+async def create_topic_from_material(
+    request: CreateTopicFromMaterialRequest,
+    db_service: DatabaseDep,
+    refined_material_service: RefinedMaterialService = Depends(get_refined_material_service),
+) -> TopicResponse:
     """
-    Create a new topic with refined material from source text.
-    This directly creates a BiteSizedTopic with the refined material.
+    Create a new topic from source material.
+
+    This endpoint:
+    1. Takes user-provided source material
+    2. Uses RefinedMaterialService to extract structured information
+    3. Creates a BiteSizedTopic in the database with refined material
+    4. Returns the created topic
+
+    Args:
+        request: Topic creation request with source material
+        db_service: Database service injected via dependency injection
+        refined_material_service: Service for processing source material
+
+    Returns:
+        TopicResponse: Created topic with refined material
     """
     try:
         # Create prompt context
         context = PromptContext(user_level=request.source_level, time_constraint=30)
 
         # Extract refined material
-        refined_material = await refined_material_service.extract_refined_material(source_material=request.source_material, domain=request.source_domain, user_level=request.source_level, context=context)
+        refined_material = await refined_material_service.extract_refined_material(
+            source_material=request.source_material,
+            domain=request.source_domain,
+            user_level=request.source_level,
+            context=context,
+        )
 
         # Generate topic ID
         topic_id = str(uuid.uuid4())
@@ -176,14 +190,14 @@ async def create_topic_from_material(request: CreateTopicFromMaterialRequest, re
         learning_objectives = []
         key_concepts = []
 
-        for topic_data in refined_material.get("topics", []):
-            if topic_data.get("learning_objectives"):
-                learning_objectives.extend(topic_data["learning_objectives"])
-            if topic_data.get("key_facts"):
-                key_concepts.extend(topic_data["key_facts"])
+        for topic_data in refined_material.topics:
+            if topic_data.learning_objectives:
+                learning_objectives.extend(topic_data.learning_objectives)
+            if topic_data.key_facts:
+                key_concepts.extend(topic_data.key_facts)
 
         # Create core concept from first topic or use title
-        core_concept = refined_material.get("topics", [{}])[0].get("topic", request.title) if refined_material.get("topics") else request.title
+        core_concept = refined_material.topics[0].topic if refined_material.topics else request.title
 
         # Create topic in database
         topic = BiteSizedTopic(
@@ -198,9 +212,9 @@ async def create_topic_from_material(request: CreateTopicFromMaterialRequest, re
             source_material=request.source_material,
             source_domain=request.source_domain,
             source_level=request.source_level,
-            refined_material=refined_material,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            refined_material=refined_material.model_dump(),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
         )
 
         success = db_service.save_bite_sized_topic(topic)
@@ -219,21 +233,28 @@ async def create_topic_from_material(request: CreateTopicFromMaterialRequest, re
             source_material=request.source_material,
             source_domain=request.source_domain,
             source_level=request.source_level,
-            refined_material=refined_material,
+            refined_material=refined_material.model_dump(),
             components=[],
-            created_at=datetime.utcnow().isoformat(),
-            updated_at=datetime.utcnow().isoformat(),
+            created_at=datetime.now(UTC).isoformat(),
+            updated_at=datetime.now(UTC).isoformat(),
         )
 
     except Exception as e:
         logger.error(f"Failed to create topic from material: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to create topic from material: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"Failed to create topic from material: {e!s}") from e
 
 
 @router.get("/topics/{topic_id}", response_model=TopicResponse)
-async def get_topic(topic_id: str, db_service: DatabaseService = Depends(get_database_service)):
+async def get_topic(topic_id: str, db_service: DatabaseDep) -> TopicResponse:
     """
     Get a topic with all its components for content creation/editing.
+
+    Args:
+        topic_id: Unique identifier for the topic
+        db_service: Database service injected via dependency injection
+
+    Returns:
+        TopicResponse: Topic data with all components
     """
     try:
         # Get topic from database using DatabaseService method (returns Pydantic model)
@@ -245,7 +266,7 @@ async def get_topic(topic_id: str, db_service: DatabaseService = Depends(get_dat
         components = db_service.get_topic_components(topic_id)
 
         # Convert Pydantic models to dict format for response
-        component_dicts = [comp.dict() for comp in components]
+        component_dicts = [comp.model_dump() for comp in components]
 
         return TopicResponse(
             id=topic.id,
@@ -267,11 +288,16 @@ async def get_topic(topic_id: str, db_service: DatabaseService = Depends(get_dat
         raise  # Re-raise HTTPExceptions as-is (404, etc.)
     except Exception as e:
         logger.error(f"Failed to get topic {topic_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get topic: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"Failed to get topic: {e!s}") from e
 
 
 @router.post("/topics/{topic_id}/components", response_model=ComponentResponse)
-async def create_component_for_topic(topic_id: str, request: CreateComponentRequest, mcq_service: MCQService = Depends(get_mcq_service), db_service: DatabaseService = Depends(get_database_service)):
+async def create_component(
+    topic_id: str,
+    request: CreateComponentRequest,
+    db_service: DatabaseDep,
+    mcq_service: MCQService = Depends(get_mcq_service),
+) -> ComponentResponse:
     """
     Create a new component (MCQ) for a topic.
     """
@@ -293,21 +319,48 @@ async def create_component_for_topic(topic_id: str, request: CreateComponentRequ
             key_facts = list(topic.key_concepts) if topic.key_concepts else []
 
             # Create MCQ using service
-            mcq_data = await mcq_service._create_single_mcq(subtopic=str(topic.title), learning_objective=request.learning_objective, key_facts=key_facts, common_misconceptions=[], assessment_angles=[], context=context)
+            mcq_data = await mcq_service._create_single_mcq(
+                subtopic=str(topic.title),
+                learning_objective=request.learning_objective,
+                key_facts=key_facts,
+                common_misconceptions=[],
+                assessment_angles=[],
+                context=context,
+            )
 
             # Evaluate MCQ
-            evaluation = await mcq_service._evaluate_mcq(mcq=mcq_data, learning_objective=request.learning_objective, context=context)
+            evaluation = await mcq_service._evaluate_mcq(
+                mcq=mcq_data,
+                learning_objective=request.learning_objective,
+                context=context,
+            )
 
-            component_content = {"mcq": mcq_data, "evaluation": evaluation, "learning_objective": request.learning_objective}
+            component_content = {
+                "mcq": mcq_data.model_dump(),
+                "evaluation": evaluation.model_dump(),
+                "learning_objective": request.learning_objective,
+            }
             title = f"MCQ: {request.learning_objective[:50]}..."
 
         else:
             # For other component types, create placeholder content
-            component_content = {"type": request.component_type, "learning_objective": request.learning_objective, "placeholder": True}
+            component_content = {
+                "type": request.component_type,
+                "learning_objective": request.learning_objective,
+                "placeholder": "true",
+            }
             title = f"{request.component_type.replace('_', ' ').title()}"
 
         # Create component in database
-        component = BiteSizedComponent(id=component_id, topic_id=topic_id, component_type=request.component_type, title=title, content=component_content, created_at=datetime.utcnow(), updated_at=datetime.utcnow())
+        component = BiteSizedComponent(
+            id=component_id,
+            topic_id=topic_id,
+            component_type=request.component_type,
+            title=title,
+            content=component_content,
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
 
         with db_service.get_session() as session:
             session.add(component)
@@ -315,24 +368,43 @@ async def create_component_for_topic(topic_id: str, request: CreateComponentRequ
 
         logger.info(f"Created component {component_id} for topic {topic_id}")
 
-        return ComponentResponse(id=component_id, topic_id=topic_id, component_type=request.component_type, title=title, content=component_content, created_at=datetime.utcnow().isoformat(), updated_at=datetime.utcnow().isoformat())
+        return ComponentResponse(
+            id=component_id,
+            topic_id=topic_id,
+            component_type=request.component_type,
+            title=title,
+            content=component_content,
+            created_at=datetime.now(UTC).isoformat(),
+            updated_at=datetime.now(UTC).isoformat(),
+        )
 
     except HTTPException:
         raise  # Re-raise HTTPExceptions as-is (404, etc.)
     except Exception as e:
         logger.error(f"Failed to create component for topic {topic_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to create component: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"Failed to create component: {e!s}") from e
 
 
 @router.delete("/topics/{topic_id}/components/{component_id}")
-async def delete_component(topic_id: str, component_id: str, db_service: DatabaseService = Depends(get_database_service)):
+async def delete_component(
+    topic_id: str,
+    component_id: str,
+    db_service: DatabaseDep,
+) -> dict[str, str]:
     """
     Delete a component from a topic.
     """
     try:
         with db_service.get_session() as session:
             # Find the component
-            component = session.query(BiteSizedComponent).filter(BiteSizedComponent.id == component_id, BiteSizedComponent.topic_id == topic_id).first()
+            component = (
+                session.query(BiteSizedComponent)
+                .filter(
+                    BiteSizedComponent.id == component_id,
+                    BiteSizedComponent.topic_id == topic_id,
+                )
+                .first()
+            )
 
             if not component:
                 raise HTTPException(status_code=404, detail="Component not found")
@@ -346,11 +418,11 @@ async def delete_component(topic_id: str, component_id: str, db_service: Databas
 
     except Exception as e:
         logger.error(f"Failed to delete component {component_id} from topic {topic_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to delete component: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"Failed to delete component: {e!s}") from e
 
 
 @router.delete("/topics/{topic_id}")
-async def delete_topic(topic_id: str, db_service: DatabaseService = Depends(get_database_service)):
+async def delete_topic(topic_id: str, db_service: DatabaseDep) -> dict[str, str]:
     """
     Delete a topic and all its components.
     """
@@ -366,4 +438,4 @@ async def delete_topic(topic_id: str, db_service: DatabaseService = Depends(get_
         raise  # Re-raise HTTPExceptions as-is (404, etc.)
     except Exception as e:
         logger.error(f"Failed to delete topic {topic_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to delete topic: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"Failed to delete topic: {e!s}") from e

@@ -5,6 +5,8 @@ This module contains the prompt template for the first pass of MCQ creation:
 extracting refined material from unstructured source material.
 """
 
+from typing import Any
+
 from src.core.prompt_base import PromptContext, PromptTemplate
 from src.llm_interface import LLMMessage, MessageRole
 
@@ -12,7 +14,7 @@ from src.llm_interface import LLMMessage, MessageRole
 class RefinedMaterialExtractionPrompt(PromptTemplate):
     """Template for extracting refined material from unstructured source material"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("refined_material_extraction")
 
     def _get_base_instructions(self) -> str:
@@ -75,7 +77,7 @@ class RefinedMaterialExtractionPrompt(PromptTemplate):
         Do not include any additional text outside the JSON object.
         """
 
-    def generate_prompt(self, context: PromptContext, **kwargs) -> list[LLMMessage]:
+    def generate_prompt(self, context: PromptContext, **kwargs: Any) -> list[LLMMessage]:  # noqa: ANN401
         # Validate required parameters
         self.validate_kwargs(["source_material"], **kwargs)
 
@@ -102,4 +104,7 @@ class RefinedMaterialExtractionPrompt(PromptTemplate):
         {source_material}
         """
 
-        return [LLMMessage(role=MessageRole.SYSTEM, content=system_message), LLMMessage(role=MessageRole.USER, content=user_content)]
+        return [
+            LLMMessage(role=MessageRole.SYSTEM, content=system_message),
+            LLMMessage(role=MessageRole.USER, content=user_content),
+        ]

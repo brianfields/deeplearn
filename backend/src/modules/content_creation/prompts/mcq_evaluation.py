@@ -12,7 +12,7 @@ from src.llm_interface import LLMMessage, MessageRole
 class MCQEvaluationPrompt(PromptTemplate):
     """Template for evaluating MCQ quality"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("mcq_evaluation")
 
     def _get_base_instructions(self) -> str:
@@ -122,4 +122,7 @@ class MCQEvaluationPrompt(PromptTemplate):
 
         user_content += "\nNow perform the evaluation."
 
-        return [LLMMessage(role=MessageRole.SYSTEM, content=system_message), LLMMessage(role=MessageRole.USER, content=user_content)]
+        return [
+            LLMMessage(role=MessageRole.SYSTEM, content=system_message),
+            LLMMessage(role=MessageRole.USER, content=user_content),
+        ]

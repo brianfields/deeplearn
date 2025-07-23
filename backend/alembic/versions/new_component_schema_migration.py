@@ -5,23 +5,29 @@ Revises: 6b171dec0c06
 Create Date: 2024-01-XX XX:XX:XX.XXXXXX
 
 """
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = 'add_title_remove_metadata'
-down_revision = '6b171dec0c06'
+revision = "add_title_remove_metadata"
+down_revision = "6b171dec0c06"
 branch_labels = None
 depends_on = None
 
 
 def upgrade():
     # Add title column to bite_sized_components
-    op.add_column('bite_sized_components', sa.Column('title', sa.String(), nullable=False, server_default='Untitled Component'))
+    op.add_column(
+        "bite_sized_components",
+        sa.Column(
+            "title", sa.String(), nullable=False, server_default="Untitled Component"
+        ),
+    )
 
     # Update existing components to have meaningful titles based on their type
-    op.execute("""
+    op.execute(
+        """
         UPDATE bite_sized_components
         SET title = CASE
             WHEN component_type = 'didactic_snippet' THEN 'Didactic Snippet'
@@ -32,36 +38,48 @@ def upgrade():
             WHEN component_type = 'post_topic_quiz' THEN 'Post-Topic Quiz Item'
             ELSE 'Component'
         END
-    """)
+    """
+    )
 
     # Remove the server default after updating existing data
-    op.alter_column('bite_sized_components', 'title', server_default=None)
+    op.alter_column("bite_sized_components", "title", server_default=None)
 
     # Change content column type from Text to JSON
-    op.alter_column('bite_sized_components', 'content',
-                   type_=sa.JSON(),
-                   postgresql_using='content::json')
+    op.alter_column(
+        "bite_sized_components",
+        "content",
+        type_=sa.JSON(),
+        postgresql_using="content::json",
+    )
 
     # For existing data, merge any component_metadata into content if it exists
     # This is a simplified approach that avoids complex type casting issues
-    op.execute("""
+    op.execute(
+        """
         UPDATE bite_sized_components
         SET content = '{}'
         WHERE content IS NULL
-    """)
+    """
+    )
 
     # Drop the component_metadata column
-    op.drop_column('bite_sized_components', 'component_metadata')
+    op.drop_column("bite_sized_components", "component_metadata")
 
 
 def downgrade():
     # Add back component_metadata column
-    op.add_column('bite_sized_components', sa.Column('component_metadata', sa.JSON(), nullable=True))
+    op.add_column(
+        "bite_sized_components",
+        sa.Column("component_metadata", sa.JSON(), nullable=True),
+    )
 
     # Change content column back to Text
-    op.alter_column('bite_sized_components', 'content',
-                   type_=sa.Text(),
-                   postgresql_using='content::text')
+    op.alter_column(
+        "bite_sized_components",
+        "content",
+        type_=sa.Text(),
+        postgresql_using="content::text",
+    )
 
     # Drop the title column
-    op.drop_column('bite_sized_components', 'title')
+    op.drop_column("bite_sized_components", "title")

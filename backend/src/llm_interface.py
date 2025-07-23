@@ -14,20 +14,20 @@ Key Features:
 - Type hints and comprehensive documentation
 """
 
-import asyncio
-import json
-import logging
 from abc import ABC, abstractmethod
+import asyncio
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
+import json
+import logging
 from typing import Any, TypeVar
 
 import instructor
 import openai
-import tiktoken
 from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
+import tiktoken
 
 # Type variable for Pydantic models
 T = TypeVar("T", bound=BaseModel)
@@ -123,9 +123,9 @@ class LLMProvider(ABC):
     switch between them.
     """
 
-    def __init__(self, config: LLMConfig):
+    def __init__(self, config: LLMConfig) -> None:
         self.config = config
-        self.token_encoder = None
+        self.token_encoder: tiktoken.Encoding | None = None
         self._setup_token_encoder()
 
     @abstractmethod
@@ -134,7 +134,11 @@ class LLMProvider(ABC):
         pass
 
     @abstractmethod
-    async def generate_response(self, messages: list[LLMMessage], **kwargs) -> LLMResponse:
+    async def generate_response(
+        self,
+        messages: list[LLMMessage],
+        **kwargs: Any,  # noqa: ANN401
+    ) -> LLMResponse:
         """
         Generate a response from the LLM.
 
@@ -151,7 +155,12 @@ class LLMProvider(ABC):
         pass
 
     @abstractmethod
-    async def generate_structured_response(self, messages: list[LLMMessage], response_schema: dict[str, Any], **kwargs) -> dict[str, Any]:
+    async def generate_structured_response(
+        self,
+        messages: list[LLMMessage],
+        response_schema: dict[str, Any],
+        **kwargs: Any,  # noqa: ANN401
+    ) -> dict[str, Any]:
         """
         Generate a structured response (JSON) from the LLM.
 
@@ -169,7 +178,12 @@ class LLMProvider(ABC):
         pass
 
     @abstractmethod
-    async def generate_structured_object(self, messages: list[LLMMessage], response_model: type[T], **kwargs) -> T:
+    async def generate_structured_object(
+        self,
+        messages: list[LLMMessage],
+        response_model: type[T],
+        **kwargs: Any,  # noqa: ANN401
+    ) -> T:
         """
         Generate a structured response using instructor and Pydantic models.
 
@@ -201,7 +215,7 @@ class LLMProvider(ABC):
             return int(len(text.split()) * 1.3)
         return len(self.token_encoder.encode(text))
 
-    def estimate_cost(self, tokens: int) -> float:
+    def estimate_cost(self, tokens: int) -> float:  # noqa: ARG002
         """
         Estimate cost for token usage.
 
@@ -225,7 +239,7 @@ class OpenAIProvider(LLMProvider):
     Includes proper error handling, retry logic, and token tracking.
     """
 
-    def __init__(self, config: LLMConfig):
+    def __init__(self, config: LLMConfig) -> None:
         super().__init__(config)
         self._setup_client()
 
@@ -233,7 +247,11 @@ class OpenAIProvider(LLMProvider):
         """Setup OpenAI client"""
         try:
             if self.config.provider == LLMProviderType.AZURE_OPENAI:
-                self.client = AsyncOpenAI(api_key=self.config.api_key, base_url=self.config.base_url, timeout=self.config.timeout)
+                self.client = AsyncOpenAI(
+                    api_key=self.config.api_key,
+                    base_url=self.config.base_url,
+                    timeout=self.config.timeout,
+                )
             else:
                 self.client = AsyncOpenAI(api_key=self.config.api_key, timeout=self.config.timeout)
         except Exception as e:
@@ -253,7 +271,11 @@ class OpenAIProvider(LLMProvider):
             logger.warning(f"Failed to setup token encoder: {e}")
             self.token_encoder = None
 
-    async def generate_response(self, messages: list[LLMMessage], **kwargs) -> LLMResponse:
+    async def generate_response(
+        self,
+        messages: list[LLMMessage],
+        **kwargs: Any,  # noqa: ANN401
+    ) -> LLMResponse:
         """Generate response from OpenAI API"""
 
         # Convert messages to OpenAI format
@@ -322,7 +344,12 @@ class OpenAIProvider(LLMProvider):
         # This should never be reached, but satisfies type checker
         raise LLMError("Failed to generate response after all retry attempts")
 
-    async def generate_structured_response(self, messages: list[LLMMessage], response_schema: dict[str, Any], **kwargs) -> dict[str, Any]:
+    async def generate_structured_response(
+        self,
+        messages: list[LLMMessage],
+        response_schema: dict[str, Any],
+        **kwargs: Any,  # noqa: ANN401
+    ) -> dict[str, Any]:
         """Generate structured JSON response from OpenAI"""
 
         # Add schema instruction to system message
@@ -339,7 +366,10 @@ class OpenAIProvider(LLMProvider):
 
         for msg in messages:
             if msg.role == MessageRole.SYSTEM:
-                system_message = LLMMessage(role=MessageRole.SYSTEM, content=msg.content + "\n\n" + schema_instruction)
+                system_message = LLMMessage(
+                    role=MessageRole.SYSTEM,
+                    content=msg.content + "\n\n" + schema_instruction,
+                )
             else:
                 user_messages.append(msg)
 
@@ -347,7 +377,7 @@ class OpenAIProvider(LLMProvider):
             system_message = LLMMessage(role=MessageRole.SYSTEM, content=schema_instruction)
 
         # Combine messages
-        structured_messages = [system_message] + user_messages
+        structured_messages = [system_message, *user_messages]
 
         # Generate response
         response = await self.generate_response(
@@ -387,7 +417,7 @@ class OpenAIProvider(LLMProvider):
         }
 
         model_key = None
-        for key in pricing.keys():
+        for key in pricing:
             if key in self.config.model.lower():
                 model_key = key
                 break
@@ -404,7 +434,12 @@ class OpenAIProvider(LLMProvider):
 
         return prompt_cost + completion_cost
 
-    async def generate_structured_object(self, messages: list[LLMMessage], response_model: type[T], **kwargs) -> T:
+    async def generate_structured_object(
+        self,
+        messages: list[LLMMessage],
+        response_model: type[T],
+        **kwargs: Any,  # noqa: ANN401
+    ) -> T:
         """Generate structured response using instructor and Pydantic models"""
 
         # Create instructor-patched client
@@ -475,9 +510,15 @@ def create_llm_provider(config: LLMConfig) -> LLMProvider:
 
 
 # Example usage and testing
-async def test_llm_provider():
+async def test_llm_provider() -> None:
     """Test function for LLM provider"""
-    config = LLMConfig(provider=LLMProviderType.OPENAI, model="gpt-3.5-turbo", api_key="your-api-key-here", temperature=0.7, max_tokens=500)
+    config = LLMConfig(
+        provider=LLMProviderType.OPENAI,
+        model="gpt-3.5-turbo",
+        api_key="your-api-key-here",
+        temperature=0.7,
+        max_tokens=500,
+    )
 
     provider = create_llm_provider(config)
 

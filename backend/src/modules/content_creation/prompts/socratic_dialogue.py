@@ -12,7 +12,7 @@ from src.llm_interface import LLMMessage, MessageRole
 class SocraticDialoguePrompt(PromptTemplate):
     """Template for generating Socratic dialogue exercises"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("socratic_dialogue")
 
     def _get_base_instructions(self) -> str:
@@ -121,4 +121,7 @@ class SocraticDialoguePrompt(PromptTemplate):
         Ensure each dialogue targets a different aspect of understanding and uses a unique pedagogical function.
         """
 
-        return [LLMMessage(role=MessageRole.SYSTEM, content=system_message), LLMMessage(role=MessageRole.USER, content=user_content)]
+        return [
+            LLMMessage(role=MessageRole.SYSTEM, content=system_message),
+            LLMMessage(role=MessageRole.USER, content=user_content),
+        ]

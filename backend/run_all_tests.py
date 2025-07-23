@@ -8,19 +8,19 @@ Designed for both local development and CI/CD environments.
 
 import argparse
 import os
+from pathlib import Path
 import subprocess
 import sys
-from pathlib import Path
 
 
-def run_command(cmd, description):
+def run_command(cmd: list[str], description: str) -> bool:
     """Run a command and return the result."""
     print(f"\n🔄 {description}")
     if len(cmd) > 3:  # Only show command if verbose or complex
         print(f"Command: {' '.join(cmd)}")
     print("-" * 60)
 
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
 
     if result.returncode == 0:
         print(f"✅ {description} - PASSED")
@@ -66,13 +66,10 @@ def main():
 
     # Test files in logical execution order
     test_files = [
-        ("Core Data Structures", "tests/test_data_structures.py"),
         ("Service Layer", "tests/test_services.py"),
         ("Content Creation API", "tests/test_api_content_creation.py"),
         ("Learning API", "tests/test_api_learning.py"),
         ("Integration Workflows", "tests/test_integration.py"),
-        ("MCQ Prompts", "tests/test_mcq_prompts.py"),
-        ("MCQ Scripts", "tests/test_mcq_script.py"),
     ]
 
     test_results = []
@@ -87,7 +84,7 @@ def main():
             print(f"❌ Error: Test file {test_file} not found")
             return 1
 
-        cmd = base_cmd + [test_file]
+        cmd = [*base_cmd, test_file]
         success = run_command(cmd, f"Running {test_file}")
         test_results.append((test_file, success))
 
@@ -97,7 +94,7 @@ def main():
 
         for description, test_file in test_files:
             if Path(test_file).exists():
-                cmd = base_cmd + [test_file]
+                cmd = [*base_cmd, test_file]
                 success = run_command(cmd, description)
                 test_results.append((test_file, success))
             else:

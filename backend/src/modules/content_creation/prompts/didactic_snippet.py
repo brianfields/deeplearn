@@ -5,6 +5,8 @@ This module contains the prompt templates for generating didactic snippets -
 short, engaging explanations that introduce concepts in lessons.
 """
 
+from typing import Any
+
 from src.core.prompt_base import PromptContext, PromptTemplate
 from src.llm_interface import LLMMessage, MessageRole
 
@@ -12,7 +14,7 @@ from src.llm_interface import LLMMessage, MessageRole
 class DidacticSnippetPrompt(PromptTemplate):
     """Template for generating didactic snippets"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("didactic_snippet")
 
     def _get_base_instructions(self) -> str:
@@ -40,7 +42,7 @@ class DidacticSnippetPrompt(PromptTemplate):
         - "Let's walk through an example…" → good for process-oriented ideas
         """
 
-    def generate_prompt(self, context: PromptContext, **kwargs) -> list[LLMMessage]:
+    def generate_prompt(self, context: PromptContext, **kwargs: Any) -> list[LLMMessage]:  # noqa: ANN401
         # Validate required parameters
         self.validate_kwargs(["topic_title", "key_concept"], **kwargs)
 
@@ -82,4 +84,7 @@ class DidacticSnippetPrompt(PromptTemplate):
         that will help the learner build an intuitive understanding of this concept.
         """
 
-        return [LLMMessage(role=MessageRole.SYSTEM, content=system_message), LLMMessage(role=MessageRole.USER, content=user_content)]
+        return [
+            LLMMessage(role=MessageRole.SYSTEM, content=system_message),
+            LLMMessage(role=MessageRole.USER, content=user_content),
+        ]

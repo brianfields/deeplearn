@@ -4,12 +4,18 @@ Database service for PostgreSQL using SQLAlchemy.
 Simplified service focused on bite-sized topics storage.
 """
 
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, desc, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from src.config.config import config_manager
-from src.data_structures import Base, BiteSizedComponent, BiteSizedTopic, ComponentData, TopicResult
+from src.data_structures import (
+    Base,
+    BiteSizedComponent,
+    BiteSizedTopic,
+    ComponentData,
+    TopicResult,
+)
 
 
 class DatabaseService:
@@ -19,7 +25,7 @@ class DatabaseService:
     Simplified service focused on bite-sized topics functionality.
     """
 
-    def __init__(self, database_url: str | None = None):
+    def __init__(self, database_url: str | None = None) -> None:
         """
         Initialize the database service.
 
@@ -33,7 +39,11 @@ class DatabaseService:
 
         # Create SQLAlchemy engine
         self.engine = create_engine(
-            self.database_url, echo=config_manager.config.database_echo, pool_size=5, max_overflow=10, pool_recycle=3600
+            self.database_url,
+            echo=config_manager.config.database_echo,
+            pool_size=5,
+            max_overflow=10,
+            pool_recycle=3600,
         )
 
         # Create session factory
@@ -42,7 +52,7 @@ class DatabaseService:
         # Initialize database schema
         self._init_database()
 
-    def _init_database(self):
+    def _init_database(self) -> None:
         """Initialize database schema"""
         try:
             Base.metadata.create_all(bind=self.engine)
@@ -54,7 +64,7 @@ class DatabaseService:
         """Get a new database session"""
         return self.SessionLocal()
 
-    def close_session(self, session: Session):
+    def close_session(self, session: Session) -> None:
         """Close a database session"""
         session.close()
 
@@ -94,7 +104,7 @@ class DatabaseService:
         """List bite-sized topics, returned as Pydantic models"""
         session = self.get_session()
         try:
-            stmt = select(BiteSizedTopic).limit(limit).order_by(BiteSizedTopic.created_at.desc())
+            stmt = select(BiteSizedTopic).limit(limit).order_by(desc(BiteSizedTopic.created_at))
             result = session.execute(stmt)
             topics = result.scalars().all()
 
@@ -159,7 +169,9 @@ class DatabaseService:
         """Get all components for a topic, returned as Pydantic models"""
         session = self.get_session()
         try:
-            components = session.query(BiteSizedComponent).filter(BiteSizedComponent.topic_id == topic_id).all()
+            stmt = select(BiteSizedComponent).where(BiteSizedComponent.topic_id == topic_id)
+            result = session.execute(stmt)
+            components = result.scalars().all()
 
             # Convert SQLAlchemy models to Pydantic models
             return [
@@ -168,7 +180,7 @@ class DatabaseService:
                     topic_id=comp.topic_id,
                     component_type=comp.component_type,
                     title=comp.title,
-                    content=comp.content or {},
+                    content=comp.content,
                     generation_prompt=comp.generation_prompt,
                     raw_llm_response=comp.raw_llm_response,
                     evaluation=comp.evaluation,
@@ -190,7 +202,7 @@ _database_service: DatabaseService | None = None
 
 def init_database_service(database_url: str | None = None) -> DatabaseService:
     """Initialize the global database service"""
-    global _database_service
+    global _database_service  # noqa: PLW0603
     _database_service = DatabaseService(database_url)
     return _database_service
 
