@@ -76,6 +76,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://localhost:3001",
+        "http://localhost:8081",
     ],  # Next.js frontend (multiple ports)
     allow_credentials=True,
     allow_methods=["*"],

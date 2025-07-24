@@ -1,0 +1,50 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "allowJs": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ],
+      "@/components/*": [
+        "./src/components/*"
+      ],
+      "@/screens/*": [
+        "./src/screens/*"
+      ],
+      "@/services/*": [
+        "./src/services/*"
+      ],
+      "@/types": [
+        "./src/types/index"
+      ],
+      "@/types/*": [
+        "./src/types/*"
+      ],
+      "@/utils/*": [
+        "./src/utils/*"
+      ],
+      "@/hooks/*": [
+        "./src/hooks/*"
+      ]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules",
+    "**/*.spec.ts",
+    "**/*.test.ts"
+  ]
+}

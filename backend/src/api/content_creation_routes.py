@@ -49,6 +49,7 @@ from src.core.llm_client import create_llm_client
 from src.core.prompt_base import PromptContext
 from src.data_structures import BiteSizedComponent, BiteSizedTopic
 from src.modules.content_creation.mcq_service import MCQService
+from src.modules.content_creation.models import GenerationMetadata, MultipleChoiceQuestion
 from src.modules.content_creation.refined_material_service import RefinedMaterialService
 
 # Import shared dependencies
@@ -335,11 +336,49 @@ async def create_component(
                 context=context,
             )
 
-            component_content = {
-                "mcq": mcq_data.model_dump(),
-                "evaluation": evaluation.model_dump(),
-                "learning_objective": request.learning_objective,
-            }
+            # Convert to MultipleChoiceQuestion format (consistent with create_topic.py)
+
+            # Helper function to convert options array to choices dict
+            def convert_options_to_dict(options: list[str]) -> dict[str, str]:
+                choices = {}
+                for i, option in enumerate(options):
+                    letter = chr(65 + i)  # A, B, C, D, etc.
+                    choices[letter] = option
+                return choices
+
+            # Helper function to get correct answer index
+            def get_correct_answer_index(options: list[str], correct_answer: str) -> int:
+                try:
+                    return options.index(correct_answer)
+                except ValueError:
+                    return 0  # Default to first option if not found
+
+            generation_metadata = GenerationMetadata(
+                generation_method="api_mcq_service",
+                topic=str(topic.title),
+                learning_objective=request.learning_objective,
+                evaluation=evaluation.model_dump() if evaluation else {},
+                refined_material="",
+            )
+
+            # Create MultipleChoiceQuestion in correct format
+            mcq_question = MultipleChoiceQuestion(
+                title=mcq_data.stem[:50] + "..." if len(mcq_data.stem) > 50 else mcq_data.stem,
+                question=mcq_data.stem,
+                choices=convert_options_to_dict(mcq_data.options),
+                correct_answer=mcq_data.correct_answer,
+                correct_answer_index=get_correct_answer_index(mcq_data.options, mcq_data.correct_answer),
+                justifications={"rationale": mcq_data.rationale},
+                target_concept=str(topic.core_concept),
+                purpose=f"Assess understanding of {request.learning_objective}",
+                difficulty=3,  # Default difficulty
+                tags=str(topic.core_concept),
+                number=1,
+                generation_metadata=generation_metadata,
+            )
+
+            # Store in correct format (same as create_topic.py)
+            component_content = mcq_question.model_dump()
             title = f"MCQ: {request.learning_objective[:50]}..."
 
         else:

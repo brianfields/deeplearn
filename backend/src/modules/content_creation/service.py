@@ -18,7 +18,7 @@ from .models import (
     GlossaryResponse,
     MultipleChoiceQuestion,
 )
-from .prompts import DidacticSnippetPrompt, GlossaryPrompt, MultipleChoiceQuestionsPrompt
+from .prompts import DidacticSnippetPrompt, GlossaryPrompt
 from .refined_material_service import RefinedMaterialService
 
 
@@ -52,7 +52,6 @@ class BiteSizedTopicService(ModuleService):
         self.prompts = {
             "didactic_snippet": DidacticSnippetPrompt(),
             "glossary": GlossaryPrompt(),
-            "multiple_choice_questions": MultipleChoiceQuestionsPrompt(),  # Legacy prompt kept for backward compatibility
         }
         # Services for different workflows
         self.mcq_service = MCQService(llm_client)

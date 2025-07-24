@@ -12,6 +12,13 @@ Usage:
         --concept "Cross-Entropy Loss Function" \
         --material scripts/examples/cross_entropy_material.txt \
         --verbose
+
+    python scripts/create_topic.py \
+        --topic "React Native Views & Styles" \
+        --concept "React Native Views & Styles" \
+        --material scripts/examples/react_native_views.txt \
+        --verbose
+
 """
 
 import argparse

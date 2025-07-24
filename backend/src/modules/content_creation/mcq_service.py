@@ -136,8 +136,9 @@ class MCQService:
                     context=context,
                 )
 
-                # Evaluate the MCQ
-                evaluation = await self._evaluate_mcq(mcq, learning_objective, context)
+                # Evaluate the MCQ (disabled for now)
+                # evaluation = await self._evaluate_mcq(mcq, learning_objective, context)
+                evaluation = None
 
                 logger.info(f"Successfully completed MCQ creation task: {task_id}")
                 return {

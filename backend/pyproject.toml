@@ -30,7 +30,8 @@ select = [
     "PTH", # flake8-use-pathlib
     "ERA", # eradicate (commented-out code)
     "PL",  # pylint
-    "RUF", # Ruff-specific rules
+    "RUF", # Ruff-specific rules,
+    "ERA001", # ERA001: Commented-out code should be removed
 ]
 ignore = [
     "B008",   # Allow function calls in argument defaults (FastAPI Depends pattern)
