@@ -57,6 +57,7 @@ import {
   View,
   Text,
   StyleSheet,
+  ScrollView,
   TouchableOpacity,
   Vibration,
   Platform,
@@ -77,10 +78,9 @@ import { CheckCircle, XCircle, ArrowRight } from 'lucide-react-native';
 
 // Components
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
 
 // Theme & Types
-import { colors, spacing, shadows } from '@/utils/theme';
+import { colors, spacing } from '@/utils/theme';
 import type { MultipleChoiceProps } from '@/types';
 
 interface ChoiceItemProps {
@@ -330,64 +330,70 @@ export default function MultipleChoice({
 
   return (
     <View style={styles.container}>
-      {/* Question */}
-      <Animated.View
-        key={question.number || 'question'}
-        entering={SlideInUp}
-        style={styles.content}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
-        <Card style={styles.questionCard}>
-          <Text style={styles.questionText}>{question.question}</Text>
-        </Card>
+        {/* Question */}
+        <Animated.View
+          key={question.number || 'question'}
+          entering={SlideInUp}
+          style={styles.content}
+        >
+          <View style={styles.questionSection}>
+            <Text style={styles.questionText}>{question.question}</Text>
+          </View>
 
-        {/* Choices */}
-        <View style={styles.choicesContainer}>
-          {choicesArray.map(([_letter, text], index) => (
-            <Animated.View
-              key={index}
-              entering={FadeIn.delay(200 + index * 100)}
-              style={styles.choiceWrapper}
-            >
-              <ChoiceItem
-                letter={getChoiceLetter(index)}
-                text={text}
-                isSelected={selectedAnswer === index}
-                isCorrect={
-                  showResult && index === question.correct_answer_index
-                }
-                isIncorrect={
-                  showResult &&
-                  selectedAnswer === index &&
-                  index !== question.correct_answer_index
-                }
-                onPress={() => handleAnswerSelect(index)}
-                disabled={showResult || isLoading}
-              />
-            </Animated.View>
-          ))}
-        </View>
+          {/* Choices */}
+          <View style={styles.choicesContainer}>
+            {choicesArray.map(([_letter, text], index) => (
+              <Animated.View
+                key={index}
+                entering={FadeIn.delay(200 + index * 100)}
+                style={styles.choiceWrapper}
+              >
+                <ChoiceItem
+                  letter={getChoiceLetter(index)}
+                  text={text}
+                  isSelected={selectedAnswer === index}
+                  isCorrect={
+                    showResult && index === question.correct_answer_index
+                  }
+                  isIncorrect={
+                    showResult &&
+                    selectedAnswer === index &&
+                    index !== question.correct_answer_index
+                  }
+                  onPress={() => handleAnswerSelect(index)}
+                  disabled={showResult || isLoading}
+                />
+              </Animated.View>
+            ))}
+          </View>
 
-        {/* Explanation */}
-        {showResult &&
-          selectedAnswer !== null &&
-          question.justifications[choicesArray[selectedAnswer]![0]] && (
-            <Animated.View
-              entering={SlideInUp.delay(300)}
-              style={styles.explanationContainer}
-            >
-              <Card style={styles.explanationCard}>
-                <View style={styles.explanationHeader}>
-                  <Text style={styles.explanationTitle}>
-                    {isCorrectAnswer ? 'Correct!' : 'Explanation'}
+          {/* Explanation */}
+          {showResult &&
+            selectedAnswer !== null &&
+            question.justifications[choicesArray[selectedAnswer]![0]] && (
+              <Animated.View
+                entering={SlideInUp.delay(300)}
+                style={styles.explanationContainer}
+              >
+                <View style={styles.explanationCard}>
+                  <View style={styles.explanationHeader}>
+                    <Text style={styles.explanationTitle}>
+                      {isCorrectAnswer ? 'Correct!' : 'Explanation'}
+                    </Text>
+                  </View>
+                  <Text style={styles.explanationText}>
+                    {question.justifications[choicesArray[selectedAnswer]![0]]}
                   </Text>
                 </View>
-                <Text style={styles.explanationText}>
-                  {question.justifications[choicesArray[selectedAnswer]![0]]}
-                </Text>
-              </Card>
-            </Animated.View>
-          )}
-      </Animated.View>
+              </Animated.View>
+            )}
+        </Animated.View>
+      </ScrollView>
 
       {/* Action buttons - only show Continue for incorrect answers */}
       {isIncorrectAnswer && (
@@ -429,20 +435,29 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
+  scrollView: {
+    flex: 1,
+  },
+
+  scrollContent: {
+    paddingBottom: spacing.xxl,
+  },
+
   content: {
     flex: 1,
     padding: spacing.lg,
   },
 
-  questionCard: {
-    marginBottom: spacing.lg,
+  questionSection: {
+    marginBottom: spacing.xl,
   },
 
   questionText: {
-    fontSize: 18,
-    fontWeight: '500' as const,
-    lineHeight: 28,
+    fontSize: 20,
+    fontWeight: '600' as const,
+    lineHeight: 30,
     color: colors.text,
+    letterSpacing: -0.32,
   },
 
   choicesContainer: {
@@ -457,32 +472,37 @@ const styles = StyleSheet.create({
   choiceItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: spacing.md,
-    borderRadius: 12,
-    borderWidth: 2,
-    ...shadows.small,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
 
   choiceLetter: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: spacing.md,
+    marginRight: spacing.sm,
+    backgroundColor: colors.border,
   },
 
   choiceLetterText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600' as const,
+    color: colors.text,
   },
 
   choiceText: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '400' as const,
     color: colors.text,
     flex: 1,
     lineHeight: 24,
+    letterSpacing: -0.24,
   },
 
   resultIcon: {
@@ -494,9 +514,11 @@ const styles = StyleSheet.create({
   },
 
   explanationCard: {
-    backgroundColor: `${colors.info}05`,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.info,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
 
   explanationHeader: {
@@ -504,16 +526,18 @@ const styles = StyleSheet.create({
   },
 
   explanationTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600' as const,
     color: colors.text,
+    letterSpacing: -0.32,
   },
 
   explanationText: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '400' as const,
-    lineHeight: 24,
+    lineHeight: 26,
     color: colors.text,
+    letterSpacing: -0.24,
   },
 
   actionContainer: {
@@ -522,6 +546,6 @@ const styles = StyleSheet.create({
   },
 
   actionButton: {
-    ...shadows.medium,
+    // Clean button styling
   },
 });

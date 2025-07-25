@@ -76,17 +76,10 @@ function RootNavigator() {
     >
       <RootStack.Screen name="Dashboard" component={LearningStackNavigator} />
       <RootStack.Screen
-        name="Learning"
-        component={LearningStackNavigator}
-        options={{
-          presentation: 'modal',
-        }}
-      />
-      <RootStack.Screen
         name="TopicDetail"
         component={LearningFlowScreen as any}
         options={{
-          presentation: 'modal',
+          gestureEnabled: false, // Prevent swipe back during learning
         }}
       />
     </RootStack.Navigator>

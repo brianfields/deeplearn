@@ -58,9 +58,7 @@ import Animated, {
 
 // Icons
 import {
-  BookOpen,
   Target,
-  Clock,
   ChevronRight,
   CheckCircle,
   Lightbulb,
@@ -131,27 +129,12 @@ export default function DidacticSnippet({
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <Animated.View entering={FadeIn} style={styles.header}>
-        <View style={styles.headerContent}>
-          <View style={styles.iconContainer}>
-            <BookOpen size={20} color={colors.primary} />
-            <Text style={styles.headerLabel}>Learn</Text>
-          </View>
-
-          <View style={styles.durationContainer}>
-            <Clock size={16} color={colors.textSecondary} />
-            <Text style={styles.durationText}>
-              {snippet.estimated_duration || 5} min read
-            </Text>
-          </View>
-        </View>
-
+      {/* Clean Title */}
+      <Animated.View entering={FadeIn} style={styles.titleSection}>
         <Text style={styles.title}>{snippet.title || 'Learning Topic'}</Text>
-
-        <Text style={styles.subtitle}>
-          {snippet.core_concept || 'Educational Content'}
-        </Text>
+        {snippet.core_concept && (
+          <Text style={styles.subtitle}>{snippet.core_concept}</Text>
+        )}
       </Animated.View>
 
       {/* Main Content */}
@@ -166,12 +149,12 @@ export default function DidacticSnippet({
           scrollEventThrottle={16}
           showsVerticalScrollIndicator={false}
         >
-          {/* Main Content Card */}
-          <Card style={styles.contentCard}>
+          {/* Main Content */}
+          <View style={styles.contentSection}>
             <Text style={styles.contentText}>
               {snippet.snippet || 'Content will be displayed here.'}
             </Text>
-          </Card>
+          </View>
 
           {/* Key Points Section */}
           {snippet.key_points && snippet.key_points.length > 0 && (
@@ -288,52 +271,24 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  header: {
-    padding: spacing.lg,
-    backgroundColor: colors.surface,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    ...shadows.small,
-  },
-
-  headerContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-
-  iconContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  headerLabel: {
-    ...typography.caption,
-    fontWeight: '600',
-    color: colors.primary,
-    marginLeft: spacing.xs,
-  },
-
-  durationContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  durationText: {
-    ...(typography.caption as any),
-    color: colors.textSecondary,
-    marginLeft: spacing.xs,
+  titleSection: {
+    paddingTop: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
   },
 
   title: {
-    ...(typography.heading2 as any),
+    fontSize: 28,
+    fontWeight: '700' as const,
+    lineHeight: 34,
     color: colors.text,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
 
   subtitle: {
-    ...(typography.body as any),
+    fontSize: 17,
+    fontWeight: '400' as const,
+    lineHeight: 22,
     color: colors.textSecondary,
   },
 
@@ -350,14 +305,17 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xxl * 2, // Extra space for continue button
   },
 
-  contentCard: {
-    marginBottom: spacing.lg,
+  contentSection: {
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.xl,
   },
 
   contentText: {
-    ...(typography.body as any),
-    color: colors.text,
+    fontSize: 17,
+    fontWeight: '400' as const,
     lineHeight: 28,
+    color: colors.text,
+    letterSpacing: -0.24,
   },
 
   keyPointsSection: {

@@ -66,7 +66,6 @@ import {
   ArrowLeft,
   Trophy,
   Flame,
-  Target,
   Star,
   AlertCircle,
 } from 'lucide-react-native';
@@ -74,19 +73,12 @@ import {
 // Components
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { Progress } from '@/components/ui/Progress';
 import DidacticSnippet from './DidacticSnippet';
 import MultipleChoice from './MultipleChoice';
 
 // Services & Types
 import { learningService } from '@/services/learning-service';
-import {
-  colors,
-  spacing,
-  typography,
-  shadows,
-  responsive,
-} from '@/utils/theme';
+import { colors, spacing, typography, responsive } from '@/utils/theme';
 import type {
   BiteSizedTopicDetail,
   ComponentType,
@@ -379,35 +371,37 @@ export default function LearningFlow({
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
 
-      {/* Header with progress */}
+      {/* Minimal Header */}
       <View style={styles.header}>
         <Button
           title=""
-          onPress={onBack}
+          onPress={() => {
+            Alert.alert(
+              'Leave Learning Session?',
+              'Your progress will be saved, but you will need to restart this topic.',
+              [
+                { text: 'Stay', style: 'cancel' },
+                { text: 'Leave', style: 'destructive', onPress: onBack },
+              ]
+            );
+          }}
           variant="ghost"
           size="small"
           icon={<ArrowLeft size={20} color={colors.text} />}
           style={styles.backButton}
         />
 
-        <View style={styles.progressContainer}>
-          <View style={styles.progressInfo}>
-            <View style={styles.streakContainer}>
-              <Flame size={16} color={colors.accent} />
-              <Text style={styles.streakText}>{streakCount}</Text>
-            </View>
-            <Text style={styles.stepText}>
-              Step {currentStepIndex + 1} of {totalSteps}
-            </Text>
-          </View>
-          <Progress value={progress} style={styles.progressBar} />
+        <View style={styles.titleContainer}>
+          <Text style={styles.topicTitle} numberOfLines={1}>
+            {topic.title}
+          </Text>
         </View>
 
-        <View style={styles.badgeContainer}>
-          <Target size={12} color={colors.secondary} />
-          <Text style={styles.badgeText}>{Math.round(progress)}%</Text>
+        <View style={styles.streakContainer}>
+          <Flame size={16} color={colors.accent} />
+          <Text style={styles.streakText}>{streakCount}</Text>
         </View>
       </View>
 
@@ -483,12 +477,10 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    ...shadows.small,
+    backgroundColor: colors.background,
   },
 
   backButton: {
@@ -496,16 +488,15 @@ const styles = StyleSheet.create({
     height: 40,
   },
 
-  progressContainer: {
+  titleContainer: {
     flex: 1,
     marginHorizontal: spacing.md,
   },
 
-  progressInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.xs,
+  topicTitle: {
+    ...(typography.heading3 as any),
+    color: colors.text,
+    textAlign: 'center',
   },
 
   streakContainer: {
@@ -517,35 +508,6 @@ const styles = StyleSheet.create({
     ...typography.caption,
     fontWeight: '600',
     color: colors.accent,
-    marginLeft: spacing.xs,
-  },
-
-  stepText: {
-    fontSize: 12,
-    fontWeight: '400' as const,
-    lineHeight: 16,
-    color: colors.textSecondary,
-  },
-
-  progressBar: {
-    height: 6,
-  },
-
-  badgeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.secondary,
-  },
-
-  badgeText: {
-    ...typography.caption,
-    fontWeight: '600',
-    color: colors.secondary,
     marginLeft: spacing.xs,
   },
 
