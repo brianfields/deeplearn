@@ -18,8 +18,9 @@ import type {
 } from '@/types';
 
 // API Configuration
+// API Configuration - Back to Expo Go compatible
 const API_BASE_URL = __DEV__
-  ? 'http://localhost:8000' // Development
+  ? 'http://192.168.4.188:8000' // Development - Use your computer's IP for Expo Go
   : 'https://your-production-api.com'; // Production
 
 const DEFAULT_TIMEOUT = 30000;

@@ -459,7 +459,7 @@ export default function LearningFlow({
           <View style={styles.dotsContainer}>
             {componentSteps.map((step, index) => (
               <View
-                key={step.type}
+                key={index}
                 style={[
                   styles.dot,
                   index < currentStepIndex && styles.dotCompleted,

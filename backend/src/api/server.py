@@ -77,14 +77,15 @@ app.add_middleware(
         "http://localhost:3000",
         "http://localhost:3001",
         "http://localhost:8081",
-    ],  # Next.js frontend (multiple ports)
+        "http://172.16.100.219:8081",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Include routers
-app.include_router(api_router)  # type: ignore[has-type]
+app.include_router(api_router)
 app.include_router(content_creation_router)
 
 
