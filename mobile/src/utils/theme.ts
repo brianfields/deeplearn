@@ -15,7 +15,7 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 // ================================
 
 export const colors: ThemeColors = {
-  // Primary colors (Duolingo-inspired)
+  // Primary colors
   primary: '#1CB0F6', // Bright blue
   secondary: '#00CD9C', // Teal green
   accent: '#FF9600', // Orange

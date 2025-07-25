@@ -1,8 +1,48 @@
 /**
- * Didactic Snippet Component for React Native
+ * DidacticSnippet Component - Educational Content Presentation
  *
- * A learning component that presents educational content with key points
- * and a clean, mobile-optimized interface
+ * This component presents educational content in an engaging, mobile-optimized format.
+ * It's designed to deliver knowledge before testing understanding, serving as the
+ * "teaching" phase of the learning experience.
+ *
+ * LEARNING FLOW ROLE:
+ * - Typically the first step in a learning session
+ * - Provides foundational knowledge before interactive questions
+ * - Ensures users engage with content before proceeding
+ * - Sets the context for subsequent MCQ questions
+ *
+ * CONTENT STRUCTURE:
+ * - Main educational snippet (core learning material)
+ * - Key points section (summarized takeaways)
+ * - Examples section (practical applications)
+ * - Progress indicators and reading time estimates
+ *
+ * USER ENGAGEMENT FEATURES:
+ * - Scroll-to-continue mechanism (ensures content consumption)
+ * - Progressive content reveal with animations
+ * - Auto-continue after time delay for short content
+ * - Visual feedback and micro-interactions
+ *
+ * MOBILE UX OPTIMIZATIONS:
+ * - Scrollable content with scroll indicators
+ * - Touch-friendly continue button
+ * - Responsive text sizing and spacing
+ * - Smooth animations and transitions
+ * - Reading progress tracking
+ *
+ * INTEGRATION WITH LEARNING FLOW:
+ * - Receives didactic content from LearningFlow
+ * - Signals completion when user has engaged with content
+ * - Provides continuation callback to parent component
+ * - Tracks engagement metrics for learning analytics
+ *
+ * CONTENT DATA STRUCTURE:
+ * - title: Topic or section title
+ * - core_concept: Brief description/summary
+ * - snippet: Main educational content
+ * - key_points: Array of important takeaways
+ * - examples: Array of practical examples
+ * - estimated_duration: Reading time estimate
  */
 
 import React, { useState } from 'react';

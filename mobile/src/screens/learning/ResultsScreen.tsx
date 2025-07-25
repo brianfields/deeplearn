@@ -1,8 +1,57 @@
 /**
- * Results Screen for React Native Learning App
+ * ResultsScreen - Learning Session Completion & Celebration
  *
- * Displays learning completion results with celebration animations
- * and navigation back to the topic list
+ * This screen celebrates the completion of a learning session and presents
+ * comprehensive results to the user. It serves as both a reward mechanism
+ * and a learning analytics dashboard.
+ *
+ * LEARNING FLOW COMPLETION:
+ * - Final destination after completing a learning session
+ * - Processes and displays aggregated results from LearningFlow
+ * - Provides closure and sense of accomplishment
+ * - Offers pathways for continued learning
+ *
+ * CELEBRATION & MOTIVATION:
+ * - Animated celebrations based on performance
+ * - Star ratings and trophy displays
+ * - Performance-based congratulatory messages
+ * - Haptic feedback for positive reinforcement
+ *
+ * ANALYTICS & FEEDBACK:
+ * - Overall session score calculation and display
+ * - Time spent tracking and presentation
+ * - Step completion statistics
+ * - Correct vs incorrect answer breakdowns
+ *
+ * USER JOURNEY FACILITATION:
+ * - "Continue Learning" button returns to topic list
+ * - "Try Again" option for improvement (appears for lower scores)
+ * - Smooth navigation back to topic selection
+ * - Progress persistence for learning streaks
+ *
+ * PERFORMANCE VISUALIZATION:
+ * - Animated progress bars for score display
+ * - Color-coded performance indicators
+ * - Star rating system (1-3 stars based on score)
+ * - Trophy animations for exceptional performance
+ *
+ * MOBILE EXPERIENCE:
+ * - Celebration animations with spring physics
+ * - Progressive content reveal
+ * - Haptic feedback for achievement moments
+ * - Touch-friendly action buttons
+ *
+ * INTEGRATION POINTS:
+ * - Receives LearningResults from LearningFlowScreen
+ * - Communicates with learningService for progress tracking
+ * - Navigates back to TopicListScreen for continued learning
+ * - Updates user statistics and learning streaks
+ *
+ * RESULTS DATA PROCESSING:
+ * - Calculates final percentage scores
+ * - Determines performance categories (Perfect, Good, Needs Work)
+ * - Aggregates time and interaction metrics
+ * - Prepares data for long-term progress tracking
  */
 
 import React, { useEffect } from 'react';

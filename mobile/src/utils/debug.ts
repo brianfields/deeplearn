@@ -28,10 +28,7 @@ export const clearAppData = async (): Promise<void> => {
   try {
     const keys = await AsyncStorage.getAllKeys();
     const appKeys = keys.filter(
-      key =>
-        key.startsWith('learning_') ||
-        key.startsWith('api_cache_') ||
-        key.startsWith('duolingo_learning_')
+      key => key.startsWith('learning_') || key.startsWith('api_cache_')
     );
 
     if (appKeys.length > 0) {
@@ -96,10 +93,7 @@ export const getStorageStats = async (): Promise<{
   try {
     const keys = await AsyncStorage.getAllKeys();
     const appKeys = keys.filter(
-      key =>
-        key.startsWith('learning_') ||
-        key.startsWith('api_cache_') ||
-        key.startsWith('duolingo_learning_')
+      key => key.startsWith('learning_') || key.startsWith('api_cache_')
     );
 
     let totalSize = 0;

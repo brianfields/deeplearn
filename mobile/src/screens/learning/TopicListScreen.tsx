@@ -1,8 +1,66 @@
 /**
- * Topic List Screen for React Native Learning App
+ * TopicListScreen - Learning Hub & Topic Selection
  *
- * Displays available learning topics with progress tracking
- * and navigation to individual learning sessions
+ * This screen serves as the main entry point and hub for the learning application.
+ * It displays available learning topics, tracks progress across sessions, and
+ * facilitates topic selection for new learning sessions.
+ *
+ * APPLICATION ARCHITECTURE ROLE:
+ * - Primary learning interface after app launch
+ * - Central hub for all learning activities
+ * - Progress tracking and session management
+ * - Gateway to individual learning experiences
+ *
+ * CORE FUNCTIONALITY:
+ * - Displays list of available bite-sized learning topics
+ * - Shows progress indicators for each topic
+ * - Handles topic selection and navigation to learning sessions
+ * - Manages online/offline content availability
+ * - Provides refresh and cache management capabilities
+ *
+ * PROGRESS TRACKING FEATURES:
+ * - Visual progress bars for partially completed topics
+ * - Completion badges for finished topics
+ * - Session statistics and time tracking
+ * - Learning streak indicators
+ * - Offline availability indicators
+ *
+ * USER EXPERIENCE DESIGN:
+ * - Pull-to-refresh for content updates
+ * - Touch-friendly topic cards with animations
+ * - Network status indicators
+ * - Responsive grid layout for various screen sizes
+ * - Loading states and error handling
+ *
+ * CONTENT MANAGEMENT:
+ * - Fetches topics from backend API
+ * - Caches content for offline access
+ * - Manages topic metadata (duration, difficulty, components)
+ * - Handles content synchronization and updates
+ *
+ * NAVIGATION ORCHESTRATION:
+ * - Routes to LearningFlowScreen with selected topic data
+ * - Manages navigation stack and screen transitions
+ * - Handles deep linking to specific topics
+ * - Coordinates with app-wide navigation state
+ *
+ * DEVELOPMENT & DEBUGGING:
+ * - Debug modal for topic payload inspection (DEV only)
+ * - Cache clearing functionality for development
+ * - Topic data visualization and troubleshooting
+ * - Network status monitoring and testing
+ *
+ * INTEGRATION POINTS:
+ * - apiClient for topic data fetching
+ * - learningService for progress tracking and offline content
+ * - Navigation system for screen transitions
+ * - Cache management for performance optimization
+ *
+ * OFFLINE SUPPORT:
+ * - Indicates which topics are available offline
+ * - Graceful degradation when network unavailable
+ * - Local progress tracking independent of network
+ * - Cache synchronization when connectivity restored
  */
 
 import React, { useState, useEffect } from 'react';

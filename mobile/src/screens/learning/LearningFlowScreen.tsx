@@ -1,15 +1,40 @@
 /**
- * Learning Flow Screen for React Native Learning App
+ * LearningFlowScreen - Navigation Wrapper for Learning Sessions
  *
- * Wrapper screen for the DuolingoLearningFlow component
- * Handles navigation and screen-level state management
+ * This screen serves as the navigation layer for individual learning sessions.
+ * It's a thin wrapper that handles navigation concerns while delegating the
+ * actual learning logic to the LearningFlow component.
+ *
+ * NAVIGATION ARCHITECTURE ROLE:
+ * - Entry point from the topic selection (TopicListScreen)
+ * - Receives topic data via navigation route parameters
+ * - Manages navigation transitions to/from learning sessions
+ * - Handles completion navigation to ResultsScreen
+ *
+ * RESPONSIBILITY SEPARATION:
+ * - Screen-level: Navigation, route handling, screen lifecycle
+ * - Component-level: Learning logic, progress tracking, user interactions
+ *
+ * NAVIGATION FLOW:
+ * TopicListScreen → LearningFlowScreen → ResultsScreen
+ *                ↗ (via route params)   ↗ (via completion)
+ *
+ * KEY FUNCTIONS:
+ * - Extracts topic data from navigation route parameters
+ * - Provides navigation callbacks to LearningFlow component
+ * - Handles completion by navigating to ResultsScreen with results
+ * - Manages back navigation to topic list
+ *
+ * INTEGRATION POINTS:
+ * - Receives BiteSizedTopicDetail from route.params
+ * - Passes LearningResults to ResultsScreen
+ * - Coordinates with React Navigation stack
  */
 
-import React from 'react';
 import { View, StyleSheet } from 'react-native';
 
 // Components
-import DuolingoLearningFlow from '@/components/learning/DuolingoLearningFlow';
+import LearningFlow from '@/components/learning/LearningFlow';
 
 // Types
 import type { LearningResults, LearningStackParamList } from '@/types';
@@ -32,7 +57,7 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
 
   return (
     <View style={styles.container}>
-      <DuolingoLearningFlow
+      <LearningFlow
         topic={topic}
         onComplete={handleComplete}
         onBack={handleBack}

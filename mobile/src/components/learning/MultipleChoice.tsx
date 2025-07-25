@@ -1,8 +1,55 @@
 /**
- * Multiple Choice Component for React Native
+ * MultipleChoice Component - Interactive Knowledge Assessment
  *
- * A mobile-optimized MCQ component with touch interactions,
- * animations, and instant feedback
+ * This component handles multiple-choice questions that test user understanding
+ * after they've consumed educational content. It provides immediate feedback
+ * and detailed explanations to reinforce learning.
+ *
+ * LEARNING FLOW ROLE:
+ * - Follows didactic content to assess comprehension
+ * - Provides interactive testing of learned concepts
+ * - Offers immediate feedback and explanations
+ * - Contributes to overall learning session scoring
+ *
+ * ASSESSMENT FEATURES:
+ * - Single-select multiple choice questions
+ * - Immediate visual feedback on selection
+ * - Automatic progression for correct answers
+ * - Manual continuation for incorrect answers (encourages reflection)
+ * - Detailed explanations for all answer choices
+ *
+ * USER EXPERIENCE DESIGN:
+ * - Touch-optimized choice selection
+ * - Visual feedback with colors and animations
+ * - Haptic feedback for selection and results
+ * - Clear result indicators (checkmarks, X marks)
+ * - Progressive disclosure of explanations
+ *
+ * MOBILE INTERACTIONS:
+ * - Touch-to-select with immediate visual feedback
+ * - Animated transitions between states
+ * - Haptic feedback for engagement
+ * - Auto-submit after selection for streamlined flow
+ * - Responsive layout for various screen sizes
+ *
+ * INTEGRATION WITH LEARNING FLOW:
+ * - Receives MCQ data with questions, choices, and correct answers
+ * - Returns detailed results including correctness and user selections
+ * - Contributes to session-wide scoring and completion tracking
+ * - Provides analytics data for learning effectiveness
+ *
+ * DATA STRUCTURE:
+ * - question: The question text
+ * - choices: Object mapping choice keys to choice text
+ * - correct_answer_index: Index of the correct choice
+ * - justifications: Explanations for each choice option
+ * - number: Question identifier for tracking
+ *
+ * RESULT TRACKING:
+ * - Records user's selected choice
+ * - Tracks correctness for scoring
+ * - Captures time spent on question
+ * - Stores explanation viewed for analytics
  */
 
 import React, { useState, useEffect } from 'react';

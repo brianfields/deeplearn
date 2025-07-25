@@ -1,14 +1,46 @@
 /**
- * Duolingo Learning Flow for React Native
+ * LearningFlow Component - Core Learning Session Orchestrator
  *
- * Adapted from the web version with mobile-specific optimizations:
- * - Native animations
- * - Touch interactions
- * - Mobile navigation
- * - Performance optimizations
+ * This is the main component that manages an entire learning session for a topic.
+ * It acts as the orchestrator that guides users through educational content in a
+ * structured, progressive manner.
+ *
+ * ARCHITECTURE ROLE:
+ * - Sits between the navigation layer (LearningFlowScreen) and individual learning components
+ * - Manages the overall flow and state of a learning session
+ * - Handles progression logic, timing, and completion criteria
+ *
+ * LEARNING SESSION FLOW:
+ * 1. Organizes topic components into sequential steps
+ * 2. Presents didactic content first (educational material)
+ * 3. Follows with interactive MCQ questions
+ * 4. Tracks user interactions and progress
+ * 5. Calculates final scores and completion status
+ * 6. Saves progress continuously for session recovery
+ *
+ * KEY RESPONSIBILITIES:
+ * - Step-by-step progression through learning components
+ * - Progress tracking and persistence
+ * - User interaction result aggregation
+ * - Celebration and feedback animations
+ * - Session completion and result calculation
+ * - Back navigation with confirmation dialogs
+ *
+ * COMPONENT INTEGRATION:
+ * - Renders DidacticSnippet for educational content
+ * - Renders MultipleChoice for interactive questions
+ * - Communicates with learningService for data persistence
+ * - Passes completion results to parent screen (typically for navigation to ResultsScreen)
+ *
+ * MOBILE OPTIMIZATIONS:
+ * - Native animations for smooth transitions
+ * - Touch-friendly interactions
+ * - Hardware back button handling (Android)
+ * - Performance optimizations for component rendering
+ * - Progress indicators and visual feedback
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -62,7 +94,7 @@ import type {
   MultipleChoiceQuestion,
 } from '@/types';
 
-interface DuolingoLearningFlowProps {
+interface LearningFlowProps {
   topic: BiteSizedTopicDetail;
   onComplete: (results: LearningResults) => void;
   onBack: () => void;
@@ -75,11 +107,11 @@ interface ComponentStep {
   isCompleted: boolean;
 }
 
-export default function DuolingoLearningFlow({
+export default function LearningFlow({
   topic,
   onComplete,
   onBack,
-}: DuolingoLearningFlowProps) {
+}: LearningFlowProps) {
   console.log(
     '🎯 [Mobile Learning Flow] Component mounted with topic:',
     topic?.title
