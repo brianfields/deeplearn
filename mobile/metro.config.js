@@ -28,14 +28,12 @@ config.resolver.assetExts.push(
 );
 
 // Add support for additional source extensions
-config.resolver.sourceExts.push(
-  'svg',
-  'mjs',
-  'cjs'
-);
+config.resolver.sourceExts.push('svg', 'mjs', 'cjs');
 
 // Configure transformer for SVG and other assets
-config.transformer.babelTransformerPath = require.resolve('react-native-svg-transformer');
+config.transformer.babelTransformerPath = require.resolve(
+  'react-native-svg-transformer'
+);
 
 // Exclude problematic modules for web
 config.resolver.blockList = [

@@ -5,57 +5,45 @@
  * animations, and instant feedback
  */
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Vibration,
-  Platform
-} from 'react-native'
+  Platform,
+} from 'react-native';
 import Animated, {
   FadeIn,
-  FadeOut,
   SlideInUp,
-  SlideInDown,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
   withTiming,
-  runOnJS,
   ZoomIn,
-  ZoomOut
-} from 'react-native-reanimated'
-import * as Haptics from 'expo-haptics'
+} from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 
 // Icons
-import {
-  CheckCircle,
-  XCircle,
-  ArrowRight,
-  RotateCcw,
-  HelpCircle,
-  Lightbulb
-} from 'lucide-react-native'
+import { CheckCircle, XCircle, ArrowRight } from 'lucide-react-native';
 
 // Components
-import { Button } from '@/components/ui/Button'
-import { Card } from '@/components/ui/Card'
-import { Progress } from '@/components/ui/Progress'
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
 
 // Theme & Types
-import { colors, spacing, typography, shadows, responsive } from '@/utils/theme'
-import type { MultipleChoiceProps, MultipleChoiceQuestion } from '@/types'
+import { colors, spacing, shadows } from '@/utils/theme';
+import type { MultipleChoiceProps } from '@/types';
 
 interface ChoiceItemProps {
-  letter: string
-  text: string
-  isSelected: boolean
-  isCorrect?: boolean
-  isIncorrect?: boolean
-  onPress: () => void
-  disabled?: boolean
+  letter: string;
+  text: string;
+  isSelected: boolean;
+  isCorrect?: boolean;
+  isIncorrect?: boolean;
+  onPress: () => void;
+  disabled?: boolean;
 }
 
 const ChoiceItem: React.FC<ChoiceItemProps> = ({
@@ -65,84 +53,88 @@ const ChoiceItem: React.FC<ChoiceItemProps> = ({
   isCorrect,
   isIncorrect,
   onPress,
-  disabled = false
+  disabled = false,
 }) => {
-  const scaleValue = useSharedValue(1)
-  const colorValue = useSharedValue(0)
+  const scaleValue = useSharedValue(1);
+  const colorValue = useSharedValue(0);
 
   useEffect(() => {
     if (isSelected) {
-      scaleValue.value = withSpring(0.98, { damping: 15 })
+      scaleValue.value = withSpring(0.98, { damping: 15 });
     } else {
-      scaleValue.value = withSpring(1)
+      scaleValue.value = withSpring(1);
     }
 
     if (isCorrect) {
-      colorValue.value = withTiming(1)
+      colorValue.value = withTiming(1);
     } else if (isIncorrect) {
-      colorValue.value = withTiming(-1)
+      colorValue.value = withTiming(-1);
     } else {
-      colorValue.value = withTiming(0)
+      colorValue.value = withTiming(0);
     }
-  }, [isSelected, isCorrect, isIncorrect])
+  }, [isSelected, isCorrect, isIncorrect]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const animatedStyle = useAnimatedStyle(() => {
-    let backgroundColor = colors.surface
-    let borderColor = colors.border
+    let backgroundColor = colors.surface;
+    let borderColor = colors.border;
 
     if (colorValue.value === 1) {
-      backgroundColor = `${colors.success}20`
-      borderColor = colors.success
+      backgroundColor = `${colors.success}20`;
+      borderColor = colors.success;
     } else if (colorValue.value === -1) {
-      backgroundColor = `${colors.error}20`
-      borderColor = colors.error
+      backgroundColor = `${colors.error}20`;
+      borderColor = colors.error;
     } else if (isSelected) {
-      backgroundColor = `${colors.primary}10`
-      borderColor = colors.primary
+      backgroundColor = `${colors.primary}10`;
+      borderColor = colors.primary;
     }
 
     return {
       transform: [{ scale: scaleValue.value }],
       backgroundColor,
       borderColor,
-    }
-  })
+    };
+  });
 
   const letterStyle = useAnimatedStyle(() => {
-    let backgroundColor = colors.border
-    let color = colors.text
+    let backgroundColor = colors.border;
+    let color = colors.text;
 
     if (colorValue.value === 1) {
-      backgroundColor = colors.success
-      color = colors.surface
+      backgroundColor = colors.success;
+      color = colors.surface;
     } else if (colorValue.value === -1) {
-      backgroundColor = colors.error
-      color = colors.surface
+      backgroundColor = colors.error;
+      color = colors.surface;
     } else if (isSelected) {
-      backgroundColor = colors.primary
-      color = colors.surface
+      backgroundColor = colors.primary;
+      color = colors.surface;
     }
 
     return {
       backgroundColor,
       color,
-    }
-  })
+    };
+  });
 
   const handlePress = () => {
     if (!disabled) {
       // Haptic feedback
       if (Platform.OS === 'ios') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       } else {
-        Vibration.vibrate(10)
+        Vibration.vibrate(10);
       }
-      onPress()
+      onPress();
     }
-  }
+  };
 
   return (
-    <TouchableOpacity onPress={handlePress} disabled={disabled} activeOpacity={0.8}>
+    <TouchableOpacity
+      onPress={handlePress}
+      disabled={disabled}
+      activeOpacity={0.8}
+    >
       <Animated.View style={[styles.choiceItem, animatedStyle]}>
         <Animated.View style={[styles.choiceLetter, letterStyle]}>
           <Text style={[styles.choiceLetterText, { color: letterStyle.color }]}>
@@ -166,46 +158,46 @@ const ChoiceItem: React.FC<ChoiceItemProps> = ({
         )}
       </Animated.View>
     </TouchableOpacity>
-  )
-}
+  );
+};
 
 export default function MultipleChoice({
   question,
   onComplete,
-  isLoading = false
+  isLoading = false,
 }: MultipleChoiceProps) {
-  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null)
-  const [showResult, setShowResult] = useState(false)
+  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
+  const [showResult, setShowResult] = useState(false);
 
   // Convert choices object to array for easier index-based access
-  const choicesArray = Object.entries(question.choices)
+  const choicesArray = Object.entries(question.choices);
 
   // Generate letter for display (A, B, C, D, etc.)
-  const getChoiceLetter = (index: number) => String.fromCharCode(65 + index) // 65 is 'A'
+  const getChoiceLetter = (index: number) => String.fromCharCode(65 + index); // 65 is 'A'
 
   // Reset state when question changes
   useEffect(() => {
-    setSelectedAnswer(null)
-    setShowResult(false)
-  }, [question])
+    setSelectedAnswer(null);
+    setShowResult(false);
+  }, [question]);
 
   const handleAnswerSelect = (answerIndex: number) => {
-    if (showResult || isLoading) return
+    if (showResult || isLoading) return;
 
-    setSelectedAnswer(answerIndex)
+    setSelectedAnswer(answerIndex);
 
     // Auto-submit the answer
     setTimeout(() => {
-      handleSubmit(answerIndex)
-    }, 300) // Small delay for visual feedback
-  }
+      handleSubmit(answerIndex);
+    }, 300); // Small delay for visual feedback
+  };
 
   const handleSubmit = (answerIndex: number) => {
-    if (question.correct_answer_index === undefined) return
+    if (question.correct_answer_index === undefined) return;
 
-    const isCorrect = answerIndex === question.correct_answer_index
-    const selectedChoice = choicesArray[answerIndex]
-    const selectedLetter = getChoiceLetter(answerIndex)
+    const isCorrect = answerIndex === question.correct_answer_index;
+    const selectedChoice = choicesArray[answerIndex];
+    const selectedLetter = getChoiceLetter(answerIndex);
 
     const result = {
       questionId: question.number?.toString() || '0',
@@ -213,10 +205,10 @@ export default function MultipleChoice({
       selectedOption: selectedLetter, // For backward compatibility with results
       selectedText: selectedChoice[1], // The choice text
       isCorrect,
-      explanation: question.justifications[selectedChoice[0]] || '' // Use original letter key for justifications
-    }
+      explanation: question.justifications[selectedChoice[0]] || '', // Use original letter key for justifications
+    };
 
-    setShowResult(true)
+    setShowResult(true);
 
     // Haptic feedback for result
     if (Platform.OS === 'ios') {
@@ -224,9 +216,9 @@ export default function MultipleChoice({
         isCorrect
           ? Haptics.ImpactFeedbackStyle.Medium
           : Haptics.ImpactFeedbackStyle.Heavy
-      )
+      );
     } else {
-      Vibration.vibrate(isCorrect ? 50 : [0, 100, 50, 100])
+      Vibration.vibrate(isCorrect ? 50 : [0, 100, 50, 100]);
     }
 
     // Handle completion based on correctness
@@ -240,19 +232,19 @@ export default function MultipleChoice({
           data: {
             correct: 1,
             total: 1,
-            details: [result]
-          }
-        })
-      }, 1500) // Show correct feedback briefly then auto-proceed
+            details: [result],
+          },
+        });
+      }, 1500); // Show correct feedback briefly then auto-proceed
     }
     // For incorrect answers, user must press Continue button
-  }
+  };
 
   const handleContinue = () => {
-    if (selectedAnswer === null) return
+    if (selectedAnswer === null) return;
 
-    const selectedChoice = choicesArray[selectedAnswer]
-    const selectedLetter = getChoiceLetter(selectedAnswer)
+    const selectedChoice = choicesArray[selectedAnswer];
+    const selectedLetter = getChoiceLetter(selectedAnswer);
 
     const result = {
       questionId: question.number?.toString() || '0',
@@ -260,8 +252,8 @@ export default function MultipleChoice({
       selectedOption: selectedLetter,
       selectedText: selectedChoice[1],
       isCorrect: false,
-      explanation: question.justifications[selectedChoice[0]] || ''
-    }
+      explanation: question.justifications[selectedChoice[0]] || '',
+    };
 
     onComplete({
       componentType: 'multiple_choice_question',
@@ -270,10 +262,10 @@ export default function MultipleChoice({
       data: {
         correct: 0,
         total: 1,
-        details: [result]
-      }
-    })
-  }
+        details: [result],
+      },
+    });
+  };
 
   if (!question) {
     return (
@@ -282,11 +274,12 @@ export default function MultipleChoice({
           <Text style={styles.errorText}>No question available</Text>
         </View>
       </View>
-    )
+    );
   }
 
-  const isCorrectAnswer = selectedAnswer === question.correct_answer_index
-  const isIncorrectAnswer = showResult && selectedAnswer !== null && !isCorrectAnswer
+  const isCorrectAnswer = selectedAnswer === question.correct_answer_index;
+  const isIncorrectAnswer =
+    showResult && selectedAnswer !== null && !isCorrectAnswer;
 
   return (
     <View style={styles.container}>
@@ -297,14 +290,12 @@ export default function MultipleChoice({
         style={styles.content}
       >
         <Card style={styles.questionCard}>
-          <Text style={styles.questionText}>
-            {question.question}
-          </Text>
+          <Text style={styles.questionText}>{question.question}</Text>
         </Card>
 
         {/* Choices */}
         <View style={styles.choicesContainer}>
-          {choicesArray.map(([letter, text], index) => (
+          {choicesArray.map(([_letter, text], index) => (
             <Animated.View
               key={index}
               entering={FadeIn.delay(200 + index * 100)}
@@ -314,8 +305,14 @@ export default function MultipleChoice({
                 letter={getChoiceLetter(index)}
                 text={text}
                 isSelected={selectedAnswer === index}
-                isCorrect={showResult && index === question.correct_answer_index}
-                isIncorrect={showResult && selectedAnswer === index && index !== question.correct_answer_index}
+                isCorrect={
+                  showResult && index === question.correct_answer_index
+                }
+                isIncorrect={
+                  showResult &&
+                  selectedAnswer === index &&
+                  index !== question.correct_answer_index
+                }
                 onPress={() => handleAnswerSelect(index)}
                 disabled={showResult || isLoading}
               />
@@ -324,23 +321,25 @@ export default function MultipleChoice({
         </View>
 
         {/* Explanation */}
-        {showResult && selectedAnswer !== null && question.justifications[choicesArray[selectedAnswer]![0]] && (
-          <Animated.View
-            entering={SlideInUp.delay(300)}
-            style={styles.explanationContainer}
-          >
-            <Card style={styles.explanationCard}>
-              <View style={styles.explanationHeader}>
-                <Text style={styles.explanationTitle}>
-                  {isCorrectAnswer ? "Correct!" : "Explanation"}
+        {showResult &&
+          selectedAnswer !== null &&
+          question.justifications[choicesArray[selectedAnswer]![0]] && (
+            <Animated.View
+              entering={SlideInUp.delay(300)}
+              style={styles.explanationContainer}
+            >
+              <Card style={styles.explanationCard}>
+                <View style={styles.explanationHeader}>
+                  <Text style={styles.explanationTitle}>
+                    {isCorrectAnswer ? 'Correct!' : 'Explanation'}
+                  </Text>
+                </View>
+                <Text style={styles.explanationText}>
+                  {question.justifications[choicesArray[selectedAnswer]![0]]}
                 </Text>
-              </View>
-              <Text style={styles.explanationText}>
-                {question.justifications[choicesArray[selectedAnswer]![0]]}
-              </Text>
-            </Card>
-          </Animated.View>
-        )}
+              </Card>
+            </Animated.View>
+          )}
       </Animated.View>
 
       {/* Action buttons - only show Continue for incorrect answers */}
@@ -359,7 +358,7 @@ export default function MultipleChoice({
         </Animated.View>
       )}
     </View>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -478,4 +477,4 @@ const styles = StyleSheet.create({
   actionButton: {
     ...shadows.medium,
   },
-})
+});

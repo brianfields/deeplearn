@@ -4,38 +4,34 @@
  * A flexible card container with consistent styling
  */
 
-import React from 'react'
-import { View, StyleSheet, ViewStyle } from 'react-native'
-import { colors, spacing, shadows } from '@/utils/theme'
+import React from 'react';
+import { View, StyleSheet, ViewStyle } from 'react-native';
+import { colors, spacing, shadows } from '@/utils/theme';
 
 interface CardProps {
-  children: React.ReactNode
-  style?: ViewStyle
-  elevated?: boolean
-  padding?: keyof typeof spacing | number
+  children: React.ReactNode;
+  style?: ViewStyle;
+  elevated?: boolean;
+  padding?: keyof typeof spacing | number;
 }
 
 export const Card: React.FC<CardProps> = ({
   children,
   style,
   elevated = true,
-  padding = 'md'
+  padding = 'md',
 }) => {
-  const paddingValue = typeof padding === 'number' ? padding : spacing[padding]
+  const paddingValue = typeof padding === 'number' ? padding : spacing[padding];
 
   const cardStyle = [
     styles.base,
     elevated && shadows.medium,
     { padding: paddingValue },
-    style
-  ]
+    style,
+  ];
 
-  return (
-    <View style={cardStyle}>
-      {children}
-    </View>
-  )
-}
+  return <View style={cardStyle}>{children}</View>;
+};
 
 const styles = StyleSheet.create({
   base: {
@@ -43,7 +39,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
-  }
-})
+  },
+});
 
-export default Card
+export default Card;

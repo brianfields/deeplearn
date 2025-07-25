@@ -5,10 +5,10 @@
  * across the mobile application
  */
 
-import { Dimensions, Platform } from 'react-native'
-import type { Theme, ThemeColors, Spacing, Typography } from '@/types'
+import { Dimensions, Platform } from 'react-native';
+import type { Theme, ThemeColors, Spacing, Typography } from '@/types';
 
-const { width: screenWidth, height: screenHeight } = Dimensions.get('window')
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 // ================================
 // Colors
@@ -16,25 +16,25 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window')
 
 export const colors: ThemeColors = {
   // Primary colors (Duolingo-inspired)
-  primary: '#1CB0F6',      // Bright blue
-  secondary: '#00CD9C',    // Teal green
-  accent: '#FF9600',       // Orange
+  primary: '#1CB0F6', // Bright blue
+  secondary: '#00CD9C', // Teal green
+  accent: '#FF9600', // Orange
 
   // Background colors
-  background: '#F7F8FA',   // Light gray
-  surface: '#FFFFFF',      // White
+  background: '#F7F8FA', // Light gray
+  surface: '#FFFFFF', // White
 
   // Text colors
-  text: '#2B2D42',         // Dark blue-gray
+  text: '#2B2D42', // Dark blue-gray
   textSecondary: '#5E6B73', // Medium gray
 
   // UI colors
-  border: '#E5E7EB',       // Light border
-  success: '#22C55E',      // Green
-  warning: '#F59E0B',      // Amber
-  error: '#EF4444',        // Red
-  info: '#3B82F6'          // Blue
-}
+  border: '#E5E7EB', // Light border
+  success: '#22C55E', // Green
+  warning: '#F59E0B', // Amber
+  error: '#EF4444', // Red
+  info: '#3B82F6', // Blue
+};
 
 // ================================
 // Spacing
@@ -46,8 +46,8 @@ export const spacing: Spacing = {
   md: 16,
   lg: 24,
   xl: 32,
-  xxl: 48
-}
+  xxl: 48,
+};
 
 // ================================
 // Typography
@@ -57,29 +57,29 @@ export const typography: Typography = {
   heading1: {
     fontSize: 32,
     fontWeight: Platform.OS === 'ios' ? '700' : 'bold',
-    lineHeight: 40
+    lineHeight: 40,
   },
   heading2: {
     fontSize: 24,
     fontWeight: Platform.OS === 'ios' ? '600' : 'bold',
-    lineHeight: 32
+    lineHeight: 32,
   },
   heading3: {
     fontSize: 20,
     fontWeight: Platform.OS === 'ios' ? '600' : 'bold',
-    lineHeight: 28
+    lineHeight: 28,
   },
   body: {
     fontSize: 16,
     fontWeight: Platform.OS === 'ios' ? '400' : 'normal',
-    lineHeight: 24
+    lineHeight: 24,
   },
   caption: {
     fontSize: 14,
     fontWeight: Platform.OS === 'ios' ? '400' : 'normal',
-    lineHeight: 20
-  }
-}
+    lineHeight: 20,
+  },
+};
 
 // ================================
 // Typography Utility Function
@@ -89,7 +89,7 @@ export const typography: Typography = {
  * Helper function to create properly typed text styles
  * Fixes fontWeight type issues throughout the app
  */
-export const textStyle = (style: any) => style as any
+export const textStyle = (style: any) => style as any;
 
 // ================================
 // Complete Theme
@@ -98,8 +98,8 @@ export const textStyle = (style: any) => style as any
 export const theme: Theme = {
   colors,
   spacing,
-  typography
-}
+  typography,
+};
 
 // ================================
 // Responsive Utilities
@@ -126,11 +126,11 @@ export const responsive = {
 
   // Responsive font sizing
   fontSize: (size: number) => {
-    if (screenWidth < 350) return size * 0.9
-    if (screenWidth > 400) return size * 1.1
-    return size
-  }
-}
+    if (screenWidth < 350) return size * 0.9;
+    if (screenWidth > 400) return size * 1.1;
+    return size;
+  },
+};
 
 // ================================
 // Common Shadows
@@ -167,7 +167,7 @@ export const shadows = {
       elevation: 8,
     },
   }),
-}
+};
 
 // ================================
 // Common Styles
@@ -295,7 +295,7 @@ export const commonStyles = {
   spaceEvenly: {
     justifyContent: 'space-evenly' as const,
   },
-}
+};
 
 // ================================
 // Animation Presets
@@ -321,36 +321,36 @@ export const animations = {
   slideInUp: {
     from: {
       opacity: 0,
-      transform: [{ translateY: 50 }]
+      transform: [{ translateY: 50 }],
     },
     to: {
       opacity: 1,
-      transform: [{ translateY: 0 }]
+      transform: [{ translateY: 0 }],
     },
   },
 
   slideInDown: {
     from: {
       opacity: 0,
-      transform: [{ translateY: -50 }]
+      transform: [{ translateY: -50 }],
     },
     to: {
       opacity: 1,
-      transform: [{ translateY: 0 }]
+      transform: [{ translateY: 0 }],
     },
   },
 
   scaleIn: {
     from: {
       opacity: 0,
-      transform: [{ scale: 0.8 }]
+      transform: [{ scale: 0.8 }],
     },
     to: {
       opacity: 1,
-      transform: [{ scale: 1 }]
+      transform: [{ scale: 1 }],
     },
   },
-}
+};
 
 // ================================
 // Utility Functions
@@ -361,70 +361,70 @@ export const utils = {
    * Create margin/padding shortcuts
    */
   margin: (size: keyof Spacing | number) => ({
-    margin: typeof size === 'number' ? size : spacing[size]
+    margin: typeof size === 'number' ? size : spacing[size],
   }),
 
   marginTop: (size: keyof Spacing | number) => ({
-    marginTop: typeof size === 'number' ? size : spacing[size]
+    marginTop: typeof size === 'number' ? size : spacing[size],
   }),
 
   marginBottom: (size: keyof Spacing | number) => ({
-    marginBottom: typeof size === 'number' ? size : spacing[size]
+    marginBottom: typeof size === 'number' ? size : spacing[size],
   }),
 
   marginHorizontal: (size: keyof Spacing | number) => ({
-    marginHorizontal: typeof size === 'number' ? size : spacing[size]
+    marginHorizontal: typeof size === 'number' ? size : spacing[size],
   }),
 
   marginVertical: (size: keyof Spacing | number) => ({
-    marginVertical: typeof size === 'number' ? size : spacing[size]
+    marginVertical: typeof size === 'number' ? size : spacing[size],
   }),
 
   padding: (size: keyof Spacing | number) => ({
-    padding: typeof size === 'number' ? size : spacing[size]
+    padding: typeof size === 'number' ? size : spacing[size],
   }),
 
   paddingTop: (size: keyof Spacing | number) => ({
-    paddingTop: typeof size === 'number' ? size : spacing[size]
+    paddingTop: typeof size === 'number' ? size : spacing[size],
   }),
 
   paddingBottom: (size: keyof Spacing | number) => ({
-    paddingBottom: typeof size === 'number' ? size : spacing[size]
+    paddingBottom: typeof size === 'number' ? size : spacing[size],
   }),
 
   paddingHorizontal: (size: keyof Spacing | number) => ({
-    paddingHorizontal: typeof size === 'number' ? size : spacing[size]
+    paddingHorizontal: typeof size === 'number' ? size : spacing[size],
   }),
 
   paddingVertical: (size: keyof Spacing | number) => ({
-    paddingVertical: typeof size === 'number' ? size : spacing[size]
+    paddingVertical: typeof size === 'number' ? size : spacing[size],
   }),
 
   /**
    * Check if color is light or dark
    */
   isLightColor: (color: string): boolean => {
-    const hex = color.replace('#', '')
-    const r = parseInt(hex.substr(0, 2), 16)
-    const g = parseInt(hex.substr(2, 2), 16)
-    const b = parseInt(hex.substr(4, 2), 16)
-    const brightness = ((r * 299) + (g * 587) + (b * 114)) / 1000
-    return brightness > 155
+    const hex = color.replace('#', '');
+    const r = parseInt(hex.substr(0, 2), 16);
+    const g = parseInt(hex.substr(2, 2), 16);
+    const b = parseInt(hex.substr(4, 2), 16);
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+    return brightness > 155;
   },
 
   /**
    * Create responsive size based on screen width
    */
   responsiveSize: (base: number, factor: number = 0.1): number => {
-    return base + (screenWidth - 375) * factor
+    return base + (screenWidth - 375) * factor;
   },
 
   /**
    * Clamp value between min and max
    */
   clamp: (value: number, min: number, max: number): number => {
-    return Math.min(Math.max(value, min), max)
-  }
-}
+    return Math.min(Math.max(value, min), max);
+  },
+};
 
-export default theme
+export default theme;

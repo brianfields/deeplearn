@@ -8,7 +8,7 @@
  * - Performance optimizations
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,121 +16,128 @@ import {
   SafeAreaView,
   StatusBar,
   BackHandler,
-  Alert
-} from 'react-native'
+  Alert,
+} from 'react-native';
 import Animated, {
   useAnimatedStyle,
   withTiming,
   withSpring,
   useSharedValue,
   FadeIn,
-  FadeOut,
   SlideInRight,
-  SlideOutLeft
-} from 'react-native-reanimated'
-import { useFocusEffect } from '@react-navigation/native'
+  SlideOutLeft,
+} from 'react-native-reanimated';
+import { useFocusEffect } from '@react-navigation/native';
 
 // Icons (using Lucide React Native)
 import {
   ArrowLeft,
-  CheckCircle,
   Trophy,
   Flame,
   Target,
-  Clock,
-  Zap,
   Star,
-  ChevronRight,
-  AlertCircle
-} from 'lucide-react-native'
+  AlertCircle,
+} from 'lucide-react-native';
 
 // Components
-import { Button } from '@/components/ui/Button'
-import { Card } from '@/components/ui/Card'
-import { Progress } from '@/components/ui/Progress'
-import DidacticSnippet from './DidacticSnippet'
-import MultipleChoice from './MultipleChoice'
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { Progress } from '@/components/ui/Progress';
+import DidacticSnippet from './DidacticSnippet';
+import MultipleChoice from './MultipleChoice';
 
 // Services & Types
-import { learningService } from '@/services/learning-service'
-import { colors, spacing, typography, shadows, responsive } from '@/utils/theme'
+import { learningService } from '@/services/learning-service';
+import {
+  colors,
+  spacing,
+  typography,
+  shadows,
+  responsive,
+} from '@/utils/theme';
 import type {
   BiteSizedTopicDetail,
   ComponentType,
-  LearningResults
-} from '@/types'
+  LearningResults,
+  MultipleChoiceQuestion,
+} from '@/types';
 
 interface DuolingoLearningFlowProps {
-  topic: BiteSizedTopicDetail
-  onComplete: (results: LearningResults) => void
-  onBack: () => void
+  topic: BiteSizedTopicDetail;
+  onComplete: (results: LearningResults) => void;
+  onBack: () => void;
 }
 
 interface ComponentStep {
-  type: ComponentType
-  components: any[]
-  currentIndex: number
-  isCompleted: boolean
+  type: ComponentType;
+  components: any[];
+  currentIndex: number;
+  isCompleted: boolean;
 }
-
-const COMPONENT_ORDER: ComponentType[] = [
-  'didactic_snippet',  // 1. Learn the concept
-  'mcq'               // 2. Individual MCQ questions
-]
 
 export default function DuolingoLearningFlow({
   topic,
   onComplete,
-  onBack
+  onBack,
 }: DuolingoLearningFlowProps) {
-  console.log('🎯 [Mobile Learning Flow] Component mounted with topic:', topic?.title)
+  console.log(
+    '🎯 [Mobile Learning Flow] Component mounted with topic:',
+    topic?.title
+  );
 
   // State
-  const [currentStepIndex, setCurrentStepIndex] = useState(0)
-  const [startTime] = useState(Date.now())
-  const [completedSteps, setCompletedSteps] = useState<string[]>([])
-  const [interactionResults, setInteractionResults] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [streakCount, setStreakCount] = useState(0)
-  const [showCelebration, setShowCelebration] = useState(false)
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [startTime] = useState(Date.now());
+  const [completedSteps, setCompletedSteps] = useState<string[]>([]);
+  const [interactionResults, setInteractionResults] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [streakCount, setStreakCount] = useState(0);
+  const [showCelebration, setShowCelebration] = useState(false);
 
   // Animated values
-  const celebrationScale = useSharedValue(0)
-  const progressValue = useSharedValue(0)
+  const celebrationScale = useSharedValue(0);
+  const progressValue = useSharedValue(0);
 
   // Organize components into individual steps
   const componentSteps = useMemo((): ComponentStep[] => {
-    console.log('🔧 [Mobile Learning Flow] Organizing components:', topic.components)
-    const steps: ComponentStep[] = []
+    console.log(
+      '🔧 [Mobile Learning Flow] Organizing components:',
+      topic.components
+    );
+    const steps: ComponentStep[] = [];
 
     // Add didactic snippet first (if available)
-    const didacticComponents = topic.components.filter(c => c.component_type === 'didactic_snippet')
+    const didacticComponents = topic.components.filter(
+      c => c.component_type === 'didactic_snippet'
+    );
     if (didacticComponents.length > 0) {
       steps.push({
         type: 'didactic_snippet',
         components: didacticComponents,
         currentIndex: 0,
-        isCompleted: false
-      })
+        isCompleted: false,
+      });
     }
 
     // Add each MCQ as an individual step
-    const mcqComponents = topic.components.filter(c => c.component_type === 'mcq')
-    mcqComponents.forEach((mcqComponent) => {
+    const mcqComponents = topic.components.filter(
+      c => c.component_type === 'mcq'
+    );
+    mcqComponents.forEach(mcqComponent => {
       steps.push({
         type: 'mcq',
         components: [mcqComponent], // Single MCQ per step
         currentIndex: 0,
-        isCompleted: false
-      })
-    })
+        isCompleted: false,
+      });
+    });
 
-    return steps
-  }, [topic.components])
+    return steps;
+  }, [topic.components]);
 
-  const currentStep = componentSteps[currentStepIndex]
-  const totalSteps = componentSteps.length
-  const progress = totalSteps > 0 ? (currentStepIndex / totalSteps) * 100 : 0
+  const currentStep = componentSteps[currentStepIndex];
+  const totalSteps = componentSteps.length;
+  const progress = totalSteps > 0 ? (currentStepIndex / totalSteps) * 100 : 0;
 
   // Handle Android back button
   useFocusEffect(
@@ -141,22 +148,25 @@ export default function DuolingoLearningFlow({
           'Your progress will be saved, but you will need to restart this topic.',
           [
             { text: 'Stay', style: 'cancel' },
-            { text: 'Leave', style: 'destructive', onPress: onBack }
+            { text: 'Leave', style: 'destructive', onPress: onBack },
           ]
-        )
-        return true
-      }
+        );
+        return true;
+      };
 
-      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress)
-      return () => subscription.remove()
+      const subscription = BackHandler.addEventListener(
+        'hardwareBackPress',
+        onBackPress
+      );
+      return () => subscription.remove();
     }, [onBack])
-  )
+  );
 
   // Load streak count on mount
   useEffect(() => {
-    const stats = learningService.getCacheStats()
-    setStreakCount(stats.currentStreak)
-  }, [])
+    const stats = learningService.getCacheStats();
+    setStreakCount(stats.currentStreak);
+  }, []);
 
   // Save progress continuously
   useEffect(() => {
@@ -164,83 +174,108 @@ export default function DuolingoLearningFlow({
       currentComponentIndex: currentStepIndex,
       completedComponents: completedSteps,
       timeSpent: Date.now() - startTime,
-      interactionResults
-    })
-  }, [topic.id, currentStepIndex, completedSteps, startTime, interactionResults])
+      interactionResults,
+    });
+  }, [
+    topic.id,
+    currentStepIndex,
+    completedSteps,
+    startTime,
+    interactionResults,
+  ]);
 
   // Update progress animation
   useEffect(() => {
-    progressValue.value = withSpring(progress)
-  }, [progress])
+    progressValue.value = withSpring(progress);
+  }, [progress]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Celebration animation
   useEffect(() => {
     if (showCelebration) {
       celebrationScale.value = withSpring(1, {
         damping: 10,
-        stiffness: 100
-      })
+        stiffness: 100,
+      });
     } else {
-      celebrationScale.value = withTiming(0, { duration: 200 })
+      celebrationScale.value = withTiming(0, { duration: 200 });
     }
-  }, [showCelebration])
+  }, [showCelebration]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleStepComplete = useCallback((stepType: string, results?: any) => {
-    setCompletedSteps(prev => [...prev, stepType])
+  const handleStepComplete = useCallback(
+    (stepType: string, results?: any) => {
+      setCompletedSteps(prev => [...prev, stepType]);
 
-    if (results) {
-      setInteractionResults(prev => [...prev, results])
-    }
-
-    // Move to next step or complete
-    if (currentStepIndex < componentSteps.length - 1) {
-      setCurrentStepIndex(prev => prev + 1)
-
-      // Show mini celebration for good progress
-      if (results?.correct !== undefined && results.correct / results.total >= 0.8) {
-        setShowCelebration(true)
-        setTimeout(() => setShowCelebration(false), 1500)
+      if (results) {
+        setInteractionResults(prev => [...prev, results]);
       }
-    } else {
-      handleTopicComplete()
-    }
-  }, [currentStepIndex, componentSteps.length])
+
+      // Move to next step or complete
+      if (currentStepIndex < componentSteps.length - 1) {
+        setCurrentStepIndex(prev => prev + 1);
+
+        // Show mini celebration for good progress
+        if (
+          results?.correct !== undefined &&
+          results.correct / results.total >= 0.8
+        ) {
+          setShowCelebration(true);
+          setTimeout(() => setShowCelebration(false), 1500);
+        }
+      } else {
+        handleTopicComplete();
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [currentStepIndex, componentSteps.length]
+  );
 
   const handleTopicComplete = useCallback(async () => {
-    const timeSpent = Math.round((Date.now() - startTime) / 1000)
+    setIsLoading(true);
 
-    // Calculate final score
-    let finalScore = 100
-    if (interactionResults.length > 0) {
-      const scores = interactionResults.map(result => {
-        if (result.correct !== undefined) {
-          return (result.correct / result.total) * 100
-        }
-        return result.score || 80
-      })
-      finalScore = Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length)
+    try {
+      const timeSpent = Math.round((Date.now() - startTime) / 1000);
+
+      // Calculate final score
+      let finalScore = 100;
+      if (interactionResults.length > 0) {
+        const scores = interactionResults.map(result => {
+          if (result.correct !== undefined) {
+            return (result.correct / result.total) * 100;
+          }
+          return result.score || 80;
+        });
+        finalScore = Math.round(
+          scores.reduce((sum, score) => sum + score, 0) / scores.length
+        );
+      }
+
+      const learningResults: LearningResults = {
+        topicId: topic.id,
+        timeSpent,
+        stepsCompleted: completedSteps,
+        interactionResults,
+        finalScore,
+        completed: true,
+      };
+
+      // Submit results to learning service
+      await learningService.submitTopicResults(topic.id, learningResults);
+
+      setIsLoading(false);
+
+      // Show celebration
+      setShowCelebration(true);
+
+      // Complete after animation
+      setTimeout(() => {
+        onComplete(learningResults);
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to submit topic results:', error);
+      setIsLoading(false);
+      // Could show error toast here or retry logic
     }
-
-    const learningResults: LearningResults = {
-      topicId: topic.id,
-      timeSpent,
-      stepsCompleted: completedSteps,
-      interactionResults,
-      finalScore,
-      completed: true
-    }
-
-    // Submit results to learning service
-    await learningService.submitTopicResults(topic.id, learningResults)
-
-    // Show celebration
-    setShowCelebration(true)
-
-    // Complete after animation
-    setTimeout(() => {
-      onComplete(learningResults)
-    }, 2000)
-  }, [startTime, completedSteps, interactionResults, topic.id, onComplete])
+  }, [startTime, completedSteps, interactionResults, topic.id, onComplete]);
 
   const renderCurrentComponent = () => {
     if (!currentStep) {
@@ -249,10 +284,10 @@ export default function DuolingoLearningFlow({
           <AlertCircle size={64} color={colors.error} />
           <Text style={styles.errorText}>No learning steps available</Text>
         </View>
-      )
+      );
     }
 
-    const currentComponent = currentStep.components[currentStep.currentIndex]
+    const currentComponent = currentStep.components[currentStep.currentIndex];
 
     switch (currentStep.type) {
       case 'didactic_snippet':
@@ -262,26 +297,33 @@ export default function DuolingoLearningFlow({
             onContinue={() => handleStepComplete('didactic')}
             isLoading={isLoading}
           />
-        )
+        );
 
-      case 'mcq':
+      case 'mcq': {
         // MCQ data is now in correct MultipleChoiceQuestion format from backend
-        const mcqQuestion = currentComponent.content
+        const mcqQuestion = currentComponent.content as MultipleChoiceQuestion;
 
         // Validate that we have the expected structure
-        if (!mcqQuestion.choices || Object.keys(mcqQuestion.choices).length === 0) {
+        if (
+          !mcqQuestion.choices ||
+          Object.keys(mcqQuestion.choices).length === 0
+        ) {
           return (
             <View style={styles.errorContainer}>
               <AlertCircle size={64} color={colors.error} />
               <Text style={styles.errorText}>Content Error</Text>
-              <Text style={styles.errorSubtext}>This question doesn't have valid options to display.</Text>
+              <Text style={styles.errorSubtext}>
+                This question doesn&apos;t have valid options to display.
+              </Text>
               <Button
                 title="Skip Question"
-                onPress={() => handleStepComplete('mcq', { correct: 0, total: 1 })}
+                onPress={() =>
+                  handleStepComplete('mcq', { correct: 0, total: 1 })
+                }
                 style={styles.skipButton}
               />
             </View>
-          )
+          );
         }
 
         return (
@@ -290,17 +332,18 @@ export default function DuolingoLearningFlow({
             onComplete={(results: any) => handleStepComplete('mcq', results)}
             isLoading={isLoading}
           />
-        )
+        );
+      }
 
       default:
-        return null
+        return null;
     }
-  }
+  };
 
   const celebrationStyle = useAnimatedStyle(() => ({
     transform: [{ scale: celebrationScale.value }],
     opacity: celebrationScale.value,
-  }))
+  }));
 
   return (
     <SafeAreaView style={styles.container}>
@@ -361,16 +404,16 @@ export default function DuolingoLearningFlow({
             <Text style={styles.celebrationText}>
               {currentStepIndex === componentSteps.length - 1
                 ? `You completed "${topic.title}"!`
-                : "Keep it up!"
-              }
+                : 'Keep it up!'}
             </Text>
             <View style={styles.starsContainer}>
               {[...Array(5)].map((_, i) => (
-                <Animated.View
-                  key={i}
-                  entering={FadeIn.delay(300 + i * 100)}
-                >
-                  <Star size={20} color={colors.warning} fill={colors.warning} />
+                <Animated.View key={i} entering={FadeIn.delay(300 + i * 100)}>
+                  <Star
+                    size={20}
+                    color={colors.warning}
+                    fill={colors.warning}
+                  />
                 </Animated.View>
               ))}
             </View>
@@ -396,7 +439,7 @@ export default function DuolingoLearningFlow({
         </Card>
       </View>
     </SafeAreaView>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -577,4 +620,4 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     transform: [{ scale: 1.25 }],
   },
-})
+});

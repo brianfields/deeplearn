@@ -5,22 +5,16 @@
  * and a clean, mobile-optimized interface
  */
 
-import React, { useState } from 'react'
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity
-} from 'react-native'
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import Animated, {
   FadeIn,
   SlideInUp,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-  withTiming
-} from 'react-native-reanimated'
+  withTiming,
+} from 'react-native-reanimated';
 
 // Icons
 import {
@@ -29,79 +23,76 @@ import {
   Clock,
   ChevronRight,
   CheckCircle,
-  Lightbulb
-} from 'lucide-react-native'
+  Lightbulb,
+} from 'lucide-react-native';
 
 // Components
-import { Button } from '@/components/ui/Button'
-import { Card } from '@/components/ui/Card'
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
 
 // Theme & Types
-import { colors, spacing, typography, shadows, responsive } from '@/utils/theme'
-import type { DidacticSnippetProps } from '@/types'
+import { colors, spacing, typography, shadows } from '@/utils/theme';
+import type { DidacticSnippetProps } from '@/types';
 
 export default function DidacticSnippet({
   snippet,
   onContinue,
-  isLoading = false
+  isLoading = false,
 }: DidacticSnippetProps) {
-  const [isExpanded, setIsExpanded] = useState(false)
-  const [hasScrolled, setHasScrolled] = useState(false)
+  const [hasScrolled, setHasScrolled] = useState(false);
 
-  console.log('📖 [DidacticSnippet] Received snippet:', snippet)
+  console.log('📖 [DidacticSnippet] Received snippet:', snippet);
 
   // Animated values
-  const continueButtonOpacity = useSharedValue(0)
+  const continueButtonOpacity = useSharedValue(0);
+
+  const handleScroll = (event: any) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const isScrolledToBottom =
+      contentOffset.y + layoutMeasurement.height >= contentSize.height - 50;
+
+    if (isScrolledToBottom && !hasScrolled) {
+      setHasScrolled(true);
+      continueButtonOpacity.value = withSpring(1, {
+        damping: 15,
+        stiffness: 150,
+      });
+    }
+  };
+
+  const continueButtonStyle = useAnimatedStyle(() => ({
+    opacity: continueButtonOpacity.value,
+    transform: [{ translateY: withTiming(hasScrolled ? 0 : 20) }],
+  }));
+
+  // Show continue button after short delay if content is short
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!hasScrolled) {
+        setHasScrolled(true);
+        continueButtonOpacity.value = withSpring(1);
+      }
+    }, 3000); // Show after 3 seconds even if not scrolled
+
+    return () => clearTimeout(timer);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Ensure we have valid content structure
   if (!snippet) {
-    console.error('DidacticSnippet: No snippet provided')
+    console.error('DidacticSnippet: No snippet provided');
     return (
       <View style={styles.container}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>No content available</Text>
         </View>
       </View>
-    )
+    );
   }
-
-  const handleScroll = (event: any) => {
-    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent
-    const isScrolledToBottom = contentOffset.y + layoutMeasurement.height >= contentSize.height - 50
-
-    if (isScrolledToBottom && !hasScrolled) {
-      setHasScrolled(true)
-      continueButtonOpacity.value = withSpring(1, {
-        damping: 15,
-        stiffness: 150
-      })
-    }
-  }
-
-  const continueButtonStyle = useAnimatedStyle(() => ({
-    opacity: continueButtonOpacity.value,
-    transform: [{ translateY: withTiming(hasScrolled ? 0 : 20) }]
-  }))
-
-  // Show continue button after short delay if content is short
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      if (!hasScrolled) {
-        setHasScrolled(true)
-        continueButtonOpacity.value = withSpring(1)
-      }
-    }, 3000) // Show after 3 seconds even if not scrolled
-
-    return () => clearTimeout(timer)
-  }, [])
 
   return (
     <View style={styles.container}>
       {/* Header */}
-      <Animated.View
-        entering={FadeIn}
-        style={styles.header}
-      >
+      <Animated.View entering={FadeIn} style={styles.header}>
         <View style={styles.headerContent}>
           <View style={styles.iconContainer}>
             <BookOpen size={20} color={colors.primary} />
@@ -116,9 +107,7 @@ export default function DidacticSnippet({
           </View>
         </View>
 
-        <Text style={styles.title}>
-          {snippet.title || 'Learning Topic'}
-        </Text>
+        <Text style={styles.title}>{snippet.title || 'Learning Topic'}</Text>
 
         <Text style={styles.subtitle}>
           {snippet.core_concept || 'Educational Content'}
@@ -190,7 +179,8 @@ export default function DidacticSnippet({
                     entering={FadeIn.delay(700 + index * 100)}
                     style={[
                       styles.exampleItem,
-                      index !== snippet.examples!.length - 1 && styles.exampleItemBorder
+                      index !== snippet.examples!.length - 1 &&
+                        styles.exampleItemBorder,
                     ]}
                   >
                     <Text style={styles.exampleText}>{example}</Text>
@@ -206,7 +196,9 @@ export default function DidacticSnippet({
       </Animated.View>
 
       {/* Continue Button */}
-      <Animated.View style={[styles.continueButtonContainer, continueButtonStyle]}>
+      <Animated.View
+        style={[styles.continueButtonContainer, continueButtonStyle]}
+      >
         <Button
           title="Continue"
           onPress={onContinue}
@@ -224,15 +216,17 @@ export default function DidacticSnippet({
           style={styles.scrollIndicator}
         >
           <Text style={styles.scrollIndicatorText}>Scroll to continue</Text>
-          <Animated.View
-            style={styles.scrollArrow}
-          >
-            <ChevronRight size={16} color={colors.textSecondary} style={{ transform: [{ rotate: '90deg' }] }} />
+          <Animated.View style={styles.scrollArrow}>
+            <ChevronRight
+              size={16}
+              color={colors.textSecondary}
+              style={{ transform: [{ rotate: '90deg' }] }}
+            />
           </Animated.View>
         </Animated.View>
       )}
     </View>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -431,4 +425,4 @@ const styles = StyleSheet.create({
   scrollArrow: {
     padding: spacing.xs,
   },
-})
+});

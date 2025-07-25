@@ -5,7 +5,7 @@
  * and navigation to individual learning sessions
  */
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,15 +17,15 @@ import {
   Alert,
   Modal,
   ScrollView,
-  Platform
-} from 'react-native'
+  Platform,
+} from 'react-native';
 import Animated, {
   FadeIn,
   SlideInUp,
   useAnimatedStyle,
   useSharedValue,
-  withSpring
-} from 'react-native-reanimated'
+  withSpring,
+} from 'react-native-reanimated';
 
 // Icons
 import {
@@ -38,35 +38,35 @@ import {
   Wifi,
   WifiOff,
   Code,
-  X
-} from 'lucide-react-native'
+  X,
+} from 'lucide-react-native';
 
 // Components
-import { Button } from '@/components/ui/Button'
-import { Card } from '@/components/ui/Card'
-import { Progress } from '@/components/ui/Progress'
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { Progress } from '@/components/ui/Progress';
 
 // Services & Types
-import { apiClient } from '@/services/api-client'
-import { learningService } from '@/services/learning-service'
-import { resetAppState } from '@/utils/debug'
-import { colors, spacing, typography, shadows, responsive, textStyle } from '@/utils/theme'
+import { apiClient } from '@/services/api-client';
+import { learningService } from '@/services/learning-service';
+import { resetAppState } from '@/utils/debug';
+import { colors, spacing, typography, textStyle } from '@/utils/theme';
 import type {
   BiteSizedTopic,
   BiteSizedTopicDetail,
   TopicProgress,
-  RootStackParamList
-} from '@/types'
-import type { NativeStackScreenProps } from '@react-navigation/native-stack'
+  RootStackParamList,
+} from '@/types';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Learning'>
+type Props = NativeStackScreenProps<RootStackParamList, 'Learning'>;
 
 interface TopicItemProps {
-  topic: BiteSizedTopic
-  progress?: TopicProgress | null
-  onPress: () => void
-  isOfflineAvailable: boolean
-  onDebugPress?: () => void
+  topic: BiteSizedTopic;
+  progress?: TopicProgress | null;
+  onPress: () => void;
+  isOfflineAvailable: boolean;
+  onDebugPress?: () => void;
 }
 
 const TopicItem: React.FC<TopicItemProps> = ({
@@ -74,24 +74,26 @@ const TopicItem: React.FC<TopicItemProps> = ({
   progress,
   onPress,
   isOfflineAvailable,
-  onDebugPress
+  onDebugPress,
 }) => {
-  const scaleValue = useSharedValue(1)
+  const scaleValue = useSharedValue(1);
 
   const handlePressIn = () => {
-    scaleValue.value = withSpring(0.98)
-  }
+    scaleValue.value = withSpring(0.98);
+  };
 
   const handlePressOut = () => {
-    scaleValue.value = withSpring(1)
-  }
+    scaleValue.value = withSpring(1);
+  };
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scaleValue.value }]
-  }))
+    transform: [{ scale: scaleValue.value }],
+  }));
 
-  const completionPercentage = progress?.completed ? 100 :
-    (progress?.completedComponents.length || 0) / topic.component_count * 100
+  const completionPercentage = progress?.completed
+    ? 100
+    : ((progress?.completedComponents.length || 0) / topic.component_count) *
+      100;
 
   return (
     <TouchableOpacity
@@ -131,12 +133,16 @@ const TopicItem: React.FC<TopicItemProps> = ({
             <View style={styles.topicStats}>
               <View style={styles.statItem}>
                 <Clock size={14} color={colors.textSecondary} />
-                <Text style={styles.statText}>{topic.estimated_duration} min</Text>
+                <Text style={styles.statText}>
+                  {topic.estimated_duration} min
+                </Text>
               </View>
 
               <View style={styles.statItem}>
                 <BookOpen size={14} color={colors.textSecondary} />
-                <Text style={styles.statText}>{topic.component_count} steps</Text>
+                <Text style={styles.statText}>
+                  {topic.component_count} steps
+                </Text>
               </View>
 
               <View style={styles.statItem}>
@@ -150,7 +156,9 @@ const TopicItem: React.FC<TopicItemProps> = ({
               <View style={styles.progressSection}>
                 <View style={styles.progressHeader}>
                   <Text style={styles.progressText}>
-                    {progress.completed ? 'Completed' : `${Math.round(completionPercentage)}% complete`}
+                    {progress.completed
+                      ? 'Completed'
+                      : `${Math.round(completionPercentage)}% complete`}
                   </Text>
                   {progress.completed && (
                     <CheckCircle size={16} color={colors.success} />
@@ -167,94 +175,102 @@ const TopicItem: React.FC<TopicItemProps> = ({
         </Card>
       </Animated.View>
     </TouchableOpacity>
-  )
-}
+  );
+};
 
 export default function TopicListScreen({ navigation }: Props) {
-  const [topics, setTopics] = useState<BiteSizedTopic[]>([])
-  const [topicProgress, setTopicProgress] = useState<Record<string, TopicProgress>>({})
-  const [isLoading, setIsLoading] = useState(true)
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  const [isOnline, setIsOnline] = useState(true)
-  const [debugModalVisible, setDebugModalVisible] = useState(false)
-  const [debugTopic, setDebugTopic] = useState<BiteSizedTopicDetail | null>(null)
-  const [debugLoading, setDebugLoading] = useState(false)
+  const [topics, setTopics] = useState<BiteSizedTopic[]>([]);
+  const [topicProgress, setTopicProgress] = useState<
+    Record<string, TopicProgress>
+  >({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+  const [debugModalVisible, setDebugModalVisible] = useState(false);
+  const [debugTopic, setDebugTopic] = useState<BiteSizedTopicDetail | null>(
+    null
+  );
+  const [debugLoading, setDebugLoading] = useState(false);
 
   useEffect(() => {
-    loadTopics()
-    loadProgress()
-    checkNetworkStatus()
-  }, [])
+    loadTopics();
+    loadProgress();
+    checkNetworkStatus();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const checkNetworkStatus = () => {
-    setIsOnline(apiClient.networkStatus)
-  }
+    setIsOnline(apiClient.networkStatus);
+  };
 
   const loadTopics = async () => {
     try {
-      setIsLoading(true)
-      const data = await apiClient.getBiteSizedTopics()
-      setTopics(data)
+      setIsLoading(true);
+      const data = await apiClient.getBiteSizedTopics();
+      setTopics(data);
     } catch (error) {
-      console.warn('Failed to load topics:', error)
+      console.warn('Failed to load topics:', error);
       Alert.alert(
         'Network Error',
         'Failed to load topics. Please check your connection and try again.',
         [
           { text: 'Retry', onPress: loadTopics },
-          { text: 'Cancel', style: 'cancel' }
+          { text: 'Cancel', style: 'cancel' },
         ]
-      )
+      );
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const loadProgress = async () => {
     try {
-      const progressData: Record<string, TopicProgress> = {}
+      const progressData: Record<string, TopicProgress> = {};
 
       // Load progress for each topic (this could be optimized)
       for (const topic of topics) {
-        const progress = await learningService.getTopicProgress(topic.id)
+        const progress = await learningService.getTopicProgress(topic.id);
         if (progress) {
-          progressData[topic.id] = progress
+          progressData[topic.id] = progress;
         }
       }
 
-      setTopicProgress(progressData)
+      setTopicProgress(progressData);
     } catch (error) {
-      console.warn('Failed to load progress:', error)
+      console.warn('Failed to load progress:', error);
     }
-  }
+  };
 
   const handleRefresh = async () => {
-    setIsRefreshing(true)
-    await Promise.all([loadTopics(), loadProgress()])
-    setIsRefreshing(false)
-  }
+    setIsRefreshing(true);
+    await Promise.all([loadTopics(), loadProgress()]);
+    setIsRefreshing(false);
+  };
 
   const handleTopicPress = async (topic: BiteSizedTopic) => {
     try {
       // Load detailed topic data
-      const topicDetail = await learningService.loadTopic(topic.id)
+      const topicDetail = await learningService.loadTopic(topic.id);
 
       // Navigate to learning flow
       navigation.navigate('TopicDetail', {
         topicId: topic.id,
-        topic: topicDetail
-      })
+        topic: topicDetail,
+      });
     } catch (error) {
-      console.warn('Failed to load topic detail:', error)
-      Alert.alert(
-        'Error',
-        'Failed to load topic. Please try again.',
-        [{ text: 'OK' }]
-      )
+      console.warn('Failed to load topic detail:', error);
+      Alert.alert('Error', 'Failed to load topic. Please try again.', [
+        { text: 'OK' },
+      ]);
     }
-  }
+  };
 
-  const renderTopic = ({ item, index }: { item: BiteSizedTopic; index: number }) => (
+  const renderTopic = ({
+    item,
+    index,
+  }: {
+    item: BiteSizedTopic;
+    index: number;
+  }) => (
     <Animated.View
       entering={FadeIn.delay(index * 100)}
       style={styles.topicItemContainer}
@@ -267,53 +283,51 @@ export default function TopicListScreen({ navigation }: Props) {
         onDebugPress={__DEV__ ? () => handleDebugTopic(item) : undefined}
       />
     </Animated.View>
-  )
+  );
 
-    const handleClearCache = async () => {
+  const handleClearCache = async () => {
     try {
-      await resetAppState()
+      await resetAppState();
       Alert.alert(
         'Cache Cleared',
         'All learning data and cache has been reset. Pull to refresh to reload topics.',
         [{ text: 'OK' }]
-      )
+      );
       // Refresh the screen
-      setTopics([])
-      setTopicProgress({})
-      await handleRefresh()
-    } catch (error) {
-      Alert.alert(
-        'Error',
-        'Failed to clear cache. Please try again.',
-        [{ text: 'OK' }]
-      )
+      setTopics([]);
+      setTopicProgress({});
+      await handleRefresh();
+    } catch {
+      Alert.alert('Error', 'Failed to clear cache. Please try again.', [
+        { text: 'OK' },
+      ]);
     }
-  }
+  };
 
   const handleDebugTopic = async (topic: BiteSizedTopic) => {
     try {
-      setDebugLoading(true)
-      setDebugModalVisible(true)
+      setDebugLoading(true);
+      setDebugModalVisible(true);
 
       // Load the full topic detail with all components
-      const fullTopic = await learningService.loadTopic(topic.id)
-      setDebugTopic(fullTopic)
+      const fullTopic = await learningService.loadTopic(topic.id);
+      setDebugTopic(fullTopic);
     } catch (error) {
-      console.error('Failed to load topic detail for debug:', error)
+      console.error('Failed to load topic detail for debug:', error);
       Alert.alert(
         'Debug Error',
         'Failed to load full topic details. Check console for details.',
         [{ text: 'OK' }]
-      )
-      setDebugModalVisible(false)
+      );
+      setDebugModalVisible(false);
     } finally {
-      setDebugLoading(false)
+      setDebugLoading(false);
     }
-  }
+  };
 
   const formatTopicPayload = (topic: BiteSizedTopicDetail) => {
-    return JSON.stringify(topic, null, 2)
-  }
+    return JSON.stringify(topic, null, 2);
+  };
 
   const renderHeader = () => (
     <Animated.View entering={SlideInUp} style={styles.header}>
@@ -343,7 +357,10 @@ export default function TopicListScreen({ navigation }: Props) {
 
       {/* Development only: Clear cache button */}
       {__DEV__ && (
-        <Animated.View entering={SlideInUp.delay(300)} style={styles.debugSection}>
+        <Animated.View
+          entering={SlideInUp.delay(300)}
+          style={styles.debugSection}
+        >
           <Button
             title="🗑️ Clear Cache"
             onPress={handleClearCache}
@@ -355,7 +372,7 @@ export default function TopicListScreen({ navigation }: Props) {
         </Animated.View>
       )}
     </Animated.View>
-  )
+  );
 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
@@ -364,18 +381,17 @@ export default function TopicListScreen({ navigation }: Props) {
       <Text style={styles.emptySubtitle}>
         {isOnline
           ? 'Check back later for new learning content.'
-          : 'Connect to the internet to download topics.'
-        }
+          : 'Connect to the internet to download topics.'}
       </Text>
-              <Button
-          title="Retry"
-          onPress={loadTopics}
-          variant="outline"
-          icon={<RefreshCw size={16} color={colors.primary} />}
-          style={styles.retryButton}
-        />
+      <Button
+        title="Retry"
+        onPress={loadTopics}
+        variant="outline"
+        icon={<RefreshCw size={16} color={colors.primary} />}
+        style={styles.retryButton}
+      />
     </View>
-  )
+  );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -387,7 +403,7 @@ export default function TopicListScreen({ navigation }: Props) {
         ListEmptyComponent={!isLoading ? renderEmpty : null}
         contentContainerStyle={[
           styles.listContent,
-          topics.length === 0 && styles.emptyListContent
+          topics.length === 0 && styles.emptyListContent,
         ]}
         refreshControl={
           <RefreshControl
@@ -420,16 +436,22 @@ export default function TopicListScreen({ navigation }: Props) {
               </TouchableOpacity>
             </View>
 
-                        <View style={styles.debugModalContent}>
+            <View style={styles.debugModalContent}>
               {debugLoading ? (
                 <View style={styles.debugLoadingContainer}>
-                  <Text style={styles.debugLoadingText}>Loading full topic details...</Text>
+                  <Text style={styles.debugLoadingText}>
+                    Loading full topic details...
+                  </Text>
                 </View>
               ) : debugTopic ? (
                 <>
                   <View style={styles.debugModalTopicInfo}>
-                    <Text style={styles.debugModalTopicTitle}>{debugTopic.title}</Text>
-                    <Text style={styles.debugModalTopicId}>ID: {debugTopic.id}</Text>
+                    <Text style={styles.debugModalTopicTitle}>
+                      {debugTopic.title}
+                    </Text>
+                    <Text style={styles.debugModalTopicId}>
+                      ID: {debugTopic.id}
+                    </Text>
                     <Text style={styles.debugModalComponentCount}>
                       Components: {debugTopic.components?.length || 0}
                     </Text>
@@ -448,7 +470,9 @@ export default function TopicListScreen({ navigation }: Props) {
                 </>
               ) : (
                 <View style={styles.debugLoadingContainer}>
-                  <Text style={styles.debugLoadingText}>No topic data available</Text>
+                  <Text style={styles.debugLoadingText}>
+                    No topic data available
+                  </Text>
                 </View>
               )}
             </View>
@@ -456,7 +480,7 @@ export default function TopicListScreen({ navigation }: Props) {
         </Modal>
       )}
     </SafeAreaView>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -738,4 +762,4 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: colors.text,
   },
-})
+});

@@ -1,0 +1,39 @@
+repos:
+  # Backend Python linting
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.17.0
+    hooks:
+      - id: mypy
+        args: [--config-file=backend/pyproject.toml]
+        additional_dependencies: [pydantic, sqlalchemy, fastapi]
+        files: ^backend/src/
+  - repo: https://github.com/charliermarsh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+        files: ^backend/(src|tests)/
+      - id: ruff-format
+        files: ^backend/(src|tests)/
+
+  # Frontend TypeScript/React Native linting
+  - repo: local
+    hooks:
+      - id: eslint
+        name: ESLint (Frontend)
+        entry: bash -c 'cd mobile && npm run lint'
+        language: system
+        files: ^mobile/.*\.(ts|tsx|js|jsx)$
+        pass_filenames: false
+      - id: prettier
+        name: Prettier (Frontend)
+        entry: bash -c 'cd mobile && npm run format:check'
+        language: system
+        files: ^mobile/.*\.(ts|tsx|js|jsx|json|md)$
+        pass_filenames: false
+      - id: typescript
+        name: TypeScript Check (Frontend)
+        entry: bash -c 'cd mobile && npm run typecheck'
+        language: system
+        files: ^mobile/.*\.(ts|tsx)$
+        pass_filenames: false

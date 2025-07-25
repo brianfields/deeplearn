@@ -5,15 +5,15 @@
  * and navigation back to the topic list
  */
 
-import React, { useEffect } from 'react'
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   SafeAreaView,
   Platform,
-  Vibration
-} from 'react-native'
+  Vibration,
+} from 'react-native';
 import Animated, {
   FadeIn,
   ZoomIn,
@@ -22,9 +22,9 @@ import Animated, {
   useSharedValue,
   withSpring,
   withSequence,
-  withDelay
-} from 'react-native-reanimated'
-import * as Haptics from 'expo-haptics'
+  withDelay,
+} from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 
 // Icons
 import {
@@ -34,60 +34,57 @@ import {
   Target,
   Clock,
   ArrowRight,
-  RotateCcw
-} from 'lucide-react-native'
+  RotateCcw,
+} from 'lucide-react-native';
 
 // Components
-import { Button } from '@/components/ui/Button'
-import { Card } from '@/components/ui/Card'
-import { Progress } from '@/components/ui/Progress'
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { Progress } from '@/components/ui/Progress';
 
 // Theme & Types
-import { colors, spacing, typography, shadows, responsive, textStyle } from '@/utils/theme'
-import type {
-  LearningResults,
-  LearningStackParamList
-} from '@/types'
-import type { NativeStackScreenProps } from '@react-navigation/native-stack'
+import { colors, spacing, typography, shadows, textStyle } from '@/utils/theme';
+import type { LearningStackParamList } from '@/types';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-type Props = NativeStackScreenProps<LearningStackParamList, 'Results'>
+type Props = NativeStackScreenProps<LearningStackParamList, 'Results'>;
 
 export default function ResultsScreen({ navigation, route }: Props) {
-  const { results } = route.params
+  const { results } = route.params;
 
   // Animated values
-  const trophyScale = useSharedValue(0)
-  const scoreProgress = useSharedValue(0)
-  const starsOpacity = useSharedValue(0)
+  const trophyScale = useSharedValue(0);
+  const scoreProgress = useSharedValue(0);
+  const starsOpacity = useSharedValue(0);
 
   // Calculate performance metrics
-  const scorePercentage = Math.max(0, Math.min(100, results.finalScore))
-  const timeInMinutes = Math.round(results.timeSpent / 60)
-  const isPerfectScore = scorePercentage === 100
-  const isGoodScore = scorePercentage >= 80
+  const scorePercentage = Math.max(0, Math.min(100, results.finalScore));
+  const timeInMinutes = Math.round(results.timeSpent / 60);
+  const isPerfectScore = scorePercentage === 100;
+  const isGoodScore = scorePercentage >= 80;
 
   // Performance message
   const getPerformanceMessage = () => {
-    if (isPerfectScore) return "Perfect! Outstanding work! 🎉"
-    if (isGoodScore) return "Great job! Well done! 👏"
-    if (scorePercentage >= 60) return "Good effort! Keep practicing! 💪"
-    return "Keep learning! You're improving! 📚"
-  }
+    if (isPerfectScore) return 'Perfect! Outstanding work! 🎉';
+    if (isGoodScore) return 'Great job! Well done! 👏';
+    if (scorePercentage >= 60) return 'Good effort! Keep practicing! 💪';
+    return "Keep learning! You're improving! 📚";
+  };
 
   const getPerformanceColor = () => {
-    if (isPerfectScore) return colors.warning // Gold
-    if (isGoodScore) return colors.success
-    if (scorePercentage >= 60) return colors.primary
-    return colors.textSecondary
-  }
+    if (isPerfectScore) return colors.warning; // Gold
+    if (isGoodScore) return colors.success;
+    if (scorePercentage >= 60) return colors.primary;
+    return colors.textSecondary;
+  };
 
   // Animation effects
   useEffect(() => {
     // Haptic feedback for completion
     if (Platform.OS === 'ios') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } else {
-      Vibration.vibrate(100)
+      Vibration.vibrate(100);
     }
 
     // Trophy animation
@@ -97,35 +94,32 @@ export default function ResultsScreen({ navigation, route }: Props) {
         withSpring(1.2, { damping: 10 }),
         withSpring(1.0, { damping: 15 })
       )
-    )
+    );
 
     // Score progress animation
-    scoreProgress.value = withDelay(800, withSpring(scorePercentage))
+    scoreProgress.value = withDelay(800, withSpring(scorePercentage));
 
     // Stars animation
-    starsOpacity.value = withDelay(1200, withSpring(1))
-  }, [])
+    starsOpacity.value = withDelay(1200, withSpring(1));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const trophyStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: trophyScale.value }]
-  }))
+    transform: [{ scale: trophyScale.value }],
+  }));
 
   const handleContinue = () => {
-    navigation.popToTop()
-  }
+    navigation.popToTop();
+  };
 
   const handleRetry = () => {
-    navigation.goBack()
-  }
+    navigation.goBack();
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         {/* Header with trophy */}
-        <Animated.View
-          entering={FadeIn.delay(200)}
-          style={styles.header}
-        >
+        <Animated.View entering={FadeIn.delay(200)} style={styles.header}>
           <Animated.View style={[styles.trophyContainer, trophyStyle]}>
             <Trophy
               size={80}
@@ -171,7 +165,7 @@ export default function ResultsScreen({ navigation, route }: Props) {
               style={[styles.starsContainer, { opacity: starsOpacity }]}
             >
               {[...Array(3)].map((_, i) => {
-                const shouldFill = i < Math.ceil((scorePercentage / 100) * 3)
+                const shouldFill = i < Math.ceil((scorePercentage / 100) * 3);
                 return (
                   <Animated.View
                     key={i}
@@ -183,7 +177,7 @@ export default function ResultsScreen({ navigation, route }: Props) {
                       fill={shouldFill ? colors.warning : 'transparent'}
                     />
                   </Animated.View>
-                )
+                );
               })}
             </Animated.View>
           </Card>
@@ -213,7 +207,9 @@ export default function ResultsScreen({ navigation, route }: Props) {
                   <Target size={20} color={colors.secondary} />
                 </View>
                 <View style={styles.statContent}>
-                  <Text style={styles.statValue}>{results.stepsCompleted.length}</Text>
+                  <Text style={styles.statValue}>
+                    {results.stepsCompleted.length}
+                  </Text>
                   <Text style={styles.statLabel}>Steps Completed</Text>
                 </View>
               </View>
@@ -224,7 +220,9 @@ export default function ResultsScreen({ navigation, route }: Props) {
                 </View>
                 <View style={styles.statContent}>
                   <Text style={styles.statValue}>
-                    {results.interactionResults?.filter((r: any) => r.isCorrect || r.correct > 0).length || 0}
+                    {results.interactionResults?.filter(
+                      (r: any) => r.isCorrect || r.correct > 0
+                    ).length || 0}
                   </Text>
                   <Text style={styles.statLabel}>Correct Answers</Text>
                 </View>
@@ -243,7 +241,10 @@ export default function ResultsScreen({ navigation, route }: Props) {
             onPress={handleContinue}
             size="large"
             icon={<ArrowRight size={20} color={colors.surface} />}
-            style={StyleSheet.flatten([styles.actionButton, styles.primaryButton])}
+            style={StyleSheet.flatten([
+              styles.actionButton,
+              styles.primaryButton,
+            ])}
           />
 
           {scorePercentage < 80 && (
@@ -259,7 +260,7 @@ export default function ResultsScreen({ navigation, route }: Props) {
         </Animated.View>
       </View>
     </SafeAreaView>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -389,4 +390,4 @@ const styles = StyleSheet.create({
   primaryButton: {
     backgroundColor: colors.primary,
   },
-})
+});

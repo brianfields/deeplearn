@@ -4,7 +4,7 @@
  * A flexible button component with multiple variants and states
  */
 
-import React from 'react'
+import React from 'react';
 import {
   TouchableOpacity,
   Text,
@@ -12,20 +12,20 @@ import {
   StyleSheet,
   View,
   ViewStyle,
-  TextStyle
-} from 'react-native'
-import { colors, typography, spacing, shadows } from '@/utils/theme'
+  TextStyle,
+} from 'react-native';
+import { colors, spacing, shadows } from '@/utils/theme';
 
 interface ButtonProps {
-  title: string
-  onPress: () => void
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost'
-  size?: 'small' | 'medium' | 'large'
-  disabled?: boolean
-  loading?: boolean
-  icon?: React.ReactNode
-  style?: ViewStyle
-  textStyle?: TextStyle
+  title: string;
+  onPress: () => void;
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
+  size?: 'small' | 'medium' | 'large';
+  disabled?: boolean;
+  loading?: boolean;
+  icon?: React.ReactNode;
+  style?: ViewStyle;
+  textStyle?: TextStyle;
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -44,16 +44,16 @@ export const Button: React.FC<ButtonProps> = ({
     styles[variant],
     styles[size],
     disabled && styles.disabled,
-    style
-  ]
+    style,
+  ];
 
   const textStyles = [
     styles.text,
     styles[`${variant}Text` as keyof typeof styles],
     styles[`${size}Text` as keyof typeof styles],
     disabled && styles.disabledText,
-    textStyle
-  ]
+    textStyle,
+  ];
 
   return (
     <TouchableOpacity
@@ -64,7 +64,11 @@ export const Button: React.FC<ButtonProps> = ({
     >
       {loading ? (
         <ActivityIndicator
-          color={variant === 'outline' || variant === 'ghost' ? colors.primary : colors.surface}
+          color={
+            variant === 'outline' || variant === 'ghost'
+              ? colors.primary
+              : colors.surface
+          }
           size="small"
         />
       ) : (
@@ -74,8 +78,8 @@ export const Button: React.FC<ButtonProps> = ({
         </View>
       )}
     </TouchableOpacity>
-  )
-}
+  );
+};
 
 const styles = StyleSheet.create({
   base: {
@@ -185,6 +189,6 @@ const styles = StyleSheet.create({
   icon: {
     marginRight: spacing.xs,
   },
-})
+});
 
-export default Button
+export default Button;

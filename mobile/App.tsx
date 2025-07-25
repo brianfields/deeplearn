@@ -4,34 +4,32 @@
  * Sets up navigation, providers, and global app state
  */
 
-import React from 'react'
-import { StatusBar } from 'expo-status-bar'
-import { NavigationContainer } from '@react-navigation/native'
-import { createNativeStackNavigator } from '@react-navigation/native-stack'
-import { GestureHandlerRootView } from 'react-native-gesture-handler'
+import React from 'react';
+import { StatusBar } from 'expo-status-bar';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 // Screens
-import TopicListScreen from '@/screens/learning/TopicListScreen'
-import LearningFlowScreen from '@/screens/learning/LearningFlowScreen'
-import ResultsScreen from '@/screens/learning/ResultsScreen'
+import TopicListScreen from '@/screens/learning/TopicListScreen';
+import LearningFlowScreen from '@/screens/learning/LearningFlowScreen';
+import ResultsScreen from '@/screens/learning/ResultsScreen';
 
 // Types
-import type {
-  RootStackParamList,
-  LearningStackParamList
-} from '@/types'
+import type { RootStackParamList, LearningStackParamList } from '@/types';
 
 // Theme
-import { colors } from '@/utils/theme'
+import { colors } from '@/utils/theme';
 
 // Create navigators
-const RootStack = createNativeStackNavigator<RootStackParamList>()
-const LearningStack = createNativeStackNavigator<LearningStackParamList>()
+const RootStack = createNativeStackNavigator<RootStackParamList>();
+const LearningStack = createNativeStackNavigator<LearningStackParamList>();
 
 // Learning Stack Navigator
 function LearningStackNavigator() {
   return (
     <LearningStack.Navigator
+      id={undefined}
       screenOptions={{
         headerShown: false,
         animation: 'slide_from_right',
@@ -42,7 +40,7 @@ function LearningStackNavigator() {
         name="TopicList"
         component={TopicListScreen as any}
         options={{
-          title: 'Learning Topics'
+          title: 'Learning Topics',
         }}
       />
       <LearningStack.Screen
@@ -62,13 +60,14 @@ function LearningStackNavigator() {
         }}
       />
     </LearningStack.Navigator>
-  )
+  );
 }
 
 // Main App Navigator
 function RootNavigator() {
   return (
     <RootStack.Navigator
+      id={undefined}
       screenOptions={{
         headerShown: false,
         animation: 'slide_from_right',
@@ -91,11 +90,12 @@ function RootNavigator() {
         }}
       />
     </RootStack.Navigator>
-  )
+  );
 }
 
 export default function App() {
   return (
+    // eslint-disable-next-line react-native/no-inline-styles
     <GestureHandlerRootView style={{ flex: 1 }}>
       <NavigationContainer
         theme={{
@@ -136,5 +136,5 @@ export default function App() {
         <RootNavigator />
       </NavigationContainer>
     </GestureHandlerRootView>
-  )
+  );
 }

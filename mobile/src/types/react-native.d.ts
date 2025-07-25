@@ -4,7 +4,7 @@
  * This file extends React Native types to fix cross-platform compatibility issues
  */
 
-import { TextStyle as RNTextStyle } from 'react-native'
+import { TextStyle as RNTextStyle } from 'react-native';
 
 declare module 'react-native' {
   interface TextStyle extends Omit<RNTextStyle, 'fontWeight'> {
@@ -39,6 +39,6 @@ declare module 'react-native' {
       | 'condensed'
       | 'heavy'
       | 'black'
-      | string // Allow any string for cross-platform compatibility
+      | string; // Allow any string for cross-platform compatibility
   }
 }
