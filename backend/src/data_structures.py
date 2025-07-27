@@ -51,6 +51,13 @@ class QuizType(str, Enum):
     SCENARIO_CRITIQUE = "scenario_critique"
 
 
+class PodcastSegmentType(str, Enum):
+    INTRO_HOOK = "intro_hook"
+    OVERVIEW = "overview"
+    MAIN_CONTENT = "main_content"
+    SUMMARY = "summary"
+
+
 # Bite-sized content models with modern SQLAlchemy typing
 class BiteSizedTopic(Base):
     __tablename__ = "bite_sized_topics"
@@ -128,6 +135,93 @@ class BiteSizedComponent(Base):
         Index("idx_bite_sized_components_topic_id", "topic_id"),
         Index("idx_bite_sized_components_type", "component_type"),
         Index("idx_bite_sized_components_topic_type", "topic_id", "component_type"),
+    )
+
+
+# Podcast models
+class PodcastEpisode(Base):
+    """A podcast episode linked to a topic"""
+
+    __tablename__ = "podcast_episodes"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)  # UUID string
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=True)
+    learning_outcomes: Mapped[list[str] | None] = mapped_column(JSON)  # List of strings
+    total_duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
+    full_script: Mapped[str] = mapped_column(Text, nullable=True)  # Complete script text
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(UTC), onupdate=datetime.now(UTC))
+    version: Mapped[int] = mapped_column(Integer, default=1)
+
+    # Relationships
+    segments: Mapped[list[PodcastSegment]] = relationship(
+        "PodcastSegment", back_populates="episode", cascade="all, delete-orphan"
+    )
+    topic_links: Mapped[list[TopicPodcastLink]] = relationship(
+        "TopicPodcastLink", back_populates="podcast", cascade="all, delete-orphan"
+    )
+
+    # Indexes
+    __table_args__ = (
+        Index("idx_podcast_episodes_title", "title"),
+        Index("idx_podcast_episodes_duration", "total_duration_minutes"),
+    )
+
+
+class PodcastSegment(Base):
+    """A segment of a podcast episode"""
+
+    __tablename__ = "podcast_segments"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)  # UUID string
+    episode_id: Mapped[str] = mapped_column(String, ForeignKey("podcast_episodes.id"), nullable=False)
+    segment_type: Mapped[str] = mapped_column(String, nullable=False)  # intro_hook, overview, main_content, summary
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    script_content: Mapped[str] = mapped_column(Text, nullable=False)
+    estimated_duration_seconds: Mapped[int] = mapped_column(Integer, nullable=False)
+    order_index: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(UTC), onupdate=datetime.now(UTC))
+    version: Mapped[int] = mapped_column(Integer, default=1)
+
+    # Relationships
+    episode: Mapped[PodcastEpisode] = relationship("PodcastEpisode", back_populates="segments")
+
+    # Indexes
+    __table_args__ = (
+        Index("idx_podcast_segments_episode_id", "episode_id"),
+        Index("idx_podcast_segments_type", "segment_type"),
+        Index("idx_podcast_segments_order", "episode_id", "order_index"),
+    )
+
+
+class TopicPodcastLink(Base):
+    """Junction table for topic-podcast relationships (ready for future one-to-many)"""
+
+    __tablename__ = "topic_podcast_links"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)  # UUID string
+    topic_id: Mapped[str] = mapped_column(String, ForeignKey("bite_sized_topics.id"), nullable=False)
+    podcast_id: Mapped[str] = mapped_column(String, ForeignKey("podcast_episodes.id"), nullable=False)
+    is_primary_topic: Mapped[bool] = mapped_column(Integer, nullable=False, default=0)  # 0/1 for SQLite compatibility
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(UTC))
+
+    # Relationships
+    topic: Mapped[BiteSizedTopic] = relationship("BiteSizedTopic")
+    podcast: Mapped[PodcastEpisode] = relationship("PodcastEpisode", back_populates="topic_links")
+
+    # Indexes and constraints
+    __table_args__ = (
+        Index("idx_topic_podcast_links_topic_id", "topic_id"),
+        Index("idx_topic_podcast_links_podcast_id", "podcast_id"),
+        Index("idx_topic_podcast_links_primary", "podcast_id", "is_primary_topic"),
     )
 
 
@@ -250,5 +344,51 @@ class ComponentData(BaseModel):
     generation_prompt: str | None = None
     raw_llm_response: str | None = None
     evaluation: dict[str, Any] | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+# Podcast Domain Models (Pydantic) - for API responses
+class PodcastSegmentData(BaseModel):
+    """Domain model for podcast segment data"""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    id: str
+    episode_id: str
+    segment_type: str
+    title: str
+    script_content: str
+    estimated_duration_seconds: int
+    order_index: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class TopicPodcastLinkData(BaseModel):
+    """Domain model for topic-podcast link data"""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    id: str
+    topic_id: str
+    podcast_id: str
+    is_primary_topic: bool
+    created_at: datetime
+
+
+class PodcastEpisodeData(BaseModel):
+    """Domain model for podcast episode data - returned by DatabaseService"""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    id: str
+    title: str
+    description: str | None
+    learning_outcomes: list[str]
+    total_duration_minutes: int
+    full_script: str | None
+    segments: list[PodcastSegmentData]
+    primary_topic_id: str  # For MVP: single topic relationship
     created_at: datetime
     updated_at: datetime

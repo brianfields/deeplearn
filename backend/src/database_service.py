@@ -15,6 +15,11 @@ from src.data_structures import (
     BiteSizedTopic,
     ComponentData,
     TopicResult,
+    PodcastEpisode,
+    PodcastSegment,
+    TopicPodcastLink,
+    PodcastEpisodeData,
+    PodcastSegmentData,
 )
 
 
@@ -192,6 +197,123 @@ class DatabaseService:
         except SQLAlchemyError as e:
             print(f"Error getting topic components: {e}")
             return []
+        finally:
+            self.close_session(session)
+
+    # Podcast methods
+    def get_podcast_episode(self, episode_id: str) -> PodcastEpisodeData | None:
+        """Get a podcast episode by ID, returned as Pydantic model"""
+        session = self.get_session()
+        try:
+            episode = session.get(PodcastEpisode, episode_id)
+            if not episode:
+                return None
+
+            # Get segments for this episode
+            segments = session.query(PodcastSegment).where(
+                PodcastSegment.episode_id == episode_id
+            ).order_by(PodcastSegment.order_index).all()
+
+            # Get primary topic link
+            primary_link = session.query(TopicPodcastLink).where(
+                TopicPodcastLink.podcast_id == episode_id,
+                TopicPodcastLink.is_primary_topic == 1
+            ).first()
+
+            # Convert SQLAlchemy models to Pydantic models
+            segment_data = [
+                PodcastSegmentData(
+                    id=seg.id,
+                    episode_id=seg.episode_id,
+                    segment_type=seg.segment_type,
+                    title=seg.title,
+                    script_content=seg.script_content,
+                    estimated_duration_seconds=seg.estimated_duration_seconds,
+                    order_index=seg.order_index,
+                    created_at=seg.created_at,
+                    updated_at=seg.updated_at,
+                )
+                for seg in segments
+            ]
+
+            return PodcastEpisodeData(
+                id=episode.id,
+                title=episode.title,
+                description=episode.description,
+                learning_outcomes=episode.learning_outcomes or [],
+                total_duration_minutes=episode.total_duration_minutes,
+                full_script=episode.full_script,
+                segments=segment_data,
+                primary_topic_id=primary_link.topic_id if primary_link else "",
+                created_at=episode.created_at,
+                updated_at=episode.updated_at,
+            )
+        except SQLAlchemyError as e:
+            print(f"Error getting podcast episode: {e}")
+            return None
+        finally:
+            self.close_session(session)
+
+    def get_topic_podcast(self, topic_id: str) -> PodcastEpisodeData | None:
+        """Get the podcast episode linked to a topic"""
+        session = self.get_session()
+        try:
+            # Find the primary link for this topic
+            link = session.query(TopicPodcastLink).where(
+                TopicPodcastLink.topic_id == topic_id,
+                TopicPodcastLink.is_primary_topic == 1
+            ).first()
+
+            if not link:
+                return None
+
+            # Get the podcast episode
+            return self.get_podcast_episode(link.podcast_id)
+        except SQLAlchemyError as e:
+            print(f"Error getting topic podcast: {e}")
+            return None
+        finally:
+            self.close_session(session)
+
+    def save_podcast_episode(self, episode: PodcastEpisode) -> bool:
+        """Save a podcast episode"""
+        session = self.get_session()
+        try:
+            session.add(episode)
+            session.commit()
+            return True
+        except SQLAlchemyError as e:
+            session.rollback()
+            print(f"Error saving podcast episode: {e}")
+            return False
+        finally:
+            self.close_session(session)
+
+    def save_podcast_segment(self, segment: PodcastSegment) -> bool:
+        """Save a podcast segment"""
+        session = self.get_session()
+        try:
+            session.add(segment)
+            session.commit()
+            return True
+        except SQLAlchemyError as e:
+            session.rollback()
+            print(f"Error saving podcast segment: {e}")
+            return False
+        finally:
+            self.close_session(session)
+
+    def save_topic_podcast_link(self, link: TopicPodcastLink) -> bool:
+        """Save a topic-podcast link"""
+        session = self.get_session()
+        try:
+            session.add(link)
+            session.commit()
+            return True
+        except SQLAlchemyError as e:
+            session.rollback()
+            print(f"Error saving topic-podcast link: {e}")
+            return False
         finally:
             self.close_session(session)
 
