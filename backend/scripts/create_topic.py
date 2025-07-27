@@ -31,7 +31,7 @@ import sys
 import uuid
 
 # Add the src directory to the path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.core.llm_client import LLMClient
 from src.core.service_base import ServiceConfig
