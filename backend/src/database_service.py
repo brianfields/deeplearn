@@ -4,6 +4,7 @@ Database service for PostgreSQL using SQLAlchemy.
 Simplified service focused on bite-sized topics storage.
 """
 
+import uuid
 from sqlalchemy import create_engine, desc, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
@@ -20,6 +21,7 @@ from src.data_structures import (
     TopicPodcastLink,
     PodcastEpisodeData,
     PodcastSegmentData,
+    PodcastScript,
 )
 
 
@@ -275,19 +277,60 @@ class DatabaseService:
         finally:
             self.close_session(session)
 
-    def save_podcast_episode(self, episode: PodcastEpisode) -> bool:
-        """Save a podcast episode"""
-        session = self.get_session()
+    def save_podcast_episode(self, script: PodcastScript, topic_id: str) -> str:
+        """
+        Save generated podcast script to database.
+
+        Args:
+            script: Generated podcast script
+            topic_id: ID of the topic this podcast is for
+
+        Returns:
+            Episode ID of the saved podcast
+        """
         try:
-            session.add(episode)
-            session.commit()
-            return True
-        except SQLAlchemyError as e:
-            session.rollback()
+            with self.get_session() as session:
+                # Create episode
+                episode = PodcastEpisode(
+                    id=self._create_episode_id(),
+                    title=script.title,
+                    description=script.description,
+                    learning_outcomes=script.learning_outcomes,
+                    total_duration_minutes=script.total_duration_seconds // 60,
+                    full_script=script.full_script
+                )
+
+                session.add(episode)
+                session.flush()  # Get the ID
+
+                # Create segments
+                for i, segment in enumerate(script.segments):
+                    podcast_segment = PodcastSegment(
+                        id=self._create_segment_id(),
+                        episode_id=episode.id,
+                        segment_type=segment.segment_type,
+                        title=segment.title,
+                        script_content=segment.content,
+                        estimated_duration_seconds=segment.estimated_duration_seconds,
+                        order_index=i
+                    )
+                    session.add(podcast_segment)
+
+                # Create topic link
+                link = TopicPodcastLink(
+                    id=self._create_link_id(),
+                    topic_id=topic_id,
+                    podcast_id=episode.id,
+                    is_primary_topic=True
+                )
+                session.add(link)
+
+                session.commit()
+                return episode.id
+
+        except Exception as e:
             print(f"Error saving podcast episode: {e}")
-            return False
-        finally:
-            self.close_session(session)
+            raise
 
     def save_podcast_segment(self, segment: PodcastSegment) -> bool:
         """Save a podcast segment"""
@@ -304,18 +347,27 @@ class DatabaseService:
             self.close_session(session)
 
     def save_topic_podcast_link(self, link: TopicPodcastLink) -> bool:
-        """Save a topic-podcast link"""
-        session = self.get_session()
+        """Save topic-podcast link to database"""
         try:
-            session.add(link)
-            session.commit()
-            return True
-        except SQLAlchemyError as e:
-            session.rollback()
+            with self.get_session() as session:
+                session.add(link)
+                session.commit()
+                return True
+        except Exception as e:
             print(f"Error saving topic-podcast link: {e}")
             return False
-        finally:
-            self.close_session(session)
+
+    def _create_episode_id(self) -> str:
+        """Create a new episode ID"""
+        return str(uuid.uuid4())
+
+    def _create_segment_id(self) -> str:
+        """Create a new segment ID"""
+        return str(uuid.uuid4())
+
+    def _create_link_id(self) -> str:
+        """Create a new link ID"""
+        return str(uuid.uuid4())
 
 
 # Global database service instance

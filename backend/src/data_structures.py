@@ -392,3 +392,118 @@ class PodcastEpisodeData(BaseModel):
     primary_topic_id: str  # For MVP: single topic relationship
     created_at: datetime
     updated_at: datetime
+
+
+# Podcast Structure Models (Pydantic) - for planning and API responses
+class SegmentPlan(BaseModel):
+    """Plan for a single podcast segment"""
+
+    segment_type: str  # intro_hook, overview, main_content, summary
+    title: str
+    purpose: str
+    target_duration_seconds: int
+    learning_outcomes: list[str]  # Which outcomes this segment addresses
+    content_focus: str  # What content to include
+    transition_in: str  # How to transition into this segment
+    transition_out: str  # How to transition out of this segment
+
+
+class PodcastStructure(BaseModel):
+    """Complete podcast structure with segments and timing"""
+
+    intro_hook: SegmentPlan
+    overview: SegmentPlan
+    main_content: SegmentPlan
+    summary: SegmentPlan
+    total_duration_seconds: int
+    learning_outcomes: list[str]
+
+
+class TimedStructure(BaseModel):
+    """Podcast structure with precise timing breakdown"""
+
+    structure: PodcastStructure
+    segment_timing: dict[str, int]  # segment_type -> duration_seconds
+    total_duration_seconds: int
+    timing_notes: str  # Notes about timing decisions
+
+
+class FlowPlan(BaseModel):
+    """Plan for natural flow between segments"""
+
+    structure: PodcastStructure
+    transitions: dict[str, str]  # segment_type -> transition_text
+    flow_notes: str  # Notes about flow decisions
+
+
+# Podcast Script Models (Pydantic) - for script generation and API responses
+class SegmentScript(BaseModel):
+    """Script for a single podcast segment"""
+
+    segment_type: str  # intro_hook, overview, main_content, summary
+    title: str
+    content: str  # The actual script content
+    estimated_duration_seconds: int
+    learning_outcomes: list[str]  # Which outcomes this segment addresses
+    tone: str  # engaging, educational, conversational
+    word_count: int  # For timing estimation
+
+
+class ScriptMetadata(BaseModel):
+    """Metadata about script generation"""
+
+    generation_timestamp: datetime
+    topic_id: str
+    structure_id: str  # Reference to the structure used
+    total_segments: int
+    target_duration_seconds: int
+    actual_duration_seconds: int
+    tone_style: str  # overall tone of the podcast
+    educational_level: str  # beginner, intermediate, advanced
+
+
+class PodcastScript(BaseModel):
+    """Complete podcast script with all segments"""
+
+    title: str
+    description: str
+    segments: list[SegmentScript]
+    total_duration_seconds: int
+    learning_outcomes: list[str]
+    metadata: ScriptMetadata
+    full_script: str  # Complete script as single text
+
+
+# Podcast API Models (Pydantic) - for API requests and responses
+class PodcastGenerationRequest(BaseModel):
+    """Request model for podcast generation"""
+
+    topic_id: str
+    generate_audio: bool = False  # For future audio generation
+
+
+class PodcastGenerationResponse(BaseModel):
+    """Response model for podcast generation"""
+
+    episode_id: str
+    title: str
+    description: str
+    total_duration_minutes: int
+    learning_outcomes: list[str]
+    segments: list[SegmentScript]
+    full_script: str
+    status: str  # "generated", "processing", "error"
+
+
+class PodcastEpisodeResponse(BaseModel):
+    """Response model for podcast episode data"""
+
+    episode_id: str
+    title: str
+    description: str
+    total_duration_minutes: int
+    learning_outcomes: list[str]
+    segments: list[SegmentScript]
+    full_script: str
+    created_at: datetime
+    topic_id: str

@@ -47,10 +47,21 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.core.llm_client import create_llm_client
 from src.core.prompt_base import PromptContext
-from src.data_structures import BiteSizedComponent, BiteSizedTopic
+from src.data_structures import (
+    BiteSizedTopic,
+    ComponentData,
+    TopicResult,
+    PodcastGenerationRequest,
+    PodcastGenerationResponse,
+    PodcastEpisodeResponse,
+    PodcastScript,
+)
+from src.modules.content_creation.service import BiteSizedTopicService
 from src.modules.content_creation.mcq_service import MCQService
 from src.modules.content_creation.models import GenerationMetadata, MultipleChoiceQuestion
 from src.modules.content_creation.refined_material_service import RefinedMaterialService
+from src.modules.podcast.service import PodcastService
+from src.core.service_base import ServiceConfig
 
 # Import shared dependencies
 from .dependencies import DatabaseDep
@@ -478,3 +489,154 @@ async def delete_topic(topic_id: str, db_service: DatabaseDep) -> dict[str, str]
     except Exception as e:
         logger.error(f"Failed to delete topic {topic_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to delete topic: {e!s}") from e
+
+
+# Podcast Generation Routes
+async def get_podcast_service() -> PodcastService:
+    """Get podcast service instance"""
+    try:
+        llm_client = create_llm_client()
+        config = ServiceConfig(llm_client=llm_client)
+        service = PodcastService(config, llm_client)
+        await service.initialize()
+        return service
+    except Exception as e:
+        logger.error(f"Failed to create podcast service: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create podcast service")
+
+
+@router.post("/podcasts/generate", response_model=PodcastGenerationResponse)
+async def generate_podcast(
+    request: PodcastGenerationRequest,
+    db_service: DatabaseDep,
+    podcast_service: PodcastService = Depends(get_podcast_service),
+) -> PodcastGenerationResponse:
+    """
+    Generate a podcast episode from a topic.
+
+    Args:
+        request: Podcast generation request with topic ID
+        db_service: Database service
+        podcast_service: Podcast service
+
+    Returns:
+        PodcastGenerationResponse: Generated podcast data
+    """
+    try:
+        # Check if topic exists
+        topic = db_service.get_bite_sized_topic(request.topic_id)
+        if not topic:
+            raise HTTPException(status_code=404, detail="Topic not found")
+
+        # Generate podcast script
+        script = await podcast_service.generate_podcast_script(request.topic_id)
+
+        # Save to database
+        episode_id = db_service.save_podcast_episode(script, request.topic_id)
+
+        logger.info(f"Generated podcast episode {episode_id} for topic {request.topic_id}")
+
+        return PodcastGenerationResponse(
+            episode_id=episode_id,
+            title=script.title,
+            description=script.description,
+            total_duration_minutes=script.total_duration_seconds // 60,
+            learning_outcomes=script.learning_outcomes,
+            segments=script.segments,
+            full_script=script.full_script,
+            status="generated"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to generate podcast: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate podcast: {e!s}") from e
+
+
+@router.get("/podcasts/{episode_id}", response_model=PodcastEpisodeResponse)
+async def get_podcast_episode(
+    episode_id: str,
+    db_service: DatabaseDep,
+    podcast_service: PodcastService = Depends(get_podcast_service),
+) -> PodcastEpisodeResponse:
+    """
+    Get a podcast episode by ID.
+
+    Args:
+        episode_id: ID of the podcast episode
+        db_service: Database service
+        podcast_service: Podcast service
+
+    Returns:
+        PodcastEpisodeResponse: Podcast episode data
+    """
+    try:
+        episode = await podcast_service.get_podcast_episode(episode_id)
+        if not episode:
+            raise HTTPException(status_code=404, detail="Podcast episode not found")
+
+        # Get topic ID from database
+        episode_data = db_service.get_podcast_episode(episode_id)
+        topic_id = ""
+        if episode_data and hasattr(episode_data, 'topic_links') and episode_data.topic_links:
+            topic_id = episode_data.topic_links[0].topic_id if episode_data.topic_links else ""
+
+        return PodcastEpisodeResponse(
+            episode_id=episode.id,
+            title=episode.title,
+            description=episode.description,
+            total_duration_minutes=episode.total_duration_minutes,
+            learning_outcomes=episode.learning_outcomes,
+            segments=[],  # TODO: Add segment conversion
+            full_script=episode.full_script,
+            created_at=episode.created_at,
+            topic_id=topic_id
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get podcast episode: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get podcast episode: {e!s}") from e
+
+
+@router.get("/podcasts/topic/{topic_id}", response_model=PodcastEpisodeResponse)
+async def get_topic_podcast(
+    topic_id: str,
+    db_service: DatabaseDep,
+    podcast_service: PodcastService = Depends(get_podcast_service),
+) -> PodcastEpisodeResponse:
+    """
+    Get the podcast episode for a specific topic.
+
+    Args:
+        topic_id: ID of the topic
+        db_service: Database service
+        podcast_service: Podcast service
+
+    Returns:
+        PodcastEpisodeResponse: Podcast episode data
+    """
+    try:
+        episode = await podcast_service.get_topic_podcast(topic_id)
+        if not episode:
+            raise HTTPException(status_code=404, detail="No podcast found for this topic")
+
+        return PodcastEpisodeResponse(
+            episode_id=episode.id,
+            title=episode.title,
+            description=episode.description,
+            total_duration_minutes=episode.total_duration_minutes,
+            learning_outcomes=episode.learning_outcomes,
+            segments=[],  # TODO: Add segment conversion
+            full_script=episode.full_script,
+            created_at=episode.created_at,
+            topic_id=topic_id
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get topic podcast: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get topic podcast: {e!s}") from e
