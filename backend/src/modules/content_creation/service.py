@@ -54,7 +54,7 @@ class BiteSizedTopicService(ModuleService):
             "glossary": GlossaryPrompt(),
         }
         # Services for different workflows
-        self.mcq_service = MCQService(llm_client)
+        self.mcq_service = MCQService(llm_client, enable_evaluations=False)
         self.refined_material_service = RefinedMaterialService(llm_client)
 
     async def initialize(self) -> None:
@@ -446,12 +446,16 @@ class BiteSizedTopicService(ModuleService):
                 mcq = mcq_data["mcq"]  # SingleMCQResponse object
                 evaluation = mcq_data["evaluation"]  # MCQEvaluationResponse object
 
+                # Log if evaluation is None for debugging
+                if evaluation is None:
+                    self.logger.warning(f"MCQ {i} has no evaluation data: {mcq_data.get('topic', 'unknown')}")
+
                 # Create generation metadata
                 generation_metadata = GenerationMetadata(
                     generation_method="refined_material_mcq_service",
                     topic=mcq_data.get("topic", ""),
                     learning_objective=mcq_data.get("learning_objective", ""),
-                    evaluation=evaluation.dict(),
+                    evaluation=evaluation.dict() if evaluation else None,
                     refined_material=str(refined_material),
                 )
 

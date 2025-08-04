@@ -219,7 +219,7 @@ class DatabaseService:
             # Get primary topic link
             primary_link = session.query(TopicPodcastLink).where(
                 TopicPodcastLink.podcast_id == episode_id,
-                TopicPodcastLink.is_primary_topic == 1
+                TopicPodcastLink.is_primary_topic.is_(True)
             ).first()
 
             # Convert SQLAlchemy models to Pydantic models
@@ -263,7 +263,7 @@ class DatabaseService:
             # Find the primary link for this topic
             link = session.query(TopicPodcastLink).where(
                 TopicPodcastLink.topic_id == topic_id,
-                TopicPodcastLink.is_primary_topic == 1
+                TopicPodcastLink.is_primary_topic.is_(True)
             ).first()
 
             if not link:

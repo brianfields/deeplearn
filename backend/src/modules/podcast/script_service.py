@@ -247,76 +247,91 @@ class PodcastScriptService(ModuleService):
             return f"Welcome to our lesson on {segment_plan.title}."
 
     def _create_intro_hook_script(self, segment_plan: SegmentPlan, topic_content: str) -> str:
-        """Create engaging intro hook script."""
-        topic_title = segment_plan.title.split(" to ")[-1] if " to " in segment_plan.title else "this topic"
+        """Create dynamic intro with Dan Carlin-style tone."""
+        core_concept = segment_plan.title.split(" to ")[-1] if " to " in segment_plan.title else segment_plan.title
 
-        return f"""Welcome to our educational journey! Have you ever wondered about {topic_title}?
+        # Extract key insights from topic content - clean it up
+        content_sentences = topic_content.split('.')[:3]
+        clean_sentences = []
+        for sentence in content_sentences:
+            # Remove markdown and clean up
+            clean = sentence.replace('#', '').replace('*', '').replace('`', '').strip()
+            if len(clean) > 20 and not clean.startswith('##'):
+                clean_sentences.append(clean)
 
-Today, we're going to explore some fascinating concepts that will help you understand this topic better. Whether you're just starting out or looking to deepen your knowledge, this episode has something for you.
+        content_context = ". ".join(clean_sentences) if clean_sentences else f"{core_concept} represents a fundamental shift in how we approach this problem."
 
-Let's dive in and discover what makes {topic_title} so interesting and important. We'll cover everything from the basics to practical applications, so you can walk away with a solid understanding of these concepts.
+        return f"""Imagine you're standing at the edge of something fundamental. {core_concept} isn't just another concept - it's a doorway to understanding how things actually work.
 
-Are you ready to learn something new? Let's get started!"""
+{content_context}
+
+This isn't about memorizing facts. It's about seeing the patterns, understanding the why behind the what. When you grasp {core_concept}, you're not just learning - you're seeing the world differently.
+
+The beauty of {core_concept} is that it connects everything. It's not isolated knowledge - it's a lens through which you can understand the entire field. And once you see it, you can't unsee it."""
 
     def _create_overview_script(self, segment_plan: SegmentPlan, topic_content: str) -> str:
-        """Create overview script that previews learning outcomes."""
-        outcomes_text = ""
-        if segment_plan.learning_outcomes:
-            outcomes_list = [f"'{outcome.split('(')[0].strip()}'" for outcome in segment_plan.learning_outcomes]
-            if len(outcomes_list) == 1:
-                outcomes_text = f"we'll focus on {outcomes_list[0]}"
-            elif len(outcomes_list) == 2:
-                outcomes_text = f"we'll explore {outcomes_list[0]} and {outcomes_list[1]}"
-            else:
-                outcomes_text = f"we'll cover several key concepts including {', '.join(outcomes_list[:-1])}, and {outcomes_list[-1]}"
-
-        return f"""In this episode, {outcomes_text}.
-
-We'll start with the fundamentals and build up to more advanced concepts. Each section will include practical examples and real-world applications to help you understand these ideas better.
-
-By the end of this episode, you'll have a solid foundation in these concepts and be ready to apply them in your own learning journey. We'll also provide some practical tips and common pitfalls to avoid.
-
-So, let's break this down into manageable pieces and make sure you understand each concept thoroughly before moving on to the next one."""
-
-    def _create_main_content_script(self, segment_plan: SegmentPlan, topic_content: str) -> str:
-        """Create detailed main content script."""
+        """Create dynamic overview with Dan Carlin-style tone."""
         outcomes = segment_plan.learning_outcomes
         if not outcomes:
-            return "Let's explore the key concepts in detail. We'll start with the fundamental principles and then build up to more complex applications. Throughout this section, we'll use real-world examples to illustrate these concepts and help you understand how they work in practice."
+            # Extract key concepts from topic content
+            content_sentences = topic_content.split('.')[:5]
+            key_concepts = []
+            for sentence in content_sentences:
+                clean = sentence.replace('#', '').replace('*', '').replace('`', '').strip()
+                if len(clean) > 30 and not clean.startswith('##'):
+                    key_concepts.append(clean)
+            return f"We're going to dive into {', '.join(key_concepts[:3])}. Each piece connects to the next, building something larger than the sum of its parts. This isn't just theory - this is how the world actually works."
+
+        concepts = [outcome.split('(')[0].strip() for outcome in outcomes]
+        return f"""Here's what we're going to explore: {', '.join(concepts)}.
+
+But here's the thing - these aren't separate topics. They're different angles of the same fundamental truth. Understanding one illuminates the others.
+
+Each of these concepts builds on the others, creating a web of understanding that's stronger than any individual piece. This is how real learning happens - not in isolation, but in connection."""
+
+    def _create_main_content_script(self, segment_plan: SegmentPlan, topic_content: str) -> str:
+        """Create dynamic main content with Dan Carlin-style tone."""
+        outcomes = segment_plan.learning_outcomes
+        if not outcomes:
+            # Extract insights from topic content
+            content_sentences = topic_content.split('.')[:8]
+            insights = []
+            for sentence in content_sentences:
+                clean = sentence.replace('#', '').replace('*', '').replace('`', '').strip()
+                if len(clean) > 40 and not clean.startswith('##'):
+                    insights.append(clean)
+            return f"Let's look at what's actually happening here. {'. '.join(insights[:4])}. This isn't theory - this is how things work in practice. The patterns are everywhere once you know how to look."
 
         content_parts = []
-        for i, outcome in enumerate(outcomes, 1):
-            # Extract the main concept from the learning outcome
+        for outcome in outcomes:
             concept = outcome.split('(')[0].strip()
-            content_parts.append(f"First, let's look at {concept}. This is fundamental to understanding our topic. We'll explore what this means and why it's important. We'll also look at some practical examples to help you grasp this concept better.")
+            # Extract specific details from the learning outcome
+            if '(' in outcome:
+                details = outcome.split('(')[1].split(')')[0]
+                content_parts.append(f"{concept} - {details}. This isn't just academic knowledge. It's practical understanding that you can use immediately.")
+            else:
+                content_parts.append(f"{concept}. This is where theory meets reality, where abstract concepts become concrete tools.")
 
-        # Add practical application
-        content_parts.append("Now, let's see how these concepts work together in practice. Understanding these relationships will help you apply this knowledge effectively. We'll also discuss some common misconceptions and how to avoid them.")
-
-        # Add engagement elements
-        content_parts.append("As we explore these concepts, think about how they might apply to your own learning or work. What questions do you have? What aspects would you like to explore further?")
+        # Add more depth to make it longer
+        content_parts.append("The key insight here is that these aren't just rules to memorize. They're principles that emerge from deeper understanding. Once you see the pattern, you can apply it anywhere.")
 
         return " ".join(content_parts)
 
     def _create_summary_script(self, segment_plan: SegmentPlan, topic_content: str) -> str:
-        """Create summary script with key takeaways."""
-        outcomes = segment_plan.learning_outcomes
-        if not outcomes:
-            return "Thank you for joining us in this exploration. We hope you found this episode helpful and informative. Remember to keep practicing and applying these concepts in your daily learning."
+        """Create dynamic summary with Dan Carlin-style tone."""
+        # Extract final insights from topic content
+        content_sentences = topic_content.split('.')[-5:]
+        final_insights = []
+        for sentence in content_sentences:
+            clean = sentence.replace('#', '').replace('*', '').replace('`', '').strip()
+            if len(clean) > 30 and not clean.startswith('##'):
+                final_insights.append(clean)
 
-        # Create summary of key points
-        key_points = []
-        for outcome in outcomes:
-            concept = outcome.split('(')[0].strip()
-            key_points.append(concept)
+        return f"""So what have we learned? {'. '.join(final_insights[:3])}.
 
-        summary_text = f"Let's recap what we've learned today. We covered {', '.join(key_points)}. These concepts form the foundation of our topic and will serve you well in your continued learning."
+This isn't the end of the story - it's the beginning of seeing how these pieces fit together. Understanding {segment_plan.title} isn't about memorizing. It's about seeing the patterns that connect everything.
 
-        return f"""{summary_text}
-
-Remember, learning is a journey, and every step forward counts. Keep exploring, keep asking questions, and keep growing your knowledge.
-
-Thank you for joining us today. We hope this episode has been helpful and inspiring for your learning journey! Don't forget to practice these concepts regularly to reinforce your understanding."""
+The real power comes when you start applying these principles to new problems. That's when you know you've truly understood - not when you can recite the facts, but when you can see the patterns in unfamiliar territory."""
 
     def _estimate_duration(self, word_count: int) -> int:
         """

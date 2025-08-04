@@ -12,7 +12,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import JSON, DateTime, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import JSON, DateTime, ForeignKey, Index, Integer, String, Text, Boolean
 from sqlalchemy.orm import (  # type: ignore[attr-defined]
     DeclarativeBase,
     Mapped,
@@ -208,7 +208,7 @@ class TopicPodcastLink(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True)  # UUID string
     topic_id: Mapped[str] = mapped_column(String, ForeignKey("bite_sized_topics.id"), nullable=False)
     podcast_id: Mapped[str] = mapped_column(String, ForeignKey("podcast_episodes.id"), nullable=False)
-    is_primary_topic: Mapped[bool] = mapped_column(Integer, nullable=False, default=0)  # 0/1 for SQLite compatibility
+    is_primary_topic: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(UTC))

@@ -126,7 +126,7 @@ class PodcastService(ModuleService):
 
         # Generate script (Phase 4)
         script = await self.script_service.generate_podcast_script(
-            structure, topic.content, topic_id
+            structure, topic.source_material, topic_id
         )
 
         self.logger.info(

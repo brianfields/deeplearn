@@ -28,10 +28,11 @@ logger = logging.getLogger(__name__)
 class MCQService:
     """Service for creating MCQs from structured, refined material"""
 
-    def __init__(self, llm_client: LLMClient) -> None:
+    def __init__(self, llm_client: LLMClient, enable_evaluations: bool = False) -> None:
         self.llm_client = llm_client
         self.single_mcq_prompt = SingleMCQCreationPrompt()
         self.evaluation_prompt = MCQEvaluationPrompt()
+        self.enable_evaluations = enable_evaluations
 
     async def create_mcqs_from_refined_material(
         self,
@@ -136,9 +137,11 @@ class MCQService:
                     context=context,
                 )
 
-                # Evaluate the MCQ (disabled for now)
-                # evaluation = await self._evaluate_mcq(mcq, learning_objective, context)
-                evaluation = None
+                # Evaluate the MCQ (if enabled)
+                if self.enable_evaluations:
+                    evaluation = await self._evaluate_mcq(mcq, learning_objective, context)
+                else:
+                    evaluation = None
 
                 logger.info(f"Successfully completed MCQ creation task: {task_id}")
                 return {
