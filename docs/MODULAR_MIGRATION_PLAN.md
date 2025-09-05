@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document outlines the step-by-step migration from the current monolithic structure to a clean modular architecture with 5 focused modules. Each module follows the patterns defined in `docs/arch/` with proper layering and API boundaries.
+This document outlines the step-by-step migration from the current monolithic structure to a clean modular architecture with 6 focused backend modules and 5 frontend modules. Each module follows the patterns defined in `docs/arch/` with proper layering and API boundaries.
 
 ## Target Module Structure
 
@@ -11,14 +11,15 @@ This document outlines the step-by-step migration from the current monolithic st
 2. **Topic Catalog** - Topic discovery and browsing
 3. **Learning Session** - Active learning experience
 4. **Learning Analytics** - Progress tracking and insights
-5. **Infrastructure** - Core technical services
+5. **LLM Services** - Language model integration and prompt management
+6. **Infrastructure** - Core technical services (database, config, logging)
 
 ### Frontend Modules
 1. **Content Creation** - Content authoring UI (future)
 2. **Topic Catalog** - Topic browsing and selection
 3. **Learning Session** - Learning flow and interaction
 4. **Learning Analytics** - Progress visualization
-5. **Infrastructure** - Shared technical components
+5. **Infrastructure** - Shared technical components (HTTP, caching, UI)
 
 ## Migration Phases
 
@@ -39,23 +40,16 @@ This document outlines the step-by-step migration from the current monolithic st
    src/data_structures.py → infrastructure/infrastructure/models/
    ```
 
-3. **Migrate LLM service**
-   ```
-   src/llm_interface.py → infrastructure/domain/entities/llm.py
-   src/core/llm_client.py → infrastructure/infrastructure/clients/
-   src/core/prompt_base.py → infrastructure/domain/entities/prompt.py
-   ```
-
-4. **Migrate configuration**
+3. **Migrate configuration**
    ```
    src/config/ → infrastructure/domain/entities/config.py
    ```
 
-5. **Create module API**
+4. **Create module API**
    ```python
    # infrastructure/module_api/__init__.py
    from .infrastructure_service import InfrastructureService
-   from .types import DatabaseConfig, LLMConfig, AppConfig
+   from .types import DatabaseConfig, AppConfig
    ```
 
 **Verification**:
@@ -100,7 +94,79 @@ This document outlines the step-by-step migration from the current monolithic st
 - [ ] Base HTTP client works independently
 - [ ] Theme system functional
 
-### Phase 2: Content Creation Module (Week 2)
+### Phase 2: LLM Services Module (Week 2)
+
+#### Backend LLM Services Module
+**Goal**: Extract and modularize LLM integration and prompt management
+
+**Tasks**:
+1. **Create module structure**
+   ```bash
+   mkdir -p backend/modules/llm_services/{module_api,domain,infrastructure,tests}
+   ```
+
+2. **Migrate LLM services**
+   ```
+   src/llm_interface.py → llm_services/domain/entities/llm_provider.py
+   src/core/llm_client.py → llm_services/infrastructure/clients/
+   src/core/prompt_base.py → llm_services/domain/entities/prompt.py
+   ```
+
+3. **Migrate prompt templates**
+   ```
+   src/modules/content_creation/prompts/ → llm_services/domain/prompts/
+   ```
+
+4. **Extract domain entities**
+   ```python
+   # domain/entities/prompt.py
+   class Prompt:
+       def __init__(self, template: str, variables: Dict[str, str]):
+           self.template = template
+           self.variables = variables
+
+       def render(self, context: Dict[str, Any]) -> str:
+           # Business logic for prompt rendering
+
+       def validate_context(self, context: Dict[str, Any]) -> bool:
+           # Business rules for context validation
+
+   # domain/entities/llm_provider.py
+   class LLMProvider:
+       def __init__(self, provider_type: str, config: LLMConfig):
+           self.provider_type = provider_type
+           self.config = config
+
+       def generate_response(self, prompt: Prompt, context: Dict[str, Any]) -> LLMResponse:
+           # Business logic for response generation
+   ```
+
+5. **Create service layer**
+   ```python
+   # module_api/llm_service.py
+   class LLMService:
+       @staticmethod
+       def generate_content(prompt_name: str, context: Dict[str, Any]) -> str:
+           # Orchestrate prompt + LLM provider
+           prompt = PromptRepository.get_by_name(prompt_name)
+           provider = LLMProviderFactory.get_default_provider()
+           return provider.generate_response(prompt, context)
+   ```
+
+6. **Create module API**
+   ```python
+   # module_api/__init__.py
+   from .llm_service import LLMService
+   from .types import LLMResponse, PromptContext, LLMConfig
+   ```
+
+**Verification**:
+- [ ] All LLM operations work through `llm_services.module_api`
+- [ ] Prompt management centralized in LLM module
+- [ ] No direct LLM client access from other modules
+- [ ] Tests pass: `pytest backend/modules/llm_services/tests/`
+
+### Phase 3: Content Creation Module (Week 3)
 
 #### Backend Content Creation Module
 **Goal**: Modularize content authoring and generation
@@ -126,10 +192,10 @@ This document outlines the step-by-step migration from the current monolithic st
            # Business rules for topic validation
    ```
 
-3. **Move existing services to infrastructure**
+3. **Move existing services to application layer**
    ```
-   src/modules/content_creation/mcq_service.py → infrastructure/llm_adapters/
-   src/modules/content_creation/refined_material_service.py → infrastructure/llm_adapters/
+   src/modules/content_creation/mcq_service.py → application/mcq_generation.py
+   src/modules/content_creation/refined_material_service.py → application/material_extraction.py
    ```
 
 4. **Create thin service layer**
@@ -138,10 +204,18 @@ This document outlines the step-by-step migration from the current monolithic st
    class ContentCreationService:
        @staticmethod
        def create_topic(request: CreateTopicRequest) -> Topic:
-           # Orchestrate domain + infrastructure
+           # Orchestrate domain + LLM services
            topic = Topic(request.title, request.description)
            if not TopicValidationPolicy.is_valid(topic):
                raise InvalidTopicError()
+
+           # Use LLM Services module for content generation
+           from modules.llm_services.module_api import LLMService
+           refined_content = LLMService.generate_content("extract_material", {
+               "source_material": request.source_material
+           })
+           topic.set_content(refined_content)
+
            return TopicRepository.save(topic)
    ```
 
@@ -175,7 +249,7 @@ This document outlines the step-by-step migration from the current monolithic st
    }
    ```
 
-### Phase 3: Topic Catalog Module (Week 3)
+### Phase 4: Topic Catalog Module (Week 4)
 
 #### Backend Topic Catalog Module
 **Goal**: Extract topic discovery and browsing
@@ -275,7 +349,7 @@ This document outlines the step-by-step migration from the current monolithic st
 - [ ] Clean navigation to learning session
 - [ ] Tests: `npm test -- topic_catalog`
 
-### Phase 4: Learning Session Module (Week 4)
+### Phase 5: Learning Session Module (Week 5)
 
 #### Backend Learning Session Module
 **Goal**: Extract active learning session management
@@ -368,7 +442,7 @@ This document outlines the step-by-step migration from the current monolithic st
 - [ ] Navigation between topic catalog and session works
 - [ ] Tests: `npm test -- learning_session`
 
-### Phase 5: Learning Analytics Module (Week 5)
+### Phase 6: Learning Analytics Module (Week 6)
 
 #### Backend Learning Analytics Module
 **Goal**: Extract progress tracking and analytics
@@ -457,7 +531,7 @@ This document outlines the step-by-step migration from the current monolithic st
 - [ ] Integration with topic catalog for progress display
 - [ ] Tests: `npm test -- learning_analytics`
 
-### Phase 6: Integration & Validation (Week 6)
+### Phase 7: Integration & Validation (Week 7)
 
 #### Cross-Module Integration
 **Goal**: Ensure all modules work together correctly
@@ -487,11 +561,13 @@ This document outlines the step-by-step migration from the current monolithic st
    from modules.topic_catalog.http_api.routes import router as catalog_router
    from modules.learning_session.http_api.routes import router as session_router
    from modules.learning_analytics.http_api.routes import router as analytics_router
+   from modules.llm_services.http_api.routes import router as llm_router
 
    app.include_router(content_router)
    app.include_router(catalog_router)
    app.include_router(session_router)
    app.include_router(analytics_router)
+   app.include_router(llm_router)
    ```
 
 4. **Update frontend navigation**
@@ -535,7 +611,8 @@ This document outlines the step-by-step migration from the current monolithic st
 - [ ] **Topic Catalog**: Only browsing/selection, no progress tracking
 - [ ] **Learning Session**: Only active session, no historical analytics
 - [ ] **Learning Analytics**: Only progress/analytics, no active session logic
-- [ ] **Infrastructure**: Only technical services, no business logic
+- [ ] **LLM Services**: Only LLM integration and prompt management, no domain logic
+- [ ] **Infrastructure**: Only technical services (DB, config), no business logic
 
 ### Testing Coverage
 - [ ] **Domain layer**: >90% coverage, pure unit tests

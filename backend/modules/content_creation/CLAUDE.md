@@ -113,10 +113,21 @@ class TopicRepository:
     def get_by_id(topic_id: str) -> Optional[Topic]:
         """Retrieve topic from database"""
 
-# infrastructure/llm_adapters/mcq_generator.py
-class MCQGenerator:
+# application/mcq_generation.py
+class MCQGenerationUseCase:
     def generate_mcqs(self, refined_material: RefinedMaterial) -> List[MCQComponent]:
-        """Generate MCQs using LLM service"""
+        """Generate MCQs using LLM Services module"""
+        from modules.llm_services.module_api import LLMService
+
+        mcq_responses = []
+        for objective in refined_material.learning_objectives:
+            response = LLMService.generate_mcq(
+                material=refined_material.content,
+                learning_objective=objective
+            )
+            mcq_responses.append(self.convert_to_component(response))
+
+        return mcq_responses
 ```
 
 ## Cross-Module Communication
@@ -127,7 +138,8 @@ class MCQGenerator:
 - **Learning Analytics Module**: Topic structure for progress calculation
 
 ### Dependencies
-- **Infrastructure Module**: Database service, LLM service, configuration
+- **Infrastructure Module**: Database service, configuration
+- **LLM Services Module**: Content generation, MCQ creation, material extraction
 
 ### Communication Examples
 ```python
@@ -140,6 +152,19 @@ components = topic.components
 
 # Topic Catalog module getting topic metadata
 topics = ContentCreationService.get_all_topics()
+
+# Content Creation module using LLM Services
+from modules.llm_services.module_api import LLMService
+
+refined_material = LLMService.extract_refined_material(
+    source_material=raw_content,
+    domain="computer_science"
+)
+
+mcq_response = LLMService.generate_mcq(
+    material=refined_material.structured_content,
+    learning_objective="Understand Python basics"
+)
 ```
 
 ## Key Business Rules
@@ -180,10 +205,14 @@ def test_component_addition_rules():
 ### Service Tests (Orchestration)
 ```python
 @patch('infrastructure.repositories.TopicRepository')
-@patch('infrastructure.llm_adapters.MCQGenerator')
-def test_create_topic_from_source(mock_repo, mock_generator):
+@patch('modules.llm_services.module_api.LLMService')
+def test_create_topic_from_source(mock_repo, mock_llm):
     # Test service orchestration without business logic
+    mock_llm.extract_refined_material.return_value = mock_refined_material
+
     result = ContentCreationService.create_topic_from_source("source", "domain")
+
+    mock_llm.extract_refined_material.assert_called_once()
     mock_repo.save.assert_called_once()
 ```
 
@@ -200,7 +229,7 @@ def test_create_topic_endpoint():
 ❌ **Business logic in HTTP routes**
 ❌ **Business logic in service layer**
 ❌ **Direct database access from domain**
-❌ **LLM calls from domain entities**
+❌ **Direct LLM calls from domain entities** (use LLM Services module)
 ❌ **Cross-module imports from internal directories**
 
 ## Module Evolution
