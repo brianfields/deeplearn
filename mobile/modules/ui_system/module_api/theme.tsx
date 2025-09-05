@@ -18,7 +18,7 @@ import {
   lightTheme,
   darkTheme,
   Theme,
-} from '../domain/theme/theme-manager';
+} from '../theme/theme-manager';
 
 const THEME_STORAGE_KEY = '@theme_preference';
 
@@ -116,5 +116,5 @@ export type {
   ThemeColors,
   Spacing,
   Typography,
-} from '../domain/theme/theme-manager';
-export { lightTheme, darkTheme } from '../domain/theme/theme-manager';
+} from '../theme/theme-manager';
+export { lightTheme, darkTheme } from '../theme/theme-manager';

@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document outlines the step-by-step migration from the current monolithic structure to a clean modular architecture with 6 focused backend modules and 5 frontend modules. Each module follows the patterns defined in `docs/arch/` with proper layering and API boundaries.
+This document outlines the step-by-step migration from the current monolithic structure to a clean modular architecture with 6 focused backend modules and 6 frontend modules. Each module follows the patterns defined in `docs/arch/` with proper layering and API boundaries.
 
 ## Target Module Structure
 
@@ -19,7 +19,8 @@ This document outlines the step-by-step migration from the current monolithic st
 2. **Topic Catalog** - Topic browsing and selection
 3. **Learning Session** - Learning flow and interaction
 4. **Learning Analytics** - Progress visualization
-5. **Infrastructure** - Shared technical components (HTTP, caching, UI)
+5. **Infrastructure** - Technical services (HTTP, caching, storage, analytics)
+6. **UI System** - Shared design system and reusable components
 
 ## Migration Phases
 
@@ -58,41 +59,80 @@ This document outlines the step-by-step migration from the current monolithic st
 - [ ] Tests pass: `pytest backend/modules/infrastructure/tests/`
 
 #### Frontend Infrastructure Module
-**Goal**: Extract shared UI components and utilities
+**Goal**: Extract technical services and backend communication
 
 **Tasks**:
 1. **Create module structure**
    ```bash
-   mkdir -p mobile/modules/infrastructure/{module_api,components,domain,adapters,tests}
+   mkdir -p mobile/modules/infrastructure/{module_api,domain,adapters,tests}
    ```
 
-2. **Migrate UI components**
+2. **Migrate HTTP client**
    ```
-   src/components/ui/ → infrastructure/components/
-   ```
-
-3. **Migrate base HTTP client**
-   ```
-   src/services/api-client.ts → infrastructure/adapters/http-client.ts
+   src/services/api-client.ts → infrastructure/adapters/http/http-client.ts
    ```
 
-4. **Migrate utilities**
+3. **Create caching system**
    ```
-   src/utils/ → infrastructure/domain/utils/
+   infrastructure/adapters/storage/cache-manager.ts
+   infrastructure/domain/cache/cache-policies.ts
+   ```
+
+4. **Create analytics adapter**
+   ```
+   infrastructure/adapters/analytics/analytics-client.ts
    ```
 
 5. **Create module API**
    ```typescript
    // infrastructure/module_api/index.ts
-   export { Button, Card, Progress } from '../components'
    export { useHttpClient } from './http'
-   export { useTheme } from './theme'
+   export { useCache } from './cache'
+   export { useAnalytics } from './analytics'
    ```
 
 **Verification**:
-- [ ] All UI components accessible via `@/modules/infrastructure`
-- [ ] Base HTTP client works independently
-- [ ] Theme system functional
+- [ ] HTTP client works with network awareness
+- [ ] Caching system functional with TTL
+- [ ] Analytics tracking works
+
+#### Frontend UI System Module
+**Goal**: Extract shared design system and reusable components
+
+**Tasks**:
+1. **Create module structure**
+   ```bash
+   mkdir -p mobile/modules/ui_system/{module_api,components,theme,tests}
+   ```
+
+2. **Migrate UI components**
+   ```
+   src/components/ui/ → ui_system/components/
+   ```
+
+3. **Migrate theme system**
+   ```
+   src/utils/theme.ts → ui_system/theme/theme-manager.ts
+   ```
+
+4. **Create design tokens**
+   ```
+   ui_system/theme/tokens.ts (colors, spacing, typography)
+   ui_system/theme/variants.ts (component variants)
+   ```
+
+5. **Create module API**
+   ```typescript
+   // ui_system/module_api/index.ts
+   export { Button, Card, Progress } from './components'
+   export { useTheme, ThemeProvider } from './theme'
+   export { lightTheme, darkTheme } from './theme'
+   ```
+
+**Verification**:
+- [ ] All UI components work with theme system
+- [ ] Light/dark mode switching functional
+- [ ] Design tokens consistent across components
 
 ### Phase 2: LLM Services Module (Week 2)
 
@@ -612,7 +652,8 @@ This document outlines the step-by-step migration from the current monolithic st
 - [ ] **Learning Session**: Only active session, no historical analytics
 - [ ] **Learning Analytics**: Only progress/analytics, no active session logic
 - [ ] **LLM Services**: Only LLM integration and prompt management, no domain logic
-- [ ] **Infrastructure**: Only technical services (DB, config), no business logic
+- [ ] **Infrastructure**: Only technical services (DB, config, HTTP, caching), no business logic
+- [ ] **UI System**: Only shared components and design system, no business logic
 
 ### Testing Coverage
 - [ ] **Domain layer**: >90% coverage, pure unit tests
