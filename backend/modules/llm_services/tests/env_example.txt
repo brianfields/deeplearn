@@ -1,0 +1,18 @@
+# Example environment configuration for LLM Services Testing
+# Copy this content to backend/.env and fill in your actual values
+
+# OpenAI API Configuration
+OPENAI_API_KEY=sk-your-openai-api-key-here
+
+# LLM Testing Configuration
+TEST_WITH_REAL_LLM=false
+
+# Optional: Other LLM Providers (for future use)
+# ANTHROPIC_API_KEY=your-anthropic-key-here
+# AZURE_OPENAI_API_KEY=your-azure-key-here
+# AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+
+# Optional: Test Configuration
+# LLM_TEST_MODEL=gpt-3.5-turbo
+# LLM_TEST_TIMEOUT=30
+# LLM_TEST_MAX_TOKENS=1000
