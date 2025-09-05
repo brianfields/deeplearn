@@ -1,270 +1,211 @@
 # Topic Catalog Module
 
 ## Purpose
-This module handles topic discovery, browsing, search, and selection. It provides learners with the ability to find and choose topics for learning without managing the actual learning experience or progress tracking.
 
-## Domain Responsibility
-**"Discovering and browsing available learning topics"**
-
-The Topic Catalog module owns all aspects of topic discovery:
-- Topic listing and browsing interfaces
-- Search functionality across topics
-- Filtering and sorting topics by various criteria
-- Topic metadata management and display
-- Content recommendations and suggestions
-- Topic categorization and tagging
+The Topic Catalog module provides discovery and browsing capabilities for learning topics. It acts as a read-only interface to the content created by the Content Creation module, offering search, filtering, and statistical insights into available learning materials.
 
 ## Architecture
 
-### Module API (Public Interface)
+This module follows the layered architecture pattern with clear separation of concerns:
+
+### Domain Layer (`domain/`)
+- **Entities**: Core business objects representing catalog concepts
+- **Policies**: Business rules for search, filtering, and topic organization
+- **Repositories**: Abstract interfaces for data access
+
+### Application Layer (`application/`)
+- **Services**: Orchestrate domain logic and coordinate between layers
+- **Use Cases**: Implement specific business workflows for topic discovery
+
+### Infrastructure Layer (`infrastructure/`)
+- **Persistence**: Concrete implementations of repository interfaces
+- **External Services**: Integration with other modules (Content Creation)
+
+### HTTP API Layer (`http_api/`)
+- **Routes**: FastAPI endpoints for topic catalog operations
+- **Request/Response Models**: HTTP-specific data structures
+
+### Module API Layer (`module_api/`)
+- **Service Interface**: Public API for other modules to consume
+- **Types**: Shared data transfer objects and exceptions
+
+## Key Components
+
+### Domain Entities
+
+#### TopicSummary
+Represents a lightweight view of a topic optimized for browsing and discovery.
+
+**Key Attributes:**
+- `topic_id`: Unique identifier
+- `title`: Human-readable topic name
+- `core_concept`: Brief description of the main learning concept
+- `user_level`: Target audience level (beginner, intermediate, advanced)
+- `learning_objectives`: List of what learners will achieve
+- `key_concepts`: Important terms and concepts covered
+- `estimated_duration`: Expected time to complete (minutes)
+- `component_count`: Number of learning components in the topic
+- `is_ready_for_learning`: Whether the topic is complete and ready
+
+**Business Logic:**
+- Query matching across title, concept, and key terms
+- Validation of required fields and constraints
+- User level validation
+
+#### Catalog
+Represents the complete collection of available topics with metadata.
+
+**Key Attributes:**
+- `topics`: List of TopicSummary objects
+- `last_updated`: Timestamp of last catalog refresh
+- `total_count`: Total number of topics available
+
+**Business Logic:**
+- Filtering by user level, readiness, and search terms
+- Statistical analysis of topic distribution
+- Staleness detection for cache invalidation
+
+### Domain Policies
+
+#### SearchPolicy
+Encapsulates business rules for topic discovery and organization.
+
+**Capabilities:**
+- **Filtering**: Apply multiple criteria (query, user level, readiness)
+- **Sorting**: Multiple sort strategies (relevance, duration, user level)
+- **Pagination**: Efficient result set management
+- **Relevance Scoring**: Query-based ranking with component count weighting
+
+**Business Rules:**
+- Query matching is case-insensitive and searches across multiple fields
+- User level filtering supports exact matches only
+- Readiness filtering separates complete from incomplete topics
+- Relevance scoring boosts query matches and considers topic complexity
+
+### Application Services
+
+#### TopicDiscoveryService
+Orchestrates topic retrieval and filtering operations.
+
+**Key Operations:**
+- `discover_topics()`: Search and filter topics with pagination
+- `get_topic_by_id()`: Retrieve specific topic details
+- `get_popular_topics()`: Get most engaging topics (by component count)
+- `get_catalog_statistics()`: Generate usage and distribution metrics
+- `refresh_catalog()`: Trigger catalog data refresh
+
+**Business Logic:**
+- Applies search policies consistently across operations
+- Handles error cases and data validation
+- Coordinates between repository and domain layers
+
+### Infrastructure
+
+#### ContentCreationCatalogRepository
+Integrates with the Content Creation module to retrieve topic data.
+
+**Integration Points:**
+- Uses `ContentCreationService.list_topics()` for data retrieval
+- Converts `TopicSummaryResponse` to domain `TopicSummary` entities
+- Handles service errors and data transformation
+
+**Data Mapping:**
+- Maps Content Creation DTOs to Catalog domain entities
+- Preserves all relevant topic metadata
+- Ensures data consistency and validation
+
+## Public API
+
+### Module API (`module_api/`)
+
+The module exposes a clean service interface for other modules:
+
 ```python
-# module_api/topic_catalog_service.py
 class TopicCatalogService:
-    @staticmethod
-    def browse_topics(filters: TopicFilters = None) -> List[TopicSummary]:
-        """Get list of topics for browsing with optional filters"""
-
-    @staticmethod
-    def search_topics(query: str, filters: TopicFilters = None) -> SearchResults:
-        """Search topics by query with optional filters"""
-
-    @staticmethod
-    def get_topic_metadata(topic_id: str) -> TopicMetadata:
-        """Get topic metadata for preview/selection"""
-
-    @staticmethod
-    def get_recommended_topics(user_preferences: UserPreferences) -> List[TopicSummary]:
-        """Get recommended topics based on user preferences"""
-
-# module_api/types.py
-@dataclass
-class TopicSummary:
-    id: str
-    title: str
-    description: str
-    difficulty: int
-    estimated_duration: int
-    component_count: int
-    tags: List[str]
-
-@dataclass
-class TopicFilters:
-    difficulty_range: Optional[Tuple[int, int]]
-    duration_range: Optional[Tuple[int, int]]
-    tags: Optional[List[str]]
-    search_query: Optional[str]
-
-@dataclass
-class SearchResults:
-    topics: List[TopicSummary]
-    total_count: int
-    facets: Dict[str, List[str]]
+    async def search_topics(self, request: SearchTopicsRequest) -> SearchTopicsResponse
+    async def get_topic_by_id(self, topic_id: str) -> TopicSummaryResponse
+    async def get_popular_topics(self, limit: int = 10) -> List[TopicSummaryResponse]
+    async def get_catalog_statistics(self) -> CatalogStatisticsResponse
+    async def refresh_catalog(self) -> Dict[str, Any]
 ```
 
-### HTTP API (Frontend Interface)
-```python
-# http_api/routes.py
-@router.get("/api/catalog/topics")
-async def browse_topics(
-    difficulty: Optional[str] = None,
-    duration: Optional[str] = None,
-    tags: Optional[str] = None
-) -> TopicListResponse:
-    """Browse topics with optional filters"""
+### HTTP API (`http_api/`)
 
-@router.get("/api/catalog/search")
-async def search_topics(
-    q: str,
-    difficulty: Optional[str] = None,
-    limit: int = 20,
-    offset: int = 0
-) -> SearchResponse:
-    """Search topics by query"""
+RESTful endpoints for external clients:
 
-@router.get("/api/catalog/topics/{topic_id}/metadata")
-async def get_topic_metadata(topic_id: str) -> TopicMetadataResponse:
-    """Get topic metadata for preview"""
-
-@router.get("/api/catalog/recommendations")
-async def get_recommendations(user_id: str) -> RecommendationResponse:
-    """Get personalized topic recommendations"""
-```
-
-### Domain Layer (Business Logic)
-```python
-# domain/entities/catalog.py
-class TopicCatalog:
-    def __init__(self, topics: List[TopicSummary]):
-        self.topics = topics
-
-    def filter_by_difficulty(self, min_diff: int, max_diff: int) -> 'TopicCatalog':
-        """Business logic for difficulty filtering"""
-        filtered = [t for t in self.topics if min_diff <= t.difficulty <= max_diff]
-        return TopicCatalog(filtered)
-
-    def sort_by_relevance(self, query: str) -> 'TopicCatalog':
-        """Business rules for relevance sorting"""
-        # Implement relevance scoring algorithm
-
-    def recommend_similar(self, topic_id: str, count: int = 5) -> List[TopicSummary]:
-        """Business logic for finding similar topics"""
-
-# domain/policies/search_policy.py
-class SearchPolicy:
-    @staticmethod
-    def apply_filters(topics: List[TopicSummary], filters: TopicFilters) -> List[TopicSummary]:
-        """Business rules for applying search filters"""
-
-    @staticmethod
-    def calculate_relevance_score(topic: TopicSummary, query: str) -> float:
-        """Business rules for search relevance scoring"""
-
-    @staticmethod
-    def validate_search_query(query: str) -> bool:
-        """Business rules for search query validation"""
-```
-
-### Infrastructure Layer (Technical Implementation)
-```python
-# infrastructure/repositories/catalog_repository.py
-class CatalogRepository:
-    @staticmethod
-    def get_all_topics() -> List[TopicSummary]:
-        """Retrieve all topics from database"""
-
-    @staticmethod
-    def search_by_text(query: str) -> List[TopicSummary]:
-        """Full-text search in database"""
-
-    @staticmethod
-    def get_by_tags(tags: List[str]) -> List[TopicSummary]:
-        """Get topics by tags"""
-
-# infrastructure/search_adapters/search_engine.py
-class SearchEngine:
-    def index_topic(self, topic: TopicSummary) -> None:
-        """Index topic for search"""
-
-    def search(self, query: str, filters: Dict) -> SearchResults:
-        """Execute search with filters"""
-```
-
-## Cross-Module Communication
-
-### Provides to Other Modules
-- **Learning Session Module**: Topic selection for starting learning sessions
-- **Learning Analytics Module**: Topic metadata for progress visualization
-
-### Dependencies
-- **Content Creation Module**: Topic data and metadata
-- **Infrastructure Module**: Database service, search service
-
-### Communication Examples
-```python
-# Learning Session module selecting a topic
-from modules.topic_catalog.module_api import TopicCatalogService
-
-topic_metadata = TopicCatalogService.get_topic_metadata(topic_id)
-# Then get full topic from Content Creation module for learning
-
-# Learning Analytics showing progress on topics
-topics = TopicCatalogService.browse_topics()
-for topic in topics:
-    progress = get_progress_for_topic(topic.id)  # From Analytics module
-```
-
-## Key Business Rules
-
-1. **Search Relevance**: Search results ranked by title match > description match > tag match
-2. **Filtering Logic**: Multiple filters applied with AND logic (all must match)
-3. **Difficulty Scaling**: Difficulty levels 1-5 with clear progression criteria
-4. **Duration Estimates**: Based on component count and type, with user skill level adjustments
-5. **Recommendation Algorithm**: Based on completed topics, user preferences, and similarity scoring
-6. **Content Freshness**: Recently created content gets slight boost in recommendations
+- `GET /topics/search` - Search and filter topics
+- `GET /topics/{topic_id}` - Get specific topic details
+- `GET /topics/popular` - Get popular topics
+- `GET /statistics` - Get catalog statistics
+- `POST /refresh` - Trigger catalog refresh
 
 ## Data Flow
 
-1. **Topic Discovery Workflow**:
-   ```
-   User Request → Apply Filters → Search/Browse → Rank Results → Return Summaries
-   ```
+1. **Topic Discovery Request** → HTTP API → Module API → Application Service
+2. **Application Service** → Domain Policy (filtering/sorting) → Repository
+3. **Repository** → Content Creation Module → External Data
+4. **Response Path**: Domain Entities → DTOs → HTTP Response
 
-2. **Topic Selection Workflow**:
-   ```
-   Topic Selection → Get Metadata → Validate Availability → Navigate to Learning
-   ```
+## Dependencies
+
+### Internal Dependencies
+- **Content Creation Module**: Source of topic data via `module_api`
+- **Shared Infrastructure**: Database connections, logging, configuration
+
+### External Dependencies
+- **FastAPI**: HTTP framework for API endpoints
+- **Pydantic**: Data validation and serialization
+- **Python Standard Library**: datetime, typing, etc.
+
+## Error Handling
+
+### Domain Errors
+- `TopicDiscoveryError`: Issues with topic retrieval or processing
+- `ValidationError`: Invalid search parameters or data
+
+### Integration Errors
+- Service unavailable errors from Content Creation module
+- Data transformation errors during DTO conversion
+
+### HTTP Errors
+- 400 Bad Request: Invalid search parameters
+- 404 Not Found: Topic not found
+- 500 Internal Server Error: Service failures
 
 ## Testing Strategy
 
-### Domain Tests (Pure Business Logic)
-```python
-def test_difficulty_filtering():
-    catalog = TopicCatalog([topic1, topic2, topic3])
-    filtered = catalog.filter_by_difficulty(2, 4)
-    assert all(2 <= t.difficulty <= 4 for t in filtered.topics)
+### Unit Tests
+- Domain entity validation and business logic
+- Search policy filtering and sorting algorithms
+- Service orchestration with mocked dependencies
+- HTTP API request/response handling
 
-def test_relevance_scoring():
-    score = SearchPolicy.calculate_relevance_score(topic, "machine learning")
-    assert 0 <= score <= 1
-```
-
-### Service Tests (Orchestration)
-```python
-@patch('infrastructure.repositories.CatalogRepository')
-def test_browse_topics_with_filters(mock_repo):
-    filters = TopicFilters(difficulty_range=(2, 4))
-    result = TopicCatalogService.browse_topics(filters)
-    mock_repo.get_all_topics.assert_called_once()
-```
-
-### HTTP Tests (API Endpoints)
-```python
-def test_search_topics_endpoint():
-    response = client.get("/api/catalog/search?q=python&difficulty=beginner")
-    assert response.status_code == 200
-    assert "topics" in response.json()
-```
-
-## Integration Points
-
-### With Content Creation Module
-```python
-# Get topic summaries from created content
-from modules.content_creation.module_api import ContentCreationService
-
-topics = ContentCreationService.get_all_topics()
-summaries = [create_summary(topic) for topic in topics]
-```
-
-### With Learning Analytics Module
-```python
-# Provide topic metadata for progress display
-topic_metadata = TopicCatalogService.get_topic_metadata(topic_id)
-# Analytics module uses this for progress visualization
-```
-
-## Anti-Patterns to Avoid
-
-❌ **Progress tracking logic in catalog**
-❌ **Learning session management**
-❌ **Content creation/editing functionality**
-❌ **Business logic in HTTP routes**
-❌ **Direct access to other modules' internals**
+### Integration Tests
+- Repository integration with Content Creation module
+- End-to-end API workflows
+- Error handling across module boundaries
 
 ## Performance Considerations
 
-- **Search Indexing**: Maintain search index for fast full-text search
-- **Caching**: Cache popular search results and topic metadata
-- **Pagination**: Support pagination for large topic lists
-- **Lazy Loading**: Load topic details only when needed
+### Caching Strategy
+- Repository layer delegates caching to Content Creation module
+- Application layer focuses on efficient filtering and sorting
+- HTTP layer uses appropriate cache headers
 
-## Module Evolution
+### Scalability
+- Pagination support for large topic collections
+- Efficient filtering algorithms in domain policies
+- Stateless service design for horizontal scaling
 
-This module can be extended with:
-- **Advanced Search**: Semantic search, auto-complete, search suggestions
-- **Personalization**: ML-based recommendations, user behavior tracking
-- **Content Curation**: Editorial picks, trending topics, featured content
-- **Social Features**: User ratings, reviews, bookmarking
-- **Analytics**: Search analytics, popular topics, usage patterns
+## Future Enhancements
 
-The modular architecture ensures these features can be added without affecting learning or content creation functionality.
+### Planned Features
+- Advanced search with faceted filtering
+- Topic recommendation based on user preferences
+- Analytics and usage tracking
+- Real-time updates via WebSocket connections
+
+### Architecture Evolution
+- Event-driven updates from Content Creation module
+- Dedicated search index for complex queries
+- Microservice decomposition for specialized concerns

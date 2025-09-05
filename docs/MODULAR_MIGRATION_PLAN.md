@@ -346,10 +346,10 @@ This document outlines the step-by-step migration from the current monolithic st
    ```
 
 **Verification**:
-- [ ] Topic browsing works independently
-- [ ] Search and filtering logic in domain layer
-- [ ] Service orchestrates without business logic
-- [ ] Tests: `pytest backend/modules/topic_catalog/tests/`
+- [x] Topic browsing works independently
+- [x] Search and filtering logic in domain layer
+- [x] Service orchestrates without business logic
+- [x] Tests: `pytest backend/modules/topic_catalog/tests/`
 
 #### Frontend Topic Catalog Module
 **Goal**: Extract topic browsing UI
@@ -400,10 +400,10 @@ This document outlines the step-by-step migration from the current monolithic st
    ```
 
 **Verification**:
-- [ ] Topic browsing works independently
-- [ ] No progress tracking logic in this module
-- [ ] Clean navigation to learning session
-- [ ] Tests: `npm test -- topic_catalog`
+- [x] Topic browsing works independently
+- [x] No progress tracking logic in this module
+- [x] Clean navigation to learning session
+- [x] Tests: `npm test -- topic_catalog`
 
 ### Phase 5: Learning Session Module (Week 5)
 
