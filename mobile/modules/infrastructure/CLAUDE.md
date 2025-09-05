@@ -2,20 +2,20 @@
 
 ## Purpose
 
-This frontend module provides core technical infrastructure and shared UI components that support all other frontend modules. It handles HTTP communication, caching, shared UI components, and technical utilities without containing any business domain logic.
+This frontend module provides core technical infrastructure services that enable backend communication, data persistence, and cross-cutting technical concerns for all other frontend modules. It handles HTTP communication, caching, analytics, and technical utilities without containing any business domain logic or UI components.
 
 ## Domain Responsibility
 
-**"Providing technical infrastructure and shared UI components to all frontend modules"**
+**"Providing technical infrastructure services to all frontend modules"**
 
 The Infrastructure frontend module owns all technical infrastructure:
 
-- Base HTTP client and API communication
+- HTTP client and API communication
 - Caching strategies and offline storage
-- Shared UI components and design system
-- Navigation infrastructure and routing
 - Analytics and tracking services
+- Network state management
 - Error handling and logging utilities
+- Storage adapters and data persistence
 
 ## Architecture
 
@@ -23,19 +23,11 @@ The Infrastructure frontend module owns all technical infrastructure:
 
 ```typescript
 // module_api/index.ts
-export { Button, Card, Progress, LoadingSpinner } from './ui';
 export { useHttpClient } from './http';
 export { useCache } from './cache';
-export { useTheme } from './theme';
 export { useAnalytics } from './analytics';
-export type { Theme, CacheConfig, HttpConfig } from './types';
-
-// module_api/ui.ts
-export { Button } from '../components/Button';
-export { Card } from '../components/Card';
-export { Progress } from '../components/Progress';
-export { LoadingSpinner } from '../components/LoadingSpinner';
-export { ErrorBoundary } from '../components/ErrorBoundary';
+export { useStorage } from './storage';
+export type { CacheConfig, HttpConfig, AnalyticsConfig } from './types';
 
 // module_api/http.ts
 export function useHttpClient() {
@@ -50,221 +42,132 @@ export function useHttpClient() {
   };
 }
 
-// module_api/theme.ts
-export function useTheme() {
-  const [theme, setTheme] = useThemeStore(state => [
-    state.theme,
-    state.setTheme,
-  ]);
-
+// module_api/analytics.ts
+export function useAnalytics() {
   return {
-    theme,
-    colors: theme.colors,
-    spacing: theme.spacing,
-    typography: theme.typography,
-    setTheme,
-    toggleTheme: () =>
-      setTheme(theme.mode === 'light' ? darkTheme : lightTheme),
+    track: (event: string, properties?: Record<string, any>) =>
+      analyticsClient.track(event, properties),
+    screen: (screenName: string, properties?: Record<string, any>) =>
+      analyticsClient.screen(screenName, properties),
+    setUserProperties: (properties: Record<string, any>) =>
+      analyticsClient.setUserProperties(properties),
+  };
+}
+
+// module_api/storage.ts
+export function useStorage() {
+  return {
+    setSecure: (key: string, value: string) =>
+      storageClient.setSecure(key, value),
+    getSecure: (key: string) => storageClient.getSecure(key),
+    set: (key: string, value: any) => storageClient.set(key, value),
+    get: (key: string) => storageClient.get(key),
+    remove: (key: string) => storageClient.remove(key),
+    clear: () => storageClient.clear(),
   };
 }
 ```
 
-### Components (Shared UI)
+### Adapters (Infrastructure Implementation)
 
 ```typescript
-// components/Button.tsx
-interface ButtonProps {
-  title: string
-  onPress: () => void
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost'
-  size?: 'small' | 'medium' | 'large'
-  disabled?: boolean
-  loading?: boolean
-  icon?: string
-  style?: ViewStyle
+// adapters/analytics/analytics-client.ts
+export class AnalyticsClient {
+  private providers: AnalyticsProvider[];
+
+  constructor() {
+    this.providers = [new FirebaseAnalytics(), new MixpanelAnalytics()];
+  }
+
+  track(event: string, properties?: Record<string, any>): void {
+    this.providers.forEach(provider => {
+      try {
+        provider.track(event, properties);
+      } catch (error) {
+        console.warn('Analytics provider error:', error);
+      }
+    });
+  }
+
+  screen(screenName: string, properties?: Record<string, any>): void {
+    this.providers.forEach(provider => {
+      try {
+        provider.screen(screenName, properties);
+      } catch (error) {
+        console.warn('Analytics provider error:', error);
+      }
+    });
+  }
+
+  setUserProperties(properties: Record<string, any>): void {
+    this.providers.forEach(provider => {
+      try {
+        provider.setUserProperties(properties);
+      } catch (error) {
+        console.warn('Analytics provider error:', error);
+      }
+    });
+  }
 }
 
-export function Button({
-  title,
-  onPress,
-  variant = 'primary',
-  size = 'medium',
-  disabled = false,
-  loading = false,
-  icon,
-  style
-}: ButtonProps) {
-  const { theme } = useTheme()
-  const buttonStyle = ButtonStyles.getButtonStyle(variant, size, theme)
-  const textStyle = ButtonStyles.getTextStyle(variant, size, theme)
-
-  return (
-    <TouchableOpacity
-      style={[buttonStyle, disabled && styles.disabled, style]}
-      onPress={onPress}
-      disabled={disabled || loading}
-      activeOpacity={0.7}
-    >
-      {loading ? (
-        <ActivityIndicator
-          size="small"
-          color={ButtonStyles.getLoadingColor(variant, theme)}
-        />
-      ) : (
-        <View style={styles.content}>
-          {icon && (
-            <Icon
-              name={icon}
-              size={ButtonStyles.getIconSize(size)}
-              color={textStyle.color}
-              style={styles.icon}
-            />
-          )}
-          <Text style={textStyle}>{title}</Text>
-        </View>
-      )}
-    </TouchableOpacity>
-  )
-}
-
-// components/Card.tsx
-interface CardProps {
-  children: React.ReactNode
-  style?: ViewStyle
-  padding?: keyof Theme['spacing']
-  shadow?: boolean
-  borderRadius?: number
-  onPress?: () => void
-}
-
-export function Card({
-  children,
-  style,
-  padding = 'medium',
-  shadow = true,
-  borderRadius,
-  onPress
-}: CardProps) {
-  const { theme } = useTheme()
-  const cardStyle = CardStyles.getCardStyle(theme, {
-    padding: theme.spacing[padding],
-    shadow,
-    borderRadius: borderRadius || theme.borderRadius.medium
-  })
-
-  const Component = onPress ? TouchableOpacity : View
-
-  return (
-    <Component
-      style={[cardStyle, style]}
-      onPress={onPress}
-      activeOpacity={onPress ? 0.9 : 1}
-    >
-      {children}
-    </Component>
-  )
-}
-
-// components/Progress.tsx
-interface ProgressProps {
-  progress: number // 0-1
-  color?: string
-  backgroundColor?: string
-  height?: number
-  animated?: boolean
-  showPercentage?: boolean
-  style?: ViewStyle
-}
-
-export function Progress({
-  progress,
-  color,
-  backgroundColor,
-  height = 8,
-  animated = true,
-  showPercentage = false,
-  style
-}: ProgressProps) {
-  const { theme } = useTheme()
-  const progressValue = useSharedValue(0)
-
-  const defaultColor = color || theme.colors.primary
-  const defaultBackgroundColor = backgroundColor || theme.colors.surface
-
-  useEffect(() => {
-    if (animated) {
-      progressValue.value = withSpring(progress, {
-        damping: 15,
-        stiffness: 150
-      })
-    } else {
-      progressValue.value = progress
+// adapters/storage/storage-client.ts
+export class StorageClient {
+  async setSecure(key: string, value: string): Promise<void> {
+    try {
+      await Keychain.setInternetCredentials(key, key, value);
+    } catch (error) {
+      console.warn('Secure storage set error:', error);
+      throw error;
     }
-  }, [progress, animated])
+  }
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    width: `${progressValue.value * 100}%`
-  }))
+  async getSecure(key: string): Promise<string | null> {
+    try {
+      const credentials = await Keychain.getInternetCredentials(key);
+      return credentials ? credentials.password : null;
+    } catch (error) {
+      console.warn('Secure storage get error:', error);
+      return null;
+    }
+  }
 
-  return (
-    <View style={[styles.container, style]}>
-      <View
-        style={[
-          styles.track,
-          {
-            height,
-            backgroundColor: defaultBackgroundColor,
-            borderRadius: height / 2
-          }
-        ]}
-      >
-        <Animated.View
-          style={[
-            styles.fill,
-            {
-              height,
-              backgroundColor: defaultColor,
-              borderRadius: height / 2
-            },
-            animatedStyle
-          ]}
-        />
-      </View>
+  async set(key: string, value: any): Promise<void> {
+    try {
+      const serialized = JSON.stringify(value);
+      await AsyncStorage.setItem(key, serialized);
+    } catch (error) {
+      console.warn('Storage set error:', error);
+      throw error;
+    }
+  }
 
-      {showPercentage && (
-        <Text style={[styles.percentage, { color: theme.colors.text }]}>
-          {Math.round(progress * 100)}%
-        </Text>
-      )}
-    </View>
-  )
-}
+  async get<T>(key: string): Promise<T | null> {
+    try {
+      const value = await AsyncStorage.getItem(key);
+      return value ? JSON.parse(value) : null;
+    } catch (error) {
+      console.warn('Storage get error:', error);
+      return null;
+    }
+  }
 
-// components/LoadingSpinner.tsx
-interface LoadingSpinnerProps {
-  size?: 'small' | 'large'
-  color?: string
-  message?: string
-}
+  async remove(key: string): Promise<void> {
+    try {
+      await AsyncStorage.removeItem(key);
+    } catch (error) {
+      console.warn('Storage remove error:', error);
+      throw error;
+    }
+  }
 
-export function LoadingSpinner({
-  size = 'large',
-  color,
-  message
-}: LoadingSpinnerProps) {
-  const { theme } = useTheme()
-  const spinnerColor = color || theme.colors.primary
-
-  return (
-    <View style={styles.container}>
-      <ActivityIndicator size={size} color={spinnerColor} />
-      {message && (
-        <Text style={[styles.message, { color: theme.colors.textSecondary }]}>
-          {message}
-        </Text>
-      )}
-    </View>
-  )
+  async clear(): Promise<void> {
+    try {
+      await AsyncStorage.clear();
+    } catch (error) {
+      console.warn('Storage clear error:', error);
+      throw error;
+    }
+  }
 }
 ```
 
@@ -618,10 +521,11 @@ export class StorageAdapter {
 
 ### Provides to Other Modules
 
-- **All Modules**: HTTP client, caching, shared UI components, theme system
-- **Topic Catalog Module**: API client for topic endpoints
-- **Learning Session Module**: Storage for session state
-- **Learning Analytics Module**: Analytics tracking
+- **All Modules**: HTTP client, caching, analytics, secure storage
+- **Topic Catalog Module**: API client for topic endpoints, caching for topic data
+- **Learning Session Module**: Storage for session state, analytics for learning events
+- **Learning Analytics Module**: Analytics tracking, data persistence
+- **UI System Module**: HTTP client for theme assets, storage for theme preferences
 
 ### Dependencies
 
@@ -632,46 +536,69 @@ export class StorageAdapter {
 
 ```typescript
 // All modules use infrastructure via module_api
-import { Button, useHttpClient, useCache } from '@/modules/infrastructure';
+import {
+  useHttpClient,
+  useCache,
+  useAnalytics,
+  useStorage,
+} from '@/modules/infrastructure';
 
-// Topic Catalog using HTTP client
+// Topic Catalog using HTTP client and caching
 const httpClient = useHttpClient();
-const topics = await httpClient.get('/api/catalog/topics');
-
-// Learning Session using cache
 const cache = useCache();
-await cache.set('session-state', sessionData);
+
+const topics = await httpClient.get('/api/catalog/topics');
+await cache.api.set('topics', topics, 300000); // Cache for 5 minutes
+
+// Learning Session using storage and analytics
+const storage = useStorage();
+const analytics = useAnalytics();
+
+await storage.set('session-state', sessionData);
+analytics.track('session_started', { topicId: topic.id });
+
+// UI System using storage for theme persistence
+const storage = useStorage();
+const savedTheme = await storage.get('theme_preference');
 ```
 
 ## Testing Strategy
 
-### Component Tests (UI Components)
+### Service Tests (Technical Services)
 
 ```typescript
-// tests/components/Button.test.tsx
-describe('Button', () => {
-  it('renders with correct title', () => {
-    render(<Button title="Test Button" onPress={jest.fn()} />)
+// tests/adapters/analytics-client.test.ts
+describe('AnalyticsClient', () => {
+  it('tracks events to all providers', () => {
+    const mockFirebase = { track: jest.fn() };
+    const mockMixpanel = { track: jest.fn() };
 
-    expect(screen.getByText('Test Button')).toBeTruthy()
-  })
+    const client = new AnalyticsClient();
+    client.providers = [mockFirebase, mockMixpanel];
 
-  it('calls onPress when pressed', () => {
-    const mockOnPress = jest.fn()
+    client.track('test_event', { prop: 'value' });
 
-    render(<Button title="Test" onPress={mockOnPress} />)
-    fireEvent.press(screen.getByText('Test'))
+    expect(mockFirebase.track).toHaveBeenCalledWith('test_event', {
+      prop: 'value',
+    });
+    expect(mockMixpanel.track).toHaveBeenCalledWith('test_event', {
+      prop: 'value',
+    });
+  });
 
-    expect(mockOnPress).toHaveBeenCalled()
-  })
+  it('handles provider errors gracefully', () => {
+    const mockProvider = {
+      track: jest.fn().mockImplementation(() => {
+        throw new Error('Provider error');
+      }),
+    };
 
-  it('shows loading state correctly', () => {
-    render(<Button title="Test" onPress={jest.fn()} loading={true} />)
+    const client = new AnalyticsClient();
+    client.providers = [mockProvider];
 
-    expect(screen.getByTestId('activity-indicator')).toBeTruthy()
-    expect(screen.queryByText('Test')).toBeNull()
-  })
-})
+    expect(() => client.track('test_event')).not.toThrow();
+  });
+});
 ```
 
 ### Domain Tests (Technical Logic)
