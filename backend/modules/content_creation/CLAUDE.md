@@ -1,244 +1,247 @@
-# Content Creation Module
+# Content Creation Module (Backend)
 
 ## Purpose
-This module handles the creation, authoring, and management of educational content including topics, learning components (MCQs, didactic snippets, socratic dialogues), and refined material extraction from source content.
+
+This backend module handles the creation, management, and generation of educational content. It provides services for extracting structured learning material from unstructured sources and generating various types of educational components like MCQs, didactic snippets, and glossaries.
 
 ## Domain Responsibility
-**"Creating and managing educational content"**
 
-The Content Creation module owns all aspects of content authoring:
-- Extracting structured material from unstructured source content
-- Generating learning components (MCQs, didactic snippets, glossaries, socratic dialogues)
-- Managing topic lifecycle (creation, editing, validation, deletion)
-- Content quality validation and improvement
-- LLM-powered content generation workflows
+**"Creating and managing educational content through AI-assisted content generation and structured material extraction"**
+
+The Content Creation backend module owns:
+
+- Topic creation and management with structured learning objectives
+- Component generation (MCQs, didactic snippets, glossaries)
+- Material extraction from unstructured source content
+- Content validation and quality assessment
+- Topic-component relationships and completion tracking
 
 ## Architecture
 
-### Module API (Public Interface)
+This module follows the layered architecture pattern:
+
+```
+content_creation/
+├── module_api/           # Public interface (thin orchestration)
+├── http_api/            # HTTP routes (HTTP concerns only)
+├── application/         # Application services (orchestration)
+├── domain/              # Business logic and entities
+│   ├── entities/        # Core business entities
+│   ├── policies/        # Business rules and validation
+│   └── repositories/    # Repository interfaces
+├── infrastructure/      # External concerns
+│   └── persistence/     # Database implementations
+└── tests/              # Unit and integration tests
+```
+
+## Key Components
+
+### Domain Entities
+
+#### Topic (`domain/entities/topic.py`)
+- **Purpose**: Core educational topic with learning objectives and components
+- **Business Logic**:
+  - Topic validation and completion tracking
+  - Component management and organization
+  - Learning objective coverage calculation
+  - Readiness assessment for learning sessions
+
+#### Component (`domain/entities/component.py`)
+- **Purpose**: Individual content pieces (MCQs, explanations, exercises)
+- **Business Logic**:
+  - Type-specific validation (MCQ structure, didactic content, etc.)
+  - Content integrity checks
+  - Learning objective mapping
+
+### Application Services
+
+#### MaterialExtractionService (`application/material_extraction.py`)
+- **Purpose**: Extract structured content from unstructured source material
+- **Responsibilities**:
+  - Source material validation and quality analysis
+  - LLM-powered content extraction and structuring
+  - Refined material generation with learning objectives
+  - Glossary and didactic snippet generation
+
+#### MCQGenerationService (`application/mcq_generation.py`)
+- **Purpose**: Generate multiple choice questions from topics
+- **Responsibilities**:
+  - MCQ generation for specific learning objectives
+  - Batch MCQ creation for all topic objectives
+  - MCQ quality evaluation and validation
+  - Concurrent generation with rate limiting
+
+### Module API
+
+#### ContentCreationService (`module_api/content_creation_service.py`)
+- **Purpose**: Main orchestration service for external modules
+- **Public Methods**:
+  - `create_topic_from_source_material()` - Create topics from raw text
+  - `create_component()` - Generate individual components
+  - `generate_all_components_for_topic()` - Batch component generation
+  - `get_topic()`, `search_topics()` - Topic retrieval and search
+  - `delete_topic()`, `delete_component()` - Content management
+
+## Cross-Module Dependencies
+
+### LLM Services Module
 ```python
-# module_api/content_creation_service.py
-class ContentCreationService:
-    @staticmethod
-    def create_topic_from_source(source_material: str, domain: str) -> Topic:
-        """Create a topic with refined material from unstructured source"""
+from modules.llm_services.module_api import LLMService, create_llm_service
 
-    @staticmethod
-    def get_topic(topic_id: str) -> Topic:
-        """Get topic by ID for other modules to consume"""
+# Used for content generation and material extraction
+llm_service = create_llm_service(api_key="...", model="gpt-4o")
+```
 
-    @staticmethod
-    def generate_components(topic_id: str, component_types: List[str]) -> List[Component]:
-        """Generate learning components for a topic"""
+### Infrastructure Module (Future)
+```python
+from modules.infrastructure.module_api import DatabaseService
 
-    @staticmethod
-    def validate_topic_structure(topic: Topic) -> ValidationResult:
-        """Validate topic meets quality standards"""
+# Will use for database connections and configuration
+```
 
-# module_api/types.py
-@dataclass
-class Topic:
-    id: str
+## API Contracts
+
+### Input DTOs
+```python
+class CreateTopicRequest(BaseModel):
     title: str
-    description: str
-    learning_objectives: List[str]
-    components: List[Component]
+    core_concept: str
+    source_material: str  # Min 100 chars
+    user_level: str       # beginner|intermediate|advanced
+    domain: str | None
 
-@dataclass
-class Component:
-    id: str
-    type: ComponentType  # mcq, didactic_snippet, socratic_dialogue, etc.
-    content: Dict[str, Any]
+class CreateComponentRequest(BaseModel):
+    component_type: str   # mcq|didactic_snippet|glossary
     learning_objective: str
 ```
 
-### HTTP API (Frontend Interface)
+### Output DTOs
 ```python
-# http_api/routes.py
-@router.post("/api/content/topics")
-async def create_topic(request: CreateTopicRequest) -> TopicResponse:
-    """Create topic from source material"""
+class TopicResponse(BaseModel):
+    id: str
+    title: str
+    core_concept: str
+    user_level: str
+    learning_objectives: list[str]
+    key_concepts: list[str]
+    components: list[ComponentResponse]
+    completion_percentage: float
+    is_ready_for_learning: bool
+    readiness_status: str  # draft|needs_components|needs_review|ready
+    quality_score: float
 
-@router.get("/api/content/topics/{topic_id}")
-async def get_topic(topic_id: str) -> TopicDetailResponse:
-    """Get topic with components for editing"""
-
-@router.post("/api/content/topics/{topic_id}/components")
-async def create_component(topic_id: str, request: CreateComponentRequest) -> ComponentResponse:
-    """Generate component for topic"""
-
-@router.delete("/api/content/topics/{topic_id}")
-async def delete_topic(topic_id: str) -> None:
-    """Delete topic and all components"""
+class ComponentResponse(BaseModel):
+    id: str
+    topic_id: str
+    component_type: str
+    title: str
+    content: dict[str, Any]  # Type-specific structure
+    learning_objective: str | None
 ```
 
-### Domain Layer (Business Logic)
-```python
-# domain/entities/topic.py
-class Topic:
-    def add_component(self, component: Component) -> None:
-        """Business logic for adding components to topic"""
-        if not self._can_add_component(component):
-            raise InvalidComponentError()
-        self.components.append(component)
+## Business Rules
 
-    def validate_structure(self) -> bool:
-        """Business rules for topic validation"""
-        return (
-            len(self.learning_objectives) >= 2 and
-            len(self.components) >= 1 and
-            self._has_required_component_types()
-        )
+### Topic Validation Policy
+- Topics must have 1-10 learning objectives
+- Topics must have 1-20 key concepts
+- Source material must be 100-50,000 characters
+- Title must be 5-200 characters
+- Core concept must be 10-500 characters
 
-# domain/policies/content_validation_policy.py
-class ContentValidationPolicy:
-    @staticmethod
-    def validate_mcq_quality(mcq: MCQComponent) -> ValidationResult:
-        """Business rules for MCQ quality validation"""
+### Component Validation
+- MCQs must have question, choices (min 2), correct answer, explanation
+- Didactic snippets must have explanation and key_points list
+- Glossary must have terms list with term/definition pairs
+- All components must reference valid learning objectives
 
-    @staticmethod
-    def validate_learning_objectives(objectives: List[str]) -> bool:
-        """Business rules for learning objective validation"""
-```
-
-### Infrastructure Layer (Technical Implementation)
-```python
-# infrastructure/repositories/topic_repository.py
-class TopicRepository:
-    @staticmethod
-    def save(topic: Topic) -> Topic:
-        """Persist topic to database"""
-
-    @staticmethod
-    def get_by_id(topic_id: str) -> Optional[Topic]:
-        """Retrieve topic from database"""
-
-# application/mcq_generation.py
-class MCQGenerationUseCase:
-    def generate_mcqs(self, refined_material: RefinedMaterial) -> List[MCQComponent]:
-        """Generate MCQs using LLM Services module"""
-        from modules.llm_services.module_api import LLMService
-
-        mcq_responses = []
-        for objective in refined_material.learning_objectives:
-            response = LLMService.generate_mcq(
-                material=refined_material.content,
-                learning_objective=objective
-            )
-            mcq_responses.append(self.convert_to_component(response))
-
-        return mcq_responses
-```
-
-## Cross-Module Communication
-
-### Provides to Other Modules
-- **Topic Catalog Module**: Topic metadata for browsing
-- **Learning Session Module**: Topic content and components for learning
-- **Learning Analytics Module**: Topic structure for progress calculation
-
-### Dependencies
-- **Infrastructure Module**: Database service, configuration
-- **LLM Services Module**: Content generation, MCQ creation, material extraction
-
-### Communication Examples
-```python
-# Other modules access via module_api only
-from modules.content_creation.module_api import ContentCreationService, Topic
-
-# Learning Session module getting topic content
-topic = ContentCreationService.get_topic(topic_id)
-components = topic.components
-
-# Topic Catalog module getting topic metadata
-topics = ContentCreationService.get_all_topics()
-
-# Content Creation module using LLM Services
-from modules.llm_services.module_api import LLMService
-
-refined_material = LLMService.extract_refined_material(
-    source_material=raw_content,
-    domain="computer_science"
-)
-
-mcq_response = LLMService.generate_mcq(
-    material=refined_material.structured_content,
-    learning_objective="Understand Python basics"
-)
-```
-
-## Key Business Rules
-
-1. **Topic Structure**: Every topic must have at least 2 learning objectives and 1 component
-2. **Component Quality**: MCQs must have 4 choices with clear correct answer and justifications
-3. **Content Validation**: All generated content must pass quality validation before saving
-4. **Learning Objective Alignment**: Each component must align with at least one learning objective
-5. **Source Material Processing**: Refined material extraction must preserve key concepts and learning goals
-
-## Data Flow
-
-1. **Content Creation Workflow**:
-   ```
-   Source Material → Refined Material Extraction → Topic Creation → Component Generation → Quality Validation → Storage
-   ```
-
-2. **Content Consumption Workflow**:
-   ```
-   Topic Request → Repository Lookup → Domain Entity Mapping → API Response
-   ```
+### Quality Assessment
+- Quality score based on completeness (30%), component coverage (40%), objective coverage (30%)
+- Readiness status: draft → needs_components → needs_review → ready
+- Topics ready for learning must have ≥1 assessment component and address all objectives
 
 ## Testing Strategy
 
-### Domain Tests (Pure Business Logic)
-```python
-def test_topic_validation():
-    topic = Topic(title="Test", objectives=["Learn X", "Understand Y"])
-    assert topic.validate_structure() == True
+### Unit Tests (`tests/test_content_creation_service.py`)
+- **Scope**: Service orchestration logic with mocked dependencies
+- **Coverage**: All public API methods, error handling, validation
+- **Mocking**: Repository, LLM service, application services
+- **Speed**: Fast (<1 second), no external dependencies
 
-def test_component_addition_rules():
-    topic = Topic(title="Test")
-    mcq = MCQComponent(question="What is X?", choices=["A", "B", "C", "D"])
-    topic.add_component(mcq)
-    assert len(topic.components) == 1
+### Integration Tests (Future)
+- **Scope**: Real LLM integration, database persistence
+- **Coverage**: End-to-end content creation workflows
+- **Dependencies**: Real LLM API, test database
+- **Markers**: `@pytest.mark.integration`
+
+## Usage Examples
+
+### Creating a Topic
+```python
+from modules.content_creation.module_api import ContentCreationService, CreateTopicRequest
+
+service = ContentCreationService(topic_repository, llm_service)
+
+request = CreateTopicRequest(
+    title="Python Variables",
+    core_concept="Understanding variable declaration and usage",
+    source_material="Variables in Python are used to store data values...",
+    user_level="beginner",
+    domain="Programming"
+)
+
+topic = await service.create_topic_from_source_material(request)
 ```
 
-### Service Tests (Orchestration)
+### Generating Components
 ```python
-@patch('infrastructure.repositories.TopicRepository')
-@patch('modules.llm_services.module_api.LLMService')
-def test_create_topic_from_source(mock_repo, mock_llm):
-    # Test service orchestration without business logic
-    mock_llm.extract_refined_material.return_value = mock_refined_material
+from modules.content_creation.module_api import CreateComponentRequest
 
-    result = ContentCreationService.create_topic_from_source("source", "domain")
+# Generate MCQ for specific objective
+mcq_request = CreateComponentRequest(
+    component_type="mcq",
+    learning_objective="Understand variable declaration syntax"
+)
 
-    mock_llm.extract_refined_material.assert_called_once()
-    mock_repo.save.assert_called_once()
+component = await service.create_component(topic.id, mcq_request)
+
+# Generate all components for topic
+all_components = await service.generate_all_components_for_topic(topic.id)
 ```
 
-### HTTP Tests (API Endpoints)
+### Repository Implementation
 ```python
-def test_create_topic_endpoint():
-    response = client.post("/api/content/topics", json={"source": "test", "domain": "math"})
-    assert response.status_code == 201
-    assert "topic_id" in response.json()
+from modules.content_creation.infrastructure.persistence import SQLAlchemyTopicRepository
+
+# Configure repository with database session
+repository = SQLAlchemyTopicRepository(session_factory)
+service = ContentCreationService(repository, llm_service)
 ```
 
-## Anti-Patterns to Avoid
+## Performance Considerations
 
-❌ **Business logic in HTTP routes**
-❌ **Business logic in service layer**
-❌ **Direct database access from domain**
-❌ **Direct LLM calls from domain entities** (use LLM Services module)
-❌ **Cross-module imports from internal directories**
+- **Concurrent MCQ Generation**: Limited to 5 concurrent operations to prevent API rate limits
+- **Caching**: LLM responses cached at service level to reduce costs
+- **Batch Operations**: Optimized for generating multiple components efficiently
+- **Database**: Uses existing BiteSizedTopic/BiteSizedComponent schema for compatibility
 
-## Module Evolution
+## Error Handling
 
-This module can be extended with:
-- **Content Templates**: Reusable content templates
-- **Collaborative Editing**: Multi-user content creation
-- **Content Versioning**: Track content changes over time
-- **Advanced Validation**: AI-powered content quality assessment
-- **Content Analytics**: Usage analytics for created content
+- **ContentCreationError**: Base exception for all module errors
+- **InvalidTopicError**: Domain validation failures
+- **InvalidComponentError**: Component validation failures
+- **TopicNotFoundError**: Repository-level not found errors
+- **MaterialExtractionError**: LLM extraction failures
+- **MCQGenerationError**: MCQ generation failures
 
-The modular architecture ensures these features can be added without affecting other modules.
+All errors are caught at service boundaries and converted to appropriate HTTP status codes in the API layer.
+
+## Future Enhancements
+
+1. **Advanced Component Types**: Short answer questions, scenario critiques, interactive exercises
+2. **Content Versioning**: Track changes and maintain version history
+3. **Collaborative Editing**: Multi-user content creation workflows
+4. **Content Templates**: Predefined structures for common content types
+5. **Analytics Integration**: Track content usage and effectiveness metrics
+6. **Import/Export**: Support for various content formats (SCORM, xAPI, etc.)
+
+This module provides a solid foundation for AI-assisted educational content creation while maintaining clean separation of concerns and extensibility for future requirements.

@@ -205,6 +205,10 @@ This document outlines the step-by-step migration from the current monolithic st
 - [x] Prompt management centralized in LLM module
 - [x] No direct LLM client access from other modules
 - [x] Tests pass: `pytest backend/modules/llm_services/tests/`
+- [x] Unit and integration test infrastructure generalized
+- [x] Test runners created: `scripts/run_unit.py` and `scripts/run_integration.py`
+- [x] Hybrid tests removed (redundant with unit + integration)
+- [x] Module-specific testing works: `--module llm_services`
 
 ### Phase 3: Content Creation Module (Week 3)
 
@@ -265,11 +269,17 @@ This document outlines the step-by-step migration from the current monolithic st
    ```
 
 **Verification**:
-- [ ] Routes only handle HTTP concerns, no business logic
-- [ ] Service layer is thin orchestration only
-- [ ] Domain entities contain business rules
-- [ ] Cross-module access only via `module_api`
-- [ ] Tests: `pytest backend/modules/content_creation/tests/`
+- [x] Routes only handle HTTP concerns, no business logic
+- [x] Service layer is thin orchestration only
+- [x] Domain entities contain business rules
+- [x] Cross-module access only via `module_api`
+- [x] Tests: `pytest backend/modules/content_creation/tests/`
+- [x] Domain entities (Topic, Component) with business logic created
+- [x] Application services (MCQ Generation, Material Extraction) implemented
+- [x] Repository interface and SQLAlchemy implementation created
+- [x] Module API with proper DTOs and service orchestration
+- [x] HTTP API routes that delegate to service layer
+- [x] Unit tests with mocked dependencies passing
 
 #### Frontend Content Creation Module (Placeholder)
 **Goal**: Setup structure for future content creation UI
@@ -288,6 +298,12 @@ This document outlines the step-by-step migration from the current monolithic st
      // Future: content creation hooks
    }
    ```
+
+**Verification**:
+- [x] Frontend placeholder structure created
+- [x] Module API with placeholder exports
+- [x] TypeScript interfaces for future implementation
+- [x] Placeholder hooks and navigation functions
 
 ### Phase 4: Topic Catalog Module (Week 4)
 
