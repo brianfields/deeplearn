@@ -162,7 +162,6 @@ def run_integration_tests(module_name: str = None, verbose: bool = False) -> int
 
     # Set environment variables for integration tests
     env = os.environ.copy()
-    env["TEST_WITH_REAL_LLM"] = "true"
 
     # Build pytest command
     cmd = [
@@ -171,9 +170,6 @@ def run_integration_tests(module_name: str = None, verbose: bool = False) -> int
         "pytest",
         *test_files,
         "-v" if verbose else "-q",
-        "-m",
-        "integration",
-        "--integration",  # Custom flag to enable integration tests
         "--tb=short",
     ]
 

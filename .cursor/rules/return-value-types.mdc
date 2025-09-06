@@ -1,0 +1,5 @@
+---
+description: Always specify the return value type for functions and methods.
+globs:
+alwaysApply: true
+---

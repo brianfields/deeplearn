@@ -4,8 +4,6 @@
 # OpenAI API Configuration
 OPENAI_API_KEY=sk-your-openai-api-key-here
 
-# LLM Testing Configuration
-TEST_WITH_REAL_LLM=false
 
 # Optional: Other LLM Providers (for future use)
 # ANTHROPIC_API_KEY=your-anthropic-key-here

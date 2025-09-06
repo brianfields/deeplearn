@@ -32,9 +32,8 @@ backend/modules/{module-name}/
 │   │   └── {entity}_repository.py
 │   └── mappers.py              # Conversions domain ↔ persistence
 └── tests/
-    ├── domain/                 # Unit tests for entities & policies
-    ├── module_api/             # Tests for public service layer
-    └── http_api/               # Tests for FastAPI routes
+    ├── test_{module}_unit.py          # Unit tests (mocked dependencies)
+    └── test_{module}_integration.py   # Integration tests (real implementations)
 ```
 
 ## 🔌 Module API Pattern (Backend ↔ Backend)
@@ -397,84 +396,94 @@ def health_check():
 
 ## 🧪 Testing Patterns
 
-### Module API Tests
+### Unit Tests (test_{module}_unit.py)
 ```python
-# /modules/users/tests/test_module_api.py
+# /modules/users/tests/test_users_unit.py
 import pytest
+from unittest.mock import MagicMock, patch
 from modules.users.module_api import UserService
 from modules.users.module_api.types import UserCreateRequest
 
 class TestUserService:
-    def test_get_user_success(self):
-        user = UserService.get_user(1)
-        assert user is not None
-        assert user.id == 1
-        assert user.name == "Test User"
+    @pytest.fixture
+    def mock_repository(self):
+        """Mock repository for isolated testing."""
+        return MagicMock()
 
-    def test_get_user_not_found(self):
-        user = UserService.get_user(999)
-        assert user is None
+    def test_get_user_success(self, mock_repository):
+        with patch('modules.users.infrastructure.UserRepository', mock_repository):
+            mock_repository.get_by_id.return_value = User(id=1, name="Test User")
 
-    def test_create_user(self):
-        user_data = UserCreateRequest(
-            name="New User",
-            email="new@example.com",
-            role="user"
-        )
-        user = UserService.create_user(user_data)
-        assert user.name == "New User"
-        assert user.email == "new@example.com"
-        assert user.role == "user"
+            user = UserService.get_user(1)
+            assert user is not None
+            assert user.id == 1
+            assert user.name == "Test User"
 
-    def test_validate_permissions(self):
-        # Admin user
-        assert UserService.validate_permissions(1, "delete_user") == True
+    def test_create_user_validation(self, mock_repository):
+        with patch('modules.users.infrastructure.UserRepository', mock_repository):
+            user_data = UserCreateRequest(
+                name="New User",
+                email="new@example.com",
+                role="user"
+            )
+            user = UserService.create_user(user_data)
+            mock_repository.create.assert_called_once()
 
-        # Regular user
-        assert UserService.validate_permissions(2, "delete_user") == False
-        assert UserService.validate_permissions(2, "view_profile") == True
+    def test_validate_permissions_logic(self):
+        # Test business logic without database
+        assert UserService.validate_permissions(admin_user, "delete_user") == True
+        assert UserService.validate_permissions(regular_user, "delete_user") == False
 ```
 
-### HTTP API Tests
+### Integration Tests (test_{module}_integration.py)
 ```python
-# /modules/users/tests/test_http_api.py
+# /modules/users/tests/test_users_integration.py
 import pytest
 from fastapi.testclient import TestClient
-from main import app
+from modules.users.module_api import create_user_service
 
-client = TestClient(app)
+class TestUserIntegration:
+    @pytest.fixture
+    def user_service(self):
+        """Real service with in-memory or test database."""
+        return create_user_service(use_test_db=True)
 
-class TestUserHTTPAPI:
-    def test_get_user_endpoint(self):
-        response = client.get("/api/v1/users/users/1")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["id"] == 1
-        assert "name" in data
-        assert "email" in data
+    @pytest.fixture
+    def test_client(self, user_service):
+        """Test client with real service integration."""
+        from main import app
+        app.dependency_overrides[get_user_service] = lambda: user_service
+        return TestClient(app)
 
-    def test_get_user_not_found(self):
-        response = client.get("/api/v1/users/users/999")
-        assert response.status_code == 404
-        assert response.json()["detail"] == "User not found"
+    async def test_user_creation_flow(self, user_service):
+        """Test complete user creation flow."""
+        user_data = UserCreateRequest(
+            name="Integration Test User",
+            email="integration@example.com"
+        )
 
-    def test_create_user_endpoint(self):
-        user_data = {
-            "name": "Test User",
-            "email": "test@example.com",
-            "role": "user"
-        }
-        response = client.post("/api/v1/users/users", json=user_data)
-        assert response.status_code == 200
-        data = response.json()
-        assert data["name"] == "Test User"
-        assert data["email"] == "test@example.com"
+        # Test service layer
+        user = await user_service.create_user(user_data)
+        assert user.name == "Integration Test User"
 
-    def test_check_permissions_endpoint(self):
-        response = client.get("/api/v1/users/users/1/permissions/delete_user")
-        assert response.status_code == 200
-        data = response.json()
-        assert "has_permission" in data
+        # Verify persistence
+        retrieved_user = await user_service.get_user(user.id)
+        assert retrieved_user.email == "integration@example.com"
+
+    def test_http_api_integration(self, test_client):
+        """Test HTTP API with real service."""
+        response = test_client.post("/api/v1/users/users", json={
+            "name": "HTTP Test User",
+            "email": "http@example.com"
+        })
+
+        assert response.status_code == 201
+        user_data = response.json()
+
+        # Test retrieval
+        get_response = test_client.get(f"/api/v1/users/users/{user_data['id']}")
+        assert get_response.status_code == 200
+        assert get_response.json()["name"] == "HTTP Test User"
 ```
 
 ## 📋 Quick Implementation Checklist
@@ -508,9 +517,9 @@ class TestUserHTTPAPI:
    - [ ] Add router to main FastAPI app
 
 6. **Add Tests:**
-   - [ ] Test domain logic in `tests/domain/`
-   - [ ] Test service layer in `tests/module_api/`
-   - [ ] Test HTTP endpoints in `tests/http_api/`:**
+   - [ ] Create unit tests in `tests/test_{module}_unit.py`
+   - [ ] Create integration tests in `tests/test_{module}_integration.py` (only if minimal mocking needed)
+   - [ ] Ensure tests can be run via `scripts/run_unit.py` and `scripts/run_integration.py`
 ## 🚫 Common Mistakes to Avoid
 
 ```python
@@ -588,65 +597,83 @@ Infrastructure  → Service Layer    ❌
 Infrastructure  → Route Layer      ❌
 ```
 
-## 🧪 Testing Patterns
+## 🧪 Testing Strategy
 
-### Domain Tests (Rich, No Infrastructure)
+### Unit Tests (Fast, Isolated)
+- **Purpose**: Test business logic and service orchestration in isolation
+- **File**: `test_{module}_unit.py`
+- **Dependencies**: All external dependencies mocked
+- **Run with**: `python scripts/run_unit.py [--module {module}]`
+
 ```python
-# /modules/users/tests/domain/test_user_entity.py
-def test_user_promotion_success():
+# Focus on domain logic and service orchestration
+def test_user_promotion_business_rules():
     user = User(id=1, name="John", role="junior", years_of_service=2.5)
-
-    promotion = user.promote_to("senior")
-
+    promotion = user.promote_to("senior")  # Domain logic
     assert user.role == "senior"
-    assert promotion.from_role == "junior"
-    assert promotion.to_role == "senior"
 
-def test_user_promotion_insufficient_experience():
-    user = User(id=1, name="John", role="junior", years_of_service=0.5)
-
-    with pytest.raises(InvalidPromotionError):
-        user.promote_to("manager")
-```
-
-### Service Tests (Orchestration, Mock Infrastructure)
-```python
-# /modules/users/tests/module_api/test_user_service.py
-@patch('modules.users.infrastructure.repositories.UserRepository')
-@patch('modules.users.domain.policies.PromotionPolicy')
-def test_promote_user_success(mock_policy, mock_repo):
-    # Setup mocks
+@patch('modules.users.infrastructure.UserRepository')
+def test_service_orchestration(mock_repo):
     mock_repo.get_by_id.return_value = User(id=1, role="junior")
-    mock_policy.authorize_promotion.return_value = None
-
-    # Test service orchestration
-    result = UserService.promote_user(1, "senior", 2)
-
-    # Verify orchestration calls
-    mock_policy.authorize_promotion.assert_called_once()
+    result = UserService.promote_user(1, "senior", 2)  # Service orchestration
     mock_repo.save.assert_called_once()
 ```
 
-### Route Tests (HTTP Concerns Only)
+### Integration Tests (Real Flow)
+- **Purpose**: Test complete flows with real implementations
+- **File**: `test_{module}_integration.py`
+- **Dependencies**: Real implementations (in-memory DB, test APIs, real services)
+- **When to write**: Only when you can use real implementations with minimal/no mocking
+- **When to skip**: If extensive mocking is required (write unit tests instead)
+- **Run with**: `python scripts/run_integration.py [--module {module}]`
+
 ```python
-# /modules/users/tests/http_api/test_user_routes.py
-@patch('modules.users.module_api.UserService')
-def test_promote_user_endpoint(mock_service):
-    mock_service.promote_user.return_value = User(id=1, role="senior")
+# Test complete flows end-to-end
+async def test_user_creation_complete_flow(user_service):
+    # Real service with test database
+    user = await user_service.create_user(user_data)
+    retrieved = await user_service.get_user(user.id)
+    assert retrieved.email == user_data.email
 
-    response = client.post("/api/v1/users/1/promote", json={"new_role": "senior"})
+def test_http_api_complete_flow(test_client):
+    # Real HTTP client with real service
+    response = test_client.post("/api/v1/users", json=user_data)
+    assert response.status_code == 201
 
-    assert response.status_code == 200
-    assert response.json()["role"] == "senior"
+    user_id = response.json()["id"]
+    get_response = test_client.get(f"/api/v1/users/{user_id}")
+    assert get_response.status_code == 200
+```
 
-@patch('modules.users.module_api.UserService')
-def test_promote_user_endpoint_invalid_promotion(mock_service):
-    mock_service.promote_user.side_effect = InvalidPromotionError("Invalid promotion")
+### When to Write Integration Tests
 
-    response = client.post("/api/v1/users/1/promote", json={"new_role": "senior"})
+**✅ Good candidates for integration tests:**
+- Modules with self-contained logic (e.g., `learning_session` with in-memory repository)
+- Modules that can use real implementations without external dependencies
+- HTTP API testing with real service but test database
+- LLM services that can make real API calls (marked appropriately for cost)
 
-    assert response.status_code == 422
-    assert "Invalid promotion" in response.json()["detail"]
+**❌ Skip integration tests when:**
+- Extensive mocking of external services is required
+- Module depends heavily on other modules that would need mocking
+- The "integration" test is essentially a unit test with more setup
+
+**Example: Learning Session module** ✅
+```python
+# Good integration test - uses real in-memory repository
+def test_complete_session_flow(learning_session_service):
+    session = await learning_session_service.create_session(request)
+    await learning_session_service.add_interaction(session.id, interaction)
+    completed = await learning_session_service.complete_session(session.id)
+    assert completed.status == "completed"
+```
+
+**Example: Topic Catalog module** ❌
+```python
+# Bad integration test - requires extensive mocking of content_creation_service
+@patch('content_creation_service.get_all_topics')  # This is a unit test!
+def test_browse_topics(mock_service):
+    # If you need extensive mocking, write unit tests instead
 ```
 
 ## 🎯 Quick Decision Framework

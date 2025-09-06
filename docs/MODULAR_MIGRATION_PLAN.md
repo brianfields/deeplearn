@@ -9,18 +9,14 @@ This document outlines the step-by-step migration from the current monolithic st
 ### Backend Modules
 1. **Content Creation** - Authoring educational content
 2. **Topic Catalog** - Topic discovery and browsing
-3. **Learning Session** - Active learning experience
-4. **Learning Analytics** - Progress tracking and insights
-5. **LLM Services** - Language model integration and prompt management
-6. **Infrastructure** - Core technical services (database, config, logging)
+3. **LLM Services** - Language model integration and prompt management
+4. **Infrastructure** - Core technical services (database, config, logging)
 
 ### Frontend Modules
 1. **Content Creation** - Content authoring UI (future)
 2. **Topic Catalog** - Topic browsing and selection
-3. **Learning Session** - Learning flow and interaction
-4. **Learning Analytics** - Progress visualization
-5. **Infrastructure** - Technical services (HTTP, caching, storage, analytics)
-6. **UI System** - Shared design system and reusable components
+3. **Infrastructure** - Technical services (HTTP, caching, storage, analytics)
+4. **UI System** - Shared design system and reusable components
 
 ## Migration Phases
 
@@ -305,10 +301,10 @@ This document outlines the step-by-step migration from the current monolithic st
 - [x] TypeScript interfaces for future implementation
 - [x] Placeholder hooks and navigation functions
 
-### Phase 4: Topic Catalog Module (Week 4)
+### ✅ Phase 4: Topic Catalog Module (Week 4) - COMPLETED
 
 #### Backend Topic Catalog Module
-**Goal**: Extract topic discovery and browsing
+**Goal**: Simple topic browsing and discovery (read-only interface to Content Creation)
 
 **Tasks**:
 1. **Create module structure**
@@ -316,39 +312,43 @@ This document outlines the step-by-step migration from the current monolithic st
    mkdir -p backend/modules/topic_catalog/{module_api,http_api,domain,infrastructure,tests}
    ```
 
-2. **Extract domain logic**
+2. **Create simple domain entities**
    ```python
-   # domain/entities/catalog.py
-   class TopicCatalog:
-       def search_topics(self, query: str, filters: TopicFilters) -> List[Topic]:
-           # Business logic for search and filtering
+   # domain/entities.py
+   class TopicSummary:
+       # Simple topic representation for browsing
+       def matches_user_level(self, user_level: str) -> bool
 
-   # domain/policies/search_policy.py
-   class SearchPolicy:
-       @staticmethod
-       def apply_filters(topics: List[Topic], filters: TopicFilters) -> List[Topic]:
-           # Business rules for filtering
+   class TopicDetail:
+       # Complete topic info including components
+       def is_ready_for_learning(self) -> bool
    ```
 
 3. **Create service layer**
    ```python
-   # module_api/topic_catalog_service.py
+   # module_api/service.py
    class TopicCatalogService:
-       @staticmethod
-       def browse_topics(filters: TopicFilters) -> List[Topic]:
-           topics = TopicRepository.get_all()
-           return SearchPolicy.apply_filters(topics, filters)
+       async def browse_topics(self, request: BrowseTopicsRequest) -> BrowseTopicsResponse
+       async def get_topic_by_id(self, topic_id: str) -> TopicDetailResponse
    ```
 
-4. **Extract HTTP routes**
+4. **Create repository that delegates to Content Creation**
+   ```python
+   # infrastructure/content_creation_repository.py
+   class ContentCreationTopicRepository:
+       # Delegates to ContentCreationService for data
    ```
-   Topic browsing from src/api/learning_routes.py → http_api/routes.py
+
+5. **Create simple HTTP routes**
+   ```
+   GET /api/topics/ - Browse topics with optional user level filter
+   GET /api/topics/{topic_id} - Get topic details
    ```
 
 **Verification**:
 - [x] Topic browsing works independently
-- [x] Search and filtering logic in domain layer
-- [x] Service orchestrates without business logic
+- [x] Simple delegation to Content Creation module
+- [x] No complex search/filtering logic (kept simple)
 - [x] Tests: `pytest backend/modules/topic_catalog/tests/`
 
 #### Frontend Topic Catalog Module
@@ -405,189 +405,8 @@ This document outlines the step-by-step migration from the current monolithic st
 - [x] Clean navigation to learning session
 - [x] Tests: `npm test -- topic_catalog`
 
-### Phase 5: Learning Session Module (Week 5)
+### Phase 5: Integration & Validation (Week 5)
 
-#### Backend Learning Session Module
-**Goal**: Extract active learning session management
-
-**Tasks**:
-1. **Create module structure**
-   ```bash
-   mkdir -p backend/modules/learning_session/{module_api,http_api,domain,infrastructure,tests}
-   ```
-
-2. **Extract domain entities**
-   ```python
-   # domain/entities/session.py
-   class LearningSession:
-       def __init__(self, topic_id: str, user_id: str):
-           self.topic_id = topic_id
-           self.user_id = user_id
-           self.start_time = datetime.now()
-           self.current_step = 0
-
-       def advance_step(self) -> bool:
-           # Business logic for step progression
-
-       def calculate_session_score(self) -> float:
-           # Business rules for scoring
-   ```
-
-3. **Create service layer**
-   ```python
-   # module_api/learning_session_service.py
-   class LearningSessionService:
-       @staticmethod
-       def start_session(topic_id: str, user_id: str) -> LearningSession:
-           # Get topic from content_creation module
-           from modules.content_creation.module_api import ContentCreationService
-           topic = ContentCreationService.get_topic(topic_id)
-
-           session = LearningSession(topic_id, user_id)
-           return SessionRepository.save(session)
-   ```
-
-**Verification**:
-- [ ] Session management works independently
-- [ ] Cross-module communication via module APIs only
-- [ ] Business logic in domain entities
-- [ ] Tests: `pytest backend/modules/learning_session/tests/`
-
-#### Frontend Learning Session Module
-**Goal**: Extract learning flow and session UI
-
-**Tasks**:
-1. **Create module structure**
-   ```bash
-   mkdir -p mobile/modules/learning_session/{module_api,screens,components,navigation,http_client,domain,application,tests}
-   ```
-
-2. **Move learning components**
-   ```
-   src/components/learning/ → components/
-   src/screens/learning/LearningFlowScreen.tsx → screens/
-   src/screens/learning/ResultsScreen.tsx → screens/
-   ```
-
-3. **Extract domain logic from components**
-   ```typescript
-   // domain/business-rules/progress-rules.ts
-   export class ProgressRules {
-     static calculateSessionProgress(steps: ComponentStep[]): number {
-       // Extract from LearningFlow.tsx
-     }
-
-     static determineCompletion(results: InteractionResult[]): boolean {
-       // Business rules for session completion
-     }
-   }
-   ```
-
-4. **Create module API**
-   ```typescript
-   // module_api/index.ts
-   export { useLearningSession } from './queries'
-   export { useLearningSessionNavigation } from './navigation'
-   export type { LearningSession, SessionProgress } from './types'
-   ```
-
-**Verification**:
-- [ ] Learning flow works independently
-- [ ] Components are thin UI only
-- [ ] Business logic in domain layer
-- [ ] Navigation between topic catalog and session works
-- [ ] Tests: `npm test -- learning_session`
-
-### Phase 6: Learning Analytics Module (Week 6)
-
-#### Backend Learning Analytics Module
-**Goal**: Extract progress tracking and analytics
-
-**Tasks**:
-1. **Create module structure**
-   ```bash
-   mkdir -p backend/modules/learning_analytics/{module_api,http_api,domain,infrastructure,tests}
-   ```
-
-2. **Extract domain entities**
-   ```python
-   # domain/entities/progress.py
-   class LearningProgress:
-       def __init__(self, user_id: str, topic_id: str):
-           self.user_id = user_id
-           self.topic_id = topic_id
-
-       def update_from_session(self, session_results: SessionResults) -> None:
-           # Business logic for progress calculation
-
-       def calculate_mastery_level(self) -> float:
-           # Business rules for mastery assessment
-   ```
-
-3. **Create service layer**
-   ```python
-   # module_api/learning_analytics_service.py
-   class LearningAnalyticsService:
-       @staticmethod
-       def get_topic_progress(user_id: str, topic_id: str) -> LearningProgress:
-           return ProgressRepository.get_by_user_and_topic(user_id, topic_id)
-
-       @staticmethod
-       def record_session_completion(session_results: SessionResults) -> None:
-           progress = LearningProgress(session_results.user_id, session_results.topic_id)
-           progress.update_from_session(session_results)
-           ProgressRepository.save(progress)
-   ```
-
-**Verification**:
-- [ ] Progress tracking works independently
-- [ ] Analytics calculations in domain layer
-- [ ] Integration with learning session module
-- [ ] Tests: `pytest backend/modules/learning_analytics/tests/`
-
-#### Frontend Learning Analytics Module
-**Goal**: Extract progress visualization and analytics
-
-**Tasks**:
-1. **Create module structure**
-   ```bash
-   mkdir -p mobile/modules/learning_analytics/{module_api,screens,components,navigation,http_client,domain,application,tests}
-   ```
-
-2. **Extract progress components**
-   ```typescript
-   // components/ProgressOverview.tsx
-   // Extract progress display from TopicListScreen
-
-   // screens/ProgressDashboard.tsx
-   // New comprehensive analytics screen
-   ```
-
-3. **Create module API**
-   ```typescript
-   // module_api/index.ts
-   export { useLearningAnalytics } from './queries'
-   export { useProgressData } from './queries'
-   export type { TopicProgress, LearningAnalytics } from './types'
-   ```
-
-4. **Extract domain logic**
-   ```typescript
-   // domain/business-rules/analytics-rules.ts
-   export class AnalyticsRules {
-     static calculateStreakDays(sessions: SessionHistory[]): number {
-       // Business logic for streak calculation
-     }
-   }
-   ```
-
-**Verification**:
-- [ ] Progress visualization works independently
-- [ ] Analytics calculations in domain layer
-- [ ] Integration with topic catalog for progress display
-- [ ] Tests: `npm test -- learning_analytics`
-
-### Phase 7: Integration & Validation (Week 7)
 
 #### Cross-Module Integration
 **Goal**: Ensure all modules work together correctly
@@ -602,12 +421,15 @@ This document outlines the step-by-step migration from the current monolithic st
 
 2. **Test cross-module communication**
    ```python
-   # Verify learning session uses content creation API
+   # Verify topic catalog uses content creation API
    from modules.content_creation.module_api import ContentCreationService
-   from modules.learning_session.module_api import LearningSessionService
+   from modules.topic_catalog.module_api import TopicCatalogService
 
-   topic = ContentCreationService.get_topic("test-topic")
-   session = LearningSessionService.start_session(topic.id, "user-1")
+   content_service = ContentCreationService()
+   topics = content_service.get_all_topics()
+
+   catalog_service = TopicCatalogService()
+   browsable_topics = catalog_service.browse_topics(BrowseTopicsRequest())
    ```
 
 3. **Update main application**
@@ -615,14 +437,10 @@ This document outlines the step-by-step migration from the current monolithic st
    # backend/main.py
    from modules.content_creation.http_api.routes import router as content_router
    from modules.topic_catalog.http_api.routes import router as catalog_router
-   from modules.learning_session.http_api.routes import router as session_router
-   from modules.learning_analytics.http_api.routes import router as analytics_router
    from modules.llm_services.http_api.routes import router as llm_router
 
    app.include_router(content_router)
    app.include_router(catalog_router)
-   app.include_router(session_router)
-   app.include_router(analytics_router)
    app.include_router(llm_router)
    ```
 
@@ -630,8 +448,6 @@ This document outlines the step-by-step migration from the current monolithic st
    ```typescript
    // mobile/navigation/AppNavigator.tsx
    import { TopicCatalogStack } from '../modules/topic_catalog'
-   import { LearningSessionStack } from '../modules/learning_session'
-   import { LearningAnalyticsStack } from '../modules/learning_analytics'
    ```
 
 #### End-to-End Testing
@@ -649,9 +465,9 @@ This document outlines the step-by-step migration from the current monolithic st
    ```
 
 3. **User workflow validation**
-   - [ ] Browse topics → Select topic → Complete learning session → View progress
-   - [ ] Create content → Browse created content → Learn from it
-   - [ ] Progress tracking across multiple sessions
+   - [ ] Browse topics → Select topic for learning
+   - [ ] Create content → Browse created content
+   - [ ] Basic topic discovery and content creation workflows
 
 ## Verification Checklist
 
@@ -663,10 +479,8 @@ This document outlines the step-by-step migration from the current monolithic st
 - [ ] **Thin service layer** - Delegates to domain + infrastructure
 
 ### Module Boundaries
-- [ ] **Content Creation**: Only content authoring, no learning logic
-- [ ] **Topic Catalog**: Only browsing/selection, no progress tracking
-- [ ] **Learning Session**: Only active session, no historical analytics
-- [ ] **Learning Analytics**: Only progress/analytics, no active session logic
+- [ ] **Content Creation**: Only content authoring and management
+- [ ] **Topic Catalog**: Only topic browsing and discovery (read-only interface to Content Creation)
 - [ ] **LLM Services**: Only LLM integration and prompt management, no domain logic
 - [ ] **Infrastructure**: Only technical services (DB, config, HTTP, caching), no business logic
 - [ ] **UI System**: Only shared components and design system, no business logic

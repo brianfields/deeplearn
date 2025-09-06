@@ -1,7 +1,8 @@
 """
-Tests for LLM Services module.
+Unit tests for LLM Services module.
 
-This module contains unit and integration tests for the LLM Services module.
+These tests use mocks and don't make external API calls.
+They test the service layer orchestration and domain logic in isolation.
 """
 
 from unittest.mock import AsyncMock, MagicMock, patch

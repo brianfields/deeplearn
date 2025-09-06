@@ -1,8 +1,8 @@
 """
-Tests for the Infrastructure Service.
+Unit tests for Infrastructure module.
 
-These tests verify that the infrastructure service properly orchestrates
-domain entities and infrastructure implementations.
+These tests focus on infrastructure services and utilities in isolation.
+They use mocks and don't require external dependencies.
 """
 
 import os

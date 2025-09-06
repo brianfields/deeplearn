@@ -30,7 +30,6 @@ pytest modules/llm_services/tests/test_llm_integration.py -v -m integration
 
 # Option 2: Using environment variables
 export OPENAI_API_KEY="your-key-here"
-export TEST_WITH_REAL_LLM="true"
 pytest modules/llm_services/tests/test_llm_integration.py -v -m integration
 ```
 
@@ -90,7 +89,6 @@ cp modules/llm_services/tests/env_example.txt backend/.env
 | Variable | Purpose | Required For | Example |
 |----------|---------|--------------|---------|
 | `OPENAI_API_KEY` | OpenAI API authentication | Integration tests | `sk-proj-...` |
-| `TEST_WITH_REAL_LLM` | Enable real LLM usage | Integration/hybrid tests | `true` or `false` |
 | `ANTHROPIC_API_KEY` | Anthropic API (future) | Anthropic tests | `sk-ant-...` |
 | `LLM_TEST_MODEL` | Model to use for testing | Optional | `gpt-3.5-turbo` |
 | `LLM_TEST_TIMEOUT` | Request timeout in seconds | Optional | `30` |
@@ -181,7 +179,6 @@ jobs:
       - name: Run integration tests
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          TEST_WITH_REAL_LLM: "true"
         run: pytest -m "integration" modules/llm_services/tests/
 ```
 

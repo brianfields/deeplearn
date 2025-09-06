@@ -1,7 +1,8 @@
 """
-Unit tests for Content Creation Service.
+Unit tests for Content Creation module.
 
-These tests use mocks and focus on the service orchestration logic.
+These tests use mocks and focus on service orchestration and domain logic.
+They don't require external dependencies like LLM APIs or databases.
 """
 
 from unittest.mock import AsyncMock, MagicMock

@@ -41,7 +41,7 @@ class Component:
         learning_objective: str | None = None,
         created_at: datetime | None = None,
         updated_at: datetime | None = None,
-    ):
+    ) -> None:
         """
         Initialize a Component entity.
 

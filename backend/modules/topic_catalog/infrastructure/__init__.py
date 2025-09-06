@@ -1,0 +1,1 @@
+"""Topic Catalog Infrastructure Layer."""
