@@ -75,25 +75,25 @@ def pytest_configure(config):
 
 def pytest_addoption(parser):
     """Add custom command line options"""
-    parser.addoption("--integration", action="store_true", default=False, help="run integration tests that require real API keys")
     parser.addoption("--with-llm", action="store_true", default=False, help="run tests with real LLM APIs (may incur costs)")
 
 
 def pytest_collection_modifyitems(config, items):
     """Modify test collection based on command line options"""
-    if not config.getoption("--integration"):
-        # Skip integration tests unless explicitly requested
-        skip_integration = pytest.mark.skip(reason="need --integration option to run")
-        for item in items:
-            if "integration" in item.keywords:
-                item.add_marker(skip_integration)
+    pass
+    # if not config.getoption("--integration"):
+    #     # Skip integration tests unless explicitly requested
+    #     skip_integration = pytest.mark.skip(reason="need --integration option to run")
+    #     for item in items:
+    #         if "integration" in item.keywords:
+    #             item.add_marker(skip_integration)
 
-    if not config.getoption("--with-llm"):
-        # Skip LLM tests unless explicitly requested
-        skip_llm = pytest.mark.skip(reason="need --with-llm option to run")
-        for item in items:
-            if "llm" in item.keywords:
-                item.add_marker(skip_llm)
+    # if not config.getoption("--with-llm"):
+    #     # Skip LLM tests unless explicitly requested
+    #     skip_llm = pytest.mark.skip(reason="need --with-llm option to run")
+    #     for item in items:
+    #         if "llm" in item.keywords:
+    #             item.add_marker(skip_llm)
 
 
 @pytest.fixture
@@ -139,32 +139,6 @@ def real_llm_service(openai_api_key):
         provider="openai",
         cache_enabled=True,
     )
-
-
-@pytest.fixture
-def test_llm_service():
-    """
-    Create an LLM service that uses real or mock LLM based on environment.
-
-    This fixture automatically switches between real and mock LLM based on
-    the TEST_WITH_REAL_LLM environment variable.
-    """
-    if os.getenv("TEST_WITH_REAL_LLM", "false").lower() == "true":
-        # Use real LLM service
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            pytest.skip("OPENAI_API_KEY not set for real LLM testing")
-
-        return create_llm_service(
-            api_key=api_key,
-            model="gpt-3.5-turbo",
-            provider="openai",
-            cache_enabled=True,
-        )
-    else:
-        # Use mock LLM service (would need to patch the client creation)
-        pytest.skip("Mock LLM service not implemented in this fixture")
-
 
 @pytest.fixture
 def cost_monitor():

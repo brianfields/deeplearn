@@ -6,12 +6,10 @@ They should be run separately from unit tests and may incur costs.
 
 To run these tests:
 1. Set environment variables for API keys
-2. Run with: pytest -m integration
-3. Or run with: pytest --integration
+2. Run with: python scripts/run_integration.py --module llm_services
 
 Environment variables needed:
 - OPENAI_API_KEY: Your OpenAI API key
-- TEST_WITH_REAL_LLM: Set to "true" to enable these tests
 """
 
 import os
@@ -23,9 +21,6 @@ from modules.llm_services.domain.entities.prompt import (
     UserLevel,
 )
 from modules.llm_services.module_api import create_llm_service
-
-# Skip all tests in this file unless explicitly enabled
-pytestmark = pytest.mark.skipif(os.getenv("TEST_WITH_REAL_LLM", "false").lower() != "true", reason="Real LLM tests disabled. Set TEST_WITH_REAL_LLM=true to enable")
 
 
 @pytest.fixture
@@ -48,7 +43,6 @@ def llm_service(api_key):
     )
 
 
-@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_real_content_generation(llm_service):
     """Test content generation with real LLM"""
@@ -61,7 +55,6 @@ async def test_real_content_generation(llm_service):
     assert "python" in result.lower() or "programming" in result.lower()
 
 
-@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_real_structured_generation(llm_service):
     """Test structured content generation with real LLM"""
@@ -77,7 +70,6 @@ async def test_real_structured_generation(llm_service):
     assert isinstance(result["key_points"], list)
 
 
-@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_real_context_customization(llm_service):
     """Test that context affects real LLM responses"""
@@ -105,7 +97,6 @@ async def test_real_context_customization(llm_service):
     print(f"Advanced result length: {len(advanced_result)}")
 
 
-@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_real_error_handling(llm_service):
     """Test error handling with real LLM"""
@@ -114,7 +105,6 @@ async def test_real_error_handling(llm_service):
         await llm_service.generate_content(prompt_name="nonexistent_prompt", some_variable="test")
 
 
-@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_real_health_check(llm_service):
     """Test health check with real LLM"""
@@ -126,7 +116,6 @@ async def test_real_health_check(llm_service):
     assert health["client_health"]["status"] == "healthy"
 
 
-@pytest.mark.integration
 def test_real_service_stats(llm_service):
     """Test statistics with real service"""
     stats = llm_service.get_stats()
@@ -139,7 +128,6 @@ def test_real_service_stats(llm_service):
 
 
 # Performance and cost monitoring tests
-@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_token_usage_tracking(llm_service):
     """Test that token usage is properly tracked"""
@@ -157,7 +145,6 @@ async def test_token_usage_tracking(llm_service):
     print(f"Result length: {len(result)}")
 
 
-@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_caching_behavior(llm_service):
     """Test that caching works with real LLM"""
@@ -201,4 +188,4 @@ async def test_caching_behavior(llm_service):
 
 if __name__ == "__main__":
     # Run integration tests only
-    pytest.main([__file__, "-v", "-m", "integration"])
+    pytest.main([__file__, "-v"])

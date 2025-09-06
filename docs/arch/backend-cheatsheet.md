@@ -45,9 +45,8 @@ backend/modules/{module-name}/
 │   ├── repositories/            # data access
 │   └── mappers.py               # domain ↔ persistence conversions
 └── tests/
-    ├── domain/
-    ├── module_api/
-    └── http_api/
+    ├── test_{module}_unit.py          # Unit tests (mocked)
+    └── test_{module}_integration.py   # Integration tests (real)
 ```
 
 ---
@@ -119,11 +118,11 @@ def create_user(req: UserCreateRequest) -> User:
 
 ---
 
-## 🧪 Testing Shortlist
+## 🧪 Testing Strategy
 
-* **Domain:** pure unit tests for entities/policies.
-* **Service (module\_api):** mock repos/policies; assert orchestration.
-* **Routes (http\_api):** TestClient; assert status codes & schemas.
+* **Unit Tests (`test_{module}_unit.py`)**: Mock all dependencies; test business logic & orchestration in isolation.
+* **Integration Tests (`test_{module}_integration.py`)**: Real implementations; test complete flows end-to-end. **Only write if minimal/no mocking needed.**
+* **Run Tests**: `python scripts/run_unit.py [--module {module}]` or `python scripts/run_integration.py [--module {module}]`
 
 ---
 
@@ -134,7 +133,7 @@ def create_user(req: UserCreateRequest) -> User:
 3. **Infra:** SQLAlchemy models, repositories, mappers.
 4. **Service:** thin methods in `{module}_service.py` using domain + repos; export types.
 5. **HTTP:** routes + Pydantic schemas; wire router into app.
-6. **Tests:** domain → service → routes.
+6. **Tests:** Create `test_{module}_unit.py` (mocked). Only create `test_{module}_integration.py` if minimal mocking needed.
 
 ---
 

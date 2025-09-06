@@ -2,210 +2,167 @@
 
 ## Purpose
 
-The Topic Catalog module provides discovery and browsing capabilities for learning topics. It acts as a read-only interface to the content created by the Content Creation module, offering search, filtering, and statistical insights into available learning materials.
+The Topic Catalog module provides simple topic browsing and discovery functionality for learners. It acts as a read-only interface to topics created by the Content Creation module, offering basic listing and retrieval capabilities without complex search or filtering logic.
 
 ## Architecture
 
-This module follows the layered architecture pattern with clear separation of concerns:
+This module follows the standard layered architecture pattern:
 
 ### Domain Layer (`domain/`)
-- **Entities**: Core business objects representing catalog concepts
-- **Policies**: Business rules for search, filtering, and topic organization
-- **Repositories**: Abstract interfaces for data access
-
-### Application Layer (`application/`)
-- **Services**: Orchestrate domain logic and coordinate between layers
-- **Use Cases**: Implement specific business workflows for topic discovery
+- **Entities**: Simple domain objects (`TopicSummary`, `TopicDetail`)
+- **Repository Interface**: Abstract interface for data access
 
 ### Infrastructure Layer (`infrastructure/`)
-- **Persistence**: Concrete implementations of repository interfaces
-- **External Services**: Integration with other modules (Content Creation)
-
-### HTTP API Layer (`http_api/`)
-- **Routes**: FastAPI endpoints for topic catalog operations
-- **Request/Response Models**: HTTP-specific data structures
+- **Repository Implementation**: Delegates to Content Creation module
 
 ### Module API Layer (`module_api/`)
-- **Service Interface**: Public API for other modules to consume
-- **Types**: Shared data transfer objects and exceptions
+- **Service**: Simple orchestration service
+- **Types**: Request/Response DTOs and exceptions
+
+### HTTP API Layer (`http_api/`)
+- **Routes**: REST endpoints for topic browsing
 
 ## Key Components
 
 ### Domain Entities
 
 #### TopicSummary
-Represents a lightweight view of a topic optimized for browsing and discovery.
+Lightweight representation of a topic for browsing lists.
 
-**Key Attributes:**
-- `topic_id`: Unique identifier
-- `title`: Human-readable topic name
-- `core_concept`: Brief description of the main learning concept
-- `user_level`: Target audience level (beginner, intermediate, advanced)
-- `learning_objectives`: List of what learners will achieve
-- `key_concepts`: Important terms and concepts covered
-- `estimated_duration`: Expected time to complete (minutes)
-- `component_count`: Number of learning components in the topic
-- `is_ready_for_learning`: Whether the topic is complete and ready
-
-**Business Logic:**
-- Query matching across title, concept, and key terms
-- Validation of required fields and constraints
-- User level validation
-
-#### Catalog
-Represents the complete collection of available topics with metadata.
-
-**Key Attributes:**
-- `topics`: List of TopicSummary objects
-- `last_updated`: Timestamp of last catalog refresh
-- `total_count`: Total number of topics available
+**Attributes:**
+- `id`: Unique identifier
+- `title`: Topic title
+- `core_concept`: Brief description
+- `user_level`: Target audience (beginner/intermediate/advanced)
+- `learning_objectives`: List of learning goals
+- `key_concepts`: Important concepts covered
+- `created_at`: Creation timestamp
+- `component_count`: Number of learning components
 
 **Business Logic:**
-- Filtering by user level, readiness, and search terms
-- Statistical analysis of topic distribution
-- Staleness detection for cache invalidation
+- `matches_user_level()`: Check if topic matches specified level
 
-### Domain Policies
+#### TopicDetail
+Complete topic information including components for learning.
 
-#### SearchPolicy
-Encapsulates business rules for topic discovery and organization.
-
-**Capabilities:**
-- **Filtering**: Apply multiple criteria (query, user level, readiness)
-- **Sorting**: Multiple sort strategies (relevance, duration, user level)
-- **Pagination**: Efficient result set management
-- **Relevance Scoring**: Query-based ranking with component count weighting
-
-**Business Rules:**
-- Query matching is case-insensitive and searches across multiple fields
-- User level filtering supports exact matches only
-- Readiness filtering separates complete from incomplete topics
-- Relevance scoring boosts query matches and considers topic complexity
-
-### Application Services
-
-#### TopicDiscoveryService
-Orchestrates topic retrieval and filtering operations.
-
-**Key Operations:**
-- `discover_topics()`: Search and filter topics with pagination
-- `get_topic_by_id()`: Retrieve specific topic details
-- `get_popular_topics()`: Get most engaging topics (by component count)
-- `get_catalog_statistics()`: Generate usage and distribution metrics
-- `refresh_catalog()`: Trigger catalog data refresh
+**Attributes:**
+- All TopicSummary attributes plus:
+- `key_aspects`: Additional topic aspects
+- `target_insights`: Expected insights
+- `source_material`: Original source content
+- `refined_material`: Processed content structure
+- `updated_at`: Last update timestamp
+- `components`: List of learning components
 
 **Business Logic:**
-- Applies search policies consistently across operations
-- Handles error cases and data validation
-- Coordinates between repository and domain layers
+- `component_count`: Property returning number of components
+- `is_ready_for_learning()`: Check if topic has components
 
-### Infrastructure
+### Repository Interface
 
-#### ContentCreationCatalogRepository
-Integrates with the Content Creation module to retrieve topic data.
+#### TopicCatalogRepository
+Abstract interface for topic data access.
 
-**Integration Points:**
-- Uses `ContentCreationService.list_topics()` for data retrieval
-- Converts `TopicSummaryResponse` to domain `TopicSummary` entities
-- Handles service errors and data transformation
+**Methods:**
+- `list_topics(user_level, limit)`: Get topics for browsing
+- `get_topic_by_id(topic_id)`: Get detailed topic information
 
-**Data Mapping:**
-- Maps Content Creation DTOs to Catalog domain entities
-- Preserves all relevant topic metadata
-- Ensures data consistency and validation
+### Infrastructure Implementation
+
+#### ContentCreationTopicRepository
+Concrete repository that delegates to the Content Creation module.
+
+**Integration:**
+- Uses `ContentCreationService` to retrieve topic data
+- Converts Content Creation DTOs to domain entities
+- Handles filtering and data transformation
 
 ## Public API
 
 ### Module API (`module_api/`)
 
-The module exposes a clean service interface for other modules:
-
 ```python
 class TopicCatalogService:
-    async def search_topics(self, request: SearchTopicsRequest) -> SearchTopicsResponse
-    async def get_topic_by_id(self, topic_id: str) -> TopicSummaryResponse
-    async def get_popular_topics(self, limit: int = 10) -> List[TopicSummaryResponse]
-    async def get_catalog_statistics(self) -> CatalogStatisticsResponse
-    async def refresh_catalog(self) -> Dict[str, Any]
+    async def browse_topics(self, request: BrowseTopicsRequest) -> BrowseTopicsResponse
+    async def get_topic_by_id(self, topic_id: str) -> TopicDetailResponse
+
+def create_topic_catalog_service() -> TopicCatalogService
 ```
 
 ### HTTP API (`http_api/`)
 
-RESTful endpoints for external clients:
-
-- `GET /topics/search` - Search and filter topics
-- `GET /topics/{topic_id}` - Get specific topic details
-- `GET /topics/popular` - Get popular topics
-- `GET /statistics` - Get catalog statistics
-- `POST /refresh` - Trigger catalog refresh
+- `GET /api/topics/` - Browse topics with optional user level filter
+- `GET /api/topics/{topic_id}` - Get detailed topic information
 
 ## Data Flow
 
-1. **Topic Discovery Request** → HTTP API → Module API → Application Service
-2. **Application Service** → Domain Policy (filtering/sorting) → Repository
-3. **Repository** → Content Creation Module → External Data
-4. **Response Path**: Domain Entities → DTOs → HTTP Response
+1. **Browse Request** → HTTP API → Service → Repository → Content Creation Module
+2. **Topic Detail Request** → HTTP API → Service → Repository → Content Creation Module
+3. **Response Path**: Content Creation DTOs → Domain Entities → Response DTOs → HTTP Response
 
 ## Dependencies
 
 ### Internal Dependencies
-- **Content Creation Module**: Source of topic data via `module_api`
-- **Shared Infrastructure**: Database connections, logging, configuration
+- **Content Creation Module**: Source of all topic data via `module_api`
 
 ### External Dependencies
-- **FastAPI**: HTTP framework for API endpoints
+- **FastAPI**: HTTP framework
 - **Pydantic**: Data validation and serialization
-- **Python Standard Library**: datetime, typing, etc.
 
 ## Error Handling
 
-### Domain Errors
-- `TopicDiscoveryError`: Issues with topic retrieval or processing
-- `ValidationError`: Invalid search parameters or data
+- `TopicCatalogError`: Base exception for all catalog operations
+- HTTP 404 for topic not found
+- HTTP 500 for service errors
+- Proper logging for debugging
 
-### Integration Errors
-- Service unavailable errors from Content Creation module
-- Data transformation errors during DTO conversion
+## Design Principles
 
-### HTTP Errors
-- 400 Bad Request: Invalid search parameters
-- 404 Not Found: Topic not found
-- 500 Internal Server Error: Service failures
+### Simplicity
+- Minimal business logic - mostly data transformation
+- No complex search or filtering algorithms
+- Direct delegation to Content Creation module
+
+### Separation of Concerns
+- Domain entities contain only basic business rules
+- Service layer provides thin orchestration
+- Repository abstracts data access
+- HTTP layer handles only HTTP concerns
+
+### Testability
+- Repository interface allows easy mocking
+- Domain entities are pure objects
+- Service logic is straightforward to test
 
 ## Testing Strategy
 
 ### Unit Tests
-- Domain entity validation and business logic
-- Search policy filtering and sorting algorithms
-- Service orchestration with mocked dependencies
-- HTTP API request/response handling
+- Domain entity behavior
+- Service orchestration logic
+- Error handling scenarios
+- Mock repository for isolation
 
 ### Integration Tests
-- Repository integration with Content Creation module
-- End-to-end API workflows
-- Error handling across module boundaries
+- Not needed - functionality is simple delegation
+- Content Creation module integration tested there
 
-## Performance Considerations
+## Usage Examples
 
-### Caching Strategy
-- Repository layer delegates caching to Content Creation module
-- Application layer focuses on efficient filtering and sorting
-- HTTP layer uses appropriate cache headers
+### Browse Topics
+```python
+from modules.topic_catalog.module_api import create_topic_catalog_service, BrowseTopicsRequest
 
-### Scalability
-- Pagination support for large topic collections
-- Efficient filtering algorithms in domain policies
-- Stateless service design for horizontal scaling
+service = create_topic_catalog_service()
+request = BrowseTopicsRequest(user_level="beginner", limit=10)
+response = await service.browse_topics(request)
+```
 
-## Future Enhancements
+### Get Topic Details
+```python
+topic_detail = await service.get_topic_by_id("topic-123")
+if topic_detail.is_ready_for_learning:
+    # Topic has components and is ready
+    pass
+```
 
-### Planned Features
-- Advanced search with faceted filtering
-- Topic recommendation based on user preferences
-- Analytics and usage tracking
-- Real-time updates via WebSocket connections
-
-### Architecture Evolution
-- Event-driven updates from Content Creation module
-- Dedicated search index for complex queries
-- Microservice decomposition for specialized concerns
+This module provides essential topic discovery functionality while maintaining simplicity and clear boundaries with other modules.
