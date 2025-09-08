@@ -12,40 +12,13 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
-    TypeDecorator,
     func,
 )
-from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from modules.shared_models import Base
+from modules.shared_models import Base, PostgresUUID
 
-__all__ = ["UUID", "FlowRunModel", "FlowStepRunModel"]
-
-
-class UUID(TypeDecorator):
-    """Database-agnostic UUID type that works with both PostgreSQL and SQLite."""
-
-    impl = String
-    cache_ok = True
-
-    def load_dialect_impl(self, dialect):
-        if dialect.name == "postgresql":
-            return dialect.type_descriptor(PostgresUUID())
-        else:
-            return dialect.type_descriptor(String(36))
-
-    def process_bind_param(self, value, dialect):
-        if value is None or dialect.name == "postgresql":
-            return value
-        else:
-            return str(value)
-
-    def process_result_value(self, value, dialect):
-        if value is None or dialect.name == "postgresql":
-            return value
-        else:
-            return uuid.UUID(value) if isinstance(value, str) else value
+__all__ = ["FlowRunModel", "FlowStepRunModel"]
 
 
 class FlowRunModel(Base):
@@ -62,8 +35,8 @@ class FlowRunModel(Base):
     __tablename__ = "flow_runs"
 
     # Core identification
-    id: Mapped[uuid.UUID] = mapped_column(UUID(), primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(), nullable=True, index=True)
+    id: Mapped[uuid.UUID] = mapped_column(PostgresUUID(), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(PostgresUUID(), nullable=True, index=True)
     flow_name: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
 
     # Execution tracking
@@ -156,9 +129,9 @@ class FlowStepRunModel(Base):
     __tablename__ = "flow_step_runs"
 
     # Core identification
-    id: Mapped[uuid.UUID] = mapped_column(UUID(), primary_key=True, default=uuid.uuid4)
-    flow_run_id: Mapped[uuid.UUID] = mapped_column(UUID(), ForeignKey("flow_runs.id"), nullable=False, index=True)
-    llm_request_id: Mapped[uuid.UUID | None] = mapped_column(UUID(), ForeignKey("llm_requests.id"), nullable=True, index=True)
+    id: Mapped[uuid.UUID] = mapped_column(PostgresUUID(), primary_key=True, default=uuid.uuid4)
+    flow_run_id: Mapped[uuid.UUID] = mapped_column(PostgresUUID(), ForeignKey("flow_runs.id"), nullable=False, index=True)
+    llm_request_id: Mapped[uuid.UUID | None] = mapped_column(PostgresUUID(), ForeignKey("llm_requests.id"), nullable=True, index=True)
 
     # Step information
     step_name: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
