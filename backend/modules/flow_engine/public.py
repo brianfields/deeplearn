@@ -30,9 +30,6 @@ class ArticleProcessingFlow(BaseFlow):
 
         return {
             "summary": summary_result.output_content,
-            "metadata": {
-                "total_tokens": extract_result.metadata["tokens_used"] + summary_result.metadata["tokens_used"]
-            }
         }
 
 # Execute the flow - same pattern as steps!
@@ -204,11 +201,6 @@ class DocumentProcessingFlow(BaseFlow):
         return {
             "key_points": points_result.output_content,
             "summary": summary_result.output_content.model_dump(),
-            "processing_metadata": {
-                "total_tokens": points_result.metadata["tokens_used"] + summary_result.metadata["tokens_used"],
-                "total_cost": points_result.metadata["cost_estimate"] + summary_result.metadata["cost_estimate"],
-                "steps_executed": 2
-            }
         }
 
 # Usage
@@ -221,7 +213,6 @@ async def process_document():
 
     print(f"Title: {result['summary']['title']}")
     print(f"Summary: {result['summary']['summary']}")
-    print(f"Total cost: ${result['processing_metadata']['total_cost']:.4f}")
 ```
 """
 
