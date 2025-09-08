@@ -92,11 +92,14 @@ from modules.llm_services.module_api import LLMService, create_llm_service
 llm_service = create_llm_service(api_key="...", model="gpt-4o")
 ```
 
-### Infrastructure Module (Future)
+### Infrastructure Module
 ```python
-from modules.infrastructure.module_api import DatabaseService
+from modules.infrastructure.public import infrastructure_provider, InfrastructureProvider
 
-# Will use for database connections and configuration
+# Use for database connections and configuration
+infra = infrastructure_provider()
+infra.initialize()
+db_session = infra.get_database_session()
 ```
 
 ## API Contracts

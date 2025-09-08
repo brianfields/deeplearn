@@ -5,7 +5,7 @@ import uuid
 
 from pydantic import BaseModel
 
-from ..infrastructure.module_api.infrastructure_service import InfrastructureService
+from ..infrastructure.public import infrastructure_provider
 from .repo import LLMRequestRepo
 from .service import ImageResponse, LLMMessage, LLMRequest, LLMResponse, LLMService, WebSearchResponse
 
@@ -176,5 +176,7 @@ class LLMServicesProvider(Protocol):
 def llm_services_provider() -> LLMServicesProvider:
     """Dependency injection provider for LLM services."""
     # Get session from infrastructure service
-    db_session = InfrastructureService.get_database_session()
+    infra = infrastructure_provider()
+    infra.initialize()
+    db_session = infra.get_database_session()
     return LLMService(LLMRequestRepo(db_session.session))

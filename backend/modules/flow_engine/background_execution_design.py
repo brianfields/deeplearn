@@ -53,13 +53,15 @@ class BaseFlowWithBackground(ABC):
         # 2. Submit to background task queue
         # 3. Return flow_run_id immediately
 
-        from ...infrastructure.module_api.infrastructure_service import InfrastructureService
+        from ...infrastructure.public import infrastructure_provider
         from ...llm_services.public import llm_services_provider
         from ..repo import FlowRunRepo, FlowStepRunRepo
         from ..service import FlowEngineService
 
         # Set up infrastructure (same as foreground)
-        db_session = InfrastructureService.get_database_session()
+        infra = infrastructure_provider()
+        infra.initialize()
+        db_session = infra.get_database_session()
         llm_services = llm_services_provider()
         service = FlowEngineService(FlowRunRepo(db_session.session), FlowStepRunRepo(db_session.session), llm_services)
 
