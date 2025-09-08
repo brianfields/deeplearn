@@ -1,249 +1,119 @@
-from __future__ import annotations
+"""Internal service layer for flow engine infrastructure."""
 
+from datetime import UTC, datetime
 from typing import Any
+import uuid
 
-from llm_flow_engine.core.llm.config import LLMConfig, create_llm_config_from_env
-from llm_flow_engine.database.connection import DatabaseManager
-from pydantic import BaseModel, Field
+from ..llm_services.public import LLMServicesProvider
+from .models import FlowRunModel, FlowStepRunModel
+from .repo import FlowRunRepo, FlowStepRunRepo
 
-from .repo import FlowEngineRepo
-
-
-class StartFlowRequest(BaseModel):
-    flow_name: str = Field(..., description="Registered flow identifier")
-    method_name: str = Field(..., description="Public method on flow to invoke")
-    inputs: dict[str, Any] = Field(default_factory=dict)
-    user_id: str | None = Field(default=None)
-    estimated_steps: int | None = Field(default=None)
-
-
-class StartFlowResponse(BaseModel):
-    flow_id: str
-
-
-class FlowProgress(BaseModel):
-    step_progress: int | None = None
-    total_steps: int | None = None
-    percentage: float = 0.0
-
-
-class FlowTiming(BaseModel):
-    started_at: str | None = None
-    completed_at: str | None = None
-    last_heartbeat: str | None = None
-    execution_time_seconds: int | None = None
-
-
-class FlowMetrics(BaseModel):
-    total_tokens: int = 0
-    total_cost: float = 0.0
-    execution_time_ms: int | None = None
-
-
-class FlowStatusDTO(BaseModel):
-    flow_id: str
-    flow_name: str
-    status: str
-    execution_mode: str
-    current_step: str | None = None
-    progress: FlowProgress
-    timing: FlowTiming
-    metrics: FlowMetrics
-    outputs: dict[str, Any] | None = None
-    error_message: str | None = None
-    is_running: bool = False
-    steps: list[FlowStepStatusDTO] = []
-
-
-class FlowListItemDTO(BaseModel):
-    flow_id: str
-    flow_name: str
-    status: str
-    progress_percentage: float
-    started_at: str | None = None
-    completed_at: str | None = None
-    execution_time_seconds: int | None = None
-
-
-class FlowListResponseDTO(BaseModel):
-    items: list[FlowListItemDTO]
-
-
-class UserFlowsResponseDTO(BaseModel):
-    flows: list[FlowListItemDTO]
-    pagination: dict[str, Any]
-    filters_applied: dict[str, Any]
-
-
-class SystemMetricsDTO(BaseModel):
-    system_health: dict[str, Any]
-    usage_metrics_24h: dict[str, Any]
-    usage_metrics_7d: dict[str, Any]
-    timestamp: str
-
-
-class FlowStepStatusDTO(BaseModel):
-    step_id: str
-    step_name: str
-    step_order: int
-    status: str
-    tokens_used: int | None = None
-    cost_estimate: float | None = None
-    execution_time_seconds: int | None = None
-    created_at: str | None = None
-    completed_at: str | None = None
-    error_message: str | None = None
-
-
-class FlowMetricsDetailDTO(BaseModel):
-    flow_id: str
-    flow_name: str
-    overall_metrics: dict[str, Any]
-    step_metrics: list[dict[str, Any]]
-    llm_metrics: dict[str, Any]
-    performance_insights: list[str]
-
-
-class BackgroundStatsDTO(BaseModel):
-    running_flows: int
-    active_flow_ids: list[str]
-    is_shutdown: bool
+__all__ = ["FlowEngineService"]
 
 
 class FlowEngineService:
-    """Use-cases around running and monitoring flows. Returns DTOs only."""
+    """
+    Internal service layer for flow engine infrastructure.
 
-    def __init__(self, repo: FlowEngineRepo, llm_config: LLMConfig | None = None) -> None:
-        self.repo = repo
-        self.llm_config = llm_config or create_llm_config_from_env()
+    Note: This is not exposed in public.py - flows and steps use the base classes directly.
+    This service provides infrastructure support for the base classes.
+    """
 
-    async def initialize(self) -> None:
-        await self.repo.initialize()
+    def __init__(self, flow_run_repo: FlowRunRepo, step_run_repo: FlowStepRunRepo, llm_services: LLMServicesProvider):
+        self.flow_run_repo = flow_run_repo
+        self.step_run_repo = step_run_repo
+        self.llm_services = llm_services
 
-    async def start(self, req: StartFlowRequest) -> StartFlowResponse:
-        from .public import flow_registry
+    async def create_flow_run_record(self, flow_name: str, inputs: dict[str, Any], user_id: uuid.UUID | None = None) -> uuid.UUID:
+        """Create a new flow run record (internal use)."""
+        flow_run = FlowRunModel(user_id=user_id, flow_name=flow_name, inputs=inputs, status="running", execution_mode="sync", started_at=datetime.now(UTC))
 
-        flow_class = flow_registry.get(req.flow_name)
-        if not flow_class:
-            raise ValueError(f"Unknown flow: {req.flow_name}")
+        created_run = self.flow_run_repo.create(flow_run)
+        return created_run.id
 
-        flow_id = await self.repo.start_background_flow(
-            flow_class=flow_class,
-            method_name=req.method_name,
-            inputs=req.inputs,
-            user_id=req.user_id,
-            estimated_steps=req.estimated_steps,
-            llm_config=self.llm_config,
-        )
-        return StartFlowResponse(flow_id=str(flow_id))
+    async def create_step_run_record(self, flow_run_id: uuid.UUID, step_name: str, step_order: int, inputs: dict[str, Any]) -> uuid.UUID:
+        """Create a new step run record (internal use)."""
+        step_run = FlowStepRunModel(flow_run_id=flow_run_id, step_name=step_name, step_order=step_order, inputs=inputs, status="running")
 
-    async def status(self, flow_id: str) -> FlowStatusDTO:
-        raw = await self.repo.get_flow_status(flow_id)
-        dto = FlowStatusDTO(
-            flow_id=raw.flow_id if hasattr(raw, "flow_id") else raw.get("flow_id"),
-            flow_name=raw.flow_name if hasattr(raw, "flow_name") else raw.get("flow_name"),
-            status=raw.status if hasattr(raw, "status") else raw.get("status"),
-            execution_mode=(raw.execution_mode if hasattr(raw, "execution_mode") else raw.get("execution_mode")),
-            current_step=(raw.current_step if hasattr(raw, "current_step") else raw.get("current_step")),
-            progress=FlowProgress(
-                step_progress=(raw.step_progress if hasattr(raw, "step_progress") else raw.get("progress", {}).get("step_progress")),
-                total_steps=(raw.total_steps if hasattr(raw, "total_steps") else raw.get("progress", {}).get("total_steps")),
-                percentage=(raw.progress_percentage if hasattr(raw, "progress_percentage") else raw.get("progress", {}).get("percentage", 0.0)),
-            ),
-            timing=FlowTiming(
-                started_at=(raw.started_at if hasattr(raw, "started_at") else raw.get("timing", {}).get("started_at")),
-                completed_at=(raw.completed_at if hasattr(raw, "completed_at") else raw.get("timing", {}).get("completed_at")),
-                last_heartbeat=(raw.last_heartbeat if hasattr(raw, "last_heartbeat") else raw.get("timing", {}).get("last_heartbeat")),
-                execution_time_seconds=(raw.execution_time_seconds if hasattr(raw, "execution_time_seconds") else raw.get("timing", {}).get("execution_time_seconds")),
-            ),
-            metrics=FlowMetrics(
-                total_tokens=(raw.total_tokens if hasattr(raw, "total_tokens") else raw.get("metrics", {}).get("total_tokens", 0)),
-                total_cost=(raw.total_cost if hasattr(raw, "total_cost") else float(raw.get("metrics", {}).get("total_cost", 0.0))),
-                execution_time_ms=(raw.execution_time_ms if hasattr(raw, "execution_time_ms") else raw.get("metrics", {}).get("execution_time_ms")),
-            ),
-            outputs=(raw.outputs if hasattr(raw, "outputs") else raw.get("outputs")),
-            error_message=(raw.error_message if hasattr(raw, "error_message") else raw.get("error_message")),
-            is_running=(raw.is_running if hasattr(raw, "is_running") else raw.get("is_running", False)),
-        )
-        # Steps (only present for FlowStatusAPI result)
-        if hasattr(raw, "steps") and isinstance(raw.steps, list):
-            dto.steps = [
-                FlowStepStatusDTO(
-                    step_id=getattr(s, "step_id", None) or s.get("step_id"),
-                    step_name=getattr(s, "step_name", None) or s.get("step_name"),
-                    step_order=getattr(s, "step_order", None) or s.get("step_order"),
-                    status=getattr(s, "status", None) or s.get("status"),
-                    tokens_used=getattr(s, "tokens_used", None) or s.get("tokens_used"),
-                    cost_estimate=(getattr(s, "cost_estimate", None) or s.get("cost_estimate")),
-                    execution_time_seconds=(getattr(s, "execution_time_seconds", None) or s.get("execution_time_seconds")),
-                    created_at=(getattr(s, "created_at", None) or s.get("created_at")),
-                    completed_at=(getattr(s, "completed_at", None) or s.get("completed_at")),
-                    error_message=(getattr(s, "error_message", None) or s.get("error_message")),
-                )
-                for s in raw.steps
-            ]
-        return dto
+        created_step = self.step_run_repo.create(step_run)
+        return created_step.id
 
-    async def list_running(self, user_id: str | None) -> FlowListResponseDTO:
-        items_raw = await self.repo.list_running_flows(user_id=user_id)
-        items = [
-            FlowListItemDTO(
-                flow_id=i["flow_id"],
-                flow_name=i["flow_name"],
-                status=i["status"],
-                progress_percentage=i.get("progress_percentage", 0.0),
-                started_at=i.get("started_at"),
-                completed_at=i.get("completed_at"),
-                execution_time_seconds=i.get("execution_time_seconds"),
-            )
-            for i in items_raw
-        ]
-        return FlowListResponseDTO(items=items)
+    async def update_step_run_success(self, step_run_id: uuid.UUID, outputs: dict[str, Any], tokens_used: int, cost_estimate: float, execution_time_ms: int, llm_request_id: uuid.UUID | None = None) -> None:
+        """Update step run with success data (internal use)."""
+        step_run = self.step_run_repo.by_id(step_run_id)
+        if step_run:
+            step_run.outputs = outputs
+            step_run.tokens_used = tokens_used
+            step_run.cost_estimate = cost_estimate
+            step_run.execution_time_ms = execution_time_ms
+            step_run.status = "completed"
+            step_run.completed_at = datetime.now(UTC)
+            if llm_request_id:
+                step_run.llm_request_id = llm_request_id
+            self.step_run_repo.save(step_run)
 
-    async def list_user(self, user_id: str, limit: int = 50, offset: int = 0) -> UserFlowsResponseDTO:
-        raw = await self.repo.list_user_flows(user_id=user_id, limit=limit, offset=offset)
-        data = raw.model_dump() if isinstance(raw, BaseModel) else raw
-        items = [
-            FlowListItemDTO(
-                flow_id=i["flow_id"],
-                flow_name=i["flow_name"],
-                status=i["status"],
-                progress_percentage=i.get("progress_percentage", 0.0),
-                started_at=i.get("created_at"),
-                completed_at=i.get("completed_at"),
-                execution_time_seconds=i.get("execution_time_seconds"),
-            )
-            for i in data.get("flows", [])
-        ]
-        return UserFlowsResponseDTO(
-            flows=items,
-            pagination=data.get("pagination", {}),
-            filters_applied=data.get("filters_applied", {}),
-        )
+    async def update_step_run_error(self, step_run_id: uuid.UUID, error_message: str, execution_time_ms: int) -> None:
+        """Update step run with error data (internal use)."""
+        step_run = self.step_run_repo.by_id(step_run_id)
+        if step_run:
+            step_run.error_message = error_message
+            step_run.execution_time_ms = execution_time_ms
+            step_run.status = "failed"
+            step_run.completed_at = datetime.now(UTC)
+            self.step_run_repo.save(step_run)
 
-    async def metrics(self) -> SystemMetricsDTO:
-        raw = await self.repo.get_system_metrics()
-        return SystemMetricsDTO(**(raw.model_dump() if isinstance(raw, BaseModel) else raw))
+    async def update_flow_progress(self, flow_run_id: uuid.UUID, current_step: str, step_progress: int, progress_percentage: float | None = None) -> None:
+        """Update flow run progress (internal use)."""
+        flow_run = self.flow_run_repo.by_id(flow_run_id)
+        if flow_run:
+            flow_run.current_step = current_step
+            flow_run.step_progress = step_progress
+            flow_run.last_heartbeat = datetime.now(UTC)
 
-    async def cancel(self, flow_id: str) -> bool:
-        return await self.repo.cancel_flow(flow_id)
+            if progress_percentage is not None:
+                flow_run.progress_percentage = progress_percentage
+            elif flow_run.total_steps and flow_run.total_steps > 0:
+                flow_run.progress_percentage = min(100.0, (step_progress / flow_run.total_steps) * 100)
 
-    async def flow_metrics(self, flow_id: str) -> FlowMetricsDetailDTO:
-        raw = await self.repo.get_flow_metrics(flow_id)
-        data = raw.model_dump() if isinstance(raw, BaseModel) else raw
-        return FlowMetricsDetailDTO(**data)
+            self.flow_run_repo.save(flow_run)
 
-    async def background_stats(self) -> BackgroundStatsDTO:
-        data = await self.repo.get_background_stats()
-        return BackgroundStatsDTO(**data)
+    async def complete_flow_run(self, flow_run_id: uuid.UUID, outputs: dict[str, Any]) -> None:
+        """Complete a flow run (internal use)."""
+        flow_run = self.flow_run_repo.by_id(flow_run_id)
+        if flow_run:
+            flow_run.outputs = outputs
+            flow_run.status = "completed"
+            flow_run.completed_at = datetime.now(UTC)
+            flow_run.progress_percentage = 100.0
 
+            # Calculate total metrics from steps
+            steps = self.step_run_repo.by_flow_run_id(flow_run_id)
+            total_tokens = sum(step.tokens_used for step in steps)
+            total_cost = sum(step.cost_estimate for step in steps)
 
-def create_flow_engine_service(database_url: str | None = None, llm_config: LLMConfig | None = None) -> FlowEngineService:
-    db_url = database_url
-    if db_url is None:
-        import os
+            flow_run.total_tokens = total_tokens
+            flow_run.total_cost = total_cost
 
-        db_url = os.getenv("DATABASE_URL")
-    db_manager = DatabaseManager(db_url)  # type: ignore[arg-type]
-    repo = FlowEngineRepo(db_manager)
-    return FlowEngineService(repo=repo, llm_config=llm_config)
+            # Calculate execution time
+            if flow_run.started_at:
+                flow_run.execution_time_ms = int((flow_run.completed_at - flow_run.started_at).total_seconds() * 1000)
+
+            self.flow_run_repo.save(flow_run)
+
+    async def fail_flow_run(self, flow_run_id: uuid.UUID, error_message: str) -> None:
+        """Mark a flow run as failed (internal use)."""
+        flow_run = self.flow_run_repo.by_id(flow_run_id)
+        if flow_run:
+            flow_run.error_message = error_message
+            flow_run.status = "failed"
+            flow_run.completed_at = datetime.now(UTC)
+
+            # Calculate execution time
+            if flow_run.started_at:
+                flow_run.execution_time_ms = int((flow_run.completed_at - flow_run.started_at).total_seconds() * 1000)
+
+            self.flow_run_repo.save(flow_run)
+
+    def get_llm_services(self) -> LLMServicesProvider:
+        """Get LLM services provider (internal use)."""
+        return self.llm_services
