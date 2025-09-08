@@ -1,61 +1,93 @@
-from __future__ import annotations
+"""Repository layer for flow execution data access."""
 
-from typing import Any
 import uuid
 
-from llm_flow_engine.core.llm.config import LLMConfig
-from llm_flow_engine.database.connection import DatabaseManager
-from llm_flow_engine.flows.background_manager import BackgroundFlowManager
-from llm_flow_engine.flows.base import BaseFlow
-from llm_flow_engine.flows.status_api import FlowStatusAPI
+from sqlalchemy import desc, select
+from sqlalchemy.orm import Session
+
+from .models import FlowRunModel, FlowStepRunModel
+
+__all__ = ["FlowRunRepo", "FlowStepRunRepo"]
 
 
-class FlowEngineRepo:
-    """Database/engine access layer for flow execution and monitoring."""
+class FlowRunRepo:
+    """Repository for FlowRun database operations."""
 
-    def __init__(self, db_manager: DatabaseManager) -> None:
-        self.db_manager = db_manager
-        self.background = BackgroundFlowManager(db_manager)
-        self.status_api = FlowStatusAPI(db_manager)
+    def __init__(self, session: Session):
+        self.s = session
 
-    async def initialize(self) -> None:
-        await self.db_manager.initialize()
+    def by_id(self, flow_run_id: uuid.UUID) -> FlowRunModel | None:
+        """Get flow run by ID."""
+        return self.s.get(FlowRunModel, flow_run_id)
 
-    async def start_background_flow(
-        self,
-        flow_class: type[BaseFlow],
-        method_name: str,
-        inputs: dict[str, Any],
-        user_id: str | None,
-        estimated_steps: int | None,
-        llm_config: LLMConfig | None,
-    ) -> uuid.UUID:
-        return await self.background.start_background_flow(
-            flow_class=flow_class,
-            method_name=method_name,
-            inputs=inputs,
-            user_id=user_id,
-            estimated_steps=estimated_steps,
-            llm_config=llm_config,
-        )
+    def create(self, flow_run: FlowRunModel) -> FlowRunModel:
+        """Create a new flow run."""
+        self.s.add(flow_run)
+        self.s.flush()
+        return flow_run
 
-    async def get_flow_status(self, flow_id: str) -> Any:
-        return await self.status_api.get_flow_status(flow_id)
+    def save(self, flow_run: FlowRunModel) -> FlowRunModel:
+        """Save changes to an existing flow run."""
+        self.s.add(flow_run)
+        return flow_run
 
-    async def list_running_flows(self, user_id: str | None = None) -> list[dict[str, Any]]:
-        return await self.background.list_running_flows(user_id=user_id)
+    def by_user_id(self, user_id: uuid.UUID, limit: int = 50, offset: int = 0) -> list[FlowRunModel]:
+        """Get flow runs for a specific user."""
+        return list(self.s.execute(select(FlowRunModel).where(FlowRunModel.user_id == user_id).order_by(desc(FlowRunModel.created_at)).limit(limit).offset(offset)).scalars())
 
-    async def list_user_flows(self, user_id: str, limit: int = 50, offset: int = 0) -> Any:
-        return await self.status_api.list_user_flows(user_id=user_id, limit=limit, offset=offset)
+    def by_status(self, status: str, limit: int = 100) -> list[FlowRunModel]:
+        """Get flow runs by status."""
+        return list(self.s.execute(select(FlowRunModel).where(FlowRunModel.status == status).order_by(desc(FlowRunModel.created_at)).limit(limit)).scalars())
 
-    async def get_system_metrics(self) -> Any:
-        return await self.status_api.get_system_metrics()
+    def by_flow_name(self, flow_name: str, limit: int = 50, offset: int = 0) -> list[FlowRunModel]:
+        """Get flow runs by flow name."""
+        return list(self.s.execute(select(FlowRunModel).where(FlowRunModel.flow_name == flow_name).order_by(desc(FlowRunModel.created_at)).limit(limit).offset(offset)).scalars())
 
-    async def cancel_flow(self, flow_id: str) -> bool:
-        return await self.background.cancel_flow(flow_id)
+    def count_by_user(self, user_id: uuid.UUID) -> int:
+        """Count total flow runs for a user."""
+        result = self.s.execute(select(FlowRunModel.id).where(FlowRunModel.user_id == user_id))
+        return len(list(result.scalars()))
 
-    async def get_flow_metrics(self, flow_id: str) -> Any:
-        return await self.status_api.get_flow_metrics(flow_id)
+    def count_by_status(self, status: str) -> int:
+        """Count flow runs by status."""
+        result = self.s.execute(select(FlowRunModel.id).where(FlowRunModel.status == status))
+        return len(list(result.scalars()))
 
-    async def get_background_stats(self) -> dict[str, Any]:
-        return self.background.get_system_stats()
+
+class FlowStepRunRepo:
+    """Repository for FlowStepRun database operations."""
+
+    def __init__(self, session: Session):
+        self.s = session
+
+    def by_id(self, step_run_id: uuid.UUID) -> FlowStepRunModel | None:
+        """Get step run by ID."""
+        return self.s.get(FlowStepRunModel, step_run_id)
+
+    def create(self, step_run: FlowStepRunModel) -> FlowStepRunModel:
+        """Create a new step run."""
+        self.s.add(step_run)
+        self.s.flush()
+        return step_run
+
+    def save(self, step_run: FlowStepRunModel) -> FlowStepRunModel:
+        """Save changes to an existing step run."""
+        self.s.add(step_run)
+        return step_run
+
+    def by_flow_run_id(self, flow_run_id: uuid.UUID) -> list[FlowStepRunModel]:
+        """Get all step runs for a flow run."""
+        return list(self.s.execute(select(FlowStepRunModel).where(FlowStepRunModel.flow_run_id == flow_run_id).order_by(FlowStepRunModel.step_order)).scalars())
+
+    def by_step_name(self, step_name: str, limit: int = 50) -> list[FlowStepRunModel]:
+        """Get step runs by step name."""
+        return list(self.s.execute(select(FlowStepRunModel).where(FlowStepRunModel.step_name == step_name).order_by(desc(FlowStepRunModel.created_at)).limit(limit)).scalars())
+
+    def by_status(self, status: str, limit: int = 100) -> list[FlowStepRunModel]:
+        """Get step runs by status."""
+        return list(self.s.execute(select(FlowStepRunModel).where(FlowStepRunModel.status == status).order_by(desc(FlowStepRunModel.created_at)).limit(limit)).scalars())
+
+    def count_by_flow_run(self, flow_run_id: uuid.UUID) -> int:
+        """Count steps in a flow run."""
+        result = self.s.execute(select(FlowStepRunModel.id).where(FlowStepRunModel.flow_run_id == flow_run_id))
+        return len(list(result.scalars()))

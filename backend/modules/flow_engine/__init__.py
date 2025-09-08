@@ -1,13 +1,11 @@
-"""Flow Engine module: wraps llm_flow_engine with our backend modular API.
+"""
+Flow Engine Module
 
-This module provides:
-- Pydantic DTOs for requests/responses
-- Repository that talks to llm_flow_engine background/status APIs
-- Service that exposes high-level use-cases and returns DTOs
-- Public provider for DI (returns the service directly)
-- FastAPI routes (HTTP-only concerns)
+This module provides infrastructure for creating and executing AI-powered workflows.
+It follows the simplified modular architecture and integrates with the llm_services module.
 """
 
-__all__ = [
-    "dto",
-]
+# Re-export the public interface
+from .public import *
+
+__version__ = "1.0.0"
