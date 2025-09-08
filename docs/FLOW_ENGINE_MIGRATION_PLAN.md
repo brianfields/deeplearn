@@ -688,7 +688,7 @@ async def use_individual_steps():
 ```python
 # Only import from public interfaces
 from modules.llm_services.public import llm_services_provider, LLMMessage, LLMResponse
-from modules.infrastructure.module_api import InfrastructureService
+from modules.infrastructure.public import infrastructure_provider, InfrastructureProvider
 ```
 
 ---

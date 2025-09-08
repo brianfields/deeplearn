@@ -23,11 +23,13 @@ def flow_execution(func):
     @functools.wraps(func)
     async def wrapper(self, *args, **kwargs):
         # Get infrastructure service
-        from ...infrastructure.module_api.infrastructure_service import InfrastructureService
+        from ...infrastructure.public import infrastructure_provider
         from ...llm_services.public import llm_services_provider
         from ..repo import FlowRunRepo, FlowStepRunRepo
 
-        db_session = InfrastructureService.get_database_session()
+        infra = infrastructure_provider()
+        infra.initialize()
+        db_session = infra.get_database_session()
         llm_services = llm_services_provider()
 
         service = FlowEngineService(FlowRunRepo(db_session.session), FlowStepRunRepo(db_session.session), llm_services)
