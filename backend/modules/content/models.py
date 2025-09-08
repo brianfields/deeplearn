@@ -8,9 +8,9 @@ Reuses existing database schema (bite_sized_topics, bite_sized_components tables
 from datetime import datetime
 
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, String, Text
-from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy.orm import relationship
 
-Base = declarative_base()
+from modules.shared_models import Base
 
 
 class TopicModel(Base):

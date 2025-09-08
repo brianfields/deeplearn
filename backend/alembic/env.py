@@ -25,16 +25,22 @@ except ImportError:
     # python-dotenv not available, continue without it
     pass
 
-# Add src directory to Python path to import our modules
+# Add backend directory to Python path to import our modules
 current_dir = Path(__file__).parent.parent
-src_dir = current_dir / "src"
-sys.path.insert(0, str(src_dir))
+sys.path.insert(0, str(current_dir))
 
 # Import our models - handle import errors gracefully
 try:
-    from data_structures import Base
+    # Import the main Base class
+    # Import all model modules to register them with the Base metadata
+    # This ensures all tables are included in migrations
+    from modules.content.models import ComponentModel, TopicModel
+    from modules.flow_engine.models import FlowRunModel, FlowStepRunModel
+    from modules.llm_services.models import LLMRequestModel
+    from modules.shared_models import Base
 
     target_metadata = Base.metadata
+    print(f"✅ Successfully imported models. Found {len(Base.metadata.tables)} tables.")
 except ImportError as e:
     print(f"Warning: Could not import models: {e}")
     target_metadata = None
