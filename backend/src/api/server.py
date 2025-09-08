@@ -29,6 +29,8 @@ from config import config
 if TYPE_CHECKING:
     pass
 
+from modules.flow_engine.routes import router as flow_router
+
 from .content_creation_routes import router as content_creation_router
 from .learning_routes import router as api_router
 
@@ -87,6 +89,7 @@ app.add_middleware(
 # Include routers
 app.include_router(api_router)
 app.include_router(content_creation_router)
+app.include_router(flow_router)
 
 
 @app.on_event("startup")
