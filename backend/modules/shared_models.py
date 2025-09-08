@@ -6,7 +6,7 @@ that are used across multiple modules in the application.
 """
 
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 
 # Create the SQLAlchemy Base class
 Base = declarative_base()

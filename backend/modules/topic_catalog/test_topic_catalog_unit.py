@@ -4,7 +4,7 @@ Topic Catalog Module - Unit Tests
 Tests for the topic catalog service layer.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from unittest.mock import Mock
 
 from modules.topic_catalog.service import TopicCatalogService
@@ -29,11 +29,11 @@ class TestTopicCatalogService:
                 user_level="beginner",
                 learning_objectives=["Learn A"],
                 key_concepts=["Key A"],
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow(),
-                components=[ComponentRead(id="comp-1", topic_id="topic-1", component_type="mcq", title="MCQ 1", content={"question": "What is A?"}, created_at=datetime.utcnow(), updated_at=datetime.utcnow())],
+                created_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC),
+                components=[ComponentRead(id="comp-1", topic_id="topic-1", component_type="mcq", title="MCQ 1", content={"question": "What is A?"}, created_at=datetime.now(UTC), updated_at=datetime.now(UTC))],
             ),
-            TopicRead(id="topic-2", title="Topic 2", core_concept="Concept 2", user_level="intermediate", learning_objectives=["Learn B"], key_concepts=["Key B"], created_at=datetime.utcnow(), updated_at=datetime.utcnow(), components=[]),
+            TopicRead(id="topic-2", title="Topic 2", core_concept="Concept 2", user_level="intermediate", learning_objectives=["Learn B"], key_concepts=["Key B"], created_at=datetime.now(UTC), updated_at=datetime.now(UTC), components=[]),
         ]
 
         content.search_topics.return_value = mock_topics
@@ -65,9 +65,9 @@ class TestTopicCatalogService:
             user_level="beginner",
             learning_objectives=["Learn A"],
             key_concepts=["Key A"],
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
-            components=[ComponentRead(id="comp-1", topic_id="topic-1", component_type="mcq", title="MCQ 1", content={"question": "What is A?"}, created_at=datetime.utcnow(), updated_at=datetime.utcnow())],
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+            components=[ComponentRead(id="comp-1", topic_id="topic-1", component_type="mcq", title="MCQ 1", content={"question": "What is A?"}, created_at=datetime.now(UTC), updated_at=datetime.now(UTC))],
         )
 
         content.get_topic.return_value = mock_topic

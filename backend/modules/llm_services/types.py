@@ -95,7 +95,7 @@ class LLMResponse:
         """Convert to dictionary format"""
         return {
             "content": self.content,
-            "provider": self.provider.value,
+            "provider": self.provider.value if hasattr(self.provider, "value") else self.provider,
             "model": self.model,
             "tokens_used": self.tokens_used,
             "prompt_tokens": self.prompt_tokens,

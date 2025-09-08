@@ -15,7 +15,7 @@ class ContentRepo:
 
     def __init__(self, session: DatabaseSession):
         """Initialize repository with database session."""
-        self.s = session
+        self.s = session.session
 
     # Topic operations
     def get_topic_by_id(self, topic_id: str) -> TopicModel | None:

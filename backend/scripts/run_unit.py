@@ -67,13 +67,13 @@ def setup_environment():
     return loaded_any
 
 
-def find_test_files(module_name: str = None) -> list[str]:
+def find_test_files(module_name: str | None = None) -> list[str]:
     """Find unit test files to run"""
     backend_dir = Path(__file__).parent.parent
 
     if module_name:
         # Test specific module
-        module_path = backend_dir / "modules" / module_name / "tests"
+        module_path = backend_dir / "modules" / module_name
         if not module_path.exists():
             print(f"❌ Module '{module_name}' not found at {module_path}")
             return []
@@ -81,8 +81,7 @@ def find_test_files(module_name: str = None) -> list[str]:
         # Find unit test files (exclude integration tests)
         test_files = []
         for test_file in module_path.glob("test_*.py"):
-            if "integration" not in test_file.name:
-                test_files.append(str(test_file.relative_to(backend_dir)))
+            test_files.append(str(test_file.relative_to(backend_dir)))
 
         if not test_files:
             print(f"⚠️  No unit test files found in module '{module_name}'")
@@ -95,23 +94,16 @@ def find_test_files(module_name: str = None) -> list[str]:
 
         if modules_dir.exists():
             for module_dir in modules_dir.iterdir():
-                if module_dir.is_dir() and (module_dir / "tests").exists():
-                    tests_dir = module_dir / "tests"
+                if module_dir.is_dir():
+                    tests_dir = module_dir
                     for test_file in tests_dir.glob("test_*.py"):
                         if "integration" not in test_file.name:
                             test_files.append(str(test_file.relative_to(backend_dir)))
 
-        # Also check root tests directory
-        root_tests = backend_dir / "tests"
-        if root_tests.exists():
-            for test_file in root_tests.glob("test_*.py"):
-                if "integration" not in test_file.name:
-                    test_files.append(str(test_file.relative_to(backend_dir)))
-
         return test_files
 
 
-def run_unit_tests(module_name: str = None, verbose: bool = False) -> int:
+def run_unit_tests(module_name: str | None = None, verbose: bool = False) -> int:
     """Run unit tests"""
     print("🧪 Running unit tests (fast, mocked, no API costs)...")
 
