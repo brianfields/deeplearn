@@ -1,1 +1,0 @@
-"""Topic Catalog HTTP API."""
