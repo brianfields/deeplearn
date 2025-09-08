@@ -18,7 +18,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.data_structures import Base
+from modules.shared_models import Base
 
 __all__ = ["UUID", "FlowRunModel", "FlowStepRunModel"]
 

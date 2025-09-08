@@ -1,6 +1,7 @@
 """Service layer for LLM operations with DTOs."""
 
 from datetime import datetime
+import logging
 from typing import Any, TypeVar
 import uuid
 
