@@ -1,6 +1,8 @@
 # Environment variables
 .env
 
+.llm_cache/
+
 # Learning data
 .learning_data/
 backend/logs/
