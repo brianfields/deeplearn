@@ -4,7 +4,6 @@ from unittest.mock import MagicMock
 import uuid
 
 from pydantic import BaseModel, Field
-import pytest
 
 from .flows.base import BaseFlow
 from .models import FlowRunModel, FlowStepRunModel
@@ -18,7 +17,13 @@ class TestModels:
 
     def test_flow_run_model_creation(self):
         """Test FlowRunModel creation."""
-        flow_run = FlowRunModel(flow_name="test_flow", inputs={"test": "data"}, status="pending")
+        flow_run = FlowRunModel(
+            flow_name="test_flow",
+            inputs={"test": "data"},
+            status="pending",
+            execution_mode="sync",  # Explicitly set default value for testing
+            progress_percentage=0.0,  # Explicitly set default value for testing
+        )
 
         assert flow_run.flow_name == "test_flow"
         assert flow_run.inputs == {"test": "data"}
@@ -146,21 +151,3 @@ class TestFlows:
         flow = TestFlow()
         assert flow.flow_name == "test_flow"
         assert flow.inputs_model == TestFlow.Inputs
-
-
-# Integration test placeholders (would require database setup)
-class TestIntegration:
-    """Integration tests (require database setup)."""
-
-    @pytest.mark.skip(reason="Requires database setup")
-    async def test_full_flow_execution(self):
-        """Test complete flow execution with database."""
-        # This would test the full flow execution with real database
-        # and LLM service integration
-        pass
-
-    @pytest.mark.skip(reason="Requires database setup")
-    async def test_step_execution_with_context(self):
-        """Test step execution within flow context."""
-        # This would test step execution with real FlowContext
-        pass

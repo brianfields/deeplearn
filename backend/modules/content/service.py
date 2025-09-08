@@ -5,9 +5,9 @@ Business logic layer that returns DTOs (Pydantic models).
 Handles content operations and data transformation.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from .models import ComponentModel, TopicModel
 from .repo import ContentRepo
@@ -26,8 +26,7 @@ class ComponentRead(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TopicRead(BaseModel):
@@ -47,8 +46,7 @@ class TopicRead(BaseModel):
     updated_at: datetime
     components: list[ComponentRead] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TopicCreate(BaseModel):
@@ -178,8 +176,8 @@ class ContentService:
             source_domain=topic_data.source_domain,
             source_level=topic_data.source_level,
             refined_material=topic_data.refined_material or {},
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
         )
 
         saved_topic = self.repo.save_topic(topic_model)
@@ -231,8 +229,8 @@ class ContentService:
             title=component_data.title,
             content=component_data.content,
             learning_objective=component_data.learning_objective,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
         )
 
         saved_component = self.repo.save_component(component_model)

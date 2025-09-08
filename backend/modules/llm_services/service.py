@@ -5,7 +5,7 @@ import logging
 from typing import Any, TypeVar
 import uuid
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from .config import create_llm_config_from_env
 from .providers.factory import create_llm_provider
@@ -69,7 +69,7 @@ class LLMResponse(BaseModel):
         """Create DTO from internal LLMResponse."""
         return cls(
             content=response.content,
-            provider=response.provider.value,
+            provider=response.provider.value if hasattr(response.provider, "value") else response.provider,
             model=response.model,
             tokens_used=response.tokens_used,
             prompt_tokens=response.prompt_tokens,
@@ -108,8 +108,7 @@ class LLMRequest(BaseModel):
     context_data: dict[str, Any] | None = Field(None, description="Context data")
     created_at: datetime = Field(..., description="Creation timestamp")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ImageRequest(BaseModel):

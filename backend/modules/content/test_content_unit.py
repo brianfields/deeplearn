@@ -4,7 +4,7 @@ Content Module - Unit Tests
 Tests for the content module service layer.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from unittest.mock import Mock
 
 from modules.content.models import ComponentModel, TopicModel
@@ -35,10 +35,10 @@ class TestContentService:
         repo = Mock(spec=ContentRepo)
 
         # Mock topic
-        mock_topic = TopicModel(id="test-id", title="Test Topic", core_concept="Test Concept", user_level="beginner", learning_objectives=["Learn X"], key_concepts=["Concept A"], created_at=datetime.utcnow(), updated_at=datetime.utcnow())
+        mock_topic = TopicModel(id="test-id", title="Test Topic", core_concept="Test Concept", user_level="beginner", learning_objectives=["Learn X"], key_concepts=["Concept A"], created_at=datetime.now(UTC), updated_at=datetime.now(UTC))
 
         # Mock components
-        mock_component = ComponentModel(id="comp-id", topic_id="test-id", component_type="mcq", title="Test MCQ", content={"question": "What is X?"}, created_at=datetime.utcnow(), updated_at=datetime.utcnow())
+        mock_component = ComponentModel(id="comp-id", topic_id="test-id", component_type="mcq", title="Test MCQ", content={"question": "What is X?"}, created_at=datetime.now(UTC), updated_at=datetime.now(UTC))
 
         repo.get_topic_by_id.return_value = mock_topic
         repo.get_components_by_topic_id.return_value = [mock_component]
@@ -67,7 +67,7 @@ class TestContentService:
         topic_data = TopicCreate(id="test-id", title="Test Topic", core_concept="Test Concept", user_level="beginner", learning_objectives=["Learn X"], key_concepts=["Concept A"])
 
         # Mock the saved topic
-        mock_saved_topic = TopicModel(id="test-id", title="Test Topic", core_concept="Test Concept", user_level="beginner", learning_objectives=["Learn X"], key_concepts=["Concept A"], created_at=datetime.utcnow(), updated_at=datetime.utcnow())
+        mock_saved_topic = TopicModel(id="test-id", title="Test Topic", core_concept="Test Concept", user_level="beginner", learning_objectives=["Learn X"], key_concepts=["Concept A"], created_at=datetime.now(UTC), updated_at=datetime.now(UTC))
         repo.save_topic.return_value = mock_saved_topic
 
         # Act
@@ -88,7 +88,7 @@ class TestContentService:
         component_data = ComponentCreate(id="comp-id", topic_id="test-id", component_type="mcq", title="Test MCQ", content={"question": "What is X?"}, learning_objective="Learn X")
 
         # Mock the saved component
-        mock_saved_component = ComponentModel(id="comp-id", topic_id="test-id", component_type="mcq", title="Test MCQ", content={"question": "What is X?"}, learning_objective="Learn X", created_at=datetime.utcnow(), updated_at=datetime.utcnow())
+        mock_saved_component = ComponentModel(id="comp-id", topic_id="test-id", component_type="mcq", title="Test MCQ", content={"question": "What is X?"}, learning_objective="Learn X", created_at=datetime.now(UTC), updated_at=datetime.now(UTC))
         repo.save_component.return_value = mock_saved_component
 
         # Act

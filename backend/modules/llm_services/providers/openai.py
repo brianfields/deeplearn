@@ -157,11 +157,12 @@ class OpenAIProvider(LLMProvider):
                 openai_messages.append(openai_msg)
 
             # Prepare request parameters
+            print(f"OPENAI CONFIG MODEL: {self.config.model}, {kwargs.get('model')}, {kwargs.get('model', self.config.model)}")
             request_params = {
-                "model": kwargs.get("model", self.config.model),
+                "model": kwargs.get("model", self.config.model) or self.config.model,
                 "messages": openai_messages,
-                "temperature": kwargs.get("temperature", self.config.temperature),
-                "max_tokens": kwargs.get("max_tokens", self.config.max_tokens),
+                "temperature": kwargs.get("temperature", self.config.temperature) or self.config.temperature,
+                "max_tokens": kwargs.get("max_tokens", self.config.max_tokens) or self.config.max_tokens,
                 "stream": False,
             }
 
