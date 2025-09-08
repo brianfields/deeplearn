@@ -12,6 +12,7 @@ from modules.llm_services.module_api import LLMService
 
 from ..domain.entities.topic import Topic
 from ..domain.policies.topic_validation_policy import TopicValidationPolicy
+from ..domain.prompts import DidacticSnippetPrompt, GlossaryPrompt, RefinedMaterialExtractionPrompt, create_default_context
 
 logger = logging.getLogger(__name__)
 
@@ -65,8 +66,24 @@ class MaterialExtractionService:
             # Prepare context for LLM
             extraction_context = {"source_material": source_material, "domain": domain, "user_level": user_level, "core_concept": core_concept, **(context or {})}
 
-            # Extract refined material using LLM service
-            refined_material = await self.llm_service.generate_structured_content(prompt_name="extract_material", **extraction_context)
+            # Extract refined material using prompt template
+            prompt_template = RefinedMaterialExtractionPrompt()
+            context = create_default_context(user_level=user_level)
+            messages = prompt_template.generate_prompt(context, **extraction_context)
+
+            # Generate refined material using LLM service with custom messages
+            llm_response = await self.llm_service.generate_custom_response(messages)
+
+            from pprint import pprint
+            pprint(llm_response)
+
+            # Parse the JSON response
+            import json
+
+            try:
+                refined_material = json.loads(llm_response.content)
+            except json.JSONDecodeError as e:
+                raise MaterialExtractionError(f"Failed to parse material extraction response as JSON: {e}")
 
             if not isinstance(refined_material, dict):
                 raise MaterialExtractionError("LLM service returned invalid refined material format")
@@ -143,8 +160,19 @@ class MaterialExtractionService:
                 **(additional_context or {}),
             }
 
-            # Refine material using LLM service
-            refined_material = await self.llm_service.generate_structured_content(prompt_name="extract_material", **refinement_context)
+            # Refine material using prompt template
+            prompt_template = RefinedMaterialExtractionPrompt()
+            context = create_default_context(user_level=topic.user_level)
+            messages = prompt_template.generate_prompt(context, **refinement_context)
+
+            # Generate refined material using LLM service with custom messages
+            llm_response = await self.llm_service.generate_custom_response(messages)
+
+            # Parse the JSON response
+            try:
+                refined_material = json.loads(llm_response.content)
+            except json.JSONDecodeError as e:
+                raise MaterialExtractionError(f"Failed to parse material refinement response as JSON: {e}")
 
             # Validate refined material
             TopicValidationPolicy.is_valid_refined_material(refined_material)
@@ -186,8 +214,19 @@ class MaterialExtractionService:
             # Prepare glossary context
             glossary_context = {"topic_title": topic.title, "core_concept": topic.core_concept, "user_level": topic.user_level, "concepts": concepts_for_glossary, "source_material": topic.source_material or "", **(context or {})}
 
-            # Extract glossary using LLM service
-            glossary_data = await self.llm_service.generate_structured_content(prompt_name="glossary", **glossary_context)
+            # Extract glossary using prompt template
+            prompt_template = GlossaryPrompt()
+            context = create_default_context(user_level=topic.user_level)
+            messages = prompt_template.generate_prompt(context, **glossary_context)
+
+            # Generate glossary using LLM service with custom messages
+            llm_response = await self.llm_service.generate_custom_response(messages)
+
+            # Parse the JSON response
+            try:
+                glossary_data = json.loads(llm_response.content)
+            except json.JSONDecodeError as e:
+                raise MaterialExtractionError(f"Failed to parse glossary response as JSON: {e}")
 
             if not isinstance(glossary_data, dict) or "terms" not in glossary_data:
                 raise MaterialExtractionError("LLM service returned invalid glossary format")
@@ -229,8 +268,19 @@ class MaterialExtractionService:
                 **(context or {}),
             }
 
-            # Generate snippet using LLM service
-            snippet_data = await self.llm_service.generate_structured_content(prompt_name="didactic_snippet", **snippet_context)
+            # Generate snippet using prompt template
+            prompt_template = DidacticSnippetPrompt()
+            context = create_default_context(user_level=topic.user_level)
+            messages = prompt_template.generate_prompt(context, **snippet_context)
+
+            # Generate snippet using LLM service with custom messages
+            llm_response = await self.llm_service.generate_custom_response(messages)
+
+            # Parse the JSON response
+            try:
+                snippet_data = json.loads(llm_response.content)
+            except json.JSONDecodeError as e:
+                raise MaterialExtractionError(f"Failed to parse didactic snippet response as JSON: {e}")
 
             if not isinstance(snippet_data, dict):
                 raise MaterialExtractionError("LLM service returned invalid snippet format")

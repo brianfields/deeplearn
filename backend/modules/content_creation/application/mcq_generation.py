@@ -13,6 +13,7 @@ from modules.llm_services.module_api import LLMService
 
 from ..domain.entities.component import Component
 from ..domain.entities.topic import Topic
+from ..domain.prompts import MCQEvaluationPrompt, SingleMCQCreationPrompt, create_default_context
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +63,7 @@ class MCQGenerationService:
 
             # Prepare context for LLM
             mcq_context = {
+                "subtopic": topic.core_concept,  # Required by SingleMCQCreationPrompt
                 "topic_title": topic.title,
                 "core_concept": topic.core_concept,
                 "user_level": topic.user_level,
@@ -71,8 +73,21 @@ class MCQGenerationService:
                 **(context or {}),
             }
 
-            # Generate MCQ using LLM service
-            mcq_response = await self.llm_service.generate_structured_content(prompt_name="single_mcq_creation", **mcq_context)
+            # Generate MCQ using prompt template
+            prompt_template = SingleMCQCreationPrompt()
+            context = create_default_context(user_level=topic.user_level)
+            messages = prompt_template.generate_prompt(context, **mcq_context)
+
+            # Generate MCQ using LLM service with custom messages
+            llm_response = await self.llm_service.generate_custom_response(messages)
+
+            # Parse the JSON response
+            import json
+
+            try:
+                mcq_response = json.loads(llm_response.content)
+            except json.JSONDecodeError as e:
+                raise MCQGenerationError(f"Failed to parse LLM response as JSON: {e}")
 
             if not isinstance(mcq_response, dict):
                 raise MCQGenerationError("LLM service returned invalid MCQ format")
@@ -196,8 +211,19 @@ class MCQGenerationService:
                 **(context or {}),
             }
 
-            # Evaluate using LLM service
-            evaluation = await self.llm_service.generate_structured_content(prompt_name="mcq_evaluation", **eval_context)
+            # Evaluate MCQ using prompt template
+            prompt_template = MCQEvaluationPrompt()
+            context = create_default_context(user_level="intermediate")  # Default for evaluation
+            messages = prompt_template.generate_prompt(context, **eval_context)
+
+            # Generate evaluation using LLM service with custom messages
+            llm_response = await self.llm_service.generate_custom_response(messages)
+
+            # Parse the JSON response
+            try:
+                evaluation = json.loads(llm_response.content)
+            except json.JSONDecodeError as e:
+                raise MCQGenerationError(f"Failed to parse MCQ evaluation response as JSON: {e}")
 
             logger.info(f"Successfully evaluated MCQ component {component.id}")
             return evaluation

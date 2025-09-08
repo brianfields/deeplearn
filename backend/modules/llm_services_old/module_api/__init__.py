@@ -6,6 +6,8 @@ Other modules should only import from this module_api package.
 """
 
 # Main service class
+# Domain types needed for prompt templates
+from ..domain.entities.llm_provider import LLMMessage, MessageRole
 from .llm_service import LLMService, create_llm_service
 
 # Types for external use
@@ -28,4 +30,7 @@ __all__ = [
     "LLMConfig",
     "GenerationRequest",
     "GenerationResponse",
+    # Domain types for prompts
+    "LLMMessage",
+    "MessageRole",
 ]
