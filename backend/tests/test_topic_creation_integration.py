@@ -11,10 +11,12 @@ import logging
 import os
 
 import pytest
+from sqlalchemy import desc
 
 from modules.content.repo import ContentRepo
 from modules.content.service import ContentService
 from modules.content_creator.service import ContentCreatorService, CreateTopicRequest
+from modules.flow_engine.models import FlowRunModel, FlowStepRunModel
 from modules.infrastructure.public import infrastructure_provider
 
 
@@ -244,3 +246,29 @@ class TestTopicCreationIntegration:
                 # If it's a string, it should be one of the options
                 assert isinstance(correct_answer, str)
                 assert correct_answer in mcq.content["options"]
+
+        # Verify flow run and step run records
+        # Fetch the most recent flow run for this flow
+        flow_run = db_session.session.query(FlowRunModel).filter(FlowRunModel.flow_name == "topic_creation").order_by(desc(FlowRunModel.created_at)).first()
+
+        assert flow_run is not None
+        assert flow_run.status == "completed"
+        assert flow_run.outputs is not None
+        assert isinstance(flow_run.outputs, dict)
+        assert "learning_objectives" in flow_run.outputs
+
+        # Verify expected steps exist and counts match
+        step_runs = db_session.session.query(FlowStepRunModel).filter(FlowStepRunModel.flow_run_id == flow_run.id).order_by(FlowStepRunModel.step_order).all()
+        assert len(step_runs) >= 3
+
+        step_names = [s.step_name for s in step_runs]
+        assert "extract_topic_metadata" in step_names
+        assert "generate_didactic_snippet" in step_names
+        assert "generate_glossary" in step_names
+
+        expected_mcq_count = len(flow_run.outputs.get("learning_objectives", []))
+        actual_mcq_count = sum(1 for n in step_names if n == "generate_mcq")
+        assert actual_mcq_count == expected_mcq_count
+
+        # Ensure all steps completed successfully
+        assert all(s.status == "completed" for s in step_runs)

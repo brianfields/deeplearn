@@ -35,6 +35,7 @@ def content_provider() -> ContentProvider:
     Returns the concrete ContentService which implements the ContentProvider protocol.
     """
     infra = infrastructure_provider()
+    infra.initialize()
     session = infra.get_database_session()
     return ContentService(ContentRepo(session))
 
