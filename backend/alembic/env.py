@@ -37,6 +37,7 @@ try:
     from modules.content.models import ComponentModel, TopicModel
     from modules.flow_engine.models import FlowRunModel, FlowStepRunModel
     from modules.llm_services.models import LLMRequestModel
+    from modules.learning_session.models import LearningSessionModel
     from modules.shared_models import Base
 
     target_metadata = Base.metadata

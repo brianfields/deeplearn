@@ -13,7 +13,7 @@ class LLMConfig(BaseModel):
     """Configuration for LLM providers"""
 
     provider: LLMProviderType = Field(default=LLMProviderType.OPENAI, description="LLM provider to use")
-    model: str = Field(default="gpt-4o", description="Model name to use")
+    model: str = Field(default="gpt-5", description="Model name to use")
     api_key: str | None = Field(default=None, description="API key for the provider")
     base_url: str | None = Field(default=None, description="Custom base URL for API calls")
     temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="Temperature for generation")
@@ -89,7 +89,7 @@ def create_llm_config_from_env() -> LLMConfig:
 
     Reads the following environment variables:
     - OPENAI_API_KEY: OpenAI API key
-    - OPENAI_MODEL: Model name (default: gpt-4o)
+    - OPENAI_MODEL: Model name (default: gpt-5)
     - OPENAI_BASE_URL: Custom base URL
     - AZURE_OPENAI_API_KEY: Azure OpenAI API key
     - AZURE_OPENAI_ENDPOINT: Azure OpenAI endpoint
@@ -113,7 +113,7 @@ def create_llm_config_from_env() -> LLMConfig:
     """
     # Read environment variables
     openai_api_key = os.getenv("OPENAI_API_KEY")
-    openai_model = os.getenv("OPENAI_MODEL", "gpt-4o")
+    openai_model = os.getenv("OPENAI_MODEL", "gpt-5")
     openai_base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
 
     azure_openai_api_key = os.getenv("AZURE_OPENAI_API_KEY")

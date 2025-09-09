@@ -55,7 +55,7 @@ The app supports extensive configuration via environment variables:
 OPENAI_API_KEY=your-api-key-here
 
 # Optional (with defaults)
-OPENAI_MODEL=gpt-4o
+OPENAI_MODEL=gpt-5
 USER_LEVEL=beginner
 LESSON_DURATION=15
 MASTERY_THRESHOLD=0.9
@@ -145,13 +145,14 @@ I'm wondering if you can see a connection between that and how we might handle d
 
 - **User Level**: beginner, intermediate, advanced
 - **OpenAI API Key**: Your OpenAI API key
-- **OpenAI Model**: gpt-3.5-turbo, gpt-4o
+- **OpenAI Model**: gpt-5-nano, gpt-5-mini, gpt-5
 - **Lesson Duration**: Default 15 minutes
 
 ### Cost Optimization
 
-- **gpt-3.5-turbo**: Most cost-effective option
-- **gpt-4o**: Higher quality but more expensive
+- **gpt-5-nano**: Most cost-effective option
+- **gpt-5-mini**: Higher quality but more expensive
+- **gpt-5-large**: Highest quality but most expensive
 
 ## 📊 Progress Tracking
 
