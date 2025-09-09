@@ -8,6 +8,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { topicCatalogProvider } from './public';
 import type { TopicFilters, PaginationInfo } from './models';
 
+// Get the topic catalog service instance
+const topicCatalog = topicCatalogProvider();
+
 // Query keys
 export const topicCatalogKeys = {
   all: ['topic_catalog'] as const,
