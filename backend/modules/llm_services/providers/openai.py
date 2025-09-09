@@ -63,10 +63,10 @@ __all__ = ["OpenAIProvider"]
 
 class OpenAIProvider(LLMProvider):
     """
-    OpenAI provider implementation supporting both text and image generation.
+    OpenAI GPT-5 provider implementation supporting text and image generation.
 
-    Supports regular OpenAI API and Azure OpenAI with automatic retry logic,
-    error handling, and token tracking.
+    Focuses exclusively on GPT-5 using the Responses API with automatic retry logic,
+    error handling, and token tracking. Supports both regular OpenAI API and Azure OpenAI.
     """
 
     def __init__(self, config: LLMConfig, db_session: Session) -> None:
@@ -107,9 +107,10 @@ class OpenAIProvider(LLMProvider):
         except Exception as e:
             raise LLMAuthenticationError(f"Failed to setup OpenAI client: {e}") from e
 
-    def _is_gpt5_model(self, model: str) -> bool:
-        """Check if the model is GPT-5 which uses the Responses API."""
-        return model.startswith("gpt-5")
+    def _validate_gpt5_model(self, model: str) -> None:
+        """Validate that the model is GPT-5 since we only support GPT-5."""
+        if not model.startswith("gpt-5"):
+            raise LLMValidationError(f"Only GPT-5 models are supported. Got: {model}")
 
     def _convert_messages_to_gpt5_input(self, messages: list[LLMMessage]) -> list[dict[str, Any]]:
         """Convert LLMMessage list to GPT-5 input format."""
@@ -190,89 +191,46 @@ class OpenAIProvider(LLMProvider):
                     )
                     return cached_response, request_id
 
-            # Determine model and API to use
+            # Validate model and prepare GPT-5 request
             model = kwargs.get("model", self.config.model) or self.config.model
-            is_gpt5 = self._is_gpt5_model(model)
+            self._validate_gpt5_model(model)
 
-            logger.info(f"🤖 Starting LLM request - Model: {model}, GPT-5: {is_gpt5}, Messages: {len(messages)}")
+            logger.info(f"🤖 Starting GPT-5 request - Model: {model}, Messages: {len(messages)}")
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug(f"Messages: {[{'role': m.role.value, 'content': m.content[:100] + '...' if len(m.content) > 100 else m.content} for m in messages]}")
 
-            if is_gpt5:
-                # Use GPT-5 Responses API
-                logger.info("📡 Using GPT-5 Responses API")
-                input_messages = self._convert_messages_to_gpt5_input(messages)
+            # Convert messages to GPT-5 format
+            input_messages = self._convert_messages_to_gpt5_input(messages)
 
-                request_params = {
-                    "model": model,
-                    "input": input_messages,
-                }
+            request_params = {
+                "model": model,
+                "input": input_messages,
+            }
 
-                # Add GPT-5 specific parameters
-                if "instructions" in kwargs:
-                    request_params["instructions"] = kwargs["instructions"]
-                    logger.debug(f"Instructions: {kwargs['instructions'][:100]}...")
-                if "reasoning" in kwargs:
-                    request_params["reasoning"] = kwargs["reasoning"]
-                    logger.debug(f"Reasoning: {kwargs['reasoning']}")
+            # Add GPT-5 specific parameters
+            if "instructions" in kwargs:
+                request_params["instructions"] = kwargs["instructions"]
+                logger.debug(f"Instructions: {kwargs['instructions'][:100]}...")
+            if "reasoning" in kwargs:
+                request_params["reasoning"] = kwargs["reasoning"]
+                logger.debug(f"Reasoning: {kwargs['reasoning']}")
 
-                # Add optional parameters that work with GPT-5
-                for param in ["top_p", "frequency_penalty", "presence_penalty", "stop"]:
-                    if param in kwargs:
-                        request_params[param] = kwargs[param]
+            # Add optional parameters that work with GPT-5
+            for param in ["top_p", "frequency_penalty", "presence_penalty", "stop"]:
+                if param in kwargs:
+                    request_params[param] = kwargs[param]
 
-                logger.debug(f"GPT-5 request params: {list(request_params.keys())}")
+            logger.debug(f"GPT-5 request params: {list(request_params.keys())}")
 
-                # Make API call with retry logic
-                logger.info("⏳ Making GPT-5 API call...")
-                response = await self._make_api_call_with_retry(
-                    lambda: self.client.responses.create(**request_params)  # type: ignore[attr-defined]
-                )
-                logger.info("✅ GPT-5 API call completed")
+            # Make API call with retry logic
+            logger.info("⏳ Making GPT-5 API call...")
+            response = await self._make_api_call_with_retry(
+                lambda: self.client.responses.create(**request_params)  # type: ignore[attr-defined]
+            )
+            logger.info("✅ GPT-5 API call completed")
 
-                # Parse GPT-5 response
-                content, finish_reason, usage = self._parse_gpt5_response(response)
-
-            else:
-                # Use traditional Chat Completions API for older models
-                logger.info("💬 Using Chat Completions API")
-                openai_messages = []
-                for msg in messages:
-                    openai_msg = {
-                        "role": msg.role.value,
-                        "content": msg.content,
-                    }
-                    if msg.name:
-                        openai_msg["name"] = msg.name
-                    openai_messages.append(openai_msg)
-
-                request_params = {
-                    "model": model,
-                    "messages": openai_messages,
-                    "stream": False,
-                }
-
-                # Add optional parameters
-                for param in ["top_p", "frequency_penalty", "presence_penalty", "stop"]:
-                    if param in kwargs:
-                        request_params[param] = kwargs[param]
-
-                logger.debug(f"Chat Completions request params: {list(request_params.keys())}")
-
-                # Make API call with retry logic
-                logger.info("⏳ Making Chat Completions API call...")
-                response = await self._make_api_call_with_retry(
-                    lambda: self.client.chat.completions.create(**request_params)  # type: ignore[attr-defined]
-                )
-                logger.info("✅ Chat Completions API call completed")
-
-                # Extract response data
-                logger.debug(f"Raw OpenAI response: {response}")
-                choice = response.choices[0]
-                content = choice.message.content or ""
-                finish_reason = choice.finish_reason
-                usage = response.usage
-                logger.debug(f"Extracted content: '{content}', finish_reason: {finish_reason}")
+            # Parse GPT-5 response
+            content, finish_reason, usage = self._parse_gpt5_response(response)
 
             # Extract usage information
             if usage:
@@ -336,17 +294,16 @@ class OpenAIProvider(LLMProvider):
         **kwargs: Any,
     ) -> tuple[T, uuid.UUID]:
         """
-        Generate a structured response using instructor and Pydantic models.
+        Generate a structured response using GPT-5 with JSON schema instructions.
 
-        Note: This implementation uses a simplified approach. For production use,
-        consider integrating with the instructor library for better structured output.
+        Uses GPT-5's instructions parameter to enforce JSON schema compliance.
         """
         try:
-            # Determine model to check if it's GPT-5
+            # Validate GPT-5 model
             model = kwargs.get("model", self.config.model) or self.config.model
-            is_gpt5 = self._is_gpt5_model(model)
+            self._validate_gpt5_model(model)
 
-            # Create system message with JSON schema instruction
+            # Create JSON schema instruction for GPT-5
             schema = response_model.model_json_schema()
             properties = schema.get("properties", {})
             required = schema.get("required", [])
@@ -373,16 +330,10 @@ Example format:
 }}
 """
 
-            if is_gpt5:
-                # For GPT-5, use instructions parameter instead of system message
-                kwargs_copy = kwargs.copy()
-                kwargs_copy["instructions"] = schema_instruction
-                response, llm_request_id = await self.generate_response(messages=messages, user_id=user_id, **kwargs_copy)
-            else:
-                # For older models, append system message
-                enhanced_messages = messages.copy()
-                enhanced_messages.append(LLMMessage(role=MessageRole.SYSTEM, content=schema_instruction))
-                response, llm_request_id = await self.generate_response(messages=enhanced_messages, user_id=user_id, **kwargs)
+            # For GPT-5, use instructions parameter
+            kwargs_copy = kwargs.copy()
+            kwargs_copy["instructions"] = schema_instruction
+            response, llm_request_id = await self.generate_response(messages=messages, user_id=user_id, **kwargs_copy)
 
             # Parse JSON response
             try:
@@ -499,27 +450,18 @@ Example format:
         completion_tokens: int,
         model: str | None = None,
     ) -> float:
-        """Estimate cost for OpenAI API usage."""
+        """Estimate cost for GPT-5 API usage."""
         model_name = model or self.config.model
 
-        # GPT-4 pricing (as of 2024)
-        if "gpt-4" in model_name:
-            if "32k" in model_name or "gpt-4-32k" in model_name:
-                prompt_cost = (prompt_tokens / 1000) * 0.06
-                completion_cost = (completion_tokens / 1000) * 0.12
-            elif "turbo" in model_name and "preview" in model_name:
-                prompt_cost = (prompt_tokens / 1000) * 0.01
-                completion_cost = (completion_tokens / 1000) * 0.03
-            else:  # GPT-4
-                prompt_cost = (prompt_tokens / 1000) * 0.03
-                completion_cost = (completion_tokens / 1000) * 0.06
-        elif "gpt-3.5-turbo" in model_name:
-            prompt_cost = (prompt_tokens / 1000) * 0.0015
-            completion_cost = (completion_tokens / 1000) * 0.002
+        # GPT-5 pricing (estimated - adjust based on actual pricing when available)
+        if "gpt-5" in model_name:
+            # Placeholder pricing for GPT-5 - update when official pricing is released
+            prompt_cost = (prompt_tokens / 1000) * 0.05  # Estimated
+            completion_cost = (completion_tokens / 1000) * 0.10  # Estimated
         else:
-            # Default fallback
-            prompt_cost = (prompt_tokens / 1000) * 0.002
-            completion_cost = (completion_tokens / 1000) * 0.002
+            # Fallback for any non-GPT-5 models (should not happen with validation)
+            prompt_cost = (prompt_tokens / 1000) * 0.05
+            completion_cost = (completion_tokens / 1000) * 0.10
 
         return prompt_cost + completion_cost
 

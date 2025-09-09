@@ -156,7 +156,7 @@ class TestTopicCreationIntegration:
         # Arrange: Ensure model is set before creating LLM service
         # The LLM service reads environment variables at initialization time
         print("🔧 Setting up test environment and services...")
-        os.environ["OPENAI_MODEL"] = "gpt-5"
+        os.environ["OPENAI_MODEL"] = "gpt-5-nano"
         print(f"📝 Using model: {os.environ['OPENAI_MODEL']}")
 
         # Create services using the initialized infrastructure service
