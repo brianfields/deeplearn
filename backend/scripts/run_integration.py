@@ -173,13 +173,14 @@ def run_integration_tests(module_name: str = None, verbose: bool = False) -> int
         for test_file in test_files:
             print(f"  - {test_file}")
 
+    # Set environment variables for integration tests
+    env = os.environ.copy()
+
     # Setup detailed logging if verbose mode is enabled
     if verbose:
         print("📝 Setting up detailed logging for verbose mode...")
-        setup_detailed_logging()
-
-    # Set environment variables for integration tests
-    env = os.environ.copy()
+        # Set environment variable to enable detailed logging in subprocess
+        env["INTEGRATION_TEST_VERBOSE_LOGGING"] = "true"
 
     # Build pytest command
     cmd = [
@@ -191,9 +192,9 @@ def run_integration_tests(module_name: str = None, verbose: bool = False) -> int
         "--tb=short",
     ]
 
-    # Add -s flag for verbose mode to show print statements and logging
+    # Add flags for verbose mode to show print statements and logging
     if verbose:
-        cmd.append("-s")
+        cmd.extend(["-s", "--log-cli-level=DEBUG", "--log-cli-format=%(asctime)s - %(name)s - %(levelname)s - %(message)s"])
 
     print(f"🚀 Running: {' '.join(cmd)}")
 

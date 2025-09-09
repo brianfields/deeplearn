@@ -42,9 +42,27 @@ class TopicCreationResult(BaseModel):
 class ContentCreatorService:
     """Service for AI-powered content creation."""
 
-    def __init__(self, content: ContentProvider):
+    def __init__(self, content: ContentProvider) -> None:
         """Initialize with content storage only - flows handle LLM interactions."""
         self.content = content
+
+    def _truncate_title(self, title: str, max_length: int = 255) -> str:
+        """
+        Truncate title to fit database constraint.
+
+        Args:
+            title: The title to truncate
+            max_length: Maximum allowed length (default: 255 for database constraint)
+
+        Returns:
+            Truncated title with "..." if needed
+        """
+        if len(title) <= max_length:
+            return title
+
+        # Reserve 3 characters for "..."
+        truncated = title[: max_length - 3] + "..."
+        return truncated
 
     async def create_topic_from_source_material(self, request: CreateTopicRequest) -> TopicCreationResult:
         """
@@ -80,7 +98,7 @@ class ContentCreatorService:
         )
 
         logger.info("💾 Saving topic to database...")
-        saved_topic = self.content.save_topic(topic_data)
+        self.content.save_topic(topic_data)
 
         # Generate and save components
         components_created = 0
@@ -89,14 +107,16 @@ class ContentCreatorService:
         # Create didactic snippet
         if "didactic_snippet" in flow_result:
             logger.debug("Creating didactic snippet component")
-            component_data = ComponentCreate(id=str(uuid.uuid4()), topic_id=topic_id, component_type="didactic_snippet", title=f"Overview: {request.title}", content=flow_result["didactic_snippet"])
+            didactic_title = self._truncate_title(f"Overview: {request.title}")
+            component_data = ComponentCreate(id=str(uuid.uuid4()), topic_id=topic_id, component_type="didactic_snippet", title=didactic_title, content=flow_result["didactic_snippet"])
             self.content.save_component(component_data)
             components_created += 1
 
         # Create glossary
         if "glossary" in flow_result:
             logger.debug("Creating glossary component")
-            component_data = ComponentCreate(id=str(uuid.uuid4()), topic_id=topic_id, component_type="glossary", title=f"Glossary: {request.title}", content=flow_result["glossary"])
+            glossary_title = self._truncate_title(f"Glossary: {request.title}")
+            component_data = ComponentCreate(id=str(uuid.uuid4()), topic_id=topic_id, component_type="glossary", title=glossary_title, content=flow_result["glossary"])
             self.content.save_component(component_data)
             components_created += 1
 
@@ -104,7 +124,9 @@ class ContentCreatorService:
         mcqs = flow_result.get("mcqs", [])
         logger.debug(f"Creating {len(mcqs)} MCQ components")
         for i, mcq in enumerate(mcqs):
-            component_data = ComponentCreate(id=str(uuid.uuid4()), topic_id=topic_id, component_type="mcq", title=f"Question {i + 1}: {mcq.get('question', 'MCQ')}", content=mcq)
+            question_text = mcq.get("question", "MCQ")
+            mcq_title = self._truncate_title(f"Question {i + 1}: {question_text}")
+            component_data = ComponentCreate(id=str(uuid.uuid4()), topic_id=topic_id, component_type="mcq", title=mcq_title, content=mcq)
             self.content.save_component(component_data)
             components_created += 1
 
