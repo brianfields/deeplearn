@@ -28,9 +28,6 @@ export const topicCatalogKeys = {
   statistics: () => ['topic_catalog', 'statistics'] as const,
 };
 
-// Service instance
-const topicCatalog = topicCatalogProvider();
-
 /**
  * Browse topics with optional filters
  */
@@ -157,7 +154,7 @@ export function useTopicCatalog(
   pagination?: Omit<PaginationInfo, 'hasMore'>
 ) {
   // Use search if there's a query, otherwise browse
-  const shouldSearch = searchQuery?.trim().length > 0;
+  const shouldSearch = !!(searchQuery && searchQuery?.trim().length > 0);
 
   const browseQuery = useBrowseTopics(filters, pagination, {
     enabled: !shouldSearch,
