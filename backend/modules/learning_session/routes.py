@@ -7,15 +7,10 @@ This is a migration, not new feature development.
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
 
-from ...database import get_db  # Assuming this exists
-from ..content.public import content_provider
-from ..topic_catalog.public import topic_catalog_provider
-from .repo import LearningSessionRepo
+from .public import LearningSessionProvider, learning_session_provider
 from .service import (
     CompleteSessionRequest,
-    LearningSessionService,
     StartSessionRequest,
     UpdateProgressRequest,
 )
@@ -102,7 +97,7 @@ class HealthResponseModel(BaseModel):
 # Router Setup
 # ================================
 
-router = APIRouter(prefix="/api/v1/sessions", tags=["learning_sessions"])
+router = APIRouter(prefix="/api/v1/sessions")
 
 
 # ================================
@@ -110,12 +105,9 @@ router = APIRouter(prefix="/api/v1/sessions", tags=["learning_sessions"])
 # ================================
 
 
-def get_learning_session_service(db: Session = Depends(get_db)) -> LearningSessionService:
+def get_learning_session_service() -> LearningSessionProvider:
     """Dependency injection for learning session service"""
-    repo = LearningSessionRepo(db)
-    content = content_provider()
-    topic_catalog = topic_catalog_provider()
-    return LearningSessionService(repo, content, topic_catalog)
+    return learning_session_provider()
 
 
 # ================================
@@ -126,7 +118,7 @@ def get_learning_session_service(db: Session = Depends(get_db)) -> LearningSessi
 @router.post("/", response_model=SessionResponseModel)
 async def start_session(
     request: StartSessionRequestModel,
-    service: LearningSessionService = Depends(get_learning_session_service),
+    service: LearningSessionProvider = Depends(get_learning_session_service),
 ):
     """Start a new learning session"""
     try:
@@ -158,7 +150,7 @@ async def start_session(
 @router.get("/{session_id}", response_model=SessionResponseModel)
 async def get_session(
     session_id: str,
-    service: LearningSessionService = Depends(get_learning_session_service),
+    service: LearningSessionProvider = Depends(get_learning_session_service),
 ):
     """Get session details by ID"""
     try:
@@ -187,7 +179,7 @@ async def get_session(
 async def update_session_progress(
     session_id: str,
     request: UpdateProgressRequestModel,
-    service: LearningSessionService = Depends(get_learning_session_service),
+    service: LearningSessionProvider = Depends(get_learning_session_service),
 ):
     """Update session progress"""
     try:
@@ -221,7 +213,7 @@ async def update_session_progress(
 @router.post("/{session_id}/complete", response_model=SessionResultsResponseModel)
 async def complete_session(
     session_id: str,
-    service: LearningSessionService = Depends(get_learning_session_service),
+    service: LearningSessionProvider = Depends(get_learning_session_service),
 ):
     """Complete a learning session"""
     try:
@@ -248,7 +240,7 @@ async def complete_session(
 @router.post("/{session_id}/pause", response_model=SessionResponseModel)
 async def pause_session(
     session_id: str,
-    service: LearningSessionService = Depends(get_learning_session_service),
+    service: LearningSessionProvider = Depends(get_learning_session_service),
 ):
     """Pause a learning session"""
     try:
@@ -280,7 +272,7 @@ async def get_user_sessions(
     topic_id: str | None = Query(None, description="Filter by topic ID"),
     limit: int = Query(50, ge=1, le=100, description="Maximum number of sessions to return"),
     offset: int = Query(0, ge=0, description="Number of sessions to skip"),
-    service: LearningSessionService = Depends(get_learning_session_service),
+    service: LearningSessionProvider = Depends(get_learning_session_service),
 ):
     """Get user sessions with filtering"""
     try:
@@ -318,7 +310,7 @@ async def get_user_sessions(
 
 @router.get("/health", response_model=HealthResponseModel)
 async def health_check(
-    service: LearningSessionService = Depends(get_learning_session_service),
+    service: LearningSessionProvider = Depends(get_learning_session_service),
 ):
     """Health check endpoint"""
     try:

@@ -12,6 +12,7 @@ from .service import (
     AppConfig,
     DatabaseConfig,
     DatabaseSession,
+    DatabaseSessionContext,
     EnvironmentStatus,
     InfrastructureService,
     LoggingConfig,
@@ -22,7 +23,7 @@ class InfrastructureProvider(Protocol):
     """Protocol defining the public interface for infrastructure operations."""
 
     def initialize(self, env_file: str | None = None) -> None:
-        """Initialize the infrastructure service."""
+        """Initialize the infrastructure service. This method is idempotent."""
         ...
 
     def get_database_session(self) -> DatabaseSession:
@@ -33,7 +34,7 @@ class InfrastructureProvider(Protocol):
         """Close a database session."""
         ...
 
-    def get_session_context(self):
+    def get_session_context(self) -> DatabaseSessionContext:
         """Get a database session context manager."""
         ...
 
@@ -58,15 +59,26 @@ class InfrastructureProvider(Protocol):
         ...
 
 
+# Global singleton instance
+_infrastructure_instance: InfrastructureService | None = None
+
+
 def infrastructure_provider() -> InfrastructureProvider:
     """
     Dependency injection provider for infrastructure services.
 
+    Returns the same singleton instance across all calls to prevent
+    multiple database connections and configuration loading.
+
     Returns:
         Infrastructure service instance that implements the protocol
     """
-    # Return the concrete service; it already returns DTOs
-    return InfrastructureService()
+    global _infrastructure_instance
+
+    if _infrastructure_instance is None:
+        _infrastructure_instance = InfrastructureService()
+
+    return _infrastructure_instance
 
 
 # Export the DTOs and provider for external use
@@ -75,6 +87,7 @@ __all__ = [
     "AppConfig",
     "DatabaseConfig",
     "DatabaseSession",
+    "DatabaseSessionContext",
     "EnvironmentStatus",
     "InfrastructureProvider",
     "LoggingConfig",

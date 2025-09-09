@@ -13,7 +13,7 @@ import type {
 } from './models';
 
 // Backend API endpoints
-const TOPIC_CATALOG_BASE = '/api/topics';
+const TOPIC_CATALOG_BASE = '/api/v1/topics';
 
 // API response types (private to repo)
 interface ApiBrowseTopicsResponse {

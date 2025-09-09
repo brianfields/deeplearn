@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from .public import ContentCreatorProvider, content_creator_provider
 from .service import CreateTopicRequest, TopicCreationResult
 
-router = APIRouter(prefix="/api/content-creator", tags=["content-creator"])
+router = APIRouter(prefix="/api/v1/content-creator")
 
 
 @router.post("/topics", response_model=TopicCreationResult)
