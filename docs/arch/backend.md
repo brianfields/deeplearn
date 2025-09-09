@@ -30,11 +30,10 @@ modules/{name}/
 
 ```python
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, func
-from sqlalchemy.orm import declarative_base
+from modules.shared_models import Base
 
-Base = declarative_base()
 
-class SAUser(Base):
+class UserModel(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
@@ -48,22 +47,25 @@ class SAUser(Base):
 
 ```python
 from sqlalchemy.orm import Session
-from .models import SAUser
+from .models import UserModel
+
 
 class UserRepo:
     def __init__(self, session: Session):
         self.s = session
 
-    def by_id(self, user_id: int) -> SAUser | None:
-        return self.s.get(SAUser, user_id)
+    def by_id(self, user_id: int) -> UserModel | None:
+        return self.s.get(UserModel, user_id)
 
-    def by_email(self, email: str) -> SAUser | None:
-        return self.s.query(SAUser).filter(SAUser.email == email).first()
+    def by_email(self, email: str) -> UserModel | None:
+        return self.s.query(UserModel).filter(UserModel.email == email).first()
 
-    def add(self, user: SAUser) -> SAUser:
-        self.s.add(user); self.s.flush(); return user
+    def add(self, user: UserModel) -> UserModel:
+        self.s.add(user)
+        self.s.flush()
+        return user
 
-    def save(self, user: SAUser) -> None:
+    def save(self, user: UserModel) -> None:
         self.s.add(user)
 ```
 
@@ -72,7 +74,8 @@ class UserRepo:
 ```python
 from pydantic import BaseModel, EmailStr
 from .repo import UserRepo
-from .models import SAUser
+from .models import UserModel
+
 
 class UserRead(BaseModel):
     id: int
@@ -80,14 +83,18 @@ class UserRead(BaseModel):
     name: str
     role: str
     is_active: bool
-    class Config: from_attributes = True
+
+    class Config:
+        from_attributes = True
+
 
 class UserCreate(BaseModel):
     email: EmailStr
     name: str
 
+
 class UserService:
-    def __init__(self, repo: UserRepo):
+    def __init__(self, repo: UserRepo) -> None:
         self.repo = repo
 
     def get(self, user_id: int) -> UserRead | None:
@@ -97,7 +104,7 @@ class UserService:
     def register(self, data: UserCreate) -> UserRead:
         if self.repo.by_email(data.email):
             raise ValueError("Email already exists")
-        created = self.repo.add(SAUser(email=data.email, name=data.name, role="user"))
+        created = self.repo.add(UserModel(email=data.email, name=data.name, role="user"))
         return UserRead.model_validate(created)
 
     def has_permission(self, user_id: int, resource: str) -> bool:
@@ -111,18 +118,20 @@ class UserService:
 
 ```python
 from typing import Protocol, Optional
-from fastapi import Depends
-from modules.shared.db import get_session
+from sqlalchemy.orm import Session
 from .repo import UserRepo
 from .service import UserService, UserRead
+
 
 class UsersProvider(Protocol):
     def get(self, user_id: int) -> Optional[UserRead]: ...
     def has_permission(self, user_id: int, resource: str) -> bool: ...
 
-def users_provider(session = Depends(get_session)) -> UsersProvider:
+
+def users_provider(session: Session) -> "UsersProvider":
     # Return the concrete service; it already returns DTOs
     return UserService(UserRepo(session))
+
 
 __all__ = ["UsersProvider", "users_provider", "UserRead"]
 ```
@@ -130,24 +139,36 @@ __all__ = ["UsersProvider", "users_provider", "UserRead"]
 ### routes.py
 
 ```python
+from typing import Iterator
 from fastapi import APIRouter, Depends, HTTPException, status
-from modules.shared.db import get_session
+from sqlalchemy.orm import Session
+from modules.infrastructure.public import infrastructure_provider, InfrastructureProvider
 from .repo import UserRepo
 from .service import UserService, UserCreate, UserRead
 
 router = APIRouter(prefix="/api/v1/users", tags=["users"])
 
-def user_service(s = Depends(get_session)) -> UserService:
+
+def get_session(infra: InfrastructureProvider = Depends(infrastructure_provider)) -> Iterator[Session]:
+    infra.initialize()
+    with infra.get_session_context() as s:
+        yield s
+
+
+def user_service(s: Session = Depends(get_session)) -> UserService:
     return UserService(UserRepo(s))
 
+
 @router.get("/{user_id}", response_model=UserRead)
-def get_user(user_id: int, svc: UserService = Depends(user_service)):
+def get_user(user_id: int, svc: UserService = Depends(user_service)) -> UserRead:
     u = svc.get(user_id)
-    if not u: raise HTTPException(404, "User not found")
+    if not u:
+        raise HTTPException(404, "User not found")
     return u
 
+
 @router.post("", response_model=UserRead, status_code=status.HTTP_201_CREATED)
-def create_user(body: UserCreate, svc: UserService = Depends(user_service)):
+def create_user(body: UserCreate, svc: UserService = Depends(user_service)) -> UserRead:
     try:
         return svc.register(body)
     except ValueError as e:

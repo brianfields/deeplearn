@@ -6,13 +6,13 @@ Creates a complete learning topic using the new content_creator module.
 This script demonstrates the clean separation between content creation and storage.
 
 Usage:
-    python scripts/create_topic_new.py \
+    python scripts/create_topic.py \
         --topic "PyTorch Cross-Entropy Loss" \
         --concept "Cross-Entropy Loss Function" \
         --material scripts/examples/cross_entropy_material.txt \
         --verbose
 
-    python scripts/create_topic_new.py \
+    python scripts/create_topic.py \
         --topic "React Native Views & Styles" \
         --concept "React Native Views & Styles" \
         --material scripts/examples/react_native_views.txt \
@@ -29,6 +29,7 @@ import sys
 # Add the backend directory to the path so we can import modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from modules.content.public import content_provider
 from modules.content_creator.public import content_creator_provider
 from modules.content_creator.service import CreateTopicRequest
 
@@ -98,7 +99,8 @@ async def main() -> None:
         if args.verbose:
             print("🔄 Initializing content creator service...")
 
-        creator = content_creator_provider()
+        # In CLI context, resolve dependencies directly (avoid FastAPI Depends)
+        creator = content_creator_provider(content=content_provider())
 
         # Create topic request
         request = CreateTopicRequest(title=args.topic, core_concept=args.concept, source_material=source_material, user_level=args.level, domain=args.domain)

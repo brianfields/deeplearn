@@ -9,9 +9,8 @@ from datetime import datetime
 from enum import Enum
 
 from sqlalchemy import JSON, Column, DateTime, Float, Integer, String
-from sqlalchemy.ext.declarative import declarative_base
 
-Base = declarative_base()
+from modules.shared_models import Base
 
 
 class SessionStatus(str, Enum):
