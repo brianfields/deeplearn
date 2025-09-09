@@ -28,6 +28,15 @@ module.exports = [
         module: 'readonly',
         require: 'readonly',
         exports: 'readonly',
+        // Jest globals
+        describe: 'readonly',
+        it: 'readonly',
+        expect: 'readonly',
+        beforeEach: 'readonly',
+        afterEach: 'readonly',
+        beforeAll: 'readonly',
+        afterAll: 'readonly',
+        jest: 'readonly',
         // Browser/React Native globals
         setTimeout: 'readonly',
         clearTimeout: 'readonly',
