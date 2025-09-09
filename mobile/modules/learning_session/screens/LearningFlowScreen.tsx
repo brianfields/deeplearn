@@ -34,7 +34,7 @@
 import { View, StyleSheet } from 'react-native';
 
 // Components
-import LearningFlow from '@/components/learning/LearningFlow';
+import LearningFlow from '../components/LearningFlow';
 
 // Types
 import type { LearningResults, LearningStackParamList } from '@/types';
@@ -58,7 +58,7 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
   return (
     <View style={styles.container}>
       <LearningFlow
-        topic={topic}
+        sessionId={`session-${topic.id}`}
         onComplete={handleComplete}
         onBack={handleBack}
       />
