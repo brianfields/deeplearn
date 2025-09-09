@@ -7,7 +7,14 @@ HTTP API for topic browsing and discovery.
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from .public import TopicCatalogProvider, topic_catalog_provider
-from .service import BrowseTopicsResponse, TopicDetail
+from .service import (
+    BrowseTopicsResponse,
+    CatalogStatistics,
+    RefreshCatalogResponse,
+    SearchTopicsResponse,
+    TopicDetail,
+    TopicSummary,
+)
 
 router = APIRouter(prefix="/api/topics", tags=["topic-catalog"])
 
@@ -45,3 +52,79 @@ def get_topic_details(topic_id: str, catalog: TopicCatalogProvider = Depends(top
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to get topic details") from e
+
+
+@router.get("/search", response_model=SearchTopicsResponse)
+def search_topics(
+    query: str | None = Query(None, description="Search query string"),
+    user_level: str | None = Query(None, description="Filter by user level (beginner, intermediate, advanced)"),
+    min_duration: int | None = Query(None, ge=1, description="Minimum duration in minutes"),
+    max_duration: int | None = Query(None, ge=1, description="Maximum duration in minutes"),
+    ready_only: bool = Query(False, description="Only return ready topics"),
+    limit: int = Query(100, ge=1, le=500, description="Maximum number of topics to return"),
+    offset: int = Query(0, ge=0, description="Pagination offset"),
+    catalog: TopicCatalogProvider = Depends(topic_catalog_provider),
+) -> SearchTopicsResponse:
+    """
+    Search topics with query and filters.
+
+    Supports text search across title, core concept, learning objectives, and key concepts.
+    """
+    try:
+        return catalog.search_topics(
+            query=query,
+            user_level=user_level,
+            min_duration=min_duration,
+            max_duration=max_duration,
+            ready_only=ready_only,
+            limit=limit,
+            offset=offset,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Failed to search topics") from e
+
+
+@router.get("/popular", response_model=list[TopicSummary])
+def get_popular_topics(
+    limit: int = Query(10, ge=1, le=50, description="Maximum number of topics to return"),
+    catalog: TopicCatalogProvider = Depends(topic_catalog_provider),
+) -> list[TopicSummary]:
+    """
+    Get popular topics.
+
+    Returns topics ordered by popularity (currently just first N topics).
+    """
+    try:
+        return catalog.get_popular_topics(limit=limit)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Failed to get popular topics") from e
+
+
+@router.get("/statistics", response_model=CatalogStatistics)
+def get_catalog_statistics(
+    catalog: TopicCatalogProvider = Depends(topic_catalog_provider),
+) -> CatalogStatistics:
+    """
+    Get catalog statistics.
+
+    Returns statistics about topics, user levels, readiness, and duration distribution.
+    """
+    try:
+        return catalog.get_catalog_statistics()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Failed to get catalog statistics") from e
+
+
+@router.post("/refresh", response_model=RefreshCatalogResponse)
+def refresh_catalog(
+    catalog: TopicCatalogProvider = Depends(topic_catalog_provider),
+) -> RefreshCatalogResponse:
+    """
+    Refresh the catalog.
+
+    Triggers a refresh of topic data (placeholder implementation).
+    """
+    try:
+        return catalog.refresh_catalog()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Failed to refresh catalog") from e

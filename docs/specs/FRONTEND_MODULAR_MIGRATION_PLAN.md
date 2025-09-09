@@ -291,14 +291,17 @@ modules/learning_analytics/
 - [x] Set up unit testing with Jest and React Native mocks
 - [x] Clean up old module structure (removed adapters/, module_api/)
 
-#### 1.3 Complete topic_catalog Module
-- [ ] Create `modules/topic_catalog/models.ts`
-- [ ] Create `modules/topic_catalog/repo.ts`
-- [ ] Create `modules/topic_catalog/service.ts`
-- [ ] Create `modules/topic_catalog/public.ts`
-- [ ] Create `modules/topic_catalog/queries.ts`
-- [ ] Create `modules/topic_catalog/store.ts`
-- [ ] Delete duplicate `src/screens/learning/TopicListScreen.tsx`
+#### 1.3 Complete topic_catalog Module ✅ COMPLETED
+- [x] Create `modules/topic_catalog/models.ts` with DTOs matching backend
+- [x] Create `modules/topic_catalog/repo.ts` using infrastructure HTTP client
+- [x] Create `modules/topic_catalog/service.ts` with business logic and client-side filtering
+- [x] Create `modules/topic_catalog/public.ts` with minimal cross-module interface
+- [x] Create `modules/topic_catalog/queries.ts` with React Query hooks for server state
+- [x] Create `modules/topic_catalog/store.ts` with Zustand for client state (search, filters, UI)
+- [x] Create comprehensive unit tests (13 passing tests)
+- [x] Clean up old topic_catalog structure (removed adapters/, domain/, http_client/, etc.)
+- [x] Install @tanstack/react-query dependency
+- [ ] Delete duplicate `src/screens/learning/TopicListScreen.tsx` (keep existing for now)
 
 ### Phase 2: Create learning_session Module (Week 2)
 

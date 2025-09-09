@@ -22,27 +22,17 @@ import { Search, Filter, Loader, AlertCircle } from 'lucide-react-native';
 
 import { TopicCard } from '../components/TopicCard';
 import { SearchFilters } from '../components/SearchFilters';
-import { useTopicCatalog, useRefreshCatalog } from '../application/queries';
-import { createTopicCatalogClient } from '../http_client/topic-catalog-client';
-import { TopicSummary, TopicFilters } from '../domain/entities/topic-summary';
+import { useTopicCatalog, useRefreshCatalog } from '../queries';
+import { TopicSummary, TopicFilters } from '../models';
 
 interface TopicListScreenProps {
   onTopicPress: (topic: TopicSummary) => void;
-  baseUrl?: string;
-  apiKey?: string;
 }
 
-export function TopicListScreen({
-  onTopicPress,
-  baseUrl = 'http://localhost:8000',
-  apiKey,
-}: TopicListScreenProps) {
+export function TopicListScreen({ onTopicPress }: TopicListScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState<TopicFilters>({});
   const [showFilters, setShowFilters] = useState(false);
-
-  // Create client instance
-  const client = createTopicCatalogClient(baseUrl, apiKey);
 
   // Combined filters including search query
   const combinedFilters: TopicFilters = {
@@ -52,9 +42,9 @@ export function TopicListScreen({
 
   // Data fetching
   const { topics, totalCount, isLoading, isError, error, refetch } =
-    useTopicCatalog(combinedFilters, client);
+    useTopicCatalog(combinedFilters);
 
-  const refreshMutation = useRefreshCatalog(client);
+  const refreshMutation = useRefreshCatalog();
 
   const handleRefresh = useCallback(async () => {
     try {
