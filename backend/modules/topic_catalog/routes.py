@@ -4,9 +4,15 @@ Topic Catalog Module - HTTP Routes
 HTTP API for topic browsing and discovery.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from collections.abc import Generator
 
-from .public import TopicCatalogProvider, topic_catalog_provider
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
+
+from modules.content.public import content_provider
+from modules.infrastructure.public import infrastructure_provider
+from modules.topic_catalog.public import TopicCatalogProvider, topic_catalog_provider
+
 from .service import (
     BrowseTopicsResponse,
     CatalogStatistics,
@@ -19,11 +25,25 @@ from .service import (
 router = APIRouter(prefix="/api/v1/topics")
 
 
+def get_session() -> Generator[Session, None, None]:
+    """Request-scoped database session with auto-commit."""
+    infra = infrastructure_provider()
+    infra.initialize()
+    with infra.get_session_context() as s:
+        yield s
+
+
+def get_topic_catalog_service(s: Session = Depends(get_session)) -> TopicCatalogProvider:
+    """Build TopicCatalogService for this request."""
+    content_service = content_provider(s)
+    return topic_catalog_provider(content_service)
+
+
 @router.get("/", response_model=BrowseTopicsResponse)
 def browse_topics(
     user_level: str | None = Query(None, description="Filter by user level (beginner, intermediate, advanced)"),
     limit: int = Query(100, ge=1, le=500, description="Maximum number of topics to return"),
-    catalog: TopicCatalogProvider = Depends(topic_catalog_provider),
+    catalog: TopicCatalogProvider = Depends(get_topic_catalog_service),
 ) -> BrowseTopicsResponse:
     """
     Browse topics with optional user level filter.
@@ -37,7 +57,7 @@ def browse_topics(
 
 
 @router.get("/{topic_id}", response_model=TopicDetail)
-def get_topic_details(topic_id: str, catalog: TopicCatalogProvider = Depends(topic_catalog_provider)) -> TopicDetail:
+def get_topic_details(topic_id: str, catalog: TopicCatalogService = Depends(get_topic_catalog_service)) -> TopicDetail:
     """
     Get detailed information about a specific topic.
 
@@ -63,7 +83,7 @@ def search_topics(
     ready_only: bool = Query(False, description="Only return ready topics"),
     limit: int = Query(100, ge=1, le=500, description="Maximum number of topics to return"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
-    catalog: TopicCatalogProvider = Depends(topic_catalog_provider),
+    catalog: TopicCatalogProvider = Depends(get_topic_catalog_service),
 ) -> SearchTopicsResponse:
     """
     Search topics with query and filters.
@@ -87,7 +107,7 @@ def search_topics(
 @router.get("/popular", response_model=list[TopicSummary])
 def get_popular_topics(
     limit: int = Query(10, ge=1, le=50, description="Maximum number of topics to return"),
-    catalog: TopicCatalogProvider = Depends(topic_catalog_provider),
+    catalog: TopicCatalogProvider = Depends(get_topic_catalog_service),
 ) -> list[TopicSummary]:
     """
     Get popular topics.
@@ -102,7 +122,7 @@ def get_popular_topics(
 
 @router.get("/statistics", response_model=CatalogStatistics)
 def get_catalog_statistics(
-    catalog: TopicCatalogProvider = Depends(topic_catalog_provider),
+    catalog: TopicCatalogProvider = Depends(get_topic_catalog_service),
 ) -> CatalogStatistics:
     """
     Get catalog statistics.
@@ -117,7 +137,7 @@ def get_catalog_statistics(
 
 @router.post("/refresh", response_model=RefreshCatalogResponse)
 def refresh_catalog(
-    catalog: TopicCatalogProvider = Depends(topic_catalog_provider),
+    catalog: TopicCatalogProvider = Depends(get_topic_catalog_service),
 ) -> RefreshCatalogResponse:
     """
     Refresh the catalog.

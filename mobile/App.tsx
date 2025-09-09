@@ -50,7 +50,7 @@ function LearningStackNavigator() {
     >
       <LearningStack.Screen
         name="TopicList"
-        component={TopicListScreen as any}
+        component={TopicListScreen}
         options={{
           title: 'Learning Topics',
         }}

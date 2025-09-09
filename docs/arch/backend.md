@@ -139,28 +139,29 @@ __all__ = ["UsersProvider", "users_provider", "UserRead"]
 ### routes.py
 
 ```python
-from typing import Iterator
+from collections.abc import Generator
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from modules.infrastructure.public import infrastructure_provider, InfrastructureProvider
-from .repo import UserRepo
-from .service import UserService, UserCreate, UserRead
+from modules.infrastructure.public import infrastructure_provider
+from .public import users_provider, UsersProvider
 
 router = APIRouter(prefix="/api/v1/users", tags=["users"])
 
 
-def get_session(infra: InfrastructureProvider = Depends(infrastructure_provider)) -> Iterator[Session]:
+def get_session() -> Generator[Session, None, None]:
+    """Request-scoped database session with auto-commit."""
+    infra = infrastructure_provider()
     infra.initialize()
     with infra.get_session_context() as s:
         yield s
 
 
-def user_service(s: Session = Depends(get_session)) -> UserService:
-    return UserService(UserRepo(s))
+def get_user_service(s: Session = Depends(get_session)) -> UsersProvider:
+    return users_provider(s)
 
 
 @router.get("/{user_id}", response_model=UserRead)
-def get_user(user_id: int, svc: UserService = Depends(user_service)) -> UserRead:
+def get_user(user_id: int, svc: UsersProvider = Depends(get_user_service)) -> UserRead:
     u = svc.get(user_id)
     if not u:
         raise HTTPException(404, "User not found")
@@ -168,7 +169,7 @@ def get_user(user_id: int, svc: UserService = Depends(user_service)) -> UserRead
 
 
 @router.post("", response_model=UserRead, status_code=status.HTTP_201_CREATED)
-def create_user(body: UserCreate, svc: UserService = Depends(user_service)) -> UserRead:
+def create_user(body: UserCreate, svc: UsersProvider = Depends(get_user_service)) -> UserRead:
     try:
         return svc.register(body)
     except ValueError as e:
@@ -180,8 +181,12 @@ def create_user(body: UserCreate, svc: UserService = Depends(user_service)) -> U
 ## Using it from another module
 
 ```python
-# modules/orders/service.py
-from modules.users.public import UsersProvider
+# modules/orders/routes.py
+from modules.users.public import users_provider
+
+def get_order_service(s: Session = Depends(get_session)) -> OrderService:
+    users_service = users_provider(s)  # Same session = same transaction
+    return OrderService(users_service)
 
 class OrderService:
     def __init__(self, users: UsersProvider):
