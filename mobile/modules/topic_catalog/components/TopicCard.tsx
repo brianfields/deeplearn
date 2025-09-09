@@ -20,7 +20,7 @@ import {
   WifiOff,
 } from 'lucide-react-native';
 
-import { TopicSummary } from '../domain/entities/topic-summary';
+import { TopicSummary } from '../models';
 
 interface TopicCardProps {
   topic: TopicSummary;

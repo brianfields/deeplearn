@@ -137,3 +137,91 @@ class TestTopicCatalogService:
         # Act & Assert
         assert detail_with_components.is_ready_for_learning() is True
         assert detail_without_components.is_ready_for_learning() is False
+
+    def test_search_topics_with_query(self):
+        """Test that search_topics filters by query."""
+        # Arrange
+        content = Mock()
+
+        from modules.content.service import ComponentRead, TopicRead
+
+        mock_topics = [
+            TopicRead(
+                id="topic-1",
+                title="React Basics",
+                core_concept="Components",
+                user_level="beginner",
+                learning_objectives=["Learn React"],
+                key_concepts=["JSX", "Props"],
+                created_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC),
+                components=[ComponentRead(id="comp-1", topic_id="topic-1", component_type="mcq", title="MCQ 1", content={}, created_at=datetime.now(UTC), updated_at=datetime.now(UTC))],
+            ),
+            TopicRead(
+                id="topic-2",
+                title="Python Basics",
+                core_concept="Variables",
+                user_level="beginner",
+                learning_objectives=["Learn Python"],
+                key_concepts=["Variables", "Functions"],
+                created_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC),
+                components=[],
+            ),
+        ]
+
+        content.search_topics.return_value = mock_topics
+        service = TopicCatalogService(content)
+
+        # Act
+        result = service.search_topics(query="react", limit=10)
+
+        # Assert
+        assert len(result.topics) == 1
+        assert result.topics[0].title == "React Basics"
+        assert result.query == "react"
+
+    def test_get_catalog_statistics(self):
+        """Test that get_catalog_statistics returns statistics."""
+        # Arrange
+        content = Mock()
+
+        from modules.content.service import ComponentRead, TopicRead
+
+        mock_topics = [
+            TopicRead(
+                id="topic-1",
+                title="Topic 1",
+                core_concept="Concept",
+                user_level="beginner",
+                learning_objectives=["Learn"],
+                key_concepts=["Key"],
+                created_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC),
+                components=[ComponentRead(id="comp-1", topic_id="topic-1", component_type="mcq", title="MCQ 1", content={}, created_at=datetime.now(UTC), updated_at=datetime.now(UTC))],
+            ),
+            TopicRead(
+                id="topic-2",
+                title="Topic 2",
+                core_concept="Concept",
+                user_level="intermediate",
+                learning_objectives=["Learn"],
+                key_concepts=["Key"],
+                created_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC),
+                components=[],
+            ),
+        ]
+
+        content.search_topics.return_value = mock_topics
+        service = TopicCatalogService(content)
+
+        # Act
+        result = service.get_catalog_statistics()
+
+        # Assert
+        assert result.total_topics == 2
+        assert result.topics_by_user_level["beginner"] == 1
+        assert result.topics_by_user_level["intermediate"] == 1
+        assert result.topics_by_readiness["ready"] == 1
+        assert result.topics_by_readiness["draft"] == 1

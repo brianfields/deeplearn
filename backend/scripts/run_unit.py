@@ -24,6 +24,43 @@ import subprocess
 import sys
 
 
+def ensure_venv_activated() -> bool:
+    """Ensure the deeplearn virtual environment is activated"""
+    # Check if we're already in a virtual environment
+    virtual_env = os.getenv("VIRTUAL_ENV")
+    if virtual_env:
+        venv_name = Path(virtual_env).name
+        if venv_name == "deeplearn":
+            print("✅ Virtual environment 'deeplearn' is already activated")
+            return True
+        else:
+            print(f"⚠️  Different virtual environment is active: {venv_name}")
+            print("   Deactivate it first, then run this script again")
+            return False
+
+    print("🔄 Virtual environment not activated. Activating 'deeplearn'...")
+    try:
+        # Source the activate script directly and re-run the script
+        activate_script = Path.home() / ".virtualenvs" / "deeplearn" / "bin" / "activate"
+        if not activate_script.exists():
+            print(f"❌ Activate script not found at {activate_script}")
+            print("💡 Make sure the 'deeplearn' virtual environment exists")
+            return False
+
+        # Re-run the script with the venv activated
+        cmd = f"source {activate_script} && python scripts/run_unit.py {' '.join(sys.argv[1:])}"
+        result = subprocess.run(["bash", "-c", cmd], cwd=Path(__file__).parent.parent, check=True, capture_output=True, text=True)
+        # If we reach here, the subprocess completed successfully
+        # Exit with the same return code
+        sys.exit(result.returncode)
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Failed to activate virtual environment: {e}")
+        print(f"   stdout: {e.stdout}")
+        print(f"   stderr: {e.stderr}")
+        print("💡 Make sure the 'deeplearn' virtual environment exists")
+        return False
+
+
 def load_env_file(env_path: Path) -> None:
     """Load environment variables from .env file"""
     if not env_path.exists():
@@ -149,9 +186,14 @@ def run_unit_tests(module_name: str | None = None, verbose: bool = False) -> int
     return result.returncode
 
 
-def main():
+def main() -> int:
     """Main entry point"""
-    parser = argparse.ArgumentParser(description="Run unit tests across backend modules", formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__.split("Usage:")[1] if "Usage:" in __doc__ else "")
+    # Ensure virtual environment is activated
+    if not ensure_venv_activated():
+        return 1
+
+    doc_epilog = __doc__.split("Usage:")[1] if "Usage:" in __doc__ and __doc__ else ""
+    parser = argparse.ArgumentParser(description="Run unit tests across backend modules", formatter_class=argparse.RawDescriptionHelpFormatter, epilog=doc_epilog)
 
     parser.add_argument("--module", "-m", help="Run tests for specific module only (e.g., llm_services, infrastructure)")
 

@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { X, Check } from 'lucide-react-native';
 
-import { TopicFilters } from '../domain/entities/topic-summary';
+import { TopicFilters } from '../models';
 
 interface SearchFiltersProps {
   filters: TopicFilters;
