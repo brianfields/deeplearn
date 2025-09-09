@@ -10,16 +10,16 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-// Screens
-import TopicListScreen from '@/screens/learning/TopicListScreen';
-import LearningFlowScreen from '@/screens/learning/LearningFlowScreen';
-import ResultsScreen from '@/screens/learning/ResultsScreen';
+// Screens (using new modular structure)
+import { TopicListScreen } from './modules/topic_catalog/screens/TopicListScreen';
+import LearningFlowScreen from './modules/learning_session/screens/LearningFlowScreen';
+import ResultsScreen from './modules/learning_session/screens/ResultsScreen';
 
 // Types
-import type { RootStackParamList, LearningStackParamList } from '@/types';
+import type { RootStackParamList, LearningStackParamList } from './src/types';
 
-// Theme
-import { colors } from '@/utils/theme';
+// Theme (using new modular structure)
+import { uiSystemProvider } from './modules/ui_system/public';
 
 // Create navigators
 const RootStack = createNativeStackNavigator<RootStackParamList>();
@@ -87,6 +87,10 @@ function RootNavigator() {
 }
 
 export default function App() {
+  // Get theme from ui_system module
+  const uiSystem = uiSystemProvider();
+  const theme = uiSystem.getCurrentTheme();
+
   return (
     // eslint-disable-next-line react-native/no-inline-styles
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -94,12 +98,12 @@ export default function App() {
         theme={{
           dark: false,
           colors: {
-            primary: colors.primary,
-            background: colors.background,
-            card: colors.surface,
-            text: colors.text,
-            border: colors.border,
-            notification: colors.accent,
+            primary: theme.colors.primary,
+            background: theme.colors.background,
+            card: theme.colors.surface,
+            text: theme.colors.text,
+            border: theme.colors.border,
+            notification: theme.colors.accent,
           },
           fonts: {
             regular: {
@@ -123,7 +127,7 @@ export default function App() {
       >
         <StatusBar
           style="dark"
-          backgroundColor={colors.surface}
+          backgroundColor={theme.colors.surface}
           translucent={false}
         />
         <RootNavigator />

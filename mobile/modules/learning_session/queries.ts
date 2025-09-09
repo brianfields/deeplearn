@@ -5,16 +5,19 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { learningSessionProvider } from './public';
+import { LearningSessionService } from './service';
+import { LearningSessionRepo } from './repo';
 import type {
   StartSessionRequest,
   UpdateProgressRequest,
   CompleteSessionRequest,
   SessionFilters,
+  LearningSession,
 } from './models';
 
-// Get the learning session service instance
-const learningSession = learningSessionProvider();
+// Service instance
+const repo = new LearningSessionRepo();
+const learningSession = new LearningSessionService(repo);
 
 // Query keys
 export const learningSessionKeys = {
@@ -143,7 +146,7 @@ export function useStartSession() {
   return useMutation({
     mutationFn: (request: StartSessionRequest) =>
       learningSession.startSession(request),
-    onSuccess: (session, request) => {
+    onSuccess: (session: LearningSession, request) => {
       // Update session cache
       queryClient.setQueryData(
         learningSessionKeys.session(session.id),
@@ -206,9 +209,11 @@ export function useCompleteSession() {
         queryKey: learningSessionKeys.userSessions(),
       });
 
-      queryClient.invalidateQueries({
-        queryKey: learningSessionKeys.userStats(),
-      });
+      // Note: userStats requires userId, skipping invalidation for now
+      // TODO: Add user context and invalidate user stats
+      // queryClient.invalidateQueries({
+      //   queryKey: learningSessionKeys.userStats(userId),
+      // });
     },
   });
 }
@@ -221,7 +226,7 @@ export function usePauseSession() {
 
   return useMutation({
     mutationFn: (sessionId: string) => learningSession.pauseSession(sessionId),
-    onSuccess: session => {
+    onSuccess: (session: LearningSession) => {
       // Update session cache
       queryClient.setQueryData(
         learningSessionKeys.session(session.id),
@@ -239,7 +244,7 @@ export function useResumeSession() {
 
   return useMutation({
     mutationFn: (sessionId: string) => learningSession.resumeSession(sessionId),
-    onSuccess: session => {
+    onSuccess: (session: LearningSession) => {
       // Update session cache
       queryClient.setQueryData(
         learningSessionKeys.session(session.id),

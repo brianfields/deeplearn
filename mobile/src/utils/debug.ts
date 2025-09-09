@@ -5,8 +5,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { learningService } from '@/services/learning-service';
-import { apiClient } from '@/services/api-client';
+import { infrastructureProvider } from '../../modules/infrastructure/public';
 
 /**
  * Clear all AsyncStorage data
@@ -48,8 +47,21 @@ export const clearAppData = async (): Promise<void> => {
  */
 export const clearLearningData = async (): Promise<void> => {
   try {
-    await learningService.clearCache();
-    console.log('✅ Learning data cleared');
+    // Clear learning-related AsyncStorage keys
+    const keys = await AsyncStorage.getAllKeys();
+    const learningKeys = keys.filter(
+      key =>
+        key.startsWith('learning_') ||
+        key.startsWith('session_') ||
+        key.startsWith('progress_')
+    );
+
+    if (learningKeys.length > 0) {
+      await AsyncStorage.multiRemove(learningKeys);
+      console.log(`✅ Cleared ${learningKeys.length} learning data entries`);
+    } else {
+      console.log('ℹ️ No learning data found to clear');
+    }
   } catch (error) {
     console.error('❌ Failed to clear learning data:', error);
     throw error;
@@ -61,7 +73,9 @@ export const clearLearningData = async (): Promise<void> => {
  */
 export const clearApiCache = async (): Promise<void> => {
   try {
-    await apiClient.clearCache();
+    // Clear API cache using infrastructure module
+    const infrastructure = infrastructureProvider();
+    await infrastructure.clearStorage();
     console.log('✅ API cache cleared');
   } catch (error) {
     console.error('❌ Failed to clear API cache:', error);

@@ -16,6 +16,10 @@ export type ComponentType =
   | 'socratic_dialogue'
   | 'post_topic_quiz';
 
+// Topic types have been moved to modules/topic_catalog/models.ts
+// Import from there: import type { TopicSummary, TopicDetail } from '../modules/topic_catalog/public';
+
+// Legacy interfaces for backward compatibility (will be removed in Phase 4)
 export interface BiteSizedTopic {
   id: string;
   title: string;
@@ -107,16 +111,8 @@ export interface TopicProgress {
   lastUpdated: number;
 }
 
-export interface LearningSession {
-  sessionId: string;
-  topicIds: string[];
-  currentTopicIndex: number;
-  startTime: number;
-  totalTimeSpent: number;
-  streak: number;
-  dailyGoal: number;
-  dailyProgress: number;
-}
+// LearningSession types have been moved to modules/learning_session/models.ts
+// Import from there if needed: import type { LearningSession } from '../modules/learning_session/public';
 
 // ================================
 // API Types
@@ -210,63 +206,8 @@ export type LearningStackParamList = {
 };
 
 // ================================
-// Style Types
+// Style Types (moved to modules/ui_system/models.ts)
 // ================================
 
-export interface ThemeColors {
-  primary: string;
-  secondary: string;
-  accent: string;
-  background: string;
-  surface: string;
-  text: string;
-  textSecondary: string;
-  border: string;
-  success: string;
-  warning: string;
-  error: string;
-  info: string;
-}
-
-export interface Spacing {
-  xs: number;
-  sm: number;
-  md: number;
-  lg: number;
-  xl: number;
-  xxl: number;
-}
-
-export interface Typography {
-  heading1: {
-    fontSize: number;
-    fontWeight: string;
-    lineHeight: number;
-  };
-  heading2: {
-    fontSize: number;
-    fontWeight: string;
-    lineHeight: number;
-  };
-  heading3: {
-    fontSize: number;
-    fontWeight: string;
-    lineHeight: number;
-  };
-  body: {
-    fontSize: number;
-    fontWeight: string;
-    lineHeight: number;
-  };
-  caption: {
-    fontSize: number;
-    fontWeight: string;
-    lineHeight: number;
-  };
-}
-
-export interface Theme {
-  colors: ThemeColors;
-  spacing: Spacing;
-  typography: Typography;
-}
+// Theme types have been moved to modules/ui_system/models.ts
+// Import from there: import type { Theme, ThemeColors, Spacing, Typography } from '../modules/ui_system/public';
