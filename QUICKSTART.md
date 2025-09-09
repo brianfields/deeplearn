@@ -55,12 +55,11 @@ The app supports extensive configuration via environment variables:
 OPENAI_API_KEY=your-api-key-here
 
 # Optional (with defaults)
-OPENAI_MODEL=gpt-3.5-turbo
+OPENAI_MODEL=gpt-4o
 USER_LEVEL=beginner
 LESSON_DURATION=15
 MASTERY_THRESHOLD=0.9
 TEMPERATURE=0.7
-MAX_TOKENS=1500
 CACHE_ENABLED=true
 DEBUG=false
 ```

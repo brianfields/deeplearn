@@ -2,12 +2,15 @@
 
 from abc import ABC, abstractmethod
 import functools
+import logging
 from typing import Any
 
 from pydantic import BaseModel
 
 from ..context import FlowContext
 from ..service import FlowEngineService
+
+logger = logging.getLogger(__name__)
 
 __all__ = ["BaseFlow", "flow_execution"]
 
@@ -38,6 +41,9 @@ def flow_execution(func):
         inputs = args[0] if args else {}
         user_id = kwargs.get("user_id")
 
+        logger.info(f"🚀 Starting flow: {self.flow_name}")
+        logger.debug(f"Flow inputs: {list(inputs.keys()) if isinstance(inputs, dict) else 'N/A'}")
+
         flow_run_id = await service.create_flow_run_record(flow_name=self.flow_name, inputs=inputs, user_id=user_id)
 
         # Set up flow context
@@ -45,15 +51,18 @@ def flow_execution(func):
 
         try:
             # Execute the flow method
+            logger.info(f"⚙️ Executing flow logic: {self.flow_name}")
             result = await func(self, *args, **kwargs)
 
             # Complete the flow run
             await service.complete_flow_run(flow_run_id, result)
+            logger.info(f"✅ Flow completed successfully: {self.flow_name}")
 
             return result
 
         except Exception as e:
             # Mark flow as failed
+            logger.error(f"❌ Flow failed: {self.flow_name} - {e!s}")
             await service.fail_flow_run(flow_run_id, str(e))
             raise
 
