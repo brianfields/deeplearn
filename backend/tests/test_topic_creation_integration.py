@@ -7,6 +7,7 @@ to test the complete topic creation workflow from source material to stored cont
 The test uses gpt-5 model to test the new GPT-5 Responses API functionality.
 """
 
+import logging
 import os
 
 import pytest
@@ -38,8 +39,18 @@ class TestTopicCreationIntegration:
 
         print("✅ Environment variables validated")
 
-        # Note: Detailed logging is now handled by the integration test runner
-        # when --verbose flag is used
+        # Setup detailed logging if verbose mode is enabled
+        if os.environ.get("INTEGRATION_TEST_VERBOSE_LOGGING") == "true":
+            print("📝 Configuring detailed logging for verbose mode...")
+            logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", handlers=[logging.StreamHandler()])
+
+            # Set specific loggers to DEBUG for detailed flow tracking
+            logging.getLogger("modules.llm_services.providers.openai").setLevel(logging.DEBUG)
+            logging.getLogger("modules.flow_engine.flows.base").setLevel(logging.DEBUG)
+            logging.getLogger("modules.flow_engine.steps.base").setLevel(logging.DEBUG)
+            logging.getLogger("modules.content_creator.flows").setLevel(logging.INFO)
+            logging.getLogger("modules.content_creator.service").setLevel(logging.INFO)
+            print("✅ Detailed logging configured")
 
         print("✅ Test environment setup complete")
         yield
@@ -145,7 +156,7 @@ class TestTopicCreationIntegration:
         # Arrange: Ensure model is set before creating LLM service
         # The LLM service reads environment variables at initialization time
         print("🔧 Setting up test environment and services...")
-        os.environ["OPENAI_MODEL"] = "gpt-4o-mini"
+        os.environ["OPENAI_MODEL"] = "gpt-5"
         print(f"📝 Using model: {os.environ['OPENAI_MODEL']}")
 
         # Create services using the initialized infrastructure service
