@@ -10,6 +10,7 @@
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
     "jsx": "react-jsx",
+    "types": ["jest"],
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],

@@ -10,6 +10,7 @@ mobile/modules/{name}/
 ├── store.ts               # Client state (Zustand/Jotai) — first-class, module-local
 ├── nav.tsx                # Module navigator (stack)
 ├── screens/               # Thin UI; intra-module can import internals
+├── components/            # Reusable components for within this module only (if general component that is shared across modules, it should be in the ui_system module)
 └── tests_{name}_unit.ts   # Unit tests for this module
 ```
 
