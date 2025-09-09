@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from modules.content_creator.routes import router as content_creator_router
 from modules.infrastructure.public import DatabaseSession, infrastructure_provider
+from modules.learning_session.routes import router as learning_session_router
 from modules.topic_catalog.routes import router as topic_catalog_router
 
 # Configure logging
@@ -65,6 +66,7 @@ DatabaseDep = Annotated[DatabaseSession, Depends(get_database_session)]
 
 # Include modular routers
 app.include_router(content_creator_router, tags=["Content Creation"])
+app.include_router(learning_session_router, tags=["Learning Sessions"])
 app.include_router(topic_catalog_router, tags=["Topic Catalog"])
 
 
@@ -81,7 +83,7 @@ async def startup_event() -> None:
             logger.warning(f"Environment validation issues: {env_status.errors}")
 
         logger.info("Learning API server started successfully")
-        logger.info("Modular architecture: content_creator, topic_catalog, infrastructure")
+        logger.info("Modular architecture: content_creator, learning_session, topic_catalog, infrastructure")
 
     except Exception as e:
         logger.error(f"Failed to initialize services: {e}")
@@ -102,6 +104,7 @@ async def health_check() -> dict[str, str | dict[str, bool] | list[str]]:
             "infrastructure": env_status.is_valid,
             "database": env_status.is_valid,
             "content_creator": True,
+            "learning_session": True,
             "topic_catalog": True,
         },
         "errors": env_status.errors if not env_status.is_valid else [],

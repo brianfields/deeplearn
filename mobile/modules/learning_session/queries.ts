@@ -1,0 +1,303 @@
+/**
+ * Learning Session React Query Hooks
+ *
+ * Server state management for learning session data.
+ */
+
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { learningSessionProvider } from './public';
+import type {
+  StartSessionRequest,
+  UpdateProgressRequest,
+  CompleteSessionRequest,
+  SessionFilters,
+} from './models';
+
+// Get the learning session service instance
+const learningSession = learningSessionProvider();
+
+// Query keys
+export const learningSessionKeys = {
+  all: ['learning_session'] as const,
+  sessions: () => ['learning_session', 'sessions'] as const,
+  session: (sessionId: string) =>
+    ['learning_session', 'session', sessionId] as const,
+  components: (sessionId: string) =>
+    ['learning_session', 'components', sessionId] as const,
+  userSessions: (userId?: string, filters?: SessionFilters) =>
+    ['learning_session', 'user_sessions', userId, filters] as const,
+  userStats: (userId: string) =>
+    ['learning_session', 'user_stats', userId] as const,
+  canStart: (topicId: string, userId?: string) =>
+    ['learning_session', 'can_start', topicId, userId] as const,
+  health: () => ['learning_session', 'health'] as const,
+};
+
+/**
+ * Get session by ID
+ */
+export function useSession(
+  sessionId: string,
+  options?: {
+    enabled?: boolean;
+    staleTime?: number;
+    refetchOnWindowFocus?: boolean;
+  }
+) {
+  return useQuery({
+    queryKey: learningSessionKeys.session(sessionId),
+    queryFn: () => learningSession.getSession(sessionId),
+    enabled: options?.enabled ?? !!sessionId,
+    staleTime: options?.staleTime ?? 30 * 1000, // 30 seconds (session state changes frequently)
+    refetchOnWindowFocus: options?.refetchOnWindowFocus ?? true,
+  });
+}
+
+/**
+ * Get session components with state
+ */
+export function useSessionComponents(
+  sessionId: string,
+  options?: {
+    enabled?: boolean;
+    staleTime?: number;
+  }
+) {
+  return useQuery({
+    queryKey: learningSessionKeys.components(sessionId),
+    queryFn: () => learningSession.getSessionComponents(sessionId),
+    enabled: options?.enabled ?? !!sessionId,
+    staleTime: options?.staleTime ?? 60 * 1000, // 1 minute
+    refetchOnWindowFocus: false, // Components don't change often
+  });
+}
+
+/**
+ * Get user's learning sessions
+ */
+export function useUserSessions(
+  userId?: string,
+  filters: SessionFilters = {},
+  limit: number = 50,
+  offset: number = 0,
+  options?: {
+    enabled?: boolean;
+    staleTime?: number;
+  }
+) {
+  return useQuery({
+    queryKey: learningSessionKeys.userSessions(userId, filters),
+    queryFn: () =>
+      learningSession.getUserSessions(userId, filters, limit, offset),
+    enabled: options?.enabled ?? !!userId,
+    staleTime: options?.staleTime ?? 2 * 60 * 1000, // 2 minutes
+    refetchOnWindowFocus: false,
+  });
+}
+
+/**
+ * Get user learning statistics
+ */
+export function useUserStats(
+  userId: string,
+  options?: {
+    enabled?: boolean;
+    staleTime?: number;
+  }
+) {
+  return useQuery({
+    queryKey: learningSessionKeys.userStats(userId),
+    queryFn: () => learningSession.getUserStats(userId),
+    enabled: options?.enabled ?? !!userId,
+    staleTime: options?.staleTime ?? 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: false,
+  });
+}
+
+/**
+ * Check if user can start session for topic
+ */
+export function useCanStartSession(
+  topicId: string,
+  userId?: string,
+  options?: {
+    enabled?: boolean;
+    staleTime?: number;
+  }
+) {
+  return useQuery({
+    queryKey: learningSessionKeys.canStart(topicId, userId),
+    queryFn: () => learningSession.canStartSession(topicId, userId),
+    enabled: options?.enabled ?? !!topicId,
+    staleTime: options?.staleTime ?? 30 * 1000, // 30 seconds
+    refetchOnWindowFocus: true,
+  });
+}
+
+/**
+ * Start new learning session mutation
+ */
+export function useStartSession() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (request: StartSessionRequest) =>
+      learningSession.startSession(request),
+    onSuccess: (session, request) => {
+      // Update session cache
+      queryClient.setQueryData(
+        learningSessionKeys.session(session.id),
+        session
+      );
+
+      // Invalidate user sessions
+      queryClient.invalidateQueries({
+        queryKey: learningSessionKeys.userSessions(request.userId),
+      });
+
+      // Invalidate can start check
+      queryClient.invalidateQueries({
+        queryKey: learningSessionKeys.canStart(request.topicId, request.userId),
+      });
+    },
+  });
+}
+
+/**
+ * Update session progress mutation
+ */
+export function useUpdateProgress() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (request: UpdateProgressRequest) =>
+      learningSession.updateProgress(request),
+    onSuccess: (progress, request) => {
+      // Invalidate session data to refetch updated progress
+      queryClient.invalidateQueries({
+        queryKey: learningSessionKeys.session(request.sessionId),
+      });
+
+      // Invalidate components to update completion state
+      queryClient.invalidateQueries({
+        queryKey: learningSessionKeys.components(request.sessionId),
+      });
+    },
+  });
+}
+
+/**
+ * Complete session mutation
+ */
+export function useCompleteSession() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (request: CompleteSessionRequest) =>
+      learningSession.completeSession(request),
+    onSuccess: (results, request) => {
+      // Invalidate session data
+      queryClient.invalidateQueries({
+        queryKey: learningSessionKeys.session(request.sessionId),
+      });
+
+      // Invalidate user sessions and stats
+      queryClient.invalidateQueries({
+        queryKey: learningSessionKeys.userSessions(),
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: learningSessionKeys.userStats(),
+      });
+    },
+  });
+}
+
+/**
+ * Pause session mutation
+ */
+export function usePauseSession() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (sessionId: string) => learningSession.pauseSession(sessionId),
+    onSuccess: session => {
+      // Update session cache
+      queryClient.setQueryData(
+        learningSessionKeys.session(session.id),
+        session
+      );
+    },
+  });
+}
+
+/**
+ * Resume session mutation
+ */
+export function useResumeSession() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (sessionId: string) => learningSession.resumeSession(sessionId),
+    onSuccess: session => {
+      // Update session cache
+      queryClient.setQueryData(
+        learningSessionKeys.session(session.id),
+        session
+      );
+    },
+  });
+}
+
+/**
+ * Learning session health check
+ */
+export function useLearningSessionHealth() {
+  return useQuery({
+    queryKey: learningSessionKeys.health(),
+    queryFn: () => learningSession.checkHealth(),
+    staleTime: 60 * 1000, // 1 minute
+    refetchInterval: 5 * 60 * 1000, // Check every 5 minutes
+    refetchOnWindowFocus: false,
+  });
+}
+
+/**
+ * Combined hook for active learning session
+ * Provides session data, components, and mutation functions
+ */
+export function useActiveLearningSession(sessionId: string) {
+  const sessionQuery = useSession(sessionId);
+  const componentsQuery = useSessionComponents(sessionId, {
+    enabled: !!sessionId && sessionQuery.data?.status === 'active',
+  });
+
+  const updateProgressMutation = useUpdateProgress();
+  const pauseSessionMutation = usePauseSession();
+  const completeSessionMutation = useCompleteSession();
+
+  return {
+    // Data
+    session: sessionQuery.data,
+    components: componentsQuery.data,
+
+    // Loading states
+    isLoading: sessionQuery.isLoading || componentsQuery.isLoading,
+    isError: sessionQuery.isError || componentsQuery.isError,
+    error: sessionQuery.error || componentsQuery.error,
+
+    // Actions
+    updateProgress: updateProgressMutation.mutateAsync,
+    pauseSession: () => pauseSessionMutation.mutateAsync(sessionId),
+    completeSession: () => completeSessionMutation.mutateAsync({ sessionId }),
+
+    // Action states
+    isUpdatingProgress: updateProgressMutation.isPending,
+    isPausing: pauseSessionMutation.isPending,
+    isCompleting: completeSessionMutation.isPending,
+
+    // Refetch functions
+    refetchSession: sessionQuery.refetch,
+    refetchComponents: componentsQuery.refetch,
+  };
+}
