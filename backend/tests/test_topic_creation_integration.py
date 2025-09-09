@@ -7,7 +7,6 @@ to test the complete topic creation workflow from source material to stored cont
 The test uses gpt-5 model to test the new GPT-5 Responses API functionality.
 """
 
-import logging
 import os
 
 import pytest
@@ -39,16 +38,8 @@ class TestTopicCreationIntegration:
 
         print("✅ Environment variables validated")
 
-        # Configure logging for integration test
-        print("📝 Configuring logging...")
-        logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", handlers=[logging.StreamHandler()])
-
-        # Set specific loggers to DEBUG for detailed flow tracking
-        logging.getLogger("modules.llm_services.providers.openai").setLevel(logging.DEBUG)
-        logging.getLogger("modules.flow_engine.flows.base").setLevel(logging.DEBUG)
-        logging.getLogger("modules.flow_engine.steps.base").setLevel(logging.DEBUG)
-        logging.getLogger("modules.content_creator.flows").setLevel(logging.INFO)
-        logging.getLogger("modules.content_creator.service").setLevel(logging.INFO)
+        # Note: Detailed logging is now handled by the integration test runner
+        # when --verbose flag is used
 
         print("✅ Test environment setup complete")
         yield

@@ -180,10 +180,9 @@ class OpenAIProvider(LLMProvider):
 
             # Check cache first (if enabled)
             cache = getattr(self, "_cache", None)
-            if False and self.config.cache_enabled and cache is not None:
+            if self.config.cache_enabled and cache is not None:
                 cached_response = await cache.get(messages, **kwargs)
                 if cached_response:
-                    logger.info(f"Using cached response")
                     self._update_llm_request_success(
                         llm_request,
                         cached_response,
@@ -384,7 +383,6 @@ Example format:
                 enhanced_messages = messages.copy()
                 enhanced_messages.append(LLMMessage(role=MessageRole.SYSTEM, content=schema_instruction))
                 response, llm_request_id = await self.generate_response(messages=enhanced_messages, user_id=user_id, **kwargs)
-                logger.info(f"LLM Raw Response: {response}")
 
             # Parse JSON response
             try:
