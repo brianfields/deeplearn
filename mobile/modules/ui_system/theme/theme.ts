@@ -6,7 +6,16 @@
  */
 
 import { Dimensions, Platform } from 'react-native';
-import type { Theme, ThemeColors, Spacing, Typography } from '@/types';
+import type {
+  Theme,
+  ThemeColors,
+  Spacing,
+  Typography,
+  ResponsiveConfig,
+  ShadowConfig,
+  AnimationConfig,
+  UtilityFunctions,
+} from '../models';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -105,7 +114,7 @@ export const theme: Theme = {
 // Responsive Utilities
 // ================================
 
-export const responsive = {
+export const responsive: ResponsiveConfig = {
   // Screen dimensions
   screenWidth,
   screenHeight,
@@ -119,24 +128,13 @@ export const responsive = {
   headerHeight: Platform.OS === 'ios' ? 44 : 56,
   statusBarHeight: Platform.OS === 'ios' ? 20 : 24,
   tabBarHeight: Platform.OS === 'ios' ? 83 : 56,
-
-  // Responsive sizing functions
-  wp: (percentage: number) => (screenWidth * percentage) / 100,
-  hp: (percentage: number) => (screenHeight * percentage) / 100,
-
-  // Responsive font sizing
-  fontSize: (size: number) => {
-    if (screenWidth < 350) return size * 0.9;
-    if (screenWidth > 400) return size * 1.1;
-    return size;
-  },
 };
 
 // ================================
 // Common Shadows
 // ================================
 
-export const shadows = {
+export const shadows: ShadowConfig = {
   small: Platform.select({
     ios: {
       shadowOffset: { width: 0, height: 1 },
@@ -301,7 +299,7 @@ export const commonStyles = {
 // Animation Presets
 // ================================
 
-export const animations = {
+export const animations: AnimationConfig = {
   // Durations
   fast: 200,
   normal: 300,
@@ -311,52 +309,13 @@ export const animations = {
   easeInOut: 'ease-in-out',
   easeIn: 'ease-in',
   easeOut: 'ease-out',
-
-  // Common animations
-  fadeIn: {
-    from: { opacity: 0 },
-    to: { opacity: 1 },
-  },
-
-  slideInUp: {
-    from: {
-      opacity: 0,
-      transform: [{ translateY: 50 }],
-    },
-    to: {
-      opacity: 1,
-      transform: [{ translateY: 0 }],
-    },
-  },
-
-  slideInDown: {
-    from: {
-      opacity: 0,
-      transform: [{ translateY: -50 }],
-    },
-    to: {
-      opacity: 1,
-      transform: [{ translateY: 0 }],
-    },
-  },
-
-  scaleIn: {
-    from: {
-      opacity: 0,
-      transform: [{ scale: 0.8 }],
-    },
-    to: {
-      opacity: 1,
-      transform: [{ scale: 1 }],
-    },
-  },
 };
 
 // ================================
 // Utility Functions
 // ================================
 
-export const utils = {
+export const utils: UtilityFunctions = {
   /**
    * Create margin/padding shortcuts
    */

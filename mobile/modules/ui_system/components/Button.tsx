@@ -14,19 +14,8 @@ import {
   ViewStyle,
   TextStyle,
 } from 'react-native';
-import { useTheme } from '../module_api/theme';
-
-interface ButtonProps {
-  title: string;
-  onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
-  size?: 'small' | 'medium' | 'large';
-  disabled?: boolean;
-  loading?: boolean;
-  icon?: React.ReactNode;
-  style?: ViewStyle;
-  textStyle?: TextStyle;
-}
+import { uiSystemProvider } from '../public';
+import type { ButtonProps } from '../models';
 
 export const Button: React.FC<ButtonProps> = ({
   title,
@@ -39,7 +28,8 @@ export const Button: React.FC<ButtonProps> = ({
   style,
   textStyle,
 }) => {
-  const { theme } = useTheme();
+  const uiSystem = uiSystemProvider();
+  const theme = uiSystem.getCurrentTheme();
 
   const buttonStyle = [
     styles.base,
