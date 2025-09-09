@@ -29,9 +29,11 @@ import sys
 # Add the backend directory to the path so we can import modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from modules.content.public import content_provider
+from modules.content.repo import ContentRepo
+from modules.content.service import ContentService
 from modules.content_creator.public import content_creator_provider
 from modules.content_creator.service import CreateTopicRequest
+from modules.infrastructure.public import DatabaseSession, infrastructure_provider
 
 
 async def main() -> None:
@@ -99,17 +101,28 @@ async def main() -> None:
         if args.verbose:
             print("🔄 Initializing content creator service...")
 
-        # In CLI context, resolve dependencies directly (avoid FastAPI Depends)
-        creator = content_creator_provider(content=content_provider())
-
-        # Create topic request
-        request = CreateTopicRequest(title=args.topic, core_concept=args.concept, source_material=source_material, user_level=args.level, domain=args.domain)
-
-        # Generate complete topic content
+        # Initialize infrastructure and use a managed DB session so writes commit
+        infra = infrastructure_provider()
+        infra.initialize()
         if args.verbose:
-            print("🔄 Generating complete topic with AI-powered content...")
+            print(f"🗄️  Database URL: {infra.get_database_url()}")
 
-        result = await creator.create_topic_from_source_material(request)
+        with infra.get_session_context() as db_session:
+            content_service = ContentService(ContentRepo(DatabaseSession(session=db_session, connection_id="cli")))
+            creator = content_creator_provider(content=content_service)
+
+            # Create topic request
+            request = CreateTopicRequest(title=args.topic, core_concept=args.concept, source_material=source_material, user_level=args.level, domain=args.domain)
+
+            # Generate complete topic content
+            if args.verbose:
+                print("🔄 Generating complete topic with AI-powered content...")
+
+            result = await creator.create_topic_from_source_material(request)
+            if args.verbose:
+                exists = content_service.topic_exists(result.topic_id)
+                comps = content_service.get_components_by_topic(result.topic_id)
+                print(f"🔎 DB verification before commit: topic_exists={exists}, components={len(comps)}")
 
         if args.verbose:
             print("✅ Generated complete topic content!")
