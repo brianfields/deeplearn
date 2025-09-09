@@ -18,6 +18,7 @@ Examples:
 """
 
 import argparse
+import logging
 import os
 from pathlib import Path
 import subprocess
@@ -40,6 +41,22 @@ def load_env_file(env_path: Path) -> None:
                 # Only set if not already in environment
                 if key not in os.environ:
                     os.environ[key] = value
+
+
+def setup_detailed_logging():
+    """Set up detailed logging for verbose mode."""
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[logging.StreamHandler()]
+    )
+    
+    # Set specific loggers to DEBUG for detailed flow tracking
+    logging.getLogger("modules.llm_services.providers.openai").setLevel(logging.DEBUG)
+    logging.getLogger("modules.flow_engine.flows.base").setLevel(logging.DEBUG)
+    logging.getLogger("modules.flow_engine.steps.base").setLevel(logging.DEBUG)
+    logging.getLogger("modules.content_creator.flows").setLevel(logging.INFO)
+    logging.getLogger("modules.content_creator.service").setLevel(logging.INFO)
 
 
 def setup_environment():

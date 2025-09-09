@@ -4,9 +4,10 @@ Integration test for complete topic creation flow.
 This test uses the real PostgreSQL database and makes actual LLM API calls
 to test the complete topic creation workflow from source material to stored content.
 
-The test uses gpt-5-nano model to keep costs low and execution fast.
+The test uses gpt-5 model to test the new GPT-5 Responses API functionality.
 """
 
+import logging
 import os
 
 import pytest
@@ -15,8 +16,6 @@ from modules.content.repo import ContentRepo
 from modules.content.service import ContentService
 from modules.content_creator.service import ContentCreatorService, CreateTopicRequest
 from modules.infrastructure.public import infrastructure_provider
-from modules.llm_services.repo import LLMRequestRepo
-from modules.llm_services.service import LLMService
 
 
 @pytest.mark.integration
@@ -27,14 +26,33 @@ class TestTopicCreationIntegration:
     @pytest.fixture(scope="class", autouse=True)
     def setup_environment(self):
         """Set up test environment and validate required variables."""
+        print("🔧 Setting up test environment...")
+
         # Ensure we have required environment variables
         if not os.environ.get("OPENAI_API_KEY"):
+            print("❌ OPENAI_API_KEY not set - skipping integration test")
             pytest.skip("OPENAI_API_KEY not set - skipping integration test")
 
         if not os.environ.get("DATABASE_URL"):
+            print("❌ DATABASE_URL not set - skipping integration test")
             pytest.skip("DATABASE_URL not set - skipping integration test")
 
+        print("✅ Environment variables validated")
+
+        # Configure logging for integration test
+        print("📝 Configuring logging...")
+        logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", handlers=[logging.StreamHandler()])
+
+        # Set specific loggers to DEBUG for detailed flow tracking
+        logging.getLogger("modules.llm_services.providers.openai").setLevel(logging.DEBUG)
+        logging.getLogger("modules.flow_engine.flows.base").setLevel(logging.DEBUG)
+        logging.getLogger("modules.flow_engine.steps.base").setLevel(logging.DEBUG)
+        logging.getLogger("modules.content_creator.flows").setLevel(logging.INFO)
+        logging.getLogger("modules.content_creator.service").setLevel(logging.INFO)
+
+        print("✅ Test environment setup complete")
         yield
+        print("🧹 Test environment cleanup complete")
 
     @pytest.fixture(scope="class")
     def test_database_url(self):
@@ -47,21 +65,29 @@ class TestTopicCreationIntegration:
     @pytest.fixture(scope="class")
     def infrastructure_service(self):
         """Set up infrastructure service with database."""
+        print("🏗️ Setting up infrastructure service...")
+
         # For integration tests, we use the existing database and schema
         # No need to override DATABASE_URL since test_database_url returns the same URL
 
         # Initialize infrastructure
+        print("🔌 Initializing infrastructure provider...")
         infra = infrastructure_provider()
+        print("⚡ Calling infra.initialize()...")
         infra.initialize()
+        print("✅ Infrastructure initialized")
 
         # Verify the database connection works
+        print("🔍 Validating database environment...")
         status = infra.validate_environment()
         if not status.is_valid:
+            print(f"❌ Database environment not valid: {status.errors}")
             pytest.skip(f"Database environment not valid: {status.errors}")
 
+        print("✅ Database environment validated")
         yield infra
 
-        # Cleanup: infrastructure service handles its own cleanup
+        print("🧹 Infrastructure cleanup complete")
 
     @pytest.fixture
     def sample_source_material(self):
@@ -123,14 +149,23 @@ class TestTopicCreationIntegration:
         3. Checks that components (didactic snippet, glossary, MCQs) are created
         4. Validates the structure and content of created components
         """
+        print("🚀 Starting topic creation workflow test...")
+
         # Arrange: Ensure model is set before creating LLM service
         # The LLM service reads environment variables at initialization time
-        os.environ["OPENAI_MODEL"] = "gpt-5-nano"
+        print("🔧 Setting up test environment and services...")
+        os.environ["OPENAI_MODEL"] = "gpt-4o-mini"
+        print(f"📝 Using model: {os.environ['OPENAI_MODEL']}")
+
         # Create services using the initialized infrastructure service
+        print("🗄️ Getting database session...")
         db_session = infrastructure_service.get_database_session()
+        print("📚 Creating content service...")
         content_service = ContentService(ContentRepo(db_session))
-        llm_service = LLMService(LLMRequestRepo(db_session.session))
-        creator_service = ContentCreatorService(content_service, llm_service)
+        print("🤖 Creating content creator service...")
+        # llm_service no longer needed - flows handle LLM interactions internally
+        creator_service = ContentCreatorService(content_service)
+        print("✅ Services created successfully")
 
         request = CreateTopicRequest(title="Cross-Entropy Loss in Deep Learning", core_concept="Cross-Entropy Loss Function", source_material=sample_source_material, user_level="intermediate", domain="Machine Learning")
 

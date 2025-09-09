@@ -2,11 +2,18 @@
 
 from abc import ABC, abstractmethod
 from enum import Enum
+import logging
+from pathlib import Path
 import time
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 import uuid
 
 from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from ..context import FlowContext
 
 # Type variable for input models
 InputT = TypeVar("InputT", bound=BaseModel)
@@ -88,11 +95,17 @@ class BaseStep(ABC):
 
             context = FlowContext.current()
 
+            logger.info(f"🔧 Starting step: {self.step_name}")
+            logger.debug(f"Step inputs: {list(validated_inputs.model_dump().keys())}")
+
             # Create step run record
             step_run_id = await context.service.create_step_run_record(flow_run_id=context.flow_run_id, step_name=self.step_name, step_order=context.get_next_step_order(), inputs=validated_inputs.model_dump())
 
             # Execute step-specific logic
+            logger.debug(f"Executing step logic: {self.step_name}")
+            logger.debug(f"Step inputs: {validated_inputs.model_dump()}")
             output_content, llm_request_id = await self._execute_step_logic(validated_inputs, context)
+            logger.debug(f"Step output type: {type(output_content)}, content: {output_content}")
 
             # Calculate execution time
             execution_time_ms = int((time.time() - start_time) * 1000)
@@ -110,6 +123,8 @@ class BaseStep(ABC):
 
             # Update flow progress
             await context.service.update_flow_progress(flow_run_id=context.flow_run_id, current_step=self.step_name, step_progress=context.step_counter)
+
+            logger.info(f"✅ Step completed: {self.step_name} - Time: {execution_time_ms}ms, Tokens: {context.last_tokens_used or 0}")
 
             # Create result
             return StepResult(
@@ -136,6 +151,50 @@ class BaseStep(ABC):
 
             # Re-raise the exception
             raise
+
+    def _load_prompt_from_file(self, filename: str, context: "FlowContext") -> str:
+        """
+        Load a prompt from a markdown file.
+
+        This method looks for the prompt file in the following locations:
+        1. In the same module's prompts/ directory as the step class
+        2. In a global prompts/ directory (future enhancement)
+
+        Args:
+            filename: Name of the prompt file (e.g., "extract_content.md")
+            context: Flow execution context
+
+        Returns:
+            Content of the prompt file as a string
+
+        Raises:
+            FileNotFoundError: If the prompt file cannot be found
+        """
+        # Get the module path where the step class is defined
+        step_module = self.__class__.__module__
+
+        # Convert module path to file system path
+        # e.g., "modules.content_creator.steps" -> "modules/content_creator"
+        module_parts = step_module.split(".")
+        if module_parts[-1] in ["steps", "flows"]:  # Remove the steps/flows part
+            module_parts = module_parts[:-1]
+
+        # Build path to prompts directory
+        module_path = Path(*module_parts)
+        prompts_dir = module_path / "prompts"
+        prompt_file_path = prompts_dir / filename
+
+        # Try to read the file
+        try:
+            with open(prompt_file_path, encoding="utf-8") as f:
+                return f.read().strip()
+        except FileNotFoundError:
+            # Fallback: try relative to current working directory
+            try:
+                with open(f"prompts/{filename}", encoding="utf-8") as f:
+                    return f.read().strip()
+            except FileNotFoundError:
+                raise FileNotFoundError(f"Prompt file '{filename}' not found. Looked in: {prompt_file_path} and prompts/{filename}")
 
     @abstractmethod
     async def _execute_step_logic(self, inputs: BaseModel, context: "FlowContext") -> tuple[Any, uuid.UUID | None]:
@@ -186,9 +245,7 @@ class UnstructuredStep(BaseStep):
 
     def _load_prompt(self, filename: str, context: "FlowContext") -> str:
         """Load a prompt from a markdown file."""
-        # This will be implemented when we add prompt loading infrastructure
-        # For now, return a placeholder
-        return f"Prompt from {filename}: {{inputs}}"
+        return self._load_prompt_from_file(filename, context)
 
     def _format_prompt(self, prompt: str, inputs: dict[str, Any]) -> str:
         """Format prompt template with input values."""
@@ -234,7 +291,7 @@ class StructuredStep(BaseStep):
 
     def _load_prompt(self, filename: str, context: "FlowContext") -> str:
         """Load a prompt from a markdown file."""
-        return f"Structured prompt from {filename}: {{inputs}}"
+        return self._load_prompt_from_file(filename, context)
 
     def _format_prompt(self, prompt: str, inputs: dict[str, Any]) -> str:
         """Format prompt template with input values."""

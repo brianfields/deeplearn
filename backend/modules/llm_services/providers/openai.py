@@ -107,6 +107,47 @@ class OpenAIProvider(LLMProvider):
         except Exception as e:
             raise LLMAuthenticationError(f"Failed to setup OpenAI client: {e}") from e
 
+    def _is_gpt5_model(self, model: str) -> bool:
+        """Check if the model is GPT-5 which uses the Responses API."""
+        return model.startswith("gpt-5")
+
+    def _convert_messages_to_gpt5_input(self, messages: list[LLMMessage]) -> list[dict[str, Any]]:
+        """Convert LLMMessage list to GPT-5 input format."""
+        input_messages = []
+        for msg in messages:
+            input_msg = {
+                "role": msg.role.value,
+                "content": msg.content,
+            }
+            if msg.name:
+                input_msg["name"] = msg.name
+            input_messages.append(input_msg)
+        return input_messages
+
+    def _parse_gpt5_response(self, response: Any) -> tuple[str, str | None, dict[str, Any] | None]:
+        """Parse GPT-5 response format and extract content, finish_reason, and usage."""
+        # Use output_text if available (convenience property in SDK)
+        if hasattr(response, "output_text"):
+            content = response.output_text
+        else:
+            # Parse output array manually
+            content = ""
+            for output_item in response.output:
+                if hasattr(output_item, "content"):
+                    for content_item in output_item.content:
+                        if hasattr(content_item, "text"):
+                            content += content_item.text
+
+        # Extract finish reason and usage if available
+        finish_reason = None
+        usage = None
+
+        # GPT-5 response structure may have different usage tracking
+        if hasattr(response, "usage"):
+            usage = response.usage
+
+        return content, finish_reason, usage
+
     async def generate_response(
         self,
         messages: list[LLMMessage],
@@ -132,72 +173,124 @@ class OpenAIProvider(LLMProvider):
         try:
             # Create database record
             llm_request = self._create_llm_request(messages=messages, user_id=user_id, **kwargs)
+            # Ensure we have a valid request ID
+            if llm_request.id is None:
+                raise LLMError("Failed to create LLM request record")
+            request_id: uuid.UUID = llm_request.id
 
             # Check cache first (if enabled)
             cache = getattr(self, "_cache", None)
-            if self.config.cache_enabled and cache is not None:
+            if False and self.config.cache_enabled and cache is not None:
                 cached_response = await cache.get(messages, **kwargs)
                 if cached_response:
+                    logger.info(f"Using cached response")
                     self._update_llm_request_success(
                         llm_request,
                         cached_response,
                         int((datetime.now(UTC) - start_time).total_seconds() * 1000),
                     )
-                    return cached_response, llm_request.id
+                    return cached_response, request_id
 
-            # Prepare messages for OpenAI API
-            openai_messages = []
-            for msg in messages:
-                openai_msg = {
-                    "role": msg.role.value,
-                    "content": msg.content,
+            # Determine model and API to use
+            model = kwargs.get("model", self.config.model) or self.config.model
+            is_gpt5 = self._is_gpt5_model(model)
+
+            logger.info(f"🤖 Starting LLM request - Model: {model}, GPT-5: {is_gpt5}, Messages: {len(messages)}")
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f"Messages: {[{'role': m.role.value, 'content': m.content[:100] + '...' if len(m.content) > 100 else m.content} for m in messages]}")
+
+            if is_gpt5:
+                # Use GPT-5 Responses API
+                logger.info("📡 Using GPT-5 Responses API")
+                input_messages = self._convert_messages_to_gpt5_input(messages)
+
+                request_params = {
+                    "model": model,
+                    "input": input_messages,
                 }
-                if msg.name:
-                    openai_msg["name"] = msg.name
-                openai_messages.append(openai_msg)
 
-            # Prepare request parameters
-            print(f"OPENAI CONFIG MODEL: {self.config.model}, {kwargs.get('model')}, {kwargs.get('model', self.config.model)}")
-            request_params = {
-                "model": kwargs.get("model", self.config.model) or self.config.model,
-                "messages": openai_messages,
-                "temperature": kwargs.get("temperature", self.config.temperature) or self.config.temperature,
-                "max_tokens": kwargs.get("max_tokens", self.config.max_tokens) or self.config.max_tokens,
-                "stream": False,
-            }
+                # Add GPT-5 specific parameters
+                if "instructions" in kwargs:
+                    request_params["instructions"] = kwargs["instructions"]
+                    logger.debug(f"Instructions: {kwargs['instructions'][:100]}...")
+                if "reasoning" in kwargs:
+                    request_params["reasoning"] = kwargs["reasoning"]
+                    logger.debug(f"Reasoning: {kwargs['reasoning']}")
 
-            # Add optional parameters
-            for param in ["top_p", "frequency_penalty", "presence_penalty", "stop"]:
-                if param in kwargs:
-                    request_params[param] = kwargs[param]
+                # Add optional parameters that work with GPT-5
+                for param in ["top_p", "frequency_penalty", "presence_penalty", "stop"]:
+                    if param in kwargs:
+                        request_params[param] = kwargs[param]
 
-            # Make API call with retry logic
-            response = await self._make_api_call_with_retry(
-                lambda: self.client.chat.completions.create(**request_params)  # type: ignore[attr-defined]
-            )
+                logger.debug(f"GPT-5 request params: {list(request_params.keys())}")
 
-            # Extract response data
-            choice = response.choices[0]
-            content = choice.message.content or ""
-            finish_reason = choice.finish_reason
+                # Make API call with retry logic
+                logger.info("⏳ Making GPT-5 API call...")
+                response = await self._make_api_call_with_retry(
+                    lambda: self.client.responses.create(**request_params)  # type: ignore[attr-defined]
+                )
+                logger.info("✅ GPT-5 API call completed")
+
+                # Parse GPT-5 response
+                content, finish_reason, usage = self._parse_gpt5_response(response)
+
+            else:
+                # Use traditional Chat Completions API for older models
+                logger.info("💬 Using Chat Completions API")
+                openai_messages = []
+                for msg in messages:
+                    openai_msg = {
+                        "role": msg.role.value,
+                        "content": msg.content,
+                    }
+                    if msg.name:
+                        openai_msg["name"] = msg.name
+                    openai_messages.append(openai_msg)
+
+                request_params = {
+                    "model": model,
+                    "messages": openai_messages,
+                    "stream": False,
+                }
+
+                # Add optional parameters
+                for param in ["top_p", "frequency_penalty", "presence_penalty", "stop"]:
+                    if param in kwargs:
+                        request_params[param] = kwargs[param]
+
+                logger.debug(f"Chat Completions request params: {list(request_params.keys())}")
+
+                # Make API call with retry logic
+                logger.info("⏳ Making Chat Completions API call...")
+                response = await self._make_api_call_with_retry(
+                    lambda: self.client.chat.completions.create(**request_params)  # type: ignore[attr-defined]
+                )
+                logger.info("✅ Chat Completions API call completed")
+
+                # Extract response data
+                logger.debug(f"Raw OpenAI response: {response}")
+                choice = response.choices[0]
+                content = choice.message.content or ""
+                finish_reason = choice.finish_reason
+                usage = response.usage
+                logger.debug(f"Extracted content: '{content}', finish_reason: {finish_reason}")
 
             # Extract usage information
-            usage = response.usage
             if usage:
-                tokens_used = usage.total_tokens
-                prompt_tokens = usage.prompt_tokens
-                completion_tokens = usage.completion_tokens
+                tokens_used = getattr(usage, "total_tokens", None)
+                prompt_tokens = getattr(usage, "prompt_tokens", None)
+                completion_tokens = getattr(usage, "completion_tokens", None)
             else:
                 tokens_used = prompt_tokens = completion_tokens = None
 
             # Calculate cost estimate
-            cost_estimate = self.estimate_cost(prompt_tokens or 0, completion_tokens or 0, request_params["model"])
+            cost_estimate = self.estimate_cost(prompt_tokens or 0, completion_tokens or 0, model)
 
             # Create response object
             llm_response = LLMResponse(
                 content=content,
                 provider=self.config.provider,
-                model=request_params["model"],
+                model=model,
                 tokens_used=tokens_used,
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
@@ -219,8 +312,12 @@ class OpenAIProvider(LLMProvider):
                 llm_response.response_time_ms or 0,
             )
 
-            logger.info(f"Generated response with {tokens_used or 0} tokens")
-            return llm_response, llm_request.id
+            logger.info(f"🎉 LLM response completed - Tokens: {tokens_used or 0}, Cost: ${cost_estimate:.4f}, Time: {llm_response.response_time_ms}ms")
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f"Response content: '{content[:200]}{'...' if len(content) > 200 else ''}'")
+            if not content:
+                logger.warning("⚠️ LLM returned empty content!")
+            return llm_response, request_id
 
         except Exception as e:
             execution_time_ms = int((datetime.now(UTC) - start_time).total_seconds() * 1000)
@@ -246,6 +343,10 @@ class OpenAIProvider(LLMProvider):
         consider integrating with the instructor library for better structured output.
         """
         try:
+            # Determine model to check if it's GPT-5
+            model = kwargs.get("model", self.config.model) or self.config.model
+            is_gpt5 = self._is_gpt5_model(model)
+
             # Create system message with JSON schema instruction
             schema = response_model.model_json_schema()
             properties = schema.get("properties", {})
@@ -273,19 +374,31 @@ Example format:
 }}
 """
 
-            enhanced_messages = messages.copy()
-            enhanced_messages.append(LLMMessage(role=MessageRole.SYSTEM, content=schema_instruction))
-
-            # Generate response
-            response, llm_request_id = await self.generate_response(messages=enhanced_messages, user_id=user_id, **kwargs)
+            if is_gpt5:
+                # For GPT-5, use instructions parameter instead of system message
+                kwargs_copy = kwargs.copy()
+                kwargs_copy["instructions"] = schema_instruction
+                response, llm_request_id = await self.generate_response(messages=messages, user_id=user_id, **kwargs_copy)
+            else:
+                # For older models, append system message
+                enhanced_messages = messages.copy()
+                enhanced_messages.append(LLMMessage(role=MessageRole.SYSTEM, content=schema_instruction))
+                response, llm_request_id = await self.generate_response(messages=enhanced_messages, user_id=user_id, **kwargs)
+                logger.info(f"LLM Raw Response: {response}")
 
             # Parse JSON response
             try:
-                json_data = json.loads(response.content.strip())
+                content_to_parse = response.content.strip()
+                logger.debug(f"Raw LLM response content for parsing: '{content_to_parse}'")
+                if not content_to_parse:
+                    raise LLMValidationError("LLM returned empty response for structured output")
+
+                json_data = json.loads(content_to_parse)
                 structured_obj = response_model(**json_data)
                 return structured_obj, llm_request_id
 
             except (json.JSONDecodeError, ValueError) as e:
+                logger.error(f"Failed to parse structured response. Content: '{response.content[:200]}...'")
                 raise LLMValidationError(f"Failed to parse structured response: {e}") from e
 
         except Exception as e:
@@ -311,6 +424,10 @@ Example format:
                 model=self.config.image_model,
                 **kwargs,
             )
+            # Ensure we have a valid request ID
+            if llm_request.id is None:
+                raise LLMError("Failed to create LLM request record")
+            request_id: uuid.UUID = llm_request.id
 
             # Prepare request parameters
             request_params = {
@@ -352,7 +469,7 @@ Example format:
             )
 
             logger.info(f"Generated image: {image_url}")
-            return image_response, llm_request.id
+            return image_response, request_id
 
         except Exception as e:
             execution_time_ms = int((datetime.now(UTC) - start_time).total_seconds() * 1000)
@@ -408,7 +525,7 @@ Example format:
 
         return prompt_cost + completion_cost
 
-    def _estimate_image_cost(self, size, quality):
+    def _estimate_image_cost(self, size: Any, quality: Any) -> float:
         """Estimate cost for DALL-E image generation."""
         # DALL-E 3 pricing (as of 2024)
         if quality.value == "hd":
@@ -421,7 +538,7 @@ Example format:
         else:
             return 0.080  # Standard + large size
 
-    async def _make_api_call_with_retry(self, api_call_func):
+    async def _make_api_call_with_retry(self, api_call_func: Any) -> Any:
         """Make API call with retry logic for rate limits and transient errors."""
         last_exception = None
 
@@ -432,12 +549,11 @@ Example format:
                 last_exception = e
 
                 # Check if we should retry
-                if attempt < self.config.max_retries:
-                    if self._should_retry(e):
-                        wait_time = self._calculate_backoff(attempt)
-                        logger.warning(f"API call failed (attempt {attempt + 1}), retrying in {wait_time}s: {e}")
-                        await asyncio.sleep(wait_time)
-                        continue
+                if attempt < self.config.max_retries and self._should_retry(e):
+                    wait_time = self._calculate_backoff(attempt)
+                    logger.warning(f"API call failed (attempt {attempt + 1}), retrying in {wait_time}s: {e}")
+                    await asyncio.sleep(wait_time)
+                    continue
 
                 # Don't retry or max retries reached
                 break
@@ -448,7 +564,7 @@ Example format:
             raise self._convert_exception(last_exception)
         raise LLMError("Unknown error during OpenAI API call")
 
-    def _should_retry(self, exception) -> bool:
+    def _should_retry(self, exception: Any) -> bool:
         """Determine if an exception should trigger a retry."""
 
         # Always retry on these errors
@@ -462,8 +578,7 @@ Example format:
         # Retry on server errors (5xx)
         if isinstance(exception, APIError):
             status_code = getattr(exception, "status_code", None)
-            if status_code and 500 <= status_code < 600:
-                return True
+            return status_code is not None and 500 <= status_code < 600
 
         return False
 
@@ -474,7 +589,7 @@ Example format:
         delay = base_delay * (2**attempt)
         return min(delay, max_delay)
 
-    def _convert_exception(self, exception) -> LLMError:
+    def _convert_exception(self, exception: Any) -> LLMError:
         """Convert OpenAI exceptions to LLM exceptions."""
         # Use imported symbols or fallbacks
         if isinstance(exception, AuthenticationError | PermissionDeniedError):
