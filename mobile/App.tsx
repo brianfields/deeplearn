@@ -9,6 +9,7 @@ import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Screens (using new modular structure)
 import { TopicListScreen } from './modules/topic_catalog/screens/TopicListScreen';
@@ -24,6 +25,17 @@ import { uiSystemProvider } from './modules/ui_system/public';
 // Create navigators
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 const LearningStack = createNativeStackNavigator<LearningStackParamList>();
+
+// Create QueryClient for React Query
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 2,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
+    },
+  },
+});
 
 // Learning Stack Navigator
 function LearningStackNavigator() {
@@ -94,44 +106,46 @@ export default function App() {
   return (
     // eslint-disable-next-line react-native/no-inline-styles
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <NavigationContainer
-        theme={{
-          dark: false,
-          colors: {
-            primary: theme.colors.primary,
-            background: theme.colors.background,
-            card: theme.colors.surface,
-            text: theme.colors.text,
-            border: theme.colors.border,
-            notification: theme.colors.accent,
-          },
-          fonts: {
-            regular: {
-              fontFamily: 'System',
-              fontWeight: 'normal',
+      <QueryClientProvider client={queryClient}>
+        <NavigationContainer
+          theme={{
+            dark: false,
+            colors: {
+              primary: theme.colors.primary,
+              background: theme.colors.background,
+              card: theme.colors.surface,
+              text: theme.colors.text,
+              border: theme.colors.border,
+              notification: theme.colors.accent,
             },
-            medium: {
-              fontFamily: 'System',
-              fontWeight: '500',
+            fonts: {
+              regular: {
+                fontFamily: 'System',
+                fontWeight: 'normal',
+              },
+              medium: {
+                fontFamily: 'System',
+                fontWeight: '500',
+              },
+              bold: {
+                fontFamily: 'System',
+                fontWeight: 'bold',
+              },
+              heavy: {
+                fontFamily: 'System',
+                fontWeight: '700',
+              },
             },
-            bold: {
-              fontFamily: 'System',
-              fontWeight: 'bold',
-            },
-            heavy: {
-              fontFamily: 'System',
-              fontWeight: '700',
-            },
-          },
-        }}
-      >
-        <StatusBar
-          style="dark"
-          backgroundColor={theme.colors.surface}
-          translucent={false}
-        />
-        <RootNavigator />
-      </NavigationContainer>
+          }}
+        >
+          <StatusBar
+            style="dark"
+            backgroundColor={theme.colors.surface}
+            translucent={false}
+          />
+          <RootNavigator />
+        </NavigationContainer>
+      </QueryClientProvider>
     </GestureHandlerRootView>
   );
 }

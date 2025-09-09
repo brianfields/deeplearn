@@ -32,7 +32,7 @@ class CreateTopicRequest(BaseModel):
 
 
 class TopicCreationResult(BaseModel):
-    """Result of topic creation with component count."""
+    """Result of topic crea0tion with component count."""
 
     topic_id: str
     title: str

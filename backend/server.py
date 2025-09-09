@@ -44,8 +44,10 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://localhost:3001",
-        "http://localhost:8081",
+        "http://localhost:8081",  # This should already allow your frontend
         "http://172.16.100.219:8081",
+        # For development, allow all origins to avoid IP address issues:
+        "*",  # Allow all origins (DEVELOPMENT ONLY - remove for production)
     ],
     allow_credentials=True,
     allow_methods=["*"],

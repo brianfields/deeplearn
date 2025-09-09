@@ -128,9 +128,15 @@ class InfrastructureService:
         """
         Initialize the infrastructure service.
 
+        This method is idempotent - multiple calls are safe and will not
+        reinitialize if already initialized.
+
         Args:
             env_file: Optional path to .env file
         """
+        if self._initialized:
+            return  # Already initialized, skip redundant initialization
+
         self._load_configuration(env_file)
         self._setup_database_connection()
         self._initialized = True

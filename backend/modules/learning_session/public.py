@@ -8,9 +8,17 @@ This is a migration, not new feature development.
 from abc import abstractmethod
 from typing import Protocol
 
+from fastapi import Depends
+
+from modules.content.public import ContentProvider, content_provider
+from modules.infrastructure.public import infrastructure_provider
+from modules.topic_catalog.public import TopicCatalogProvider, topic_catalog_provider
+
+from .repo import LearningSessionRepo
 from .service import (
     CompleteSessionRequest,
     LearningSession,
+    LearningSessionService,
     SessionListResponse,
     SessionProgress,
     SessionResults,
@@ -69,6 +77,21 @@ class LearningSessionProvider(Protocol):
         ...
 
 
+def learning_session_provider(
+    content: ContentProvider = Depends(content_provider),
+    topic_catalog: TopicCatalogProvider = Depends(topic_catalog_provider),
+) -> LearningSessionProvider:
+    """
+    Dependency injection provider for learning session services.
+
+    Returns the concrete LearningSessionService which implements the LearningSessionProvider protocol.
+    """
+    infra = infrastructure_provider()
+    session = infra.get_database_session()
+    repo = LearningSessionRepo(session)
+    return LearningSessionService(repo, content, topic_catalog)
+
+
 # Export DTOs that other modules might need
 __all__ = [
     "CompleteSessionRequest",
@@ -79,4 +102,5 @@ __all__ = [
     "SessionResults",
     "StartSessionRequest",
     "UpdateProgressRequest",
+    "learning_session_provider",
 ]

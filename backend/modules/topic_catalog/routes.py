@@ -16,7 +16,7 @@ from .service import (
     TopicSummary,
 )
 
-router = APIRouter(prefix="/api/topics", tags=["topic-catalog"])
+router = APIRouter(prefix="/api/v1/topics")
 
 
 @router.get("/", response_model=BrowseTopicsResponse)
