@@ -19,6 +19,8 @@ module.exports = {
     '^@modules/(.*)$': '<rootDir>/modules/$1',
     // Mock React Native modules
     '^react-native$': '<rootDir>/__mocks__/react-native.js',
+    '^react-native-reanimated$':
+      '<rootDir>/__mocks__/react-native-reanimated.js',
     '^@react-native-async-storage/async-storage$':
       '<rootDir>/__mocks__/async-storage.js',
     '^@react-native-community/netinfo$': '<rootDir>/__mocks__/netinfo.js',

@@ -5,36 +5,33 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, ViewStyle } from 'react-native';
-import { useTheme } from '../module_api/theme';
-
-interface CardProps {
-  children: React.ReactNode;
-  style?: ViewStyle;
-  elevated?: boolean;
-  padding?: keyof typeof defaultSpacing | number;
-}
-
-const defaultSpacing = {
-  xs: 4,
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
-};
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { uiSystemProvider } from '../public';
+import type { CardProps } from '../models';
 
 export const Card: React.FC<CardProps> = ({
   children,
   style,
-  elevated = true,
+  variant = 'default',
   padding = 'md',
+  margin,
+  onPress,
+  disabled = false,
 }) => {
-  const { theme } = useTheme();
+  const uiSystem = uiSystemProvider();
+  const theme = uiSystem.getCurrentTheme();
+  const designSystem = uiSystem.getDesignSystem();
 
   const paddingValue =
     typeof padding === 'number'
       ? padding
-      : theme.spacing[padding] || defaultSpacing[padding];
+      : uiSystem.getSpacing(padding as keyof typeof theme.spacing);
+
+  const marginValue = margin
+    ? typeof margin === 'number'
+      ? margin
+      : uiSystem.getSpacing(margin as keyof typeof theme.spacing)
+    : 0;
 
   const cardStyle = [
     styles.base,
@@ -42,18 +39,34 @@ export const Card: React.FC<CardProps> = ({
       backgroundColor: theme.colors.surface,
       borderColor: theme.colors.border,
       padding: paddingValue,
+      margin: marginValue,
     },
-    elevated && theme.shadows?.medium,
+    variant === 'elevated' && designSystem.shadows?.medium,
+    variant === 'outlined' && { borderWidth: 1 },
+    disabled && styles.disabled,
     style,
   ];
 
-  return <View style={cardStyle}>{children}</View>;
+  const Component = onPress ? TouchableOpacity : View;
+
+  return (
+    <Component
+      style={cardStyle}
+      onPress={onPress}
+      disabled={disabled}
+      activeOpacity={onPress ? 0.8 : 1}
+    >
+      {children}
+    </Component>
+  );
 };
 
 const styles = StyleSheet.create({
   base: {
     borderRadius: 12,
-    borderWidth: 1,
+  },
+  disabled: {
+    opacity: 0.6,
   },
 });
 

@@ -5,58 +5,46 @@
  */
 
 import React, { useEffect } from 'react';
-import { View, StyleSheet, ViewStyle } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
-  withTiming,
   withSpring,
 } from 'react-native-reanimated';
-import { useTheme } from '../module_api/theme';
-
-interface ProgressProps {
-  value: number; // 0-100
-  style?: ViewStyle;
-  height?: number;
-  color?: string;
-  backgroundColor?: string;
-  animated?: boolean;
-  animationType?: 'timing' | 'spring';
-}
+import { uiSystemProvider } from '../public';
+import type { ProgressProps } from '../models';
 
 export const Progress: React.FC<ProgressProps> = ({
-  value,
-  style,
-  height = 8,
+  progress,
+  size = 'medium',
   color,
   backgroundColor,
+  showLabel = false,
+  label,
   animated = true,
-  animationType = 'spring',
+  style,
 }) => {
-  const { theme } = useTheme();
+  const uiSystem = uiSystemProvider();
+  const theme = uiSystem.getCurrentTheme();
   const progressWidth = useSharedValue(0);
 
   const defaultColor = color || theme.colors.primary;
   const defaultBackgroundColor = backgroundColor || theme.colors.border;
 
+  const height = size === 'small' ? 4 : size === 'large' ? 12 : 8;
+
   useEffect(() => {
-    const targetWidth = Math.max(0, Math.min(100, value));
+    const targetWidth = Math.max(0, Math.min(100, progress));
 
     if (animated) {
-      if (animationType === 'spring') {
-        progressWidth.value = withSpring(targetWidth, {
-          damping: 15,
-          stiffness: 150,
-        });
-      } else {
-        progressWidth.value = withTiming(targetWidth, {
-          duration: 500,
-        });
-      }
+      progressWidth.value = withSpring(targetWidth, {
+        damping: 15,
+        stiffness: 150,
+      });
     } else {
       progressWidth.value = targetWidth;
     }
-  }, [value, animated, animationType]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [progress, animated]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const animatedStyle = useAnimatedStyle(() => ({
     width: `${progressWidth.value}%`,
@@ -72,14 +60,21 @@ export const Progress: React.FC<ProgressProps> = ({
   ];
 
   return (
-    <View style={containerStyle}>
-      <Animated.View
-        style={[
-          styles.progress,
-          { backgroundColor: defaultColor, height },
-          animatedStyle,
-        ]}
-      />
+    <View>
+      {showLabel && (
+        <Text style={[styles.label, { color: theme.colors.text }]}>
+          {label || `${Math.round(progress)}%`}
+        </Text>
+      )}
+      <View style={containerStyle}>
+        <Animated.View
+          style={[
+            styles.progress,
+            { backgroundColor: defaultColor, height },
+            animatedStyle,
+          ]}
+        />
+      </View>
     </View>
   );
 };
@@ -91,6 +86,11 @@ const styles = StyleSheet.create({
   },
   progress: {
     borderRadius: 4,
+  },
+  label: {
+    fontSize: 12,
+    marginBottom: 4,
+    textAlign: 'right',
   },
 });
 
