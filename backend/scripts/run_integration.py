@@ -45,12 +45,8 @@ def load_env_file(env_path: Path) -> None:
 
 def setup_detailed_logging():
     """Set up detailed logging for verbose mode."""
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[logging.StreamHandler()]
-    )
-    
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", handlers=[logging.StreamHandler()])
+
     # Set specific loggers to DEBUG for detailed flow tracking
     logging.getLogger("modules.llm_services.providers.openai").setLevel(logging.DEBUG)
     logging.getLogger("modules.flow_engine.flows.base").setLevel(logging.DEBUG)
@@ -177,6 +173,11 @@ def run_integration_tests(module_name: str = None, verbose: bool = False) -> int
         for test_file in test_files:
             print(f"  - {test_file}")
 
+    # Setup detailed logging if verbose mode is enabled
+    if verbose:
+        print("📝 Setting up detailed logging for verbose mode...")
+        setup_detailed_logging()
+
     # Set environment variables for integration tests
     env = os.environ.copy()
 
@@ -189,6 +190,10 @@ def run_integration_tests(module_name: str = None, verbose: bool = False) -> int
         "-v" if verbose else "-q",
         "--tb=short",
     ]
+
+    # Add -s flag for verbose mode to show print statements and logging
+    if verbose:
+        cmd.append("-s")
 
     print(f"🚀 Running: {' '.join(cmd)}")
 
