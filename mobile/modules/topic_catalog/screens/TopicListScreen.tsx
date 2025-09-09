@@ -19,17 +19,22 @@ import {
 } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { Search, Filter, Loader, AlertCircle } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { TopicCard } from '../components/TopicCard';
 import { SearchFilters } from '../components/SearchFilters';
 import { useTopicCatalog, useRefreshCatalog } from '../queries';
 import { TopicSummary, TopicFilters } from '../models';
+import type { LearningStackParamList } from '../../../src/types';
 
-interface TopicListScreenProps {
-  onTopicPress: (topic: TopicSummary) => void;
-}
+type TopicListScreenNavigationProp = NativeStackNavigationProp<
+  LearningStackParamList,
+  'TopicList'
+>;
 
-export function TopicListScreen({ onTopicPress }: TopicListScreenProps) {
+export function TopicListScreen() {
+  const navigation = useNavigation<TopicListScreenNavigationProp>();
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState<TopicFilters>({});
   const [showFilters, setShowFilters] = useState(false);
@@ -62,9 +67,29 @@ export function TopicListScreen({ onTopicPress }: TopicListScreenProps) {
 
   const handleTopicPress = useCallback(
     (topic: TopicSummary) => {
-      onTopicPress(topic);
+      navigation.navigate('LearningFlow', {
+        topicId: topic.id,
+        topic: {
+          id: topic.id,
+          title: topic.title,
+          description: topic.coreConcept,
+          estimated_duration: topic.estimatedDuration,
+          difficulty:
+            topic.userLevel === 'beginner'
+              ? 1
+              : topic.userLevel === 'intermediate'
+                ? 2
+                : 3,
+          learning_objectives: topic.learningObjectives,
+          prerequisites: [],
+          component_count: topic.componentCount,
+          created_at: topic.createdAt || new Date().toISOString(),
+          updated_at: topic.updatedAt || new Date().toISOString(),
+          components: [], // Will be fetched by LearningFlow if needed
+        },
+      });
     },
-    [onTopicPress]
+    [navigation]
   );
 
   const handleFiltersChange = useCallback((newFilters: TopicFilters) => {

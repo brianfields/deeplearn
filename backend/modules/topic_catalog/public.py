@@ -7,9 +7,7 @@ This is the only interface other modules should import from.
 
 from typing import Protocol
 
-from fastapi import Depends
-
-from modules.content.public import ContentProvider, content_provider
+from modules.content.public import ContentProvider
 
 from .service import (
     BrowseTopicsResponse,
@@ -42,11 +40,15 @@ class TopicCatalogProvider(Protocol):
     def refresh_catalog(self) -> RefreshCatalogResponse: ...
 
 
-def topic_catalog_provider(content: ContentProvider = Depends(content_provider)) -> TopicCatalogProvider:
+def topic_catalog_provider(content: ContentProvider) -> TopicCatalogProvider:
     """
     Dependency injection provider for topic catalog services.
 
-    Returns the concrete TopicCatalogService which implements the TopicCatalogProvider protocol.
+    Args:
+        content: Content service instance (built with same session as caller).
+
+    Returns:
+        TopicCatalogService instance that implements the TopicCatalogProvider protocol.
     """
     return TopicCatalogService(content)
 

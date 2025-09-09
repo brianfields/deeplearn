@@ -32,43 +32,44 @@ def flow_execution(func):
 
         infra = infrastructure_provider()
         infra.initialize()
-        db_session = infra.get_database_session()
         llm_services = llm_services_provider()
 
-        service = FlowEngineService(FlowRunRepo(db_session.session), FlowStepRunRepo(db_session.session), llm_services)
+        # Keep the entire flow execution within a managed DB session so writes commit
+        with infra.get_session_context() as db_session:
+            service = FlowEngineService(FlowRunRepo(db_session), FlowStepRunRepo(db_session), llm_services)
 
-        # Create flow run record
-        inputs = args[0] if args else {}
-        user_id = kwargs.get("user_id")
+            # Create flow run record
+            inputs = args[0] if args else {}
+            user_id = kwargs.get("user_id")
 
-        logger.info(f"🚀 Starting flow: {self.flow_name}")
-        logger.debug(f"Flow inputs: {list(inputs.keys()) if isinstance(inputs, dict) else 'N/A'}")
+            logger.info(f"🚀 Starting flow: {self.flow_name}")
+            logger.debug(f"Flow inputs: {list(inputs.keys()) if isinstance(inputs, dict) else 'N/A'}")
 
-        flow_run_id = await service.create_flow_run_record(flow_name=self.flow_name, inputs=inputs, user_id=user_id)
+            flow_run_id = await service.create_flow_run_record(flow_name=self.flow_name, inputs=inputs, user_id=user_id)
 
-        # Set up flow context
-        context = FlowContext.set(service=service, flow_run_id=flow_run_id, user_id=user_id, step_counter=0)
+            # Set up flow context
+            context = FlowContext.set(service=service, flow_run_id=flow_run_id, user_id=user_id, step_counter=0)
 
-        try:
-            # Execute the flow method
-            logger.info(f"⚙️ Executing flow logic: {self.flow_name}")
-            result = await func(self, *args, **kwargs)
+            try:
+                # Execute the flow method
+                logger.info(f"⚙️ Executing flow logic: {self.flow_name}")
+                result = await func(self, *args, **kwargs)
 
-            # Complete the flow run
-            await service.complete_flow_run(flow_run_id, result)
-            logger.info(f"✅ Flow completed successfully: {self.flow_name}")
+                # Complete the flow run
+                await service.complete_flow_run(flow_run_id, result)
+                logger.info(f"✅ Flow completed successfully: {self.flow_name}")
 
-            return result
+                return result
 
-        except Exception as e:
-            # Mark flow as failed
-            logger.error(f"❌ Flow failed: {self.flow_name} - {e!s}")
-            await service.fail_flow_run(flow_run_id, str(e))
-            raise
+            except Exception as e:
+                # Mark flow as failed
+                logger.error(f"❌ Flow failed: {self.flow_name} - {e!s}")
+                await service.fail_flow_run(flow_run_id, str(e))
+                raise
 
-        finally:
-            # Clean up context
-            FlowContext.clear()
+            finally:
+                # Clean up context
+                FlowContext.clear()
 
     return wrapper
 

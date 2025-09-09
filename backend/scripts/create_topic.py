@@ -29,11 +29,10 @@ import sys
 # Add the backend directory to the path so we can import modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from modules.content.repo import ContentRepo
-from modules.content.service import ContentService
+from modules.content.public import content_provider
 from modules.content_creator.public import content_creator_provider
 from modules.content_creator.service import CreateTopicRequest
-from modules.infrastructure.public import DatabaseSession, infrastructure_provider
+from modules.infrastructure.public import infrastructure_provider
 
 
 async def main() -> None:
@@ -108,7 +107,7 @@ async def main() -> None:
             print(f"🗄️  Database URL: {infra.get_database_url()}")
 
         with infra.get_session_context() as db_session:
-            content_service = ContentService(ContentRepo(DatabaseSession(session=db_session, connection_id="cli")))
+            content_service = content_provider(db_session)
             creator = content_creator_provider(content=content_service)
 
             # Create topic request

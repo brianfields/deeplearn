@@ -7,7 +7,9 @@ This is the only interface other modules should import from.
 
 from typing import Protocol
 
-from modules.infrastructure.public import infrastructure_provider
+from sqlalchemy.orm import Session
+
+from modules.infrastructure.public import DatabaseSession
 
 from .repo import ContentRepo
 from .service import ComponentCreate, ComponentRead, ContentService, TopicCreate, TopicRead
@@ -28,16 +30,17 @@ class ContentProvider(Protocol):
     def delete_component(self, component_id: str) -> bool: ...
 
 
-def content_provider() -> ContentProvider:
+def content_provider(session: Session) -> ContentProvider:
     """
     Dependency injection provider for content services.
 
-    Returns the concrete ContentService which implements the ContentProvider protocol.
+    Args:
+        session: Database session managed at the route level for proper commits.
+
+    Returns:
+        ContentService instance that implements the ContentProvider protocol.
     """
-    infra = infrastructure_provider()
-    infra.initialize()
-    session = infra.get_database_session()
-    return ContentService(ContentRepo(session))
+    return ContentService(ContentRepo(DatabaseSession(session=session, connection_id="api")))
 
 
 __all__ = ["ComponentCreate", "ComponentRead", "ContentProvider", "TopicCreate", "TopicRead", "content_provider"]

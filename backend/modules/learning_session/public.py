@@ -8,11 +8,10 @@ This is a migration, not new feature development.
 from abc import abstractmethod
 from typing import Protocol
 
-from fastapi import Depends
+from sqlalchemy.orm import Session
 
-from modules.content.public import ContentProvider, content_provider
-from modules.infrastructure.public import infrastructure_provider
-from modules.topic_catalog.public import TopicCatalogProvider, topic_catalog_provider
+from modules.content.public import ContentProvider
+from modules.topic_catalog.public import TopicCatalogProvider
 
 from .repo import LearningSessionRepo
 from .service import (
@@ -78,16 +77,21 @@ class LearningSessionProvider(Protocol):
 
 
 def learning_session_provider(
-    content: ContentProvider = Depends(content_provider),
-    topic_catalog: TopicCatalogProvider = Depends(topic_catalog_provider),
+    session: Session,
+    content: ContentProvider,
+    topic_catalog: TopicCatalogProvider,
 ) -> LearningSessionProvider:
     """
     Dependency injection provider for learning session services.
 
-    Returns the concrete LearningSessionService which implements the LearningSessionProvider protocol.
+    Args:
+        session: Database session managed at the route level for proper commits.
+        content: Content service instance (built with same session).
+        topic_catalog: Topic catalog service instance (built with same session).
+
+    Returns:
+        LearningSessionService instance that implements the LearningSessionProvider protocol.
     """
-    infra = infrastructure_provider()
-    session = infra.get_database_session()
     repo = LearningSessionRepo(session)
     return LearningSessionService(repo, content, topic_catalog)
 
