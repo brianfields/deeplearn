@@ -1,10 +1,27 @@
-# MCQ Creation Script
+# Backend Scripts
 
-This directory contains a command-line script for creating Multiple Choice Questions (MCQs) from unstructured reference material using AI.
+This directory contains command-line scripts for various development and data management tasks.
 
-## 📋 Overview
+## 📋 Available Scripts
 
-The `create_mcqs.py` script uses a sophisticated two-pass approach to generate high-quality MCQs:
+### 🌱 `create_seed_data.py` - Seed Data Generation
+
+Creates realistic seed data for development and testing without making actual LLM calls. Generates:
+- Complete lesson with metadata
+- 1 didactic snippet component
+- 1 glossary component
+- 5 multiple choice questions
+- 1 FlowRun record
+- 8 FlowStepRun records (1 metadata + 1 didactic + 1 glossary + 5 MCQs)
+- 8 LLMRequest records with realistic token counts and costs
+
+### 📚 `create_lesson.py` - Real Lesson Creation
+
+Creates complete lessons using actual LLM API calls through the content creator service.
+
+### 🎯 `create_mcqs.py` - MCQ Generation (Legacy)
+
+The original MCQ creation script using a sophisticated two-pass approach:
 
 1. **Pass 1**: Extract refined material from source text
 2. **Pass 2**: Create individual MCQs for each topic/learning objective
@@ -14,224 +31,186 @@ The `create_mcqs.py` script uses a sophisticated two-pass approach to generate h
 
 ### Prerequisites
 - Python 3.11+
-- OpenAI API key (set as environment variable)
+- Database connection (PostgreSQL or SQLite)
+- For real lesson creation: OpenAI API key
 - Required dependencies (see `requirements.txt`)
 
-### Basic Usage
+### Seed Data Creation
+
+```bash
+# Create seed data with default lesson
+python scripts/create_seed_data.py --verbose
+
+# Create custom seed data
+python scripts/create_seed_data.py \
+    --lesson "Neural Networks Basics" \
+    --concept "Backpropagation Algorithm" \
+    --level "beginner" \
+    --domain "Deep Learning" \
+    --verbose \
+    --output seed_summary.json
+```
+
+### Real Lesson Creation
 
 ```bash
 # Set your OpenAI API key
 export OPENAI_API_KEY="your-api-key-here"
 
-# Create MCQs from material
-python scripts/create_mcqs.py --topic "Your Topic" --file your_material.txt
-```
-
-### Example: PyTorch Tensor Usage
-
-A complete example with reference material is provided:
-
-```bash
-# Create MCQs about PyTorch tensor usage
-python scripts/create_mcqs.py \
-    --topic "PyTorch Tensor Usage" \
-    --file pytorch_tensor_material.txt \
-    --output pytorch_mcqs.json \
-    --domain "Machine Learning" \
-    --level intermediate \
+# Create lesson from source material
+python scripts/create_lesson.py \
+    --lesson "PyTorch Cross-Entropy Loss" \
+    --concept "Cross-Entropy Loss Function" \
+    --material scripts/examples/cross_entropy_material.txt \
     --verbose
 ```
 
-## 📖 Command Line Arguments
+## 📖 Script Details
+
+### 🌱 Seed Data Script (`create_seed_data.py`)
+
+Creates realistic development data without API calls.
+
+**Command Line Arguments:**
 
 | Argument | Required | Description | Default |
 |----------|----------|-------------|---------|
-| `--topic` | Yes | Topic title for the MCQs | - |
-| `--file` | Yes | Path to text file containing source material | - |
-| `--output` | No | Output JSON file path | `mcqs_output.json` |
-| `--domain` | No | Subject domain (e.g., "Machine Learning") | - |
+| `--lesson` | No | Lesson title | "Cross-Entropy Loss in Deep Learning" |
+| `--concept` | No | Core concept | "Cross-Entropy Loss Function" |
+| `--level` | No | User level (beginner/intermediate/advanced) | `intermediate` |
+| `--domain` | No | Subject domain | "Machine Learning" |
+| `--verbose` | No | Show detailed progress | - |
+| `--output` | No | Save summary to JSON file | - |
+
+**Generated Data:**
+- 1 lesson with 5 learning objectives and key concepts
+- 1 didactic snippet with explanation and key points
+- 1 glossary with 5 key terms and definitions
+- 5 multiple choice questions (one per learning objective)
+- 1 flow run record with realistic metrics (15,420 tokens, $0.0771 cost)
+- 8 flow step run records (metadata extraction + component generation)
+- 8 LLM request records with realistic request/response data
+
+**Example Output:**
+```
+✅ Seed data created successfully!
+   • Lesson ID: d9bdcecc-0eea-489b-9fea-fc5d700524c7
+   • Title: Cross-Entropy Loss in Deep Learning
+   • Components: 7 (1 didactic, 1 glossary, 5 MCQs)
+   • Flow runs: 1
+   • Step runs: 8
+   • LLM requests: 8
+   • Total tokens: 15420
+   • Total cost: $0.0771
+   • Frontend URL: http://localhost:3000/learn/d9bdcecc-0eea-489b-9fea-fc5d700524c7?mode=learning
+```
+
+### 📚 Real Lesson Creation (`create_lesson.py`)
+
+Creates lessons using actual LLM API calls.
+
+**Command Line Arguments:**
+
+| Argument | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `--lesson` | Yes | Lesson title | - |
+| `--concept` | Yes | Core concept to focus on | - |
+| `--material` | Yes | Path to source material text file | - |
 | `--level` | No | Target user level | `intermediate` |
-| `--model` | No | LLM model to use | `gpt-4` |
-| `--verbose` | No | Show detailed progress and results | - |
+| `--domain` | No | Subject domain | "Machine Learning" |
+| `--verbose` | No | Show detailed progress | - |
+| `--debug` | No | Enable debug logging | - |
+| `--output` | No | Save content summary to JSON file | - |
 
-## 📁 Input Material Format
+## 🛠️ Development & Testing
 
-The script accepts plain text files with your reference material. The material should be:
-- Well-structured with clear topics and concepts
-- Comprehensive enough to generate meaningful MCQs
-- Written in a clear, educational style
+### Environment Setup
 
-### Example Material Structure
+```bash
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate
 
-```
-Topic Title: Your Main Topic
+# Install dependencies
+pip install -r requirements.txt
 
-## Subtopic 1
-Explanation of concepts, definitions, examples...
+# Set up database (for seed data)
+export DATABASE_URL="postgresql://user:pass@localhost:5432/deeplearn"
+# OR for testing with SQLite
+export DATABASE_URL="sqlite:///test.db"
 
-## Subtopic 2 
-More detailed information, code examples if applicable...
-
-## Key Concepts
-- Important point 1
-- Important point 2
-- Important point 3
-
-## Best Practices
-Guidelines, tips, common mistakes to avoid...
+# Create database tables
+alembic upgrade head
 ```
 
-## 📊 Output Format
+### Testing Scripts
 
-The script generates a JSON file with the following structure:
+```bash
+# Test seed data creation
+python scripts/create_seed_data.py --verbose --output /tmp/test_summary.json
 
-```json
-{
-  "topic": "Topic Title",
-  "domain": "Subject Domain",
-  "user_level": "intermediate",
-  "source_material_length": 3751,
-  "refined_material": {
-    "topics": [
-      {
-        "topic": "Subtopic Name",
-        "learning_objectives": ["Objective 1", "Objective 2"],
-        "key_facts": ["Fact 1", "Fact 2"],
-        "common_misconceptions": [
-          {
-            "misconception": "Wrong belief",
-            "correct_concept": "Correct understanding"
-          }
-        ],
-        "assessment_angles": ["Angle 1", "Angle 2"]
-      }
-    ]
-  },
-  "mcqs": [
-    {
-      "mcq": {
-        "stem": "Question text?",
-        "options": ["Option A", "Option B", "Option C", "Option D"],
-        "correct_answer": "Option A",
-        "rationale": "Explanation of why this is correct"
-      },
-      "evaluation": {
-        "alignment": "Assessment of alignment with learning objectives",
-        "stem_quality": "Quality of question stem",
-        "options_quality": "Quality of answer options",
-        "cognitive_challenge": "Appropriate cognitive level",
-        "clarity_fairness": "Clarity and fairness assessment",
-        "overall": "Overall quality summary"
-      },
-      "topic": "Associated topic",
-      "learning_objective": "Target learning objective"
-    }
-  ],
-  "summary": {
-    "total_topics": 3,
-    "total_mcqs": 8,
-    "topics_covered": ["Topic 1", "Topic 2", "Topic 3"]
-  }
-}
+# Test real lesson creation (requires API key)
+export OPENAI_API_KEY="your-key-here"
+python scripts/create_lesson.py \
+    --lesson "Test Lesson" \
+    --concept "Test Concept" \
+    --material scripts/examples/cross_entropy_material.txt \
+    --verbose
 ```
 
-## 🎯 Features
+## 🎯 Use Cases
 
-- **Two-pass AI approach** for higher quality MCQs
-- **Automatic topic extraction** from unstructured material
-- **Learning objective alignment** following Bloom's taxonomy
-- **MCQ quality evaluation** using educational best practices
-- **Detailed progress tracking** with verbose mode
-- **Flexible output options** with JSON format
-- **Error handling** with helpful error messages
+### Development & Testing
+- **Seed Data**: Create realistic test data without API costs
+- **Database Testing**: Populate database with complete lesson structures
+- **Frontend Development**: Test UI components with realistic data
+- **Performance Testing**: Generate multiple lessons for load testing
 
-## 🔍 Example Output
-
-When you run the script with verbose mode, you'll see progress like:
-
-```
-Creating MCQs for topic: PyTorch Tensor Usage
-Source material length: 3,751 characters
-Target level: intermediate
-Domain: Machine Learning
-
-🔍 Starting two-pass MCQ creation...
-📝 Pass 1: Extracting refined material from source text...
-✅ Pass 1 completed: Found 4 topics
-🧪 Pass 2: Created 12 MCQs
-📊 Pass 3: Quality evaluation completed
-
-🎉 Success! Created 12 MCQs
-📚 Refined material extracted for 4 topics
-💾 Results saved to: pytorch_mcqs.json
-
-📋 Topics covered:
-  - Creating Tensors (3 learning objectives)
-  - Tensor Properties (2 learning objectives)
-  - Basic Operations (4 learning objectives)
-  - GPU Acceleration (3 learning objectives)
-
-🎯 MCQ Quality Summary:
-  MCQ 1: High quality MCQ following best practices for tensor creation
-  MCQ 2: Well-constructed question testing tensor properties understanding
-  ...
-
-📊 Summary Statistics:
-  - Total characters processed: 3,751
-  - Topics identified: 4
-  - MCQs created: 12
-  - Target level: intermediate
-  - Domain: Machine Learning
-
-🔍 To view detailed results, check: pytorch_mcqs.json
-```
+### Production Setup
+- **Content Creation**: Generate real lessons from source materials
+- **Batch Processing**: Create multiple lessons from a content library
+- **Quality Assurance**: Review generated content before publishing
 
 ## 🛠️ Troubleshooting
 
 ### Common Issues
 
-1. **"OpenAI API key not set"**
+1. **Database Connection Errors**
+   - Ensure DATABASE_URL is set correctly
+   - For PostgreSQL: Check server is running and accessible
+   - For SQLite: Ensure directory is writable
+
+2. **"OpenAI API key not set"** (for real lesson creation)
    - Set the environment variable: `export OPENAI_API_KEY="your-key"`
-   - Or the script will use a dummy key for testing
+   - Seed data script doesn't require API key
 
-2. **"Input file not found"**
-   - Check the file path is correct
-   - Ensure the file exists and is readable
-
-3. **"Input file is empty"**
-   - Make sure your material file has content
-   - Check file encoding (should be UTF-8)
-
-4. **Import errors**
+3. **Import Errors**
    - Make sure you're running from the backend directory
-   - Check that all dependencies are installed
+   - Check that all dependencies are installed: `pip install -r requirements.txt`
 
-### Testing
+4. **Database Schema Issues**
+   - Run migrations: `alembic upgrade head`
+   - Check that all required tables exist
 
-To test the script without using API credits:
+### Testing Without API Costs
+
+The seed data script is perfect for development and testing:
 
 ```bash
-# Test script validation
-python test_mcq_script.py
+# Create test data without any API calls
+python scripts/create_seed_data.py --verbose
 
-# Test with dummy API key
-OPENAI_API_KEY="dummy_key" python scripts/create_mcqs.py --topic "Test" --file pytorch_tensor_material.txt
+# Test with different parameters
+python scripts/create_seed_data.py \
+    --lesson "Custom Test Lesson" \
+    --concept "Test Concept" \
+    --level "beginner" \
+    --verbose
 ```
 
-## 🔧 Development
+## 📚 Related Documentation
 
-The script uses the following internal components:
-- `MCQService` - Core MCQ creation logic
-- `PromptContext` - Context management for AI prompts
-- `LLMClient` - Interface to language models
-
-For development and testing, see the test files in the `tests/` directory:
-- `test_mcq_service.py`
-- `test_mcq_script.py`
-- `test_mcq_prompts.py`
-
-## 📚 Further Reading
-
-- [MCQ Best Practices](../src/modules/lesson_planning/bite_sized_topics/prompts/CREATING_MCQs.md)
-- [Bloom's Taxonomy Guide](https://en.wikipedia.org/wiki/Bloom%27s_taxonomy)
-- [Educational Assessment Principles](https://en.wikipedia.org/wiki/Educational_assessment)
+- [Backend Architecture](../../docs/arch/backend.md)
+- [Content Creator Module](../modules/content_creator/)
+- [Flow Engine](../modules/flow_engine/)
+- [Database Models](../modules/content/models.py)
