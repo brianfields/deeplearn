@@ -5,7 +5,7 @@ Basic unit tests for the learning session module.
 """
 
 from datetime import datetime
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import Mock
 
 import pytest
 
@@ -20,8 +20,8 @@ class TestLearningSessionService:
     def setup_method(self):
         """Set up test fixtures"""
         self.mock_repo = Mock(spec=LearningSessionRepo)
-        self.mock_content_provider = AsyncMock()
-        self.mock_topic_catalog_provider = AsyncMock()
+        self.mock_content_provider = Mock()
+        self.mock_topic_catalog_provider = Mock()
 
         self.service = LearningSessionService(
             self.mock_repo,
@@ -38,7 +38,7 @@ class TestLearningSessionService:
         # Mock topic exists
         mock_topic = Mock()
         mock_topic.id = "test-topic"
-        self.mock_topic_catalog_provider.get_topic_detail.return_value = mock_topic
+        self.mock_topic_catalog_provider.get_topic_details.return_value = mock_topic
 
         # Mock content
         mock_content = Mock()
@@ -72,7 +72,7 @@ class TestLearningSessionService:
         assert result.status == SessionStatus.ACTIVE.value
         assert result.total_components == 3
 
-        self.mock_topic_catalog_provider.get_topic_detail.assert_called_once_with("test-topic")
+        self.mock_topic_catalog_provider.get_topic_details.assert_called_once_with("test-topic")
         self.mock_content_provider.get_topic.assert_called_once_with("test-topic")
         self.mock_repo.create_session.assert_called_once()
 
@@ -81,7 +81,7 @@ class TestLearningSessionService:
         """Test session start with non-existent topic"""
         # Arrange
         request = StartSessionRequest(topic_id="nonexistent-topic")
-        self.mock_topic_catalog_provider.get_topic_detail.return_value = None
+        self.mock_topic_catalog_provider.get_topic_details.return_value = None
 
         # Act & Assert
         with pytest.raises(ValueError, match="Topic nonexistent-topic not found"):

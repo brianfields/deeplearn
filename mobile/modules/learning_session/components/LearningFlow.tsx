@@ -21,10 +21,13 @@ interface LearningFlowProps {
 }
 
 // Simple component to auto-skip glossary components
-function GlossarySkip({ onComplete }: { onComplete: () => void }) {
-  const uiSystem = uiSystemProvider();
-  const theme = uiSystem.getCurrentTheme();
-
+function GlossarySkip({
+  onComplete,
+  styles,
+}: {
+  onComplete: () => void;
+  styles: any;
+}) {
   useEffect(() => {
     // Auto-advance after a brief moment
     const timer = setTimeout(() => {
@@ -35,22 +38,8 @@ function GlossarySkip({ onComplete }: { onComplete: () => void }) {
   }, [onComplete]);
 
   return (
-    <View
-      style={{
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: theme.colors?.background || '#FFFFFF',
-      }}
-    >
-      <Text
-        style={{
-          fontSize: 16,
-          color: theme.colors?.textSecondary || '#666666',
-        }}
-      >
-        Loading next component...
-      </Text>
+    <View style={styles.glossarySkipContainer}>
+      <Text style={styles.glossarySkipText}>Loading next component...</Text>
     </View>
   );
 }
@@ -198,6 +187,7 @@ export default function LearningFlow({
         return (
           <GlossarySkip
             onComplete={() => handleComponentComplete({ isCorrect: true })}
+            styles={styles}
           />
         );
 
@@ -363,6 +353,16 @@ const createStyles = (theme: any) =>
       color: theme.colors?.textSecondary || '#666666',
       textAlign: 'center',
       lineHeight: 22,
+    },
+    glossarySkipContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: theme.colors?.background || '#FFFFFF',
+    },
+    glossarySkipText: {
+      fontSize: 16,
+      color: theme.colors?.textSecondary || '#666666',
     },
     completingOverlay: {
       position: 'absolute',

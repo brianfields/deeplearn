@@ -104,6 +104,7 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
     }
 
     createSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topic.id, sessionId]);
 
   const handleComplete = (results: SessionResults) => {

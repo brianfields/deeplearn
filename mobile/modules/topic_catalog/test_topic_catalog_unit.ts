@@ -4,6 +4,8 @@
  * Tests topic browsing, search, and discovery functionality.
  */
 
+import { jest } from '@jest/globals';
+
 import { TopicCatalogService } from './service';
 import { TopicCatalogRepo } from './repo';
 import { topicCatalogProvider } from './public';
@@ -19,6 +21,19 @@ jest.mock('../infrastructure/public', () => ({
 }));
 
 describe('Topic Catalog Module', () => {
+  // Mock console methods to suppress output during tests
+  const consoleWarnSpy = jest
+    .spyOn(console, 'warn')
+    .mockImplementation(() => {});
+  const consoleErrorSpy = jest
+    .spyOn(console, 'error')
+    .mockImplementation(() => {});
+
+  afterAll(() => {
+    consoleWarnSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
+  });
+
   describe('TopicCatalogService', () => {
     let service: TopicCatalogService;
     let mockRepo: jest.Mocked<TopicCatalogRepo>;
