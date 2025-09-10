@@ -120,7 +120,7 @@ class LearningSessionService:
     async def start_session(self, request: StartSessionRequest) -> LearningSession:
         """Start a new learning session"""
         # Validate topic exists
-        topic_detail = await self.topic_catalog.get_topic_detail(request.topic_id)
+        topic_detail = self.topic_catalog.get_topic_details(request.topic_id)
         if not topic_detail:
             raise ValueError(f"Topic {request.topic_id} not found")
 
@@ -132,7 +132,7 @@ class LearningSessionService:
                 return self._to_session_dto(existing_session)
 
         # Get topic content to determine component count
-        topic_content = await self.content.get_topic(request.topic_id)
+        topic_content = self.content.get_topic(request.topic_id)
         total_components = len(topic_content.components) if topic_content else 0
 
         # Create new session

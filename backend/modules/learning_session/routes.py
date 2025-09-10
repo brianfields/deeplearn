@@ -190,6 +190,9 @@ async def get_session(
             progress_percentage=session.progress_percentage,
             session_data=session.session_data,
         )
+    except HTTPException:
+        # Re-raise HTTP exceptions (like 404)
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get session: {e!s}") from e
 
