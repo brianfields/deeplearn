@@ -28,10 +28,10 @@ module.exports = {
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
   testEnvironment: 'node',
   preset: 'ts-jest',
+  transform: {
+    '^.+\\.tsx?$': ['ts-jest', { useESM: true }],
+  },
   globals: {
-    'ts-jest': {
-      useESM: true,
-    },
     __DEV__: true,
   },
 };

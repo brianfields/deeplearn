@@ -45,8 +45,21 @@ jest
   .mockReturnValue(mockInfrastructureProvider);
 
 describe('Learning Session Module', () => {
+  // Mock console methods to suppress output during tests
+  const consoleWarnSpy = jest
+    .spyOn(console, 'warn')
+    .mockImplementation(() => {});
+  const consoleErrorSpy = jest
+    .spyOn(console, 'error')
+    .mockImplementation(() => {});
+
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  afterAll(() => {
+    consoleWarnSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
   });
 
   describe('LearningSessionService', () => {
