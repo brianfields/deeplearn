@@ -50,13 +50,17 @@ export const Progress: React.FC<ProgressProps> = ({
     width: `${progressWidth.value}%`,
   }));
 
+  // Separate pointerEvents from style to avoid deprecation warning
+  const { pointerEvents, ...otherStyles } = style || {};
+
   const containerStyle = [
     styles.container,
     {
       height,
       backgroundColor: defaultBackgroundColor,
     },
-    style,
+    otherStyles,
+    pointerEvents && { pointerEvents },
   ];
 
   return (

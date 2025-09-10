@@ -15,7 +15,7 @@ import {
   TextStyle,
 } from 'react-native';
 import { uiSystemProvider } from '../public';
-import type { ButtonProps } from '../models';
+import type { ButtonProps, Theme } from '../models';
 
 export const Button: React.FC<ButtonProps> = ({
   title,
@@ -29,14 +29,21 @@ export const Button: React.FC<ButtonProps> = ({
   textStyle,
 }) => {
   const uiSystem = uiSystemProvider();
-  const theme = uiSystem.getCurrentTheme();
+  const theme: Theme = uiSystem.getCurrentTheme();
+
+  // Normalize style: allow array/object
+  const normalizedStyle = Array.isArray(style)
+    ? style.filter(Boolean)
+    : style
+      ? [style]
+      : [];
 
   const buttonStyle = [
     styles.base,
     getVariantStyle(variant, theme),
     getSizeStyle(size, theme),
     disabled && styles.disabled,
-    style,
+    ...normalizedStyle,
   ];
 
   const textStyles = [
@@ -58,15 +65,17 @@ export const Button: React.FC<ButtonProps> = ({
         <ActivityIndicator
           color={
             variant === 'outline' || variant === 'ghost'
-              ? theme.colors.primary
-              : theme.colors.surface
+              ? theme.colors?.primary || '#007AFF'
+              : theme.colors?.surface || '#FFFFFF'
           }
           size="small"
         />
       ) : (
         <View style={styles.content}>
           {icon && (
-            <View style={[styles.icon, { marginRight: theme.spacing.xs }]}>
+            <View
+              style={[styles.icon, { marginRight: theme.spacing?.xs || 6 }]}
+            >
               {icon}
             </View>
           )}
@@ -77,23 +86,23 @@ export const Button: React.FC<ButtonProps> = ({
   );
 };
 
-const getVariantStyle = (variant: string, theme: any): ViewStyle => {
+const getVariantStyle = (variant: string, theme: Theme): ViewStyle => {
   switch (variant) {
     case 'primary':
       return {
-        backgroundColor: theme.colors.primary,
+        backgroundColor: theme.colors?.primary || '#007AFF',
         borderWidth: 0,
       };
     case 'secondary':
       return {
-        backgroundColor: theme.colors.secondary,
+        backgroundColor: theme.colors?.secondary || '#6C757D',
         borderWidth: 0,
       };
     case 'outline':
       return {
         backgroundColor: 'transparent',
         borderWidth: 2,
-        borderColor: theme.colors.primary,
+        borderColor: theme.colors?.primary || '#007AFF',
       };
     case 'ghost':
       return {
@@ -105,24 +114,24 @@ const getVariantStyle = (variant: string, theme: any): ViewStyle => {
   }
 };
 
-const getSizeStyle = (size: string, theme: any): ViewStyle => {
+const getSizeStyle = (size: string, theme: Theme): ViewStyle => {
   switch (size) {
     case 'small':
       return {
-        paddingVertical: theme.spacing.xs,
-        paddingHorizontal: theme.spacing.sm,
+        paddingVertical: theme.spacing?.xs || 6,
+        paddingHorizontal: theme.spacing?.sm || 10,
         minHeight: 32,
       };
     case 'medium':
       return {
-        paddingVertical: theme.spacing.sm,
-        paddingHorizontal: theme.spacing.md,
+        paddingVertical: theme.spacing?.sm || 10,
+        paddingHorizontal: theme.spacing?.md || 14,
         minHeight: 44,
       };
     case 'large':
       return {
-        paddingVertical: theme.spacing.md,
-        paddingHorizontal: theme.spacing.lg,
+        paddingVertical: theme.spacing?.md || 14,
+        paddingHorizontal: theme.spacing?.lg || 18,
         minHeight: 56,
       };
     default:
@@ -130,14 +139,14 @@ const getSizeStyle = (size: string, theme: any): ViewStyle => {
   }
 };
 
-const getVariantTextStyle = (variant: string, theme: any): TextStyle => {
+const getVariantTextStyle = (variant: string, theme: Theme): TextStyle => {
   switch (variant) {
     case 'primary':
     case 'secondary':
-      return { color: theme.colors.surface };
+      return { color: theme.colors?.surface || '#FFFFFF' };
     case 'outline':
     case 'ghost':
-      return { color: theme.colors.primary };
+      return { color: theme.colors?.primary || '#007AFF' };
     default:
       return {};
   }

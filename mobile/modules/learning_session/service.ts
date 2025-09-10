@@ -40,7 +40,7 @@ export class LearningSessionService {
    */
   async startSession(request: StartSessionRequest): Promise<LearningSession> {
     try {
-      // Validate topic exists
+      // Validate topic exists and get topic details
       const topicDetail = await this.topicCatalog.getTopicDetail(
         request.topicId
       );
@@ -51,8 +51,8 @@ export class LearningSessionService {
       // Start session via repository
       const apiSession = await this.repo.startSession(request);
 
-      // Convert to DTO
-      const session = toLearningSessionDTO(apiSession);
+      // Convert to DTO with topic title
+      const session = toLearningSessionDTO(apiSession, topicDetail.title);
 
       // Store session locally for offline access
       await this.infrastructure.setStorageItem(
@@ -74,7 +74,18 @@ export class LearningSessionService {
       // Try to get from API first
       const apiSession = await this.repo.getSession(sessionId);
       if (apiSession) {
-        return toLearningSessionDTO(apiSession);
+        // Get topic title for display
+        let topicTitle: string | undefined;
+        try {
+          const topicDetail = await this.topicCatalog.getTopicDetail(
+            apiSession.topic_id
+          );
+          topicTitle = topicDetail?.title;
+        } catch (error) {
+          console.warn('Failed to fetch topic title:', error);
+        }
+
+        return toLearningSessionDTO(apiSession, topicTitle);
       }
 
       // Fallback to local storage for offline access
@@ -144,7 +155,19 @@ export class LearningSessionService {
   async pauseSession(sessionId: string): Promise<LearningSession> {
     try {
       const apiSession = await this.repo.pauseSession(sessionId);
-      const session = toLearningSessionDTO(apiSession);
+
+      // Get topic title for display
+      let topicTitle: string | undefined;
+      try {
+        const topicDetail = await this.topicCatalog.getTopicDetail(
+          apiSession.topic_id
+        );
+        topicTitle = topicDetail?.title;
+      } catch (error) {
+        console.warn('Failed to fetch topic title:', error);
+      }
+
+      const session = toLearningSessionDTO(apiSession, topicTitle);
 
       // Update local cache
       await this.infrastructure.setStorageItem(
@@ -208,7 +231,21 @@ export class LearningSessionService {
         offset
       );
 
-      const sessions = apiResponse.sessions.map(toLearningSessionDTO);
+      // Get topic titles for all sessions
+      const sessions = await Promise.all(
+        apiResponse.sessions.map(async apiSession => {
+          let topicTitle: string | undefined;
+          try {
+            const topicDetail = await this.topicCatalog.getTopicDetail(
+              apiSession.topic_id
+            );
+            topicTitle = topicDetail?.title;
+          } catch (error) {
+            console.warn('Failed to fetch topic title:', error);
+          }
+          return toLearningSessionDTO(apiSession, topicTitle);
+        })
+      );
 
       return {
         sessions,

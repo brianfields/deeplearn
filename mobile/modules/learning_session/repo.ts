@@ -75,7 +75,7 @@ export class LearningSessionRepo {
   ): Promise<ApiLearningSession> {
     try {
       const response = await this.infrastructure.request<ApiLearningSession>(
-        LEARNING_SESSION_BASE,
+        `${LEARNING_SESSION_BASE}/`,
         {
           method: 'POST',
           headers: {

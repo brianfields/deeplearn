@@ -53,6 +53,7 @@ interface ApiSessionResults {
 export interface LearningSession {
   readonly id: string;
   readonly topicId: string;
+  readonly topicTitle?: string; // Topic title for display
   readonly userId?: string;
   readonly status: 'active' | 'completed' | 'paused' | 'abandoned';
   readonly startedAt: string;
@@ -168,7 +169,10 @@ export interface LearningSessionError {
 /**
  * Convert API LearningSession to frontend DTO
  */
-export function toLearningSessionDTO(api: ApiLearningSession): LearningSession {
+export function toLearningSessionDTO(
+  api: ApiLearningSession,
+  topicTitle?: string
+): LearningSession {
   const isCompleted = api.status === 'completed';
   const canResume = api.status === 'active' || api.status === 'paused';
 
@@ -182,6 +186,7 @@ export function toLearningSessionDTO(api: ApiLearningSession): LearningSession {
   return {
     id: api.id,
     topicId: api.topic_id,
+    topicTitle,
     userId: api.user_id,
     status: api.status,
     startedAt: api.started_at,

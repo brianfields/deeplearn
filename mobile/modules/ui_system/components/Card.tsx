@@ -33,6 +33,9 @@ export const Card: React.FC<CardProps> = ({
       : uiSystem.getSpacing(margin as keyof typeof theme.spacing)
     : 0;
 
+  // Separate pointerEvents from style to avoid deprecation warning
+  const { pointerEvents, ...otherStyles } = style || {};
+
   const cardStyle = [
     styles.base,
     {
@@ -44,7 +47,8 @@ export const Card: React.FC<CardProps> = ({
     variant === 'elevated' && designSystem.shadows?.medium,
     variant === 'outlined' && { borderWidth: 1 },
     disabled && styles.disabled,
-    style,
+    otherStyles,
+    pointerEvents && { pointerEvents },
   ];
 
   const Component = onPress ? TouchableOpacity : View;
