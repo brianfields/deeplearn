@@ -11,7 +11,7 @@
 
 interface ApiLearningSession {
   id: string;
-  topic_id: string;
+  lesson_id: string;
   user_id?: string;
   status: 'active' | 'completed' | 'paused' | 'abandoned';
   started_at: string;
@@ -36,7 +36,7 @@ interface ApiSessionProgress {
 
 interface ApiSessionResults {
   session_id: string;
-  topic_id: string;
+  lesson_id: string;
   total_components: number;
   completed_components: number;
   correct_answers: number;
@@ -52,8 +52,8 @@ interface ApiSessionResults {
 
 export interface LearningSession {
   readonly id: string;
-  readonly topicId: string;
-  readonly topicTitle?: string; // Topic title for display
+  readonly lessonId: string;
+  readonly lessonTitle?: string; // Lesson title for display
   readonly userId?: string;
   readonly status: 'active' | 'completed' | 'paused' | 'abandoned';
   readonly startedAt: string;
@@ -83,7 +83,7 @@ export interface SessionProgress {
 
 export interface SessionResults {
   readonly sessionId: string;
-  readonly topicId: string;
+  readonly lessonId: string;
   readonly totalComponents: number;
   readonly completedComponents: number;
   readonly correctAnswers: number;
@@ -114,7 +114,7 @@ export interface ComponentState {
 // ================================
 
 export interface StartSessionRequest {
-  topicId: string;
+  lessonId: string;
   userId?: string;
 }
 
@@ -136,7 +136,7 @@ export interface CompleteSessionRequest {
 
 export interface SessionFilters {
   status?: 'active' | 'completed' | 'paused' | 'abandoned';
-  topicId?: string;
+  lessonId?: string;
   dateRange?: {
     start: string;
     end: string;
@@ -171,7 +171,7 @@ export interface LearningSessionError {
  */
 export function toLearningSessionDTO(
   api: ApiLearningSession,
-  topicTitle?: string
+  lessonTitle?: string
 ): LearningSession {
   const isCompleted = api.status === 'completed';
   const canResume = api.status === 'active' || api.status === 'paused';
@@ -185,8 +185,8 @@ export function toLearningSessionDTO(
 
   return {
     id: api.id,
-    topicId: api.topic_id,
-    topicTitle,
+    lessonId: api.lesson_id,
+    lessonTitle,
     userId: api.user_id,
     status: api.status,
     startedAt: api.started_at,
@@ -240,7 +240,7 @@ export function toSessionResultsDTO(api: ApiSessionResults): SessionResults {
 
   return {
     sessionId: api.session_id,
-    topicId: api.topic_id,
+    lessonId: api.lesson_id,
     totalComponents: api.total_components,
     completedComponents: api.completed_components,
     correctAnswers: api.correct_answers,

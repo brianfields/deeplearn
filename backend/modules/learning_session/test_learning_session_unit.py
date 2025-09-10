@@ -21,37 +21,37 @@ class TestLearningSessionService:
         """Set up test fixtures"""
         self.mock_repo = Mock(spec=LearningSessionRepo)
         self.mock_content_provider = Mock()
-        self.mock_topic_catalog_provider = Mock()
+        self.mock_lesson_catalog_provider = Mock()
 
         self.service = LearningSessionService(
             self.mock_repo,
             self.mock_content_provider,
-            self.mock_topic_catalog_provider,
+            self.mock_lesson_catalog_provider,
         )
 
     @pytest.mark.asyncio
     async def test_start_session_success(self):
         """Test successful session start"""
         # Arrange
-        request = StartSessionRequest(topic_id="test-topic", user_id="test-user")
+        request = StartSessionRequest(lesson_id="test-lesson", user_id="test-user")
 
-        # Mock topic exists
-        mock_topic = Mock()
-        mock_topic.id = "test-topic"
-        self.mock_topic_catalog_provider.get_topic_details.return_value = mock_topic
+        # Mock lesson exists
+        mock_lesson = Mock()
+        mock_lesson.id = "test-lesson"
+        self.mock_lesson_catalog_provider.get_lesson_details.return_value = mock_lesson
 
         # Mock content
         mock_content = Mock()
         mock_content.components = [1, 2, 3]  # 3 components
-        self.mock_content_provider.get_topic.return_value = mock_content
+        self.mock_content_provider.get_lesson.return_value = mock_content
 
         # Mock no existing session
-        self.mock_repo.get_active_session_for_user_and_topic.return_value = None
+        self.mock_repo.get_active_session_for_user_and_lesson.return_value = None
 
         # Mock session creation
         mock_session = LearningSessionModel(
             id="session-123",
-            topic_id="test-topic",
+            lesson_id="test-lesson",
             user_id="test-user",
             status=SessionStatus.ACTIVE.value,
             started_at=datetime.utcnow(),
@@ -67,24 +67,24 @@ class TestLearningSessionService:
 
         # Assert
         assert result.id == "session-123"
-        assert result.topic_id == "test-topic"
+        assert result.lesson_id == "test-lesson"
         assert result.user_id == "test-user"
         assert result.status == SessionStatus.ACTIVE.value
         assert result.total_components == 3
 
-        self.mock_topic_catalog_provider.get_topic_details.assert_called_once_with("test-topic")
-        self.mock_content_provider.get_topic.assert_called_once_with("test-topic")
+        self.mock_lesson_catalog_provider.get_lesson_details.assert_called_once_with("test-lesson")
+        self.mock_content_provider.get_lesson.assert_called_once_with("test-lesson")
         self.mock_repo.create_session.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_start_session_topic_not_found(self):
-        """Test session start with non-existent topic"""
+    async def test_start_session_lesson_not_found(self):
+        """Test session start with non-existent lesson"""
         # Arrange
-        request = StartSessionRequest(topic_id="nonexistent-topic")
-        self.mock_topic_catalog_provider.get_topic_details.return_value = None
+        request = StartSessionRequest(lesson_id="nonexistent-lesson")
+        self.mock_lesson_catalog_provider.get_lesson_details.return_value = None
 
         # Act & Assert
-        with pytest.raises(ValueError, match="Topic nonexistent-topic not found"):
+        with pytest.raises(ValueError, match="Lesson nonexistent-lesson not found"):
             await self.service.start_session(request)
 
     @pytest.mark.asyncio
@@ -93,7 +93,7 @@ class TestLearningSessionService:
         # Arrange
         mock_session = LearningSessionModel(
             id="session-123",
-            topic_id="test-topic",
+            lesson_id="test-lesson",
             user_id="test-user",
             status=SessionStatus.ACTIVE.value,
             started_at=datetime.utcnow(),
@@ -138,7 +138,7 @@ class TestLearningSessionService:
 
         mock_session = LearningSessionModel(
             id="session-123",
-            topic_id="test-topic",
+            lesson_id="test-lesson",
             status=SessionStatus.ACTIVE.value,
             current_component_index=0,
             total_components=3,
@@ -165,7 +165,7 @@ class TestLearningSessionService:
 
         mock_session = LearningSessionModel(
             id="session-123",
-            topic_id="test-topic",
+            lesson_id="test-lesson",
             status=SessionStatus.ACTIVE.value,
             current_component_index=3,
             total_components=3,

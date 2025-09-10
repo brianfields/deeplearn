@@ -8,7 +8,7 @@ import { jest } from '@jest/globals';
 
 // Mock dependencies
 jest.mock('../infrastructure/public');
-jest.mock('../topic_catalog/public');
+jest.mock('../lesson_catalog/public');
 
 import { LearningSessionService } from './service';
 import { LearningSessionRepo } from './repo';
@@ -24,8 +24,8 @@ import type {
 } from './models';
 
 // Mock implementations
-const mockTopicCatalogProvider = {
-  getTopicDetail: jest.fn() as jest.MockedFunction<any>,
+const mockLessonCatalogProvider = {
+  getLessonDetail: jest.fn() as jest.MockedFunction<any>,
 };
 
 const mockInfrastructureProvider = {
@@ -37,8 +37,8 @@ const mockInfrastructureProvider = {
 // Mock the providers
 jest
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  .mocked(require('../topic_catalog/public').topicCatalogProvider)
-  .mockReturnValue(mockTopicCatalogProvider);
+  .mocked(require('../lesson_catalog/public').lessonCatalogProvider)
+  .mockReturnValue(mockLessonCatalogProvider);
 jest
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   .mocked(require('../infrastructure/public').infrastructureProvider)
@@ -84,11 +84,11 @@ describe('Learning Session Module', () => {
       it('should start a new learning session successfully', async () => {
         // Arrange
         const request: StartSessionRequest = {
-          topicId: 'topic-1',
+          lessonId: 'topic-1',
           userId: 'user-1',
         };
 
-        const mockTopicDetail = {
+        const mockLessonDetail = {
           id: 'topic-1',
           title: 'Test Topic',
           components: [
@@ -99,7 +99,7 @@ describe('Learning Session Module', () => {
 
         const mockApiSession = {
           id: 'session-1',
-          topic_id: 'topic-1',
+          lesson_id: 'topic-1',
           user_id: 'user-1',
           status: 'active' as const,
           started_at: '2024-01-01T00:00:00Z',
@@ -109,8 +109,8 @@ describe('Learning Session Module', () => {
           session_data: {},
         };
 
-        mockTopicCatalogProvider.getTopicDetail.mockResolvedValue(
-          mockTopicDetail
+        mockLessonCatalogProvider.getLessonDetail.mockResolvedValue(
+          mockLessonDetail
         );
         mockRepo.startSession.mockResolvedValue(mockApiSession);
         mockInfrastructureProvider.setStorageItem.mockResolvedValue(undefined);
@@ -121,7 +121,7 @@ describe('Learning Session Module', () => {
         // Assert
         expect(result).toMatchObject({
           id: 'session-1',
-          topicId: 'topic-1',
+          lessonId: 'topic-1',
           userId: 'user-1',
           status: 'active',
           currentComponentIndex: 0,
@@ -129,7 +129,7 @@ describe('Learning Session Module', () => {
           progressPercentage: 0,
         });
 
-        expect(mockTopicCatalogProvider.getTopicDetail).toHaveBeenCalledWith(
+        expect(mockLessonCatalogProvider.getLessonDetail).toHaveBeenCalledWith(
           'topic-1'
         );
         expect(mockRepo.startSession).toHaveBeenCalledWith(request);
@@ -139,16 +139,18 @@ describe('Learning Session Module', () => {
       it('should throw error if topic not found', async () => {
         // Arrange
         const request: StartSessionRequest = {
-          topicId: 'nonexistent-topic',
+          lessonId: 'nonexistent-topic',
           userId: 'user-1',
         };
 
-        mockTopicCatalogProvider.getTopicDetail.mockResolvedValue(null);
+        mockLessonCatalogProvider.getLessonDetail.mockResolvedValue(null);
 
         // Act & Assert
         await expect(service.startSession(request)).rejects.toMatchObject({
           code: 'LEARNING_SESSION_ERROR',
-          message: expect.stringContaining('Topic nonexistent-topic not found'),
+          message: expect.stringContaining(
+            'Lesson nonexistent-topic not found'
+          ),
         });
       });
     });
@@ -178,7 +180,7 @@ describe('Learning Session Module', () => {
 
         const mockSession = {
           id: 'session-1',
-          topicId: 'topic-1',
+          lessonId: 'topic-1',
           status: 'active' as const,
           currentComponentIndex: 0,
           totalComponents: 2,
@@ -218,7 +220,7 @@ describe('Learning Session Module', () => {
 
         const mockApiResults = {
           session_id: 'session-1',
-          topic_id: 'topic-1',
+          lesson_id: 'topic-1',
           total_components: 2,
           completed_components: 2,
           correct_answers: 1,
@@ -237,7 +239,7 @@ describe('Learning Session Module', () => {
         // Assert
         expect(result).toMatchObject({
           sessionId: 'session-1',
-          topicId: 'topic-1',
+          lessonId: 'topic-1',
           totalComponents: 2,
           completedComponents: 2,
           correctAnswers: 1,
@@ -251,41 +253,41 @@ describe('Learning Session Module', () => {
     });
 
     describe('canStartSession', () => {
-      it('should return true if topic exists and no active session', async () => {
+      it('should return true if lesson exists and no active session', async () => {
         // Arrange
-        const topicId = 'topic-1';
+        const lessonId = 'topic-1';
         const userId = 'user-1';
 
-        const mockTopicDetail = {
+        const mockLessonDetail = {
           id: 'topic-1',
           title: 'Test Topic',
           components: [],
         };
 
-        mockTopicCatalogProvider.getTopicDetail.mockResolvedValue(
-          mockTopicDetail
+        mockLessonCatalogProvider.getLessonDetail.mockResolvedValue(
+          mockLessonDetail
         );
         mockRepo.getUserSessions.mockResolvedValue({ sessions: [], total: 0 });
 
         // Act
-        const result = await service.canStartSession(topicId, userId);
+        const result = await service.canStartSession(lessonId, userId);
 
         // Assert
         expect(result).toBe(true);
-        expect(mockTopicCatalogProvider.getTopicDetail).toHaveBeenCalledWith(
-          topicId
+        expect(mockLessonCatalogProvider.getLessonDetail).toHaveBeenCalledWith(
+          lessonId
         );
       });
 
-      it('should return false if topic does not exist', async () => {
+      it('should return false if lesson does not exist', async () => {
         // Arrange
-        const topicId = 'nonexistent-topic';
+        const lessonId = 'nonexistent-topic';
         const userId = 'user-1';
 
-        mockTopicCatalogProvider.getTopicDetail.mockResolvedValue(null);
+        mockLessonCatalogProvider.getLessonDetail.mockResolvedValue(null);
 
         // Act
-        const result = await service.canStartSession(topicId, userId);
+        const result = await service.canStartSession(lessonId, userId);
 
         // Assert
         expect(result).toBe(false);
@@ -324,7 +326,7 @@ describe('Learning Session Module', () => {
         // Arrange
         const apiSession = {
           id: 'session-1',
-          topic_id: 'topic-1',
+          lesson_id: 'topic-1',
           user_id: 'user-1',
           status: 'active' as const,
           started_at: '2024-01-01T00:00:00Z',
@@ -340,7 +342,7 @@ describe('Learning Session Module', () => {
         // Assert
         expect(result).toMatchObject({
           id: 'session-1',
-          topicId: 'topic-1',
+          lessonId: 'topic-1',
           userId: 'user-1',
           status: 'active',
           startedAt: '2024-01-01T00:00:00Z',
@@ -359,7 +361,7 @@ describe('Learning Session Module', () => {
         // Arrange
         const apiSession = {
           id: 'session-1',
-          topic_id: 'topic-1',
+          lesson_id: 'topic-1',
           status: 'completed' as const,
           started_at: '2024-01-01T00:00:00Z',
           completed_at: '2024-01-01T00:15:00Z',
@@ -419,7 +421,7 @@ describe('Learning Session Module', () => {
         // Arrange
         const apiResults = {
           session_id: 'session-1',
-          topic_id: 'topic-1',
+          lesson_id: 'topic-1',
           total_components: 5,
           completed_components: 5,
           correct_answers: 4,
@@ -435,7 +437,7 @@ describe('Learning Session Module', () => {
         // Assert
         expect(result).toMatchObject({
           sessionId: 'session-1',
-          topicId: 'topic-1',
+          lessonId: 'topic-1',
           totalComponents: 5,
           completedComponents: 5,
           correctAnswers: 4,
@@ -475,7 +477,7 @@ describe('Learning Session Module', () => {
     });
 
     it('should be self-contained with no external dependencies on other modules public interfaces', () => {
-      // The service should only depend on infrastructure and topic_catalog public interfaces
+      // The service should only depend on infrastructure and lesson_catalog public interfaces
       // This is verified by the successful instantiation and mocking in other tests
       expect(true).toBe(true); // Test passes if module loads without circular dependency errors
     });

@@ -9,16 +9,16 @@ from datetime import UTC, datetime
 
 from pydantic import BaseModel, ConfigDict
 
-from .models import ComponentModel, TopicModel
+from .models import LessonComponentModel, LessonModel
 from .repo import ContentRepo
 
 
 # DTOs (Data Transfer Objects)
-class ComponentRead(BaseModel):
-    """DTO for reading component data."""
+class LessonComponentRead(BaseModel):
+    """DTO for reading lesson component data."""
 
     id: str
-    topic_id: str
+    lesson_id: str
     component_type: str
     title: str
     content: dict
@@ -29,8 +29,8 @@ class ComponentRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class TopicRead(BaseModel):
-    """DTO for reading topic data."""
+class LessonRead(BaseModel):
+    """DTO for reading lesson data."""
 
     id: str
     title: str
@@ -44,13 +44,13 @@ class TopicRead(BaseModel):
     refined_material: dict | None = None
     created_at: datetime
     updated_at: datetime
-    components: list[ComponentRead] = []
+    components: list[LessonComponentRead] = []
 
     model_config = ConfigDict(from_attributes=True)
 
 
-class TopicCreate(BaseModel):
-    """DTO for creating new topics."""
+class LessonCreate(BaseModel):
+    """DTO for creating new lessons."""
 
     id: str
     title: str
@@ -64,11 +64,11 @@ class TopicCreate(BaseModel):
     refined_material: dict | None = None
 
 
-class ComponentCreate(BaseModel):
-    """DTO for creating new components."""
+class LessonComponentCreate(BaseModel):
+    """DTO for creating new lesson components."""
 
     id: str
-    topic_id: str
+    lesson_id: str
     component_type: str
     title: str
     content: dict
@@ -82,149 +82,149 @@ class ContentService:
         """Initialize service with repository."""
         self.repo = repo
 
-    # Topic operations
-    def get_topic(self, topic_id: str) -> TopicRead | None:
-        """Get topic with components by ID."""
-        topic = self.repo.get_topic_by_id(topic_id)
-        if not topic:
+    # Lesson operations
+    def get_lesson(self, lesson_id: str) -> LessonRead | None:
+        """Get lesson with components by ID."""
+        lesson = self.repo.get_lesson_by_id(lesson_id)
+        if not lesson:
             return None
 
         # Load components
-        components = self.repo.get_components_by_topic_id(topic_id)
+        components = self.repo.get_components_by_lesson_id(lesson_id)
 
         # Convert to DTO
-        topic_dict = {
-            "id": topic.id,
-            "title": topic.title,
-            "core_concept": topic.core_concept,
-            "user_level": topic.user_level,
-            "learning_objectives": topic.learning_objectives,
-            "key_concepts": topic.key_concepts,
-            "source_material": topic.source_material,
-            "source_domain": topic.source_domain,
-            "source_level": topic.source_level,
-            "refined_material": topic.refined_material,
-            "created_at": topic.created_at,
-            "updated_at": topic.updated_at,
-            "components": [ComponentRead.model_validate(c) for c in components],
+        lesson_dict = {
+            "id": lesson.id,
+            "title": lesson.title,
+            "core_concept": lesson.core_concept,
+            "user_level": lesson.user_level,
+            "learning_objectives": lesson.learning_objectives,
+            "key_concepts": lesson.key_concepts,
+            "source_material": lesson.source_material,
+            "source_domain": lesson.source_domain,
+            "source_level": lesson.source_level,
+            "refined_material": lesson.refined_material,
+            "created_at": lesson.created_at,
+            "updated_at": lesson.updated_at,
+            "components": [LessonComponentRead.model_validate(c) for c in components],
         }
 
-        return TopicRead.model_validate(topic_dict)
+        return LessonRead.model_validate(lesson_dict)
 
-    def get_all_topics(self, limit: int = 100, offset: int = 0) -> list[TopicRead]:
-        """Get all topics with components."""
-        topics = self.repo.get_all_topics(limit, offset)
+    def get_all_lessons(self, limit: int = 100, offset: int = 0) -> list[LessonRead]:
+        """Get all lessons with components."""
+        lessons = self.repo.get_all_lessons(limit, offset)
         result = []
 
-        for topic in topics:
-            components = self.repo.get_components_by_topic_id(topic.id)
-            topic_dict = {
-                "id": topic.id,
-                "title": topic.title,
-                "core_concept": topic.core_concept,
-                "user_level": topic.user_level,
-                "learning_objectives": topic.learning_objectives,
-                "key_concepts": topic.key_concepts,
-                "source_material": topic.source_material,
-                "source_domain": topic.source_domain,
-                "source_level": topic.source_level,
-                "refined_material": topic.refined_material,
-                "created_at": topic.created_at,
-                "updated_at": topic.updated_at,
-                "components": [ComponentRead.model_validate(c) for c in components],
+        for lesson in lessons:
+            components = self.repo.get_components_by_lesson_id(lesson.id)
+            lesson_dict = {
+                "id": lesson.id,
+                "title": lesson.title,
+                "core_concept": lesson.core_concept,
+                "user_level": lesson.user_level,
+                "learning_objectives": lesson.learning_objectives,
+                "key_concepts": lesson.key_concepts,
+                "source_material": lesson.source_material,
+                "source_domain": lesson.source_domain,
+                "source_level": lesson.source_level,
+                "refined_material": lesson.refined_material,
+                "created_at": lesson.created_at,
+                "updated_at": lesson.updated_at,
+                "components": [LessonComponentRead.model_validate(c) for c in components],
             }
-            result.append(TopicRead.model_validate(topic_dict))
+            result.append(LessonRead.model_validate(lesson_dict))
 
         return result
 
-    def search_topics(self, query: str | None = None, user_level: str | None = None, limit: int = 100, offset: int = 0) -> list[TopicRead]:
-        """Search topics with optional filters."""
-        topics = self.repo.search_topics(query, user_level, limit, offset)
+    def search_lessons(self, query: str | None = None, user_level: str | None = None, limit: int = 100, offset: int = 0) -> list[LessonRead]:
+        """Search lessons with optional filters."""
+        lessons = self.repo.search_lessons(query, user_level, limit, offset)
         result = []
 
-        for topic in topics:
-            components = self.repo.get_components_by_topic_id(topic.id)
-            topic_dict = {
-                "id": topic.id,
-                "title": topic.title,
-                "core_concept": topic.core_concept,
-                "user_level": topic.user_level,
-                "learning_objectives": topic.learning_objectives,
-                "key_concepts": topic.key_concepts,
-                "source_material": topic.source_material,
-                "source_domain": topic.source_domain,
-                "source_level": topic.source_level,
-                "refined_material": topic.refined_material,
-                "created_at": topic.created_at,
-                "updated_at": topic.updated_at,
-                "components": [ComponentRead.model_validate(c) for c in components],
+        for lesson in lessons:
+            components = self.repo.get_components_by_lesson_id(lesson.id)
+            lesson_dict = {
+                "id": lesson.id,
+                "title": lesson.title,
+                "core_concept": lesson.core_concept,
+                "user_level": lesson.user_level,
+                "learning_objectives": lesson.learning_objectives,
+                "key_concepts": lesson.key_concepts,
+                "source_material": lesson.source_material,
+                "source_domain": lesson.source_domain,
+                "source_level": lesson.source_level,
+                "refined_material": lesson.refined_material,
+                "created_at": lesson.created_at,
+                "updated_at": lesson.updated_at,
+                "components": [LessonComponentRead.model_validate(c) for c in components],
             }
-            result.append(TopicRead.model_validate(topic_dict))
+            result.append(LessonRead.model_validate(lesson_dict))
 
         return result
 
-    def save_topic(self, topic_data: TopicCreate) -> TopicRead:
-        """Create new topic."""
-        topic_model = TopicModel(
-            id=topic_data.id,
-            title=topic_data.title,
-            core_concept=topic_data.core_concept,
-            user_level=topic_data.user_level,
-            learning_objectives=topic_data.learning_objectives,
-            key_concepts=topic_data.key_concepts,
-            source_material=topic_data.source_material,
-            source_domain=topic_data.source_domain,
-            source_level=topic_data.source_level,
-            refined_material=topic_data.refined_material or {},
+    def save_lesson(self, lesson_data: LessonCreate) -> LessonRead:
+        """Create new lesson."""
+        lesson_model = LessonModel(
+            id=lesson_data.id,
+            title=lesson_data.title,
+            core_concept=lesson_data.core_concept,
+            user_level=lesson_data.user_level,
+            learning_objectives=lesson_data.learning_objectives,
+            key_concepts=lesson_data.key_concepts,
+            source_material=lesson_data.source_material,
+            source_domain=lesson_data.source_domain,
+            source_level=lesson_data.source_level,
+            refined_material=lesson_data.refined_material or {},
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
         )
 
-        saved_topic = self.repo.save_topic(topic_model)
+        saved_lesson = self.repo.save_lesson(lesson_model)
 
         # Return as DTO with empty components list
-        topic_dict = {
-            "id": saved_topic.id,
-            "title": saved_topic.title,
-            "core_concept": saved_topic.core_concept,
-            "user_level": saved_topic.user_level,
-            "learning_objectives": saved_topic.learning_objectives,
-            "key_concepts": saved_topic.key_concepts,
-            "source_material": saved_topic.source_material,
-            "source_domain": saved_topic.source_domain,
-            "source_level": saved_topic.source_level,
-            "refined_material": saved_topic.refined_material,
-            "created_at": saved_topic.created_at,
-            "updated_at": saved_topic.updated_at,
+        lesson_dict = {
+            "id": saved_lesson.id,
+            "title": saved_lesson.title,
+            "core_concept": saved_lesson.core_concept,
+            "user_level": saved_lesson.user_level,
+            "learning_objectives": saved_lesson.learning_objectives,
+            "key_concepts": saved_lesson.key_concepts,
+            "source_material": saved_lesson.source_material,
+            "source_domain": saved_lesson.source_domain,
+            "source_level": saved_lesson.source_level,
+            "refined_material": saved_lesson.refined_material,
+            "created_at": saved_lesson.created_at,
+            "updated_at": saved_lesson.updated_at,
             "components": [],
         }
 
-        return TopicRead.model_validate(topic_dict)
+        return LessonRead.model_validate(lesson_dict)
 
-    def delete_topic(self, topic_id: str) -> bool:
-        """Delete topic by ID."""
-        return self.repo.delete_topic(topic_id)
+    def delete_lesson(self, lesson_id: str) -> bool:
+        """Delete lesson by ID."""
+        return self.repo.delete_lesson(lesson_id)
 
-    def topic_exists(self, topic_id: str) -> bool:
-        """Check if topic exists."""
-        return self.repo.topic_exists(topic_id)
+    def lesson_exists(self, lesson_id: str) -> bool:
+        """Check if lesson exists."""
+        return self.repo.lesson_exists(lesson_id)
 
-    # Component operations
-    def get_component(self, component_id: str) -> ComponentRead | None:
-        """Get component by ID."""
+    # Lesson component operations
+    def get_lesson_component(self, component_id: str) -> LessonComponentRead | None:
+        """Get lesson component by ID."""
         component = self.repo.get_component_by_id(component_id)
-        return ComponentRead.model_validate(component) if component else None
+        return LessonComponentRead.model_validate(component) if component else None
 
-    def get_components_by_topic(self, topic_id: str) -> list[ComponentRead]:
-        """Get all components for a topic."""
-        components = self.repo.get_components_by_topic_id(topic_id)
-        return [ComponentRead.model_validate(c) for c in components]
+    def get_components_by_lesson(self, lesson_id: str) -> list[LessonComponentRead]:
+        """Get all components for a lesson."""
+        components = self.repo.get_components_by_lesson_id(lesson_id)
+        return [LessonComponentRead.model_validate(c) for c in components]
 
-    def save_component(self, component_data: ComponentCreate) -> ComponentRead:
-        """Create new component."""
-        component_model = ComponentModel(
+    def save_lesson_component(self, component_data: LessonComponentCreate) -> LessonComponentRead:
+        """Create new lesson component."""
+        component_model = LessonComponentModel(
             id=component_data.id,
-            topic_id=component_data.topic_id,
+            lesson_id=component_data.lesson_id,
             component_type=component_data.component_type,
             title=component_data.title,
             content=component_data.content,
@@ -234,8 +234,8 @@ class ContentService:
         )
 
         saved_component = self.repo.save_component(component_model)
-        return ComponentRead.model_validate(saved_component)
+        return LessonComponentRead.model_validate(saved_component)
 
-    def delete_component(self, component_id: str) -> bool:
-        """Delete component by ID."""
+    def delete_lesson_component(self, component_id: str) -> bool:
+        """Delete lesson component by ID."""
         return self.repo.delete_component(component_id)

@@ -105,7 +105,7 @@ export default function DidacticSnippet({
   }
 
   // Extract content with fallbacks
-  const title = snippet.title || 'Learning Topic';
+  const title = snippet.title || 'Learning Lesson';
   const content =
     snippet.explanation || snippet.snippet || 'Content will be displayed here.';
   const core_concept = snippet.core_concept;

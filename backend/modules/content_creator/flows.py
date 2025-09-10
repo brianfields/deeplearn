@@ -7,15 +7,15 @@ from pydantic import BaseModel
 
 from modules.flow_engine.public import BaseFlow
 
-from .steps import ExtractTopicMetadataStep, GenerateDidacticSnippetStep, GenerateGlossaryStep, GenerateMCQStep
+from .steps import ExtractLessonMetadataStep, GenerateDidacticSnippetStep, GenerateGlossaryStep, GenerateMCQStep
 
 logger = logging.getLogger(__name__)
 
 
-class TopicCreationFlow(BaseFlow):
-    """Multi-step flow that creates a complete topic with all components."""
+class LessonCreationFlow(BaseFlow):
+    """Multi-step flow that creates a complete lesson with all components."""
 
-    flow_name = "topic_creation"
+    flow_name = "lesson_creation"
 
     class Inputs(BaseModel):
         title: str
@@ -25,16 +25,16 @@ class TopicCreationFlow(BaseFlow):
         domain: str = "General"
 
     async def _execute_flow_logic(self, inputs: dict[str, Any]) -> dict[str, Any]:
-        logger.info(f"📚 Topic Creation Flow - Processing: {inputs.get('title', 'Unknown Topic')}")
+        logger.info(f"📚 Lesson Creation Flow - Processing: {inputs.get('title', 'Unknown Lesson')}")
 
-        # Step 1: Extract topic metadata (learning objectives, key concepts)
-        logger.info("📋 Step 1: Extracting topic metadata...")
-        metadata_result = await ExtractTopicMetadataStep().execute(inputs)
+        # Step 1: Extract lesson metadata (learning objectives, key concepts)
+        logger.info("📋 Step 1: Extracting lesson metadata...")
+        metadata_result = await ExtractLessonMetadataStep().execute(inputs)
         metadata = metadata_result.output_content
         logger.info(f"✅ Extracted {len(metadata.learning_objectives)} learning objectives and {len(metadata.key_concepts)} key concepts")
 
         # Prepare common inputs for component generation
-        component_inputs = {"topic_title": inputs["title"], "core_concept": inputs["core_concept"], "user_level": inputs["user_level"], "key_concepts": metadata.key_concepts}
+        component_inputs = {"lesson_title": inputs["title"], "core_concept": inputs["core_concept"], "user_level": inputs["user_level"], "key_concepts": metadata.key_concepts}
 
         # Step 2: Generate didactic snippet
         logger.info("📝 Step 2: Generating didactic snippet...")

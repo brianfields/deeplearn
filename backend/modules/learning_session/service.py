@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import Any
 
 from ..content.public import ContentProvider
-from ..topic_catalog.public import TopicCatalogProvider
+from ..lesson_catalog.public import LessonCatalogProvider
 from .models import LearningSessionModel, SessionStatus
 from .repo import LearningSessionRepo
 
@@ -24,7 +24,7 @@ class LearningSession:
     """Learning session DTO - matches frontend ApiLearningSession"""
 
     id: str
-    topic_id: str
+    lesson_id: str
     user_id: str | None
     status: str
     started_at: str
@@ -55,7 +55,7 @@ class SessionResults:
     """Session results DTO - matches frontend ApiSessionResults"""
 
     session_id: str
-    topic_id: str
+    lesson_id: str
     total_components: int
     completed_components: int
     correct_answers: int
@@ -69,7 +69,7 @@ class SessionResults:
 class StartSessionRequest:
     """Request DTO for starting a session"""
 
-    topic_id: str
+    lesson_id: str
     user_id: str | None = None
 
 
@@ -111,33 +111,33 @@ class LearningSessionService:
         self,
         repo: LearningSessionRepo,
         content_provider: ContentProvider,
-        topic_catalog_provider: TopicCatalogProvider,
+        lesson_catalog_provider: LessonCatalogProvider,
     ):
         self.repo = repo
         self.content = content_provider
-        self.topic_catalog = topic_catalog_provider
+        self.lesson_catalog = lesson_catalog_provider
 
     async def start_session(self, request: StartSessionRequest) -> LearningSession:
         """Start a new learning session"""
-        # Validate topic exists
-        topic_detail = self.topic_catalog.get_topic_details(request.topic_id)
-        if not topic_detail:
-            raise ValueError(f"Topic {request.topic_id} not found")
+        # Validate lesson exists
+        lesson_detail = self.lesson_catalog.get_lesson_details(request.lesson_id)
+        if not lesson_detail:
+            raise ValueError(f"Lesson {request.lesson_id} not found")
 
         # Check for existing active session (if user provided)
         if request.user_id:
-            existing_session = self.repo.get_active_session_for_user_and_topic(request.user_id, request.topic_id)
+            existing_session = self.repo.get_active_session_for_user_and_lesson(request.user_id, request.lesson_id)
             if existing_session:
                 # Return existing session instead of creating new one
                 return self._to_session_dto(existing_session)
 
-        # Get topic content to determine component count
-        topic_content = self.content.get_topic(request.topic_id)
-        total_components = len(topic_content.components) if topic_content else 0
+        # Get lesson content to determine component count
+        lesson_content = self.content.get_lesson(request.lesson_id)
+        total_components = len(lesson_content.components) if lesson_content else 0
 
         # Create new session
         session = self.repo.create_session(
-            topic_id=request.topic_id,
+            lesson_id=request.lesson_id,
             user_id=request.user_id,
             total_components=total_components,
         )
@@ -217,7 +217,7 @@ class LearningSessionService:
         self,
         user_id: str | None = None,
         status: str | None = None,
-        topic_id: str | None = None,
+        lesson_id: str | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> SessionListResponse:
@@ -225,7 +225,7 @@ class LearningSessionService:
         sessions, total = self.repo.get_user_sessions(
             user_id=user_id,
             status=status,
-            topic_id=topic_id,
+            lesson_id=lesson_id,
             limit=limit,
             offset=offset,
         )
@@ -245,7 +245,7 @@ class LearningSessionService:
         """Convert session model to DTO"""
         return LearningSession(
             id=session.id,
-            topic_id=session.topic_id,
+            lesson_id=session.lesson_id,
             user_id=session.user_id,
             status=session.status,
             started_at=session.started_at.isoformat(),
@@ -261,7 +261,7 @@ class LearningSessionService:
         # Mock results that match frontend expectations
         return SessionResults(
             session_id=session.id,
-            topic_id=session.topic_id,
+            lesson_id=session.lesson_id,
             total_components=session.total_components,
             completed_components=session.current_component_index,
             correct_answers=max(0, session.current_component_index - 1),  # Mock: assume most are correct

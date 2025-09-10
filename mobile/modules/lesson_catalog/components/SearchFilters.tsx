@@ -1,7 +1,7 @@
 /**
- * SearchFilters component for topic catalog.
+ * SearchFilters component for lesson catalog.
  *
- * Provides UI controls for filtering and sorting topics.
+ * Provides UI controls for filtering and sorting lessons.
  */
 
 import React, { useState } from 'react';
@@ -14,11 +14,11 @@ import {
 } from 'react-native';
 import { X, Check } from 'lucide-react-native';
 
-import { TopicFilters } from '../models';
+import { LessonFilters } from '../models';
 
 interface SearchFiltersProps {
-  filters: TopicFilters;
-  onFiltersChange: (filters: TopicFilters) => void;
+  filters: LessonFilters;
+  onFiltersChange: (filters: LessonFilters) => void;
   onClose?: () => void;
 }
 
@@ -27,7 +27,7 @@ export function SearchFilters({
   onFiltersChange,
   onClose,
 }: SearchFiltersProps) {
-  const [localFilters, setLocalFilters] = useState<TopicFilters>(filters);
+  const [localFilters, setLocalFilters] = useState<LessonFilters>(filters);
 
   const handleApplyFilters = () => {
     onFiltersChange(localFilters);
@@ -35,15 +35,15 @@ export function SearchFilters({
   };
 
   const handleClearFilters = () => {
-    const clearedFilters: TopicFilters = {};
+    const clearedFilters: LessonFilters = {};
     setLocalFilters(clearedFilters);
     onFiltersChange(clearedFilters);
     onClose?.();
   };
 
-  const updateFilter = <K extends keyof TopicFilters>(
+  const updateFilter = <K extends keyof LessonFilters>(
     key: K,
-    value: TopicFilters[K]
+    value: LessonFilters[K]
   ) => {
     setLocalFilters(prev => ({
       ...prev,
@@ -54,7 +54,7 @@ export function SearchFilters({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Filter Topics</Text>
+        <Text style={styles.title}>Filter Lessons</Text>
         {onClose && (
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
             <X size={24} color="#6B7280" />

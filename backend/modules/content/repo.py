@@ -2,12 +2,12 @@
 Content Module - Repository Layer
 
 Database access layer that returns ORM objects.
-Handles all CRUD operations for topics and components.
+Handles all CRUD operations for lessons and lesson components.
 """
 
 from modules.infrastructure.public import DatabaseSession
 
-from .models import ComponentModel, TopicModel
+from .models import LessonComponentModel, LessonModel
 
 
 class ContentRepo:
@@ -17,61 +17,61 @@ class ContentRepo:
         """Initialize repository with database session."""
         self.s = session.session
 
-    # Topic operations
-    def get_topic_by_id(self, topic_id: str) -> TopicModel | None:
-        """Get topic by ID."""
-        return self.s.get(TopicModel, topic_id)
+    # Lesson operations
+    def get_lesson_by_id(self, lesson_id: str) -> LessonModel | None:
+        """Get lesson by ID."""
+        return self.s.get(LessonModel, lesson_id)
 
-    def get_all_topics(self, limit: int = 100, offset: int = 0) -> list[TopicModel]:
-        """Get all topics with pagination."""
-        return self.s.query(TopicModel).offset(offset).limit(limit).all()
+    def get_all_lessons(self, limit: int = 100, offset: int = 0) -> list[LessonModel]:
+        """Get all lessons with pagination."""
+        return self.s.query(LessonModel).offset(offset).limit(limit).all()
 
-    def search_topics(self, query: str | None = None, user_level: str | None = None, limit: int = 100, offset: int = 0) -> list[TopicModel]:
-        """Search topics with optional filters."""
-        q = self.s.query(TopicModel)
+    def search_lessons(self, query: str | None = None, user_level: str | None = None, limit: int = 100, offset: int = 0) -> list[LessonModel]:
+        """Search lessons with optional filters."""
+        q = self.s.query(LessonModel)
 
         if query:
-            q = q.filter(TopicModel.title.contains(query))
+            q = q.filter(LessonModel.title.contains(query))
         if user_level:
-            q = q.filter(TopicModel.user_level == user_level)
+            q = q.filter(LessonModel.user_level == user_level)
 
         return q.offset(offset).limit(limit).all()
 
-    def save_topic(self, topic: TopicModel) -> TopicModel:
-        """Save topic to database."""
-        self.s.add(topic)
+    def save_lesson(self, lesson: LessonModel) -> LessonModel:
+        """Save lesson to database."""
+        self.s.add(lesson)
         self.s.flush()
-        return topic
+        return lesson
 
-    def delete_topic(self, topic_id: str) -> bool:
-        """Delete topic by ID."""
-        topic = self.get_topic_by_id(topic_id)
-        if topic:
-            self.s.delete(topic)
+    def delete_lesson(self, lesson_id: str) -> bool:
+        """Delete lesson by ID."""
+        lesson = self.get_lesson_by_id(lesson_id)
+        if lesson:
+            self.s.delete(lesson)
             return True
         return False
 
-    def topic_exists(self, topic_id: str) -> bool:
-        """Check if topic exists."""
-        return self.s.query(TopicModel.id).filter(TopicModel.id == topic_id).first() is not None
+    def lesson_exists(self, lesson_id: str) -> bool:
+        """Check if lesson exists."""
+        return self.s.query(LessonModel.id).filter(LessonModel.id == lesson_id).first() is not None
 
-    # Component operations
-    def get_component_by_id(self, component_id: str) -> ComponentModel | None:
-        """Get component by ID."""
-        return self.s.get(ComponentModel, component_id)
+    # Lesson component operations
+    def get_component_by_id(self, component_id: str) -> LessonComponentModel | None:
+        """Get lesson component by ID."""
+        return self.s.get(LessonComponentModel, component_id)
 
-    def get_components_by_topic_id(self, topic_id: str) -> list[ComponentModel]:
-        """Get all components for a topic."""
-        return self.s.query(ComponentModel).filter(ComponentModel.topic_id == topic_id).all()
+    def get_components_by_lesson_id(self, lesson_id: str) -> list[LessonComponentModel]:
+        """Get all components for a lesson."""
+        return self.s.query(LessonComponentModel).filter(LessonComponentModel.lesson_id == lesson_id).all()
 
-    def save_component(self, component: ComponentModel) -> ComponentModel:
-        """Save component to database."""
+    def save_component(self, component: LessonComponentModel) -> LessonComponentModel:
+        """Save lesson component to database."""
         self.s.add(component)
         self.s.flush()
         return component
 
     def delete_component(self, component_id: str) -> bool:
-        """Delete component by ID."""
+        """Delete lesson component by ID."""
         component = self.get_component_by_id(component_id)
         if component:
             self.s.delete(component)

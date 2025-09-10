@@ -249,8 +249,8 @@ export default function LearningFlow({
           </Text>
         </View>
         <Progress progress={progress} style={styles.progressBar} />
-        {session?.topicTitle && (
-          <Text style={styles.topicTitle}>{session.topicTitle}</Text>
+        {session?.lessonTitle && (
+          <Text style={styles.lessonTitle}>{session.lessonTitle}</Text>
         )}
       </View>
 
@@ -298,7 +298,7 @@ const createStyles = (theme: any) =>
     progressBar: {
       marginBottom: theme.spacing?.md || 12,
     },
-    topicTitle: {
+    lessonTitle: {
       fontSize: 18,
       fontWeight: '600',
       color: theme.colors?.text || '#000000',

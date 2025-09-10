@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from modules.content.public import content_provider
 from modules.infrastructure.public import infrastructure_provider
-from modules.topic_catalog.public import topic_catalog_provider
+from modules.lesson_catalog.public import lesson_catalog_provider
 
 from .repo import LearningSessionRepo
 from .service import (
@@ -31,7 +31,7 @@ from .service import (
 class StartSessionRequestModel(BaseModel):
     """Request model for starting a session"""
 
-    topic_id: str = Field(..., description="ID of the topic to start learning")
+    lesson_id: str = Field(..., description="ID of the lesson to start learning")
     user_id: str | None = Field(None, description="Optional user ID for tracking")
 
 
@@ -48,7 +48,7 @@ class SessionResponseModel(BaseModel):
     """Response model for session data - matches frontend ApiLearningSession"""
 
     id: str
-    topic_id: str
+    lesson_id: str
     user_id: str | None
     status: str
     started_at: str
@@ -77,7 +77,7 @@ class SessionResultsResponseModel(BaseModel):
     """Response model for session results - matches frontend ApiSessionResults"""
 
     session_id: str
-    topic_id: str
+    lesson_id: str
     total_components: int
     completed_components: int
     correct_answers: int
@@ -125,8 +125,8 @@ def get_learning_session_service(s: Session = Depends(get_db_session)) -> Learni
     """Build LearningSessionService with all dependencies sharing the same session."""
     # Build all services with the same session for transactional consistency
     content_service = content_provider(s)
-    topic_catalog_service = topic_catalog_provider(content_service)
-    return LearningSessionService(LearningSessionRepo(s), content_service, topic_catalog_service)
+    lesson_catalog_service = lesson_catalog_provider(content_service)
+    return LearningSessionService(LearningSessionRepo(s), content_service, lesson_catalog_service)
 
 
 # ================================
@@ -142,7 +142,7 @@ async def start_session(
     """Start a new learning session"""
     try:
         start_request = StartSessionRequest(
-            topic_id=request.topic_id,
+            lesson_id=request.lesson_id,
             user_id=request.user_id,
         )
 
@@ -150,7 +150,7 @@ async def start_session(
 
         return SessionResponseModel(
             id=session.id,
-            topic_id=session.topic_id,
+            lesson_id=session.lesson_id,
             user_id=session.user_id,
             status=session.status,
             started_at=session.started_at,
@@ -180,7 +180,7 @@ async def get_session(
 
         return SessionResponseModel(
             id=session.id,
-            topic_id=session.topic_id,
+            lesson_id=session.lesson_id,
             user_id=session.user_id,
             status=session.status,
             started_at=session.started_at,
@@ -244,7 +244,7 @@ async def complete_session(
 
         return SessionResultsResponseModel(
             session_id=results.session_id,
-            topic_id=results.topic_id,
+            lesson_id=results.lesson_id,
             total_components=results.total_components,
             completed_components=results.completed_components,
             correct_answers=results.correct_answers,
@@ -273,7 +273,7 @@ async def pause_session(
 
         return SessionResponseModel(
             id=session.id,
-            topic_id=session.topic_id,
+            lesson_id=session.lesson_id,
             user_id=session.user_id,
             status=session.status,
             started_at=session.started_at,
@@ -291,7 +291,7 @@ async def pause_session(
 async def get_user_sessions(
     user_id: str | None = Query(None, description="Filter by user ID"),
     status: str | None = Query(None, description="Filter by session status"),
-    topic_id: str | None = Query(None, description="Filter by topic ID"),
+    lesson_id: str | None = Query(None, description="Filter by lesson ID"),
     limit: int = Query(50, ge=1, le=100, description="Maximum number of sessions to return"),
     offset: int = Query(0, ge=0, description="Number of sessions to skip"),
     service: LearningSessionService = Depends(get_learning_session_service),
@@ -301,7 +301,7 @@ async def get_user_sessions(
         response = await service.get_user_sessions(
             user_id=user_id,
             status=status,
-            topic_id=topic_id,
+            lesson_id=lesson_id,
             limit=limit,
             offset=offset,
         )
@@ -309,7 +309,7 @@ async def get_user_sessions(
         session_models = [
             SessionResponseModel(
                 id=session.id,
-                topic_id=session.topic_id,
+                lesson_id=session.lesson_id,
                 user_id=session.user_id,
                 status=session.status,
                 started_at=session.started_at,

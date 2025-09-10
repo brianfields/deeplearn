@@ -9,21 +9,21 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from modules.content_creator.service import ContentCreatorService, CreateTopicRequest
+from modules.content_creator.service import ContentCreatorService, CreateLessonRequest
 
 
 class TestContentCreatorService:
     """Unit tests for ContentCreatorService."""
 
     @pytest.mark.asyncio
-    @patch("modules.content_creator.service.TopicCreationFlow")
-    async def test_create_topic_from_source_material(self, mock_flow_class):
-        """Test creating a topic using flow engine."""
+    @patch("modules.content_creator.service.LessonCreationFlow")
+    async def test_create_lesson_from_source_material(self, mock_flow_class):
+        """Test creating a lesson using flow engine."""
         # Arrange
         content = Mock()
         service = ContentCreatorService(content)
 
-        request = CreateTopicRequest(title="Test Topic", core_concept="Test Concept", source_material="Test material content", user_level="beginner", domain="Testing")
+        request = CreateLessonRequest(title="Test Lesson", core_concept="Test Concept", source_material="Test material content", user_level="beginner", domain="Testing")
 
         # Mock flow execution
         mock_flow = AsyncMock()
@@ -38,25 +38,25 @@ class TestContentCreatorService:
         }
 
         # Mock content service responses
-        from modules.content.service import TopicRead
+        from modules.content.service import LessonRead
 
-        mock_topic = TopicRead(
-            id="test-id", title="Test Topic", core_concept="Test Concept", user_level="beginner", learning_objectives=["Learn X"], key_concepts=["Concept A"], created_at=datetime(2024, 1, 1), updated_at=datetime(2024, 1, 1), components=[]
+        mock_lesson = LessonRead(
+            id="test-id", title="Test Lesson", core_concept="Test Concept", user_level="beginner", learning_objectives=["Learn X"], key_concepts=["Concept A"], created_at=datetime(2024, 1, 1), updated_at=datetime(2024, 1, 1), components=[]
         )
-        content.save_topic.return_value = mock_topic
-        content.save_component.return_value = Mock()
+        content.save_lesson.return_value = mock_lesson
+        content.save_lesson_component.return_value = Mock()
 
         # Act
-        result = await service.create_topic_from_source_material(request)
+        result = await service.create_lesson_from_source_material(request)
 
         # Assert
-        assert result.title == "Test Topic"
+        assert result.title == "Test Lesson"
         assert result.components_created == 4  # didactic_snippet, glossary, 2 MCQs (one per learning objective)
-        content.save_topic.assert_called_once()
-        assert content.save_component.call_count == 4
+        content.save_lesson.assert_called_once()
+        assert content.save_lesson_component.call_count == 4
 
         # Verify flow was called with correct inputs
-        mock_flow.execute.assert_called_once_with({"title": "Test Topic", "core_concept": "Test Concept", "source_material": "Test material content", "user_level": "beginner", "domain": "Testing"})
+        mock_flow.execute.assert_called_once_with({"title": "Test Lesson", "core_concept": "Test Concept", "source_material": "Test material content", "user_level": "beginner", "domain": "Testing"})
 
     # generate_component tests removed - method was unused and has been removed
 

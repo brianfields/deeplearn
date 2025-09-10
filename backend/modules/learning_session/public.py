@@ -11,7 +11,7 @@ from typing import Protocol
 from sqlalchemy.orm import Session
 
 from modules.content.public import ContentProvider
-from modules.topic_catalog.public import TopicCatalogProvider
+from modules.lesson_catalog.public import LessonCatalogProvider
 
 from .repo import LearningSessionRepo
 from .service import (
@@ -63,7 +63,7 @@ class LearningSessionProvider(Protocol):
         self,
         user_id: str | None = None,
         status: str | None = None,
-        topic_id: str | None = None,
+        lesson_id: str | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> SessionListResponse:
@@ -79,7 +79,7 @@ class LearningSessionProvider(Protocol):
 def learning_session_provider(
     session: Session,
     content: ContentProvider,
-    topic_catalog: TopicCatalogProvider,
+    lesson_catalog: LessonCatalogProvider,
 ) -> LearningSessionProvider:
     """
     Dependency injection provider for learning session services.
@@ -87,13 +87,13 @@ def learning_session_provider(
     Args:
         session: Database session managed at the route level for proper commits.
         content: Content service instance (built with same session).
-        topic_catalog: Topic catalog service instance (built with same session).
+        lesson_catalog: Lesson catalog service instance (built with same session).
 
     Returns:
         LearningSessionService instance that implements the LearningSessionProvider protocol.
     """
     repo = LearningSessionRepo(session)
-    return LearningSessionService(repo, content, topic_catalog)
+    return LearningSessionService(repo, content, lesson_catalog)
 
 
 # Export DTOs that other modules might need

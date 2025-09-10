@@ -2,7 +2,6 @@
  * UI System Models
  *
  * Types for theme, components, and design system.
- * Extracted from src/types/index.ts to be module-specific.
  */
 
 import React from 'react';

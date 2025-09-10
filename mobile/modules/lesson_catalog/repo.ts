@@ -1,23 +1,23 @@
 /**
- * Topic Catalog Repository
+ * Lesson Catalog Repository
  *
- * HTTP client for topic catalog API endpoints.
+ * HTTP client for lesson catalog API endpoints.
  * Uses infrastructure module for HTTP requests.
  */
 
 import { infrastructureProvider } from '../infrastructure/public';
 import type {
-  SearchTopicsRequest,
+  SearchLessonsRequest,
   CatalogStatistics,
-  TopicCatalogError,
+  LessonCatalogError,
 } from './models';
 
 // Backend API endpoints
-const TOPIC_CATALOG_BASE = '/api/v1/topics';
+const LESSON_CATALOG_BASE = '/api/v1/lessons';
 
 // API response types (private to repo)
-interface ApiBrowseTopicsResponse {
-  topics: Array<{
+interface ApiBrowseLessonsResponse {
+  lessons: Array<{
     id: string;
     title: string;
     core_concept: string;
@@ -29,7 +29,7 @@ interface ApiBrowseTopicsResponse {
   total: number;
 }
 
-interface ApiTopicDetail {
+interface ApiLessonDetail {
   id: string;
   title: string;
   core_concept: string;
@@ -41,15 +41,15 @@ interface ApiTopicDetail {
   component_count: number;
 }
 
-export class TopicCatalogRepo {
+export class LessonCatalogRepo {
   private infrastructure = infrastructureProvider();
 
   /**
-   * Browse topics with optional filters
+   * Browse lessons with optional filters
    */
-  async browseTopics(
-    request: SearchTopicsRequest = {}
-  ): Promise<ApiBrowseTopicsResponse> {
+  async browseLessons(
+    request: SearchLessonsRequest = {}
+  ): Promise<ApiBrowseLessonsResponse> {
     try {
       const params = new URLSearchParams();
 
@@ -60,43 +60,43 @@ export class TopicCatalogRepo {
         params.append('limit', request.limit.toString());
       }
 
-      const endpoint = `${TOPIC_CATALOG_BASE}/?${params.toString()}`;
+      const endpoint = `${LESSON_CATALOG_BASE}/?${params.toString()}`;
 
       const response =
-        await this.infrastructure.request<ApiBrowseTopicsResponse>(endpoint, {
+        await this.infrastructure.request<ApiBrowseLessonsResponse>(endpoint, {
           method: 'GET',
         });
 
       return response;
     } catch (error) {
-      throw this.handleError(error, 'Failed to browse topics');
+      throw this.handleError(error, 'Failed to browse lessons');
     }
   }
 
   /**
-   * Get topic details by ID
+   * Get lesson details by ID
    */
-  async getTopicDetail(topicId: string): Promise<ApiTopicDetail> {
+  async getLessonDetail(lessonId: string): Promise<ApiLessonDetail> {
     try {
-      const endpoint = `${TOPIC_CATALOG_BASE}/${topicId}`;
+      const endpoint = `${LESSON_CATALOG_BASE}/${lessonId}`;
 
-      const response = await this.infrastructure.request<ApiTopicDetail>(
+      const response = await this.infrastructure.request<ApiLessonDetail>(
         endpoint,
         { method: 'GET' }
       );
 
       return response;
     } catch (error) {
-      throw this.handleError(error, `Failed to get topic ${topicId}`);
+      throw this.handleError(error, `Failed to get lesson ${lessonId}`);
     }
   }
 
   /**
-   * Search topics with query and filters
+   * Search lessons with query and filters
    */
-  async searchTopics(
-    request: SearchTopicsRequest
-  ): Promise<ApiBrowseTopicsResponse> {
+  async searchLessons(
+    request: SearchLessonsRequest
+  ): Promise<ApiBrowseLessonsResponse> {
     try {
       const params = new URLSearchParams();
 
@@ -123,31 +123,33 @@ export class TopicCatalogRepo {
       }
 
       // Use the new search endpoint
-      const endpoint = `${TOPIC_CATALOG_BASE}/search?${params.toString()}`;
+      const endpoint = `${LESSON_CATALOG_BASE}/search?${params.toString()}`;
 
       const response =
-        await this.infrastructure.request<ApiBrowseTopicsResponse>(endpoint, {
+        await this.infrastructure.request<ApiBrowseLessonsResponse>(endpoint, {
           method: 'GET',
         });
 
       return response;
     } catch (error) {
-      throw this.handleError(error, 'Failed to search topics');
+      throw this.handleError(error, 'Failed to search lessons');
     }
   }
 
   /**
-   * Get popular topics
+   * Get popular lessons
    */
-  async getPopularTopics(limit: number = 10): Promise<ApiBrowseTopicsResponse> {
+  async getPopularLessons(
+    limit: number = 10
+  ): Promise<ApiBrowseLessonsResponse> {
     try {
       const params = new URLSearchParams();
       params.append('limit', limit.toString());
 
       // Use the new popular endpoint
-      const endpoint = `${TOPIC_CATALOG_BASE}/popular?${params.toString()}`;
+      const endpoint = `${LESSON_CATALOG_BASE}/popular?${params.toString()}`;
 
-      const topics = await this.infrastructure.request<
+      const lessons = await this.infrastructure.request<
         Array<{
           id: string;
           title: string;
@@ -163,11 +165,11 @@ export class TopicCatalogRepo {
 
       // Convert to browse response format
       return {
-        topics,
-        total: topics.length,
+        lessons,
+        total: lessons.length,
       };
     } catch (error) {
-      throw this.handleError(error, 'Failed to get popular topics');
+      throw this.handleError(error, 'Failed to get popular lessons');
     }
   }
 
@@ -176,12 +178,12 @@ export class TopicCatalogRepo {
    */
   async getCatalogStatistics(): Promise<CatalogStatistics> {
     try {
-      const endpoint = `${TOPIC_CATALOG_BASE}/statistics`;
+      const endpoint = `${LESSON_CATALOG_BASE}/statistics`;
 
       const response = await this.infrastructure.request<{
-        total_topics: number;
-        topics_by_user_level: Record<string, number>;
-        topics_by_readiness: Record<string, number>;
+        total_lessons: number;
+        lessons_by_user_level: Record<string, number>;
+        lessons_by_readiness: Record<string, number>;
         average_duration: number;
         duration_distribution: Record<string, number>;
       }>(endpoint, {
@@ -190,9 +192,9 @@ export class TopicCatalogRepo {
 
       // Convert snake_case to camelCase
       return {
-        totalTopics: response.total_topics,
-        topicsByUserLevel: response.topics_by_user_level,
-        topicsByReadiness: response.topics_by_readiness,
+        totalLessons: response.total_lessons,
+        lessonsByUserLevel: response.lessons_by_user_level,
+        lessonsByReadiness: response.lessons_by_readiness,
         averageDuration: response.average_duration,
         durationDistribution: response.duration_distribution,
       };
@@ -205,16 +207,16 @@ export class TopicCatalogRepo {
    * Refresh catalog
    */
   async refreshCatalog(): Promise<{
-    refreshedTopics: number;
-    totalTopics: number;
+    refreshedLessons: number;
+    totalLessons: number;
     timestamp: string;
   }> {
     try {
-      const endpoint = `${TOPIC_CATALOG_BASE}/refresh`;
+      const endpoint = `${LESSON_CATALOG_BASE}/refresh`;
 
       const response = await this.infrastructure.request<{
-        refreshed_topics: number;
-        total_topics: number;
+        refreshed_lessons: number;
+        total_lessons: number;
         timestamp: string;
       }>(endpoint, {
         method: 'POST',
@@ -222,8 +224,8 @@ export class TopicCatalogRepo {
 
       // Convert snake_case to camelCase
       return {
-        refreshedTopics: response.refreshed_topics,
-        totalTopics: response.total_topics,
+        refreshedLessons: response.refreshed_lessons,
+        totalLessons: response.total_lessons,
         timestamp: response.timestamp,
       };
     } catch (error) {
@@ -239,7 +241,7 @@ export class TopicCatalogRepo {
       const networkStatus = this.infrastructure.getNetworkStatus();
       return networkStatus.isConnected;
     } catch (error) {
-      console.warn('[TopicCatalogRepo] Health check failed:', error);
+      console.warn('[LessonCatalogRepo] Health check failed:', error);
       return false;
     }
   }
@@ -247,14 +249,14 @@ export class TopicCatalogRepo {
   /**
    * Handle and transform errors
    */
-  private handleError(error: any, defaultMessage: string): TopicCatalogError {
-    console.error('[TopicCatalogRepo]', defaultMessage, error);
+  private handleError(error: any, defaultMessage: string): LessonCatalogError {
+    console.error('[LessonCatalogRepo]', defaultMessage, error);
 
     // If it's already a structured error from infrastructure
     if (error && typeof error === 'object') {
       return {
         message: error.message || defaultMessage,
-        code: error.code || 'TOPIC_CATALOG_ERROR',
+        code: error.code || 'LESSON_CATALOG_ERROR',
         statusCode: error.status || error.statusCode,
         details: error.details || error,
       };
@@ -263,7 +265,7 @@ export class TopicCatalogRepo {
     // Generic error
     return {
       message: defaultMessage,
-      code: 'TOPIC_CATALOG_ERROR',
+      code: 'LESSON_CATALOG_ERROR',
       details: error,
     };
   }

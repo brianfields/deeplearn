@@ -1,32 +1,32 @@
 /**
- * Topic Catalog Zustand Store
+ * Lesson Catalog Zustand Store
  *
- * Client-side state management for topic catalog UI state.
+ * Client-side state management for lesson catalog UI state.
  */
 
 import { create } from 'zustand';
-import type { TopicFilters, TopicSortOptions } from './models';
+import type { LessonFilters, LessonSortOptions } from './models';
 
-interface TopicCatalogState {
+interface LessonCatalogState {
   // Search and filter state
   searchQuery: string;
-  filters: TopicFilters;
-  sortOptions: TopicSortOptions;
+  filters: LessonFilters;
+  sortOptions: LessonSortOptions;
 
   // UI state
   showFilters: boolean;
   viewMode: 'list' | 'grid';
 
-  // Recently viewed topics
-  recentTopicIds: string[];
+  // Recently viewed lessons
+  recentLessonIds: string[];
 
   // Actions
   setSearchQuery: (query: string) => void;
-  setFilters: (filters: TopicFilters) => void;
-  setSortOptions: (options: TopicSortOptions) => void;
+  setFilters: (filters: LessonFilters) => void;
+  setSortOptions: (options: LessonSortOptions) => void;
   setShowFilters: (show: boolean) => void;
   setViewMode: (mode: 'list' | 'grid') => void;
-  addRecentTopic: (topicId: string) => void;
+  addRecentLesson: (lessonId: string) => void;
   clearFilters: () => void;
   clearSearch: () => void;
   reset: () => void;
@@ -41,10 +41,10 @@ const initialState = {
   },
   showFilters: false,
   viewMode: 'list' as const,
-  recentTopicIds: [],
+  recentLessonIds: [],
 };
 
-export const useTopicCatalogStore = create<TopicCatalogState>((set, get) => ({
+export const useLessonCatalogStore = create<LessonCatalogState>((set, get) => ({
   ...initialState,
 
   // Search actions
@@ -57,7 +57,7 @@ export const useTopicCatalogStore = create<TopicCatalogState>((set, get) => ({
   },
 
   // Filter actions
-  setFilters: (filters: TopicFilters) => {
+  setFilters: (filters: LessonFilters) => {
     set({ filters });
   },
 
@@ -66,7 +66,7 @@ export const useTopicCatalogStore = create<TopicCatalogState>((set, get) => ({
   },
 
   // Sort actions
-  setSortOptions: (options: TopicSortOptions) => {
+  setSortOptions: (options: LessonSortOptions) => {
     set({ sortOptions: options });
   },
 
@@ -79,17 +79,17 @@ export const useTopicCatalogStore = create<TopicCatalogState>((set, get) => ({
     set({ viewMode: mode });
   },
 
-  // Recent topics
-  addRecentTopic: (topicId: string) => {
-    const { recentTopicIds } = get();
+  // Recent lessons
+  addRecentLesson: (lessonId: string) => {
+    const { recentLessonIds } = get();
 
     // Remove if already exists
-    const filtered = recentTopicIds.filter(id => id !== topicId);
+    const filtered = recentLessonIds.filter(id => id !== lessonId);
 
     // Add to front and limit to 10
-    const updated = [topicId, ...filtered].slice(0, 10);
+    const updated = [lessonId, ...filtered].slice(0, 10);
 
-    set({ recentTopicIds: updated });
+    set({ recentLessonIds: updated });
   },
 
   // Reset all state
@@ -99,8 +99,8 @@ export const useTopicCatalogStore = create<TopicCatalogState>((set, get) => ({
 }));
 
 // Selectors for common state combinations
-export const useTopicCatalogSelectors = () => {
-  const store = useTopicCatalogStore();
+export const useLessonCatalogSelectors = () => {
+  const store = useLessonCatalogStore();
 
   return {
     // Combined search state
@@ -124,7 +124,7 @@ export const useTopicCatalogSelectors = () => {
     // Has search query
     hasSearchQuery: store.searchQuery.trim().length > 0,
 
-    // Recent topics
-    recentTopics: store.recentTopicIds,
+    // Recent lessons
+    recentLessons: store.recentLessonIds,
   };
 };

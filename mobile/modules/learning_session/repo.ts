@@ -20,7 +20,7 @@ import type {
 // API wire types (matching future backend)
 interface ApiLearningSession {
   id: string;
-  topic_id: string;
+  lesson_id: string;
   user_id?: string;
   status: 'active' | 'completed' | 'paused' | 'abandoned';
   started_at: string;
@@ -45,7 +45,7 @@ interface ApiSessionProgress {
 
 interface ApiSessionResults {
   session_id: string;
-  topic_id: string;
+  lesson_id: string;
   total_components: number;
   completed_components: number;
   correct_answers: number;
@@ -82,7 +82,7 @@ export class LearningSessionRepo {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            topic_id: request.topicId,
+            lesson_id: request.lessonId,
             user_id: request.userId,
           }),
         }
@@ -181,7 +181,7 @@ export class LearningSessionRepo {
       const params = new URLSearchParams();
       if (userId) params.append('user_id', userId);
       if (filters.status) params.append('status', filters.status);
-      if (filters.topicId) params.append('topic_id', filters.topicId);
+      if (filters.lessonId) params.append('lesson_id', filters.lessonId);
       params.append('limit', limit.toString());
       params.append('offset', offset.toString());
 

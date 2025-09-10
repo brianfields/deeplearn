@@ -9,13 +9,13 @@ from typing import Protocol
 
 from modules.content.public import ContentProvider
 
-from .service import ContentCreatorService, CreateTopicRequest, TopicCreationResult
+from .service import ContentCreatorService, CreateLessonRequest, LessonCreationResult
 
 
 class ContentCreatorProvider(Protocol):
     """Protocol defining the content creator module's public interface."""
 
-    async def create_topic_from_source_material(self, request: CreateTopicRequest) -> TopicCreationResult: ...
+    async def create_lesson_from_source_material(self, request: CreateLessonRequest) -> LessonCreationResult: ...
 
     # generate_component method removed - it was unused
 
@@ -34,4 +34,4 @@ def content_creator_provider(content: ContentProvider) -> ContentCreatorProvider
     return ContentCreatorService(content)
 
 
-__all__ = ["ContentCreatorProvider", "CreateTopicRequest", "TopicCreationResult", "content_creator_provider"]
+__all__ = ["ContentCreatorProvider", "CreateLessonRequest", "LessonCreationResult", "content_creator_provider"]

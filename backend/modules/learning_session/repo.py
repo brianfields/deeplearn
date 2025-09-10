@@ -23,14 +23,14 @@ class LearningSessionRepo:
 
     def create_session(
         self,
-        topic_id: str,
+        lesson_id: str,
         user_id: str | None = None,
         total_components: int = 0,
     ) -> LearningSessionModel:
         """Create a new learning session"""
         session = LearningSessionModel(
             id=str(uuid.uuid4()),
-            topic_id=topic_id,
+            lesson_id=lesson_id,
             user_id=user_id,
             status=SessionStatus.ACTIVE.value,
             total_components=total_components,
@@ -94,7 +94,7 @@ class LearningSessionRepo:
         self,
         user_id: str | None = None,
         status: str | None = None,
-        topic_id: str | None = None,
+        lesson_id: str | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> tuple[list[LearningSessionModel], int]:
@@ -106,8 +106,8 @@ class LearningSessionRepo:
             query = query.filter(LearningSessionModel.user_id == user_id)
         if status:
             query = query.filter(LearningSessionModel.status == status)
-        if topic_id:
-            query = query.filter(LearningSessionModel.topic_id == topic_id)
+        if lesson_id:
+            query = query.filter(LearningSessionModel.lesson_id == lesson_id)
 
         # Get total count before pagination
         total = query.count()
@@ -117,14 +117,14 @@ class LearningSessionRepo:
 
         return sessions, total
 
-    def get_active_session_for_user_and_topic(self, user_id: str, topic_id: str) -> LearningSessionModel | None:
-        """Get active session for user and topic (if any)"""
+    def get_active_session_for_user_and_lesson(self, user_id: str, lesson_id: str) -> LearningSessionModel | None:
+        """Get active session for user and lesson (if any)"""
         return (
             self.db.query(LearningSessionModel)
             .filter(
                 and_(
                     LearningSessionModel.user_id == user_id,
-                    LearningSessionModel.topic_id == topic_id,
+                    LearningSessionModel.lesson_id == lesson_id,
                     LearningSessionModel.status == SessionStatus.ACTIVE.value,
                 )
             )

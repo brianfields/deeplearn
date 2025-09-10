@@ -12,12 +12,12 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Screens (using new modular structure)
-import { TopicListScreen } from './modules/topic_catalog/screens/TopicListScreen';
+import { LessonListScreen } from './modules/lesson_catalog/screens/LessonListScreen';
 import LearningFlowScreen from './modules/learning_session/screens/LearningFlowScreen';
 import ResultsScreen from './modules/learning_session/screens/ResultsScreen';
 
 // Types
-import type { RootStackParamList, LearningStackParamList } from './src/types';
+import type { RootStackParamList, LearningStackParamList } from './types';
 
 // Theme (using new modular structure)
 import { uiSystemProvider } from './modules/ui_system/public';
@@ -49,10 +49,10 @@ function LearningStackNavigator() {
       }}
     >
       <LearningStack.Screen
-        name="TopicList"
-        component={TopicListScreen}
+        name="LessonList"
+        component={LessonListScreen}
         options={{
-          title: 'Learning Topics',
+          title: 'Learning Lessons',
         }}
       />
       <LearningStack.Screen
@@ -88,7 +88,7 @@ function RootNavigator() {
     >
       <RootStack.Screen name="Dashboard" component={LearningStackNavigator} />
       <RootStack.Screen
-        name="TopicDetail"
+        name="LessonDetail"
         component={LearningFlowScreen as any}
         options={{
           gestureEnabled: false, // Prevent swipe back during learning

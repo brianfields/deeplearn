@@ -33,7 +33,7 @@ class LearningSessionModel(Base):
 
     # Core fields matching frontend ApiLearningSession
     id = Column(String, primary_key=True)
-    topic_id = Column(String, nullable=False, index=True)
+    lesson_id = Column(String, nullable=False, index=True)
     user_id = Column(String, nullable=True, index=True)  # Optional for anonymous sessions
     status = Column(String, nullable=False, default=SessionStatus.ACTIVE.value, index=True)
 
@@ -50,4 +50,4 @@ class LearningSessionModel(Base):
     session_data = Column(JSON, nullable=False, default=dict)
 
     def __repr__(self) -> str:
-        return f"<LearningSession(id={self.id}, topic_id={self.topic_id}, status={self.status})>"
+        return f"<LearningSession(id={self.id}, lesson_id={self.lesson_id}, status={self.status})>"

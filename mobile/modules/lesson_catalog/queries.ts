@@ -1,38 +1,38 @@
 /**
- * Topic Catalog React Query Hooks
+ * Lesson Catalog React Query Hooks
  *
- * Server state management for topic catalog data.
+ * Server state management for lesson catalog data.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { topicCatalogProvider } from './public';
-import type { TopicFilters, PaginationInfo } from './models';
+import { lessonCatalogProvider } from './public';
+import type { LessonFilters, PaginationInfo } from './models';
 
-// Get the topic catalog service instance
-const topicCatalog = topicCatalogProvider();
+// Get the lesson catalog service instance
+const lessonCatalog = lessonCatalogProvider();
 
 // Query keys
-export const topicCatalogKeys = {
-  all: ['topic_catalog'] as const,
+export const lessonCatalogKeys = {
+  all: ['lesson_catalog'] as const,
   browse: (
-    filters?: TopicFilters,
+    filters?: LessonFilters,
     pagination?: Omit<PaginationInfo, 'hasMore'>
-  ) => ['topic_catalog', 'browse', filters, pagination] as const,
+  ) => ['lesson_catalog', 'browse', filters, pagination] as const,
   search: (
     query: string,
-    filters?: TopicFilters,
+    filters?: LessonFilters,
     pagination?: Omit<PaginationInfo, 'hasMore'>
-  ) => ['topic_catalog', 'search', query, filters, pagination] as const,
-  detail: (topicId: string) => ['topic_catalog', 'detail', topicId] as const,
-  popular: (limit?: number) => ['topic_catalog', 'popular', limit] as const,
-  statistics: () => ['topic_catalog', 'statistics'] as const,
+  ) => ['lesson_catalog', 'search', query, filters, pagination] as const,
+  detail: (lessonId: string) => ['lesson_catalog', 'detail', lessonId] as const,
+  popular: (limit?: number) => ['lesson_catalog', 'popular', limit] as const,
+  statistics: () => ['lesson_catalog', 'statistics'] as const,
 };
 
 /**
- * Browse topics with optional filters
+ * Browse lessons with optional filters
  */
-export function useBrowseTopics(
-  filters?: TopicFilters,
+export function useBrowseLessons(
+  filters?: LessonFilters,
   pagination?: Omit<PaginationInfo, 'hasMore'>,
   options?: {
     enabled?: boolean;
@@ -41,8 +41,8 @@ export function useBrowseTopics(
   }
 ) {
   return useQuery({
-    queryKey: topicCatalogKeys.browse(filters, pagination),
-    queryFn: () => topicCatalog.browseTopics(filters, pagination),
+    queryKey: lessonCatalogKeys.browse(filters, pagination),
+    queryFn: () => lessonCatalog.browseLessons(filters, pagination),
     staleTime: options?.staleTime ?? 5 * 60 * 1000, // 5 minutes
     refetchOnWindowFocus: options?.refetchOnWindowFocus ?? false,
     enabled: options?.enabled ?? true,
@@ -50,11 +50,11 @@ export function useBrowseTopics(
 }
 
 /**
- * Search topics with query and filters
+ * Search lessons with query and filters
  */
-export function useSearchTopics(
+export function useSearchLessons(
   query: string,
-  filters?: TopicFilters,
+  filters?: LessonFilters,
   pagination?: Omit<PaginationInfo, 'hasMore'>,
   options?: {
     enabled?: boolean;
@@ -63,8 +63,8 @@ export function useSearchTopics(
   }
 ) {
   return useQuery({
-    queryKey: topicCatalogKeys.search(query, filters, pagination),
-    queryFn: () => topicCatalog.searchTopics(query, filters, pagination),
+    queryKey: lessonCatalogKeys.search(query, filters, pagination),
+    queryFn: () => lessonCatalog.searchLessons(query, filters, pagination),
     staleTime: options?.staleTime ?? 2 * 60 * 1000, // 2 minutes (search results change more frequently)
     refetchOnWindowFocus: options?.refetchOnWindowFocus ?? false,
     enabled: (options?.enabled ?? true) && query.trim().length > 0,
@@ -72,10 +72,10 @@ export function useSearchTopics(
 }
 
 /**
- * Get topic details by ID
+ * Get lesson details by ID
  */
-export function useTopicDetail(
-  topicId: string,
+export function useLessonDetail(
+  lessonId: string,
   options?: {
     enabled?: boolean;
     staleTime?: number;
@@ -83,18 +83,18 @@ export function useTopicDetail(
   }
 ) {
   return useQuery({
-    queryKey: topicCatalogKeys.detail(topicId),
-    queryFn: () => topicCatalog.getTopicDetail(topicId),
-    staleTime: options?.staleTime ?? 10 * 60 * 1000, // 10 minutes (topic details change less frequently)
+    queryKey: lessonCatalogKeys.detail(lessonId),
+    queryFn: () => lessonCatalog.getLessonDetail(lessonId),
+    staleTime: options?.staleTime ?? 10 * 60 * 1000, // 10 minutes (lesson details change less frequently)
     refetchOnWindowFocus: options?.refetchOnWindowFocus ?? false,
-    enabled: (options?.enabled ?? true) && !!topicId?.trim(),
+    enabled: (options?.enabled ?? true) && !!lessonId?.trim(),
   });
 }
 
 /**
- * Get popular topics
+ * Get popular lessons
  */
-export function usePopularTopics(
+export function usePopularLessons(
   limit?: number,
   options?: {
     enabled?: boolean;
@@ -103,8 +103,8 @@ export function usePopularTopics(
   }
 ) {
   return useQuery({
-    queryKey: topicCatalogKeys.popular(limit),
-    queryFn: () => topicCatalog.getPopularTopics(limit),
+    queryKey: lessonCatalogKeys.popular(limit),
+    queryFn: () => lessonCatalog.getPopularLessons(limit),
     staleTime: options?.staleTime ?? 15 * 60 * 1000, // 15 minutes
     refetchOnWindowFocus: options?.refetchOnWindowFocus ?? false,
     enabled: options?.enabled ?? true,
@@ -120,8 +120,8 @@ export function useCatalogStatistics(options?: {
   refetchOnWindowFocus?: boolean;
 }) {
   return useQuery({
-    queryKey: topicCatalogKeys.statistics(),
-    queryFn: () => topicCatalog.getCatalogStatistics(),
+    queryKey: lessonCatalogKeys.statistics(),
+    queryFn: () => lessonCatalog.getCatalogStatistics(),
     staleTime: options?.staleTime ?? 30 * 60 * 1000, // 30 minutes
     refetchOnWindowFocus: options?.refetchOnWindowFocus ?? false,
     enabled: options?.enabled ?? true,
@@ -135,40 +135,45 @@ export function useRefreshCatalog() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: () => topicCatalog.refreshCatalog(),
+    mutationFn: () => lessonCatalog.refreshCatalog(),
     onSuccess: () => {
-      // Invalidate all topic catalog queries
+      // Invalidate all lesson catalog queries
       queryClient.invalidateQueries({
-        queryKey: topicCatalogKeys.all,
+        queryKey: lessonCatalogKeys.all,
       });
     },
   });
 }
 
 /**
- * Combined hook for topic list screen
+ * Combined hook for lesson list screen
  */
-export function useTopicCatalog(
-  filters?: TopicFilters,
+export function useLessonCatalog(
+  filters?: LessonFilters,
   searchQuery?: string,
   pagination?: Omit<PaginationInfo, 'hasMore'>
 ) {
   // Use search if there's a query, otherwise browse
   const shouldSearch = !!(searchQuery && searchQuery?.trim().length > 0);
 
-  const browseQuery = useBrowseTopics(filters, pagination, {
+  const browseQuery = useBrowseLessons(filters, pagination, {
     enabled: !shouldSearch,
   });
 
-  const searchQuery_ = useSearchTopics(searchQuery || '', filters, pagination, {
-    enabled: shouldSearch,
-  });
+  const searchQuery_ = useSearchLessons(
+    searchQuery || '',
+    filters,
+    pagination,
+    {
+      enabled: shouldSearch,
+    }
+  );
 
   // Return the active query
   const activeQuery = shouldSearch ? searchQuery_ : browseQuery;
 
   return {
-    topics: activeQuery.data?.topics || [],
+    lessons: activeQuery.data?.lessons || [],
     totalCount: activeQuery.data?.total || 0,
     isLoading: activeQuery.isLoading,
     isError: activeQuery.isError,
@@ -182,10 +187,10 @@ export function useTopicCatalog(
 /**
  * Health check query
  */
-export function useTopicCatalogHealth() {
+export function useLessonCatalogHealth() {
   return useQuery({
-    queryKey: ['topic_catalog', 'health'],
-    queryFn: () => topicCatalog.checkHealth(),
+    queryKey: ['lesson_catalog', 'health'],
+    queryFn: () => lessonCatalog.checkHealth(),
     staleTime: 60 * 1000, // 1 minute
     refetchInterval: 5 * 60 * 1000, // Check every 5 minutes
     refetchOnWindowFocus: false,

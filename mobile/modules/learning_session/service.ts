@@ -3,11 +3,10 @@
  *
  * Business logic for learning session management, progress tracking, and session orchestration.
  * Returns DTOs only, never raw API responses.
- * Refactored from src/services/learning-service.ts with modular architecture.
  */
 
 import { LearningSessionRepo } from './repo';
-import { topicCatalogProvider } from '../topic_catalog/public';
+import { lessonCatalogProvider } from '../lesson_catalog/public';
 import { infrastructureProvider } from '../infrastructure/public';
 import type {
   LearningSession,
@@ -28,7 +27,7 @@ import {
 
 export class LearningSessionService {
   private repo: LearningSessionRepo;
-  private topicCatalog = topicCatalogProvider();
+  private lessonCatalog = lessonCatalogProvider();
   private infrastructure = infrastructureProvider();
 
   constructor(repo: LearningSessionRepo) {
@@ -36,23 +35,23 @@ export class LearningSessionService {
   }
 
   /**
-   * Start a new learning session for a topic
+   * Start a new learning session for a lesson
    */
   async startSession(request: StartSessionRequest): Promise<LearningSession> {
     try {
-      // Validate topic exists and get topic details
-      const topicDetail = await this.topicCatalog.getTopicDetail(
-        request.topicId
+      // Validate lesson exists and get lesson details
+      const lessonDetail = await this.lessonCatalog.getLessonDetail(
+        request.lessonId
       );
-      if (!topicDetail) {
-        throw new Error(`Topic ${request.topicId} not found`);
+      if (!lessonDetail) {
+        throw new Error(`Lesson ${request.lessonId} not found`);
       }
 
       // Start session via repository
       const apiSession = await this.repo.startSession(request);
 
-      // Convert to DTO with topic title
-      const session = toLearningSessionDTO(apiSession, topicDetail.title);
+      // Convert to DTO with lesson title
+      const session = toLearningSessionDTO(apiSession, lessonDetail.title);
 
       // Store session locally for offline access
       await this.infrastructure.setStorageItem(
@@ -74,18 +73,18 @@ export class LearningSessionService {
       // Try to get from API first
       const apiSession = await this.repo.getSession(sessionId);
       if (apiSession) {
-        // Get topic title for display
-        let topicTitle: string | undefined;
+        // Get lesson title for display
+        let lessonTitle: string | undefined;
         try {
-          const topicDetail = await this.topicCatalog.getTopicDetail(
-            apiSession.topic_id
+          const lessonDetail = await this.lessonCatalog.getLessonDetail(
+            apiSession.lesson_id
           );
-          topicTitle = topicDetail?.title;
+          lessonTitle = lessonDetail?.title;
         } catch (error) {
-          console.warn('Failed to fetch topic title:', error);
+          console.warn('Failed to fetch lesson title:', error);
         }
 
-        return toLearningSessionDTO(apiSession, topicTitle);
+        return toLearningSessionDTO(apiSession, lessonTitle);
       }
 
       // Fallback to local storage for offline access
@@ -156,18 +155,18 @@ export class LearningSessionService {
     try {
       const apiSession = await this.repo.pauseSession(sessionId);
 
-      // Get topic title for display
-      let topicTitle: string | undefined;
+      // Get lesson title for display
+      let lessonTitle: string | undefined;
       try {
-        const topicDetail = await this.topicCatalog.getTopicDetail(
-          apiSession.topic_id
+        const lessonDetail = await this.lessonCatalog.getLessonDetail(
+          apiSession.lesson_id
         );
-        topicTitle = topicDetail?.title;
+        lessonTitle = lessonDetail?.title;
       } catch (error) {
-        console.warn('Failed to fetch topic title:', error);
+        console.warn('Failed to fetch lesson title:', error);
       }
 
-      const session = toLearningSessionDTO(apiSession, topicTitle);
+      const session = toLearningSessionDTO(apiSession, lessonTitle);
 
       // Update local cache
       await this.infrastructure.setStorageItem(
@@ -231,19 +230,19 @@ export class LearningSessionService {
         offset
       );
 
-      // Get topic titles for all sessions
+      // Get lesson titles for all sessions
       const sessions = await Promise.all(
         apiResponse.sessions.map(async apiSession => {
-          let topicTitle: string | undefined;
+          let lessonTitle: string | undefined;
           try {
-            const topicDetail = await this.topicCatalog.getTopicDetail(
-              apiSession.topic_id
+            const lessonDetail = await this.lessonCatalog.getLessonDetail(
+              apiSession.lesson_id
             );
-            topicTitle = topicDetail?.title;
+            lessonTitle = lessonDetail?.title;
           } catch (error) {
-            console.warn('Failed to fetch topic title:', error);
+            console.warn('Failed to fetch lesson title:', error);
           }
-          return toLearningSessionDTO(apiSession, topicTitle);
+          return toLearningSessionDTO(apiSession, lessonTitle);
         })
       );
 
@@ -267,16 +266,16 @@ export class LearningSessionService {
         throw new Error('Session not found');
       }
 
-      // Get topic details to get components
-      const topicDetail = await this.topicCatalog.getTopicDetail(
-        session.topicId
+      // Get lesson details to get components
+      const lessonDetail = await this.lessonCatalog.getLessonDetail(
+        session.lessonId
       );
-      if (!topicDetail) {
-        throw new Error('Topic not found');
+      if (!lessonDetail) {
+        throw new Error('Lesson not found');
       }
 
       // Convert components to component state
-      const components: ComponentState[] = topicDetail.components.map(
+      const components: ComponentState[] = lessonDetail.components.map(
         (component, index) => ({
           id: component.id || `component-${index}`,
           type: component.component_type as
@@ -301,23 +300,23 @@ export class LearningSessionService {
   }
 
   /**
-   * Check if user can start a new session for topic
+   * Check if user can start a new session for lesson
    */
-  async canStartSession(topicId: string, userId?: string): Promise<boolean> {
+  async canStartSession(lessonId: string, userId?: string): Promise<boolean> {
     try {
-      // Check if topic exists
-      const topicDetail = await this.topicCatalog.getTopicDetail(topicId);
-      if (!topicDetail) {
+      // Check if lesson exists
+      const lessonDetail = await this.lessonCatalog.getLessonDetail(lessonId);
+      if (!lessonDetail) {
         return false;
       }
 
-      // Check if user has an active session for this topic
+      // Check if user has an active session for this lesson
       if (userId) {
         const sessions = await this.getUserSessions(
           userId,
           {
             status: 'active',
-            topicId,
+            lessonId,
           },
           1
         );

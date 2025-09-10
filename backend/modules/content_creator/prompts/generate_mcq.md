@@ -1,6 +1,6 @@
 Create a multiple choice question for this educational topic:
 
-**Topic**: {topic_title}
+**Topic**: {lesson_title}
 **Core Concept**: {core_concept}
 **Learning Objective**: {learning_objective}
 **User Level**: {user_level}

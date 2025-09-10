@@ -86,6 +86,8 @@ class LLMResponse:
     tokens_used: int | None = None
     input_tokens: int | None = None
     output_tokens: int | None = None
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
     cost_estimate: float | None = None
     response_time_ms: int | None = None
     cached: bool = False
@@ -93,6 +95,7 @@ class LLMResponse:
     system_fingerprint: str | None = None
     response_output: dict[str, Any] | list[dict[str, Any]] | None = None
     response_created_at: datetime | None = None
+    finish_reason: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary format"""
@@ -103,6 +106,8 @@ class LLMResponse:
             "tokens_used": self.tokens_used,
             "input_tokens": self.input_tokens,
             "output_tokens": self.output_tokens,
+            "prompt_tokens": self.prompt_tokens,
+            "completion_tokens": self.completion_tokens,
             "cost_estimate": self.cost_estimate,
             "response_time_ms": self.response_time_ms,
             "cached": self.cached,
@@ -110,6 +115,7 @@ class LLMResponse:
             "system_fingerprint": self.system_fingerprint,
             "response_output": self.response_output,
             "response_created_at": self.response_created_at.isoformat() if self.response_created_at else None,
+            "finish_reason": self.finish_reason,
         }
 
 

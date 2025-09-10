@@ -14,7 +14,7 @@ import { Button, Card } from '../../ui_system/public';
 
 // Theme & Types
 import { uiSystemProvider } from '../../ui_system/public';
-import type { LearningStackParamList } from '../../../src/types';
+import type { LearningStackParamList } from '../../../types';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 type Props = NativeStackScreenProps<LearningStackParamList, 'Results'>;

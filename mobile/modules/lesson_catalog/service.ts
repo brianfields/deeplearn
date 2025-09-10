@@ -1,49 +1,49 @@
 /**
- * Topic Catalog Service
+ * Lesson Catalog Service
  *
- * Business logic for topic browsing, search, and discovery.
+ * Business logic for lesson browsing, search, and discovery.
  * Returns DTOs only, never raw API responses.
  */
 
-import { TopicCatalogRepo } from './repo';
+import { LessonCatalogRepo } from './repo';
 import type {
-  TopicSummary,
-  TopicDetail,
-  BrowseTopicsResponse,
-  SearchTopicsRequest,
-  TopicFilters,
+  LessonSummary,
+  LessonDetail,
+  BrowseLessonsResponse,
+  SearchLessonsRequest,
+  LessonFilters,
   CatalogStatistics,
-  TopicCatalogError,
+  LessonCatalogError,
   PaginationInfo,
 } from './models';
 import {
-  toTopicSummaryDTO,
-  toTopicDetailDTO,
-  toBrowseTopicsResponseDTO,
+  toLessonSummaryDTO,
+  toLessonDetailDTO,
+  toBrowseLessonsResponseDTO,
 } from './models';
 
-export class TopicCatalogService {
-  constructor(private repo: TopicCatalogRepo) {}
+export class LessonCatalogService {
+  constructor(private repo: LessonCatalogRepo) {}
 
   /**
-   * Browse topics with optional filters
+   * Browse lessons with optional filters
    */
-  async browseTopics(
-    filters: TopicFilters = {},
+  async browseLessons(
+    filters: LessonFilters = {},
     pagination: Omit<PaginationInfo, 'hasMore'> = { limit: 100, offset: 0 }
-  ): Promise<BrowseTopicsResponse> {
+  ): Promise<BrowseLessonsResponse> {
     try {
-      const request: SearchTopicsRequest = {
+      const request: SearchLessonsRequest = {
         userLevel: filters.userLevel,
         readyOnly: filters.readyOnly,
         limit: pagination.limit,
         offset: pagination.offset,
       };
 
-      const apiResponse = await this.repo.browseTopics(request);
+      const apiResponse = await this.repo.browseLessons(request);
 
       // Convert to DTO
-      const response = toBrowseTopicsResponseDTO(
+      const response = toBrowseLessonsResponseDTO(
         apiResponse,
         filters,
         pagination
@@ -52,20 +52,20 @@ export class TopicCatalogService {
       // Apply client-side filtering if needed
       return this.applyClientFilters(response, filters);
     } catch (error) {
-      throw this.handleServiceError(error, 'Failed to browse topics');
+      throw this.handleServiceError(error, 'Failed to browse lessons');
     }
   }
 
   /**
-   * Search topics with query and filters
+   * Search lessons with query and filters
    */
-  async searchTopics(
+  async searchLessons(
     query: string,
-    filters: TopicFilters = {},
+    filters: LessonFilters = {},
     pagination: Omit<PaginationInfo, 'hasMore'> = { limit: 100, offset: 0 }
-  ): Promise<BrowseTopicsResponse> {
+  ): Promise<BrowseLessonsResponse> {
     try {
-      const request: SearchTopicsRequest = {
+      const request: SearchLessonsRequest = {
         query: query.trim() || undefined,
         userLevel: filters.userLevel,
         minDuration: filters.minDuration,
@@ -75,10 +75,10 @@ export class TopicCatalogService {
         offset: pagination.offset,
       };
 
-      const apiResponse = await this.repo.searchTopics(request);
+      const apiResponse = await this.repo.searchLessons(request);
 
       // Convert to DTO
-      const response = toBrowseTopicsResponseDTO(
+      const response = toBrowseLessonsResponseDTO(
         apiResponse,
         { ...filters, query },
         pagination
@@ -87,39 +87,39 @@ export class TopicCatalogService {
       // Apply client-side filtering
       return this.applyClientFilters(response, { ...filters, query });
     } catch (error) {
-      throw this.handleServiceError(error, 'Failed to search topics');
+      throw this.handleServiceError(error, 'Failed to search lessons');
     }
   }
 
   /**
-   * Get topic details by ID
+   * Get lesson details by ID
    */
-  async getTopicDetail(topicId: string): Promise<TopicDetail | null> {
+  async getLessonDetail(lessonId: string): Promise<LessonDetail | null> {
     try {
-      if (!topicId?.trim()) {
+      if (!lessonId?.trim()) {
         return null;
       }
 
-      const apiResponse = await this.repo.getTopicDetail(topicId);
-      return toTopicDetailDTO(apiResponse);
+      const apiResponse = await this.repo.getLessonDetail(lessonId);
+      return toLessonDetailDTO(apiResponse);
     } catch (error: any) {
       // Return null for 404s, throw for other errors
       if (error.statusCode === 404) {
         return null;
       }
-      throw this.handleServiceError(error, `Failed to get topic ${topicId}`);
+      throw this.handleServiceError(error, `Failed to get lesson ${lessonId}`);
     }
   }
 
   /**
-   * Get popular topics
+   * Get popular lessons
    */
-  async getPopularTopics(limit: number = 10): Promise<TopicSummary[]> {
+  async getPopularLessons(limit: number = 10): Promise<LessonSummary[]> {
     try {
-      const apiResponse = await this.repo.getPopularTopics(limit);
-      return apiResponse.topics.map(toTopicSummaryDTO);
+      const apiResponse = await this.repo.getPopularLessons(limit);
+      return apiResponse.lessons.map(toLessonSummaryDTO);
     } catch (error) {
-      throw this.handleServiceError(error, 'Failed to get popular topics');
+      throw this.handleServiceError(error, 'Failed to get popular lessons');
     }
   }
 
@@ -138,8 +138,8 @@ export class TopicCatalogService {
    * Refresh catalog
    */
   async refreshCatalog(): Promise<{
-    refreshedTopics: number;
-    totalTopics: number;
+    refreshedLessons: number;
+    totalLessons: number;
     timestamp: string;
   }> {
     try {
@@ -156,7 +156,7 @@ export class TopicCatalogService {
     try {
       return await this.repo.checkHealth();
     } catch (error) {
-      console.warn('[TopicCatalogService] Health check failed:', error);
+      console.warn('[LessonCatalogService] Health check failed:', error);
       return false;
     }
   }
@@ -165,61 +165,63 @@ export class TopicCatalogService {
    * Apply client-side filters to response
    */
   private applyClientFilters(
-    response: BrowseTopicsResponse,
-    filters: TopicFilters
-  ): BrowseTopicsResponse {
-    let filteredTopics = response.topics;
+    response: BrowseLessonsResponse,
+    filters: LessonFilters
+  ): BrowseLessonsResponse {
+    let filteredLessons = response.lessons;
 
     // Apply query filter (client-side search)
     if (filters.query?.trim()) {
       const query = filters.query.toLowerCase();
-      filteredTopics = filteredTopics.filter(topic =>
-        this.matchesQuery(topic, query)
+      filteredLessons = filteredLessons.filter(lesson =>
+        this.matchesQuery(lesson, query)
       );
     }
 
     // Apply duration filters
     if (filters.minDuration !== undefined) {
-      filteredTopics = filteredTopics.filter(
-        topic => topic.estimatedDuration >= filters.minDuration!
+      filteredLessons = filteredLessons.filter(
+        lesson => lesson.estimatedDuration >= filters.minDuration!
       );
     }
 
     if (filters.maxDuration !== undefined) {
-      filteredTopics = filteredTopics.filter(
-        topic => topic.estimatedDuration <= filters.maxDuration!
+      filteredLessons = filteredLessons.filter(
+        lesson => lesson.estimatedDuration <= filters.maxDuration!
       );
     }
 
     // Apply readiness filter
     if (filters.readyOnly) {
-      filteredTopics = filteredTopics.filter(topic => topic.isReadyForLearning);
+      filteredLessons = filteredLessons.filter(
+        lesson => lesson.isReadyForLearning
+      );
     }
 
     return {
       ...response,
-      topics: filteredTopics,
-      total: filteredTopics.length,
+      lessons: filteredLessons,
+      total: filteredLessons.length,
     };
   }
 
   /**
-   * Check if topic matches search query
+   * Check if lesson matches search query
    */
-  private matchesQuery(topic: TopicSummary, query: string): boolean {
+  private matchesQuery(lesson: LessonSummary, query: string): boolean {
     if (!query.trim()) return true;
 
     const searchTerm = query.toLowerCase();
     return (
-      topic.title.toLowerCase().includes(searchTerm) ||
-      topic.coreConcept.toLowerCase().includes(searchTerm) ||
-      topic.keyConcepts.some(concept =>
+      lesson.title.toLowerCase().includes(searchTerm) ||
+      lesson.coreConcept.toLowerCase().includes(searchTerm) ||
+      lesson.keyConcepts.some(concept =>
         concept.toLowerCase().includes(searchTerm)
       ) ||
-      topic.learningObjectives.some(objective =>
+      lesson.learningObjectives.some(objective =>
         objective.toLowerCase().includes(searchTerm)
       ) ||
-      topic.tags.some(tag => tag.toLowerCase().includes(searchTerm))
+      lesson.tags.some(tag => tag.toLowerCase().includes(searchTerm))
     );
   }
 
@@ -229,10 +231,10 @@ export class TopicCatalogService {
   private handleServiceError(
     error: any,
     defaultMessage: string
-  ): TopicCatalogError {
-    console.error('[TopicCatalogService]', defaultMessage, error);
+  ): LessonCatalogError {
+    console.error('[LessonCatalogService]', defaultMessage, error);
 
-    // If it's already a TopicCatalogError, pass it through
+    // If it's already a LessonCatalogError, pass it through
     if (error && error.code === 'TOPIC_CATALOG_ERROR') {
       return error;
     }

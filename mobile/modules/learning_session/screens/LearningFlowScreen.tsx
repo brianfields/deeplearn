@@ -5,9 +5,9 @@
  * It creates a new learning session and manages the learning flow lifecycle.
  *
  * NAVIGATION ARCHITECTURE ROLE:
- * - Entry point from the topic selection (TopicListScreen)
- * - Receives topic data via navigation route parameters
- * - Creates a new learning session for the topic
+ * - Entry point from the lesson selection (LessonListScreen)
+ * - Receives lesson data via navigation route parameters
+ * - Creates a new learning session for the lesson
  * - Manages navigation transitions to/from learning sessions
  * - Handles completion navigation to ResultsScreen
  *
@@ -16,18 +16,18 @@
  * - Component-level: Learning logic, progress tracking, user interactions
  *
  * NAVIGATION FLOW:
- * TopicListScreen → LearningFlowScreen → ResultsScreen
+ * LessonListScreen → LearningFlowScreen → ResultsScreen
  *                ↗ (via route params)   ↗ (via completion)
  *
  * KEY FUNCTIONS:
- * - Extracts topic data from navigation route parameters
- * - Creates a new learning session for the topic
+ * - Extracts lesson data from navigation route parameters
+ * - Creates a new learning session for the lesson
  * - Provides navigation callbacks to LearningFlow component
  * - Handles completion by navigating to ResultsScreen with results
- * - Manages back navigation to topic list
+ * - Manages back navigation to lesson list
  *
  * INTEGRATION POINTS:
- * - Receives BiteSizedTopicDetail from route.params
+ * - Receives LessonDetail from route.params
  * - Creates LearningSession via backend API
  * - Passes LearningResults to ResultsScreen
  * - Coordinates with React Navigation stack
@@ -45,14 +45,14 @@ import { uiSystemProvider } from '../../ui_system/public';
 import { useStartSession } from '../queries';
 
 // Types
-import type { LearningStackParamList } from '@/types';
+import type { LearningStackParamList } from '../../../types';
 import type { SessionResults } from '../models';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 type Props = NativeStackScreenProps<LearningStackParamList, 'LearningFlow'>;
 
 export default function LearningFlowScreen({ navigation, route }: Props) {
-  const { topic } = route.params;
+  const { lesson } = route.params;
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -78,18 +78,18 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
       .startedRef as React.MutableRefObject<string | null>;
 
     if (
-      guardRef.current === topic.id ||
+      guardRef.current === lesson.id ||
       sessionId ||
       startSessionMutation.isPending
     )
       return;
-    guardRef.current = topic.id;
+    guardRef.current = lesson.id;
 
     async function createSession() {
       try {
         setError(null);
         const session = await startSessionMutation.mutateAsync({
-          topicId: topic.id,
+          lessonId: lesson.id,
           userId: 'anonymous', // TODO: Get from user context when available
         });
         setSessionId(session.id);
@@ -105,7 +105,7 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
 
     createSession();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [topic.id, sessionId]);
+  }, [lesson.id, sessionId]);
 
   const handleComplete = (results: SessionResults) => {
     // Navigate to results screen
@@ -113,7 +113,7 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
   };
 
   const handleBack = () => {
-    // Navigate back to topic list
+    // Navigate back to lesson list
     navigation.goBack();
   };
 
@@ -131,7 +131,7 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
       }
       try {
         const session = await startSessionMutation.mutateAsync({
-          topicId: topic.id,
+          lessonId: lesson.id,
           userId: 'anonymous',
         });
         setSessionId(session.id);

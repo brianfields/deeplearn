@@ -2,7 +2,7 @@
 Content Module - Database Models
 
 SQLAlchemy ORM models for educational content storage.
-Reuses existing database schema (bite_sized_topics, bite_sized_components tables).
+Uses lessons and lesson_components tables.
 """
 
 from datetime import datetime
@@ -13,10 +13,10 @@ from sqlalchemy.orm import relationship
 from modules.shared_models import Base
 
 
-class TopicModel(Base):
-    """SQLAlchemy model for educational topics."""
+class LessonModel(Base):
+    """SQLAlchemy model for educational lessons."""
 
-    __tablename__ = "bite_sized_topics"
+    __tablename__ = "lessons"
 
     id = Column(String(36), primary_key=True)
     title = Column(String(255), nullable=False)
@@ -32,16 +32,16 @@ class TopicModel(Base):
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
     # Relationship to components
-    components = relationship("ComponentModel", back_populates="topic", cascade="all, delete-orphan")
+    components = relationship("LessonComponentModel", back_populates="lesson", cascade="all, delete-orphan")
 
 
-class ComponentModel(Base):
-    """SQLAlchemy model for educational content components."""
+class LessonComponentModel(Base):
+    """SQLAlchemy model for educational lesson components."""
 
-    __tablename__ = "bite_sized_components"
+    __tablename__ = "lesson_components"
 
     id = Column(String(36), primary_key=True)
-    topic_id = Column(String(36), ForeignKey("bite_sized_topics.id"), nullable=False)
+    lesson_id = Column(String(36), ForeignKey("lessons.id"), nullable=False)
     component_type = Column(String(50), nullable=False)
     title = Column(String(255), nullable=False)
     content = Column(JSON, nullable=False)
@@ -49,5 +49,5 @@ class ComponentModel(Base):
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
-    # Relationship to topic
-    topic = relationship("TopicModel", back_populates="components")
+    # Relationship to lesson
+    lesson = relationship("LessonModel", back_populates="components")

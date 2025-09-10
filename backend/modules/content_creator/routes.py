@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from modules.content.public import content_provider
 from modules.infrastructure.public import infrastructure_provider
 
-from .service import ContentCreatorService, CreateTopicRequest, TopicCreationResult
+from .service import ContentCreatorService, CreateLessonRequest, LessonCreationResult
 
 router = APIRouter(prefix="/api/v1/content-creator")
 
@@ -32,18 +32,18 @@ def get_content_creator_service(s: Session = Depends(get_session)) -> ContentCre
     return ContentCreatorService(content_service)
 
 
-@router.post("/topics", response_model=TopicCreationResult)
-async def create_topic(request: CreateTopicRequest, creator: ContentCreatorService = Depends(get_content_creator_service)) -> TopicCreationResult:
+@router.post("/lessons", response_model=LessonCreationResult)
+async def create_lesson(request: CreateLessonRequest, creator: ContentCreatorService = Depends(get_content_creator_service)) -> LessonCreationResult:
     """
-    Create topic with AI-generated content from source material.
+    Create lesson with AI-generated content from source material.
 
-    Used by the Content Creation Studio to create complete topics
+    Used by the Content Creation Studio to create complete lessons
     with didactic snippets, glossaries, and MCQs.
     """
     try:
-        return await creator.create_topic_from_source_material(request)
+        return await creator.create_lesson_from_source_material(request)
     except Exception as e:
-        raise HTTPException(500, f"Failed to create topic: {e!s}") from e
+        raise HTTPException(500, f"Failed to create lesson: {e!s}") from e
 
 
 # Note: Additional component creation endpoints will be added only when

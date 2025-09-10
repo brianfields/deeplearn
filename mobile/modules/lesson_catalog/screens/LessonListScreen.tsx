@@ -1,7 +1,7 @@
 /**
- * TopicListScreen - Main topic browsing interface.
+ * LessonListScreen - Main lesson browsing interface.
  *
- * Provides topic discovery, search, filtering, and navigation to learning sessions.
+ * Provides lesson discovery, search, filtering, and navigation to learning sessions.
  */
 
 import React, { useState, useCallback } from 'react';
@@ -22,32 +22,32 @@ import { Search, Filter, Loader, AlertCircle } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import { TopicCard } from '../components/TopicCard';
+import { LessonCard } from '../components/LessonCard';
 import { SearchFilters } from '../components/SearchFilters';
-import { useTopicCatalog, useRefreshCatalog } from '../queries';
-import { TopicSummary, TopicFilters } from '../models';
-import type { LearningStackParamList } from '../../../src/types';
+import { useLessonCatalog, useRefreshCatalog } from '../queries';
+import { LessonSummary, LessonFilters, LessonDetail } from '../models';
+import type { LearningStackParamList } from '../../../types';
 
-type TopicListScreenNavigationProp = NativeStackNavigationProp<
+type LessonListScreenNavigationProp = NativeStackNavigationProp<
   LearningStackParamList,
-  'TopicList'
+  'LessonList'
 >;
 
-export function TopicListScreen() {
-  const navigation = useNavigation<TopicListScreenNavigationProp>();
+export function LessonListScreen() {
+  const navigation = useNavigation<LessonListScreenNavigationProp>();
   const [searchQuery, setSearchQuery] = useState('');
-  const [filters, setFilters] = useState<TopicFilters>({});
+  const [filters, setFilters] = useState<LessonFilters>({});
   const [showFilters, setShowFilters] = useState(false);
 
   // Combined filters including search query
-  const combinedFilters: TopicFilters = {
+  const combinedFilters: LessonFilters = {
     ...filters,
     query: searchQuery.trim() || undefined,
   };
 
   // Data fetching
-  const { topics, totalCount, isLoading, isError, error, refetch } =
-    useTopicCatalog(combinedFilters);
+  const { lessons, totalCount, isLoading, isError, error, refetch } =
+    useLessonCatalog(combinedFilters);
 
   const refreshMutation = useRefreshCatalog();
 
@@ -59,67 +59,69 @@ export function TopicListScreen() {
       console.warn('Failed to refresh catalog:', error);
       Alert.alert(
         'Refresh Failed',
-        'Could not refresh the topic catalog. Please try again.',
+        'Could not refresh the lesson catalog. Please try again.',
         [{ text: 'OK' }]
       );
     }
   }, [refreshMutation, refetch]);
 
-  const handleTopicPress = useCallback(
-    (topic: TopicSummary) => {
+  const handleLessonPress = useCallback(
+    (lesson: LessonSummary) => {
+      // Convert LessonSummary to LessonDetail for navigation
+      const lessonDetail: LessonDetail = {
+        id: lesson.id,
+        title: lesson.title,
+        coreConcept: lesson.coreConcept,
+        userLevel: lesson.userLevel,
+        learningObjectives: lesson.learningObjectives,
+        keyConcepts: lesson.keyConcepts,
+        components: [], // Will be fetched by LearningFlow if needed
+        componentCount: lesson.componentCount,
+        createdAt: lesson.createdAt || new Date().toISOString(),
+        estimatedDuration: lesson.estimatedDuration,
+        isReadyForLearning: lesson.isReadyForLearning,
+        difficultyLevel: lesson.difficultyLevel,
+        durationDisplay: lesson.durationDisplay,
+        readinessStatus: lesson.readinessStatus,
+        tags: lesson.tags,
+      };
+
       navigation.navigate('LearningFlow', {
-        topicId: topic.id,
-        topic: {
-          id: topic.id,
-          title: topic.title,
-          description: topic.coreConcept,
-          estimated_duration: topic.estimatedDuration,
-          difficulty:
-            topic.userLevel === 'beginner'
-              ? 1
-              : topic.userLevel === 'intermediate'
-                ? 2
-                : 3,
-          learning_objectives: topic.learningObjectives,
-          prerequisites: [],
-          component_count: topic.componentCount,
-          created_at: topic.createdAt || new Date().toISOString(),
-          updated_at: topic.updatedAt || new Date().toISOString(),
-          components: [], // Will be fetched by LearningFlow if needed
-        },
+        lessonId: lesson.id,
+        lesson: lessonDetail,
       });
     },
     [navigation]
   );
 
-  const handleFiltersChange = useCallback((newFilters: TopicFilters) => {
+  const handleFiltersChange = useCallback((newFilters: LessonFilters) => {
     setFilters(newFilters);
   }, []);
 
-  const renderTopic = useCallback(
-    ({ item, index }: { item: TopicSummary; index: number }) => (
+  const renderLesson = useCallback(
+    ({ item, index }: { item: LessonSummary; index: number }) => (
       <Animated.View
         entering={FadeIn.delay(index * 100)}
-        style={styles.topicItemContainer}
+        style={styles.lessonItemContainer}
       >
-        <TopicCard
-          topic={item}
-          onPress={handleTopicPress}
+        <LessonCard
+          lesson={item}
+          onPress={handleLessonPress}
           isOfflineAvailable={true} // TODO: Implement offline availability check
         />
       </Animated.View>
     ),
-    [handleTopicPress]
+    [handleLessonPress]
   );
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
       <Search size={48} color="#9CA3AF" />
-      <Text style={styles.emptyStateTitle}>No Topics Found</Text>
+      <Text style={styles.emptyStateTitle}>No Lessons Found</Text>
       <Text style={styles.emptyStateDescription}>
         {searchQuery || Object.keys(filters).length > 0
           ? 'Try adjusting your search or filters'
-          : 'Pull down to refresh and load topics'}
+          : 'Pull down to refresh and load lessons'}
       </Text>
     </View>
   );
@@ -127,7 +129,7 @@ export function TopicListScreen() {
   const renderErrorState = () => (
     <View style={styles.errorState}>
       <AlertCircle size={48} color="#EF4444" />
-      <Text style={styles.errorStateTitle}>Failed to Load Topics</Text>
+      <Text style={styles.errorStateTitle}>Failed to Load Lessons</Text>
       <Text style={styles.errorStateDescription}>
         {error?.message || 'Please check your connection and try again'}
       </Text>
@@ -140,11 +142,11 @@ export function TopicListScreen() {
   const renderLoadingState = () => (
     <View style={styles.loadingState}>
       <Loader size={48} color="#3B82F6" />
-      <Text style={styles.loadingText}>Loading topics...</Text>
+      <Text style={styles.loadingText}>Loading lessons...</Text>
     </View>
   );
 
-  if (isLoading && topics.length === 0) {
+  if (isLoading && lessons.length === 0) {
     return (
       <SafeAreaView style={styles.container}>
         {renderLoadingState()}
@@ -152,7 +154,7 @@ export function TopicListScreen() {
     );
   }
 
-  if (isError && topics.length === 0) {
+  if (isError && lessons.length === 0) {
     return (
       <SafeAreaView style={styles.container}>{renderErrorState()}</SafeAreaView>
     );
@@ -162,11 +164,11 @@ export function TopicListScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Learning Topics</Text>
+        <Text style={styles.title}>Learning Lessons</Text>
         <Text style={styles.subtitle}>
           {totalCount > 0
-            ? `${totalCount} topics available`
-            : 'Discover new topics'}
+            ? `${totalCount} lessons available`
+            : 'Discover new lessons'}
         </Text>
       </View>
 
@@ -176,7 +178,7 @@ export function TopicListScreen() {
           <Search size={20} color="#9CA3AF" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search topics..."
+            placeholder="Search lessons..."
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholderTextColor="#9CA3AF"
@@ -197,14 +199,14 @@ export function TopicListScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Topic List */}
+      {/* Lesson List */}
       <FlatList
-        data={topics}
-        renderItem={renderTopic}
+        data={lessons}
+        renderItem={renderLesson}
         keyExtractor={item => item.id}
         contentContainerStyle={[
           styles.listContainer,
-          topics.length === 0 && styles.listContainerEmpty,
+          lessons.length === 0 && styles.listContainerEmpty,
         ]}
         refreshControl={
           <RefreshControl
@@ -314,8 +316,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
   },
-  topicItemContainer: {
-    marginBottom: 0, // TopicCard has its own margin
+  lessonItemContainer: {
+    marginBottom: 0, // LessonCard has its own margin
   },
   emptyState: {
     alignItems: 'center',

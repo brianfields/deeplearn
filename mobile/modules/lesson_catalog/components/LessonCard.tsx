@@ -1,7 +1,7 @@
 /**
- * TopicCard component for displaying topic summaries.
+ * LessonCard component for displaying lesson summaries.
  *
- * A reusable card component that shows topic information in a touch-friendly format.
+ * A reusable card component that shows lesson information in a touch-friendly format.
  */
 
 import React from 'react';
@@ -20,23 +20,23 @@ import {
   WifiOff,
 } from 'lucide-react-native';
 
-import { TopicSummary } from '../models';
+import { LessonSummary } from '../models';
 
-interface TopicCardProps {
-  topic: TopicSummary;
-  onPress: (topic: TopicSummary) => void;
+interface LessonCardProps {
+  lesson: LessonSummary;
+  onPress: (lesson: LessonSummary) => void;
   isOfflineAvailable?: boolean;
   showProgress?: boolean;
   progressPercentage?: number;
 }
 
-export function TopicCard({
-  topic,
+export function LessonCard({
+  lesson,
   onPress,
   isOfflineAvailable = true,
   showProgress = false,
   progressPercentage = 0,
-}: TopicCardProps) {
+}: LessonCardProps) {
   const scaleValue = useSharedValue(1);
 
   const handlePressIn = () => {
@@ -52,7 +52,7 @@ export function TopicCard({
   }));
 
   const handlePress = () => {
-    onPress(topic);
+    onPress(lesson);
   };
 
   return (
@@ -65,12 +65,12 @@ export function TopicCard({
     >
       <Animated.View style={[styles.card, animatedStyle]}>
         <View style={styles.header}>
-          <View style={styles.topicInfo}>
+          <View style={styles.lessonInfo}>
             <Text style={styles.title} numberOfLines={2}>
-              {topic.title}
+              {lesson.title}
             </Text>
             <Text style={styles.description} numberOfLines={2}>
-              {topic.coreConcept}
+              {lesson.coreConcept}
             </Text>
           </View>
 
@@ -83,22 +83,22 @@ export function TopicCard({
         <View style={styles.details}>
           <View style={styles.detailItem}>
             <Clock size={14} color="#6B7280" />
-            <Text style={styles.detailText}>{topic.durationDisplay}</Text>
+            <Text style={styles.detailText}>{lesson.durationDisplay}</Text>
           </View>
 
           <View style={styles.detailItem}>
             <Target size={14} color="#6B7280" />
-            <Text style={styles.detailText}>{topic.difficultyLevel}</Text>
+            <Text style={styles.detailText}>{lesson.difficultyLevel}</Text>
           </View>
 
           <View style={styles.detailItem}>
             <BookOpen size={14} color="#6B7280" />
             <Text style={styles.detailText}>
-              {topic.componentCount} components
+              {lesson.componentCount} components
             </Text>
           </View>
 
-          {topic.isReadyForLearning && (
+          {lesson.isReadyForLearning && (
             <View style={styles.detailItem}>
               <CheckCircle size={14} color="#10B981" />
               <Text style={[styles.detailText, styles.readyText]}>Ready</Text>
@@ -123,7 +123,7 @@ export function TopicCard({
         )}
 
         <View style={styles.tags}>
-          {topic.tags.slice(0, 3).map((tag, index) => (
+          {lesson.tags.slice(0, 3).map((tag, index) => (
             <View key={index} style={styles.tag}>
               <Text style={styles.tagText}>{tag}</Text>
             </View>
@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 12,
   },
-  topicInfo: {
+  lessonInfo: {
     flex: 1,
     marginRight: 12,
   },

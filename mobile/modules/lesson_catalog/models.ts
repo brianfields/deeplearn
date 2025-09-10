@@ -1,15 +1,15 @@
 /**
- * Topic Catalog Models
+ * Lesson Catalog Models
  *
- * DTOs and types for topic browsing and discovery.
- * Matches backend/modules/topic_catalog/service.py DTOs.
+ * DTOs and types for lesson browsing and discovery.
+ * Matches backend/modules/lesson_catalog/service.py DTOs.
  */
 
 // ================================
 // Backend API Wire Types (Private)
 // ================================
 
-interface ApiTopicSummary {
+interface ApiLessonSummary {
   id: string;
   title: string;
   core_concept: string;
@@ -19,12 +19,12 @@ interface ApiTopicSummary {
   component_count: number;
 }
 
-interface ApiBrowseTopicsResponse {
-  topics: ApiTopicSummary[];
+interface ApiBrowseLessonsResponse {
+  lessons: ApiLessonSummary[];
   total: number;
 }
 
-interface ApiTopicDetail {
+interface ApiLessonDetail {
   id: string;
   title: string;
   core_concept: string;
@@ -40,7 +40,7 @@ interface ApiTopicDetail {
 // Frontend DTOs (Public)
 // ================================
 
-export interface TopicSummary {
+export interface LessonSummary {
   readonly id: string;
   readonly title: string;
   readonly coreConcept: string;
@@ -58,7 +58,7 @@ export interface TopicSummary {
   readonly tags: string[]; // Derived from key concepts
 }
 
-export interface TopicDetail {
+export interface LessonDetail {
   readonly id: string;
   readonly title: string;
   readonly coreConcept: string;
@@ -76,11 +76,11 @@ export interface TopicDetail {
   readonly tags: string[];
 }
 
-export interface BrowseTopicsResponse {
-  readonly topics: TopicSummary[];
+export interface BrowseLessonsResponse {
+  readonly lessons: LessonSummary[];
   readonly total: number;
   readonly query?: string;
-  readonly filters: TopicFilters;
+  readonly filters: LessonFilters;
   readonly pagination: PaginationInfo;
 }
 
@@ -88,7 +88,7 @@ export interface BrowseTopicsResponse {
 // Filter and Search Types
 // ================================
 
-export interface TopicFilters {
+export interface LessonFilters {
   readonly query?: string;
   readonly userLevel?: 'beginner' | 'intermediate' | 'advanced';
   readonly minDuration?: number;
@@ -96,7 +96,7 @@ export interface TopicFilters {
   readonly readyOnly?: boolean;
 }
 
-export interface TopicSortOptions {
+export interface LessonSortOptions {
   readonly sortBy: 'relevance' | 'duration' | 'userLevel' | 'title';
   readonly sortOrder: 'asc' | 'desc';
 }
@@ -111,7 +111,7 @@ export interface PaginationInfo {
 // Request/Response Types
 // ================================
 
-export interface SearchTopicsRequest {
+export interface SearchLessonsRequest {
   readonly query?: string;
   readonly userLevel?: 'beginner' | 'intermediate' | 'advanced';
   readonly minDuration?: number;
@@ -122,9 +122,9 @@ export interface SearchTopicsRequest {
 }
 
 export interface CatalogStatistics {
-  readonly totalTopics: number;
-  readonly topicsByUserLevel: Record<string, number>;
-  readonly topicsByReadiness: Record<string, number>;
+  readonly totalLessons: number;
+  readonly lessonsByUserLevel: Record<string, number>;
+  readonly lessonsByReadiness: Record<string, number>;
   readonly averageDuration: number;
   readonly durationDistribution: Record<string, number>;
 }
@@ -133,7 +133,7 @@ export interface CatalogStatistics {
 // Error Types
 // ================================
 
-export interface TopicCatalogError {
+export interface LessonCatalogError {
   readonly message: string;
   readonly code?: string;
   readonly statusCode?: number;
@@ -145,9 +145,9 @@ export interface TopicCatalogError {
 // ================================
 
 /**
- * Convert API TopicSummary to frontend DTO
+ * Convert API LessonSummary to frontend DTO
  */
-export function toTopicSummaryDTO(api: ApiTopicSummary): TopicSummary {
+export function toLessonSummaryDTO(api: ApiLessonSummary): LessonSummary {
   const estimatedDuration = Math.max(5, api.component_count * 3); // 3 min per component, min 5 min
   const isReadyForLearning = api.component_count > 0;
 
@@ -172,9 +172,9 @@ export function toTopicSummaryDTO(api: ApiTopicSummary): TopicSummary {
 }
 
 /**
- * Convert API TopicDetail to frontend DTO
+ * Convert API LessonDetail to frontend DTO
  */
-export function toTopicDetailDTO(api: ApiTopicDetail): TopicDetail {
+export function toLessonDetailDTO(api: ApiLessonDetail): LessonDetail {
   const estimatedDuration = Math.max(5, api.component_count * 3);
   const isReadyForLearning = api.component_count > 0;
 
@@ -201,15 +201,15 @@ export function toTopicDetailDTO(api: ApiTopicDetail): TopicDetail {
 }
 
 /**
- * Convert API BrowseTopicsResponse to frontend DTO
+ * Convert API BrowseLessonsResponse to frontend DTO
  */
-export function toBrowseTopicsResponseDTO(
-  api: ApiBrowseTopicsResponse,
-  filters: TopicFilters = {},
+export function toBrowseLessonsResponseDTO(
+  api: ApiBrowseLessonsResponse,
+  filters: LessonFilters = {},
   pagination: Omit<PaginationInfo, 'hasMore'> = { limit: 100, offset: 0 }
-): BrowseTopicsResponse {
+): BrowseLessonsResponse {
   return {
-    topics: api.topics.map(toTopicSummaryDTO),
+    lessons: api.lessons.map(toLessonSummaryDTO),
     total: api.total,
     filters,
     pagination: {

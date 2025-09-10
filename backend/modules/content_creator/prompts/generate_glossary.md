@@ -1,6 +1,6 @@
 Create a glossary for this educational topic:
 
-**Topic**: {topic_title}
+**Topic**: {lesson_title}
 **Core Concept**: {core_concept}
 **Key Concepts**: {key_concepts}
 **User Level**: {user_level}

@@ -31,8 +31,8 @@ export const learningSessionKeys = {
     ['learning_session', 'user_sessions', userId, filters] as const,
   userStats: (userId: string) =>
     ['learning_session', 'user_stats', userId] as const,
-  canStart: (topicId: string, userId?: string) =>
-    ['learning_session', 'can_start', topicId, userId] as const,
+  canStart: (lessonId: string, userId?: string) =>
+    ['learning_session', 'can_start', lessonId, userId] as const,
   health: () => ['learning_session', 'health'] as const,
 };
 
@@ -118,10 +118,10 @@ export function useUserStats(
 }
 
 /**
- * Check if user can start session for topic
+ * Check if user can start session for lesson
  */
 export function useCanStartSession(
-  topicId: string,
+  lessonId: string,
   userId?: string,
   options?: {
     enabled?: boolean;
@@ -129,9 +129,9 @@ export function useCanStartSession(
   }
 ) {
   return useQuery({
-    queryKey: learningSessionKeys.canStart(topicId, userId),
-    queryFn: () => learningSession.canStartSession(topicId, userId),
-    enabled: options?.enabled ?? !!topicId,
+    queryKey: learningSessionKeys.canStart(lessonId, userId),
+    queryFn: () => learningSession.canStartSession(lessonId, userId),
+    enabled: options?.enabled ?? !!lessonId,
     staleTime: options?.staleTime ?? 30 * 1000, // 30 seconds
     refetchOnWindowFocus: true,
   });
@@ -160,7 +160,10 @@ export function useStartSession() {
 
       // Invalidate can start check
       queryClient.invalidateQueries({
-        queryKey: learningSessionKeys.canStart(request.topicId, request.userId),
+        queryKey: learningSessionKeys.canStart(
+          request.lessonId,
+          request.userId
+        ),
       });
     },
   });
