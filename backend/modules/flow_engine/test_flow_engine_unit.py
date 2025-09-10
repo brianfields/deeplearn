@@ -5,11 +5,11 @@ import uuid
 
 from pydantic import BaseModel, Field
 
-from .flows.base import BaseFlow
+from .base_flow import BaseFlow
+from .base_step import StepResult, StepType, StructuredStep, UnstructuredStep
 from .models import FlowRunModel, FlowStepRunModel
 from .repo import FlowRunRepo, FlowStepRunRepo
 from .service import FlowEngineService
-from .steps.base import StepResult, StepType, StructuredStep, UnstructuredStep
 
 
 class TestModels:

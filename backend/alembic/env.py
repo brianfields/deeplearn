@@ -36,8 +36,8 @@ try:
     # This ensures all tables are included in migrations
     from modules.content.models import ComponentModel, TopicModel
     from modules.flow_engine.models import FlowRunModel, FlowStepRunModel
-    from modules.llm_services.models import LLMRequestModel
     from modules.learning_session.models import LearningSessionModel
+    from modules.llm_services.models import LLMRequestModel
     from modules.shared_models import Base
 
     target_metadata = Base.metadata
@@ -73,17 +73,11 @@ def get_database_url():
     if database_url:
         return database_url
 
-    # Try to get from our config system
-    try:
-        from config.config import config_manager
-
-        return config_manager.get_database_url()
-    except Exception:
-        # Fallback - provide helpful error message
-        print("Database configuration error:")
-        print("Please set DATABASE_URL environment variable or configure DATABASE_* variables")
-        print("Example: DATABASE_URL=postgresql://user:password@localhost:5432/deeplearn")
-        sys.exit(1)
+    # Config system not available - provide helpful error message
+    print("Database configuration error:")
+    print("Please set DATABASE_URL environment variable")
+    print("Example: DATABASE_URL=postgresql://user:password@localhost:5432/deeplearn")
+    sys.exit(1)
 
 
 def run_migrations_offline() -> None:

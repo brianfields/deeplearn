@@ -104,7 +104,8 @@ async def main() -> None:
         infra = infrastructure_provider()
         infra.initialize()
         if args.verbose:
-            print(f"🗄️  Database URL: {infra.get_database_url()}")
+            db_config = infra.get_database_config()
+            print(f"🗄️  Database URL: {db_config.url}")
 
         with infra.get_session_context() as db_session:
             content_service = content_provider(db_session)

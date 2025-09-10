@@ -4,6 +4,7 @@ Content Creator Module - Unit Tests
 Tests for the content creator service layer.
 """
 
+from datetime import datetime
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -40,7 +41,7 @@ class TestContentCreatorService:
         from modules.content.service import TopicRead
 
         mock_topic = TopicRead(
-            id="test-id", title="Test Topic", core_concept="Test Concept", user_level="beginner", learning_objectives=["Learn X"], key_concepts=["Concept A"], created_at="2024-01-01T00:00:00", updated_at="2024-01-01T00:00:00", components=[]
+            id="test-id", title="Test Topic", core_concept="Test Concept", user_level="beginner", learning_objectives=["Learn X"], key_concepts=["Concept A"], created_at=datetime(2024, 1, 1), updated_at=datetime(2024, 1, 1), components=[]
         )
         content.save_topic.return_value = mock_topic
         content.save_component.return_value = Mock()
