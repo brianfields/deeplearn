@@ -1,45 +1,223 @@
 /**
  * MultipleChoice Component - Interactive Knowledge Assessment
  *
- * Handles multiple-choice questions that test user understanding
- * after they've consumed educational content.
+ * This component handles multiple-choice questions that test user understanding
+ * after they've consumed educational content. It provides immediate feedback
+ * and detailed explanations to reinforce learning.
+ *
+ * Based on the original MultipleChoice component, adapted for the new modular architecture.
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
+  ScrollView,
   TouchableOpacity,
-  Animated,
   Vibration,
+  Platform,
 } from 'react-native';
-import { Button, Card } from '../../ui_system/public';
+import Animated, {
+  FadeIn,
+  SlideInUp,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+  ZoomIn,
+} from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
+
+// Icons
+import { CheckCircle, XCircle } from 'lucide-react-native';
+
+// Components
+import { Button } from '../../ui_system/public';
 import { uiSystemProvider } from '../../ui_system/public';
-import { CheckCircle, XCircle, Clock, Target } from 'lucide-react-native';
-import { useComponentState } from '../store';
-import type { ComponentState } from '../models';
+
+interface MultipleChoiceQuestion {
+  question: string;
+  options: string[];
+  correct_answer: number; // index
+  explanation?: string;
+  number?: number;
+}
 
 interface MultipleChoiceProps {
-  component: ComponentState;
+  question: MultipleChoiceQuestion;
   onComplete: (results: any) => void;
   isLoading?: boolean;
 }
 
-interface MCQContent {
-  stem?: string;
-  question?: string;
-  options: string[];
-  correct_answer?: string;
-  correct_answer_index?: number;
-  rationale?: string;
-  learning_objective?: string;
-  difficulty?: 'easy' | 'medium' | 'hard';
-  max_attempts?: number;
+interface ChoiceItemProps {
+  letter: string;
+  text: string;
+  isSelected: boolean;
+  isCorrect?: boolean;
+  isIncorrect?: boolean;
+  onPress: () => void;
+  disabled?: boolean;
 }
 
+const ChoiceItem: React.FC<ChoiceItemProps> = ({
+  letter,
+  text,
+  isSelected,
+  isCorrect,
+  isIncorrect,
+  onPress,
+  disabled = false,
+}) => {
+  const uiSystem = uiSystemProvider();
+  const theme = uiSystem.getCurrentTheme();
+
+  const scaleValue = useSharedValue(1);
+  const colorValue = useSharedValue(0);
+
+  useEffect(() => {
+    if (isSelected) {
+      scaleValue.value = withSpring(0.98, { damping: 15 });
+    } else {
+      scaleValue.value = withSpring(1);
+    }
+
+    if (isCorrect) {
+      colorValue.value = withTiming(1);
+    } else if (isIncorrect) {
+      colorValue.value = withTiming(-1);
+    } else {
+      colorValue.value = withTiming(0);
+    }
+  }, [isSelected, isCorrect, isIncorrect]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const animatedStyle = useAnimatedStyle(() => {
+    let backgroundColor = theme.colors?.surface || '#FFFFFF';
+    let borderColor = theme.colors?.border || '#E5E5E7';
+
+    if (colorValue.value === 1) {
+      backgroundColor = `${theme.colors?.success || '#34C759'}20`;
+      borderColor = theme.colors?.success || '#34C759';
+    } else if (colorValue.value === -1) {
+      backgroundColor = `${theme.colors?.error || '#FF3B30'}20`;
+      borderColor = theme.colors?.error || '#FF3B30';
+    } else if (isSelected) {
+      backgroundColor = `${theme.colors?.primary || '#007AFF'}10`;
+      borderColor = theme.colors?.primary || '#007AFF';
+    }
+
+    return {
+      transform: [{ scale: scaleValue.value }],
+      backgroundColor,
+      borderColor,
+    };
+  });
+
+  const letterStyle = useAnimatedStyle(() => {
+    let backgroundColor = theme.colors?.border || '#E5E5E7';
+    let color = theme.colors?.text || '#000000';
+
+    if (colorValue.value === 1) {
+      backgroundColor = theme.colors?.success || '#34C759';
+      color = theme.colors?.surface || '#FFFFFF';
+    } else if (colorValue.value === -1) {
+      backgroundColor = theme.colors?.error || '#FF3B30';
+      color = theme.colors?.surface || '#FFFFFF';
+    } else if (isSelected) {
+      backgroundColor = theme.colors?.primary || '#007AFF';
+      color = theme.colors?.surface || '#FFFFFF';
+    }
+
+    return {
+      backgroundColor,
+      color,
+    };
+  });
+
+  const handlePress = () => {
+    if (!disabled) {
+      // Haptic feedback
+      if (Platform.OS === 'ios') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } else {
+        Vibration.vibrate(10);
+      }
+      onPress();
+    }
+  };
+
+  const styles = StyleSheet.create({
+    choiceItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 16,
+      paddingHorizontal: 12,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: theme.colors?.border || '#E5E5E7',
+      backgroundColor: theme.colors?.surface || '#FFFFFF',
+    },
+    choiceLetter: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 12,
+      backgroundColor: theme.colors?.border || '#E5E5E7',
+    },
+    choiceLetterText: {
+      fontSize: 14,
+      fontWeight: '600' as const,
+      color: theme.colors?.text || '#000000',
+    },
+    choiceText: {
+      fontSize: 17,
+      fontWeight: '400' as const,
+      color: theme.colors?.text || '#000000',
+      flex: 1,
+      lineHeight: 24,
+      letterSpacing: -0.24,
+    },
+    resultIcon: {
+      marginLeft: 12,
+    },
+  });
+
+  return (
+    <TouchableOpacity
+      onPress={handlePress}
+      disabled={disabled}
+      activeOpacity={0.8}
+    >
+      <Animated.View style={[styles.choiceItem, animatedStyle]}>
+        <Animated.View style={[styles.choiceLetter, letterStyle]}>
+          <Text style={[styles.choiceLetterText, { color: letterStyle.color }]}>
+            {letter}
+          </Text>
+        </Animated.View>
+
+        <Text style={styles.choiceText}>{text}</Text>
+
+        {/* Result icon */}
+        {isCorrect && (
+          <Animated.View entering={ZoomIn} style={styles.resultIcon}>
+            <CheckCircle size={24} color={theme.colors?.success || '#34C759'} />
+          </Animated.View>
+        )}
+
+        {isIncorrect && (
+          <Animated.View entering={ZoomIn} style={styles.resultIcon}>
+            <XCircle size={24} color={theme.colors?.error || '#FF3B30'} />
+          </Animated.View>
+        )}
+      </Animated.View>
+    </TouchableOpacity>
+  );
+};
+
 export default function MultipleChoice({
-  component,
+  question,
   onComplete,
   isLoading = false,
 }: MultipleChoiceProps) {
@@ -47,528 +225,303 @@ export default function MultipleChoice({
   const theme = uiSystem.getCurrentTheme();
   const styles = createStyles(theme);
 
-  // Component state management
-  const { start, timeSpent, state } = useComponentState(component.id);
-
-  // Local state
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [showResult, setShowResult] = useState(false);
-  const [showExplanation, setShowExplanation] = useState(false);
-  const [attempts, setAttempts] = useState(state?.attempts || 0);
-  const [startTime, setStartTime] = useState<number>(Date.now());
 
-  // Animation values
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const shakeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(1)).current;
+  // Build choices as letter -> text from options array
+  const choicesArray: Array<[string, string]> = (question.options || []).map(
+    (text, idx) => [String.fromCharCode(65 + idx), text] as [string, string]
+  );
 
-  // Extract content from component
-  const content: MCQContent = component.content || {};
-  const {
-    stem,
-    question,
-    options = ['Option A', 'Option B', 'Option C', 'Option D'],
-    correct_answer,
-    correct_answer_index,
-    rationale,
-    learning_objective,
-    difficulty = 'medium',
-    max_attempts = 3,
-  } = content;
+  const correctIndex = question.correct_answer;
 
-  // Determine question text and correct answer
-  const questionText = stem || question || 'Question will be displayed here.';
-  const correctIndex =
-    correct_answer_index ??
-    (correct_answer ? options.indexOf(correct_answer) : 0);
+  // Generate letter for display (A, B, C, D, etc.)
+  const getChoiceLetter = (index: number) => String.fromCharCode(65 + index); // 65 is 'A'
 
-  // Start tracking when component mounts
+  // Reset state when question changes
   useEffect(() => {
-    start();
-    setStartTime(Date.now());
-
-    // Animate content in
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 600,
-      useNativeDriver: true,
-    }).start();
-  }, [start, fadeAnim]);
-
-  // Handle answer selection
-  const handleAnswerSelect = (answerIndex: number) => {
-    if (showResult || selectedAnswer !== null) return;
-
-    setSelectedAnswer(answerIndex);
-    const isCorrect = answerIndex === correctIndex;
-    const currentAttempts = attempts + 1;
-    setAttempts(currentAttempts);
-
-    // Haptic feedback
-    if (isCorrect) {
-      // Success vibration pattern
-      Vibration.vibrate([100, 50, 100]);
-    } else {
-      // Error vibration
-      Vibration.vibrate(200);
-
-      // Shake animation for incorrect answer
-      Animated.sequence([
-        Animated.timing(shakeAnim, {
-          toValue: 10,
-          duration: 100,
-          useNativeDriver: true,
-        }),
-        Animated.timing(shakeAnim, {
-          toValue: -10,
-          duration: 100,
-          useNativeDriver: true,
-        }),
-        Animated.timing(shakeAnim, {
-          toValue: 0,
-          duration: 100,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-
-    // Show result after a brief delay
-    setTimeout(() => {
-      setShowResult(true);
-
-      // Scale animation for result
-      Animated.spring(scaleAnim, {
-        toValue: 1.05,
-        tension: 100,
-        friction: 8,
-        useNativeDriver: true,
-      }).start(() => {
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          tension: 100,
-          friction: 8,
-          useNativeDriver: true,
-        }).start();
-      });
-    }, 500);
-  };
-
-  // Handle retry (for incorrect answers)
-  const handleRetry = () => {
-    if (attempts >= max_attempts) return;
-
     setSelectedAnswer(null);
     setShowResult(false);
-    setShowExplanation(false);
+  }, [question]);
+
+  const handleAnswerSelect = (answerIndex: number) => {
+    if (showResult || isLoading) return;
+
+    setSelectedAnswer(answerIndex);
+
+    // Auto-submit the answer
+    setTimeout(() => {
+      handleSubmit(answerIndex);
+    }, 300); // Small delay for visual feedback
   };
 
-  // Handle continue to next component
+  const handleSubmit = (answerIndex: number) => {
+    if (correctIndex === undefined) return;
+
+    const isCorrect = answerIndex === correctIndex;
+    const selectedChoice = choicesArray[answerIndex];
+    const selectedLetter = getChoiceLetter(answerIndex);
+
+    const result = {
+      questionId: question.number?.toString() || '0',
+      question: question.question,
+      selectedOption: selectedLetter, // For backward compatibility with results
+      selectedText: selectedChoice[1], // The choice text
+      isCorrect,
+      explanation: question.explanation || '',
+    };
+
+    setShowResult(true);
+
+    // Haptic feedback for result
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(
+        isCorrect
+          ? Haptics.ImpactFeedbackStyle.Medium
+          : Haptics.ImpactFeedbackStyle.Heavy
+      );
+    } else {
+      Vibration.vibrate(isCorrect ? 50 : [0, 100, 50, 100]);
+    }
+
+    // Handle completion based on correctness
+    if (isCorrect) {
+      // Auto-proceed for correct answers after showing result
+      setTimeout(() => {
+        onComplete({
+          componentType: 'multiple_choice_question',
+          timeSpent: 0,
+          completed: true,
+          isCorrect: true,
+          userAnswer: selectedLetter,
+          data: {
+            correct: 1,
+            total: 1,
+            details: [result],
+          },
+        });
+      }, 600); // Snappier auto-advance
+    }
+    // For incorrect answers, user must press Continue button
+  };
+
   const handleContinue = () => {
-    const timeSpentSeconds = (Date.now() - startTime) / 1000;
-    const isCorrect = selectedAnswer === correctIndex;
+    if (selectedAnswer === null) return;
+
+    const selectedChoice = choicesArray[selectedAnswer];
+    const selectedLetter = getChoiceLetter(selectedAnswer);
+
+    const result = {
+      questionId: question.number?.toString() || '0',
+      question: question.question,
+      selectedOption: selectedLetter,
+      selectedText: selectedChoice[1],
+      isCorrect: false,
+      explanation: question.explanation || '',
+    };
 
     onComplete({
-      componentId: component.id,
-      userAnswer: selectedAnswer !== null ? options[selectedAnswer] : null,
-      userAnswerIndex: selectedAnswer,
-      isCorrect,
-      timeSpent: timeSpentSeconds,
-      attempts,
-      maxAttempts: max_attempts,
+      componentType: 'multiple_choice_question',
+      timeSpent: 0,
+      completed: true,
+      isCorrect: false,
+      userAnswer: selectedLetter,
+      data: {
+        correct: 0,
+        total: 1,
+        details: [result],
+      },
     });
   };
 
-  // Show explanation
-  const handleShowExplanation = () => {
-    setShowExplanation(true);
-  };
-
-  // Render option with styling based on state
-  const renderOption = (option: string, index: number) => {
-    const isSelected = selectedAnswer === index;
-    const isCorrect = index === correctIndex;
-    const isWrong = showResult && isSelected && !isCorrect;
-    const isCorrectAnswer = showResult && isCorrect;
-
-    let backgroundColor = theme.colors?.surface || '#F5F5F5';
-    let borderColor = theme.colors?.border || '#E0E0E0';
-    let textColor = theme.colors?.text || '#000000';
-    let borderWidth = 2;
-
-    if (isSelected && !showResult) {
-      borderColor = theme.colors?.primary || '#007AFF';
-      backgroundColor = '#E3F2FD'; // Light blue
-    } else if (isWrong) {
-      backgroundColor = '#FFEBEE'; // Light red
-      borderColor = theme.colors?.error || '#F44336';
-      textColor = theme.colors?.error || '#F44336';
-    } else if (isCorrectAnswer) {
-      backgroundColor = '#E8F5E8'; // Light green
-      borderColor = theme.colors?.success || '#4CAF50';
-      textColor = theme.colors?.success || '#4CAF50';
-    }
-
+  if (!question) {
     return (
-      <Animated.View
-        key={index}
-        style={{
-          transform: [
-            { translateX: isWrong ? shakeAnim : 0 },
-            { scale: isSelected && showResult ? scaleAnim : 1 },
-          ],
-        }}
-      >
-        <TouchableOpacity
-          style={[styles.option, { backgroundColor, borderColor, borderWidth }]}
-          onPress={() => handleAnswerSelect(index)}
-          disabled={showResult || selectedAnswer !== null}
-          activeOpacity={0.7}
-        >
-          <View style={styles.optionContent}>
-            <View style={styles.optionLabel}>
-              <Text style={[styles.optionLabelText, { color: textColor }]}>
-                {String.fromCharCode(65 + index)}
-              </Text>
-            </View>
-            <Text style={[styles.optionText, { color: textColor }]}>
-              {option}
-            </Text>
-          </View>
-
-          {showResult && (isSelected || isCorrectAnswer) && (
-            <View style={styles.resultIcon}>
-              {isCorrectAnswer ? (
-                <CheckCircle
-                  size={24}
-                  color={theme.colors?.success || '#4CAF50'}
-                />
-              ) : (
-                <XCircle size={24} color={theme.colors?.error || '#F44336'} />
-              )}
-            </View>
-          )}
-        </TouchableOpacity>
-      </Animated.View>
+      <View style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>No question available</Text>
+        </View>
+      </View>
     );
-  };
+  }
 
-  // Render result feedback
-  const renderResultFeedback = () => {
-    if (!showResult || selectedAnswer === null) return null;
-
-    const isCorrect = selectedAnswer === correctIndex;
-    const canRetry = !isCorrect && attempts < max_attempts;
-
-    return (
-      <Animated.View style={[styles.resultCard, { opacity: fadeAnim }]}>
-        <View style={styles.resultHeader}>
-          <View style={styles.resultIcon}>
-            {isCorrect ? (
-              <CheckCircle
-                size={32}
-                color={theme.colors?.success || '#4CAF50'}
-              />
-            ) : (
-              <XCircle size={32} color={theme.colors?.error || '#F44336'} />
-            )}
-          </View>
-          <Text
-            style={[
-              styles.resultTitle,
-              {
-                color: isCorrect
-                  ? theme.colors?.success || '#4CAF50'
-                  : theme.colors?.error || '#F44336',
-              },
-            ]}
-          >
-            {isCorrect ? 'Correct!' : 'Incorrect'}
-          </Text>
-        </View>
-
-        <View style={styles.resultStats}>
-          <View style={styles.statItem}>
-            <Clock size={16} color={theme.colors?.textSecondary || '#666666'} />
-            <Text style={styles.statText}>{Math.ceil(timeSpent)}s</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Target
-              size={16}
-              color={theme.colors?.textSecondary || '#666666'}
-            />
-            <Text style={styles.statText}>
-              Attempt {attempts}/{max_attempts}
-            </Text>
-          </View>
-        </View>
-
-        {!isCorrect && (
-          <Text style={styles.correctAnswerText}>
-            Correct answer: {String.fromCharCode(65 + correctIndex)}.{' '}
-            {options[correctIndex]}
-          </Text>
-        )}
-
-        {rationale && (
-          <View style={styles.explanationContainer}>
-            {!showExplanation ? (
-              <Button
-                title="Show Explanation"
-                onPress={handleShowExplanation}
-                variant="secondary"
-                style={styles.explanationButton}
-              />
-            ) : (
-              <View style={styles.explanation}>
-                <Text style={styles.explanationTitle}>Explanation</Text>
-                <Text style={styles.explanationText}>{rationale}</Text>
-              </View>
-            )}
-          </View>
-        )}
-
-        <View style={styles.resultActions}>
-          {canRetry ? (
-            <Button
-              title={`Try Again (${max_attempts - attempts} left)`}
-              onPress={handleRetry}
-              variant="secondary"
-              style={styles.retryButton}
-            />
-          ) : (
-            <Button
-              title="Continue"
-              onPress={handleContinue}
-              loading={isLoading}
-              style={styles.continueButton}
-            />
-          )}
-        </View>
-      </Animated.View>
-    );
-  };
+  const isCorrectAnswer = selectedAnswer === correctIndex;
+  const isIncorrectAnswer =
+    showResult && selectedAnswer !== null && !isCorrectAnswer;
 
   return (
-    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Multiple Choice Question</Text>
-        {difficulty && (
-          <View
-            style={[
-              styles.difficultyBadge,
-              { backgroundColor: getDifficultyColor(difficulty, theme) },
-            ]}
-          >
-            <Text style={styles.difficultyText}>
-              {difficulty.toUpperCase()}
-            </Text>
+    <View style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Question */}
+        <Animated.View
+          key={question.number || 'question'}
+          entering={SlideInUp}
+          style={styles.content}
+        >
+          <View style={styles.questionSection}>
+            <Text style={styles.questionText}>{question.question}</Text>
           </View>
-        )}
-      </View>
 
-      {/* Learning objective */}
-      {learning_objective && (
-        <Card style={styles.objectiveCard}>
-          <Text style={styles.objectiveLabel}>Learning Objective</Text>
-          <Text style={styles.objectiveText}>{learning_objective}</Text>
-        </Card>
+          {/* Choices */}
+          <View style={styles.choicesContainer}>
+            {choicesArray.map(([_letter, text], index) => (
+              <Animated.View
+                key={index}
+                entering={FadeIn.delay(200 + index * 100)}
+                style={styles.choiceWrapper}
+              >
+                <ChoiceItem
+                  letter={getChoiceLetter(index)}
+                  text={text}
+                  isSelected={selectedAnswer === index}
+                  isCorrect={showResult && index === correctIndex}
+                  isIncorrect={
+                    showResult &&
+                    selectedAnswer === index &&
+                    index !== correctIndex
+                  }
+                  onPress={() => handleAnswerSelect(index)}
+                  disabled={showResult || isLoading}
+                />
+              </Animated.View>
+            ))}
+          </View>
+
+          {/* Explanation */}
+          {showResult && selectedAnswer !== null && question.explanation && (
+            <Animated.View
+              entering={SlideInUp.delay(300)}
+              style={styles.explanationContainer}
+            >
+              <View style={styles.explanationCard}>
+                <View style={styles.explanationHeader}>
+                  <Text style={styles.explanationTitle}>
+                    {isCorrectAnswer ? 'Correct!' : 'Explanation'}
+                  </Text>
+                </View>
+                <Text style={styles.explanationText}>
+                  {question.explanation}
+                </Text>
+              </View>
+            </Animated.View>
+          )}
+        </Animated.View>
+      </ScrollView>
+
+      {/* Action buttons - only show Continue for incorrect answers */}
+      {isIncorrectAnswer && (
+        <Animated.View
+          entering={SlideInUp.delay(400)}
+          style={styles.actionContainer}
+        >
+          <Button
+            title="Continue"
+            onPress={handleContinue}
+            size="large"
+            style={styles.actionButton}
+          />
+        </Animated.View>
       )}
-
-      {/* Question */}
-      <Card style={styles.questionCard}>
-        <Text style={styles.question}>{questionText}</Text>
-      </Card>
-
-      {/* Options */}
-      <View style={styles.optionsContainer}>{options.map(renderOption)}</View>
-
-      {/* Result feedback */}
-      {renderResultFeedback()}
-    </Animated.View>
+    </View>
   );
 }
-
-// Helper function to get difficulty color
-const getDifficultyColor = (difficulty: string, theme: any) => {
-  switch (difficulty) {
-    case 'easy':
-      return theme.colors?.success || '#4CAF50';
-    case 'medium':
-      return theme.colors?.warning || '#FF9800';
-    case 'hard':
-      return theme.colors?.error || '#F44336';
-    default:
-      return theme.colors?.textSecondary || '#666666';
-  }
-};
 
 const createStyles = (theme: any) =>
   StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: theme.colors?.background || '#FFFFFF',
-      padding: theme.spacing?.lg || 16,
     },
-    header: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: theme.spacing?.lg || 16,
-    },
-    title: {
-      fontSize: 20,
-      fontWeight: 'bold',
-      color: theme.colors?.text || '#000000',
+
+    errorContainer: {
       flex: 1,
-    },
-    difficultyBadge: {
-      paddingHorizontal: theme.spacing?.sm || 8,
-      paddingVertical: 4,
-      borderRadius: 12,
-    },
-    difficultyText: {
-      fontSize: 10,
-      fontWeight: 'bold',
-      color: '#FFFFFF',
-      letterSpacing: 0.5,
-    },
-    objectiveCard: {
-      padding: theme.spacing?.md || 12,
-      marginBottom: theme.spacing?.md || 12,
-      backgroundColor: theme.colors?.primaryLight || '#E3F2FD',
-    },
-    objectiveLabel: {
-      fontSize: 12,
-      fontWeight: '600',
-      color: theme.colors?.primary || '#007AFF',
-      marginBottom: 4,
-      textTransform: 'uppercase',
-      letterSpacing: 0.5,
-    },
-    objectiveText: {
-      fontSize: 14,
-      color: theme.colors?.text || '#000000',
-      lineHeight: 18,
-    },
-    questionCard: {
-      padding: theme.spacing?.lg || 16,
-      marginBottom: theme.spacing?.lg || 16,
-    },
-    question: {
-      fontSize: 18,
-      lineHeight: 26,
-      color: theme.colors?.text || '#000000',
-    },
-    optionsContainer: {
-      marginBottom: theme.spacing?.lg || 16,
-    },
-    option: {
-      padding: theme.spacing?.md || 12,
-      marginBottom: theme.spacing?.md || 12,
-      borderRadius: 12,
-      borderWidth: 2,
-    },
-    optionContent: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      flex: 1,
-    },
-    optionLabel: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
-      backgroundColor: theme.colors?.border || '#E0E0E0',
       justifyContent: 'center',
       alignItems: 'center',
-      marginRight: theme.spacing?.md || 12,
+      padding: 20,
     },
-    optionLabelText: {
-      fontSize: 14,
-      fontWeight: 'bold',
-    },
-    optionText: {
+
+    errorText: {
       fontSize: 16,
-      lineHeight: 22,
+      fontWeight: '400' as const,
+      lineHeight: 24,
+      color: theme.colors?.textSecondary || '#666666',
+      textAlign: 'center',
+    },
+
+    scrollView: {
       flex: 1,
     },
-    resultIcon: {
-      marginLeft: theme.spacing?.sm || 8,
+
+    scrollContent: {
+      paddingBottom: 40,
     },
-    resultCard: {
-      padding: theme.spacing?.lg || 16,
-      backgroundColor: theme.colors?.surface || '#F8F9FA',
-      borderRadius: 12,
-      marginTop: theme.spacing?.lg || 16,
+
+    content: {
+      flex: 1,
+      padding: 20,
     },
-    resultHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: theme.spacing?.md || 12,
+
+    questionSection: {
+      marginBottom: 24,
     },
-    resultTitle: {
+
+    questionText: {
       fontSize: 20,
-      fontWeight: 'bold',
-      marginLeft: theme.spacing?.md || 12,
-    },
-    resultStats: {
-      flexDirection: 'row',
-      justifyContent: 'space-around',
-      marginBottom: theme.spacing?.md || 12,
-      paddingVertical: theme.spacing?.sm || 8,
-      backgroundColor: theme.colors?.background || '#FFFFFF',
-      borderRadius: 8,
-    },
-    statItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    statText: {
-      fontSize: 14,
-      color: theme.colors?.textSecondary || '#666666',
-      marginLeft: 4,
-      fontWeight: '500',
-    },
-    correctAnswerText: {
-      fontSize: 14,
-      color: theme.colors?.textSecondary || '#666666',
-      marginBottom: theme.spacing?.md || 12,
-      padding: theme.spacing?.sm || 8,
-      backgroundColor: theme.colors?.background || '#FFFFFF',
-      borderRadius: 6,
-      fontStyle: 'italic',
-    },
-    explanationContainer: {
-      marginBottom: theme.spacing?.md || 12,
-    },
-    explanationButton: {
-      alignSelf: 'flex-start',
-    },
-    explanation: {
-      padding: theme.spacing?.md || 12,
-      backgroundColor: theme.colors?.background || '#FFFFFF',
-      borderRadius: 8,
-      borderLeftWidth: 4,
-      borderLeftColor: theme.colors?.primary || '#007AFF',
-    },
-    explanationTitle: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: theme.colors?.primary || '#007AFF',
-      marginBottom: theme.spacing?.sm || 8,
-    },
-    explanationText: {
-      fontSize: 14,
-      lineHeight: 20,
+      fontWeight: '600' as const,
+      lineHeight: 30,
       color: theme.colors?.text || '#000000',
+      letterSpacing: -0.32,
     },
-    resultActions: {
-      marginTop: theme.spacing?.md || 12,
+
+    choicesContainer: {
+      gap: 16,
+      marginBottom: 20,
     },
-    retryButton: {
-      width: '100%',
+
+    choiceWrapper: {
+      // Wrapper for animation
     },
-    continueButton: {
-      width: '100%',
+
+    explanationContainer: {
+      marginBottom: 20,
+    },
+
+    explanationCard: {
+      backgroundColor: theme.colors?.surface || '#FFFFFF',
+      borderRadius: 16,
+      padding: 20,
+      borderWidth: 1,
+      borderColor: theme.colors?.border || '#E5E5E7',
+    },
+
+    explanationHeader: {
+      marginBottom: 12,
+    },
+
+    explanationTitle: {
+      fontSize: 18,
+      fontWeight: '600' as const,
+      color: theme.colors?.text || '#000000',
+      letterSpacing: -0.32,
+    },
+
+    explanationText: {
+      fontSize: 17,
+      fontWeight: '400' as const,
+      lineHeight: 26,
+      color: theme.colors?.text || '#000000',
+      letterSpacing: -0.24,
+    },
+
+    actionContainer: {
+      padding: 20,
+      paddingTop: 0,
+    },
+
+    actionButton: {
+      // Clean button styling
     },
   });

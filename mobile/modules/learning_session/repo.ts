@@ -132,7 +132,12 @@ export class LearningSessionRepo {
           },
           body: JSON.stringify({
             component_id: request.componentId,
-            user_answer: request.userAnswer,
+            user_answer:
+              request.userAnswer === null || request.userAnswer === undefined
+                ? null
+                : typeof request.userAnswer === 'object'
+                  ? request.userAnswer
+                  : { value: request.userAnswer },
             is_correct: request.isCorrect,
             time_spent_seconds: request.timeSpentSeconds,
           }),

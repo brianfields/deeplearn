@@ -45,7 +45,8 @@ import { uiSystemProvider } from '../../ui_system/public';
 import { useStartSession } from '../queries';
 
 // Types
-import type { LearningResults, LearningStackParamList } from '@/types';
+import type { LearningStackParamList } from '@/types';
+import type { SessionResults } from '../models';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 type Props = NativeStackScreenProps<LearningStackParamList, 'LearningFlow'>;
@@ -105,7 +106,7 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
     createSession();
   }, [topic.id, sessionId]);
 
-  const handleComplete = (results: LearningResults) => {
+  const handleComplete = (results: SessionResults) => {
     // Navigate to results screen
     navigation.replace('Results', { results });
   };

@@ -1,34 +1,52 @@
 /**
  * DidacticSnippet Component - Educational Content Presentation
  *
- * Presents educational content in an engaging, mobile-optimized format.
- * Serves as the "teaching" phase of the learning experience.
+ * This component presents educational content in an engaging, mobile-optimized format.
+ * It's designed to deliver knowledge before testing understanding, serving as the
+ * "teaching" phase of the learning experience.
+ *
+ * Based on the original DidacticSnippet component, adapted for the new modular architecture.
  */
 
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, Animated } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import Animated, {
+  FadeIn,
+  SlideInUp,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
+
+// Icons
+import {
+  Target,
+  ChevronRight,
+  CheckCircle,
+  Lightbulb,
+} from 'lucide-react-native';
+
+// Components
 import { Button, Card } from '../../ui_system/public';
 import { uiSystemProvider } from '../../ui_system/public';
-import { useComponentState, useLearningSessionStore } from '../store';
-import type { ComponentState } from '../models';
 
 interface DidacticSnippetProps {
-  component: ComponentState;
+  snippet: {
+    title?: string;
+    core_concept?: string;
+    snippet?: string;
+    explanation?: string;
+    key_points?: string[];
+    examples?: string[];
+    estimated_duration?: number;
+  };
   onContinue: () => void;
   isLoading?: boolean;
 }
 
-interface DidacticContent {
-  title: string;
-  snippet: string;
-  core_concept?: string;
-  key_points?: string[];
-  examples?: string[];
-  estimated_duration?: number;
-}
-
 export default function DidacticSnippet({
-  component,
+  snippet,
   onContinue,
   isLoading = false,
 }: DidacticSnippetProps) {
@@ -36,243 +54,188 @@ export default function DidacticSnippet({
   const theme = uiSystem.getCurrentTheme();
   const styles = createStyles(theme);
 
-  // Component state management
-  const { timeSpent } = useComponentState(component.id);
-  const startComponent = useLearningSessionStore(s => s.startComponent);
+  const [hasScrolled, setHasScrolled] = useState(false);
 
-  // Local state
-  const [hasStartedReading, setHasStartedReading] = useState(false);
-  const [scrollProgress, setScrollProgress] = useState(0);
-  const [showKeyPoints, setShowKeyPoints] = useState(false);
-  const [showExamples, setShowExamples] = useState(false);
+  console.log('📖 [DidacticSnippet] Received snippet:', snippet);
 
-  // Animation values
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
+  // Animated values
+  const continueButtonOpacity = useSharedValue(0);
 
-  // Extract content from component (align with backend field names)
-  const raw: any = component.content || {};
-  const title =
-    (raw.title as string) || component.title || 'Educational Content';
-  const snippet = (raw.explanation as string) || 'N/A.';
-  const core_concept =
-    (raw.core_concept as string) || (raw.coreConcept as string) || undefined;
-  const key_points: string[] =
-    (raw.key_points as string[]) || (raw.keyPoints as string[]) || [];
-  const examples: string[] = (raw.examples as string[]) || [];
-  const estimated_duration = (raw.estimated_duration as number) || undefined;
-
-  // Start tracking when component mounts
-  useEffect(() => {
-    startComponent(component.id);
-
-    // Animate content in
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-    ]).start();
-    // Run once per component id
-  }, [component.id]);
-
-  // Handle scroll progress
   const handleScroll = (event: any) => {
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-    const scrollPercentage =
-      contentOffset.y / (contentSize.height - layoutMeasurement.height);
-    const progress = Math.min(Math.max(scrollPercentage, 0), 1);
+    const isScrolledToBottom =
+      contentOffset.y + layoutMeasurement.height >= contentSize.height - 50;
 
-    setScrollProgress(progress);
-
-    if (!hasStartedReading && progress > 0.1) {
-      setHasStartedReading(true);
-    }
-
-    // Show key points after 30% scroll
-    if (progress > 0.3 && !showKeyPoints && key_points.length > 0) {
-      setShowKeyPoints(true);
-    }
-
-    // Show examples after 60% scroll
-    if (progress > 0.6 && !showExamples && examples.length > 0) {
-      setShowExamples(true);
+    if (isScrolledToBottom && !hasScrolled) {
+      setHasScrolled(true);
+      continueButtonOpacity.value = withSpring(1, {
+        damping: 15,
+        stiffness: 150,
+      });
     }
   };
 
-  // Determine if user has engaged enough to continue
-  const canContinue =
-    hasStartedReading &&
-    (scrollProgress > 0.8 || // Scrolled to near end
-      timeSpent > (estimated_duration || 30) * 0.7 || // Spent 70% of estimated time
-      timeSpent > 15); // Minimum 15 seconds
+  const continueButtonStyle = useAnimatedStyle(() => ({
+    opacity: continueButtonOpacity.value,
+    transform: [{ translateY: withTiming(hasScrolled ? 0 : 20) }],
+  }));
 
-  // Render key points section
-  const renderKeyPoints = () => {
-    if (!key_points.length || !showKeyPoints) return null;
+  // Show continue button after short delay if content is short
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!hasScrolled) {
+        setHasScrolled(true);
+        continueButtonOpacity.value = withSpring(1);
+      }
+    }, 3000); // Show after 3 seconds even if not scrolled
 
+    return () => clearTimeout(timer);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Ensure we have valid content structure
+  if (!snippet) {
+    console.error('DidacticSnippet: No snippet provided');
     return (
-      <Animated.View
-        style={[
-          styles.sectionCard,
-          {
-            opacity: fadeAnim,
-            transform: [{ translateY: slideAnim }],
-          },
-        ]}
-      >
-        <Text style={styles.sectionTitle}>Key Points</Text>
-        {key_points.map((point, index) => (
-          <View key={index} style={styles.keyPointItem}>
-            <View style={styles.keyPointBullet} />
-            <Text style={styles.keyPointText}>{point}</Text>
-          </View>
-        ))}
-      </Animated.View>
+      <View style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>No content available</Text>
+        </View>
+      </View>
     );
-  };
+  }
 
-  // Render examples section
-  const renderExamples = () => {
-    if (!examples.length || !showExamples) return null;
-
-    return (
-      <Animated.View
-        style={[
-          styles.sectionCard,
-          {
-            opacity: fadeAnim,
-            transform: [{ translateY: slideAnim }],
-          },
-        ]}
-      >
-        <Text style={styles.sectionTitle}>Examples</Text>
-        {examples.map((example, index) => (
-          <Card key={index} style={styles.exampleCard}>
-            <Text style={styles.exampleText}>{example}</Text>
-          </Card>
-        ))}
-      </Animated.View>
-    );
-  };
-
-  // Render core concept highlight
-  const renderCoreConcept = () => {
-    if (!core_concept) return null;
-
-    return (
-      <Card style={styles.conceptCard}>
-        <Text style={styles.conceptLabel}>Core Concept</Text>
-        <Text style={styles.conceptText}>{core_concept}</Text>
-      </Card>
-    );
-  };
-
-  // Format time display
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+  // Extract content with fallbacks
+  const title = snippet.title || 'Learning Topic';
+  const content =
+    snippet.explanation || snippet.snippet || 'Content will be displayed here.';
+  const core_concept = snippet.core_concept;
+  const key_points = snippet.key_points || [];
+  const examples = snippet.examples || [];
 
   return (
     <View style={styles.container}>
-      {/* Progress indicator */}
-      <View style={styles.progressContainer}>
-        <View
-          style={[styles.progressBar, { width: `${scrollProgress * 100}%` }]}
-        />
-      </View>
+      {/* Clean Title */}
+      <Animated.View entering={FadeIn} style={styles.titleSection}>
+        <Text style={styles.title}>{title}</Text>
+        {core_concept && <Text style={styles.subtitle}>{core_concept}</Text>}
+      </Animated.View>
 
-      <ScrollView
-        style={styles.scrollContainer}
-        showsVerticalScrollIndicator={false}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
+      {/* Main Content */}
+      <Animated.View
+        entering={SlideInUp.delay(200)}
+        style={styles.contentContainer}
       >
-        <Animated.View
-          style={[
-            styles.content,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          showsVerticalScrollIndicator={false}
         >
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.title}>{title}</Text>
-            {estimated_duration && (
-              <Text style={styles.duration}>
-                Estimated reading time: {Math.ceil(estimated_duration / 60)} min
-              </Text>
-            )}
+          {/* Main Content */}
+          <View style={styles.contentSection}>
+            <Text style={styles.contentText}>{content}</Text>
           </View>
 
-          {/* Main content */}
-          <Card style={styles.contentCard}>
-            <Text style={styles.snippet}>{snippet}</Text>
-          </Card>
-
-          {/* Core concept */}
-          {renderCoreConcept()}
-
-          {/* Key points */}
-          {renderKeyPoints()}
-
-          {/* Examples */}
-          {renderExamples()}
-
-          {/* Reading progress feedback */}
-          {hasStartedReading && (
-            <Card style={styles.progressCard}>
-              <Text style={styles.progressTitle}>Reading Progress</Text>
-              <Text style={styles.progressText}>
-                Time spent: {formatTime(timeSpent)}
-              </Text>
-              <View style={styles.progressIndicator}>
-                <View
-                  style={[
-                    styles.progressFill,
-                    { width: `${scrollProgress * 100}%` },
-                  ]}
+          {/* Key Points Section */}
+          {key_points && key_points.length > 0 && (
+            <Animated.View
+              entering={FadeIn.delay(400)}
+              style={styles.keyPointsSection}
+            >
+              <View style={styles.keyPointsHeader}>
+                <Target
+                  size={20}
+                  color={theme.colors?.secondary || '#007AFF'}
                 />
+                <Text style={styles.keyPointsTitle}>Key Points</Text>
               </View>
-              {!canContinue && (
-                <Text style={styles.progressHint}>
-                  {scrollProgress < 0.8
-                    ? 'Continue reading to unlock the next section'
-                    : 'Almost done! Keep reading...'}
-                </Text>
-              )}
-            </Card>
-          )}
-        </Animated.View>
-      </ScrollView>
 
-      {/* Footer */}
-      <View style={styles.footer}>
+              <Card style={styles.keyPointsCard}>
+                {key_points.map((point, index) => (
+                  <Animated.View
+                    key={index}
+                    entering={FadeIn.delay(500 + index * 100)}
+                    style={styles.keyPointItem}
+                  >
+                    <View style={styles.keyPointBullet}>
+                      <CheckCircle
+                        size={16}
+                        color={theme.colors?.secondary || '#007AFF'}
+                      />
+                    </View>
+                    <Text style={styles.keyPointText}>{point}</Text>
+                  </Animated.View>
+                ))}
+              </Card>
+            </Animated.View>
+          )}
+
+          {/* Examples Section */}
+          {examples && examples.length > 0 && (
+            <Animated.View
+              entering={FadeIn.delay(600)}
+              style={styles.examplesSection}
+            >
+              <View style={styles.examplesHeader}>
+                <Lightbulb
+                  size={20}
+                  color={theme.colors?.warning || '#FF9500'}
+                />
+                <Text style={styles.examplesTitle}>Examples</Text>
+              </View>
+
+              <Card style={styles.examplesCard}>
+                {examples.map((example, index) => (
+                  <Animated.View
+                    key={index}
+                    entering={FadeIn.delay(700 + index * 100)}
+                    style={[
+                      styles.exampleItem,
+                      index !== examples.length - 1 && styles.exampleItemBorder,
+                    ]}
+                  >
+                    <Text style={styles.exampleText}>{example}</Text>
+                  </Animated.View>
+                ))}
+              </Card>
+            </Animated.View>
+          )}
+
+          {/* Bottom spacing for scroll indicator */}
+          <View style={styles.bottomSpacing} />
+        </ScrollView>
+      </Animated.View>
+
+      {/* Continue Button */}
+      <Animated.View
+        style={[styles.continueButtonContainer, continueButtonStyle]}
+      >
         <Button
-          title={
-            canContinue
-              ? 'Continue'
-              : `Continue (${Math.ceil((estimated_duration || 30) * 0.7 - timeSpent)}s)`
-          }
+          title="Continue"
           onPress={onContinue}
           loading={isLoading}
-          disabled={!canContinue}
-          style={[
-            styles.continueButton,
-            !canContinue && styles.continueButtonDisabled,
-          ]}
+          size="large"
+          style={styles.continueButton}
         />
-      </View>
+      </Animated.View>
+
+      {/* Scroll indicator */}
+      {!hasScrolled && (
+        <Animated.View
+          entering={FadeIn.delay(2000)}
+          style={styles.scrollIndicator}
+        >
+          <Text style={styles.scrollIndicatorText}>Scroll to continue</Text>
+          <Animated.View style={styles.scrollArrow}>
+            <ChevronRight
+              size={16}
+              color={theme.colors?.textSecondary || '#666666'}
+              style={{ transform: [{ rotate: '90deg' }] }}
+            />
+          </Animated.View>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -283,155 +246,180 @@ const createStyles = (theme: any) =>
       flex: 1,
       backgroundColor: theme.colors?.background || '#FFFFFF',
     },
-    progressContainer: {
-      height: 3,
-      backgroundColor: theme.colors?.border || '#E0E0E0',
-    },
-    progressBar: {
-      height: '100%',
-      backgroundColor: theme.colors?.primary || '#007AFF',
-    },
-    scrollContainer: {
+
+    errorContainer: {
       flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
     },
-    content: {
-      paddingBottom: theme.spacing?.xl || 24,
-    },
-    header: {
-      padding: theme.spacing?.lg || 16,
-      paddingBottom: theme.spacing?.md || 12,
-    },
-    title: {
-      fontSize: 24,
-      fontWeight: 'bold',
-      color: theme.colors?.text || '#000000',
-      textAlign: 'center',
-      marginBottom: theme.spacing?.sm || 8,
-    },
-    duration: {
-      fontSize: 14,
+
+    errorText: {
+      fontSize: 16,
       color: theme.colors?.textSecondary || '#666666',
       textAlign: 'center',
     },
-    contentCard: {
-      margin: theme.spacing?.lg || 16,
-      padding: theme.spacing?.lg || 16,
+
+    titleSection: {
+      paddingTop: 20,
+      paddingHorizontal: 20,
+      paddingBottom: 16,
     },
-    snippet: {
-      fontSize: 16,
-      lineHeight: 24,
+
+    title: {
+      fontSize: 28,
+      fontWeight: '700' as const,
+      lineHeight: 34,
       color: theme.colors?.text || '#000000',
+      marginBottom: 8,
     },
-    conceptCard: {
-      margin: theme.spacing?.lg || 16,
-      padding: theme.spacing?.lg || 16,
-      backgroundColor: theme.colors?.primaryLight || '#E3F2FD',
-      borderLeftWidth: 4,
-      borderLeftColor: theme.colors?.primary || '#007AFF',
-    },
-    conceptLabel: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: theme.colors?.primary || '#007AFF',
-      marginBottom: theme.spacing?.sm || 8,
-      textTransform: 'uppercase',
-      letterSpacing: 0.5,
-    },
-    conceptText: {
-      fontSize: 16,
+
+    subtitle: {
+      fontSize: 17,
+      fontWeight: '400' as const,
       lineHeight: 22,
+      color: theme.colors?.textSecondary || '#666666',
+    },
+
+    contentContainer: {
+      flex: 1,
+    },
+
+    scrollView: {
+      flex: 1,
+    },
+
+    scrollContent: {
+      padding: 20,
+      paddingBottom: 160, // Extra space for continue button
+    },
+
+    contentSection: {
+      marginBottom: 24,
+    },
+
+    contentText: {
+      fontSize: 17,
+      fontWeight: '400' as const,
+      lineHeight: 28,
       color: theme.colors?.text || '#000000',
-      fontWeight: '500',
+      letterSpacing: -0.24,
     },
-    sectionCard: {
-      margin: theme.spacing?.lg || 16,
-      padding: theme.spacing?.lg || 16,
-      backgroundColor: theme.colors?.surface || '#F8F9FA',
-      borderRadius: 12,
+
+    keyPointsSection: {
+      marginBottom: 20,
     },
-    sectionTitle: {
-      fontSize: 18,
-      fontWeight: '600',
+
+    keyPointsHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 16,
+    },
+
+    keyPointsTitle: {
+      fontSize: 20,
+      fontWeight: '600' as const,
       color: theme.colors?.text || '#000000',
-      marginBottom: theme.spacing?.md || 12,
+      marginLeft: 12,
     },
+
+    keyPointsCard: {
+      paddingVertical: 12,
+    },
+
     keyPointItem: {
       flexDirection: 'row',
       alignItems: 'flex-start',
-      marginBottom: theme.spacing?.md || 12,
+      marginBottom: 12,
     },
+
     keyPointBullet: {
-      width: 6,
-      height: 6,
-      borderRadius: 3,
-      backgroundColor: theme.colors?.primary || '#007AFF',
-      marginTop: 8,
-      marginRight: theme.spacing?.md || 12,
+      marginRight: 12,
+      marginTop: 2, // Align with text
     },
+
     keyPointText: {
-      flex: 1,
-      fontSize: 15,
-      lineHeight: 22,
-      color: theme.colors?.text || '#000000',
-    },
-    exampleCard: {
-      padding: theme.spacing?.md || 12,
-      marginBottom: theme.spacing?.sm || 8,
-      backgroundColor: theme.colors?.background || '#FFFFFF',
-      borderWidth: 1,
-      borderColor: theme.colors?.border || '#E0E0E0',
-    },
-    exampleText: {
-      fontSize: 14,
-      lineHeight: 20,
-      color: theme.colors?.textSecondary || '#666666',
-      fontStyle: 'italic',
-    },
-    progressCard: {
-      margin: theme.spacing?.lg || 16,
-      padding: theme.spacing?.lg || 16,
-      backgroundColor: theme.colors?.successLight || '#E8F5E8',
-      borderWidth: 1,
-      borderColor: theme.colors?.success || '#4CAF50',
-    },
-    progressTitle: {
       fontSize: 16,
-      fontWeight: '600',
-      color: theme.colors?.success || '#4CAF50',
-      marginBottom: theme.spacing?.sm || 8,
-    },
-    progressText: {
-      fontSize: 14,
+      fontWeight: '400' as const,
       color: theme.colors?.text || '#000000',
-      marginBottom: theme.spacing?.md || 12,
+      flex: 1,
+      lineHeight: 24,
     },
-    progressIndicator: {
-      height: 8,
-      backgroundColor: theme.colors?.border || '#E0E0E0',
-      borderRadius: 4,
-      overflow: 'hidden',
-      marginBottom: theme.spacing?.sm || 8,
+
+    examplesSection: {
+      marginBottom: 20,
     },
-    progressFill: {
-      height: '100%',
-      backgroundColor: theme.colors?.success || '#4CAF50',
+
+    examplesHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 16,
     },
-    progressHint: {
+
+    examplesTitle: {
+      fontSize: 20,
+      fontWeight: '600' as const,
+      color: theme.colors?.text || '#000000',
+      marginLeft: 12,
+    },
+
+    examplesCard: {
+      paddingVertical: 12,
+    },
+
+    exampleItem: {
+      paddingVertical: 12,
+    },
+
+    exampleItemBorder: {
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors?.border || '#E5E5E7',
+    },
+
+    exampleText: {
+      fontSize: 16,
+      fontWeight: '400' as const,
+      color: theme.colors?.text || '#000000',
+      fontStyle: 'italic',
+      lineHeight: 24,
+    },
+
+    bottomSpacing: {
+      height: 40,
+    },
+
+    continueButtonContainer: {
+      position: 'absolute',
+      bottom: 20,
+      left: 20,
+      right: 20,
+    },
+
+    continueButton: {
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+      shadowOpacity: 0.3,
+      shadowRadius: 4.65,
+      elevation: 8,
+    },
+
+    scrollIndicator: {
+      position: 'absolute',
+      bottom: 80,
+      right: 20,
+      alignItems: 'center',
+    },
+
+    scrollIndicatorText: {
       fontSize: 12,
       color: theme.colors?.textSecondary || '#666666',
-      fontStyle: 'italic',
+      marginBottom: 8,
     },
-    footer: {
-      padding: theme.spacing?.lg || 16,
-      paddingTop: theme.spacing?.md || 12,
-      backgroundColor: theme.colors?.surface || '#F8F9FA',
-      borderTopWidth: 1,
-      borderTopColor: theme.colors?.border || '#E0E0E0',
-    },
-    continueButton: {
-      width: '100%',
-    },
-    continueButtonDisabled: {
-      opacity: 0.6,
+
+    scrollArrow: {
+      padding: 8,
     },
   });
