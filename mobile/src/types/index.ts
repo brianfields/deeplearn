@@ -202,7 +202,9 @@ export type RootStackParamList = {
 export type LearningStackParamList = {
   TopicList: undefined;
   LearningFlow: { topicId: string; topic: BiteSizedTopicDetail };
-  Results: { results: LearningResults };
+  Results: {
+    results: import('../../modules/learning_session/models').SessionResults;
+  };
 };
 
 // ================================

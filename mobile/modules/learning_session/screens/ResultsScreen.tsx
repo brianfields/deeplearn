@@ -27,10 +27,10 @@ export default function ResultsScreen({ navigation, route }: Props) {
   const theme = uiSystem.getCurrentTheme();
   const { colors, spacing, typography } = theme;
 
-  // Calculate performance metrics
-  const scorePercentage = Math.max(0, Math.min(100, results.finalScore));
-  const timeInMinutes = Math.round(results.timeSpent / 60);
-  const completedSteps = results.stepsCompleted.length;
+  // Calculate performance metrics (SessionResults shape)
+  const scorePercentage = Math.max(0, Math.min(100, results.scorePercentage));
+  const timeInMinutes = Math.round((results.totalTimeSeconds || 0) / 60);
+  const completedSteps = results.completedComponents;
 
   const handleContinue = () => {
     navigation.popToTop();
@@ -146,7 +146,9 @@ export default function ResultsScreen({ navigation, route }: Props) {
           <View style={styles.statRow}>
             <Text style={styles.statLabel}>Status</Text>
             <Text style={styles.statValue}>
-              {results.completed ? 'Completed' : 'In Progress'}
+              {results.completionPercentage === 100
+                ? 'Completed'
+                : 'In Progress'}
             </Text>
           </View>
         </Card>

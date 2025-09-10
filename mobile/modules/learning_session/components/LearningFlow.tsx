@@ -20,6 +20,41 @@ interface LearningFlowProps {
   onBack: () => void;
 }
 
+// Simple component to auto-skip glossary components
+function GlossarySkip({ onComplete }: { onComplete: () => void }) {
+  const uiSystem = uiSystemProvider();
+  const theme = uiSystem.getCurrentTheme();
+
+  useEffect(() => {
+    // Auto-advance after a brief moment
+    const timer = setTimeout(() => {
+      onComplete();
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [onComplete]);
+
+  return (
+    <View
+      style={{
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: theme.colors?.background || '#FFFFFF',
+      }}
+    >
+      <Text
+        style={{
+          fontSize: 16,
+          color: theme.colors?.textSecondary || '#666666',
+        }}
+      >
+        Loading next component...
+      </Text>
+    </View>
+  );
+}
+
 export default function LearningFlow({
   sessionId,
   onComplete,
@@ -139,34 +174,30 @@ export default function LearningFlow({
       );
     }
 
-    const componentProps = {
-      component: currentComponent,
-      isLoading: isUpdatingProgress,
-    };
-
     switch (currentComponent.type) {
       case 'didactic_snippet':
         return (
           <DidacticSnippet
-            {...componentProps}
+            snippet={currentComponent.content}
             onContinue={() => handleComponentComplete({ isCorrect: true })}
+            isLoading={isUpdatingProgress}
           />
         );
 
       case 'mcq':
         return (
           <MultipleChoice
-            {...componentProps}
+            question={currentComponent.content}
             onComplete={handleComponentComplete}
+            isLoading={isUpdatingProgress}
           />
         );
 
       case 'glossary':
-        // For now, treat glossary like didactic snippet
+        // Skip glossary components - they weren't in the old flow
         return (
-          <DidacticSnippet
-            {...componentProps}
-            onContinue={() => handleComponentComplete({ isCorrect: true })}
+          <GlossarySkip
+            onComplete={() => handleComponentComplete({ isCorrect: true })}
           />
         );
 
@@ -176,6 +207,10 @@ export default function LearningFlow({
             <Text style={styles.emptyStateText}>
               Unknown component type: {currentComponent.type}
             </Text>
+            <Button
+              title="Skip"
+              onPress={() => handleComponentComplete({ isCorrect: true })}
+            />
           </View>
         );
     }
