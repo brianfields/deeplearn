@@ -143,7 +143,8 @@ from collections.abc import Generator
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from modules.infrastructure.public import infrastructure_provider
-from .public import users_provider, UsersProvider
+from .repo import UserRepo
+from .service import UserService, UserRead, UserCreate
 
 router = APIRouter(prefix="/api/v1/users", tags=["users"])
 
@@ -156,12 +157,13 @@ def get_session() -> Generator[Session, None, None]:
         yield s
 
 
-def get_user_service(s: Session = Depends(get_session)) -> UsersProvider:
-    return users_provider(s)
+def get_user_service(s: Session = Depends(get_session)) -> UserService:
+    """Build UserService for this request - use service directly, not public interface."""
+    return UserService(UserRepo(s))
 
 
 @router.get("/{user_id}", response_model=UserRead)
-def get_user(user_id: int, svc: UsersProvider = Depends(get_user_service)) -> UserRead:
+def get_user(user_id: int, svc: UserService = Depends(get_user_service)) -> UserRead:
     u = svc.get(user_id)
     if not u:
         raise HTTPException(404, "User not found")
@@ -169,7 +171,7 @@ def get_user(user_id: int, svc: UsersProvider = Depends(get_user_service)) -> Us
 
 
 @router.post("", response_model=UserRead, status_code=status.HTTP_201_CREATED)
-def create_user(body: UserCreate, svc: UsersProvider = Depends(get_user_service)) -> UserRead:
+def create_user(body: UserCreate, svc: UserService = Depends(get_user_service)) -> UserRead:
     try:
         return svc.register(body)
     except ValueError as e:
@@ -180,24 +182,36 @@ def create_user(body: UserCreate, svc: UsersProvider = Depends(get_user_service)
 
 ## Using it from another module
 
-```python
-# modules/orders/routes.py
-from modules.users.public import users_provider
+Cross-module dependencies should typically be injected at the **service layer**, not in routes:
 
-def get_order_service(s: Session = Depends(get_session)) -> OrderService:
-    users_service = users_provider(s)  # Same session = same transaction
-    return OrderService(users_service)
+```python
+# modules/orders/service.py
+from modules.users.public import UsersProvider
 
 class OrderService:
     def __init__(self, users: UsersProvider):
-        self.users = users
+        self.users = users  # Use other module's public interface
+
     def create(self, user_id: int, sku: str):
         if not self.users.has_permission(user_id, "create_order"):
             raise PermissionError("forbidden")
         if not self.users.get(user_id):
             raise LookupError("user not found")
         # proceed...
+
+# modules/orders/routes.py
+from modules.users.public import users_provider
+from .service import OrderService
+
+def get_order_service(s: Session = Depends(get_session)) -> OrderService:
+    users_service = users_provider(s)  # Same session = same transaction
+    return OrderService(users_service)
 ```
+
+### Key Principles:
+- **Within a module**: Routes use the service directly (`UserService`)
+- **Cross-module**: Services use other modules' public interfaces (`UsersProvider`)
+- **Public interfaces**: Only for consumption by *other* modules
 
 ---
 

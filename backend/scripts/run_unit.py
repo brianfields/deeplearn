@@ -192,7 +192,7 @@ def main() -> int:
     if not ensure_venv_activated():
         return 1
 
-    doc_epilog = __doc__.split("Usage:")[1] if "Usage:" in __doc__ and __doc__ else ""
+    doc_epilog = __doc__.split("Usage:")[1] if __doc__ and "Usage:" in __doc__ else ""
     parser = argparse.ArgumentParser(description="Run unit tests across backend modules", formatter_class=argparse.RawDescriptionHelpFormatter, epilog=doc_epilog)
 
     parser.add_argument("--module", "-m", help="Run tests for specific module only (e.g., llm_services, infrastructure)")

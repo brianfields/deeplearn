@@ -7,8 +7,8 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from ..context import FlowContext
-from ..service import FlowEngineService
+from .context import FlowContext
+from .service import FlowEngineService
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +26,9 @@ def flow_execution(func):
     @functools.wraps(func)
     async def wrapper(self, *args, **kwargs):
         # Get infrastructure service
-        from ...infrastructure.public import infrastructure_provider
-        from ...llm_services.public import llm_services_provider
-        from ..repo import FlowRunRepo, FlowStepRunRepo
+        from ..infrastructure.public import infrastructure_provider
+        from ..llm_services.public import llm_services_provider
+        from .repo import FlowRunRepo, FlowStepRunRepo
 
         infra = infrastructure_provider()
         infra.initialize()

@@ -217,10 +217,10 @@ async def process_document():
 """
 
 # Import base classes
-from .flows.base import BaseFlow
+from .base_flow import BaseFlow
 
 # Import result types
-from .steps.base import BaseStep, ImageStep, StepResult, StepType, StructuredStep, UnstructuredStep
+from .base_step import BaseStep, ImageStep, StepResult, StepType, StructuredStep, UnstructuredStep
 
 __all__ = [
     "BaseFlow",

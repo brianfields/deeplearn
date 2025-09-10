@@ -139,7 +139,7 @@ def check_environment() -> list[str]:
     return issues
 
 
-def find_integration_test_files(module_name: str = None) -> list[str]:
+def find_integration_test_files(module_name: str | None = None) -> list[str]:
     """Find integration test files to run"""
     backend_dir = Path(__file__).parent.parent
 
@@ -180,7 +180,7 @@ def find_integration_test_files(module_name: str = None) -> list[str]:
         return test_files
 
 
-def run_integration_tests(module_name: str = None, verbose: bool = False) -> int:
+def run_integration_tests(module_name: str | None = None, verbose: bool = False) -> int:
     """Run integration tests"""
     print("🌐 Running integration tests (real APIs, may incur costs)...")
 
@@ -288,7 +288,7 @@ def main() -> int:
     if not ensure_venv_activated():
         return 1
 
-    doc_epilog = __doc__.split("Usage:")[1] if "Usage:" in __doc__ and __doc__ else ""
+    doc_epilog = __doc__.split("Usage:")[1] if __doc__ and "Usage:" in __doc__ else ""
     parser = argparse.ArgumentParser(description="Run integration tests across backend modules", formatter_class=argparse.RawDescriptionHelpFormatter, epilog=doc_epilog)
 
     parser.add_argument("--module", "-m", help="Run tests for specific module only (e.g., llm_services, infrastructure)")

@@ -20,8 +20,6 @@ from modules.flow_engine.models import FlowRunModel, FlowStepRunModel
 from modules.infrastructure.public import infrastructure_provider
 
 
-@pytest.mark.integration
-@pytest.mark.llm
 class TestTopicCreationIntegration:
     """Integration test for complete topic creation workflow."""
 

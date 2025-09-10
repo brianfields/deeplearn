@@ -29,6 +29,7 @@ class FlowEngineService:
         flow_run = FlowRunModel(user_id=user_id, flow_name=flow_name, inputs=inputs, status="running", execution_mode="sync", started_at=datetime.now(UTC))
 
         created_run = self.flow_run_repo.create(flow_run)
+        assert created_run.id is not None
         return created_run.id
 
     async def create_step_run_record(self, flow_run_id: uuid.UUID, step_name: str, step_order: int, inputs: dict[str, Any]) -> uuid.UUID:
@@ -36,6 +37,7 @@ class FlowEngineService:
         step_run = FlowStepRunModel(flow_run_id=flow_run_id, step_name=step_name, step_order=step_order, inputs=inputs, status="running")
 
         created_step = self.step_run_repo.create(step_run)
+        assert created_step.id is not None
         return created_step.id
 
     async def update_step_run_success(self, step_run_id: uuid.UUID, outputs: dict[str, Any], tokens_used: int, cost_estimate: float, execution_time_ms: int, llm_request_id: uuid.UUID | None = None) -> None:
@@ -88,8 +90,8 @@ class FlowEngineService:
 
             # Calculate total metrics from steps
             steps = self.step_run_repo.by_flow_run_id(flow_run_id)
-            total_tokens = sum(step.tokens_used for step in steps)
-            total_cost = sum(step.cost_estimate for step in steps)
+            total_tokens = sum(step.tokens_used or 0 for step in steps)
+            total_cost = sum(step.cost_estimate or 0.0 for step in steps)
 
             flow_run.total_tokens = total_tokens
             flow_run.total_cost = total_cost

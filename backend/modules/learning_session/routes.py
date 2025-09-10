@@ -15,9 +15,10 @@ from modules.content.public import content_provider
 from modules.infrastructure.public import infrastructure_provider
 from modules.topic_catalog.public import topic_catalog_provider
 
-from .public import LearningSessionProvider, learning_session_provider
+from .repo import LearningSessionRepo
 from .service import (
     CompleteSessionRequest,
+    LearningSessionService,
     StartSessionRequest,
     UpdateProgressRequest,
 )
@@ -112,7 +113,7 @@ router = APIRouter(prefix="/api/v1/sessions")
 # ================================
 
 
-def get_session() -> Generator[Session, None, None]:
+def get_db_session() -> Generator[Session, None, None]:
     """Request-scoped database session with auto-commit."""
     infra = infrastructure_provider()
     infra.initialize()
@@ -120,12 +121,12 @@ def get_session() -> Generator[Session, None, None]:
         yield s
 
 
-def get_learning_session_service(s: Session = Depends(get_session)) -> LearningSessionProvider:
+def get_learning_session_service(s: Session = Depends(get_db_session)) -> LearningSessionService:
     """Build LearningSessionService with all dependencies sharing the same session."""
     # Build all services with the same session for transactional consistency
     content_service = content_provider(s)
     topic_catalog_service = topic_catalog_provider(content_service)
-    return learning_session_provider(s, content_service, topic_catalog_service)
+    return LearningSessionService(LearningSessionRepo(s), content_service, topic_catalog_service)
 
 
 # ================================
@@ -136,7 +137,7 @@ def get_learning_session_service(s: Session = Depends(get_session)) -> LearningS
 @router.post("/", response_model=SessionResponseModel)
 async def start_session(
     request: StartSessionRequestModel,
-    service: LearningSessionProvider = Depends(get_learning_session_service),
+    service: LearningSessionService = Depends(get_learning_session_service),
 ) -> SessionResponseModel:
     """Start a new learning session"""
     try:
@@ -168,7 +169,7 @@ async def start_session(
 @router.get("/{session_id}", response_model=SessionResponseModel)
 async def get_session(
     session_id: str,
-    service: LearningSessionProvider = Depends(get_learning_session_service),
+    service: LearningSessionService = Depends(get_learning_session_service),
 ) -> SessionResponseModel:
     """Get session details by ID"""
     try:
@@ -197,7 +198,7 @@ async def get_session(
 async def update_session_progress(
     session_id: str,
     request: UpdateProgressRequestModel,
-    service: LearningSessionProvider = Depends(get_learning_session_service),
+    service: LearningSessionService = Depends(get_learning_session_service),
 ) -> ProgressResponseModel:
     """Update session progress"""
     try:
@@ -231,7 +232,7 @@ async def update_session_progress(
 @router.post("/{session_id}/complete", response_model=SessionResultsResponseModel)
 async def complete_session(
     session_id: str,
-    service: LearningSessionProvider = Depends(get_learning_session_service),
+    service: LearningSessionService = Depends(get_learning_session_service),
 ) -> SessionResultsResponseModel:
     """Complete a learning session"""
     try:
@@ -258,7 +259,7 @@ async def complete_session(
 @router.post("/{session_id}/pause", response_model=SessionResponseModel)
 async def pause_session(
     session_id: str,
-    service: LearningSessionProvider = Depends(get_learning_session_service),
+    service: LearningSessionService = Depends(get_learning_session_service),
 ) -> SessionResponseModel:
     """Pause a learning session"""
     try:
@@ -290,7 +291,7 @@ async def get_user_sessions(
     topic_id: str | None = Query(None, description="Filter by topic ID"),
     limit: int = Query(50, ge=1, le=100, description="Maximum number of sessions to return"),
     offset: int = Query(0, ge=0, description="Number of sessions to skip"),
-    service: LearningSessionProvider = Depends(get_learning_session_service),
+    service: LearningSessionService = Depends(get_learning_session_service),
 ) -> SessionListResponseModel:
     """Get user sessions with filtering"""
     try:
@@ -328,7 +329,7 @@ async def get_user_sessions(
 
 @router.get("/health", response_model=HealthResponseModel)
 async def health_check(
-    service: LearningSessionProvider = Depends(get_learning_session_service),
+    service: LearningSessionService = Depends(get_learning_session_service),
 ) -> HealthResponseModel:
     """Health check endpoint"""
     try:

@@ -13,7 +13,7 @@ from pydantic import BaseModel
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from ..context import FlowContext
+    from .context import FlowContext
 
 # Type variable for input models
 InputT = TypeVar("InputT", bound=BaseModel)
@@ -91,7 +91,7 @@ class BaseStep(ABC):
 
         try:
             # Get infrastructure from context (will be implemented in flows/base.py)
-            from ..context import FlowContext
+            from .context import FlowContext
 
             context = FlowContext.current()
 
@@ -230,16 +230,16 @@ class UnstructuredStep(BaseStep):
         formatted_prompt = self._format_prompt(prompt_content, inputs.model_dump())
 
         # Generate response using LLM services
-        from ...llm_services.public import LLMMessage
+        from ..llm_services.public import LLMMessage
 
-        messages = [LLMMessage(role="user", content=formatted_prompt)]
+        messages = [LLMMessage(role="user", content=formatted_prompt, name=None, function_call=None, tool_calls=None)]
 
         llm_services = context.service.get_llm_services()
         response, request_id = await llm_services.generate_response(messages)
 
         # Update context with usage info
-        context.last_tokens_used = response.metadata.get("tokens_used", 0)
-        context.last_cost_estimate = response.metadata.get("cost_estimate", 0.0)
+        context.last_tokens_used = response.tokens_used or 0
+        context.last_cost_estimate = response.cost_estimate or 0.0
 
         return response.content, request_id
 
@@ -276,16 +276,17 @@ class StructuredStep(BaseStep):
         formatted_prompt = self._format_prompt(prompt_content, inputs.model_dump())
 
         # Generate structured response
-        from ...llm_services.public import LLMMessage
+        from ..llm_services.public import LLMMessage
 
-        messages = [LLMMessage(role="user", content=formatted_prompt)]
+        messages = [LLMMessage(role="user", content=formatted_prompt, name=None, function_call=None, tool_calls=None)]
 
         llm_services = context.service.get_llm_services()
         structured_response, request_id = await llm_services.generate_structured_response(messages, self.outputs_model)
 
-        # Update context with usage info
-        context.last_tokens_used = getattr(structured_response, "tokens_used", 0)
-        context.last_cost_estimate = getattr(structured_response, "cost_estimate", 0.0)
+        # Update context with usage info (structured responses don't include metadata directly)
+        # For now, set to 0 and let the service track actual usage
+        context.last_tokens_used = 0
+        context.last_cost_estimate = 0.0
 
         return structured_response, request_id
 
@@ -326,6 +327,6 @@ class ImageStep(BaseStep):
 
         # Update context with usage info
         context.last_tokens_used = 0  # Images don't use tokens
-        context.last_cost_estimate = image_response.metadata.get("cost_estimate", 0.0)
+        context.last_cost_estimate = image_response.cost_estimate or 0.0
 
         return image_response.model_dump(), request_id
