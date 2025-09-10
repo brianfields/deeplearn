@@ -1,5 +1,6 @@
 """Repository layer for LLM services."""
 
+from typing import Any
 import uuid
 
 from sqlalchemy import desc
@@ -48,12 +49,15 @@ class LLMRequestRepo:
         response_content: str,
         response_raw: dict,
         tokens_used: int | None = None,
-        prompt_tokens: int | None = None,
-        completion_tokens: int | None = None,
+        input_tokens: int | None = None,
+        output_tokens: int | None = None,
         cost_estimate: float | None = None,
-        finish_reason: str | None = None,
         execution_time_ms: int | None = None,
         cached: bool = False,
+        provider_response_id: str | None = None,
+        system_fingerprint: str | None = None,
+        response_output: dict | list[dict] | None = None,
+        response_created_at: None | Any = None,
     ) -> None:
         """Update LLM request with successful response data."""
         request = self.by_id(request_id)
@@ -61,13 +65,16 @@ class LLMRequestRepo:
             request.response_content = response_content
             request.response_raw = response_raw
             request.tokens_used = tokens_used
-            request.prompt_tokens = prompt_tokens
-            request.completion_tokens = completion_tokens
+            request.input_tokens = input_tokens
+            request.output_tokens = output_tokens
             request.cost_estimate = cost_estimate
-            request.finish_reason = finish_reason
             request.execution_time_ms = execution_time_ms
             request.cached = cached
             request.status = "completed"
+            request.provider_response_id = provider_response_id
+            request.system_fingerprint = system_fingerprint
+            request.response_output = response_output
+            request.response_created_at = response_created_at
             self.save(request)
 
     def update_error(self, request_id: uuid.UUID, error_message: str, error_type: str, execution_time_ms: int | None = None, retry_attempt: int = 1) -> None:

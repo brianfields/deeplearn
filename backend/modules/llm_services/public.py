@@ -27,7 +27,7 @@ class LLMServicesProvider(Protocol):
     - Request tracking and retrieval
     """
 
-    async def generate_response(self, messages: list[LLMMessage], user_id: uuid.UUID | None = None, model: str | None = None, temperature: float | None = None, max_tokens: int | None = None, **kwargs: Any) -> tuple[LLMResponse, uuid.UUID]:
+    async def generate_response(self, messages: list[LLMMessage], user_id: uuid.UUID | None = None, model: str | None = None, temperature: float | None = None, max_output_tokens: int | None = None, **kwargs: Any) -> tuple[LLMResponse, uuid.UUID]:
         """
         Generate a text response from the LLM.
 
@@ -36,7 +36,7 @@ class LLMServicesProvider(Protocol):
             user_id: Optional user identifier for tracking
             model: Override default model (e.g., "gpt-4", "gpt-3.5-turbo")
             temperature: Override default temperature (0.0-2.0)
-            max_tokens: Override default max tokens
+            max_output_tokens: Override maximum output tokens
             **kwargs: Additional provider-specific parameters
 
         Returns:
@@ -48,7 +48,7 @@ class LLMServicesProvider(Protocol):
         ...
 
     async def generate_structured_response(
-        self, messages: list[LLMMessage], response_model: type[T], user_id: uuid.UUID | None = None, model: str | None = None, temperature: float | None = None, max_tokens: int | None = None, **kwargs: Any
+        self, messages: list[LLMMessage], response_model: type[T], user_id: uuid.UUID | None = None, model: str | None = None, temperature: float | None = None, max_output_tokens: int | None = None, **kwargs: Any
     ) -> tuple[T, uuid.UUID]:
         """
         Generate a structured response using a Pydantic model.
@@ -59,7 +59,7 @@ class LLMServicesProvider(Protocol):
             user_id: Optional user identifier for tracking
             model: Override default model
             temperature: Override default temperature
-            max_tokens: Override default max tokens
+            max_output_tokens: Override maximum output tokens
             **kwargs: Additional provider-specific parameters
 
         Returns:

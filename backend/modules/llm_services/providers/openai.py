@@ -1,6 +1,7 @@
 """OpenAI provider implementation."""
 
 import asyncio
+import contextlib
 from datetime import UTC, datetime
 import importlib
 import json
@@ -107,6 +108,32 @@ class OpenAIProvider(LLMProvider):
         except Exception as e:
             raise LLMAuthenticationError(f"Failed to setup OpenAI client: {e}") from e
 
+    def _to_jsonable(self, obj: Any) -> Any:
+        """Convert SDK/Pydantic objects to JSON-serializable structures recursively."""
+        # Primitive types
+        if obj is None or isinstance(obj, (str, int, float, bool)):
+            return obj
+        # Pydantic v2 models
+        if hasattr(obj, "model_dump") and callable(obj.model_dump):
+            try:
+                return self._to_jsonable(obj.model_dump())
+            except Exception:
+                return str(obj)
+        # Pydantic v1 models
+        if hasattr(obj, "dict") and callable(obj.dict):
+            try:
+                return self._to_jsonable(obj.dict())
+            except Exception:
+                return str(obj)
+        # Mapping
+        if isinstance(obj, dict):
+            return {self._to_jsonable(k): self._to_jsonable(v) for k, v in obj.items()}
+        # Sequence
+        if isinstance(obj, (list, tuple)):
+            return [self._to_jsonable(v) for v in obj]
+        # Fallback
+        return str(obj)
+
     def _validate_gpt5_model(self, model: str) -> None:
         """Validate that the model is GPT-5 since we only support GPT-5."""
         if not model.startswith("gpt-5"):
@@ -125,29 +152,75 @@ class OpenAIProvider(LLMProvider):
             input_messages.append(input_msg)
         return input_messages
 
-    def _parse_gpt5_response(self, response: Any) -> tuple[str, str | None, dict[str, Any] | None]:
-        """Parse GPT-5 response format and extract content, finish_reason, and usage."""
+    def _parse_gpt5_response(self, response: Any) -> tuple[str, dict[str, Any] | list[dict[str, Any]] | None, dict[str, Any] | None]:
+        """Parse GPT-5 Responses API and extract content, output array, and usage."""
         # Use output_text if available (convenience property in SDK)
         if hasattr(response, "output_text"):
             content = response.output_text
         else:
             # Parse output array manually
             content = ""
-            for output_item in response.output:
+            for output_item in getattr(response, "output", []) or []:
                 if hasattr(output_item, "content"):
                     for content_item in output_item.content:
                         if hasattr(content_item, "text"):
                             content += content_item.text
 
-        # Extract finish reason and usage if available
-        finish_reason = None
-        usage = None
+        # Extract usage if available
+        usage = getattr(response, "usage", None)
+        output = getattr(response, "output", None)
 
-        # GPT-5 response structure may have different usage tracking
-        if hasattr(response, "usage"):
-            usage = response.usage
+        return content, output, usage
 
-        return content, finish_reason, usage
+    async def _handle_cached_response(
+        self,
+        messages: list[LLMMessage],
+        llm_request: Any,
+        start_time: datetime,
+        **kwargs: Any,
+    ) -> LLMResponse | None:
+        """Check cache for existing response."""
+        cache = getattr(self, "_cache", None)
+        if self.config.cache_enabled and cache is not None:
+            cached_response = await cache.get(messages, **kwargs)
+            if cached_response:
+                self._update_llm_request_success(
+                    llm_request,
+                    cached_response,
+                    int((datetime.now(UTC) - start_time).total_seconds() * 1000),
+                )
+                return cached_response
+        return None
+
+    def _prepare_gpt5_request_params(
+        self,
+        messages: list[LLMMessage],
+        model: str,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Prepare request parameters for GPT-5 API call."""
+        input_messages = self._convert_messages_to_gpt5_input(messages)
+
+        request_params = {
+            "model": model,
+            "input": input_messages,
+        }
+
+        # Add GPT-5 specific parameters
+        if "instructions" in kwargs:
+            request_params["instructions"] = kwargs["instructions"]
+            logger.debug(f"Instructions: {kwargs['instructions'][:100]}...")
+        if "reasoning" in kwargs:
+            request_params["reasoning"] = kwargs["reasoning"]
+            logger.debug(f"Reasoning: {kwargs['reasoning']}")
+
+        # Add optional parameters that work with GPT-5
+        for param in ["top_p", "frequency_penalty", "presence_penalty", "stop", "max_output_tokens"]:
+            if param in kwargs:
+                request_params[param] = kwargs[param]
+
+        logger.debug(f"GPT-5 request params: {list(request_params.keys())}")
+        return request_params
 
     async def generate_response(
         self,
@@ -161,7 +234,7 @@ class OpenAIProvider(LLMProvider):
         Args:
             messages: List of conversation messages
             user_id: Optional user identifier for tracking
-            **kwargs: Additional parameters (temperature, max_tokens, etc.)
+            **kwargs: Additional parameters (temperature, max_output_tokens, etc.)
 
         Returns:
             Tuple of (LLMResponse, LLMRequest ID)
@@ -174,22 +247,14 @@ class OpenAIProvider(LLMProvider):
         try:
             # Create database record
             llm_request = self._create_llm_request(messages=messages, user_id=user_id, **kwargs)
-            # Ensure we have a valid request ID
             if llm_request.id is None:
                 raise LLMError("Failed to create LLM request record")
             request_id: uuid.UUID = llm_request.id
 
             # Check cache first (if enabled)
-            cache = getattr(self, "_cache", None)
-            if self.config.cache_enabled and cache is not None:
-                cached_response = await cache.get(messages, **kwargs)
-                if cached_response:
-                    self._update_llm_request_success(
-                        llm_request,
-                        cached_response,
-                        int((datetime.now(UTC) - start_time).total_seconds() * 1000),
-                    )
-                    return cached_response, request_id
+            cached_response = await self._handle_cached_response(messages, llm_request, start_time, **kwargs)
+            if cached_response:
+                return cached_response, request_id
 
             # Validate model and prepare GPT-5 request
             model = kwargs.get("model", self.config.model) or self.config.model
@@ -199,28 +264,17 @@ class OpenAIProvider(LLMProvider):
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug(f"Messages: {[{'role': m.role.value, 'content': m.content[:100] + '...' if len(m.content) > 100 else m.content} for m in messages]}")
 
-            # Convert messages to GPT-5 format
-            input_messages = self._convert_messages_to_gpt5_input(messages)
+            # Prepare request parameters (avoid passing duplicate 'model')
+            kwargs_clean = kwargs.copy()
+            if "model" in kwargs_clean:
+                kwargs_clean.pop("model")
+            request_params = self._prepare_gpt5_request_params(messages, model, **kwargs_clean)
 
-            request_params = {
-                "model": model,
-                "input": input_messages,
-            }
-
-            # Add GPT-5 specific parameters
-            if "instructions" in kwargs:
-                request_params["instructions"] = kwargs["instructions"]
-                logger.debug(f"Instructions: {kwargs['instructions'][:100]}...")
-            if "reasoning" in kwargs:
-                request_params["reasoning"] = kwargs["reasoning"]
-                logger.debug(f"Reasoning: {kwargs['reasoning']}")
-
-            # Add optional parameters that work with GPT-5
-            for param in ["top_p", "frequency_penalty", "presence_penalty", "stop"]:
-                if param in kwargs:
-                    request_params[param] = kwargs[param]
-
-            logger.debug(f"GPT-5 request params: {list(request_params.keys())}")
+            # Store request payload in DB record for traceability
+            with contextlib.suppress(Exception):
+                # Save a simplified payload
+                input_messages = self._convert_messages_to_gpt5_input(messages)
+                llm_request.request_payload = {"model": model, "input": input_messages}
 
             # Make API call with retry logic
             logger.info("⏳ Making GPT-5 API call...")
@@ -230,31 +284,40 @@ class OpenAIProvider(LLMProvider):
             logger.info("✅ GPT-5 API call completed")
 
             # Parse GPT-5 response
-            content, finish_reason, usage = self._parse_gpt5_response(response)
+            content, output, usage = self._parse_gpt5_response(response)
 
             # Extract usage information
-            if usage:
-                tokens_used = getattr(usage, "total_tokens", None)
-                prompt_tokens = getattr(usage, "prompt_tokens", None)
-                completion_tokens = getattr(usage, "completion_tokens", None)
-            else:
-                tokens_used = prompt_tokens = completion_tokens = None
+            tokens_used = getattr(usage, "total_tokens", None) if usage else None
+            input_tokens = getattr(usage, "input_tokens", None) if usage else None
+            output_tokens = getattr(usage, "output_tokens", None) if usage else None
 
             # Calculate cost estimate
-            cost_estimate = self.estimate_cost(prompt_tokens or 0, completion_tokens or 0, model)
+            # Estimate cost using input/output tokens if available
+            cost_estimate = self.estimate_cost(input_tokens or 0, output_tokens or 0, model)
 
             # Create response object
+            # Convert provider created timestamp to datetime if available
+            created_raw = getattr(response, "created", None)
+            created_dt = None
+            if isinstance(created_raw, int | float):
+                created_dt = datetime.fromtimestamp(created_raw, tz=UTC)
+            elif isinstance(created_raw, datetime):
+                created_dt = created_raw
+
             llm_response = LLMResponse(
                 content=content,
                 provider=self.config.provider,
                 model=model,
                 tokens_used=tokens_used,
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
                 cost_estimate=cost_estimate,
-                finish_reason=finish_reason,
                 response_time_ms=int((datetime.now(UTC) - start_time).total_seconds() * 1000),
                 cached=False,
+                provider_response_id=getattr(response, "id", None),
+                system_fingerprint=getattr(response, "system_fingerprint", None),
+                response_output=self._to_jsonable(output) if output is not None else None,
+                response_created_at=created_dt,
             )
 
             # Cache response (if enabled)
@@ -450,20 +513,35 @@ Example format:
         completion_tokens: int,
         model: str | None = None,
     ) -> float:
-        """Estimate cost for GPT-5 API usage."""
-        model_name = model or self.config.model
+        """Estimate cost from hardcoded GPT-5 family pricing (as of Sep 2025).
 
-        # GPT-5 pricing (estimated - adjust based on actual pricing when available)
-        if "gpt-5" in model_name:
-            # Placeholder pricing for GPT-5 - update when official pricing is released
-            prompt_cost = (prompt_tokens / 1000) * 0.05  # Estimated
-            completion_cost = (completion_tokens / 1000) * 0.10  # Estimated
-        else:
-            # Fallback for any non-GPT-5 models (should not happen with validation)
-            prompt_cost = (prompt_tokens / 1000) * 0.05
-            completion_cost = (completion_tokens / 1000) * 0.10
+        Rates are USD per 1M tokens:
+        - gpt-5: input $1.25, output $10.00
+        - gpt-5-mini: input $0.25, output $2.00
+        - gpt-5-nano: input $0.05, output $0.40
+        """
+        model_name = (model or self.config.model).lower()
 
-        return prompt_cost + completion_cost
+        pricing_map: dict[str, tuple[float, float]] = {
+            "gpt-5": (1.25, 10.00),
+            "gpt-5-mini": (0.25, 2.00),
+            "gpt-5-nano": (0.05, 0.40),
+        }
+
+        # Longest-prefix match
+        best_key = None
+        for key in pricing_map:
+            if model_name.startswith(key) and (best_key is None or len(key) > len(best_key)):
+                best_key = key
+
+        if best_key is None:
+            # Conservative fallback if unknown model: use gpt-5-mini
+            best_key = "gpt-5-mini"
+
+        input_rate, output_rate = pricing_map[best_key]
+        input_cost = (prompt_tokens / 1000000.0) * input_rate
+        output_cost = (completion_tokens / 1000000.0) * output_rate
+        return input_cost + output_cost
 
     def _estimate_image_cost(self, size: Any, quality: Any) -> float:
         """Estimate cost for DALL-E image generation."""

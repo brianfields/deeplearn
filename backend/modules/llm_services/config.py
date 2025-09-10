@@ -17,7 +17,7 @@ class LLMConfig(BaseModel):
     api_key: str | None = Field(default=None, description="API key for the provider")
     base_url: str | None = Field(default=None, description="Custom base URL for API calls")
     temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="Temperature for generation")
-    max_tokens: int = Field(default=16384, gt=0, description="Maximum tokens per request")
+    max_output_tokens: int | None = Field(default=None, gt=0, description="Maximum output tokens per request")
     timeout: int = Field(default=180, gt=0, description="Request timeout in seconds")
     max_retries: int = Field(default=3, ge=0, description="Maximum number of retries")
 
@@ -44,12 +44,12 @@ class LLMConfig(BaseModel):
             raise ValueError("Temperature must be between 0.0 and 2.0")
         return v
 
-    @field_validator("max_tokens")
+    @field_validator("max_output_tokens")
     @classmethod
-    def validate_max_tokens(cls, v: int) -> int:
-        """Validate max tokens is positive"""
-        if v <= 0:
-            raise ValueError("max_tokens must be positive")
+    def validate_max_output_tokens(cls, v: int | None) -> int | None:
+        """Validate max_output_tokens is positive if provided"""
+        if v is not None and v <= 0:
+            raise ValueError("max_output_tokens must be positive")
         return v
 
     @field_validator("timeout")
@@ -94,7 +94,7 @@ def create_llm_config_from_env() -> LLMConfig:
     - AZURE_OPENAI_API_KEY: Azure OpenAI API key
     - AZURE_OPENAI_ENDPOINT: Azure OpenAI endpoint
     - TEMPERATURE: Generation temperature (default: 0.7)
-    - MAX_TOKENS: Maximum tokens (default: 16384)
+    - MAX_OUTPUT_TOKENS: Maximum output tokens
     - REQUEST_TIMEOUT: Request timeout (default: 180)
     - MAX_RETRIES: Maximum retries (default: 3)
     - IMAGE_MODEL: Image generation model (default: dall-e-3)
@@ -120,7 +120,8 @@ def create_llm_config_from_env() -> LLMConfig:
     azure_openai_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
 
     temperature = float(os.getenv("TEMPERATURE", "0.7"))
-    max_tokens = int(os.getenv("MAX_TOKENS", "16384"))
+    max_output_tokens_env = os.getenv("MAX_OUTPUT_TOKENS")
+    max_output_tokens = int(max_output_tokens_env) if max_output_tokens_env is not None else None
     request_timeout = int(os.getenv("REQUEST_TIMEOUT", "180"))
     max_retries = int(os.getenv("MAX_RETRIES", "3"))
 
@@ -164,7 +165,7 @@ def create_llm_config_from_env() -> LLMConfig:
         api_key=api_key,
         base_url=base_url,
         temperature=temperature,
-        max_tokens=max_tokens,
+        max_output_tokens=max_output_tokens,
         timeout=request_timeout,
         max_retries=max_retries,
         image_model=image_model,

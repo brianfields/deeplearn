@@ -11,6 +11,12 @@ from .config import create_llm_config_from_env
 from .providers.factory import create_llm_provider
 from .repo import LLMRequestRepo
 from .types import (
+    ImageGenerationRequest,
+    ImageQuality,
+    ImageSize,
+    MessageRole,
+)
+from .types import (
     ImageResponse as ImageResponseInternal,
 )
 from .types import (
@@ -18,9 +24,6 @@ from .types import (
 )
 from .types import (
     LLMResponse as LLMResponseInternal,
-)
-from .types import (
-    MessageRole,
 )
 from .types import (
     SearchResult as SearchResultInternal,
@@ -57,12 +60,15 @@ class LLMResponse(BaseModel):
     provider: str = Field(..., description="LLM provider used")
     model: str = Field(..., description="Model used")
     tokens_used: int | None = Field(None, description="Total tokens used")
-    prompt_tokens: int | None = Field(None, description="Prompt tokens used")
-    completion_tokens: int | None = Field(None, description="Completion tokens used")
+    input_tokens: int | None = Field(None, description="Input tokens used")
+    output_tokens: int | None = Field(None, description="Output tokens used")
     cost_estimate: float | None = Field(None, description="Estimated cost in USD")
-    finish_reason: str | None = Field(None, description="Reason for completion")
     response_time_ms: int | None = Field(None, description="Response time in milliseconds")
     cached: bool = Field(False, description="Whether response was cached")
+    provider_response_id: str | None = Field(None, description="Provider response id")
+    system_fingerprint: str | None = Field(None, description="System fingerprint")
+    response_output: dict[str, Any] | list[dict[str, Any]] | None = Field(None, description="Responses API output structure")
+    response_created_at: datetime | None = Field(None, description="Provider response created timestamp")
 
     @classmethod
     def from_llm_response(cls, response: LLMResponseInternal) -> "LLMResponse":
@@ -72,12 +78,15 @@ class LLMResponse(BaseModel):
             provider=response.provider.value if hasattr(response.provider, "value") else response.provider,
             model=response.model,
             tokens_used=response.tokens_used,
-            prompt_tokens=response.prompt_tokens,
-            completion_tokens=response.completion_tokens,
+            input_tokens=response.input_tokens,
+            output_tokens=response.output_tokens,
             cost_estimate=response.cost_estimate,
-            finish_reason=response.finish_reason,
             response_time_ms=response.response_time_ms,
             cached=response.cached,
+            provider_response_id=response.provider_response_id,
+            system_fingerprint=response.system_fingerprint,
+            response_output=response.response_output,
+            response_created_at=response.response_created_at,
         )
 
 
@@ -86,26 +95,29 @@ class LLMRequest(BaseModel):
 
     id: uuid.UUID = Field(..., description="Request ID")
     user_id: uuid.UUID | None = Field(None, description="User ID")
+    api_variant: str = Field(..., description="API variant used (e.g., responses)")
     provider: str = Field(..., description="LLM provider")
     model: str = Field(..., description="Model used")
+    provider_response_id: str | None = Field(None, description="Provider response id")
+    system_fingerprint: str | None = Field(None, description="System fingerprint")
     temperature: float = Field(..., description="Temperature setting")
-    max_tokens: int = Field(..., description="Max tokens setting")
-    messages: dict[str, Any] = Field(..., description="Request messages")
+    max_output_tokens: int | None = Field(None, description="Max output tokens setting")
+    messages: list[dict[str, Any]] = Field(..., description="Request messages")
     additional_params: dict[str, Any] | None = Field(None, description="Additional parameters")
+    request_payload: dict[str, Any] | None = Field(None, description="Final provider request payload")
     response_content: str | None = Field(None, description="Response content")
     response_raw: dict[str, Any] | None = Field(None, description="Raw response data")
     tokens_used: int | None = Field(None, description="Tokens used")
-    prompt_tokens: int | None = Field(None, description="Prompt tokens")
-    completion_tokens: int | None = Field(None, description="Completion tokens")
+    input_tokens: int | None = Field(None, description="Input tokens")
+    output_tokens: int | None = Field(None, description="Output tokens")
     cost_estimate: float | None = Field(None, description="Cost estimate")
-    finish_reason: str | None = Field(None, description="Finish reason")
     status: str = Field(..., description="Request status")
     execution_time_ms: int | None = Field(None, description="Execution time")
     error_message: str | None = Field(None, description="Error message if failed")
     error_type: str | None = Field(None, description="Error type")
     retry_attempt: int = Field(1, description="Retry attempt number")
     cached: bool = Field(False, description="Whether cached")
-    context_data: dict[str, Any] | None = Field(None, description="Context data")
+    response_created_at: datetime | None = Field(None, description="Provider response created timestamp")
     created_at: datetime = Field(..., description="Creation timestamp")
 
     model_config = ConfigDict(from_attributes=True)
@@ -178,7 +190,7 @@ class LLMService:
             logger.warning(f"Failed to initialize LLM provider: {e}")
             self.provider = None
 
-    async def generate_response(self, messages: list[LLMMessage], user_id: uuid.UUID | None = None, model: str | None = None, temperature: float | None = None, max_tokens: int | None = None, **kwargs: Any) -> tuple[LLMResponse, uuid.UUID]:
+    async def generate_response(self, messages: list[LLMMessage], user_id: uuid.UUID | None = None, model: str | None = None, temperature: float | None = None, max_output_tokens: int | None = None, **kwargs: Any) -> tuple[LLMResponse, uuid.UUID]:
         """
         Generate a text response from the LLM.
         """
@@ -189,14 +201,14 @@ class LLMService:
         internal_messages = [msg.to_llm_message() for msg in messages]
 
         # Call provider
-        internal_response, request_id = await self.provider.generate_response(messages=internal_messages, user_id=user_id, model=model, temperature=temperature, max_tokens=max_tokens, **kwargs)
+        internal_response, request_id = await self.provider.generate_response(messages=internal_messages, user_id=user_id, model=model, temperature=temperature, max_output_tokens=max_output_tokens, **kwargs)
 
         # Convert back to DTO
         response_dto = LLMResponse.from_llm_response(internal_response)
         return response_dto, request_id
 
     async def generate_structured_response(
-        self, messages: list[LLMMessage], response_model: type[T], user_id: uuid.UUID | None = None, model: str | None = None, temperature: float | None = None, max_tokens: int | None = None, **kwargs: Any
+        self, messages: list[LLMMessage], response_model: type[T], user_id: uuid.UUID | None = None, model: str | None = None, temperature: float | None = None, max_output_tokens: int | None = None, **kwargs: Any
     ) -> tuple[T, uuid.UUID]:
         """
         Generate a structured response using a Pydantic model.
@@ -208,7 +220,7 @@ class LLMService:
         internal_messages = [msg.to_llm_message() for msg in messages]
 
         # Call provider
-        structured_obj, request_id = await self.provider.generate_structured_object(messages=internal_messages, response_model=response_model, user_id=user_id, model=model, temperature=temperature, max_tokens=max_tokens, **kwargs)
+        structured_obj, request_id = await self.provider.generate_structured_object(messages=internal_messages, response_model=response_model, user_id=user_id, model=model, temperature=temperature, max_output_tokens=max_output_tokens, **kwargs)
 
         return structured_obj, request_id
 
@@ -220,8 +232,6 @@ class LLMService:
             raise RuntimeError("LLM provider not initialized")
 
         # Create image request
-        from .types import ImageGenerationRequest, ImageQuality, ImageSize
-
         # Convert string parameters to enums
         image_size = ImageSize(size) if size in [s.value for s in ImageSize] else ImageSize.LARGE
         image_quality = ImageQuality(quality) if quality in [q.value for q in ImageQuality] else ImageQuality.STANDARD
@@ -273,7 +283,7 @@ class LLMService:
 
         return self.provider.estimate_cost(
             prompt_tokens=estimated_tokens,
-            completion_tokens=estimated_tokens // 4,  # Estimate completion tokens
+            completion_tokens=estimated_tokens // 4,  # Estimate output tokens
             model=model,
         )
 

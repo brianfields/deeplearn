@@ -6,14 +6,17 @@ Runs all integration tests across backend modules with proper environment setup.
 Integration tests use real external APIs and may incur costs.
 
 Usage:
-    python scripts/run_integration.py                    # Run all integration tests
+    python scripts/run_integration.py                        # Run all integration tests
     python scripts/run_integration.py --module llm_services  # Run tests for specific module
-    python scripts/run_integration.py --help            # Show help
+    python scripts/run_integration.py --no-cache             # Disable LLM cache for tests
+    python scripts/run_integration.py --model gpt-5-mini     # Override LLM model for tests
+    python scripts/run_integration.py --help                 # Show help
 
 Examples:
     python scripts/run_integration.py
     python scripts/run_integration.py --module llm_services
-    python scripts/run_integration.py --cost-check      # Check environment without running tests
+    python scripts/run_integration.py --cost-check           # Check environment without running tests
+    python scripts/run_integration.py --model gpt-5-mini     # Run with GPT-5 Mini
     python scripts/run_integration.py --verbose
 """
 
@@ -219,6 +222,11 @@ def run_integration_tests(module_name: str | None = None, verbose: bool = False)
         # Set environment variable to enable detailed logging in subprocess
         env["INTEGRATION_TEST_VERBOSE_LOGGING"] = "true"
 
+    # Allow disabling LLM cache via env flag from CLI
+    if os.getenv("RUN_INTEGRATION_NO_CACHE", "false").lower() == "true":
+        print("🚫 Disabling LLM cache for this run (LLM_CACHE_ENABLED=false)")
+        env["LLM_CACHE_ENABLED"] = "false"
+
     # Build pytest command
     cmd = [
         "python",
@@ -292,8 +300,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Run integration tests across backend modules", formatter_class=argparse.RawDescriptionHelpFormatter, epilog=doc_epilog)
 
     parser.add_argument("--module", "-m", help="Run tests for specific module only (e.g., llm_services, infrastructure)")
+    parser.add_argument("--model", help="Override LLM model for tests (default: gpt-5-mini)", default="gpt-5-mini")
 
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
+    parser.add_argument("--no-cache", action="store_true", help="Disable LLM cache during tests (sets LLM_CACHE_ENABLED=false)")
 
     parser.add_argument("--cost-check", "-c", action="store_true", help="Check environment and estimate costs without running tests")
 
@@ -323,6 +333,14 @@ def main() -> int:
         else:
             print("  No modules found")
         return 0
+
+    # Pass no-cache flag via env to runner
+    if args.no_cache:
+        os.environ["RUN_INTEGRATION_NO_CACHE"] = "true"
+
+    # Pass model override to subprocess via env
+    if args.model:
+        os.environ["OPENAI_MODEL"] = args.model
 
     # Run tests
     return run_integration_tests(args.module, args.verbose)

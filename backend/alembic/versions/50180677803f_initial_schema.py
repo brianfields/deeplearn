@@ -1,8 +1,8 @@
 """initial_schema
 
-Revision ID: ecd6ca06d019
+Revision ID: 50180677803f
 Revises: 
-Create Date: 2025-09-08 14:21:16.043844
+Create Date: 2025-09-10 11:23:10.262288
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'ecd6ca06d019'
+revision: str = '50180677803f'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -61,35 +61,57 @@ def upgrade() -> None:
     op.create_index(op.f('ix_flow_runs_flow_name'), 'flow_runs', ['flow_name'], unique=False)
     op.create_index(op.f('ix_flow_runs_status'), 'flow_runs', ['status'], unique=False)
     op.create_index(op.f('ix_flow_runs_user_id'), 'flow_runs', ['user_id'], unique=False)
+    op.create_table('learning_sessions',
+    sa.Column('id', sa.String(), nullable=False),
+    sa.Column('topic_id', sa.String(), nullable=False),
+    sa.Column('user_id', sa.String(), nullable=True),
+    sa.Column('status', sa.String(), nullable=False),
+    sa.Column('started_at', sa.DateTime(), nullable=False),
+    sa.Column('completed_at', sa.DateTime(), nullable=True),
+    sa.Column('current_component_index', sa.Integer(), nullable=False),
+    sa.Column('total_components', sa.Integer(), nullable=False),
+    sa.Column('progress_percentage', sa.Float(), nullable=False),
+    sa.Column('session_data', sa.JSON(), nullable=False),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_learning_sessions_status'), 'learning_sessions', ['status'], unique=False)
+    op.create_index(op.f('ix_learning_sessions_topic_id'), 'learning_sessions', ['topic_id'], unique=False)
+    op.create_index(op.f('ix_learning_sessions_user_id'), 'learning_sessions', ['user_id'], unique=False)
     op.create_table('llm_requests',
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('user_id', sa.UUID(), nullable=True),
+    sa.Column('api_variant', sa.String(length=50), nullable=False),
     sa.Column('provider', sa.String(length=50), nullable=False),
     sa.Column('model', sa.String(length=100), nullable=False),
+    sa.Column('provider_response_id', sa.String(length=100), nullable=True),
+    sa.Column('system_fingerprint', sa.String(length=100), nullable=True),
     sa.Column('temperature', sa.Float(), nullable=False),
-    sa.Column('max_tokens', sa.Integer(), nullable=False),
+    sa.Column('max_output_tokens', sa.Integer(), nullable=True),
     sa.Column('messages', sa.JSON(), nullable=False),
     sa.Column('additional_params', sa.JSON(), nullable=True),
+    sa.Column('request_payload', sa.JSON(), nullable=True),
     sa.Column('response_content', sa.Text(), nullable=True),
     sa.Column('response_raw', sa.JSON(), nullable=True),
+    sa.Column('response_output', sa.JSON(), nullable=True),
     sa.Column('tokens_used', sa.Integer(), nullable=True),
-    sa.Column('prompt_tokens', sa.Integer(), nullable=True),
-    sa.Column('completion_tokens', sa.Integer(), nullable=True),
+    sa.Column('input_tokens', sa.Integer(), nullable=True),
+    sa.Column('output_tokens', sa.Integer(), nullable=True),
     sa.Column('cost_estimate', sa.Float(), nullable=True),
-    sa.Column('finish_reason', sa.String(length=50), nullable=True),
+    sa.Column('response_created_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('status', sa.String(length=50), nullable=False),
     sa.Column('execution_time_ms', sa.Integer(), nullable=True),
     sa.Column('error_message', sa.Text(), nullable=True),
     sa.Column('error_type', sa.String(length=100), nullable=True),
     sa.Column('retry_attempt', sa.Integer(), nullable=False),
     sa.Column('cached', sa.Boolean(), nullable=False),
-    sa.Column('context_data', sa.JSON(), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_index(op.f('ix_llm_requests_api_variant'), 'llm_requests', ['api_variant'], unique=False)
     op.create_index(op.f('ix_llm_requests_cached'), 'llm_requests', ['cached'], unique=False)
     op.create_index(op.f('ix_llm_requests_model'), 'llm_requests', ['model'], unique=False)
     op.create_index(op.f('ix_llm_requests_provider'), 'llm_requests', ['provider'], unique=False)
+    op.create_index(op.f('ix_llm_requests_provider_response_id'), 'llm_requests', ['provider_response_id'], unique=False)
     op.create_index(op.f('ix_llm_requests_status'), 'llm_requests', ['status'], unique=False)
     op.create_index(op.f('ix_llm_requests_user_id'), 'llm_requests', ['user_id'], unique=False)
     op.create_table('bite_sized_components',
@@ -141,10 +163,16 @@ def downgrade() -> None:
     op.drop_table('bite_sized_components')
     op.drop_index(op.f('ix_llm_requests_user_id'), table_name='llm_requests')
     op.drop_index(op.f('ix_llm_requests_status'), table_name='llm_requests')
+    op.drop_index(op.f('ix_llm_requests_provider_response_id'), table_name='llm_requests')
     op.drop_index(op.f('ix_llm_requests_provider'), table_name='llm_requests')
     op.drop_index(op.f('ix_llm_requests_model'), table_name='llm_requests')
     op.drop_index(op.f('ix_llm_requests_cached'), table_name='llm_requests')
+    op.drop_index(op.f('ix_llm_requests_api_variant'), table_name='llm_requests')
     op.drop_table('llm_requests')
+    op.drop_index(op.f('ix_learning_sessions_user_id'), table_name='learning_sessions')
+    op.drop_index(op.f('ix_learning_sessions_topic_id'), table_name='learning_sessions')
+    op.drop_index(op.f('ix_learning_sessions_status'), table_name='learning_sessions')
+    op.drop_table('learning_sessions')
     op.drop_index(op.f('ix_flow_runs_user_id'), table_name='flow_runs')
     op.drop_index(op.f('ix_flow_runs_status'), table_name='flow_runs')
     op.drop_index(op.f('ix_flow_runs_flow_name'), table_name='flow_runs')

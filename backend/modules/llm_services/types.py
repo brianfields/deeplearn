@@ -84,12 +84,15 @@ class LLMResponse:
     provider: LLMProviderType
     model: str
     tokens_used: int | None = None
-    prompt_tokens: int | None = None
-    completion_tokens: int | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
     cost_estimate: float | None = None
-    finish_reason: str | None = None
     response_time_ms: int | None = None
     cached: bool = False
+    provider_response_id: str | None = None
+    system_fingerprint: str | None = None
+    response_output: dict[str, Any] | list[dict[str, Any]] | None = None
+    response_created_at: datetime | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary format"""
@@ -98,12 +101,15 @@ class LLMResponse:
             "provider": self.provider.value if hasattr(self.provider, "value") else self.provider,
             "model": self.model,
             "tokens_used": self.tokens_used,
-            "prompt_tokens": self.prompt_tokens,
-            "completion_tokens": self.completion_tokens,
+            "input_tokens": self.input_tokens,
+            "output_tokens": self.output_tokens,
             "cost_estimate": self.cost_estimate,
-            "finish_reason": self.finish_reason,
             "response_time_ms": self.response_time_ms,
             "cached": self.cached,
+            "provider_response_id": self.provider_response_id,
+            "system_fingerprint": self.system_fingerprint,
+            "response_output": self.response_output,
+            "response_created_at": self.response_created_at.isoformat() if self.response_created_at else None,
         }
 
 
