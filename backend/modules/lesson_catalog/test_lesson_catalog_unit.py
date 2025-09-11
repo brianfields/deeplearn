@@ -7,6 +7,8 @@ Tests for the lesson catalog service layer.
 from datetime import UTC, datetime
 from unittest.mock import Mock
 
+from modules.content.package_models import GlossaryTerm, LessonPackage, MCQAnswerKey, MCQItem, MCQOption, Meta, Objective
+from modules.content.service import LessonRead
 from modules.lesson_catalog.service import LessonCatalogService
 
 
@@ -18,22 +20,31 @@ class TestLessonCatalogService:
         # Arrange
         content = Mock()
 
-        # Mock lessons from content module
-        from modules.content.service import LessonComponentRead, LessonRead
+        # Create mock packages
+        package1 = LessonPackage(
+            meta=Meta(lesson_id="lesson-1", title="Lesson 1", core_concept="Concept 1", user_level="beginner", domain="Test"),
+            objectives=[Objective(id="obj1", text="Learn A")],
+            glossary={"terms": [GlossaryTerm(id="term1", term="Key A", definition="Definition A")]},
+            didactic={"by_lo": {}},
+            mcqs=[
+                MCQItem(
+                    id="mcq1",
+                    lo_id="obj1",
+                    stem="What is A?",
+                    options=[MCQOption(id="opt1", label="A", text="Answer A"), MCQOption(id="opt2", label="B", text="Answer B"), MCQOption(id="opt3", label="C", text="Answer C")],
+                    answer_key=MCQAnswerKey(label="A"),
+                )
+            ],
+        )
 
+        package2 = LessonPackage(
+            meta=Meta(lesson_id="lesson-2", title="Lesson 2", core_concept="Concept 2", user_level="intermediate", domain="Test"), objectives=[Objective(id="obj2", text="Learn B")], glossary={"terms": []}, didactic={"by_lo": {}}, mcqs=[]
+        )
+
+        # Mock lessons from content module
         mock_lessons = [
-            LessonRead(
-                id="lesson-1",
-                title="Lesson 1",
-                core_concept="Concept 1",
-                user_level="beginner",
-                learning_objectives=["Learn A"],
-                key_concepts=["Key A"],
-                created_at=datetime.now(UTC),
-                updated_at=datetime.now(UTC),
-                components=[LessonComponentRead(id="comp-1", lesson_id="lesson-1", component_type="mcq", title="MCQ 1", content={"question": "What is A?"}, created_at=datetime.now(UTC), updated_at=datetime.now(UTC))],
-            ),
-            LessonRead(id="lesson-2", title="Lesson 2", core_concept="Concept 2", user_level="intermediate", learning_objectives=["Learn B"], key_concepts=["Key B"], created_at=datetime.now(UTC), updated_at=datetime.now(UTC), components=[]),
+            LessonRead(id="lesson-1", title="Lesson 1", core_concept="Concept 1", user_level="beginner", package=package1, package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC)),
+            LessonRead(id="lesson-2", title="Lesson 2", core_concept="Concept 2", user_level="intermediate", package=package2, package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC)),
         ]
 
         content.search_lessons.return_value = mock_lessons
@@ -46,8 +57,8 @@ class TestLessonCatalogService:
         assert len(result.lessons) == 2
         assert result.total == 2
         assert result.lessons[0].id == "lesson-1"
-        assert result.lessons[0].component_count == 1
-        assert result.lessons[1].component_count == 0
+        assert result.lessons[0].component_count == 2  # 1 MCQ + 1 glossary term
+        assert result.lessons[1].component_count == 0  # No components
 
         content.search_lessons.assert_called_once_with(user_level="beginner", limit=10)
 
@@ -56,19 +67,24 @@ class TestLessonCatalogService:
         # Arrange
         content = Mock()
 
-        from modules.content.service import LessonComponentRead, LessonRead
-
-        mock_lesson = LessonRead(
-            id="lesson-1",
-            title="Lesson 1",
-            core_concept="Concept 1",
-            user_level="beginner",
-            learning_objectives=["Learn A"],
-            key_concepts=["Key A"],
-            created_at=datetime.now(UTC),
-            updated_at=datetime.now(UTC),
-            components=[LessonComponentRead(id="comp-1", lesson_id="lesson-1", component_type="mcq", title="MCQ 1", content={"question": "What is A?"}, created_at=datetime.now(UTC), updated_at=datetime.now(UTC))],
+        # Create mock package with components
+        package = LessonPackage(
+            meta=Meta(lesson_id="lesson-1", title="Lesson 1", core_concept="Concept 1", user_level="beginner", domain="Test"),
+            objectives=[Objective(id="obj1", text="Learn A")],
+            glossary={"terms": [GlossaryTerm(id="term1", term="Key A", definition="Definition A")]},
+            didactic={"by_lo": {}},
+            mcqs=[
+                MCQItem(
+                    id="mcq1",
+                    lo_id="obj1",
+                    stem="What is A?",
+                    options=[MCQOption(id="opt1", label="A", text="Answer A"), MCQOption(id="opt2", label="B", text="Answer B"), MCQOption(id="opt3", label="C", text="Answer C")],
+                    answer_key=MCQAnswerKey(label="A"),
+                )
+            ],
         )
+
+        mock_lesson = LessonRead(id="lesson-1", title="Lesson 1", core_concept="Concept 1", user_level="beginner", package=package, package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC))
 
         content.get_lesson.return_value = mock_lesson
         service = LessonCatalogService(content)
@@ -80,8 +96,8 @@ class TestLessonCatalogService:
         assert result is not None
         assert result.id == "lesson-1"
         assert result.title == "Lesson 1"
-        assert result.component_count == 1
-        assert len(result.components) == 1
+        assert result.component_count == 2  # 1 MCQ + 1 glossary term
+        assert len(result.components) == 2
         assert result.is_ready_for_learning() is True
 
         content.get_lesson.assert_called_once_with("lesson-1")
@@ -143,31 +159,34 @@ class TestLessonCatalogService:
         # Arrange
         content = Mock()
 
-        from modules.content.service import LessonComponentRead, LessonRead
+        # Create mock packages
+        package1 = LessonPackage(
+            meta=Meta(lesson_id="lesson-1", title="React Basics", core_concept="Components", user_level="beginner", domain="Programming"),
+            objectives=[Objective(id="obj1", text="Learn React")],
+            glossary={"terms": [GlossaryTerm(id="term1", term="JSX", definition="JSX definition"), GlossaryTerm(id="term2", term="Props", definition="Props definition")]},
+            didactic={"by_lo": {}},
+            mcqs=[
+                MCQItem(
+                    id="mcq1",
+                    lo_id="obj1",
+                    stem="What is React?",
+                    options=[MCQOption(id="opt1", label="A", text="A framework"), MCQOption(id="opt2", label="B", text="A library"), MCQOption(id="opt3", label="C", text="A language")],
+                    answer_key=MCQAnswerKey(label="B"),
+                )
+            ],
+        )
+
+        package2 = LessonPackage(
+            meta=Meta(lesson_id="lesson-2", title="Python Basics", core_concept="Variables", user_level="beginner", domain="Programming"),
+            objectives=[Objective(id="obj2", text="Learn Python")],
+            glossary={"terms": [GlossaryTerm(id="term3", term="Variables", definition="Variables definition")]},
+            didactic={"by_lo": {}},
+            mcqs=[],
+        )
 
         mock_lessons = [
-            LessonRead(
-                id="lesson-1",
-                title="React Basics",
-                core_concept="Components",
-                user_level="beginner",
-                learning_objectives=["Learn React"],
-                key_concepts=["JSX", "Props"],
-                created_at=datetime.now(UTC),
-                updated_at=datetime.now(UTC),
-                components=[LessonComponentRead(id="comp-1", lesson_id="lesson-1", component_type="mcq", title="MCQ 1", content={}, created_at=datetime.now(UTC), updated_at=datetime.now(UTC))],
-            ),
-            LessonRead(
-                id="lesson-2",
-                title="Python Basics",
-                core_concept="Variables",
-                user_level="beginner",
-                learning_objectives=["Learn Python"],
-                key_concepts=["Variables", "Functions"],
-                created_at=datetime.now(UTC),
-                updated_at=datetime.now(UTC),
-                components=[],
-            ),
+            LessonRead(id="lesson-1", title="React Basics", core_concept="Components", user_level="beginner", package=package1, package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC)),
+            LessonRead(id="lesson-2", title="Python Basics", core_concept="Variables", user_level="beginner", package=package2, package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC)),
         ]
 
         content.search_lessons.return_value = mock_lessons
@@ -186,31 +205,30 @@ class TestLessonCatalogService:
         # Arrange
         content = Mock()
 
-        from modules.content.service import LessonComponentRead, LessonRead
+        # Create mock packages
+        package1 = LessonPackage(
+            meta=Meta(lesson_id="lesson-1", title="Lesson 1", core_concept="Concept", user_level="beginner", domain="Test"),
+            objectives=[Objective(id="obj1", text="Learn")],
+            glossary={"terms": [GlossaryTerm(id="term1", term="Key", definition="Definition")]},
+            didactic={"by_lo": {}},
+            mcqs=[
+                MCQItem(
+                    id="mcq1",
+                    lo_id="obj1",
+                    stem="What is it?",
+                    options=[MCQOption(id="opt1", label="A", text="Answer A"), MCQOption(id="opt2", label="B", text="Answer B"), MCQOption(id="opt3", label="C", text="Answer C")],
+                    answer_key=MCQAnswerKey(label="A"),
+                )
+            ],
+        )
+
+        package2 = LessonPackage(
+            meta=Meta(lesson_id="lesson-2", title="Lesson 2", core_concept="Concept", user_level="intermediate", domain="Test"), objectives=[Objective(id="obj2", text="Learn")], glossary={"terms": []}, didactic={"by_lo": {}}, mcqs=[]
+        )
 
         mock_lessons = [
-            LessonRead(
-                id="lesson-1",
-                title="Lesson 1",
-                core_concept="Concept",
-                user_level="beginner",
-                learning_objectives=["Learn"],
-                key_concepts=["Key"],
-                created_at=datetime.now(UTC),
-                updated_at=datetime.now(UTC),
-                components=[LessonComponentRead(id="comp-1", lesson_id="lesson-1", component_type="mcq", title="MCQ 1", content={}, created_at=datetime.now(UTC), updated_at=datetime.now(UTC))],
-            ),
-            LessonRead(
-                id="lesson-2",
-                title="Lesson 2",
-                core_concept="Concept",
-                user_level="intermediate",
-                learning_objectives=["Learn"],
-                key_concepts=["Key"],
-                created_at=datetime.now(UTC),
-                updated_at=datetime.now(UTC),
-                components=[],
-            ),
+            LessonRead(id="lesson-1", title="Lesson 1", core_concept="Concept", user_level="beginner", package=package1, package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC)),
+            LessonRead(id="lesson-2", title="Lesson 2", core_concept="Concept", user_level="intermediate", package=package2, package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC)),
         ]
 
         content.search_lessons.return_value = mock_lessons
@@ -223,5 +241,5 @@ class TestLessonCatalogService:
         assert result.total_lessons == 2
         assert result.lessons_by_user_level["beginner"] == 1
         assert result.lessons_by_user_level["intermediate"] == 1
-        assert result.lessons_by_readiness["ready"] == 1
-        assert result.lessons_by_readiness["draft"] == 1
+        assert result.lessons_by_readiness["ready"] == 1  # Lesson 1 has components
+        assert result.lessons_by_readiness["draft"] == 1  # Lesson 2 has no components

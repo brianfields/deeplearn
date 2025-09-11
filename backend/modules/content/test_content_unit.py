@@ -1,15 +1,16 @@
 """
 Content Module - Unit Tests
 
-Tests for the content module service layer.
+Tests for the content module service layer with package structure.
 """
 
 from datetime import UTC, datetime
 from unittest.mock import Mock
 
-from modules.content.models import LessonComponentModel, LessonModel
+from modules.content.models import LessonModel
+from modules.content.package_models import GlossaryTerm, LessonPackage, MCQAnswerKey, MCQItem, MCQOption, Meta, Objective
 from modules.content.repo import ContentRepo
-from modules.content.service import ContentService, LessonComponentCreate, LessonCreate
+from modules.content.service import ContentService, LessonCreate
 
 
 class TestContentService:
@@ -29,20 +30,32 @@ class TestContentService:
         assert result is None
         repo.get_lesson_by_id.assert_called_once_with("nonexistent")
 
-    def test_get_lesson_returns_lesson_with_components(self):
-        """Test that get_lesson returns lesson with components when found."""
+    def test_get_lesson_returns_lesson_with_package(self):
+        """Test that get_lesson returns lesson with package when found."""
         # Arrange
         repo = Mock(spec=ContentRepo)
 
-        # Mock lesson
-        mock_lesson = LessonModel(id="test-id", title="Test Lesson", core_concept="Test Concept", user_level="beginner", learning_objectives=["Learn X"], key_concepts=["Concept A"], created_at=datetime.now(UTC), updated_at=datetime.now(UTC))
+        # Create a sample package
+        package = LessonPackage(
+            meta=Meta(lesson_id="test-id", title="Test Lesson", core_concept="Test Concept", user_level="beginner", domain="General"),
+            objectives=[Objective(id="lo_1", text="Learn X")],
+            glossary={"terms": [GlossaryTerm(id="term_1", term="Test Term", definition="Test Definition")]},
+            didactic={"by_lo": {}},
+            mcqs=[
+                MCQItem(
+                    id="mcq_1",
+                    lo_id="lo_1",
+                    stem="What is X?",
+                    options=[MCQOption(id="opt_a", label="A", text="Option A"), MCQOption(id="opt_b", label="B", text="Option B"), MCQOption(id="opt_c", label="C", text="Option C")],
+                    answer_key=MCQAnswerKey(label="A"),
+                )
+            ],
+        )
 
-        # Mock components
-        mock_component = LessonComponentModel(id="comp-id", lesson_id="test-id", component_type="mcq", title="Test MCQ", content={"question": "What is X?"}, created_at=datetime.now(UTC), updated_at=datetime.now(UTC))
+        # Mock lesson with package
+        mock_lesson = LessonModel(id="test-id", title="Test Lesson", core_concept="Test Concept", user_level="beginner", package=package.model_dump(), package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC))
 
         repo.get_lesson_by_id.return_value = mock_lesson
-        repo.get_components_by_lesson_id.return_value = [mock_component]
-
         service = ContentService(repo)
 
         # Act
@@ -52,22 +65,28 @@ class TestContentService:
         assert result is not None
         assert result.id == "test-id"
         assert result.title == "Test Lesson"
-        assert len(result.components) == 1
-        assert result.components[0].id == "comp-id"
+        assert result.package_version == 1
+        assert len(result.package.objectives) == 1
+        assert len(result.package.mcqs) == 1
+        assert result.package.objectives[0].text == "Learn X"
 
         repo.get_lesson_by_id.assert_called_once_with("test-id")
-        repo.get_components_by_lesson_id.assert_called_once_with("test-id")
 
-    def test_save_lesson_creates_new_lesson(self):
-        """Test that save_lesson creates a new lesson."""
+    def test_save_lesson_creates_new_lesson_with_package(self):
+        """Test that save_lesson creates a new lesson with package."""
         # Arrange
         repo = Mock(spec=ContentRepo)
         service = ContentService(repo)
 
-        lesson_data = LessonCreate(id="test-id", title="Test Lesson", core_concept="Test Concept", user_level="beginner", learning_objectives=["Learn X"], key_concepts=["Concept A"])
+        # Create a sample package
+        package = LessonPackage(
+            meta=Meta(lesson_id="test-id", title="Test Lesson", core_concept="Test Concept", user_level="beginner", domain="General"), objectives=[Objective(id="lo_1", text="Learn X")], glossary={"terms": []}, didactic={"by_lo": {}}, mcqs=[]
+        )
+
+        lesson_data = LessonCreate(id="test-id", title="Test Lesson", core_concept="Test Concept", user_level="beginner", package=package, package_version=1)
 
         # Mock the saved lesson
-        mock_saved_lesson = LessonModel(id="test-id", title="Test Lesson", core_concept="Test Concept", user_level="beginner", learning_objectives=["Learn X"], key_concepts=["Concept A"], created_at=datetime.now(UTC), updated_at=datetime.now(UTC))
+        mock_saved_lesson = LessonModel(id="test-id", title="Test Lesson", core_concept="Test Concept", user_level="beginner", package=package.model_dump(), package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC))
         repo.save_lesson.return_value = mock_saved_lesson
 
         # Act
@@ -76,31 +95,9 @@ class TestContentService:
         # Assert
         assert result.id == "test-id"
         assert result.title == "Test Lesson"
-        assert len(result.components) == 0  # New lesson has no components
+        assert result.package_version == 1
+        assert len(result.package.objectives) == 1
         repo.save_lesson.assert_called_once()
-
-    def test_save_lesson_component_creates_new_component(self):
-        """Test that save_lesson_component creates a new lesson component."""
-        # Arrange
-        repo = Mock(spec=ContentRepo)
-        service = ContentService(repo)
-
-        component_data = LessonComponentCreate(id="comp-id", lesson_id="test-id", component_type="mcq", title="Test MCQ", content={"question": "What is X?"}, learning_objective="Learn X")
-
-        # Mock the saved component
-        mock_saved_component = LessonComponentModel(
-            id="comp-id", lesson_id="test-id", component_type="mcq", title="Test MCQ", content={"question": "What is X?"}, learning_objective="Learn X", created_at=datetime.now(UTC), updated_at=datetime.now(UTC)
-        )
-        repo.save_component.return_value = mock_saved_component
-
-        # Act
-        result = service.save_lesson_component(component_data)
-
-        # Assert
-        assert result.id == "comp-id"
-        assert result.lesson_id == "test-id"
-        assert result.component_type == "mcq"
-        repo.save_component.assert_called_once()
 
     def test_lesson_exists_returns_true_when_exists(self):
         """Test that lesson_exists returns True when lesson exists."""

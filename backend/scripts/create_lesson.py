@@ -127,23 +127,37 @@ async def main() -> None:
             result = await creator.create_lesson_from_source_material(request)
             if args.verbose:
                 exists = content_service.lesson_exists(result.lesson_id)
-                comps = content_service.get_components_by_lesson(result.lesson_id)
-                print(f"🔎 DB verification before commit: lesson_exists={exists}, components={len(comps)}")
+                lesson = content_service.get_lesson(result.lesson_id)
+                print(f"🔎 DB verification before commit: lesson_exists={exists}, package_version={lesson.package_version if lesson else 'N/A'}")
 
         if args.verbose:
             print("✅ Generated complete lesson content!")
             print(f"   • Lesson ID: {result.lesson_id}")
-            print(f"   • Components created: {result.components_created}")
+            print(f"   • Package version: {result.package_version}")
+            print(f"   • Objectives: {result.objectives_count}")
+            print(f"   • Glossary terms: {result.glossary_terms_count}")
+            print(f"   • MCQs: {result.mcqs_count}")
 
         print("🎉 Lesson created successfully with AI-generated content!")
         print(f"   • Lesson ID: {result.lesson_id}")
         print(f"   • Title: {result.title}")
-        print(f"   • Components: {result.components_created}")
+        print(f"   • Package contains: {result.objectives_count} objectives, {result.glossary_terms_count} terms, {result.mcqs_count} MCQs")
         print(f"   • Frontend URL: http://localhost:3000/learn/{result.lesson_id}?mode=learning")
 
         # Optionally save summary to JSON file
         if args.output:
-            output_data = {"lesson_id": result.lesson_id, "title": result.title, "concept": args.concept, "user_level": args.level, "domain": args.domain, "components_created": result.components_created, "created_with": "new_module_architecture"}
+            output_data = {
+                "lesson_id": result.lesson_id,
+                "title": result.title,
+                "concept": args.concept,
+                "user_level": args.level,
+                "domain": args.domain,
+                "package_version": result.package_version,
+                "objectives_count": result.objectives_count,
+                "glossary_terms_count": result.glossary_terms_count,
+                "mcqs_count": result.mcqs_count,
+                "created_with": "single_lesson_model_architecture",
+            }
 
             with Path.open(args.output, "w") as f:
                 json.dump(output_data, f, indent=2, default=str)

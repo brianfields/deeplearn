@@ -100,10 +100,23 @@ class LessonCatalogService:
         lessons = self.content.search_lessons(user_level=user_level, limit=limit)
 
         # Convert to summary DTOs
-        summaries = [
-            LessonSummary(id=lesson.id, title=lesson.title, core_concept=lesson.core_concept, user_level=lesson.user_level, learning_objectives=lesson.learning_objectives, key_concepts=lesson.key_concepts, component_count=len(lesson.components))
-            for lesson in lessons
-        ]
+        summaries = []
+        for lesson in lessons:
+            # Extract data from package
+            objectives = [obj.text for obj in lesson.package.objectives]
+            component_count = len(lesson.package.mcqs) + len(lesson.package.didactic.get("by_lo", {})) + len(lesson.package.glossary.get("terms", []))
+
+            summaries.append(
+                LessonSummary(
+                    id=lesson.id,
+                    title=lesson.title,
+                    core_concept=lesson.core_concept,
+                    user_level=lesson.user_level,
+                    learning_objectives=objectives,
+                    key_concepts=[],  # Key concepts are now in glossary terms
+                    component_count=component_count,
+                )
+            )
 
         return BrowseLessonsResponse(lessons=summaries, total=len(summaries))
 
@@ -121,16 +134,47 @@ class LessonCatalogService:
         if not lesson:
             return None
 
+        # Extract components from package
+        components = []
+
+        # Add MCQs as components
+        for mcq in lesson.package.mcqs:
+            components.append(
+                {
+                    "id": mcq.id,
+                    "type": "mcq",
+                    "title": mcq.stem[:50] + "..." if len(mcq.stem) > 50 else mcq.stem,
+                    "content": {"question": mcq.stem, "options": [{"label": opt.label, "text": opt.text} for opt in mcq.options], "correct_answer": mcq.answer_key.label},
+                }
+            )
+
+        # Add didactic snippets as components
+        for didactic_id, didactic in lesson.package.didactic.get("by_lo", {}).items():
+            components.append(
+                {
+                    "id": didactic.id,
+                    "type": "didactic_snippet",
+                    "title": "Learning Material",
+                    "content": {"explanation": didactic.plain_explanation, "key_takeaways": didactic.key_takeaways, "worked_example": didactic.worked_example, "near_miss_example": didactic.near_miss_example},
+                }
+            )
+
+        # Add glossary terms as components
+        for term in lesson.package.glossary.get("terms", []):
+            components.append({"id": term.id, "type": "glossary", "title": f"Term: {term.term}", "content": {"term": term.term, "definition": term.definition, "relation_to_core": term.relation_to_core}})
+
+        objectives = [obj.text for obj in lesson.package.objectives]
+
         return LessonDetail(
             id=lesson.id,
             title=lesson.title,
             core_concept=lesson.core_concept,
             user_level=lesson.user_level,
-            learning_objectives=lesson.learning_objectives,
-            key_concepts=lesson.key_concepts,
-            components=[comp.model_dump() for comp in lesson.components],
+            learning_objectives=objectives,
+            key_concepts=[],  # Key concepts are now in glossary terms
+            components=components,
             created_at=str(lesson.created_at),
-            component_count=len(lesson.components),
+            component_count=len(components),
         )
 
     def search_lessons(
@@ -162,18 +206,24 @@ class LessonCatalogService:
         lessons = self.content.search_lessons(user_level=user_level, limit=limit + offset)
 
         # Convert to summary DTOs
-        summaries = [
-            LessonSummary(
-                id=lesson.id,
-                title=lesson.title,
-                core_concept=lesson.core_concept,
-                user_level=lesson.user_level,
-                learning_objectives=lesson.learning_objectives,
-                key_concepts=lesson.key_concepts,
-                component_count=len(lesson.components),
+        summaries = []
+        for lesson in lessons:
+            # Extract data from package
+            objectives = [obj.text for obj in lesson.package.objectives]
+            key_concepts = [term.term for term in lesson.package.glossary.get("terms", [])]
+            component_count = len(lesson.package.mcqs) + len(lesson.package.didactic.get("by_lo", {})) + len(lesson.package.glossary.get("terms", []))
+
+            summaries.append(
+                LessonSummary(
+                    id=lesson.id,
+                    title=lesson.title,
+                    core_concept=lesson.core_concept,
+                    user_level=lesson.user_level,
+                    learning_objectives=objectives,
+                    key_concepts=key_concepts,  # Now extracted from glossary terms
+                    component_count=component_count,
+                )
             )
-            for lesson in lessons
-        ]
 
         # Apply client-side filtering
         if query:
@@ -207,18 +257,25 @@ class LessonCatalogService:
         # In a real implementation, this would be based on usage metrics
         lessons = self.content.search_lessons(limit=limit)
 
-        return [
-            LessonSummary(
-                id=lesson.id,
-                title=lesson.title,
-                core_concept=lesson.core_concept,
-                user_level=lesson.user_level,
-                learning_objectives=lesson.learning_objectives,
-                key_concepts=lesson.key_concepts,
-                component_count=len(lesson.components),
+        summaries = []
+        for lesson in lessons:
+            # Extract data from package
+            objectives = [obj.text for obj in lesson.package.objectives]
+            key_concepts = [term.term for term in lesson.package.glossary.get("terms", [])]
+            component_count = len(lesson.package.mcqs) + len(lesson.package.didactic.get("by_lo", {})) + len(lesson.package.glossary.get("terms", []))
+
+            summaries.append(
+                LessonSummary(
+                    id=lesson.id,
+                    title=lesson.title,
+                    core_concept=lesson.core_concept,
+                    user_level=lesson.user_level,
+                    learning_objectives=objectives,
+                    key_concepts=key_concepts,
+                    component_count=component_count,
+                )
             )
-            for lesson in lessons
-        ]
+        return summaries
 
     def get_catalog_statistics(self) -> CatalogStatistics:
         """
@@ -245,7 +302,8 @@ class LessonCatalogService:
         duration_distribution = {"0-15": 0, "15-30": 0, "30-60": 0, "60+": 0}
 
         for lesson in all_lessons:
-            component_count = len(lesson.components)
+            # Extract component count from package
+            component_count = len(lesson.package.mcqs) + len(lesson.package.didactic.get("by_lo", {})) + len(lesson.package.glossary.get("terms", []))
 
             # Readiness
             if component_count > 0:

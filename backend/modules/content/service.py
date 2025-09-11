@@ -12,70 +12,44 @@ from pydantic import BaseModel, ConfigDict
 
 logger = logging.getLogger(__name__)
 
-from .models import LessonComponentModel, LessonModel
+from .models import LessonModel
+from .package_models import LessonPackage
 from .repo import ContentRepo
 
 
 # DTOs (Data Transfer Objects)
-class LessonComponentRead(BaseModel):
-    """DTO for reading lesson component data."""
-
-    id: str
-    lesson_id: str
-    component_type: str
-    title: str
-    content: dict
-    learning_objective: str | None = None
-    created_at: datetime
-    updated_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)
-
-
 class LessonRead(BaseModel):
-    """DTO for reading lesson data."""
+    """DTO for reading lesson data with embedded package."""
 
     id: str
     title: str
     core_concept: str
     user_level: str
-    learning_objectives: list[str]
-    key_concepts: list[str]
     source_material: str | None = None
     source_domain: str | None = None
     source_level: str | None = None
-    refined_material: str | None = None
+    refined_material: dict | None = None
+    package: LessonPackage
+    package_version: int
     created_at: datetime
     updated_at: datetime
-    components: list[LessonComponentRead] = []
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class LessonCreate(BaseModel):
-    """DTO for creating new lessons."""
+    """DTO for creating new lessons with package."""
 
     id: str
     title: str
     core_concept: str
     user_level: str
-    learning_objectives: list[str]
-    key_concepts: list[str]
     source_material: str | None = None
     source_domain: str | None = None
     source_level: str | None = None
-    refined_material: str | None = None
-
-
-class LessonComponentCreate(BaseModel):
-    """DTO for creating new lesson components."""
-
-    id: str
-    lesson_id: str
-    component_type: str
-    title: str
-    content: dict
-    learning_objective: str | None = None
+    refined_material: dict | None = None
+    package: LessonPackage
+    package_version: int = 1
 
 
 class ContentService:
@@ -87,60 +61,61 @@ class ContentService:
 
     # Lesson operations
     def get_lesson(self, lesson_id: str) -> LessonRead | None:
-        """Get lesson with components by ID."""
+        """Get lesson with package by ID."""
         lesson = self.repo.get_lesson_by_id(lesson_id)
         if not lesson:
             return None
 
-        # Load components
-        components = self.repo.get_components_by_lesson_id(lesson_id)
-
-        # Convert to DTO
-        lesson_dict = {
-            "id": lesson.id,
-            "title": lesson.title,
-            "core_concept": lesson.core_concept,
-            "user_level": lesson.user_level,
-            "learning_objectives": lesson.learning_objectives,
-            "key_concepts": lesson.key_concepts,
-            "source_material": lesson.source_material,
-            "source_domain": lesson.source_domain,
-            "source_level": lesson.source_level,
-            "refined_material": lesson.refined_material,
-            "created_at": lesson.created_at,
-            "updated_at": lesson.updated_at,
-            "components": [LessonComponentRead.model_validate(c) for c in components],
-        }
-
         try:
+            # Convert package JSON to LessonPackage model for validation
+            package = LessonPackage.model_validate(lesson.package)
+
+            # Create lesson dict for DTO conversion
+            lesson_dict = {
+                "id": lesson.id,
+                "title": lesson.title,
+                "core_concept": lesson.core_concept,
+                "user_level": lesson.user_level,
+                "source_material": lesson.source_material,
+                "source_domain": lesson.source_domain,
+                "source_level": lesson.source_level,
+                "refined_material": lesson.refined_material,
+                "package": package,
+                "package_version": lesson.package_version,
+                "created_at": lesson.created_at,
+                "updated_at": lesson.updated_at,
+            }
+
             return LessonRead.model_validate(lesson_dict)
         except Exception as e:
             logger.error(f"❌ Failed to validate lesson {lesson.id} ({lesson.title}): {e}")
             raise
 
     def get_all_lessons(self, limit: int = 100, offset: int = 0) -> list[LessonRead]:
-        """Get all lessons with components."""
+        """Get all lessons with packages."""
         lessons = self.repo.get_all_lessons(limit, offset)
         result = []
 
         for lesson in lessons:
-            components = self.repo.get_components_by_lesson_id(lesson.id)
-            lesson_dict = {
-                "id": lesson.id,
-                "title": lesson.title,
-                "core_concept": lesson.core_concept,
-                "user_level": lesson.user_level,
-                "learning_objectives": lesson.learning_objectives,
-                "key_concepts": lesson.key_concepts,
-                "source_material": lesson.source_material,
-                "source_domain": lesson.source_domain,
-                "source_level": lesson.source_level,
-                "refined_material": lesson.refined_material,
-                "created_at": lesson.created_at,
-                "updated_at": lesson.updated_at,
-                "components": [LessonComponentRead.model_validate(c) for c in components],
-            }
             try:
+                # Convert package JSON to LessonPackage model for validation
+                package = LessonPackage.model_validate(lesson.package)
+
+                lesson_dict = {
+                    "id": lesson.id,
+                    "title": lesson.title,
+                    "core_concept": lesson.core_concept,
+                    "user_level": lesson.user_level,
+                    "source_material": lesson.source_material,
+                    "source_domain": lesson.source_domain,
+                    "source_level": lesson.source_level,
+                    "refined_material": lesson.refined_material,
+                    "package": package,
+                    "package_version": lesson.package_version,
+                    "created_at": lesson.created_at,
+                    "updated_at": lesson.updated_at,
+                }
+
                 result.append(LessonRead.model_validate(lesson_dict))
             except Exception as e:
                 logger.warning(f"⚠️ Skipping lesson {lesson.id} ({lesson.title}) due to data validation error: {e}")
@@ -154,23 +129,25 @@ class ContentService:
         result = []
 
         for lesson in lessons:
-            components = self.repo.get_components_by_lesson_id(lesson.id)
-            lesson_dict = {
-                "id": lesson.id,
-                "title": lesson.title,
-                "core_concept": lesson.core_concept,
-                "user_level": lesson.user_level,
-                "learning_objectives": lesson.learning_objectives,
-                "key_concepts": lesson.key_concepts,
-                "source_material": lesson.source_material,
-                "source_domain": lesson.source_domain,
-                "source_level": lesson.source_level,
-                "refined_material": lesson.refined_material,
-                "created_at": lesson.created_at,
-                "updated_at": lesson.updated_at,
-                "components": [LessonComponentRead.model_validate(c) for c in components],
-            }
             try:
+                # Convert package JSON to LessonPackage model for validation
+                package = LessonPackage.model_validate(lesson.package)
+
+                lesson_dict = {
+                    "id": lesson.id,
+                    "title": lesson.title,
+                    "core_concept": lesson.core_concept,
+                    "user_level": lesson.user_level,
+                    "source_material": lesson.source_material,
+                    "source_domain": lesson.source_domain,
+                    "source_level": lesson.source_level,
+                    "refined_material": lesson.refined_material,
+                    "package": package,
+                    "package_version": lesson.package_version,
+                    "created_at": lesson.created_at,
+                    "updated_at": lesson.updated_at,
+                }
+
                 result.append(LessonRead.model_validate(lesson_dict))
             except Exception as e:
                 logger.warning(f"⚠️ Skipping lesson {lesson.id} ({lesson.title}) due to data validation error: {e}")
@@ -179,39 +156,41 @@ class ContentService:
         return result
 
     def save_lesson(self, lesson_data: LessonCreate) -> LessonRead:
-        """Create new lesson."""
+        """Create new lesson with package."""
+        # Validate package before saving
+        package_dict = lesson_data.package.model_dump()
+
         lesson_model = LessonModel(
             id=lesson_data.id,
             title=lesson_data.title,
             core_concept=lesson_data.core_concept,
             user_level=lesson_data.user_level,
-            learning_objectives=lesson_data.learning_objectives,
-            key_concepts=lesson_data.key_concepts,
             source_material=lesson_data.source_material,
             source_domain=lesson_data.source_domain,
             source_level=lesson_data.source_level,
             refined_material=lesson_data.refined_material or {},
+            package=package_dict,
+            package_version=lesson_data.package_version,
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
         )
 
         saved_lesson = self.repo.save_lesson(lesson_model)
 
-        # Return as DTO with empty components list
+        # Return as DTO
         lesson_dict = {
             "id": saved_lesson.id,
             "title": saved_lesson.title,
             "core_concept": saved_lesson.core_concept,
             "user_level": saved_lesson.user_level,
-            "learning_objectives": saved_lesson.learning_objectives,
-            "key_concepts": saved_lesson.key_concepts,
             "source_material": saved_lesson.source_material,
             "source_domain": saved_lesson.source_domain,
             "source_level": saved_lesson.source_level,
             "refined_material": saved_lesson.refined_material,
+            "package": lesson_data.package,  # Use original validated package
+            "package_version": saved_lesson.package_version,
             "created_at": saved_lesson.created_at,
             "updated_at": saved_lesson.updated_at,
-            "components": [],
         }
 
         try:
@@ -227,34 +206,3 @@ class ContentService:
     def lesson_exists(self, lesson_id: str) -> bool:
         """Check if lesson exists."""
         return self.repo.lesson_exists(lesson_id)
-
-    # Lesson component operations
-    def get_lesson_component(self, component_id: str) -> LessonComponentRead | None:
-        """Get lesson component by ID."""
-        component = self.repo.get_component_by_id(component_id)
-        return LessonComponentRead.model_validate(component) if component else None
-
-    def get_components_by_lesson(self, lesson_id: str) -> list[LessonComponentRead]:
-        """Get all components for a lesson."""
-        components = self.repo.get_components_by_lesson_id(lesson_id)
-        return [LessonComponentRead.model_validate(c) for c in components]
-
-    def save_lesson_component(self, component_data: LessonComponentCreate) -> LessonComponentRead:
-        """Create new lesson component."""
-        component_model = LessonComponentModel(
-            id=component_data.id,
-            lesson_id=component_data.lesson_id,
-            component_type=component_data.component_type,
-            title=component_data.title,
-            content=component_data.content,
-            learning_objective=component_data.learning_objective,
-            created_at=datetime.now(UTC),
-            updated_at=datetime.now(UTC),
-        )
-
-        saved_component = self.repo.save_component(component_model)
-        return LessonComponentRead.model_validate(saved_component)
-
-    def delete_lesson_component(self, component_id: str) -> bool:
-        """Delete lesson component by ID."""
-        return self.repo.delete_component(component_id)

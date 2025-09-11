@@ -38,22 +38,27 @@ class TestContentCreatorService:
         }
 
         # Mock content service responses
+        from modules.content.package_models import LessonPackage, Meta, Objective
         from modules.content.service import LessonRead
 
-        mock_lesson = LessonRead(
-            id="test-id", title="Test Lesson", core_concept="Test Concept", user_level="beginner", learning_objectives=["Learn X"], key_concepts=["Concept A"], created_at=datetime(2024, 1, 1), updated_at=datetime(2024, 1, 1), components=[]
+        # Create a mock package
+        mock_package = LessonPackage(
+            meta=Meta(lesson_id="test-id", title="Test Lesson", core_concept="Test Concept", user_level="beginner", domain="Testing"), objectives=[Objective(id="lo_1", text="Learn X")], glossary={"terms": []}, didactic={"by_lo": {}}, mcqs=[]
         )
+
+        mock_lesson = LessonRead(id="test-id", title="Test Lesson", core_concept="Test Concept", user_level="beginner", package=mock_package, package_version=1, created_at=datetime(2024, 1, 1), updated_at=datetime(2024, 1, 1))
         content.save_lesson.return_value = mock_lesson
-        content.save_lesson_component.return_value = Mock()
 
         # Act
         result = await service.create_lesson_from_source_material(request)
 
         # Assert
         assert result.title == "Test Lesson"
-        assert result.components_created == 4  # didactic_snippet, glossary, 2 MCQs (one per learning objective)
+        assert result.package_version == 1
+        assert result.objectives_count > 0
+        assert result.mcqs_count > 0
         content.save_lesson.assert_called_once()
-        assert content.save_lesson_component.call_count == 4
+        # No more component calls - everything is in the package now
 
         # Verify flow was called with correct inputs
         mock_flow.execute.assert_called_once_with({"title": "Test Lesson", "core_concept": "Test Concept", "source_material": "Test material content", "user_level": "beginner", "domain": "Testing"})
