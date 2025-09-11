@@ -133,7 +133,15 @@ class LearningSessionService:
 
         # Get lesson content to determine component count
         lesson_content = self.content.get_lesson(request.lesson_id)
-        total_components = len(lesson_content.components) if lesson_content else 0
+        if lesson_content:
+            # Calculate total components from package structure
+            total_components = (
+                len(lesson_content.package.mcqs) + 
+                len(lesson_content.package.didactic.get("by_lo", {})) + 
+                len(lesson_content.package.glossary.get("terms", []))
+            )
+        else:
+            total_components = 0
 
         # Create new session
         session = self.repo.create_session(
