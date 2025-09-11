@@ -73,13 +73,16 @@ def create_sample_lesson_data(
         """,
         "source_domain": domain,
         "source_level": user_level,
-        "refined_material": {
-            "sections": [
-                {"title": "Mathematical Foundation", "content": "Cross-entropy measures information content"},
-                {"title": "Implementation", "content": "PyTorch provides nn.CrossEntropyLoss()"},
-                {"title": "Applications", "content": "Used in classification tasks"},
-            ]
-        },
+        "refined_material": """Cross-Entropy Loss: Mathematical Foundation and Implementation
+
+Mathematical Foundation:
+Cross-entropy measures the information content and difference between probability distributions. It quantifies how far predicted probabilities are from actual labels.
+
+Implementation:
+PyTorch provides nn.CrossEntropyLoss() which combines softmax activation and cross-entropy loss computation in a single, numerically stable function.
+
+Applications:
+Primarily used in multi-class classification tasks where each sample belongs to exactly one class. Essential for training neural networks on classification problems.""",
     }
 
 

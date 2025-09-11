@@ -49,7 +49,7 @@ class LLMServicesProvider(Protocol):
 
     async def generate_structured_response(
         self, messages: list[LLMMessage], response_model: type[T], user_id: uuid.UUID | None = None, model: str | None = None, temperature: float | None = None, max_output_tokens: int | None = None, **kwargs: Any
-    ) -> tuple[T, uuid.UUID]:
+    ) -> tuple[T, uuid.UUID, dict[str, Any]]:
         """
         Generate a structured response using a Pydantic model.
 

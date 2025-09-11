@@ -6,8 +6,11 @@ Handles content operations and data transformation.
 """
 
 from datetime import UTC, datetime
+import logging
 
 from pydantic import BaseModel, ConfigDict
+
+logger = logging.getLogger(__name__)
 
 from .models import LessonComponentModel, LessonModel
 from .repo import ContentRepo
@@ -41,7 +44,7 @@ class LessonRead(BaseModel):
     source_material: str | None = None
     source_domain: str | None = None
     source_level: str | None = None
-    refined_material: dict | None = None
+    refined_material: str | None = None
     created_at: datetime
     updated_at: datetime
     components: list[LessonComponentRead] = []
@@ -61,7 +64,7 @@ class LessonCreate(BaseModel):
     source_material: str | None = None
     source_domain: str | None = None
     source_level: str | None = None
-    refined_material: dict | None = None
+    refined_material: str | None = None
 
 
 class LessonComponentCreate(BaseModel):
@@ -109,7 +112,11 @@ class ContentService:
             "components": [LessonComponentRead.model_validate(c) for c in components],
         }
 
-        return LessonRead.model_validate(lesson_dict)
+        try:
+            return LessonRead.model_validate(lesson_dict)
+        except Exception as e:
+            logger.error(f"❌ Failed to validate lesson {lesson.id} ({lesson.title}): {e}")
+            raise
 
     def get_all_lessons(self, limit: int = 100, offset: int = 0) -> list[LessonRead]:
         """Get all lessons with components."""
@@ -133,7 +140,11 @@ class ContentService:
                 "updated_at": lesson.updated_at,
                 "components": [LessonComponentRead.model_validate(c) for c in components],
             }
-            result.append(LessonRead.model_validate(lesson_dict))
+            try:
+                result.append(LessonRead.model_validate(lesson_dict))
+            except Exception as e:
+                logger.warning(f"⚠️ Skipping lesson {lesson.id} ({lesson.title}) due to data validation error: {e}")
+                continue
 
         return result
 
@@ -159,7 +170,11 @@ class ContentService:
                 "updated_at": lesson.updated_at,
                 "components": [LessonComponentRead.model_validate(c) for c in components],
             }
-            result.append(LessonRead.model_validate(lesson_dict))
+            try:
+                result.append(LessonRead.model_validate(lesson_dict))
+            except Exception as e:
+                logger.warning(f"⚠️ Skipping lesson {lesson.id} ({lesson.title}) due to data validation error: {e}")
+                continue
 
         return result
 
@@ -199,7 +214,11 @@ class ContentService:
             "components": [],
         }
 
-        return LessonRead.model_validate(lesson_dict)
+        try:
+            return LessonRead.model_validate(lesson_dict)
+        except Exception as e:
+            logger.error(f"❌ Failed to validate saved lesson {saved_lesson.id} ({saved_lesson.title}): {e}")
+            raise
 
     def delete_lesson(self, lesson_id: str) -> bool:
         """Delete lesson by ID."""

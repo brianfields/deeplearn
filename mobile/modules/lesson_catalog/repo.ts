@@ -13,7 +13,7 @@ import type {
 } from './models';
 
 // Backend API endpoints
-const LESSON_CATALOG_BASE = '/api/v1/lessons';
+const LESSON_CATALOG_BASE = '/api/v1/lesson_catalog';
 
 // API response types (private to repo)
 interface ApiBrowseLessonsResponse {

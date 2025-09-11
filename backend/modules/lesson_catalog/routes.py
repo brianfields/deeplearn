@@ -22,7 +22,7 @@ from .service import (
     SearchLessonsResponse,
 )
 
-router = APIRouter(prefix="/api/v1/lessons")
+router = APIRouter(prefix="/api/v1/lesson_catalog")
 
 
 def get_session() -> Generator[Session, None, None]:

@@ -209,9 +209,12 @@ class LLMService:
 
     async def generate_structured_response(
         self, messages: list[LLMMessage], response_model: type[T], user_id: uuid.UUID | None = None, model: str | None = None, temperature: float | None = None, max_output_tokens: int | None = None, **kwargs: Any
-    ) -> tuple[T, uuid.UUID]:
+    ) -> tuple[T, uuid.UUID, dict[str, Any]]:
         """
         Generate a structured response using a Pydantic model.
+
+        Returns:
+            Tuple of (structured_object, request_id, usage_info)
         """
         if not self.provider:
             raise RuntimeError("LLM provider not initialized")
@@ -220,9 +223,11 @@ class LLMService:
         internal_messages = [msg.to_llm_message() for msg in messages]
 
         # Call provider
-        structured_obj, request_id = await self.provider.generate_structured_object(messages=internal_messages, response_model=response_model, user_id=user_id, model=model, temperature=temperature, max_output_tokens=max_output_tokens, **kwargs)
+        structured_obj, request_id, usage_info = await self.provider.generate_structured_object(
+            messages=internal_messages, response_model=response_model, user_id=user_id, model=model, temperature=temperature, max_output_tokens=max_output_tokens, **kwargs
+        )
 
-        return structured_obj, request_id
+        return structured_obj, request_id, usage_info
 
     async def generate_image(self, prompt: str, user_id: uuid.UUID | None = None, size: str = "1024x1024", quality: str = "standard", style: str | None = None, **kwargs: Any) -> tuple[ImageResponse, uuid.UUID]:
         """

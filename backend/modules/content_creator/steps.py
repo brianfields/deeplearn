@@ -1,10 +1,15 @@
 """Content creation steps using flow engine infrastructure."""
 
-from typing import Any
-
 from pydantic import BaseModel
 
 from modules.flow_engine.public import StructuredStep
+
+
+class GlossaryTerm(BaseModel):
+    """A single glossary term with its definition."""
+
+    term: str
+    definition: str
 
 
 class ExtractLessonMetadataStep(StructuredStep):
@@ -12,6 +17,10 @@ class ExtractLessonMetadataStep(StructuredStep):
 
     step_name = "extract_lesson_metadata"
     prompt_file = "extract_lesson_metadata.md"
+
+    # GPT-5 configuration for this step
+    reasoning_effort = "medium"  # Good balance for content analysis
+    verbosity = "low"  # Just the structured data, no extra explanation
 
     class Inputs(BaseModel):
         title: str
@@ -23,7 +32,7 @@ class ExtractLessonMetadataStep(StructuredStep):
     class Outputs(BaseModel):
         learning_objectives: list[str]
         key_concepts: list[str]
-        refined_material: dict[str, Any]
+        refined_material: str
 
 
 class GenerateMCQStep(StructuredStep):
@@ -31,6 +40,10 @@ class GenerateMCQStep(StructuredStep):
 
     step_name = "generate_mcq"
     prompt_file = "generate_mcq.md"
+
+    # GPT-5 configuration for this step
+    reasoning_effort = "high"  # Need careful reasoning for good MCQs
+    verbosity = "low"  # Just the question data
 
     class Inputs(BaseModel):
         lesson_title: str
@@ -75,4 +88,4 @@ class GenerateGlossaryStep(StructuredStep):
         user_level: str
 
     class Outputs(BaseModel):
-        terms: list[dict[str, str]]  # [{"term": "...", "definition": "..."}]
+        terms: list[GlossaryTerm]

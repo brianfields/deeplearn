@@ -57,6 +57,10 @@ class BaseStep(ABC):
     step_name: str
     prompt_file: str | None = None  # Optional for non-LLM steps
 
+    # Optional GPT-5 configuration (can be overridden by subclasses)
+    reasoning_effort: str | None = None  # "minimal", "low", "medium", "high"
+    verbosity: str | None = None  # "low", "medium", "high"
+
     @property
     @abstractmethod
     def step_type(self) -> StepType:
@@ -76,6 +80,18 @@ class BaseStep(ABC):
     def outputs_model(self) -> type[BaseModel] | None:
         """Return the output validation model (for structured steps)."""
         return getattr(self, "Outputs", None)
+
+    def _get_llm_config(self) -> dict[str, Any]:
+        """Build LLM configuration from step settings."""
+        config = {}
+
+        if self.reasoning_effort:
+            config["reasoning"] = {"effort": self.reasoning_effort}
+
+        if self.verbosity:
+            config["verbosity"] = self.verbosity
+
+        return config
 
     async def execute(self, inputs: dict[str, Any]) -> StepResult:
         """
@@ -235,7 +251,10 @@ class UnstructuredStep(BaseStep):
         messages = [LLMMessage(role="user", content=formatted_prompt, name=None, function_call=None, tool_calls=None)]
 
         llm_services = context.service.get_llm_services()
-        response, request_id = await llm_services.generate_response(messages)
+
+        # Apply step-specific GPT-5 configuration
+        llm_config = self._get_llm_config()
+        response, request_id = await llm_services.generate_response(messages, **llm_config)
 
         # Update context with usage info
         context.last_tokens_used = response.tokens_used or 0
@@ -281,12 +300,14 @@ class StructuredStep(BaseStep):
         messages = [LLMMessage(role="user", content=formatted_prompt, name=None, function_call=None, tool_calls=None)]
 
         llm_services = context.service.get_llm_services()
-        structured_response, request_id = await llm_services.generate_structured_response(messages, self.outputs_model)
 
-        # Update context with usage info (structured responses don't include metadata directly)
-        # For now, set to 0 and let the service track actual usage
-        context.last_tokens_used = 0
-        context.last_cost_estimate = 0.0
+        # Apply step-specific GPT-5 configuration
+        llm_config = self._get_llm_config()
+        structured_response, request_id, usage_info = await llm_services.generate_structured_response(messages, self.outputs_model, **llm_config)
+
+        # Update context with usage info
+        context.last_tokens_used = usage_info.get("tokens_used", 0)
+        context.last_cost_estimate = usage_info.get("cost_estimate", 0.0)
 
         return structured_response, request_id
 

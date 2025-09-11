@@ -108,10 +108,10 @@ class OpenAIProvider(LLMProvider):
         except Exception as e:
             raise LLMAuthenticationError(f"Failed to setup OpenAI client: {e}") from e
 
-    def _to_jsonable(self, obj: Any) -> Any:
+    def _to_jsonable(self, obj: Any) -> Any:  # noqa: ANN401
         """Convert SDK/Pydantic objects to JSON-serializable structures recursively."""
         # Primitive types
-        if obj is None or isinstance(obj, (str, int, float, bool)):
+        if obj is None or isinstance(obj, str | int | float | bool):
             return obj
         # Pydantic v2 models
         if hasattr(obj, "model_dump") and callable(obj.model_dump):
@@ -129,7 +129,7 @@ class OpenAIProvider(LLMProvider):
         if isinstance(obj, dict):
             return {self._to_jsonable(k): self._to_jsonable(v) for k, v in obj.items()}
         # Sequence
-        if isinstance(obj, (list, tuple)):
+        if isinstance(obj, list | tuple):
             return [self._to_jsonable(v) for v in obj]
         # Fallback
         return str(obj)
@@ -152,7 +152,7 @@ class OpenAIProvider(LLMProvider):
             input_messages.append(input_msg)
         return input_messages
 
-    def _parse_gpt5_response(self, response: Any) -> tuple[str, dict[str, Any] | list[dict[str, Any]] | None, dict[str, Any] | None]:
+    def _parse_gpt5_response(self, response: Any) -> tuple[str, dict[str, Any] | list[dict[str, Any]] | None, dict[str, Any] | None]:  # noqa: ANN401
         """Parse GPT-5 Responses API and extract content, output array, and usage."""
         # Use output_text if available (convenience property in SDK)
         if hasattr(response, "output_text"):
@@ -175,9 +175,9 @@ class OpenAIProvider(LLMProvider):
     async def _handle_cached_response(
         self,
         messages: list[LLMMessage],
-        llm_request: Any,
+        llm_request: Any,  # noqa: ANN401
         start_time: datetime,
-        **kwargs: Any,
+        **kwargs: Any,  # noqa: ANN401
     ) -> LLMResponse | None:
         """Check cache for existing response."""
         cache = getattr(self, "_cache", None)
@@ -196,7 +196,7 @@ class OpenAIProvider(LLMProvider):
         self,
         messages: list[LLMMessage],
         model: str,
-        **kwargs: Any,
+        **kwargs: Any,  # noqa: ANN401
     ) -> dict[str, Any]:
         """Prepare request parameters for GPT-5 API call."""
         input_messages = self._convert_messages_to_gpt5_input(messages)
@@ -210,9 +210,25 @@ class OpenAIProvider(LLMProvider):
         if "instructions" in kwargs:
             request_params["instructions"] = kwargs["instructions"]
             logger.debug(f"Instructions: {kwargs['instructions'][:100]}...")
+
+        # Reasoning configuration
         if "reasoning" in kwargs:
             request_params["reasoning"] = kwargs["reasoning"]
             logger.debug(f"Reasoning: {kwargs['reasoning']}")
+
+        # Text configuration (verbosity)
+        if "text" in kwargs:
+            request_params["text"] = kwargs["text"]
+            logger.debug(f"Text config: {kwargs['text']}")
+        elif "verbosity" in kwargs:
+            # Support direct verbosity parameter for convenience
+            request_params["text"] = {"verbosity": kwargs["verbosity"]}
+            logger.debug(f"Verbosity: {kwargs['verbosity']}")
+
+        # Chain of thought persistence
+        if "previous_response_id" in kwargs:
+            request_params["previous_response_id"] = kwargs["previous_response_id"]
+            logger.debug(f"Using previous response ID: {kwargs['previous_response_id']}")
 
         # Add optional parameters that work with GPT-5
         for param in ["top_p", "frequency_penalty", "presence_penalty", "stop", "max_output_tokens"]:
@@ -226,7 +242,7 @@ class OpenAIProvider(LLMProvider):
         self,
         messages: list[LLMMessage],
         user_id: uuid.UUID | None = None,
-        **kwargs: Any,
+        **kwargs: Any,  # noqa: ANN401
     ) -> tuple[LLMResponse, uuid.UUID]:
         """
         Generate a response from OpenAI.
@@ -349,71 +365,251 @@ class OpenAIProvider(LLMProvider):
             # Convert to appropriate LLM exception
             raise self._convert_exception(e) from e
 
+    def _fix_schema_for_structured_outputs(self, schema: dict[str, Any]) -> dict[str, Any]:
+        """Fix JSON schema to be compatible with OpenAI structured outputs."""
+
+        def fix_object_schema(obj: dict[str, Any]) -> dict[str, Any]:
+            """Recursively fix object schemas to include additionalProperties: false."""
+            if isinstance(obj, dict):
+                # Fix current object
+                if obj.get("type") == "object":
+                    obj["additionalProperties"] = False
+
+                # Recursively fix nested objects
+                for key, value in obj.items():
+                    if isinstance(value, dict):
+                        obj[key] = fix_object_schema(value)
+                    elif isinstance(value, list):
+                        obj[key] = [fix_object_schema(item) if isinstance(item, dict) else item for item in value]
+
+            return obj
+
+        fixed_schema = fix_object_schema(schema.copy())
+
+        # Also ensure the root object has additionalProperties: false
+        if fixed_schema.get("type") == "object":
+            fixed_schema["additionalProperties"] = False
+
+        return fixed_schema
+
+    def _prepare_structured_request_params(
+        self,
+        messages: list[LLMMessage],
+        response_model: type[T],
+        model: str,
+        **kwargs: Any,  # noqa: ANN401
+    ) -> dict[str, Any]:
+        """Prepare request parameters for structured outputs."""
+        schema = response_model.model_json_schema()
+        # Fix schema for OpenAI structured outputs compatibility
+        schema = self._fix_schema_for_structured_outputs(schema)
+        input_messages = self._convert_messages_to_gpt5_input(messages)
+
+        request_params = {"model": model, "input": input_messages, "text": {"format": {"type": "json_schema", "name": response_model.__name__.lower(), "schema": schema, "strict": True}}}
+
+        # Add GPT-5 specific parameters for structured outputs
+        if "reasoning" in kwargs:
+            request_params["reasoning"] = kwargs["reasoning"]
+
+        if "text" in kwargs:
+            # Merge with existing text.format configuration
+            if "text" not in request_params:
+                request_params["text"] = {}
+            request_params["text"].update(kwargs["text"])
+        elif "verbosity" in kwargs:
+            # Support direct verbosity parameter
+            if "text" not in request_params:
+                request_params["text"] = {}
+            request_params["text"]["verbosity"] = kwargs["verbosity"]
+
+        if "previous_response_id" in kwargs:
+            request_params["previous_response_id"] = kwargs["previous_response_id"]
+
+        # Add optional parameters
+        for param in ["top_p", "frequency_penalty", "presence_penalty", "stop", "max_output_tokens"]:
+            if param in kwargs:
+                request_params[param] = kwargs[param]
+
+        return request_params
+
+    def _validate_structured_response(self, response: Any) -> None:  # noqa: ANN401
+        """Validate structured response for errors and refusals."""
+        if not hasattr(response, "status"):
+            return
+
+        if response.status == "incomplete" and hasattr(response, "incomplete_details"):
+            reason = getattr(response.incomplete_details, "reason", "unknown")
+            if reason == "max_output_tokens":
+                raise LLMValidationError("Response was incomplete due to max_output_tokens limit")
+            if reason == "content_filter":
+                raise LLMValidationError("Response was filtered due to content policy")
+            raise LLMValidationError(f"Response incomplete: {reason}")
+
+        # Check for refusals in the output
+        if hasattr(response, "output") and response.output:
+            for output_item in response.output:
+                if hasattr(output_item, "content") and output_item.content:
+                    for content_item in output_item.content:
+                        if hasattr(content_item, "type") and content_item.type == "refusal":
+                            refusal_message = getattr(content_item, "refusal", "Model refused to respond")
+                            raise LLMValidationError(f"Model refused request: {refusal_message}")
+
     async def generate_structured_object(
         self,
         messages: list[LLMMessage],
         response_model: type[T],
         user_id: uuid.UUID | None = None,
-        **kwargs: Any,
-    ) -> tuple[T, uuid.UUID]:
+        **kwargs: Any,  # noqa: ANN401
+    ) -> tuple[T, uuid.UUID, dict[str, Any]]:
         """
-        Generate a structured response using GPT-5 with JSON schema instructions.
+        Generate a structured response using OpenAI's Structured Outputs feature.
 
-        Uses GPT-5's instructions parameter to enforce JSON schema compliance.
+        Uses the text.format parameter with json_schema for reliable schema adherence.
         """
+        start_time = datetime.now(UTC)
+
         try:
-            # Validate GPT-5 model
+            # Validate model
             model = kwargs.get("model", self.config.model) or self.config.model
             self._validate_gpt5_model(model)
 
-            # Create JSON schema instruction for GPT-5
-            schema = response_model.model_json_schema()
-            properties = schema.get("properties", {})
-            required = schema.get("required", [])
+            # Create database record
+            llm_request = self._create_llm_request(messages=messages, user_id=user_id, **kwargs)
+            if llm_request.id is None:
+                raise LLMError("Failed to create LLM request record")
+            request_id: uuid.UUID = llm_request.id
 
-            # Create a clearer instruction with examples
-            prop_descriptions = []
-            for prop_name, prop_info in properties.items():
-                prop_type = prop_info.get("type", "string")
-                prop_desc = prop_info.get("description", f"{prop_name} field")
-                prop_descriptions.append(f"- {prop_name} ({prop_type}): {prop_desc}")
+            # Check cache first (if enabled)
+            cached_response = await self._handle_cached_response(messages, llm_request, start_time, **kwargs)
+            if cached_response:
+                # Parse cached response into structured object
+                try:
+                    json_data = json.loads(cached_response.content)
+                    structured_obj = response_model(**json_data)
+                    usage_info = {"tokens_used": cached_response.tokens_used or 0, "cost_estimate": cached_response.cost_estimate or 0.0}
+                    return structured_obj, request_id, usage_info
+                except (json.JSONDecodeError, ValueError) as e:
+                    logger.warning(f"Cached response not valid JSON, proceeding with new request: {e}")
 
-            schema_instruction = f"""
-You must respond with a valid JSON object containing these fields:
-{chr(10).join(prop_descriptions)}
+            # Use OpenAI's native structured outputs
+            # Remove model from kwargs to avoid duplicate parameter
+            kwargs_clean = kwargs.copy()
+            kwargs_clean.pop("model", None)  # Remove model if present
+            request_params = self._prepare_structured_request_params(messages, response_model, model, **kwargs_clean)
+            logger.info("🤖 Starting structured GPT-5 request using native Structured Outputs")
 
-Required fields: {", ".join(required)}
+            # Try using responses.parse if available (newer SDK versions)
+            if hasattr(self.client, "responses") and hasattr(self.client.responses, "parse"):
+                # Use the native SDK parsing method
+                # For responses.parse(), we use text_format instead of text.format
+                parse_params = request_params.copy()
+                parse_params.pop("text", None)  # Remove text.format for responses.parse()
+                response = await self.client.responses.parse(**parse_params, text_format=response_model)
 
-Respond ONLY with the JSON object - no explanations, no markdown formatting, no additional text.
+                # Extract the parsed object directly
+                if hasattr(response, "output_parsed") and response.output_parsed is not None:
+                    structured_obj = response.output_parsed
 
-Example format:
-{{
-  "field1": "value1",
-  "field2": "value2"
-}}
-"""
+                    # Create our LLMResponse for consistency
+                    usage = getattr(response, "usage", None)
+                    tokens_used = getattr(usage, "total_tokens", None) if usage else None
+                    input_tokens = getattr(usage, "input_tokens", None) if usage else None
+                    output_tokens = getattr(usage, "output_tokens", None) if usage else None
+                    cost_estimate = self.estimate_cost(input_tokens or 0, output_tokens or 0, model)
 
-            # For GPT-5, use instructions parameter
-            kwargs_copy = kwargs.copy()
-            kwargs_copy["instructions"] = schema_instruction
-            response, llm_request_id = await self.generate_response(messages=messages, user_id=user_id, **kwargs_copy)
+                    llm_response = LLMResponse(
+                        content=json.dumps(structured_obj.model_dump() if hasattr(structured_obj, "model_dump") else structured_obj),
+                        provider=self.config.provider,
+                        model=model,
+                        tokens_used=tokens_used,
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens,
+                        cost_estimate=cost_estimate,
+                        response_time_ms=int((datetime.now(UTC) - start_time).total_seconds() * 1000),
+                        cached=False,
+                        provider_response_id=getattr(response, "id", None),
+                        system_fingerprint=getattr(response, "system_fingerprint", None),
+                    )
+
+                    # Update database and cache
+                    self._update_llm_request_success(llm_request, llm_response, llm_response.response_time_ms or 0)
+
+                    cache = getattr(self, "_cache", None)
+                    if self.config.cache_enabled and cache is not None:
+                        await cache.set(messages, llm_response, **kwargs)
+
+                    logger.info(f"🎉 Structured response completed using native parsing - Tokens: {tokens_used or 0}")
+                    usage_info = {"tokens_used": tokens_used or 0, "cost_estimate": cost_estimate}
+                    return structured_obj, request_id, usage_info
+
+            # Fallback to manual API call with structured outputs
+            response = await self._make_api_call_with_retry(
+                lambda: self.client.responses.create(**request_params)  # type: ignore[attr-defined]
+            )
+
+            # Handle potential refusals and errors
+            self._validate_structured_response(response)
+
+            # Parse response using existing logic
+            content, output, usage = self._parse_gpt5_response(response)
 
             # Parse JSON response
-            try:
-                content_to_parse = response.content.strip()
-                logger.debug(f"Raw LLM response content for parsing: '{content_to_parse}'")
-                if not content_to_parse:
-                    raise LLMValidationError("LLM returned empty response for structured output")
+            content_to_parse = content.strip()
+            logger.debug(f"Raw LLM response content for parsing: '{content_to_parse[:200]}...'")
+            if not content_to_parse:
+                raise LLMValidationError("LLM returned empty response for structured output")
 
-                json_data = json.loads(content_to_parse)
-                structured_obj = response_model(**json_data)
-                return structured_obj, llm_request_id
+            json_data = json.loads(content_to_parse)
+            structured_obj = response_model(**json_data)
 
-            except (json.JSONDecodeError, ValueError) as e:
-                logger.error(f"Failed to parse structured response. Content: '{response.content[:200]}...'")
-                raise LLMValidationError(f"Failed to parse structured response: {e}") from e
+            # Create LLMResponse for tracking
+            tokens_used = getattr(usage, "total_tokens", None) if usage else None
+            input_tokens = getattr(usage, "input_tokens", None) if usage else None
+            output_tokens = getattr(usage, "output_tokens", None) if usage else None
+            cost_estimate = self.estimate_cost(input_tokens or 0, output_tokens or 0, model)
+
+            llm_response = LLMResponse(
+                content=content_to_parse,
+                provider=self.config.provider,
+                model=model,
+                tokens_used=tokens_used,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                cost_estimate=cost_estimate,
+                response_time_ms=int((datetime.now(UTC) - start_time).total_seconds() * 1000),
+                cached=False,
+                provider_response_id=getattr(response, "id", None),
+                system_fingerprint=getattr(response, "system_fingerprint", None),
+                response_output=self._to_jsonable(output) if output is not None else None,
+                response_created_at=getattr(response, "created", None),
+            )
+
+            # Update database record
+            self._update_llm_request_success(llm_request, llm_response, llm_response.response_time_ms or 0)
+
+            # Cache response
+            cache = getattr(self, "_cache", None)
+            if self.config.cache_enabled and cache is not None:
+                await cache.set(messages, llm_response, **kwargs)
+
+            logger.info(f"🎉 Structured object parsed successfully: {type(structured_obj).__name__}")
+            usage_info = {"tokens_used": tokens_used or 0, "cost_estimate": cost_estimate}
+            return structured_obj, request_id, usage_info
+
+        except (json.JSONDecodeError, ValueError) as e:
+            execution_time_ms = int((datetime.now(UTC) - start_time).total_seconds() * 1000)
+            if "llm_request" in locals():
+                self._update_llm_request_error(llm_request, e, execution_time_ms)
+            logger.error(f"Failed to parse structured response. Content: '{content[:200] if 'content' in locals() else 'N/A'}...'")
+            raise LLMValidationError(f"Failed to parse structured response: {e}") from e
 
         except Exception as e:
+            execution_time_ms = int((datetime.now(UTC) - start_time).total_seconds() * 1000)
+
+            # Update database record with error
+            if "llm_request" in locals():
+                self._update_llm_request_error(llm_request, e, execution_time_ms)
+
             if isinstance(e, LLMValidationError):
                 raise
             raise LLMError(f"Failed to generate structured object: {e}") from e
@@ -422,7 +618,7 @@ Example format:
         self,
         request: ImageGenerationRequest,
         user_id: uuid.UUID | None = None,
-        **kwargs: Any,
+        **kwargs: Any,  # noqa: ANN401
     ) -> tuple[ImageResponse, uuid.UUID]:
         """Generate an image from a text prompt."""
         start_time = datetime.now(UTC)
@@ -496,7 +692,7 @@ Example format:
         self,
         search_queries: list[str],
         user_id: uuid.UUID | None = None,
-        **kwargs: Any,
+        **kwargs: Any,  # noqa: ANN401
     ) -> tuple[WebSearchResponse, uuid.UUID]:
         """
         Search for recent news.
@@ -543,7 +739,7 @@ Example format:
         output_cost = (completion_tokens / 1000000.0) * output_rate
         return input_cost + output_cost
 
-    def _estimate_image_cost(self, size: Any, quality: Any) -> float:
+    def _estimate_image_cost(self, size: Any, quality: Any) -> float:  # noqa: ANN401
         """Estimate cost for DALL-E image generation."""
         # DALL-E 3 pricing (as of 2024)
         if quality.value == "hd":
@@ -556,7 +752,7 @@ Example format:
         else:
             return 0.080  # Standard + large size
 
-    async def _make_api_call_with_retry(self, api_call_func: Any) -> Any:
+    async def _make_api_call_with_retry(self, api_call_func: Any) -> Any:  # noqa: ANN401
         """Make API call with retry logic for rate limits and transient errors."""
         last_exception = None
 
@@ -582,7 +778,7 @@ Example format:
             raise self._convert_exception(last_exception)
         raise LLMError("Unknown error during OpenAI API call")
 
-    def _should_retry(self, exception: Any) -> bool:
+    def _should_retry(self, exception: Any) -> bool:  # noqa: ANN401
         """Determine if an exception should trigger a retry."""
 
         # Always retry on these errors
@@ -607,7 +803,7 @@ Example format:
         delay = base_delay * (2**attempt)
         return min(delay, max_delay)
 
-    def _convert_exception(self, exception: Any) -> LLMError:
+    def _convert_exception(self, exception: Any) -> LLMError:  # noqa: ANN401
         """Convert OpenAI exceptions to LLM exceptions."""
         # Use imported symbols or fallbacks
         if isinstance(exception, AuthenticationError | PermissionDeniedError):
