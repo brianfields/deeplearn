@@ -19,6 +19,17 @@ Creates realistic seed data for development and testing without making actual LL
 
 Creates complete lessons using actual LLM API calls through the content creator service.
 
+### 🔄 `reset_database.py` - Database Reset & Seed Loading
+
+Resets the database by dropping all tables and optionally loading seed data. **⚠️ DESTRUCTIVE - Development only!**
+
+Features:
+- Drops all database tables (preserves database itself)
+- Resets Alembic migration state
+- Recreates database schema via migrations
+- Optionally loads seed data
+- Comprehensive error handling and safety confirmations
+
 ### 🎯 `create_mcqs.py` - MCQ Generation (Legacy)
 
 The original MCQ creation script using a sophisticated two-pass approach:
@@ -49,6 +60,27 @@ python scripts/create_seed_data.py \
     --domain "Deep Learning" \
     --verbose \
     --output seed_summary.json
+```
+
+### Database Reset & Seed Loading
+
+```bash
+# Reset database (drops all data!)
+python scripts/reset_database.py --confirm
+
+# Reset database and load default seed data
+python scripts/reset_database.py --confirm --seed --verbose
+
+# Reset database and load custom seed data
+python scripts/reset_database.py --confirm --seed \
+    --lesson "Neural Networks Basics" \
+    --concept "Backpropagation Algorithm" \
+    --level "beginner" \
+    --domain "Deep Learning" \
+    --verbose
+
+# Force reset without confirmation prompts (dangerous!)
+python scripts/reset_database.py --confirm --force --seed
 ```
 
 ### Real Lesson Creation
@@ -104,6 +136,37 @@ Creates realistic development data without API calls.
    • Total cost: $0.0771
    • Frontend URL: http://localhost:3000/learn/d9bdcecc-0eea-489b-9fea-fc5d700524c7?mode=learning
 ```
+
+### 🔄 Database Reset Script (`reset_database.py`)
+
+**⚠️ DESTRUCTIVE OPERATION - Development Only!**
+
+Resets the database by dropping all tables and optionally loading seed data.
+
+**Command Line Arguments:**
+
+| Argument | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `--confirm` | Yes | Required flag to confirm destructive operation | - |
+| `--seed` | No | Load seed data after reset | - |
+| `--verbose` | No | Show detailed progress | - |
+| `--force` | No | Skip confirmation prompts | - |
+| `--lesson` | No | Lesson title for seed data | "Cross-Entropy Loss in Deep Learning" |
+| `--concept` | No | Core concept for seed data | "Cross-Entropy Loss Function" |
+| `--level` | No | User level for seed data (beginner/intermediate/advanced) | `intermediate` |
+| `--domain` | No | Subject domain for seed data | "Machine Learning" |
+
+**What it does:**
+1. Drops all database tables (preserves database itself)
+2. Resets Alembic migration state
+3. Recreates database schema via migrations
+4. Optionally loads seed data using `create_seed_data.py`
+
+**Safety Features:**
+- Requires `--confirm` flag to prevent accidental execution
+- Shows warning message and asks for confirmation
+- `--force` flag to skip prompts (use with extreme caution)
+- Comprehensive error handling and rollback
 
 ### 📚 Real Lesson Creation (`create_lesson.py`)
 
@@ -161,10 +224,12 @@ python scripts/create_lesson.py \
 ## 🎯 Use Cases
 
 ### Development & Testing
+- **Database Reset**: Clean slate for development with `reset_database.py`
 - **Seed Data**: Create realistic test data without API costs
 - **Database Testing**: Populate database with complete lesson structures
 - **Frontend Development**: Test UI components with realistic data
 - **Performance Testing**: Generate multiple lessons for load testing
+- **Migration Testing**: Test schema changes with clean database state
 
 ### Production Setup
 - **Content Creation**: Generate real lessons from source materials
@@ -191,6 +256,13 @@ python scripts/create_lesson.py \
 4. **Database Schema Issues**
    - Run migrations: `alembic upgrade head`
    - Check that all required tables exist
+   - For corrupted state: Use `reset_database.py --confirm` to start fresh
+
+5. **Reset Script Issues**
+   - Ensure `--confirm` flag is provided (required for safety)
+   - Check database connection before running reset
+   - For PostgreSQL: Ensure user has DROP TABLE permissions
+   - If migration fails after reset: Check Alembic configuration
 
 ### Testing Without API Costs
 
