@@ -1,3 +1,4 @@
+# /backend/modules/content_creator/flows.py
 """Content creation flows using flow engine infrastructure."""
 
 import logging
@@ -7,7 +8,14 @@ from pydantic import BaseModel
 
 from modules.flow_engine.public import BaseFlow
 
-from .steps import ExtractLessonMetadataStep, GenerateDidacticSnippetStep, GenerateGlossaryStep, GenerateMCQStep
+from .steps import (
+    ExtractLessonMetadataStep,
+    GenerateDidacticSnippetStep,
+    GenerateGlossaryStep,
+    GenerateMCQStep,
+    GenerateMisconceptionBankStep,
+    ValidateMCQStep,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -27,38 +35,88 @@ class LessonCreationFlow(BaseFlow):
     async def _execute_flow_logic(self, inputs: dict[str, Any]) -> dict[str, Any]:
         logger.info(f"📚 Lesson Creation Flow - Processing: {inputs.get('title', 'Unknown Lesson')}")
 
-        # Step 1: Extract lesson metadata (learning objectives, key concepts)
+        # Step 1: Extract metadata
         logger.info("📋 Step 1: Extracting lesson metadata...")
         metadata_result = await ExtractLessonMetadataStep().execute(inputs)
-        metadata = metadata_result.output_content
-        logger.info(f"✅ Extracted {len(metadata.learning_objectives)} learning objectives and {len(metadata.key_concepts)} key concepts")
+        md = metadata_result.output_content
+        logger.info(f"✅ Extracted {len(md.learning_objectives)} LOs, {len(md.key_concepts)} key concepts, {len(md.misconceptions)} misconceptions")
 
-        # Prepare common inputs for component generation
-        component_inputs = {"lesson_title": inputs["title"], "core_concept": inputs["core_concept"], "user_level": inputs["user_level"], "key_concepts": metadata.key_concepts}
+        # Step 2: Misconception bank
+        logger.info("🧩 Step 2: Building misconception & distractor bank...")
+        bank_result = await GenerateMisconceptionBankStep().execute(
+            {
+                "core_concept": md.core_concept,
+                "user_level": md.user_level,
+                "learning_objectives": md.learning_objectives,
+                "key_concepts": md.key_concepts,
+                "misconceptions": md.misconceptions,
+                "confusables": md.confusables,
+                "length_budgets": md.length_budgets,
+            }
+        )
+        bank_by_lo = {blk.lo_id: blk.distractors for blk in bank_result.output_content.by_lo}
 
-        # Step 2: Generate didactic snippet
-        logger.info("📝 Step 2: Generating didactic snippet...")
-        didactic_result = await GenerateDidacticSnippetStep().execute({**component_inputs, "learning_objective": "Understand the core concept and key principles"})
-
-        # Step 3: Generate glossary
+        # Step 3: Glossary (simple list of terms)
         logger.info("📖 Step 3: Generating glossary...")
-        glossary_result = await GenerateGlossaryStep().execute(component_inputs)
+        glossary_input = {
+            "lesson_title": inputs["title"],
+            "core_concept": inputs["core_concept"],
+            "key_concepts": [kc.term for kc in md.key_concepts],
+            "user_level": inputs["user_level"],
+        }
+        glossary_result = await GenerateGlossaryStep().execute(glossary_input)
 
-        # Step 4: Generate multiple MCQs (one for each learning objective)
-        logger.info(f"❓ Step 4: Generating {len(metadata.learning_objectives)} MCQs...")
-        mcq_results = []
-        for i, learning_objective in enumerate(metadata.learning_objectives, 1):
-            logger.debug(f"Generating MCQ {i}/{len(metadata.learning_objectives)}: {learning_objective[:50]}...")
-            mcq_result = await GenerateMCQStep().execute({**component_inputs, "learning_objective": learning_objective})
-            mcq_results.append(mcq_result)
+        # Step 4: For each LO, generate didactic snippet → MCQ → validate
+        logger.info(f"❓ Step 4: Generating {len(md.learning_objectives)} MCQs...")
+        mcq_items = []
+        snippets = {}
 
-        # Return dictionary (as required by BaseFlow.execute())
-        # Flow engine automatically tracks all metadata in database
+        for lo in md.learning_objectives:  # type: LearningObjective
+            # 4a: Per-LO didactic snippet
+            didactic_input = {
+                "lesson_title": inputs["title"],
+                "core_concept": inputs["core_concept"],
+                "learning_objective": lo.text,
+                "bloom_level": lo.bloom_level,
+                "user_level": inputs["user_level"],
+                "length_budgets": md.length_budgets,
+            }
+            didactic_result = await GenerateDidacticSnippetStep().execute(didactic_input)
+            didactic = didactic_result.output_content
+            snippets[lo.lo_id] = didactic
+
+            # 4b: MCQ using distractor pool
+            mcq_input = {
+                "lesson_title": inputs["title"],
+                "core_concept": inputs["core_concept"],
+                "learning_objective": lo.text,
+                "bloom_level": lo.bloom_level,
+                "user_level": inputs["user_level"],
+                "length_budgets": md.length_budgets,
+                "didactic_context": didactic,
+                "distractor_pool": bank_by_lo.get(lo.lo_id, []),
+            }
+            mcq_result = await GenerateMCQStep().execute(mcq_input)
+            item = mcq_result.output_content
+
+            # 4c: Validate & auto-tighten
+            val_result = await ValidateMCQStep().execute({"item": item, "length_budgets": md.length_budgets})
+            if val_result.output_content.status == "ok" and val_result.output_content.item:
+                mcq_items.append(val_result.output_content.item)
+            else:
+                # Fallback: keep original but flag issues so UI can surface them
+                logger.warning(f"MCQ validation issues for LO {lo.lo_id}: {val_result.output_content.reasons}")
+                mcq_items.append(item)
+
+        # Final assembly
         return {
-            "learning_objectives": metadata.learning_objectives,
-            "key_concepts": metadata.key_concepts,
-            "refined_material": metadata.refined_material,
-            "didactic_snippet": didactic_result.output_content.model_dump(),
+            "learning_objectives": [lo.model_dump() for lo in md.learning_objectives],
+            "key_concepts": [kc.model_dump() for kc in md.key_concepts],
+            "misconceptions": [m.model_dump() for m in md.misconceptions],
+            "confusables": [c.model_dump() for c in md.confusables],
+            "refined_material": md.refined_material.model_dump(),
+            "length_budgets": md.length_budgets.model_dump(),
             "glossary": glossary_result.output_content.model_dump(),
-            "mcqs": [mcq.output_content.model_dump() for mcq in mcq_results],
+            "didactic_snippets": {k: v.model_dump() for k, v in snippets.items()},
+            "mcqs": [m.model_dump() for m in mcq_items],
         }

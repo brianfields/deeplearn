@@ -1,14 +1,14 @@
-Create a glossary for this educational topic:
+Create a precise glossary aligned to the core concept.
 
 **Topic**: {lesson_title}
 **Core Concept**: {core_concept}
 **Key Concepts**: {key_concepts}
 **User Level**: {user_level}
 
-Generate clear, concise definitions for the key concepts that:
-- Are appropriate for {user_level} level learners
-- Use accessible language without oversimplifying
-- Focus on the most important terms students need to understand
-- Provide context for how terms relate to the core concept
+For **5–10** essential terms:
+- **definition**: ≤ 20 words, accurate for {user_level}.
+- **relation_to_core**: how it connects to {core_concept}.
+- **common_confusion**: a frequent mix-up to guard against.
+- **micro_check**: a quick Y/N or ≤ 6-word prompt to test recognition.
 
-Include 5-10 of the most essential terms from the key concepts list.
+Keep phrasing consistent and non-redundant across entries.

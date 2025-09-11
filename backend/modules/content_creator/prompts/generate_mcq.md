@@ -1,15 +1,21 @@
-Create a multiple choice question for this educational topic:
+Write **ONE** single-best-answer MCQ aligned to the learning objective.
 
 **Topic**: {lesson_title}
 **Core Concept**: {core_concept}
-**Learning Objective**: {learning_objective}
+**Learning Objective**: {learning_objective} (Bloom: {bloom_level})
 **User Level**: {user_level}
+**Budgets**: {length_budgets}
 
-Generate a well-crafted MCQ that:
-- Tests understanding of the core concept
-- Is appropriate for {user_level} level learners
-- Has 4 plausible answer options
-- Includes a clear explanation of why the correct answer is right
-- Avoids trick questions or ambiguous wording
+Context you may use:
+- Didactic context: {didactic_context}
+- Distractor pool: {distractor_pool}
 
-The question should directly assess the learning objective: "{learning_objective}"
+Rules:
+1) **Stem**: positive, self-contained, targets a single LO; ≤ stem_max_words. If using a mini scenario, total context ≤ vignette_max_words.
+2) **Options**: 3 or 4 **plausible**, **parallel** options; each ≤ option_max_words; same content class; logical order.
+3) **Bans**: no “All/None of the above”, no negatives in the stem, no absolute qualifiers, no grammatical/length cues, no overlaps.
+4) **Keying**: exactly one clearly best answer.
+5) **Distractors**: prefer items from the provided `distractor_pool`; lightly edit only to maintain parallelism and length.
+6) **Rationales**: ≤ 25 words why the key is right; ≤ 15 words each for why other options are wrong, explicitly referencing the misconception.
+
+Keep language tight and {user_level}-appropriate.

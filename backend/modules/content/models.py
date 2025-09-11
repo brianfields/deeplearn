@@ -1,3 +1,4 @@
+# /backend/modules/content/models.py
 """
 Content Module - Database Models
 

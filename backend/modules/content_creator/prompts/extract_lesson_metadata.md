@@ -1,4 +1,4 @@
-Analyze the following educational material and extract the core learning structure:
+You are deriving learning metadata **only** from the provided material.
 
 **Title**: {title}
 **Core Concept**: {core_concept}
@@ -8,12 +8,14 @@ Analyze the following educational material and extract the core learning structu
 **Source Material**:
 {source_material}
 
-Extract the following learning metadata:
+Produce, aligned to the step’s output schema:
+- **Learning Objectives (3–5):** specific, observable, each tagged with a Bloom level (Remember/Understand/Apply/Analyze/Evaluate/Create) and a brief “evidence_of_mastery”.
+- **Key Concepts (5–10):** terms with one-sentence, {user_level}-appropriate definitions and an optional short anchor quote from the source.
+- **Likely Misconceptions (6–10):** each tied to a key concept; include why it is plausible to learners.
+- **Confusable Pairs (4–6):** term A vs term B with a one-line contrast.
+- **Refined Material:** ≤ 7 outline bullets and short “evidence_anchors” (quoted spans or line refs) pointing back to the source.
+- **Item Length Budgets:** stem_max_words=35, vignette_max_words=80, option_max_words=12.
 
-1. **Learning Objectives**: 3-5 specific, measurable learning goals that students should achieve
-2. **Key Concepts**: 5-10 important terms, principles, or ideas that students must understand
-3. **Refined Material**: A well-organized text summary with clear explanations, structured in whatever format works best for the content
-
-Focus on creating learning structure appropriate for {user_level} level learners in the {domain} domain.
-The learning objectives should be specific and testable.
-The key concepts should be the most essential terms students need to master.
+Constraints:
+- No outside facts; cite only what’s inferable from the source.
+- Write at the {user_level} level with clear, concise language.

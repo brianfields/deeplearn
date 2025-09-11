@@ -36,9 +36,16 @@ import { CheckCircle, XCircle } from 'lucide-react-native';
 import { Button } from '../../ui_system/public';
 import { uiSystemProvider } from '../../ui_system/public';
 
+// Support both old and new MCQ formats
+interface MCQOption {
+  label: string;
+  text: string;
+  rationale_wrong?: string;
+}
+
 interface MultipleChoiceQuestion {
   question: string;
-  options: string[];
+  options: string[] | MCQOption[]; // Support both formats
   correct_answer: number; // index
   explanation?: string;
   number?: number;
@@ -229,8 +236,20 @@ export default function MultipleChoice({
   const [showResult, setShowResult] = useState(false);
 
   // Build choices as letter -> text from options array
+  // Handle both old format (string[]) and new format (MCQOption[])
   const choicesArray: Array<[string, string]> = (question.options || []).map(
-    (text, idx) => [String.fromCharCode(65 + idx), text] as [string, string]
+    (option, idx) => {
+      if (typeof option === 'string') {
+        // Old format: options are strings
+        return [String.fromCharCode(65 + idx), option] as [string, string];
+      } else {
+        // New format: options are objects with {label, text, rationale_wrong}
+        return [option.label || String.fromCharCode(65 + idx), option.text] as [
+          string,
+          string,
+        ];
+      }
+    }
   );
 
   const correctIndex = question.correct_answer;

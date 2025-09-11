@@ -83,18 +83,54 @@ class ContentCreatorService:
         flow_result = await flow.execute({"title": request.title, "core_concept": request.core_concept, "source_material": request.source_material, "user_level": request.user_level, "domain": request.domain})
         logger.info("✅ LessonCreationFlow completed successfully")
 
+        # Debug: Log the structure of flow result
+        logger.debug(f"Flow result keys: {list(flow_result.keys())}")
+        if "learning_objectives" in flow_result:
+            logger.debug(f"Learning objectives type: {type(flow_result['learning_objectives'])}")
+            if flow_result["learning_objectives"]:
+                logger.debug(f"First LO type: {type(flow_result['learning_objectives'][0])}")
+
+        # Transform rich structured data to simple DTO format
+        # Handle both Pydantic objects and dictionaries
+        learning_objectives_simple = []
+        for lo in flow_result["learning_objectives"]:
+            if hasattr(lo, "text"):
+                learning_objectives_simple.append(lo.text)
+            elif isinstance(lo, dict) and "text" in lo:
+                learning_objectives_simple.append(lo["text"])
+            else:
+                learning_objectives_simple.append(str(lo))
+
+        key_concepts_simple = []
+        for kc in flow_result["key_concepts"]:
+            if hasattr(kc, "term"):
+                key_concepts_simple.append(kc.term)
+            elif isinstance(kc, dict) and "term" in kc:
+                key_concepts_simple.append(kc["term"])
+            else:
+                key_concepts_simple.append(str(kc))
+
+        # Convert refined material to string format
+        refined_material_obj = flow_result.get("refined_material", {})
+        if hasattr(refined_material_obj, "outline_bullets"):
+            refined_material_str = "\n".join(refined_material_obj.outline_bullets)
+            if hasattr(refined_material_obj, "evidence_anchors") and refined_material_obj.evidence_anchors:
+                refined_material_str += "\n\nEvidence Anchors:\n" + "\n".join(refined_material_obj.evidence_anchors)
+        else:
+            refined_material_str = str(refined_material_obj) if refined_material_obj else ""
+
         # Save lesson to content module
         lesson_data = LessonCreate(
             id=lesson_id,
             title=request.title,
             core_concept=request.core_concept,
             user_level=request.user_level,
-            learning_objectives=flow_result["learning_objectives"],
-            key_concepts=flow_result["key_concepts"],
+            learning_objectives=learning_objectives_simple,
+            key_concepts=key_concepts_simple,
             source_material=request.source_material,
             source_domain=request.domain,
             source_level=request.user_level,
-            refined_material=flow_result.get("refined_material", {}),
+            refined_material=refined_material_str,
         )
 
         logger.info("💾 Saving lesson to database...")
@@ -132,7 +168,3 @@ class ContentCreatorService:
 
         logger.info(f"🎉 Lesson creation completed! Created {components_created} components")
         return LessonCreationResult(lesson_id=lesson_id, title=request.title, components_created=components_created)
-
-    # generate_component method removed - it was unused (no HTTP routes or other code calls it)
-
-    # All LLM-related methods removed - now handled by LessonCreationFlow

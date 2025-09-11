@@ -17,6 +17,12 @@ Usage:
         --concept "React Native Views & Styles" \
         --material scripts/examples/react_native_views.txt \
         --verbose
+
+    python scripts/create_lesson.py \
+        --lesson "French Perfumes: Art and Heritage" \
+        --concept "French Perfumery Tradition" \
+        --material scripts/examples/french_perfumes_material.txt \
+        --verbose
 """
 
 import argparse
