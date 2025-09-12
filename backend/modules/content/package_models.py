@@ -29,7 +29,7 @@ class Meta(BaseModel):
     # Two versions on purpose: schema vs content
     package_schema_version: int = 1
     content_version: int = 1
-    length_budgets: LengthBudgets = LengthBudgets()
+    length_budgets: LengthBudgets = LengthBudgets(stem_max_words=35, vignette_max_words=80, option_max_words=12)
 
 
 class Objective(BaseModel):

@@ -53,6 +53,15 @@ class FlowRunRepo:
         result = self.s.execute(select(FlowRunModel.id).where(FlowRunModel.status == status))
         return len(list(result.scalars()))
 
+    def get_recent(self, limit: int = 50, offset: int = 0) -> list[FlowRunModel]:
+        """Get recent flow runs with pagination."""
+        return list(self.s.execute(select(FlowRunModel).order_by(desc(FlowRunModel.created_at)).limit(limit).offset(offset)).scalars())
+
+    def count_all(self) -> int:
+        """Count all flow runs."""
+        result = self.s.execute(select(FlowRunModel.id))
+        return len(list(result.scalars()))
+
 
 class FlowStepRunRepo:
     """Repository for FlowStepRun database operations."""

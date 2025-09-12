@@ -4,6 +4,7 @@ from typing import Any, Protocol, TypeVar
 import uuid
 
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 from ..infrastructure.public import infrastructure_provider
 from .repo import LLMRequestRepo
@@ -12,7 +13,7 @@ from .service import ImageResponse, LLMMessage, LLMRequest, LLMResponse, LLMServ
 # Type variable for structured responses
 T = TypeVar("T", bound=BaseModel)
 
-__all__ = ["ImageResponse", "LLMMessage", "LLMRequest", "LLMResponse", "LLMServicesProvider", "WebSearchResponse", "llm_services_provider"]
+__all__ = ["ImageResponse", "LLMMessage", "LLMRequest", "LLMResponse", "LLMServicesAdminProvider", "LLMServicesProvider", "WebSearchResponse", "llm_services_admin_provider", "llm_services_provider"]
 
 
 class LLMServicesProvider(Protocol):
@@ -173,6 +174,21 @@ class LLMServicesProvider(Protocol):
         ...
 
 
+class LLMServicesAdminProvider(Protocol):
+    """
+    Minimal protocol for admin module access to LLM request data.
+
+    WARNING: This interface provides access to sensitive LLM request data
+    and should only be used by the admin module for monitoring purposes.
+
+    Only exposes the specific method needed for admin dashboard functionality.
+    """
+
+    def get_request(self, request_id: uuid.UUID) -> LLMRequest | None:
+        """Get LLM request by ID. FOR ADMIN USE ONLY."""
+        ...
+
+
 def llm_services_provider() -> LLMServicesProvider:
     """Dependency injection provider for LLM services."""
     # Get session from infrastructure service
@@ -180,3 +196,19 @@ def llm_services_provider() -> LLMServicesProvider:
     infra.initialize()
     db_session = infra.get_database_session()
     return LLMService(LLMRequestRepo(db_session.session))
+
+
+def llm_services_admin_provider(session: Session) -> LLMServicesAdminProvider:
+    """
+    Create minimal admin provider for LLM services data.
+
+    WARNING: This service provides access to sensitive LLM request data
+    and should only be used by the admin module for monitoring purposes.
+
+    Only exposes specific method needed for admin functionality.
+    """
+    if not isinstance(session, Session):
+        raise ValueError("Session must be a SQLAlchemy Session instance")
+
+    # Return the service directly - it already implements the protocol method
+    return LLMService(LLMRequestRepo(session))

@@ -217,17 +217,78 @@ async def process_document():
 """
 
 # Import base classes
-from .base_flow import BaseFlow
 
-# Import result types
+# Admin query interface (minimal, selective exposure)
+from typing import Protocol
+import uuid
+
+from sqlalchemy.orm import Session
+
+from .base_flow import BaseFlow
 from .base_step import BaseStep, ImageStep, StepResult, StepType, StructuredStep, UnstructuredStep
+from .models import FlowRunModel, FlowStepRunModel
+from .repo import FlowRunRepo, FlowStepRunRepo
+from .service import FlowRunQueryService
+
+
+class FlowEngineAdminProvider(Protocol):
+    """
+    Minimal protocol for admin module access to flow execution data.
+
+    WARNING: This interface provides access to sensitive flow execution data
+    and should only be used by the admin module for monitoring purposes.
+
+    Only exposes the specific methods needed for admin dashboard functionality.
+    """
+
+    def get_recent_flow_runs(self, limit: int = 50, offset: int = 0) -> list[FlowRunModel]:
+        """Get recent flow runs with pagination. FOR ADMIN USE ONLY."""
+        ...
+
+    def count_flow_runs(self) -> int:
+        """Get total count of flow runs. FOR ADMIN USE ONLY."""
+        ...
+
+    def get_flow_run_by_id(self, flow_run_id: uuid.UUID) -> FlowRunModel | None:
+        """Get flow run by ID. FOR ADMIN USE ONLY."""
+        ...
+
+    def get_flow_steps_by_run_id(self, flow_run_id: uuid.UUID) -> list[FlowStepRunModel]:
+        """Get all steps for a flow run. FOR ADMIN USE ONLY."""
+        ...
+
+    def get_flow_step_by_id(self, step_run_id: uuid.UUID) -> FlowStepRunModel | None:
+        """Get flow step by ID. FOR ADMIN USE ONLY."""
+        ...
+
+
+def flow_engine_admin_provider(session: Session) -> FlowEngineAdminProvider:
+    """
+    Create minimal admin provider for flow engine data.
+
+    WARNING: This service provides access to sensitive flow execution data
+    and should only be used by the admin module for monitoring purposes.
+
+    Only exposes specific methods needed for admin functionality.
+    """
+    if not isinstance(session, Session):
+        raise ValueError("Session must be a SQLAlchemy Session instance")
+
+    flow_run_repo = FlowRunRepo(session)
+    step_run_repo = FlowStepRunRepo(session)
+
+    # Return the service directly - it already implements the protocol methods
+    return FlowRunQueryService(flow_run_repo, step_run_repo)
+
 
 __all__ = [
     "BaseFlow",
     "BaseStep",
+    "FlowEngineAdminProvider",  # For admin module only
     "ImageStep",
     "StepResult",
     "StepType",
     "StructuredStep",
     "UnstructuredStep",
+    "flow_engine_admin_provider",  # For admin module only
 ]

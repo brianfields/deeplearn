@@ -8,7 +8,7 @@ from ..llm_services.public import LLMServicesProvider
 from .models import FlowRunModel, FlowStepRunModel
 from .repo import FlowRunRepo, FlowStepRunRepo
 
-__all__ = ["FlowEngineService"]
+__all__ = ["FlowEngineService", "FlowRunQueryService"]
 
 
 class FlowEngineService:
@@ -48,10 +48,9 @@ class FlowEngineService:
             step_run.tokens_used = tokens_used
             step_run.cost_estimate = cost_estimate
             step_run.execution_time_ms = execution_time_ms
+            step_run.llm_request_id = llm_request_id
             step_run.status = "completed"
             step_run.completed_at = datetime.now(UTC)
-            if llm_request_id:
-                step_run.llm_request_id = llm_request_id
             self.step_run_repo.save(step_run)
 
     async def update_step_run_error(self, step_run_id: uuid.UUID, error_message: str, execution_time_ms: int) -> None:
@@ -119,3 +118,36 @@ class FlowEngineService:
     def get_llm_services(self) -> LLMServicesProvider:
         """Get LLM services provider (internal use)."""
         return self.llm_services
+
+
+class FlowRunQueryService:
+    """
+    Query service for flow run data.
+
+    NOTE: This service is specifically designed for admin module use only.
+    It provides read-only access to flow execution data for monitoring and analytics.
+    """
+
+    def __init__(self, flow_run_repo: FlowRunRepo, step_run_repo: FlowStepRunRepo):
+        self.flow_run_repo = flow_run_repo
+        self.step_run_repo = step_run_repo
+
+    def get_flow_run_by_id(self, flow_run_id: uuid.UUID) -> FlowRunModel | None:
+        """Get flow run by ID. FOR ADMIN USE ONLY."""
+        return self.flow_run_repo.by_id(flow_run_id)
+
+    def get_flow_steps_by_run_id(self, flow_run_id: uuid.UUID) -> list[FlowStepRunModel]:
+        """Get all steps for a flow run. FOR ADMIN USE ONLY."""
+        return self.step_run_repo.by_flow_run_id(flow_run_id)
+
+    def get_flow_step_by_id(self, step_run_id: uuid.UUID) -> FlowStepRunModel | None:
+        """Get flow step by ID. FOR ADMIN USE ONLY."""
+        return self.step_run_repo.by_id(step_run_id)
+
+    def get_recent_flow_runs(self, limit: int = 50, offset: int = 0) -> list[FlowRunModel]:
+        """Get recent flow runs with pagination. FOR ADMIN USE ONLY."""
+        return self.flow_run_repo.get_recent(limit, offset)
+
+    def count_flow_runs(self) -> int:
+        """Get total count of flow runs. FOR ADMIN USE ONLY."""
+        return self.flow_run_repo.count_all()
