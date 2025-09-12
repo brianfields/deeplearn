@@ -22,10 +22,117 @@ import uuid
 # Add the backend directory to the path so we can import modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from modules.content.models import LessonComponentModel, LessonModel
+from modules.content.models import LessonModel
+from modules.content.package_models import DidacticSnippet, GlossaryTerm, LengthBudgets, LessonPackage, MCQAnswerKey, MCQItem, MCQOption, Meta, Objective
 from modules.flow_engine.models import FlowRunModel, FlowStepRunModel
 from modules.infrastructure.public import infrastructure_provider
 from modules.llm_services.models import LLMRequestModel
+
+
+def create_sample_lesson_package(
+    lesson_id: str,
+    title: str = "Cross-Entropy Loss in Deep Learning",
+    core_concept: str = "Cross-Entropy Loss Function",
+    user_level: str = "intermediate",
+    domain: str = "Machine Learning",
+) -> LessonPackage:
+    """Create sample lesson package with all components."""
+
+    # Create metadata
+    meta = Meta(lesson_id=lesson_id, title=title, core_concept=core_concept, user_level=user_level, domain=domain, package_schema_version=1, content_version=1, length_budgets=LengthBudgets())
+
+    # Create learning objectives
+    objectives = [
+        Objective(id="lo_1", text="Understand the mathematical definition of cross-entropy loss"),
+        Objective(id="lo_2", text="Explain why cross-entropy is suitable for classification tasks"),
+        Objective(id="lo_3", text="Implement cross-entropy loss in PyTorch"),
+        Objective(id="lo_4", text="Compare cross-entropy with other loss functions"),
+        Objective(id="lo_5", text="Apply cross-entropy loss to multi-class problems"),
+    ]
+
+    # Create glossary terms
+    glossary_terms = [
+        GlossaryTerm(id="term_1", term="Cross-entropy loss", definition="A measure of difference between two probability distributions", relation_to_core="Core concept of the lesson"),
+        GlossaryTerm(id="term_2", term="One-hot encoding", definition="A representation where only one element is 1 and others are 0", relation_to_core="Used to represent true labels in cross-entropy calculation"),
+        GlossaryTerm(id="term_3", term="Softmax", definition="A function that converts logits to probabilities", relation_to_core="Often used before cross-entropy loss in neural networks"),
+        GlossaryTerm(id="term_4", term="Gradient descent", definition="An optimization algorithm that minimizes loss functions", relation_to_core="Algorithm used to minimize cross-entropy loss"),
+        GlossaryTerm(id="term_5", term="Convex function", definition="A function with a single global minimum", relation_to_core="Cross-entropy loss is convex, ensuring reliable optimization"),
+    ]
+
+    # Create didactic snippet
+    didactic_snippet = DidacticSnippet(
+        id="didactic_lo_1",
+        plain_explanation="Cross-entropy loss is a measure of the difference between two probability distributions. In machine learning, it quantifies how far our predicted probabilities are from the actual labels.",
+        key_takeaways=["Cross-entropy is always non-negative", "It reaches zero when predictions are perfect", "It's convex, ensuring a single global minimum", "It provides strong gradients for incorrect predictions"],
+        worked_example="For a 3-class problem with true label [0,1,0] and prediction [0.2,0.7,0.1], cross-entropy = -(0*log(0.2) + 1*log(0.7) + 0*log(0.1)) = -log(0.7) ≈ 0.357",
+    )
+
+    # Create MCQ questions
+    mcqs = [
+        MCQItem(
+            id="mcq_1",
+            lo_id="lo_1",
+            stem="What is the mathematical formula for cross-entropy loss for a single sample?",
+            options=[
+                MCQOption(id="mcq_1_a", label="A", text="L = ∑(y_i * log(ŷ_i))"),
+                MCQOption(id="mcq_1_b", label="B", text="L = -∑(y_i * log(ŷ_i))"),
+                MCQOption(id="mcq_1_c", label="C", text="L = ∑(y_i - ŷ_i)²"),
+                MCQOption(id="mcq_1_d", label="D", text="L = |y_i - ŷ_i|"),
+            ],
+            answer_key=MCQAnswerKey(label="B"),
+        ),
+        MCQItem(
+            id="mcq_2",
+            lo_id="lo_2",
+            stem="Why is cross-entropy loss particularly suitable for classification tasks?",
+            options=[
+                MCQOption(id="mcq_2_a", label="A", text="It's computationally efficient"),
+                MCQOption(id="mcq_2_b", label="B", text="It provides probabilistic interpretation and strong gradients"),
+                MCQOption(id="mcq_2_c", label="C", text="It works only with binary classification"),
+                MCQOption(id="mcq_2_d", label="D", text="It doesn't require gradient computation"),
+            ],
+            answer_key=MCQAnswerKey(label="B"),
+        ),
+        MCQItem(
+            id="mcq_3",
+            lo_id="lo_3",
+            stem="In PyTorch, which function implements cross-entropy loss?",
+            options=[
+                MCQOption(id="mcq_3_a", label="A", text="nn.MSELoss()"),
+                MCQOption(id="mcq_3_b", label="B", text="nn.CrossEntropyLoss()"),
+                MCQOption(id="mcq_3_c", label="C", text="nn.BCELoss()"),
+                MCQOption(id="mcq_3_d", label="D", text="nn.L1Loss()"),
+            ],
+            answer_key=MCQAnswerKey(label="B"),
+        ),
+        MCQItem(
+            id="mcq_4",
+            lo_id="lo_4",
+            stem="How does cross-entropy loss compare to mean squared error for classification?",
+            options=[
+                MCQOption(id="mcq_4_a", label="A", text="MSE is always better for classification"),
+                MCQOption(id="mcq_4_b", label="B", text="Cross-entropy provides better gradients and probabilistic interpretation"),
+                MCQOption(id="mcq_4_c", label="C", text="They are equivalent for classification tasks"),
+                MCQOption(id="mcq_4_d", label="D", text="MSE is faster to compute"),
+            ],
+            answer_key=MCQAnswerKey(label="B"),
+        ),
+        MCQItem(
+            id="mcq_5",
+            lo_id="lo_5",
+            stem="What happens to cross-entropy loss when the model predicts the correct class with high confidence?",
+            options=[
+                MCQOption(id="mcq_5_a", label="A", text="Loss increases significantly"),
+                MCQOption(id="mcq_5_b", label="B", text="Loss approaches zero"),
+                MCQOption(id="mcq_5_c", label="C", text="Loss becomes negative"),
+                MCQOption(id="mcq_5_d", label="D", text="Loss remains constant"),
+            ],
+            answer_key=MCQAnswerKey(label="B"),
+        ),
+    ]
+
+    # Create the complete lesson package
+    return LessonPackage(meta=meta, objectives=objectives, glossary={"terms": glossary_terms}, didactic={"by_lo": {"lo_1": didactic_snippet}}, mcqs=mcqs, misconceptions=[], confusables=[])
 
 
 def create_sample_lesson_data(
@@ -35,26 +142,16 @@ def create_sample_lesson_data(
     user_level: str = "intermediate",
     domain: str = "Machine Learning",
 ) -> dict[str, Any]:
-    """Create sample lesson data structure."""
+    """Create sample lesson data structure with package."""
+
+    # Create the lesson package
+    package = create_sample_lesson_package(lesson_id, title, core_concept, user_level, domain)
+
     return {
         "id": lesson_id,
         "title": title,
         "core_concept": core_concept,
         "user_level": user_level,
-        "learning_objectives": [
-            "Understand the mathematical definition of cross-entropy loss",
-            "Explain why cross-entropy is suitable for classification tasks",
-            "Implement cross-entropy loss in PyTorch",
-            "Compare cross-entropy with other loss functions",
-            "Apply cross-entropy loss to multi-class problems",
-        ],
-        "key_concepts": [
-            "Cross-entropy loss",
-            "Probability distribution",
-            "Maximum likelihood estimation",
-            "Gradient descent",
-            "Classification",
-        ],
         "source_material": """
         # Cross-Entropy Loss in Deep Learning
 
@@ -73,151 +170,33 @@ def create_sample_lesson_data(
         """,
         "source_domain": domain,
         "source_level": user_level,
-        "refined_material": """Cross-Entropy Loss: Mathematical Foundation and Implementation
-
-Mathematical Foundation:
-Cross-entropy measures the information content and difference between probability distributions. It quantifies how far predicted probabilities are from actual labels.
-
-Implementation:
-PyTorch provides nn.CrossEntropyLoss() which combines softmax activation and cross-entropy loss computation in a single, numerically stable function.
-
-Applications:
-Primarily used in multi-class classification tasks where each sample belongs to exactly one class. Essential for training neural networks on classification problems.""",
+        "refined_material": {
+            "outline_bullets": [
+                "Mathematical Foundation: Cross-entropy measures information content and difference between probability distributions",
+                "Implementation: PyTorch provides nn.CrossEntropyLoss() for numerically stable computation",
+                "Applications: Essential for multi-class classification tasks in neural networks",
+            ],
+            "evidence_anchors": [
+                "Cross-entropy quantifies how far predicted probabilities are from actual labels",
+                "Combines softmax activation and cross-entropy loss in single function",
+                "Used in multi-class classification where each sample belongs to exactly one class",
+            ],
+        },
+        "package": package.model_dump(),
+        "package_version": 1,
     }
 
 
-def create_sample_components(lesson_id: str) -> list[dict[str, Any]]:
-    """Create sample lesson components."""
-    components = []
-
-    # Didactic snippet
-    components.append(
-        {
-            "id": str(uuid.uuid4()),
-            "lesson_id": lesson_id,
-            "component_type": "didactic_snippet",
-            "title": "Understanding Cross-Entropy Loss",
-            "content": {
-                "explanation": "Cross-entropy loss is a measure of the difference between two probability distributions. In machine learning, it quantifies how far our predicted probabilities are from the actual labels.",
-                "key_points": [
-                    "Cross-entropy is always non-negative",
-                    "It reaches zero when predictions are perfect",
-                    "It's convex, ensuring a single global minimum",
-                    "It provides strong gradients for incorrect predictions",
-                ],
-            },
-            "learning_objective": "Understand the core concept and key principles",
-        }
-    )
-
-    # Glossary
-    components.append(
-        {
-            "id": str(uuid.uuid4()),
-            "lesson_id": lesson_id,
-            "component_type": "glossary",
-            "title": "Key Terms",
-            "content": {
-                "terms": [
-                    {"term": "Cross-entropy", "definition": "A measure of difference between two probability distributions"},
-                    {"term": "One-hot encoding", "definition": "A representation where only one element is 1 and others are 0"},
-                    {"term": "Softmax", "definition": "A function that converts logits to probabilities"},
-                    {"term": "Gradient descent", "definition": "An optimization algorithm that minimizes loss functions"},
-                    {"term": "Convex function", "definition": "A function with a single global minimum"},
-                ]
-            },
-            "learning_objective": None,
-        }
-    )
-
-    # 5 Multiple Choice Questions
-    mcq_data = [
-        {
-            "question": "What is the mathematical formula for cross-entropy loss for a single sample?",
-            "options": [
-                "L = ∑(y_i * log(ŷ_i))",
-                "L = -∑(y_i * log(ŷ_i))",
-                "L = ∑(y_i - ŷ_i)²",
-                "L = |y_i - ŷ_i|",
-            ],
-            "correct_answer": 1,
-            "explanation": "Cross-entropy loss uses the negative sum of true labels times log of predicted probabilities.",
-            "objective": "Understand the mathematical definition of cross-entropy loss",
-        },
-        {
-            "question": "Why is cross-entropy loss particularly suitable for classification tasks?",
-            "options": [
-                "It's computationally efficient",
-                "It provides probabilistic interpretation and strong gradients",
-                "It works only with binary classification",
-                "It doesn't require gradient computation",
-            ],
-            "correct_answer": 1,
-            "explanation": "Cross-entropy provides probabilistic interpretation and gives strong gradients for incorrect predictions, making it ideal for classification.",
-            "objective": "Explain why cross-entropy is suitable for classification tasks",
-        },
-        {
-            "question": "In PyTorch, which function implements cross-entropy loss?",
-            "options": [
-                "nn.MSELoss()",
-                "nn.CrossEntropyLoss()",
-                "nn.BCELoss()",
-                "nn.L1Loss()",
-            ],
-            "correct_answer": 1,
-            "explanation": "PyTorch provides nn.CrossEntropyLoss() which combines softmax and cross-entropy in a single function.",
-            "objective": "Implement cross-entropy loss in PyTorch",
-        },
-        {
-            "question": "How does cross-entropy loss compare to mean squared error for classification?",
-            "options": [
-                "MSE is always better for classification",
-                "Cross-entropy provides better gradients and probabilistic interpretation",
-                "They are equivalent for classification tasks",
-                "MSE is faster to compute",
-            ],
-            "correct_answer": 1,
-            "explanation": "Cross-entropy provides better gradients for classification and has probabilistic interpretation, unlike MSE.",
-            "objective": "Compare cross-entropy with other loss functions",
-        },
-        {
-            "question": "What happens to cross-entropy loss when the model predicts the correct class with high confidence?",
-            "options": [
-                "Loss increases significantly",
-                "Loss approaches zero",
-                "Loss becomes negative",
-                "Loss remains constant",
-            ],
-            "correct_answer": 1,
-            "explanation": "When the model predicts the correct class with high confidence (probability close to 1), cross-entropy loss approaches zero.",
-            "objective": "Apply cross-entropy loss to multi-class problems",
-        },
-    ]
-
-    for i, mcq in enumerate(mcq_data):
-        components.append(
-            {
-                "id": str(uuid.uuid4()),
-                "lesson_id": lesson_id,
-                "component_type": "mcq",
-                "title": f"Question {i + 1}",
-                "content": {
-                    "question": mcq["question"],
-                    "options": mcq["options"],
-                    "correct_answer": mcq["correct_answer"],
-                    "explanation": mcq["explanation"],
-                },
-                "learning_objective": mcq["objective"],
-            }
-        )
-
-    return components
+# Components are now embedded in the lesson package, no separate function needed
 
 
 def create_sample_flow_run(lesson_id: str, lesson_data: dict[str, Any]) -> dict[str, Any]:
     """Create sample flow run data."""
     now = datetime.now(UTC)
     flow_run_id = uuid.uuid4()
+
+    # Extract package data for outputs
+    package = lesson_data["package"]
 
     return {
         "id": flow_run_id,
@@ -244,19 +223,24 @@ def create_sample_flow_run(lesson_id: str, lesson_data: dict[str, Any]) -> dict[
             "domain": lesson_data["source_domain"],
         },
         "outputs": {
-            "learning_objectives": lesson_data["learning_objectives"],
-            "key_concepts": lesson_data["key_concepts"],
+            "learning_objectives": [obj["text"] for obj in package["objectives"]],
+            "glossary": package["glossary"],
+            "didactic_snippet": package["didactic"]["by_lo"]["lo_1"],
+            "mcqs": package["mcqs"],
             "refined_material": lesson_data["refined_material"],
         },
-        "flow_metadata": {"lesson_id": lesson_id, "components_created": 7},
+        "flow_metadata": {"lesson_id": lesson_id, "package_version": 1},
         "error_message": None,
     }
 
 
-def create_sample_step_runs(flow_run_id: uuid.UUID, components: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def create_sample_step_runs(flow_run_id: uuid.UUID, lesson_data: dict[str, Any]) -> list[dict[str, Any]]:
     """Create sample flow step run data."""
     now = datetime.now(UTC)
     step_runs = []
+
+    # Extract package data
+    package = lesson_data["package"]
 
     # Step 1: Extract lesson metadata
     step_runs.append(
@@ -267,16 +251,10 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, components: list[dict[str, A
             "step_name": "extract_lesson_metadata",
             "step_order": 1,
             "status": "completed",
-            "inputs": {"title": "Cross-Entropy Loss in Deep Learning", "core_concept": "Cross-Entropy Loss Function"},
+            "inputs": {"title": lesson_data["title"], "core_concept": lesson_data["core_concept"]},
             "outputs": {
-                "learning_objectives": [
-                    "Understand the mathematical definition of cross-entropy loss",
-                    "Explain why cross-entropy is suitable for classification tasks",
-                    "Implement cross-entropy loss in PyTorch",
-                    "Compare cross-entropy with other loss functions",
-                    "Apply cross-entropy loss to multi-class problems",
-                ],
-                "key_concepts": ["Cross-entropy loss", "Probability distribution", "Maximum likelihood estimation"],
+                "learning_objectives": [obj["text"] for obj in package["objectives"]],
+                "key_concepts": [term["term"] for term in package["glossary"]["terms"][:3]],  # First 3 terms
             },
             "tokens_used": 2100,
             "cost_estimate": 0.0105,
@@ -289,7 +267,7 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, components: list[dict[str, A
     )
 
     # Step 2: Generate didactic snippet
-    didactic_component = next(c for c in components if c["component_type"] == "didactic_snippet")
+    didactic_snippet = package["didactic"]["by_lo"]["lo_1"]
     step_runs.append(
         {
             "id": uuid.uuid4(),
@@ -298,8 +276,8 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, components: list[dict[str, A
             "step_name": "generate_didactic_snippet",
             "step_order": 2,
             "status": "completed",
-            "inputs": {"lesson_title": "Cross-Entropy Loss in Deep Learning", "core_concept": "Cross-Entropy Loss Function"},
-            "outputs": didactic_component["content"],
+            "inputs": {"lesson_title": lesson_data["title"], "core_concept": lesson_data["core_concept"]},
+            "outputs": {"explanation": didactic_snippet["plain_explanation"], "key_takeaways": didactic_snippet["key_takeaways"], "worked_example": didactic_snippet.get("worked_example")},
             "tokens_used": 1800,
             "cost_estimate": 0.009,
             "execution_time_ms": 4200,
@@ -311,7 +289,6 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, components: list[dict[str, A
     )
 
     # Step 3: Generate glossary
-    glossary_component = next(c for c in components if c["component_type"] == "glossary")
     step_runs.append(
         {
             "id": uuid.uuid4(),
@@ -320,8 +297,8 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, components: list[dict[str, A
             "step_name": "generate_glossary",
             "step_order": 3,
             "status": "completed",
-            "inputs": {"lesson_title": "Cross-Entropy Loss in Deep Learning", "key_concepts": ["Cross-entropy loss", "Probability distribution"]},
-            "outputs": glossary_component["content"],
+            "inputs": {"lesson_title": lesson_data["title"], "key_concepts": [term["term"] for term in package["glossary"]["terms"]]},
+            "outputs": {"terms": package["glossary"]["terms"]},
             "tokens_used": 1600,
             "cost_estimate": 0.008,
             "execution_time_ms": 3800,
@@ -333,8 +310,11 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, components: list[dict[str, A
     )
 
     # Steps 4-8: Generate MCQs
-    mcq_components = [c for c in components if c["component_type"] == "mcq"]
-    for i, mcq_component in enumerate(mcq_components):
+    mcqs = package["mcqs"]
+    for i, mcq in enumerate(mcqs):
+        # Find the corresponding objective
+        objective_text = next((obj["text"] for obj in package["objectives"] if obj["id"] == mcq["lo_id"]), "Unknown objective")
+
         step_runs.append(
             {
                 "id": uuid.uuid4(),
@@ -343,8 +323,8 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, components: list[dict[str, A
                 "step_name": "generate_mcq",
                 "step_order": 4 + i,
                 "status": "completed",
-                "inputs": {"lesson_title": "Cross-Entropy Loss in Deep Learning", "learning_objective": mcq_component["learning_objective"]},
-                "outputs": mcq_component["content"],
+                "inputs": {"lesson_title": lesson_data["title"], "learning_objective": objective_text},
+                "outputs": {"question": mcq["stem"], "options": [opt["text"] for opt in mcq["options"]], "correct_answer": mcq["answer_key"]["label"]},
                 "tokens_used": 1800 + (i * 50),  # Slight variation
                 "cost_estimate": 0.009 + (i * 0.0005),
                 "execution_time_ms": 4000 + (i * 200),
@@ -465,12 +445,8 @@ async def main() -> None:
 
         # Create sample data
         if args.verbose:
-            print("📚 Creating lesson data...")
+            print("📚 Creating lesson data with package...")
         lesson_data = create_sample_lesson_data(lesson_id, args.lesson, args.concept, args.level, args.domain)
-
-        if args.verbose:
-            print("🧩 Creating component data...")
-        components = create_sample_components(lesson_id)
 
         if args.verbose:
             print("🔄 Creating flow run data...")
@@ -478,7 +454,7 @@ async def main() -> None:
 
         if args.verbose:
             print("👣 Creating step run data...")
-        step_runs = create_sample_step_runs(flow_run_data["id"], components)
+        step_runs = create_sample_step_runs(flow_run_data["id"], lesson_data)
 
         if args.verbose:
             print("🤖 Creating LLM request data...")
@@ -487,18 +463,11 @@ async def main() -> None:
         # Save to database
         with infra.get_session_context() as db_session:
             if args.verbose:
-                print("💾 Saving lesson to database...")
+                print("💾 Saving lesson with package to database...")
 
-            # Create lesson
+            # Create lesson with embedded package
             lesson = LessonModel(**lesson_data)
             db_session.add(lesson)
-
-            # Create components
-            if args.verbose:
-                print(f"💾 Saving {len(components)} components...")
-            for component_data in components:
-                component = LessonComponentModel(**component_data)
-                db_session.add(component)
 
             # Create flow run
             if args.verbose:
@@ -524,10 +493,15 @@ async def main() -> None:
             if args.verbose:
                 print("💾 Committing changes...")
 
+        # Calculate component counts from package
+        package = lesson_data["package"]
+        component_count = len(package["mcqs"]) + len(package["didactic"]["by_lo"]) + len(package["glossary"]["terms"])
+
         print("✅ Seed data created successfully!")
         print(f"   • Lesson ID: {lesson_id}")
         print(f"   • Title: {lesson_data['title']}")
-        print(f"   • Components: {len(components)} (1 didactic, 1 glossary, 5 MCQs)")
+        print(f"   • Package components: {component_count} (5 MCQs, 1 didactic, 5 glossary terms)")
+        print(f"   • Package version: {lesson_data['package_version']}")
         print("   • Flow runs: 1")
         print(f"   • Step runs: {len(step_runs)}")
         print(f"   • LLM requests: {len(llm_requests)}")
@@ -543,13 +517,17 @@ async def main() -> None:
                 "concept": args.concept,
                 "user_level": args.level,
                 "domain": args.domain,
-                "components_created": len(components),
+                "package_version": lesson_data["package_version"],
+                "package_components": component_count,
+                "objectives_count": len(package["objectives"]),
+                "glossary_terms_count": len(package["glossary"]["terms"]),
+                "mcqs_count": len(package["mcqs"]),
                 "flow_runs": 1,
                 "step_runs": len(step_runs),
                 "llm_requests": len(llm_requests),
                 "total_tokens": flow_run_data["total_tokens"],
                 "total_cost": flow_run_data["total_cost"],
-                "created_with": "seed_data_script",
+                "created_with": "seed_data_script_package_model",
             }
 
             with open(args.output, "w") as f:

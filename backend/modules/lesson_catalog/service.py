@@ -137,31 +137,36 @@ class LessonCatalogService:
         # Extract components from package
         components = []
 
-        # Add MCQs as components
-        for mcq in lesson.package.mcqs:
-            components.append(
-                {
-                    "id": mcq.id,
-                    "type": "mcq",
-                    "title": mcq.stem[:50] + "..." if len(mcq.stem) > 50 else mcq.stem,
-                    "content": {"question": mcq.stem, "options": [{"label": opt.label, "text": opt.text} for opt in mcq.options], "correct_answer": mcq.answer_key.label},
-                }
-            )
-
-        # Add didactic snippets as components
+        # Add didactic snippets as components FIRST (learning material should come before questions)
         for didactic_id, didactic in lesson.package.didactic.get("by_lo", {}).items():
             components.append(
                 {
                     "id": didactic.id,
-                    "type": "didactic_snippet",
+                    "component_type": "didactic_snippet",
                     "title": "Learning Material",
                     "content": {"explanation": didactic.plain_explanation, "key_takeaways": didactic.key_takeaways, "worked_example": didactic.worked_example, "near_miss_example": didactic.near_miss_example},
                 }
             )
 
-        # Add glossary terms as components
+        # Add MCQs as components SECOND (questions come after learning)
+        for mcq in lesson.package.mcqs:
+            components.append(
+                {
+                    "id": mcq.id,
+                    "component_type": "mcq",
+                    "title": mcq.stem[:50] + "..." if len(mcq.stem) > 50 else mcq.stem,
+                    "content": {
+                        "question": mcq.stem,
+                        "options": [{"label": opt.label, "text": opt.text} for opt in mcq.options],
+                        "correct_answer": mcq.answer_key.label,
+                        "explanation": getattr(mcq, "explanation", None) or f"The correct answer is {mcq.answer_key.label}.",
+                    },
+                }
+            )
+
+        # Add glossary terms as components LAST (reference material)
         for term in lesson.package.glossary.get("terms", []):
-            components.append({"id": term.id, "type": "glossary", "title": f"Term: {term.term}", "content": {"term": term.term, "definition": term.definition, "relation_to_core": term.relation_to_core}})
+            components.append({"id": term.id, "component_type": "glossary", "title": f"Term: {term.term}", "content": {"term": term.term, "definition": term.definition, "relation_to_core": term.relation_to_core}})
 
         objectives = [obj.text for obj in lesson.package.objectives]
 

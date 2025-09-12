@@ -28,7 +28,7 @@ class LessonModel(Base):
     source_level = Column(String(50))
     refined_material = Column(JSON)
 
-    package = Column(JSON, nullable=False)
+    package = Column(JSON, nullable=False) # Defined in @package_models.py
     package_version = Column(Integer, nullable=False, default=1)
 
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)

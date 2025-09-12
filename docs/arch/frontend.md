@@ -24,6 +24,7 @@ mobile/modules/{name}/
 * **Repo** calls **only** this module’s backend routes (vertical slice).
 * **Cross-module imports:** only from `modules/{other}/public`.
 * Don’t add to the public API unless there’s a clear need.
+* Do not use 'public.ts' from within that module; 'public.ts' is only for other modules to import from. Use 'service.ts' instead (otherwise there is a circular dependency).
 
 ### One-way arrows
 

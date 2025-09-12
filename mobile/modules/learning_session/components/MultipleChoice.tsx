@@ -252,7 +252,10 @@ export default function MultipleChoice({
     }
   );
 
-  const correctIndex = question.correct_answer;
+  // Find the correct answer index by matching the label
+  const correctIndex = choicesArray.findIndex(
+    ([label, _]) => label === question.correct_answer.toString()
+  );
 
   // Generate letter for display (A, B, C, D, etc.)
   const getChoiceLetter = (index: number) => String.fromCharCode(65 + index); // 65 is 'A'
@@ -305,7 +308,7 @@ export default function MultipleChoice({
 
     // Handle completion based on correctness
     if (isCorrect) {
-      // Auto-proceed for correct answers after showing result
+      // Auto-proceed for correct answers after showing result and green highlighting
       setTimeout(() => {
         onComplete({
           componentType: 'multiple_choice_question',
@@ -319,7 +322,7 @@ export default function MultipleChoice({
             details: [result],
           },
         });
-      }, 600); // Snappier auto-advance
+      }, 1500); // Longer delay to show green highlighting and explanation
     }
     // For incorrect answers, user must press Continue button
   };

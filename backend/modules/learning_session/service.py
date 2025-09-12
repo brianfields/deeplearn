@@ -135,11 +135,7 @@ class LearningSessionService:
         lesson_content = self.content.get_lesson(request.lesson_id)
         if lesson_content:
             # Calculate total components from package structure
-            total_components = (
-                len(lesson_content.package.mcqs) + 
-                len(lesson_content.package.didactic.get("by_lo", {})) + 
-                len(lesson_content.package.glossary.get("terms", []))
-            )
+            total_components = len(lesson_content.package.mcqs) + len(lesson_content.package.didactic.get("by_lo", {})) + len(lesson_content.package.glossary.get("terms", []))
         else:
             total_components = 0
 
@@ -167,7 +163,7 @@ class LearningSessionService:
         return self._to_session_dto(session)
 
     async def update_progress(self, request: UpdateProgressRequest) -> SessionProgress:
-        """Update session progress - simplified implementation"""
+        """Update session progress and store component results"""
         # Get session to validate it exists and is active
         session = self.repo.get_session_by_id(request.session_id)
         if not session:
@@ -176,17 +172,34 @@ class LearningSessionService:
         if session.status not in [SessionStatus.ACTIVE.value, SessionStatus.PAUSED.value]:
             raise ValueError(f"Cannot update progress for {session.status} session")
 
-        # Update session progress (simplified - just increment component index)
+        # Update session data with component results
+        session_data = session.session_data or {}
+        component_results = session_data.get("component_results", {})
+
+        # Store this component's result
+        component_results[request.component_id] = {
+            "is_correct": request.is_correct,
+            "user_answer": request.user_answer,
+            "time_spent_seconds": request.time_spent_seconds,
+            "completed_at": datetime.utcnow().isoformat(),
+        }
+
+        session_data["component_results"] = component_results
+        session_data["total_time_seconds"] = session_data.get("total_time_seconds", 0) + request.time_spent_seconds
+
+        # Update session progress
         new_index = session.current_component_index + 1
         progress_percentage = (new_index / session.total_components * 100) if session.total_components > 0 else 0
 
+        # Update both progress and session data
         self.repo.update_session_progress(
             session_id=request.session_id,
             current_component_index=new_index,
             progress_percentage=min(progress_percentage, 100),
+            session_data=session_data,
         )
 
-        # Return mock progress response (matches frontend expectations)
+        # Return progress response
         return SessionProgress(
             session_id=request.session_id,
             component_id=request.component_id,
@@ -265,16 +278,48 @@ class LearningSessionService:
         )
 
     def _calculate_session_results(self, session: LearningSessionModel) -> SessionResults:
-        """Calculate session results - simplified implementation"""
-        # Mock results that match frontend expectations
+        """Calculate session results based on actual performance"""
+
+        # Extract MCQ results from session data
+        session_data = session.session_data or {}
+        component_results = session_data.get("component_results", {})
+
+        # Count MCQ questions and correct answers
+        mcq_total = 0
+        mcq_correct = 0
+
+        for component_id, result in component_results.items():
+            # Check if this is an MCQ component (component_id starts with 'mcq_')
+            if component_id.startswith("mcq_") and isinstance(result, dict):
+                mcq_total += 1
+                if result.get("is_correct", False):
+                    mcq_correct += 1
+
+        # Calculate score percentage based only on MCQ questions
+        score_percentage = (mcq_correct / mcq_total * 100) if mcq_total > 0 else 0.0
+
+        # Calculate completion percentage based on all components
+        completion_percentage = (session.current_component_index / session.total_components * 100) if session.total_components > 0 else 0.0
+
+        # Determine achievements based on performance
+        achievements = []
+        if completion_percentage >= 100:
+            achievements.append("Session Complete")
+        if score_percentage >= 90:
+            achievements.append("Perfect Score")
+        elif score_percentage >= 80:
+            achievements.append("Great Job")
+        elif score_percentage >= 70:
+            achievements.append("Well Done")
+
         return SessionResults(
             session_id=session.id,
             lesson_id=session.lesson_id,
             total_components=session.total_components,
             completed_components=session.current_component_index,
-            correct_answers=max(0, session.current_component_index - 1),  # Mock: assume most are correct
-            total_time_seconds=300,  # Mock: 5 minutes
-            completion_percentage=session.progress_percentage,
-            score_percentage=80.0,  # Mock score
-            achievements=["Session Complete"],  # Mock achievement
+            correct_answers=mcq_correct,  # Only count MCQ correct answers
+            total_time_seconds=session_data.get("total_time_seconds", 300),  # Use actual time or default
+            completion_percentage=completion_percentage,
+            score_percentage=score_percentage,  # Based only on MCQ performance
+            achievements=achievements,
         )
