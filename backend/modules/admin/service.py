@@ -7,126 +7,25 @@ Returns DTOs for all admin functionality.
 """
 
 from datetime import datetime
-from typing import Any
 import uuid
-
-from pydantic import BaseModel
 
 from modules.content.public import ContentProvider
 from modules.flow_engine.public import FlowEngineAdminProvider
-from modules.learning_session.public import LearningSessionProvider
 from modules.lesson_catalog.public import LessonCatalogProvider
 from modules.llm_services.public import LLMServicesAdminProvider
 
-# ---- DTOs for Admin Module ----
-
-
-class FlowRunSummary(BaseModel):
-    """Summary view of a flow run for list displays."""
-
-    id: str
-    flow_name: str
-    status: str  # pending, running, completed, failed, cancelled
-    execution_mode: str  # sync, async, background
-    user_id: str | None
-    created_at: datetime
-    started_at: datetime | None
-    completed_at: datetime | None
-    execution_time_ms: int | None
-    total_tokens: int
-    total_cost: float
-    step_count: int
-    error_message: str | None
-
-
-class FlowStepDetails(BaseModel):
-    """Detailed view of a flow step execution."""
-
-    id: str
-    flow_run_id: str
-    llm_request_id: str | None
-    step_name: str
-    step_order: int
-    status: str  # pending, running, completed, failed
-    inputs: dict[str, Any]
-    outputs: dict[str, Any] | None
-    tokens_used: int | None
-    cost_estimate: float | None
-    execution_time_ms: int | None
-    error_message: str | None
-    step_metadata: dict[str, Any] | None
-    created_at: datetime
-    completed_at: datetime | None
-
-
-class FlowRunDetails(BaseModel):
-    """Detailed view of a flow run with all steps."""
-
-    id: str
-    flow_name: str
-    status: str
-    execution_mode: str
-    user_id: str | None
-    inputs: dict[str, Any]
-    outputs: dict[str, Any] | None
-    current_step: str | None
-    step_progress: int
-    total_steps: int | None
-    progress_percentage: float | None
-    created_at: datetime
-    started_at: datetime | None
-    completed_at: datetime | None
-    execution_time_ms: int | None
-    last_heartbeat: datetime | None
-    total_tokens: int
-    total_cost: float
-    error_message: str | None
-    steps: list[FlowStepDetails]
-
-
-class FlowRunsListResponse(BaseModel):
-    """Paginated response for flow runs list."""
-
-    flows: list[FlowRunSummary]
-    total_count: int
-    page: int
-    page_size: int
-    total_pages: int
-
-
-class LLMRequestDetails(BaseModel):
-    """Detailed view of an LLM request."""
-
-    id: str
-    user_id: str | None
-    api_variant: str
-    provider: str
-    model: str
-    provider_response_id: str | None
-    system_fingerprint: str | None
-    temperature: float
-    max_output_tokens: int | None
-    messages: list[dict[str, Any]]
-    additional_params: dict[str, Any] | None
-    request_payload: dict[str, Any] | None
-    response_content: str | None
-    response_raw: dict[str, Any] | None
-    response_output: dict[str, Any] | list[dict[str, Any]] | None
-    tokens_used: int | None
-    input_tokens: int | None
-    output_tokens: int | None
-    cost_estimate: float | None
-    response_created_at: datetime | None
-    status: str
-    execution_time_ms: int | None
-    error_message: str | None
-    error_type: str | None
-    retry_attempt: int
-    cached: bool
-    created_at: datetime
-
-
-# ---- Service Implementation ----
+from .models import (
+    FlowRunDetails,
+    FlowRunsListResponse,
+    FlowRunSummary,
+    FlowStepDetails,
+    LessonDetails,
+    LessonsListResponse,
+    LessonSummary,
+    LLMRequestDetails,
+    LLMRequestsListResponse,
+    LLMRequestSummary,
+)
 
 
 class AdminService:
@@ -136,15 +35,14 @@ class AdminService:
         self,
         flow_engine_admin: FlowEngineAdminProvider,
         llm_services_admin: LLMServicesAdminProvider,
-        content: ContentProvider,
         lesson_catalog: LessonCatalogProvider,
-        learning_sessions: LearningSessionProvider,
+        content: ContentProvider,
     ) -> None:
+        """Initialize admin service with required dependencies."""
         self.flow_engine_admin = flow_engine_admin
         self.llm_services_admin = llm_services_admin
-        self.content = content
         self.lesson_catalog = lesson_catalog
-        self.learning_sessions = learning_sessions
+        self.content = content
 
     # ---- Flow Management ----
 
@@ -153,48 +51,60 @@ class AdminService:
         page: int = 1,
         page_size: int = 50,
     ) -> FlowRunsListResponse:
-        """Get paginated list of recent flow runs."""
-        offset = (page - 1) * page_size
+        """Get paginated list of flow runs (minimal implementation)."""
+        try:
+            # Get flow runs through public interface
+            flow_models = self.flow_engine_admin.get_recent_flow_runs(limit=page_size, offset=(page - 1) * page_size)
+            total_count = self.flow_engine_admin.count_flow_runs()
 
-        # Get recent flow runs
-        flow_models = self.flow_engine_admin.get_recent_flow_runs(limit=page_size, offset=offset)
+            # Convert to DTOs
+            flow_summaries = []
+            for flow_model in flow_models:
+                # Get step count for this flow
+                steps = self.flow_engine_admin.get_flow_steps_by_run_id(flow_model.id) if flow_model.id else []
 
-        # Get total count for pagination
-        total_count = self.flow_engine_admin.count_flow_runs()
+                # Calculate totals from steps
+                total_tokens = sum(step.tokens_used or 0 for step in steps)
+                total_cost = sum(step.cost_estimate or 0 for step in steps)
 
-        # Convert to DTOs
-        flows = []
-        for flow_model in flow_models:
-            # Get step count for this flow
-            if flow_model.id:
-                steps = self.flow_engine_admin.get_flow_steps_by_run_id(flow_model.id)
-            else:
-                steps = []
-            flows.append(
-                FlowRunSummary(
-                    id=str(flow_model.id),
-                    flow_name=flow_model.flow_name or "Unknown",
-                    status=flow_model.status or "unknown",
-                    execution_mode=flow_model.execution_mode or "sync",
-                    user_id=str(flow_model.user_id) if flow_model.user_id else None,
-                    created_at=flow_model.created_at or datetime.now(),
-                    started_at=flow_model.started_at,
-                    completed_at=flow_model.completed_at,
-                    execution_time_ms=flow_model.execution_time_ms,
-                    total_tokens=flow_model.total_tokens or 0,
-                    total_cost=flow_model.total_cost or 0.0,
-                    step_count=len(steps),
-                    error_message=flow_model.error_message,
+                flow_summaries.append(
+                    FlowRunSummary(
+                        id=str(flow_model.id),
+                        flow_name=flow_model.flow_name or "Unknown Flow",
+                        status=flow_model.status or "unknown",
+                        execution_mode=flow_model.execution_mode or "unknown",
+                        user_id=str(flow_model.user_id) if flow_model.user_id else None,
+                        created_at=flow_model.created_at or datetime.now(),
+                        started_at=flow_model.started_at,
+                        completed_at=flow_model.completed_at,
+                        execution_time_ms=flow_model.execution_time_ms,
+                        total_tokens=total_tokens,
+                        total_cost=total_cost,
+                        step_count=len(steps),
+                        error_message=flow_model.error_message,
+                    )
                 )
+
+            # Determine if there is a next page using total count
+            has_next = ((page - 1) * page_size) + len(flow_summaries) < total_count
+
+            return FlowRunsListResponse(
+                flows=flow_summaries,
+                total_count=total_count,
+                page=page,
+                page_size=page_size,
+                has_next=has_next,
             )
 
-        return FlowRunsListResponse(
-            flows=flows,
-            total_count=total_count,
-            page=page,
-            page_size=page_size,
-            total_pages=(total_count + page_size - 1) // page_size,
-        )
+        except Exception:
+            # Return empty response on error
+            return FlowRunsListResponse(
+                flows=[],
+                total_count=0,
+                page=page,
+                page_size=page_size,
+                has_next=False,
+            )
 
     async def get_flow_run_details(self, flow_run_id: str) -> FlowRunDetails | None:
         """Get detailed view of a flow run with all steps."""
@@ -203,59 +113,74 @@ class AdminService:
         except ValueError:
             return None
 
+        # Get flow run through public interface
         flow_model = self.flow_engine_admin.get_flow_run_by_id(flow_uuid)
         if not flow_model:
             return None
 
-        # Get all steps for this flow
-        if flow_model.id:
-            step_models = self.flow_engine_admin.get_flow_steps_by_run_id(flow_model.id)
-        else:
-            step_models = []
+        # Get steps for this flow
+        step_models = self.flow_engine_admin.get_flow_steps_by_run_id(flow_model.id) if flow_model.id else []
 
-        steps = []
+        # Convert steps to DTOs
+        step_details = []
+        total_tokens = 0
+        total_cost = 0.0
+
         for step_model in step_models:
-            steps.append(
+            tokens_used = step_model.tokens_used or 0
+            cost_estimate = step_model.cost_estimate or 0.0
+            total_tokens += tokens_used
+            total_cost += cost_estimate
+
+            step_details.append(
                 FlowStepDetails(
                     id=str(step_model.id),
                     flow_run_id=str(step_model.flow_run_id),
                     llm_request_id=str(step_model.llm_request_id) if step_model.llm_request_id else None,
-                    step_name=step_model.step_name or "Unknown",
+                    step_name=step_model.step_name or "Unknown Step",
                     step_order=step_model.step_order or 0,
                     status=step_model.status or "unknown",
                     inputs=step_model.inputs or {},
                     outputs=step_model.outputs,
-                    tokens_used=step_model.tokens_used,
-                    cost_estimate=step_model.cost_estimate,
+                    tokens_used=tokens_used,
+                    cost_estimate=cost_estimate,
                     execution_time_ms=step_model.execution_time_ms,
                     error_message=step_model.error_message,
                     step_metadata=step_model.step_metadata,
                     created_at=step_model.created_at or datetime.now(),
+                    updated_at=getattr(step_model, "updated_at", None) or (step_model.created_at or datetime.now()),
                     completed_at=step_model.completed_at,
                 )
             )
 
+        # Calculate progress
+        completed_steps = len([s for s in step_details if s.status == "completed"])
+        total_steps = len(step_details)
+        progress_percentage = (completed_steps / total_steps * 100) if total_steps > 0 else 0
+
         return FlowRunDetails(
             id=str(flow_model.id),
-            flow_name=flow_model.flow_name or "Unknown",
+            flow_name=flow_model.flow_name or "Unknown Flow",
             status=flow_model.status or "unknown",
-            execution_mode=flow_model.execution_mode or "sync",
+            execution_mode=flow_model.execution_mode or "unknown",
             user_id=str(flow_model.user_id) if flow_model.user_id else None,
-            inputs=flow_model.inputs or {},
-            outputs=flow_model.outputs,
             current_step=flow_model.current_step,
-            step_progress=flow_model.step_progress or 0,
-            total_steps=flow_model.total_steps,
-            progress_percentage=flow_model.progress_percentage,
+            step_progress=completed_steps,
+            total_steps=total_steps,
+            progress_percentage=progress_percentage,
             created_at=flow_model.created_at or datetime.now(),
+            updated_at=getattr(flow_model, "updated_at", None) or (flow_model.created_at or datetime.now()),
             started_at=flow_model.started_at,
             completed_at=flow_model.completed_at,
-            execution_time_ms=flow_model.execution_time_ms,
             last_heartbeat=flow_model.last_heartbeat,
-            total_tokens=flow_model.total_tokens or 0,
-            total_cost=flow_model.total_cost or 0.0,
+            execution_time_ms=flow_model.execution_time_ms,
+            total_tokens=total_tokens,
+            total_cost=total_cost,
+            inputs=flow_model.inputs or {},
+            outputs=flow_model.outputs,
+            flow_metadata=flow_model.flow_metadata,
             error_message=flow_model.error_message,
-            steps=steps,
+            steps=step_details,
         )
 
     async def get_flow_step_details(self, step_run_id: str) -> FlowStepDetails | None:
@@ -265,6 +190,7 @@ class AdminService:
         except ValueError:
             return None
 
+        # Get step through public interface
         step_model = self.flow_engine_admin.get_flow_step_by_id(step_uuid)
         if not step_model:
             return None
@@ -273,17 +199,18 @@ class AdminService:
             id=str(step_model.id),
             flow_run_id=str(step_model.flow_run_id),
             llm_request_id=str(step_model.llm_request_id) if step_model.llm_request_id else None,
-            step_name=step_model.step_name or "Unknown",
+            step_name=step_model.step_name or "Unknown Step",
             step_order=step_model.step_order or 0,
             status=step_model.status or "unknown",
             inputs=step_model.inputs or {},
             outputs=step_model.outputs,
-            tokens_used=step_model.tokens_used,
-            cost_estimate=step_model.cost_estimate,
+            tokens_used=step_model.tokens_used or 0,
+            cost_estimate=step_model.cost_estimate or 0.0,
             execution_time_ms=step_model.execution_time_ms,
             error_message=step_model.error_message,
             step_metadata=step_model.step_metadata,
             created_at=step_model.created_at or datetime.now(),
+            updated_at=getattr(step_model, "updated_at", None) or (step_model.created_at or datetime.now()),
             completed_at=step_model.completed_at,
         )
 
@@ -330,4 +257,149 @@ class AdminService:
             retry_attempt=llm_request.retry_attempt,
             cached=llm_request.cached,
             created_at=llm_request.created_at,
+            updated_at=getattr(llm_request, "updated_at", llm_request.created_at),
         )
+
+    async def get_llm_requests(
+        self,
+        page: int = 1,
+        page_size: int = 50,
+    ) -> LLMRequestsListResponse:
+        """Get paginated list of LLM requests."""
+        try:
+            # Get LLM requests through public interface
+            llm_requests = self.llm_services_admin.get_recent_requests(limit=page_size, offset=(page - 1) * page_size)
+            total_count = self.llm_services_admin.count_all_requests()
+
+            # Convert to DTOs
+            request_summaries = []
+            for llm_request in llm_requests:
+                request_summaries.append(
+                    LLMRequestSummary(
+                        id=str(llm_request.id),
+                        user_id=str(llm_request.user_id) if llm_request.user_id else None,
+                        api_variant=llm_request.api_variant,
+                        provider=llm_request.provider,
+                        model=llm_request.model,
+                        status=llm_request.status,
+                        tokens_used=llm_request.tokens_used,
+                        input_tokens=llm_request.input_tokens,
+                        output_tokens=llm_request.output_tokens,
+                        cost_estimate=llm_request.cost_estimate,
+                        execution_time_ms=llm_request.execution_time_ms,
+                        cached=llm_request.cached,
+                        created_at=llm_request.created_at,
+                        error_message=llm_request.error_message,
+                    )
+                )
+
+            # Determine if there is a next page using total count
+            has_next = ((page - 1) * page_size) + len(request_summaries) < total_count
+
+            return LLMRequestsListResponse(
+                requests=request_summaries,
+                total_count=total_count,
+                page=page,
+                page_size=page_size,
+                has_next=has_next,
+            )
+
+        except Exception:
+            # Return empty response on error
+            return LLMRequestsListResponse(
+                requests=[],
+                total_count=0,
+                page=page,
+                page_size=page_size,
+                has_next=False,
+            )
+
+    # ---- Lesson Management ----
+
+    async def get_lessons(
+        self,
+        user_level: str | None = None,
+        domain: str | None = None,  # Not used by lesson catalog but kept for API compatibility
+        search: str | None = None,
+        page: int = 1,
+        page_size: int = 50,
+    ) -> LessonsListResponse:
+        """Get paginated list of lessons with optional filtering."""
+        try:
+            # Use search_lessons to get lessons with filtering
+            search_response = self.lesson_catalog.search_lessons(
+                query=search,
+                user_level=user_level,
+                limit=page_size,
+                offset=(page - 1) * page_size,
+            )
+
+            # Convert lesson catalog DTOs to admin DTOs
+            lesson_summaries = []
+            for lesson in search_response.lessons:
+                lesson_summaries.append(
+                    LessonSummary(
+                        id=lesson.id,
+                        title=lesson.title,
+                        core_concept=lesson.core_concept,
+                        user_level=lesson.user_level,
+                        source_domain=None,  # Not available in lesson catalog
+                        source_level=None,  # Not available in lesson catalog
+                        package_version=1,  # Default version
+                        created_at=datetime.now(),  # Placeholder
+                        updated_at=datetime.now(),  # Placeholder
+                    )
+                )
+
+            # Calculate if there are more results
+            has_next = len(search_response.lessons) == page_size
+
+            return LessonsListResponse(
+                lessons=lesson_summaries,
+                total_count=search_response.total,
+                page=page,
+                page_size=page_size,
+                has_next=has_next,
+            )
+
+        except Exception:
+            # Return empty response on error
+            return LessonsListResponse(
+                lessons=[],
+                total_count=0,
+                page=page,
+                page_size=page_size,
+                has_next=False,
+            )
+
+    async def get_lesson_details(self, lesson_id: str) -> LessonDetails | None:
+        """Get detailed information about a specific lesson including its package."""
+
+        try:
+            # Get lesson from content provider directly to get full package structure
+            lesson = self.content.get_lesson(lesson_id)
+            if not lesson:
+                return None
+
+            # Convert the LessonPackage to dict for JSON serialization
+            # The package already has the proper structure with meta, objectives, etc.
+            package = lesson.package.model_dump()
+
+            return LessonDetails(
+                id=lesson.id,
+                title=lesson.title,
+                core_concept=lesson.core_concept,
+                user_level=lesson.user_level,
+                source_material=lesson.source_material,
+                source_domain=lesson.source_domain,
+                source_level=lesson.source_level,
+                refined_material=lesson.refined_material,
+                package=package,  # Full package structure from content
+                package_version=lesson.package_version,
+                flow_run_id=str(lesson.flow_run_id) if lesson.flow_run_id else None,
+                created_at=lesson.created_at,
+                updated_at=lesson.updated_at,
+            )
+
+        except Exception:
+            return None

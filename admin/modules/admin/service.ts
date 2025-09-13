@@ -220,6 +220,47 @@ export class AdminService {
     }
   }
 
+  async getLLMRequests(params?: { page?: number; page_size?: number }): Promise<LLMRequestsListResponse> {
+    try {
+      const response = await AdminRepo.llmRequests.list(params);
+
+      // Transform LLM request summaries
+      const requests: LLMRequestSummary[] = response.requests.map((request: any) => ({
+        id: request.id,
+        user_id: request.user_id,
+        api_variant: request.api_variant,
+        provider: request.provider,
+        model: request.model,
+        status: request.status as LLMRequestSummary['status'],
+        tokens_used: request.tokens_used,
+        input_tokens: request.input_tokens,
+        output_tokens: request.output_tokens,
+        cost_estimate: request.cost_estimate,
+        execution_time_ms: request.execution_time_ms,
+        cached: request.cached,
+        created_at: new Date(request.created_at),
+        error_message: request.error_message,
+      }));
+
+      return {
+        requests,
+        total_count: response.total_count,
+        page: response.page,
+        page_size: response.page_size,
+        has_next: response.has_next,
+      };
+    } catch (error) {
+      console.error('Failed to fetch LLM requests:', error);
+      return {
+        requests: [],
+        total_count: 0,
+        page: 1,
+        page_size: 50,
+        has_next: false,
+      };
+    }
+  }
+
   // ---- Lesson Management ----
 
   async getLessons(params?: LessonsQuery): Promise<LessonsListResponse> {

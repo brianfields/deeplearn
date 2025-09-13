@@ -7,6 +7,7 @@ Handles content operations and data transformation.
 
 from datetime import UTC, datetime
 import logging
+import uuid
 
 from pydantic import BaseModel, ConfigDict
 
@@ -31,6 +32,7 @@ class LessonRead(BaseModel):
     refined_material: dict | None = None
     package: LessonPackage
     package_version: int
+    flow_run_id: uuid.UUID | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -50,6 +52,7 @@ class LessonCreate(BaseModel):
     refined_material: dict | None = None
     package: LessonPackage
     package_version: int = 1
+    flow_run_id: uuid.UUID | None = None
 
 
 class ContentService:
@@ -82,6 +85,7 @@ class ContentService:
                 "refined_material": lesson.refined_material,
                 "package": package,
                 "package_version": lesson.package_version,
+                "flow_run_id": lesson.flow_run_id,
                 "created_at": lesson.created_at,
                 "updated_at": lesson.updated_at,
             }
@@ -112,6 +116,7 @@ class ContentService:
                     "refined_material": lesson.refined_material,
                     "package": package,
                     "package_version": lesson.package_version,
+                    "flow_run_id": lesson.flow_run_id,
                     "created_at": lesson.created_at,
                     "updated_at": lesson.updated_at,
                 }
@@ -144,6 +149,7 @@ class ContentService:
                     "refined_material": lesson.refined_material,
                     "package": package,
                     "package_version": lesson.package_version,
+                    "flow_run_id": lesson.flow_run_id,
                     "created_at": lesson.created_at,
                     "updated_at": lesson.updated_at,
                 }
@@ -171,6 +177,7 @@ class ContentService:
             refined_material=lesson_data.refined_material or {},
             package=package_dict,
             package_version=lesson_data.package_version,
+            flow_run_id=lesson_data.flow_run_id,
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
         )
@@ -189,6 +196,7 @@ class ContentService:
             "refined_material": saved_lesson.refined_material,
             "package": lesson_data.package,  # Use original validated package
             "package_version": saved_lesson.package_version,
+            "flow_run_id": saved_lesson.flow_run_id,
             "created_at": saved_lesson.created_at,
             "updated_at": saved_lesson.updated_at,
         }

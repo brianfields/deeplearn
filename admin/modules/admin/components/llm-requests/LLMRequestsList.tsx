@@ -41,9 +41,11 @@ export function LLMRequestsList() {
     );
   }
 
-  const requestsList = requests || [];
-  const currentPage = filters.page || 1;
-  const pageSize = filters.page_size || 10;
+  const requestsList = requests?.requests || [];
+  const totalCount = requests?.total_count || 0;
+  const currentPage = requests?.page || filters.page || 1;
+  const pageSize = requests?.page_size || filters.page_size || 10;
+  const hasNext = requests?.has_next || false;
 
   return (
     <div className="space-y-6">
@@ -51,7 +53,7 @@ export function LLMRequestsList() {
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm text-gray-700">
-            Showing {requestsList.length} LLM requests
+            Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalCount)} of {totalCount} LLM requests
           </p>
         </div>
         <div className="flex items-center space-x-2">
@@ -188,17 +190,30 @@ export function LLMRequestsList() {
         )}
       </div>
 
-      {/* Simple pagination info */}
-      <div className="flex items-center justify-between">
-        <div className="text-sm text-gray-500">
-          Showing {requestsList.length} requests
-        </div>
-        {requestsList.length >= pageSize && (
+      {/* Pagination controls */}
+      {totalCount > pageSize && (
+        <div className="flex items-center justify-between">
           <div className="text-sm text-gray-500">
-            Use pagination controls to view more
+            Page {currentPage} of {Math.ceil(totalCount / pageSize)}
           </div>
-        )}
-      </div>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage <= 1}
+              className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={!hasNext}
+              className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

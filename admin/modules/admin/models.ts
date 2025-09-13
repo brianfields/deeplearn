@@ -127,6 +127,14 @@ export interface LLMRequestDetails {
   created_at: Date;
 }
 
+export interface LLMRequestsListResponse {
+  requests: LLMRequestSummary[];
+  total_count: number;
+  page: number;
+  page_size: number;
+  has_next: boolean;
+}
+
 // ---- Lesson Types ----
 
 export interface LessonSummary {
@@ -152,6 +160,7 @@ export interface LessonDetails {
   refined_material: Record<string, any> | null;
   package: LessonPackage;
   package_version: number;
+  flow_run_id: string | null;
   created_at: Date;
   updated_at: Date;
 }

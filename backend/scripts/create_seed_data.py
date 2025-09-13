@@ -141,6 +141,7 @@ def create_sample_lesson_data(
     core_concept: str = "Cross-Entropy Loss Function",
     user_level: str = "intermediate",
     domain: str = "Machine Learning",
+    flow_run_id: uuid.UUID | None = None,
 ) -> dict[str, Any]:
     """Create sample lesson data structure with package."""
 
@@ -149,6 +150,7 @@ def create_sample_lesson_data(
 
     return {
         "id": lesson_id,
+        "flow_run_id": flow_run_id,
         "title": title,
         "core_concept": core_concept,
         "user_level": user_level,
@@ -190,10 +192,9 @@ def create_sample_lesson_data(
 # Components are now embedded in the lesson package, no separate function needed
 
 
-def create_sample_flow_run(lesson_id: str, lesson_data: dict[str, Any]) -> dict[str, Any]:
+def create_sample_flow_run(flow_run_id: uuid.UUID, lesson_id: str, lesson_data: dict[str, Any]) -> dict[str, Any]:
     """Create sample flow run data."""
     now = datetime.now(UTC)
-    flow_run_id = uuid.uuid4()
 
     # Extract package data for outputs
     package = lesson_data["package"]
@@ -209,6 +210,7 @@ def create_sample_flow_run(lesson_id: str, lesson_data: dict[str, Any]) -> dict[
         "total_steps": 8,
         "progress_percentage": 100.0,
         "created_at": now,
+        "updated_at": now,
         "started_at": now,
         "completed_at": now,
         "last_heartbeat": now,
@@ -262,6 +264,7 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, lesson_data: dict[str, Any])
             "error_message": None,
             "step_metadata": {"prompt_file": "extract_lesson_metadata.md"},
             "created_at": now,
+            "updated_at": now,
             "completed_at": now,
         }
     )
@@ -284,6 +287,7 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, lesson_data: dict[str, Any])
             "error_message": None,
             "step_metadata": {"prompt_file": "generate_didactic_snippet.md"},
             "created_at": now,
+            "updated_at": now,
             "completed_at": now,
         }
     )
@@ -305,6 +309,7 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, lesson_data: dict[str, Any])
             "error_message": None,
             "step_metadata": {"prompt_file": "generate_glossary.md"},
             "created_at": now,
+            "updated_at": now,
             "completed_at": now,
         }
     )
@@ -331,6 +336,7 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, lesson_data: dict[str, Any])
                 "error_message": None,
                 "step_metadata": {"prompt_file": "generate_mcq.md"},
                 "created_at": now,
+                "updated_at": now,
                 "completed_at": now,
             }
         )
@@ -405,6 +411,7 @@ def create_sample_llm_requests(step_runs: list[dict[str, Any]]) -> list[dict[str
                     "retry_attempt": 1,
                     "cached": False,
                     "created_at": now,
+                    "updated_at": now,
                 }
             )
 
@@ -443,14 +450,15 @@ async def main() -> None:
         # Generate lesson ID
         lesson_id = str(uuid.uuid4())
 
-        # Create sample data
+        flow_run_id = uuid.uuid4()
         if args.verbose:
             print("📚 Creating lesson data with package...")
-        lesson_data = create_sample_lesson_data(lesson_id, args.lesson, args.concept, args.level, args.domain)
+        lesson_data = create_sample_lesson_data(lesson_id, args.lesson, args.concept, args.level, args.domain, flow_run_id)
 
+        # Create sample data
         if args.verbose:
             print("🔄 Creating flow run data...")
-        flow_run_data = create_sample_flow_run(lesson_id, lesson_data)
+        flow_run_data = create_sample_flow_run(flow_run_id, lesson_id, lesson_data)
 
         if args.verbose:
             print("👣 Creating step run data...")
@@ -462,32 +470,34 @@ async def main() -> None:
 
         # Save to database
         with infra.get_session_context() as db_session:
-            if args.verbose:
-                print("💾 Saving lesson with package to database...")
-
-            # Create lesson with embedded package
-            lesson = LessonModel(**lesson_data)
-            db_session.add(lesson)
-
-            # Create flow run
+            # Create flow run first (required for foreign key constraint)
             if args.verbose:
                 print("💾 Saving flow run...")
             flow_run = FlowRunModel(**flow_run_data)
             db_session.add(flow_run)
+            db_session.flush()  # Ensure flow run is persisted before creating lesson
 
-            # Create step runs
             if args.verbose:
-                print(f"💾 Saving {len(step_runs)} step runs...")
-            for step_run_data in step_runs:
-                step_run = FlowStepRunModel(**step_run_data)
-                db_session.add(step_run)
+                print("💾 Saving lesson with package to database...")
 
-            # Create LLM requests
+            # Create lesson with embedded package (references flow run)
+            lesson = LessonModel(**lesson_data)
+            db_session.add(lesson)
+
+            # Create LLM requests first (required for step run foreign key constraint)
             if args.verbose:
                 print(f"💾 Saving {len(llm_requests)} LLM requests...")
             for llm_request_data in llm_requests:
                 llm_request = LLMRequestModel(**llm_request_data)
                 db_session.add(llm_request)
+            db_session.flush()  # Ensure LLM requests are persisted before creating step runs
+
+            # Create step runs (references LLM requests)
+            if args.verbose:
+                print(f"💾 Saving {len(step_runs)} step runs...")
+            for step_run_data in step_runs:
+                step_run = FlowStepRunModel(**step_run_data)
+                db_session.add(step_run)
 
             # Commit all changes
             if args.verbose:

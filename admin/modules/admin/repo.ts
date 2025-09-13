@@ -58,20 +58,14 @@ export const AdminRepo = {
 
   // ---- LLM Request Endpoints ----
   llmRequests: {
-    async list(params?: LLMRequestsQuery): Promise<ApiLLMRequest[]> {
+    async list(params?: { page?: number; page_size?: number }): Promise<any> {
       const queryParams = new URLSearchParams();
 
-      if (params?.status) queryParams.append('status', params.status);
-      if (params?.provider) queryParams.append('provider', params.provider);
-      if (params?.model) queryParams.append('model', params.model);
-      if (params?.user_id) queryParams.append('user_id', params.user_id);
-      if (params?.start_date) queryParams.append('start_date', params.start_date.toISOString());
-      if (params?.end_date) queryParams.append('end_date', params.end_date.toISOString());
       if (params?.page) queryParams.append('page', params.page.toString());
       if (params?.page_size) queryParams.append('page_size', params.page_size.toString());
 
       const url = `${ADMIN_BASE}/llm-requests${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-      const { data } = await apiClient.get<ApiLLMRequest[]>(url);
+      const { data } = await apiClient.get(url);
       return data;
     },
 

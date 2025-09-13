@@ -181,11 +181,19 @@ class LLMServicesAdminProvider(Protocol):
     WARNING: This interface provides access to sensitive LLM request data
     and should only be used by the admin module for monitoring purposes.
 
-    Only exposes the specific method needed for admin dashboard functionality.
+    Only exposes the specific methods needed for admin dashboard functionality.
     """
 
     def get_request(self, request_id: uuid.UUID) -> LLMRequest | None:
         """Get LLM request by ID. FOR ADMIN USE ONLY."""
+        ...
+
+    def get_recent_requests(self, limit: int = 50, offset: int = 0) -> list[LLMRequest]:
+        """Get recent LLM requests with pagination. FOR ADMIN USE ONLY."""
+        ...
+
+    def count_all_requests(self) -> int:
+        """Get total count of LLM requests. FOR ADMIN USE ONLY."""
         ...
 
 

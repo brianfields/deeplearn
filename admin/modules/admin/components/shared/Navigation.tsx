@@ -26,6 +26,11 @@ const navigationItems = [
     href: '/llm-requests',
     description: 'View LLM request details',
   },
+  {
+    name: 'Lessons',
+    href: '/lessons',
+    description: 'Browse lesson catalog and packages',
+  },
 ];
 
 export function Navigation() {

@@ -109,6 +109,7 @@ class LLMRequestModel(Base):
     # Timing
     # Record creation time (database server clock, timezone-aware)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
     def __repr__(self) -> str:
         return f"<LLMRequestModel(id={self.id}, provider='{self.provider}', model='{self.model}', status='{self.status}')>"

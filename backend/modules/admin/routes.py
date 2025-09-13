@@ -10,15 +10,22 @@ from collections.abc import Generator
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from modules.content.public import content_provider
+from modules.flow_engine.public import flow_engine_admin_provider
 from modules.infrastructure.public import infrastructure_provider
+from modules.lesson_catalog.public import lesson_catalog_provider
+from modules.llm_services.public import llm_services_admin_provider
 
-from .service import (
-    AdminService,
+from .models import (
     FlowRunDetails,
     FlowRunsListResponse,
     FlowStepDetails,
+    LessonDetails,
+    LessonsListResponse,
     LLMRequestDetails,
+    LLMRequestsListResponse,
 )
+from .service import AdminService
 
 # Create router with admin prefix
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
@@ -40,10 +47,6 @@ def get_admin_service(session: Session = Depends(get_session)) -> AdminService:
     WARNING: This service provides access to sensitive system data.
     Ensure proper authentication and authorization before calling.
     """
-    from modules.content.public import content_provider
-    from modules.flow_engine.public import flow_engine_admin_provider
-    from modules.lesson_catalog.public import lesson_catalog_provider
-    from modules.llm_services.public import llm_services_admin_provider
 
     # Get minimal admin providers through proper public interfaces
     flow_engine_admin = flow_engine_admin_provider(session)
@@ -61,9 +64,8 @@ def get_admin_service(session: Session = Depends(get_session)) -> AdminService:
     return AdminService(
         flow_engine_admin=flow_engine_admin,
         llm_services_admin=llm_services_admin,
-        content=content,
         lesson_catalog=lesson_catalog,
-        learning_sessions=learning_sessions,  # type: ignore
+        content=content,
     )
 
 
@@ -113,6 +115,16 @@ async def get_flow_step_details(
 # ---- LLM Request Management Routes ----
 
 
+@router.get("/llm-requests", response_model=LLMRequestsListResponse)
+async def list_llm_requests(
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(50, ge=1, le=100, description="Items per page"),
+    admin_service: AdminService = Depends(get_admin_service),
+) -> LLMRequestsListResponse:
+    """Get paginated list of LLM requests."""
+    return await admin_service.get_llm_requests(page=page, page_size=page_size)
+
+
 @router.get("/llm-requests/{request_id}", response_model=LLMRequestDetails)
 async def get_llm_request_details(
     request_id: str,
@@ -123,3 +135,37 @@ async def get_llm_request_details(
     if not request_details:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"LLM request {request_id} not found")
     return request_details
+
+
+# ---- Lesson Management Routes ----
+
+
+@router.get("/lessons", response_model=LessonsListResponse)
+async def list_lessons(
+    user_level: str | None = Query(None, description="Filter by user level"),
+    domain: str | None = Query(None, description="Filter by domain"),
+    search: str | None = Query(None, description="Search in title and core concept"),
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(50, ge=1, le=100, description="Items per page"),
+    admin_service: AdminService = Depends(get_admin_service),
+) -> LessonsListResponse:
+    """Get paginated list of lessons with optional filtering."""
+    return await admin_service.get_lessons(
+        user_level=user_level,
+        domain=domain,
+        search=search,
+        page=page,
+        page_size=page_size,
+    )
+
+
+@router.get("/lessons/{lesson_id}", response_model=LessonDetails)
+async def get_lesson_details(
+    lesson_id: str,
+    admin_service: AdminService = Depends(get_admin_service),
+) -> LessonDetails:
+    """Get detailed information about a specific lesson including its package."""
+    lesson_details = await admin_service.get_lesson_details(lesson_id)
+    if not lesson_details:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Lesson {lesson_id} not found")
+    return lesson_details

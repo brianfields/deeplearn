@@ -8,9 +8,9 @@ Uses single lessons table with JSON package field.
 
 from datetime import datetime
 
-from sqlalchemy import JSON, Column, DateTime, Integer, String, Text
+from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String, Text
 
-from modules.shared_models import Base
+from modules.shared_models import Base, PostgresUUID
 
 
 class LessonModel(Base):
@@ -28,8 +28,11 @@ class LessonModel(Base):
     source_level = Column(String(50))
     refined_material = Column(JSON)
 
-    package = Column(JSON, nullable=False) # Defined in @package_models.py
+    package = Column(JSON, nullable=False)  # Defined in @package_models.py
     package_version = Column(Integer, nullable=False, default=1)
+
+    # Reference to the flow run that generated this lesson
+    flow_run_id = Column(PostgresUUID(), ForeignKey("flow_runs.id"), nullable=True, index=True)
 
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)

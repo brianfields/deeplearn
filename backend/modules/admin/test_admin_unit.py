@@ -75,11 +75,6 @@ class TestAdminService:
         return mock
 
     @pytest.fixture
-    def mock_content_provider(self):
-        """Mock ContentProvider for testing."""
-        return Mock()
-
-    @pytest.fixture
     def mock_lesson_catalog_provider(self):
         """Mock LessonCatalogProvider for testing."""
         return Mock()
@@ -90,21 +85,24 @@ class TestAdminService:
         return Mock()
 
     @pytest.fixture
+    def mock_content_provider(self):
+        """Mock ContentProvider for testing."""
+        return Mock()
+
+    @pytest.fixture
     def admin_service(
         self,
         mock_flow_engine_admin,
         mock_llm_services_admin,
-        mock_content_provider,
         mock_lesson_catalog_provider,
-        mock_learning_sessions_provider,
+        mock_content_provider,
     ):
         """Create AdminService with mocked dependencies."""
         return AdminService(
             flow_engine_admin=mock_flow_engine_admin,
             llm_services_admin=mock_llm_services_admin,
-            content=mock_content_provider,
             lesson_catalog=mock_lesson_catalog_provider,
-            learning_sessions=mock_learning_sessions_provider,
+            content=mock_content_provider,
         )
 
     @pytest.mark.asyncio
@@ -119,7 +117,7 @@ class TestAdminService:
         assert len(result.flows) == 1
         assert result.page == 1
         assert result.page_size == 10
-        assert result.total_pages == 1
+        assert not result.has_next
 
         # Check flow data
         flow = result.flows[0]
@@ -250,6 +248,7 @@ class TestAdminService:
             retry_attempt=0,
             cached=False,
             execution_time_ms=100,
+            updated_at=datetime.now(UTC),
         )
 
         mock_llm_services_admin.get_request.return_value = mock_request

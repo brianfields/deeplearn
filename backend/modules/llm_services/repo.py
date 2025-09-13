@@ -95,3 +95,11 @@ class LLMRequestRepo:
     def count_by_status(self, status: str) -> int:
         """Count requests by status."""
         return self.s.query(LLMRequestModel).filter(LLMRequestModel.status == status).count()
+
+    def get_recent(self, limit: int = 50, offset: int = 0) -> list[LLMRequestModel]:
+        """Get recent LLM requests with pagination. FOR ADMIN USE ONLY."""
+        return self.s.query(LLMRequestModel).order_by(desc(LLMRequestModel.created_at)).limit(limit).offset(offset).all()
+
+    def count_all(self) -> int:
+        """Get total count of LLM requests. FOR ADMIN USE ONLY."""
+        return self.s.query(LLMRequestModel).count()

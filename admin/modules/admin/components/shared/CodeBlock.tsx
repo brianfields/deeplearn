@@ -24,11 +24,11 @@ interface CodeBlockProps {
   wrap?: boolean;
 }
 
-export function CodeBlock({ 
-  content, 
-  title, 
+export function CodeBlock({
+  content,
+  title,
   language = 'text',
-  maxHeight = 'max-h-96', 
+  maxHeight = 'max-h-96',
   className,
   showCopy = true,
   collapsed = false,
@@ -93,7 +93,7 @@ export function CodeBlock({
               </>
             )}
           </div>
-          
+
           {showCopy && (
             <button
               onClick={handleCopy}

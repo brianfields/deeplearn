@@ -22,13 +22,13 @@ interface JSONViewerProps {
   collapsed?: boolean;
 }
 
-export function JSONViewer({ 
-  data, 
-  title, 
-  maxHeight = 'max-h-96', 
+export function JSONViewer({
+  data,
+  title,
+  maxHeight = 'max-h-96',
   className,
   showCopy = true,
-  collapsed = false 
+  collapsed = false
 }: JSONViewerProps) {
   const [isCollapsed, setIsCollapsed] = useState(collapsed);
   const [copied, setCopied] = useState(false);
@@ -86,7 +86,7 @@ export function JSONViewer({
               </>
             )}
           </div>
-          
+
           {showCopy && (
             <button
               onClick={handleCopy}

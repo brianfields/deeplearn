@@ -119,6 +119,7 @@ class LLMRequest(BaseModel):
     cached: bool = Field(False, description="Whether cached")
     response_created_at: datetime | None = Field(None, description="Provider response created timestamp")
     created_at: datetime = Field(..., description="Creation timestamp")
+    updated_at: datetime = Field(..., description="Last update timestamp")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -299,3 +300,12 @@ class LLMService:
     def get_request_count_by_status(self, status: str) -> int:
         """Get request count by status."""
         return self.repo.count_by_status(status)
+
+    def get_recent_requests(self, limit: int = 50, offset: int = 0) -> list[LLMRequest]:
+        """Get recent LLM requests with pagination. FOR ADMIN USE ONLY."""
+        requests = self.repo.get_recent(limit, offset)
+        return [LLMRequest.model_validate(req) for req in requests]
+
+    def count_all_requests(self) -> int:
+        """Get total count of LLM requests. FOR ADMIN USE ONLY."""
+        return self.repo.count_all()
