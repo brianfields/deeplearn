@@ -1,0 +1,358 @@
+/**
+ * Admin Module - Service Layer
+ *
+ * Business logic and data transformation for admin dashboard.
+ * Handles API→DTO mapping and provides clean interfaces for components.
+ */
+
+import { AdminRepo } from './repo';
+import type {
+  // API types
+  ApiFlowRun,
+  ApiFlowRunDetails,
+  ApiFlowStepDetails,
+  ApiLLMRequest,
+  ApiSystemMetrics,
+
+  // DTO types
+  FlowRunSummary,
+  FlowRunDetails,
+  FlowStepDetails,
+  LLMRequestSummary,
+  LLMRequestDetails,
+  SystemMetrics,
+  FlowMetrics,
+  DailyMetrics,
+  LessonSummary,
+  LessonDetails,
+
+  // Query types
+  FlowRunsQuery,
+  LLMRequestsQuery,
+  LessonsQuery,
+  MetricsQuery,
+
+  // Response types
+  FlowRunsListResponse,
+  LessonsListResponse,
+} from './models';
+
+// ---- Data Transformation Functions ----
+
+const parseDate = (dateString: string | null): Date | null => {
+  return dateString ? new Date(dateString) : null;
+};
+
+const flowRunToDTO = (apiFlow: ApiFlowRun): FlowRunSummary => ({
+  id: apiFlow.id,
+  flow_name: apiFlow.flow_name,
+  status: apiFlow.status as FlowRunSummary['status'],
+  execution_mode: apiFlow.execution_mode as FlowRunSummary['execution_mode'],
+  user_id: apiFlow.user_id,
+  created_at: new Date(apiFlow.created_at),
+  started_at: parseDate(apiFlow.started_at),
+  completed_at: parseDate(apiFlow.completed_at),
+  execution_time_ms: apiFlow.execution_time_ms,
+  total_tokens: apiFlow.total_tokens,
+  total_cost: apiFlow.total_cost,
+  step_count: apiFlow.step_count,
+  error_message: apiFlow.error_message,
+});
+
+const flowRunDetailsToDTO = (apiFlow: ApiFlowRunDetails): FlowRunDetails => ({
+  id: apiFlow.id,
+  flow_name: apiFlow.flow_name,
+  status: apiFlow.status as FlowRunDetails['status'],
+  execution_mode: apiFlow.execution_mode as FlowRunDetails['execution_mode'],
+  user_id: apiFlow.user_id,
+  current_step: apiFlow.current_step,
+  step_progress: apiFlow.step_progress,
+  total_steps: apiFlow.total_steps,
+  progress_percentage: apiFlow.progress_percentage,
+  created_at: new Date(apiFlow.created_at),
+  started_at: parseDate(apiFlow.started_at),
+  completed_at: parseDate(apiFlow.completed_at),
+  last_heartbeat: parseDate(apiFlow.last_heartbeat),
+  execution_time_ms: apiFlow.execution_time_ms,
+  total_tokens: apiFlow.total_tokens,
+  total_cost: apiFlow.total_cost,
+  inputs: apiFlow.inputs,
+  outputs: apiFlow.outputs,
+  flow_metadata: apiFlow.flow_metadata,
+  error_message: apiFlow.error_message,
+  steps: apiFlow.steps.map(stepToDTO),
+});
+
+const stepToDTO = (apiStep: ApiFlowStepDetails): FlowStepDetails => ({
+  id: apiStep.id,
+  flow_run_id: apiStep.flow_run_id,
+  llm_request_id: apiStep.llm_request_id,
+  step_name: apiStep.step_name,
+  step_order: apiStep.step_order,
+  status: apiStep.status as FlowStepDetails['status'],
+  inputs: apiStep.inputs,
+  outputs: apiStep.outputs,
+  tokens_used: apiStep.tokens_used,
+  cost_estimate: apiStep.cost_estimate,
+  execution_time_ms: apiStep.execution_time_ms,
+  error_message: apiStep.error_message,
+  step_metadata: apiStep.step_metadata,
+  created_at: new Date(apiStep.created_at),
+  completed_at: parseDate(apiStep.completed_at),
+});
+
+const llmRequestToDTO = (apiRequest: ApiLLMRequest): LLMRequestSummary => ({
+  id: apiRequest.id,
+  user_id: apiRequest.user_id,
+  api_variant: apiRequest.api_variant,
+  provider: apiRequest.provider,
+  model: apiRequest.model,
+  status: apiRequest.status as LLMRequestSummary['status'],
+  tokens_used: apiRequest.tokens_used,
+  input_tokens: apiRequest.input_tokens,
+  output_tokens: apiRequest.output_tokens,
+  cost_estimate: apiRequest.cost_estimate,
+  execution_time_ms: apiRequest.execution_time_ms,
+  cached: apiRequest.cached,
+  created_at: new Date(apiRequest.created_at),
+  error_message: apiRequest.error_message,
+});
+
+const systemMetricsToDTO = (apiMetrics: ApiSystemMetrics): SystemMetrics => ({
+  total_flows: apiMetrics.total_flows,
+  active_flows: apiMetrics.active_flows,
+  completed_flows: apiMetrics.completed_flows,
+  failed_flows: apiMetrics.failed_flows,
+  total_steps: apiMetrics.total_steps,
+  total_llm_requests: apiMetrics.total_llm_requests,
+  total_tokens_used: apiMetrics.total_tokens_used,
+  total_cost: apiMetrics.total_cost,
+  total_lessons: apiMetrics.total_lessons,
+  active_sessions: apiMetrics.active_sessions,
+});
+
+// ---- Service Implementation ----
+
+export class AdminService {
+  // ---- Flow Management ----
+
+  async getFlowRuns(params?: FlowRunsQuery): Promise<FlowRunsListResponse> {
+    const response = await AdminRepo.flows.list(params);
+
+    return {
+      flows: response.flows.map(flowRunToDTO),
+      total_count: response.total_count,
+      page: response.page,
+      page_size: response.page_size,
+      has_next: response.has_next,
+    };
+  }
+
+  async getFlowRun(id: string): Promise<FlowRunDetails | null> {
+    try {
+      const apiFlow = await AdminRepo.flows.byId(id);
+      return flowRunDetailsToDTO(apiFlow);
+    } catch (error) {
+      console.error('Failed to fetch flow run:', error);
+      return null;
+    }
+  }
+
+  async getFlowStepDetails(flowId: string, stepId: string): Promise<FlowStepDetails | null> {
+    try {
+      const apiStep = await AdminRepo.flows.getStepDetails(flowId, stepId);
+      return stepToDTO(apiStep);
+    } catch (error) {
+      console.error('Failed to fetch flow step:', error);
+      return null;
+    }
+  }
+
+  // ---- LLM Request Management ----
+
+  async getLLMRequests(params?: LLMRequestsQuery): Promise<LLMRequestSummary[]> {
+    try {
+      const apiRequests = await AdminRepo.llmRequests.list(params);
+      return apiRequests.map(llmRequestToDTO);
+    } catch (error) {
+      console.error('Failed to fetch LLM requests:', error);
+      return [];
+    }
+  }
+
+  async getLLMRequest(id: string): Promise<LLMRequestDetails | null> {
+    try {
+      const apiRequest = await AdminRepo.llmRequests.byId(id);
+
+      // Transform the detailed LLM request
+      return {
+        id: apiRequest.id,
+        user_id: apiRequest.user_id,
+        api_variant: apiRequest.api_variant,
+        provider: apiRequest.provider,
+        model: apiRequest.model,
+        provider_response_id: apiRequest.provider_response_id,
+        system_fingerprint: apiRequest.system_fingerprint,
+        temperature: apiRequest.temperature,
+        max_output_tokens: apiRequest.max_output_tokens,
+        messages: apiRequest.messages || [],
+        additional_params: apiRequest.additional_params,
+        request_payload: apiRequest.request_payload,
+        response_content: apiRequest.response_content,
+        response_raw: apiRequest.response_raw,
+        response_output: apiRequest.response_output,
+        tokens_used: apiRequest.tokens_used,
+        input_tokens: apiRequest.input_tokens,
+        output_tokens: apiRequest.output_tokens,
+        cost_estimate: apiRequest.cost_estimate,
+        response_created_at: parseDate(apiRequest.response_created_at),
+        status: apiRequest.status as LLMRequestDetails['status'],
+        execution_time_ms: apiRequest.execution_time_ms,
+        error_message: apiRequest.error_message,
+        error_type: apiRequest.error_type,
+        retry_attempt: apiRequest.retry_attempt,
+        cached: apiRequest.cached,
+        created_at: new Date(apiRequest.created_at),
+      };
+    } catch (error) {
+      console.error('Failed to fetch LLM request:', error);
+      return null;
+    }
+  }
+
+  // ---- Lesson Management ----
+
+  async getLessons(params?: LessonsQuery): Promise<LessonsListResponse> {
+    try {
+      const response = await AdminRepo.lessons.list(params);
+
+      // Transform lesson summaries
+      const lessons: LessonSummary[] = response.lessons.map((lesson: any) => ({
+        id: lesson.id,
+        title: lesson.title,
+        core_concept: lesson.core_concept,
+        user_level: lesson.user_level,
+        source_domain: lesson.source_domain,
+        source_level: lesson.source_level,
+        package_version: lesson.package_version,
+        created_at: new Date(lesson.created_at),
+        updated_at: new Date(lesson.updated_at),
+      }));
+
+      return {
+        lessons,
+        total_count: response.total_count,
+        page: response.page,
+        page_size: response.page_size,
+        has_next: response.has_next,
+      };
+    } catch (error) {
+      console.error('Failed to fetch lessons:', error);
+      return {
+        lessons: [],
+        total_count: 0,
+        page: 1,
+        page_size: 50,
+        has_next: false,
+      };
+    }
+  }
+
+  async getLesson(id: string): Promise<LessonDetails | null> {
+    try {
+      const apiLesson = await AdminRepo.lessons.byId(id);
+
+      return {
+        id: apiLesson.id,
+        title: apiLesson.title,
+        core_concept: apiLesson.core_concept,
+        user_level: apiLesson.user_level,
+        source_material: apiLesson.source_material,
+        source_domain: apiLesson.source_domain,
+        source_level: apiLesson.source_level,
+        refined_material: apiLesson.refined_material,
+        package: apiLesson.package, // Already structured as LessonPackage
+        package_version: apiLesson.package_version,
+        created_at: new Date(apiLesson.created_at),
+        updated_at: new Date(apiLesson.updated_at),
+      };
+    } catch (error) {
+      console.error('Failed to fetch lesson:', error);
+      return null;
+    }
+  }
+
+  // ---- Analytics and Metrics ----
+
+  async getSystemMetrics(params?: MetricsQuery): Promise<SystemMetrics> {
+    try {
+      const apiMetrics = await AdminRepo.metrics.getSystemMetrics(params);
+      return systemMetricsToDTO(apiMetrics);
+    } catch (error) {
+      console.error('Failed to fetch system metrics:', error);
+      // Return default metrics on error
+      return {
+        total_flows: 0,
+        active_flows: 0,
+        completed_flows: 0,
+        failed_flows: 0,
+        total_steps: 0,
+        total_llm_requests: 0,
+        total_tokens_used: 0,
+        total_cost: 0,
+        total_lessons: 0,
+        active_sessions: 0,
+      };
+    }
+  }
+
+  async getFlowMetrics(params?: MetricsQuery): Promise<FlowMetrics[]> {
+    try {
+      const metrics = await AdminRepo.metrics.getFlowMetrics(params);
+
+      // Transform flow metrics (they should already be in the right format from backend)
+      return metrics.map((metric: any) => ({
+        flow_name: metric.flow_name,
+        total_runs: metric.total_runs,
+        success_rate: metric.success_rate,
+        avg_execution_time_ms: metric.avg_execution_time_ms,
+        avg_tokens: metric.avg_tokens,
+        avg_cost: metric.avg_cost,
+        last_run: metric.last_run ? new Date(metric.last_run) : null,
+      }));
+    } catch (error) {
+      console.error('Failed to fetch flow metrics:', error);
+      return [];
+    }
+  }
+
+  async getDailyMetrics(startDate: Date, endDate: Date): Promise<DailyMetrics[]> {
+    try {
+      const metrics = await AdminRepo.metrics.getDailyMetrics(startDate, endDate);
+
+      // Transform daily metrics
+      return metrics.map((metric: any) => ({
+        date: metric.date,
+        flow_runs: metric.flow_runs,
+        llm_requests: metric.llm_requests,
+        tokens_used: metric.tokens_used,
+        cost: metric.cost,
+        unique_users: metric.unique_users,
+      }));
+    } catch (error) {
+      console.error('Failed to fetch daily metrics:', error);
+      return [];
+    }
+  }
+
+  // ---- Health Check ----
+
+  async healthCheck(): Promise<{ status: string; service: string }> {
+    try {
+      return await AdminRepo.healthCheck();
+    } catch (error) {
+      console.error('Health check failed:', error);
+      return { status: 'unhealthy', service: 'admin' };
+    }
+  }
+}

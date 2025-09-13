@@ -1040,45 +1040,52 @@ export default function LessonsPage() {
 
 ## Implementation Plan
 
-### Phase 1: Backend Foundation
-1. Create admin module structure
-2. Implement repository layer for direct database access
-3. Implement service layer with data aggregation logic
-4. Create public interface
-5. Implement basic API routes
-6. Add unit tests
+### Phase 1: Backend Foundation ✅ COMPLETED
+1. ✅ Create admin module structure
+2. ✅ Implement repository layer for direct database access (REMOVED - using public interfaces)
+3. ✅ Implement service layer with data aggregation logic
+4. ✅ Create public interface (REMOVED - admin is terminal consumer)
+5. ✅ Implement basic API routes
+6. ✅ Add unit tests
 
-### Phase 2: Core API Endpoints
-1. Flow management endpoints
-2. LLM request endpoints
-3. Lesson management endpoints
-4. Basic metrics endpoints
+### Phase 2: Core API Endpoints ✅ COMPLETED (MINIMAL)
+1. ✅ Flow management endpoints (minimal: list, details, step details)
+2. ✅ LLM request endpoints (minimal: request details only)
+3. ❌ Lesson management endpoints (REMOVED for minimal implementation)
+4. ❌ Basic metrics endpoints (REMOVED for minimal implementation)
 
-### Phase 3: Frontend Foundation
-1. Set up Next.js application
-2. Implement API client
-3. Create core UI components
-4. Set up routing and layout
+### Phase 3: Frontend Foundation ✅ COMPLETED
+1. ✅ Set up Next.js application
+2. ✅ Implement API client (repo.ts)
+3. ✅ Create core UI components structure
+4. ✅ Set up routing and layout
+5. ✅ Implement admin module (models, repo, service, queries, store)
 
-### Phase 4: Flow Management UI
-1. Flow runs list with filtering
-2. Flow run details page
-3. Step details with LLM request correlation
-4. Real-time updates for running flows
+### Phase 4: Flow Management UI ✅ COMPLETED
+1. ✅ Flow runs list with pagination (minimal, no filtering)
+2. ✅ Flow run details page
+3. ✅ Step details with LLM request correlation
+4. ❌ Real-time updates for running flows (LATER)
 
-### Phase 5: Lesson Management UI
-1. Lesson browser with search and filtering
-2. Beautiful lesson package viewer
-3. MCQ visualization with answer management
-4. Glossary and didactic content display
+### Phase 5: LLM Request Management UI ✅ COMPLETED
+1. ✅ LLM requests list with basic information
+2. ✅ LLM request details with conversation view
+3. ✅ Request/response payload visualization
+4. ✅ Performance metrics and cost tracking
 
-### Phase 6: Analytics and Reporting (LATER, not now)
-1. System metrics dashboard
-2. Performance charts and trends
-3. Cost analysis views
-4. Usage analytics
+### Phase 6: Lesson Management UI ❌ REMOVED (MINIMAL IMPLEMENTATION)
+1. ❌ Lesson browser with search and filtering
+2. ❌ Beautiful lesson package viewer
+3. ❌ MCQ visualization with answer management
+4. ❌ Glossary and didactic content display
 
-### Phase 7: Polish and Optimization (LATER, not now)
+### Phase 7: Analytics and Reporting ❌ REMOVED (MINIMAL IMPLEMENTATION)
+1. ❌ System metrics dashboard
+2. ❌ Performance charts and trends
+3. ❌ Cost analysis views
+4. ❌ Usage analytics
+
+### Phase 8: Polish and Optimization (LATER, not now)
 1. Error handling and loading states
 2. Performance optimization
 3. Mobile responsiveness

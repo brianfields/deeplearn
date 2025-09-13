@@ -19,6 +19,7 @@ import uvicorn
 # Add modules to path
 sys.path.insert(0, str(Path(__file__).parent))
 
+from modules.admin.routes import router as admin_router
 from modules.content_creator.routes import router as content_creator_router
 from modules.infrastructure.public import DatabaseSession, infrastructure_provider
 from modules.learning_session.routes import router as learning_session_router
@@ -70,6 +71,7 @@ DatabaseDep = Annotated[DatabaseSession, Depends(get_database_session)]
 app.include_router(content_creator_router, tags=["Content Creation"])
 app.include_router(learning_session_router, tags=["Learning Sessions"])
 app.include_router(lesson_catalog_router, tags=["Lesson Catalog"])
+app.include_router(admin_router, tags=["Admin"])
 
 
 @app.on_event("startup")
