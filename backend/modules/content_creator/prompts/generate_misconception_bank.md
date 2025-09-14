@@ -10,8 +10,8 @@ Inputs available:
 - length_budgets: {length_budgets}
 
 For **each** learning objective:
-- Select **3–5** misconceptions relevant to that LO.
-- For each, write **1–2** short, parallel **distractor candidates** (≤ option_max_words) plausible for {user_level}.
+- Select **3–5** misconceptions relevant to that LO, and for each selected misconception include its identifier as `maps_to_mc_id` on the associated distractor(s).
+- For each selected misconception, write **1–2** short, parallel **distractor candidates** (≤ option_max_words) plausible for {user_level}.
 - Tag each distractor with its source: `misconception`, `confusable`, `terminology_overreach`, or `common_rule_of_thumb`.
 - Add a one-line note: **why this tricks them**.
 

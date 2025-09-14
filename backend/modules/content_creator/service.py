@@ -42,6 +42,11 @@ class LessonCreationResult(BaseModel):
     glossary_terms_count: int
     mcqs_count: int
 
+    @property
+    def components_created(self) -> int:
+        """Total number of components created."""
+        return self.objectives_count + self.glossary_terms_count + self.mcqs_count
+
 
 class ContentCreatorService:
     """Service for AI-powered content creation."""
@@ -87,59 +92,141 @@ class ContentCreatorService:
         flow_result = await flow.execute({"title": request.title, "core_concept": request.core_concept, "source_material": request.source_material, "user_level": request.user_level, "domain": request.domain})
         logger.info("✅ LessonCreationFlow completed successfully")
 
-        # Build package metadata
-        meta = Meta(lesson_id=lesson_id, title=request.title, core_concept=request.core_concept, user_level=request.user_level, domain=request.domain, package_schema_version=1, content_version=1, length_budgets=LengthBudgets())
+        # Build package metadata (use budgets from flow if available)
+        flow_budgets = flow_result.get("length_budgets", {})
+        if isinstance(flow_budgets, dict):
+            budgets = LengthBudgets(
+                stem_max_words=flow_budgets.get("stem_max_words", 35),
+                vignette_max_words=flow_budgets.get("vignette_max_words", 80),
+                option_max_words=flow_budgets.get("option_max_words", 12),
+            )
+        else:
+            budgets = LengthBudgets(stem_max_words=35, vignette_max_words=80, option_max_words=12)
 
-        # Build objectives from flow result
-        objectives = []
+        meta = Meta(
+            lesson_id=lesson_id,
+            title=request.title,
+            core_concept=request.core_concept,
+            user_level=request.user_level,
+            domain=request.domain,
+            package_schema_version=1,
+            content_version=1,
+            length_budgets=budgets,
+        )
+
+        # Build objectives from flow result (preserve LO ids from flow if provided)
+        objectives: list[Objective] = []
         for i, lo in enumerate(flow_result.get("learning_objectives", [])):
             if hasattr(lo, "text"):
                 text = lo.text
                 bloom_level = getattr(lo, "bloom_level", None)
+                lo_id_val = getattr(lo, "lo_id", None) or f"lo_{i + 1}"
             elif isinstance(lo, dict):
                 text = lo.get("text", str(lo))
                 bloom_level = lo.get("bloom_level", None)
+                lo_id_val = lo.get("lo_id") or f"lo_{i + 1}"
             else:
                 text = str(lo)
                 bloom_level = None
+                lo_id_val = f"lo_{i + 1}"
 
-            objectives.append(Objective(id=f"lo_{i + 1}", text=text, bloom_level=bloom_level))
+            objectives.append(Objective(id=lo_id_val, text=text, bloom_level=bloom_level))
 
-        # Build glossary from flow result
+        # Build glossary from flow result (supports both dict with terms and raw list)
         glossary_terms = []
-        for i, term_data in enumerate(flow_result.get("glossary", [])):
+        glossary_blob = flow_result.get("glossary", {})
+        terms_iterable = glossary_blob.get("terms", []) if isinstance(glossary_blob, dict) else glossary_blob if isinstance(glossary_blob, list) else []
+
+        for i, term_data in enumerate(terms_iterable):
             if hasattr(term_data, "term"):
                 term = term_data.term
                 definition = getattr(term_data, "definition", "")
                 relation_to_core = getattr(term_data, "relation_to_core", None)
+                common_confusion = getattr(term_data, "common_confusion", None)
+                micro_check = getattr(term_data, "micro_check", None)
             elif isinstance(term_data, dict):
                 term = term_data.get("term", f"Term {i + 1}")
                 definition = term_data.get("definition", "")
                 relation_to_core = term_data.get("relation_to_core", None)
+                common_confusion = term_data.get("common_confusion", None)
+                micro_check = term_data.get("micro_check", None)
             else:
                 term = f"Term {i + 1}"
                 definition = str(term_data)
                 relation_to_core = None
+                common_confusion = None
+                micro_check = None
 
-            glossary_terms.append(GlossaryTerm(id=f"term_{i + 1}", term=term, definition=definition, relation_to_core=relation_to_core))
+            glossary_terms.append(
+                GlossaryTerm(
+                    id=f"term_{i + 1}",
+                    term=term,
+                    definition=definition,
+                    relation_to_core=relation_to_core,
+                    common_confusion=common_confusion,
+                    micro_check=micro_check,
+                )
+            )
 
         # Build didactic snippets from flow result
-        didactic_snippets = {}
-        if "didactic_snippet" in flow_result and objectives:
-            # For now, associate didactic snippet with first objective
+        didactic_by_lo: dict[str, DidacticSnippet] = {}
+        # Preferred: by-lo mapping
+        if "didactic_snippets" in flow_result:
+            raw_map = flow_result.get("didactic_snippets", {}) or {}
+            if isinstance(raw_map, dict):
+                for lo_id, didactic_data in raw_map.items():
+                    if isinstance(didactic_data, dict):
+                        mini_vignette = didactic_data.get("mini_vignette", None)
+                        plain_explanation = didactic_data.get("plain_explanation", didactic_data.get("explanation", ""))
+                        key_takeaways = didactic_data.get("key_takeaways", [])
+                        worked_example = didactic_data.get("worked_example", None)
+                        near_miss_example = didactic_data.get("near_miss_example", None)
+                        discriminator_hint = didactic_data.get("discriminator_hint", None)
+                    else:
+                        mini_vignette = None
+                        plain_explanation = str(didactic_data)
+                        key_takeaways = []
+                        worked_example = None
+                        near_miss_example = None
+                        discriminator_hint = None
+
+                    didactic_by_lo[lo_id] = DidacticSnippet(
+                        id=f"didactic_{lo_id}",
+                        mini_vignette=mini_vignette,
+                        plain_explanation=plain_explanation,
+                        key_takeaways=key_takeaways if isinstance(key_takeaways, list) else [str(key_takeaways)],
+                        worked_example=worked_example,
+                        near_miss_example=near_miss_example,
+                        discriminator_hint=discriminator_hint,
+                    )
+        # Legacy: single didactic snippet
+        elif "didactic_snippet" in flow_result and objectives:
             first_lo_id = objectives[0].id
             didactic_data = flow_result["didactic_snippet"]
-
             if isinstance(didactic_data, dict):
-                plain_explanation = didactic_data.get("explanation", "")
+                mini_vignette = didactic_data.get("mini_vignette", None)
+                plain_explanation = didactic_data.get("plain_explanation", didactic_data.get("explanation", ""))
                 key_takeaways = didactic_data.get("key_takeaways", [])
                 worked_example = didactic_data.get("worked_example", None)
+                near_miss_example = didactic_data.get("near_miss_example", None)
+                discriminator_hint = didactic_data.get("discriminator_hint", None)
             else:
+                mini_vignette = None
                 plain_explanation = str(didactic_data)
                 key_takeaways = []
                 worked_example = None
+                near_miss_example = None
+                discriminator_hint = None
 
-            didactic_snippets[first_lo_id] = DidacticSnippet(id=f"didactic_{first_lo_id}", plain_explanation=plain_explanation, key_takeaways=key_takeaways if isinstance(key_takeaways, list) else [str(key_takeaways)], worked_example=worked_example)
+            didactic_by_lo[first_lo_id] = DidacticSnippet(
+                id=f"didactic_{first_lo_id}",
+                mini_vignette=mini_vignette,
+                plain_explanation=plain_explanation,
+                key_takeaways=key_takeaways if isinstance(key_takeaways, list) else [str(key_takeaways)],
+                worked_example=worked_example,
+                near_miss_example=near_miss_example,
+                discriminator_hint=discriminator_hint,
+            )
 
         # Build MCQs from flow result
         mcqs = []
@@ -149,22 +236,33 @@ class ContentCreatorService:
             if not objectives:
                 continue  # Skip MCQs if no objectives
 
-            # Associate with first objective for now
-            lo_id = objectives[0].id
+            # Associate with corresponding objective if counts match; else fallback to first objective
+            lo_id = objectives[min(i, len(objectives) - 1)].id if len(flow_result.get("mcqs", [])) == len(objectives) else objectives[0].id
 
             if isinstance(mcq_data, dict):
-                stem = mcq_data.get("question", mcq_data.get("stem", f"Question {i + 1}"))
+                stem = mcq_data.get("stem", mcq_data.get("question", f"Question {i + 1}"))
                 options_data = mcq_data.get("options", [])
-                correct_answer_raw = mcq_data.get("correct_answer", "A")
-                # Handle both index (0,1,2,3) and label ("A","B","C","D") formats
-                if isinstance(correct_answer_raw, int):
-                    correct_answer = labels[correct_answer_raw] if correct_answer_raw < len(labels) else "A"
+                # Prefer new shape: answer_key: {label, option_id?, rationale_right?}
+                answer_key_blob = mcq_data.get("answer_key")
+                rationale_right = None
+                if isinstance(answer_key_blob, dict) and "label" in answer_key_blob:
+                    correct_answer = str(answer_key_blob.get("label", "A"))
+                    rationale_right = answer_key_blob.get("rationale_right", None)
                 else:
-                    correct_answer = str(correct_answer_raw)
+                    correct_answer_raw = mcq_data.get("correct_answer", "A")
+                    correct_answer = labels[correct_answer_raw] if isinstance(correct_answer_raw, int) and 0 <= correct_answer_raw < len(labels) else str(correct_answer_raw)
+                    rationale_right = mcq_data.get("rationale_right", None)
+                cognitive_level = mcq_data.get("cognitive_level", None)
+                estimated_difficulty = mcq_data.get("estimated_difficulty", None)
+                misconceptions_used = mcq_data.get("misconceptions_used", [])
             else:
                 stem = str(mcq_data)
                 options_data = []
                 correct_answer = "A"
+                rationale_right = None
+                cognitive_level = None
+                estimated_difficulty = None
+                misconceptions_used = []
 
             # Build options
             options = []
@@ -174,23 +272,50 @@ class ContentCreatorService:
 
                 if isinstance(option_data, dict):
                     text = option_data.get("text", f"Option {labels[j]}")
+                    rationale_wrong = option_data.get("rationale_wrong", None)
                 else:
                     text = str(option_data)
+                    rationale_wrong = None
 
-                options.append(MCQOption(id=f"mcq_{i + 1}_option_{labels[j]}", label=labels[j], text=text))
+                options.append(MCQOption(id=f"mcq_{i + 1}_option_{labels[j]}", label=labels[j], text=text, rationale_wrong=rationale_wrong))
 
             # Ensure we have at least 3 options
             while len(options) < 3:
                 label = labels[len(options)]
-                options.append(MCQOption(id=f"mcq_{i + 1}_option_{label}", label=label, text=f"Option {label}"))
+                options.append(MCQOption(id=f"mcq_{i + 1}_option_{label}", label=label, text=f"Option {label}", rationale_wrong=None))
 
             # Build answer key
-            answer_key = MCQAnswerKey(label=correct_answer)
+            # Try to attach option_id convenience if label matches
+            option_id = None
+            for opt in options:
+                if opt.label == correct_answer:
+                    option_id = opt.id
+                    break
+            answer_key = MCQAnswerKey(label=correct_answer, option_id=option_id, rationale_right=rationale_right)
 
-            mcqs.append(MCQItem(id=f"mcq_{i + 1}", lo_id=lo_id, stem=stem, options=options, answer_key=answer_key))
+            mcqs.append(
+                MCQItem(
+                    id=f"mcq_{i + 1}",
+                    lo_id=lo_id,
+                    stem=stem,
+                    cognitive_level=cognitive_level,
+                    estimated_difficulty=estimated_difficulty,
+                    options=options,
+                    answer_key=answer_key,
+                    misconceptions_used=misconceptions_used if isinstance(misconceptions_used, list) else [],
+                )
+            )
 
         # Build complete lesson package
-        package = LessonPackage(meta=meta, objectives=objectives, glossary={"terms": glossary_terms}, didactic={"by_lo": didactic_snippets}, mcqs=mcqs, misconceptions=[], confusables=[])
+        package = LessonPackage(
+            meta=meta,
+            objectives=objectives,
+            glossary={"terms": glossary_terms},
+            didactic={"by_lo": didactic_by_lo},
+            mcqs=mcqs,
+            misconceptions=flow_result.get("misconceptions", []),
+            confusables=flow_result.get("confusables", []),
+        )
 
         # Convert refined material to dict format
         refined_material_obj = flow_result.get("refined_material", {})

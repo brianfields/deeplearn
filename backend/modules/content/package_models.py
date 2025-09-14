@@ -77,6 +77,7 @@ class MCQAnswerKey(BaseModel):
 
     label: str
     option_id: str | None = None  # optional convenience; if present, must match an option
+    rationale_right: str | None = None
 
 
 class MCQItem(BaseModel):
@@ -94,7 +95,7 @@ class MCQItem(BaseModel):
     @model_validator(mode="after")
     def _check_options_and_key(self) -> "MCQItem":
         """Validate options and answer key consistency."""
-        # 3–4 options, unique labels, exactly one key label present
+        # 3-4 options, unique labels, exactly one key label present
         if not (3 <= len(self.options) <= 4):
             raise ValueError("MCQ must have 3–4 options")
         labels = [o.label for o in self.options]
@@ -127,7 +128,7 @@ class LessonPackage(BaseModel):
 
         # didactic.by_lo keys (if present) must be valid LO ids
         by_lo = self.didactic.get("by_lo", {}) if self.didactic else {}
-        for lo_id in by_lo.keys():
+        for lo_id in by_lo:
             if lo_id not in lo_ids:
                 raise ValueError(f"Didactic snippet references unknown lo_id '{lo_id}'")
 
