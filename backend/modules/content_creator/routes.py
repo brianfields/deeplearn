@@ -7,7 +7,7 @@ Only includes routes actually used by the Content Creation Studio.
 
 from collections.abc import Generator
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from modules.content.public import content_provider
@@ -40,10 +40,7 @@ async def create_lesson(request: CreateLessonRequest, creator: ContentCreatorSer
     Used by the Content Creation Studio to create complete lessons
     with didactic snippets, glossaries, and MCQs.
     """
-    try:
-        return await creator.create_lesson_from_source_material(request)
-    except Exception as e:
-        raise HTTPException(500, f"Failed to create lesson: {e!s}") from e
+    return await creator.create_lesson_from_source_material(request)
 
 
 # Note: Additional component creation endpoints will be added only when

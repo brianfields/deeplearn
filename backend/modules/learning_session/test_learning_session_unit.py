@@ -58,8 +58,10 @@ class TestLearningSessionService:
             user_id="test-user",
             status=SessionStatus.ACTIVE.value,
             started_at=datetime.utcnow(),
-            current_component_index=0,
-            total_components=3,  # 1 didactic snippet + 2 exercises + 0 glossary terms
+            current_exercise_index=0,
+            total_exercises=2,  # 2 exercises
+            exercises_completed=0,
+            exercises_correct=0,
             progress_percentage=0.0,
             session_data={},
         )
@@ -73,7 +75,7 @@ class TestLearningSessionService:
         assert result.lesson_id == "test-lesson"
         assert result.user_id == "test-user"
         assert result.status == SessionStatus.ACTIVE.value
-        assert result.total_components == 3
+        assert result.total_exercises == 3  # 1 didactic + 2 exercises for compatibility
 
         self.mock_lesson_catalog_provider.get_lesson_details.assert_called_once_with("test-lesson")
         self.mock_content_provider.get_lesson.assert_called_once_with("test-lesson")
@@ -100,8 +102,10 @@ class TestLearningSessionService:
             user_id="test-user",
             status=SessionStatus.ACTIVE.value,
             started_at=datetime.utcnow(),
-            current_component_index=1,
-            total_components=3,
+            current_exercise_index=1,
+            total_exercises=2,
+            exercises_completed=0,
+            exercises_correct=0,
             progress_percentage=33.3,
             session_data={},
         )
@@ -113,7 +117,7 @@ class TestLearningSessionService:
         # Assert
         assert result is not None
         assert result.id == "session-123"
-        assert result.current_component_index == 1
+        assert result.current_exercise_index == 1
         assert result.progress_percentage == 33.3
 
     @pytest.mark.asyncio
@@ -134,7 +138,8 @@ class TestLearningSessionService:
         # Arrange
         request = UpdateProgressRequest(
             session_id="session-123",
-            component_id="component-1",
+            exercise_id="mcq_1",
+            exercise_type="mcq",
             is_correct=True,
             time_spent_seconds=30,
         )
@@ -143,9 +148,12 @@ class TestLearningSessionService:
             id="session-123",
             lesson_id="test-lesson",
             status=SessionStatus.ACTIVE.value,
-            current_component_index=0,
-            total_components=3,
+            current_exercise_index=0,
+            total_exercises=2,
+            exercises_completed=0,
+            exercises_correct=0,
             progress_percentage=0.0,
+            session_data={},
         )
         self.mock_repo.get_session_by_id.return_value = mock_session
 
@@ -154,7 +162,8 @@ class TestLearningSessionService:
 
         # Assert
         assert result.session_id == "session-123"
-        assert result.component_id == "component-1"
+        assert result.exercise_id == "mcq_1"
+        assert result.exercise_type == "mcq"
         assert result.is_correct is True
         assert result.time_spent_seconds == 30
 
@@ -170,9 +179,12 @@ class TestLearningSessionService:
             id="session-123",
             lesson_id="test-lesson",
             status=SessionStatus.ACTIVE.value,
-            current_component_index=3,
-            total_components=3,
+            current_exercise_index=2,  # Completed didactic + 2 exercises
+            total_exercises=2,
+            exercises_completed=2,
+            exercises_correct=2,
             progress_percentage=100.0,
+            session_data={},
         )
         self.mock_repo.get_session_by_id.return_value = mock_session
         self.mock_repo.update_session_status.return_value = mock_session
@@ -183,7 +195,7 @@ class TestLearningSessionService:
         # Assert
         assert result.session_id == "session-123"
         assert result.completion_percentage == 100.0
-        assert result.achievements == ["Session Complete"]
+        assert result.achievements == ["Session Complete", "Perfect Score"]
 
         self.mock_repo.update_session_status.assert_called_once()
 

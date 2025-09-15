@@ -7,9 +7,18 @@ Tests for the lesson catalog service layer.
 from datetime import UTC, datetime
 from unittest.mock import Mock
 
-from modules.content.package_models import DidacticSnippet, GlossaryTerm, LessonPackage, MCQAnswerKey, MCQExercise, MCQOption, Meta, Objective
+from modules.content.package_models import (
+    DidacticSnippet,
+    GlossaryTerm,
+    LessonPackage,
+    MCQAnswerKey,
+    MCQExercise,
+    MCQOption,
+    Meta,
+    Objective,
+)
 from modules.content.service import LessonRead
-from modules.lesson_catalog.service import LessonCatalogService
+from modules.lesson_catalog.service import LessonCatalogService, LessonDetail, LessonSummary
 
 
 class TestLessonCatalogService:
@@ -123,8 +132,6 @@ class TestLessonCatalogService:
     def test_lesson_summary_matches_user_level(self):
         """Test LessonSummary.matches_user_level method."""
         # Arrange
-        from modules.lesson_catalog.service import LessonSummary
-
         summary = LessonSummary(id="test-id", title="Test Lesson", core_concept="Test Concept", user_level="beginner", learning_objectives=["Learn X"], key_concepts=["Key X"], component_count=1)
 
         # Act & Assert
@@ -134,8 +141,6 @@ class TestLessonCatalogService:
     def test_lesson_detail_is_ready_for_learning(self):
         """Test LessonDetail.is_ready_for_learning method."""
         # Arrange
-        from modules.lesson_catalog.service import LessonDetail
-
         # Lesson with components
         detail_with_components = LessonDetail(
             id="test-id",

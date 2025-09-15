@@ -25,7 +25,7 @@ class LearningSessionRepo:
         self,
         lesson_id: str,
         user_id: str | None = None,
-        total_components: int = 0,
+        total_exercises: int = 0,
     ) -> LearningSessionModel:
         """Create a new learning session"""
         session = LearningSessionModel(
@@ -33,7 +33,10 @@ class LearningSessionRepo:
             lesson_id=lesson_id,
             user_id=user_id,
             status=SessionStatus.ACTIVE.value,
-            total_components=total_components,
+            total_exercises=total_exercises,
+            current_exercise_index=0,
+            exercises_completed=0,
+            exercises_correct=0,
             session_data={},
         )
 
@@ -68,8 +71,10 @@ class LearningSessionRepo:
     def update_session_progress(
         self,
         session_id: str,
-        current_component_index: int,
-        progress_percentage: float,
+        current_exercise_index: int | None = None,
+        progress_percentage: float | None = None,
+        exercises_completed: int | None = None,
+        exercises_correct: int | None = None,
         session_data: dict[str, Any] | None = None,
     ) -> LearningSessionModel | None:
         """Update session progress"""
@@ -77,8 +82,15 @@ class LearningSessionRepo:
         if not session:
             return None
 
-        session.current_component_index = current_component_index
-        session.progress_percentage = progress_percentage
+        # Update fields only if provided
+        if current_exercise_index is not None:
+            session.current_exercise_index = current_exercise_index
+        if progress_percentage is not None:
+            session.progress_percentage = progress_percentage
+        if exercises_completed is not None:
+            session.exercises_completed = exercises_completed
+        if exercises_correct is not None:
+            session.exercises_correct = exercises_correct
 
         if session_data:
             # Merge with existing session data

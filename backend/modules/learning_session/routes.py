@@ -6,6 +6,7 @@ This is a migration, not new feature development.
 """
 
 from collections.abc import Generator
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -41,7 +42,22 @@ class UpdateProgressRequestModel(BaseModel):
     component_id: str = Field(..., description="ID of the component being completed")
     user_answer: dict | None = Field(None, description="User's answer/response")
     is_correct: bool | None = Field(None, description="Whether the answer was correct")
-    time_spent_seconds: int = Field(0, ge=0, description="Time spent on this component")
+    time_spent_seconds: int = Field(0, ge=0, description="Time spent on this exercise")
+
+    # Computed properties for backward compatibility
+    @property
+    def exercise_id(self) -> str:
+        return self.component_id
+
+    @property
+    def exercise_type(self) -> str:
+        # Infer type from component_id or default to didactic_snippet
+        if "mcq" in self.component_id.lower():
+            return "mcq"
+        elif "explanation" in self.component_id.lower():
+            return "didactic_snippet"
+        else:
+            return "didactic_snippet"
 
 
 class SessionResponseModel(BaseModel):
@@ -53,18 +69,18 @@ class SessionResponseModel(BaseModel):
     status: str
     started_at: str
     completed_at: str | None
-    current_component_index: int
-    total_components: int
+    current_exercise_index: int
+    total_exercises: int
     progress_percentage: float
     session_data: dict
 
 
 class ProgressResponseModel(BaseModel):
-    """Response model for progress data - matches frontend ApiSessionProgress"""
+    """Response model for exercise progress data - matches frontend expectations"""
 
     session_id: str
-    component_id: str
-    component_type: str
+    exercise_id: str
+    exercise_type: str
     started_at: str
     completed_at: str | None
     is_correct: bool | None
@@ -78,9 +94,9 @@ class SessionResultsResponseModel(BaseModel):
 
     session_id: str
     lesson_id: str
-    total_components: int
-    completed_components: int
-    correct_answers: int
+    total_exercises: int
+    completed_exercises: int
+    correct_exercises: int
     total_time_seconds: int
     completion_percentage: float
     score_percentage: float
@@ -140,31 +156,25 @@ async def start_session(
     service: LearningSessionService = Depends(get_learning_session_service),
 ) -> SessionResponseModel:
     """Start a new learning session"""
-    try:
-        start_request = StartSessionRequest(
-            lesson_id=request.lesson_id,
-            user_id=request.user_id,
-        )
+    start_request = StartSessionRequest(
+        lesson_id=request.lesson_id,
+        user_id=request.user_id,
+    )
 
-        session = await service.start_session(start_request)
+    session = await service.start_session(start_request)
 
-        return SessionResponseModel(
-            id=session.id,
-            lesson_id=session.lesson_id,
-            user_id=session.user_id,
-            status=session.status,
-            started_at=session.started_at,
-            completed_at=session.completed_at,
-            current_component_index=session.current_component_index,
-            total_components=session.total_components,
-            progress_percentage=session.progress_percentage,
-            session_data=session.session_data,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
-    except Exception as e:
-        raise e
-        raise HTTPException(status_code=500, detail=f"Failed to start session: {e!s}") from e
+    return SessionResponseModel(
+        id=session.id,
+        lesson_id=session.lesson_id,
+        user_id=session.user_id,
+        status=session.status,
+        started_at=session.started_at,
+        completed_at=session.completed_at,
+        current_exercise_index=session.current_exercise_index,
+        total_exercises=session.total_exercises,
+        progress_percentage=session.progress_percentage,
+        session_data=session.session_data,
+    )
 
 
 @router.get("/{session_id}", response_model=SessionResponseModel)
@@ -173,29 +183,23 @@ async def get_session(
     service: LearningSessionService = Depends(get_learning_session_service),
 ) -> SessionResponseModel:
     """Get session details by ID"""
-    try:
-        session = await service.get_session(session_id)
+    session = await service.get_session(session_id)
 
-        if not session:
-            raise HTTPException(status_code=404, detail="Session not found")
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
 
-        return SessionResponseModel(
-            id=session.id,
-            lesson_id=session.lesson_id,
-            user_id=session.user_id,
-            status=session.status,
-            started_at=session.started_at,
-            completed_at=session.completed_at,
-            current_component_index=session.current_component_index,
-            total_components=session.total_components,
-            progress_percentage=session.progress_percentage,
-            session_data=session.session_data,
-        )
-    except HTTPException:
-        # Re-raise HTTP exceptions (like 404)
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get session: {e!s}") from e
+    return SessionResponseModel(
+        id=session.id,
+        lesson_id=session.lesson_id,
+        user_id=session.user_id,
+        status=session.status,
+        started_at=session.started_at,
+        completed_at=session.completed_at,
+        current_exercise_index=session.current_exercise_index,
+        total_exercises=session.total_exercises,
+        progress_percentage=session.progress_percentage,
+        session_data=session.session_data,
+    )
 
 
 @router.put("/{session_id}/progress", response_model=ProgressResponseModel)
@@ -205,32 +209,28 @@ async def update_session_progress(
     service: LearningSessionService = Depends(get_learning_session_service),
 ) -> ProgressResponseModel:
     """Update session progress"""
-    try:
-        progress_request = UpdateProgressRequest(
-            session_id=session_id,
-            component_id=request.component_id,
-            user_answer=request.user_answer,
-            is_correct=request.is_correct,
-            time_spent_seconds=request.time_spent_seconds,
-        )
+    progress_request = UpdateProgressRequest(
+        session_id=session_id,
+        exercise_id=request.exercise_id,
+        exercise_type=request.exercise_type,
+        user_answer=request.user_answer,
+        is_correct=request.is_correct,
+        time_spent_seconds=request.time_spent_seconds,
+    )
 
-        progress = await service.update_progress(progress_request)
+    progress = await service.update_progress(progress_request)
 
-        return ProgressResponseModel(
-            session_id=progress.session_id,
-            component_id=progress.component_id,
-            component_type=progress.component_type,
-            started_at=progress.started_at,
-            completed_at=progress.completed_at,
-            is_correct=progress.is_correct,
-            user_answer=progress.user_answer,
-            time_spent_seconds=progress.time_spent_seconds,
-            attempts=progress.attempts,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to update progress: {e!s}") from e
+    return ProgressResponseModel(
+        session_id=progress.session_id,
+        exercise_id=progress.exercise_id,
+        exercise_type=progress.exercise_type,
+        started_at=progress.started_at,
+        completed_at=progress.completed_at,
+        is_correct=progress.is_correct,
+        user_answer=progress.user_answer,
+        time_spent_seconds=progress.time_spent_seconds,
+        attempts=progress.attempts,
+    )
 
 
 @router.post("/{session_id}/complete", response_model=SessionResultsResponseModel)
@@ -239,25 +239,20 @@ async def complete_session(
     service: LearningSessionService = Depends(get_learning_session_service),
 ) -> SessionResultsResponseModel:
     """Complete a learning session"""
-    try:
-        complete_request = CompleteSessionRequest(session_id=session_id)
-        results = await service.complete_session(complete_request)
+    complete_request = CompleteSessionRequest(session_id=session_id)
+    results = await service.complete_session(complete_request)
 
-        return SessionResultsResponseModel(
-            session_id=results.session_id,
-            lesson_id=results.lesson_id,
-            total_components=results.total_components,
-            completed_components=results.completed_components,
-            correct_answers=results.correct_answers,
-            total_time_seconds=results.total_time_seconds,
-            completion_percentage=results.completion_percentage,
-            score_percentage=results.score_percentage,
-            achievements=results.achievements,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to complete session: {e!s}") from e
+    return SessionResultsResponseModel(
+        session_id=results.session_id,
+        lesson_id=results.lesson_id,
+        total_exercises=results.total_exercises,
+        completed_exercises=results.completed_exercises,
+        correct_exercises=results.correct_exercises,
+        total_time_seconds=results.total_time_seconds,
+        completion_percentage=results.completion_percentage,
+        score_percentage=results.score_percentage,
+        achievements=results.achievements,
+    )
 
 
 @router.post("/{session_id}/pause", response_model=SessionResponseModel)
@@ -266,26 +261,23 @@ async def pause_session(
     service: LearningSessionService = Depends(get_learning_session_service),
 ) -> SessionResponseModel:
     """Pause a learning session"""
-    try:
-        session = await service.pause_session(session_id)
+    session = await service.pause_session(session_id)
 
-        if not session:
-            raise HTTPException(status_code=404, detail="Session not found")
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
 
-        return SessionResponseModel(
-            id=session.id,
-            lesson_id=session.lesson_id,
-            user_id=session.user_id,
-            status=session.status,
-            started_at=session.started_at,
-            completed_at=session.completed_at,
-            current_component_index=session.current_component_index,
-            total_components=session.total_components,
-            progress_percentage=session.progress_percentage,
-            session_data=session.session_data,
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to pause session: {e!s}") from e
+    return SessionResponseModel(
+        id=session.id,
+        lesson_id=session.lesson_id,
+        user_id=session.user_id,
+        status=session.status,
+        started_at=session.started_at,
+        completed_at=session.completed_at,
+        current_exercise_index=session.current_exercise_index,
+        total_exercises=session.total_exercises,
+        progress_percentage=session.progress_percentage,
+        session_data=session.session_data,
+    )
 
 
 @router.get("/", response_model=SessionListResponseModel)
@@ -298,38 +290,34 @@ async def get_user_sessions(
     service: LearningSessionService = Depends(get_learning_session_service),
 ) -> SessionListResponseModel:
     """Get user sessions with filtering"""
-    try:
-        response = await service.get_user_sessions(
-            user_id=user_id,
-            status=status,
-            lesson_id=lesson_id,
-            limit=limit,
-            offset=offset,
-        )
+    response = await service.get_user_sessions(
+        user_id=user_id,
+        status=status,
+        lesson_id=lesson_id,
+        limit=limit,
+        offset=offset,
+    )
 
-        session_models = [
-            SessionResponseModel(
-                id=session.id,
-                lesson_id=session.lesson_id,
-                user_id=session.user_id,
-                status=session.status,
-                started_at=session.started_at,
-                completed_at=session.completed_at,
-                current_component_index=session.current_component_index,
-                total_components=session.total_components,
-                progress_percentage=session.progress_percentage,
-                session_data=session.session_data,
-            )
-            for session in response.sessions
-        ]
-
-        return SessionListResponseModel(
-            sessions=session_models,
-            total=response.total,
+    session_models = [
+        SessionResponseModel(
+            id=session.id,
+            lesson_id=session.lesson_id,
+            user_id=session.user_id,
+            status=session.status,
+            started_at=session.started_at,
+            completed_at=session.completed_at,
+            current_exercise_index=session.current_exercise_index,
+            total_exercises=session.total_exercises,
+            progress_percentage=session.progress_percentage,
+            session_data=session.session_data,
         )
-    except Exception as e:
-        raise e
-        raise HTTPException(status_code=500, detail=f"Failed to get sessions: {e!s}") from e
+        for session in response.sessions
+    ]
+
+    return SessionListResponseModel(
+        sessions=session_models,
+        total=response.total,
+    )
 
 
 @router.get("/health", response_model=HealthResponseModel)
@@ -337,17 +325,12 @@ async def health_check(
     service: LearningSessionService = Depends(get_learning_session_service),
 ) -> HealthResponseModel:
     """Health check endpoint"""
-    try:
-        from datetime import datetime
+    is_healthy = await service.check_health()
 
-        is_healthy = await service.check_health()
-
-        return HealthResponseModel(
-            status="ok" if is_healthy else "error",
-            timestamp=datetime.utcnow().isoformat(),
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Health check failed: {e!s}") from e
+    return HealthResponseModel(
+        status="ok" if is_healthy else "error",
+        timestamp=datetime.utcnow().isoformat(),
+    )
 
 
 # Export the router for inclusion in main app

@@ -102,7 +102,7 @@ class LessonCreationFlow(BaseFlow):
 
             # Convert options and add missing IDs
             options_with_ids = []
-            for j, opt in enumerate(mcq.options):
+            for opt in mcq.options:
                 option_dict = opt.model_dump()
                 option_dict["id"] = f"{exercise_id}_{opt.label.lower()}"  # e.g., "mcq_1_a"
                 options_with_ids.append(option_dict)

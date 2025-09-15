@@ -50,10 +50,7 @@ def browse_lessons(
 
     Returns a list of lesson summaries for browsing.
     """
-    try:
-        return catalog.browse_lessons(user_level=user_level, limit=limit)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Failed to browse lessons") from e
+    return catalog.browse_lessons(user_level=user_level, limit=limit)
 
 
 @router.get("/{lesson_id}", response_model=LessonDetail)
@@ -63,16 +60,10 @@ def get_lesson_details(lesson_id: str, catalog: LessonCatalogService = Depends(g
 
     Includes all components and metadata for learning.
     """
-    try:
-        lesson = catalog.get_lesson_details(lesson_id)
-        if not lesson:
-            raise HTTPException(status_code=404, detail="Lesson not found")
-        return lesson
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise e
-        raise HTTPException(status_code=500, detail="Failed to get lesson details") from e
+    lesson = catalog.get_lesson_details(lesson_id)
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+    return lesson
 
 
 @router.get("/search", response_model=SearchLessonsResponse)
@@ -91,18 +82,15 @@ def search_lessons(
 
     Supports text search across title, core concept, learning objectives, and key concepts.
     """
-    try:
-        return catalog.search_lessons(
-            query=query,
-            user_level=user_level,
-            min_duration=min_duration,
-            max_duration=max_duration,
-            ready_only=ready_only,
-            limit=limit,
-            offset=offset,
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Failed to search lessons") from e
+    return catalog.search_lessons(
+        query=query,
+        user_level=user_level,
+        min_duration=min_duration,
+        max_duration=max_duration,
+        ready_only=ready_only,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.get("/popular", response_model=list[LessonSummary])
@@ -115,10 +103,7 @@ def get_popular_lessons(
 
     Returns lessons ordered by popularity (currently just first N lessons).
     """
-    try:
-        return catalog.get_popular_lessons(limit=limit)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Failed to get popular lessons") from e
+    return catalog.get_popular_lessons(limit=limit)
 
 
 @router.get("/statistics", response_model=CatalogStatistics)
@@ -130,10 +115,7 @@ def get_catalog_statistics(
 
     Returns statistics about lessons, user levels, readiness, and duration distribution.
     """
-    try:
-        return catalog.get_catalog_statistics()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Failed to get catalog statistics") from e
+    return catalog.get_catalog_statistics()
 
 
 @router.post("/refresh", response_model=RefreshCatalogResponse)
@@ -145,7 +127,4 @@ def refresh_catalog(
 
     Triggers a refresh of lesson data (placeholder implementation).
     """
-    try:
-        return catalog.refresh_catalog()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Failed to refresh catalog") from e
+    return catalog.refresh_catalog()

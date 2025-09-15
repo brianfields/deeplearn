@@ -7,12 +7,15 @@ This is a migration, not new feature development.
 
 from dataclasses import dataclass
 from datetime import datetime
+import logging
 from typing import Any
 
 from ..content.public import ContentProvider
 from ..lesson_catalog.public import LessonCatalogProvider
 from .models import LearningSessionModel, SessionStatus
 from .repo import LearningSessionRepo
+
+logger = logging.getLogger(__name__)
 
 # ================================
 # Service DTOs (matching frontend expectations)
@@ -29,19 +32,19 @@ class LearningSession:
     status: str
     started_at: str
     completed_at: str | None
-    current_component_index: int
-    total_components: int
+    current_exercise_index: int
+    total_exercises: int
     progress_percentage: float
     session_data: dict[str, Any]
 
 
 @dataclass
-class SessionProgress:
-    """Session progress DTO - matches frontend ApiSessionProgress"""
+class ExerciseProgress:
+    """Exercise progress DTO - tracks individual exercise completion"""
 
     session_id: str
-    component_id: str
-    component_type: str
+    exercise_id: str
+    exercise_type: str  # "mcq", "short_answer", etc.
     started_at: str
     completed_at: str | None
     is_correct: bool | None
@@ -51,14 +54,28 @@ class SessionProgress:
 
 
 @dataclass
+class SessionProgress:
+    """Overall session progress DTO - matches frontend expectations"""
+
+    session_id: str
+    lesson_id: str
+    current_exercise_index: int  # 0 = show didactic, 1+ = show exercise N-1
+    total_exercises: int
+    exercises_completed: int
+    exercises_correct: int
+    progress_percentage: float
+    exercise_answers: dict[str, Any]  # exercise_id -> answer details
+
+
+@dataclass
 class SessionResults:
     """Session results DTO - matches frontend ApiSessionResults"""
 
     session_id: str
     lesson_id: str
-    total_components: int
-    completed_components: int
-    correct_answers: int
+    total_exercises: int
+    completed_exercises: int
+    correct_exercises: int
     total_time_seconds: int
     completion_percentage: float
     score_percentage: float
@@ -75,10 +92,11 @@ class StartSessionRequest:
 
 @dataclass
 class UpdateProgressRequest:
-    """Request DTO for updating progress"""
+    """Request DTO for updating exercise progress"""
 
     session_id: str
-    component_id: str
+    exercise_id: str  # Changed from component_id
+    exercise_type: str  # "didactic_snippet" or "mcq", etc.
     user_answer: Any | None = None
     is_correct: bool | None = None
     time_spent_seconds: int = 0
@@ -131,20 +149,15 @@ class LearningSessionService:
                 # Return existing session instead of creating new one
                 return self._to_session_dto(existing_session)
 
-        # Get lesson content to determine component count
+        # Get lesson content to determine exercise count
         lesson_content = self.content.get_lesson(request.lesson_id)
-        if lesson_content:
-            # Calculate total components from package structure
-            # 1 didactic snippet + exercises + glossary terms
-            total_components = 1 + len(lesson_content.package.exercises) + len(lesson_content.package.glossary.get("terms", []))
-        else:
-            total_components = 0
+        total_exercises = len(lesson_content.package.exercises) if lesson_content else 0
 
         # Create new session
         session = self.repo.create_session(
             lesson_id=request.lesson_id,
             user_id=request.user_id,
-            total_components=total_components,
+            total_exercises=total_exercises,
         )
 
         return self._to_session_dto(session)
@@ -163,8 +176,8 @@ class LearningSessionService:
             return None
         return self._to_session_dto(session)
 
-    async def update_progress(self, request: UpdateProgressRequest) -> SessionProgress:
-        """Update session progress and store component results"""
+    async def update_progress(self, request: UpdateProgressRequest) -> ExerciseProgress:
+        """Update session progress and store exercise results"""
         # Get session to validate it exists and is active
         session = self.repo.get_session_by_id(request.session_id)
         if not session:
@@ -173,44 +186,62 @@ class LearningSessionService:
         if session.status not in [SessionStatus.ACTIVE.value, SessionStatus.PAUSED.value]:
             raise ValueError(f"Cannot update progress for {session.status} session")
 
-        # Update session data with component results
+        # Update session data with exercise results
         session_data = session.session_data or {}
-        component_results = session_data.get("component_results", {})
+        exercise_answers = session_data.get("exercise_answers", {})
 
-        # Store this component's result
-        component_results[request.component_id] = {
+        # Store this exercise's result
+        exercise_answers[request.exercise_id] = {
+            "exercise_type": request.exercise_type,
             "is_correct": request.is_correct,
             "user_answer": request.user_answer,
             "time_spent_seconds": request.time_spent_seconds,
             "completed_at": datetime.utcnow().isoformat(),
+            "attempts": exercise_answers.get(request.exercise_id, {}).get("attempts", 0) + 1,
         }
 
-        session_data["component_results"] = component_results
-        session_data["total_time_seconds"] = session_data.get("total_time_seconds", 0) + request.time_spent_seconds
+        session_data["exercise_answers"] = exercise_answers  # type: ignore
+        session_data["total_time_seconds"] = session_data.get("total_time_seconds", 0) + request.time_spent_seconds  # type: ignore
 
-        # Update session progress
-        new_index = session.current_component_index + 1
-        progress_percentage = (new_index / session.total_components * 100) if session.total_components > 0 else 0
+        # Update session progress based on exercise type
+        updates = {}
+        if request.exercise_type == "didactic_snippet":
+            # Move to first exercise after completing didactic
+            updates["current_exercise_index"] = 1
+        elif request.exercise_type in ["mcq", "short_answer", "coding"]:
+            # Update exercise progress
+            exercise_not_completed = request.exercise_id not in [k for k, v in exercise_answers.items() if v.get("completed_at") and k != request.exercise_id]
+            if exercise_not_completed:
+                updates["exercises_completed"] = session.exercises_completed + 1
+                if request.is_correct:
+                    updates["exercises_correct"] = session.exercises_correct + 1
+                # Move to next exercise
+                updates["current_exercise_index"] = session.current_exercise_index + 1
 
-        # Update both progress and session data
-        self.repo.update_session_progress(
+        # Calculate overall progress percentage
+        # Progress is based on: didactic viewed (if current_exercise_index > 0) + exercises completed
+        didactic_viewed = 1 if session.current_exercise_index > 0 or updates.get("current_exercise_index", 0) > 0 else 0
+        total_items = 1 + session.total_exercises  # 1 didactic + N exercises
+        completed_items = didactic_viewed + updates.get("exercises_completed", session.exercises_completed)
+        progress_percentage = (completed_items / total_items * 100) if total_items > 0 else 0
+
+        updates["progress_percentage"] = min(progress_percentage, 100)
+        updates["session_data"] = session_data
+
+        # Update session in database
+        self.repo.update_session_progress(session_id=request.session_id, **updates)
+
+        # Return exercise progress response
+        return ExerciseProgress(
             session_id=request.session_id,
-            current_component_index=new_index,
-            progress_percentage=min(progress_percentage, 100),
-            session_data=session_data,
-        )
-
-        # Return progress response
-        return SessionProgress(
-            session_id=request.session_id,
-            component_id=request.component_id,
-            component_type="unknown",
+            exercise_id=request.exercise_id,
+            exercise_type=request.exercise_type,
             started_at=datetime.utcnow().isoformat(),
             completed_at=datetime.utcnow().isoformat(),
             is_correct=request.is_correct,
             user_answer=request.user_answer,
             time_spent_seconds=request.time_spent_seconds,
-            attempts=1,
+            attempts=exercise_answers[request.exercise_id]["attempts"],
         )
 
     async def complete_session(self, request: CompleteSessionRequest) -> SessionResults:
@@ -266,41 +297,45 @@ class LearningSessionService:
     def _to_session_dto(self, session: LearningSessionModel) -> LearningSession:
         """Convert session model to DTO"""
         return LearningSession(
-            id=session.id,
-            lesson_id=session.lesson_id,
-            user_id=session.user_id,
-            status=session.status,
+            id=session.id,  # type: ignore
+            lesson_id=session.lesson_id,  # type: ignore
+            user_id=session.user_id,  # type: ignore
+            status=session.status,  # type: ignore
             started_at=session.started_at.isoformat(),
-            completed_at=session.completed_at.isoformat() if session.completed_at else None,
-            current_component_index=session.current_component_index,
-            total_components=session.total_components,
-            progress_percentage=session.progress_percentage,
-            session_data=session.session_data or {},
+            completed_at=session.completed_at.isoformat() if session.completed_at else None,  # type: ignore
+            current_exercise_index=session.current_exercise_index,  # type: ignore
+            total_exercises=1 + session.total_exercises,  # type: ignore
+            progress_percentage=session.progress_percentage,  # type: ignore
+            session_data=session.session_data or {},  # type: ignore
         )
 
     def _calculate_session_results(self, session: LearningSessionModel) -> SessionResults:
         """Calculate session results based on actual performance"""
 
-        # Extract MCQ results from session data
+        # Extract exercise results from session data
         session_data = session.session_data or {}
-        component_results = session_data.get("component_results", {})
+        exercise_answers = session_data.get("exercise_answers", {})
 
-        # Count MCQ questions and correct answers
-        mcq_total = 0
-        mcq_correct = 0
+        # Count exercises and correct answers from session fields
+        total_exercises = session.total_exercises  # type: ignore
+        completed_exercises = session.exercises_completed  # type: ignore
+        correct_exercises = session.exercises_correct  # type: ignore
 
-        for component_id, result in component_results.items():
-            # Check if this is an MCQ component (component_id starts with 'mcq_')
-            if component_id.startswith("mcq_") and isinstance(result, dict):
-                mcq_total += 1
-                if result.get("is_correct", False):
-                    mcq_correct += 1
+        # Debug logging
+        logger.info(f"Calculating results for session {session.id}")
+        logger.info(f"Exercise answers: {exercise_answers}")
+        logger.info(f"Session stats: {completed_exercises}/{total_exercises} completed, {correct_exercises} correct")
 
-        # Calculate score percentage based only on MCQ questions
-        score_percentage = (mcq_correct / mcq_total * 100) if mcq_total > 0 else 0.0
+        # Calculate score percentage based on exercises
+        score_percentage = (correct_exercises / total_exercises * 100) if total_exercises > 0 else 0.0
+        logger.info(f"Final calculation: {correct_exercises}/{total_exercises} = {score_percentage}%")
 
-        # Calculate completion percentage based on all components
-        completion_percentage = (session.current_component_index / session.total_components * 100) if session.total_components > 0 else 0.0
+        # Calculate completion percentage (didactic + exercises)
+        # Didactic is considered "completed" if current_exercise_index > 0
+        didactic_viewed = 1 if session.current_exercise_index > 0 else 0
+        total_items = 1 + total_exercises  # 1 didactic + N exercises
+        completed_items = didactic_viewed + completed_exercises
+        completion_percentage = (completed_items / total_items * 100) if total_items > 0 else 0.0
 
         # Determine achievements based on performance
         achievements = []
@@ -314,13 +349,13 @@ class LearningSessionService:
             achievements.append("Well Done")
 
         return SessionResults(
-            session_id=session.id,
-            lesson_id=session.lesson_id,
-            total_components=session.total_components,
-            completed_components=session.current_component_index,
-            correct_answers=mcq_correct,  # Only count MCQ correct answers
-            total_time_seconds=session_data.get("total_time_seconds", 300),  # Use actual time or default
-            completion_percentage=completion_percentage,
-            score_percentage=score_percentage,  # Based only on MCQ performance
+            session_id=session.id,  # type: ignore
+            lesson_id=session.lesson_id,  # type: ignore
+            total_exercises=total_exercises,  # type: ignore
+            completed_exercises=completed_exercises,  # type: ignore
+            correct_exercises=correct_exercises,  # type: ignore
+            total_time_seconds=session_data.get("total_time_seconds", 0),
+            completion_percentage=completion_percentage,  # type: ignore
+            score_percentage=score_percentage,  # type: ignore
             achievements=achievements,
         )

@@ -21,12 +21,39 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from modules.admin.routes import router as admin_router
 from modules.content_creator.routes import router as content_creator_router
+from modules.infrastructure.debug_routes import router as debug_router
+from modules.infrastructure.exception_handlers import (
+    setup_error_middleware,
+    setup_exception_handlers,
+)
 from modules.infrastructure.public import DatabaseSession, infrastructure_provider
 from modules.learning_session.routes import router as learning_session_router
 from modules.lesson_catalog.routes import router as lesson_catalog_router
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+
+# Configure enhanced logging
+def setup_logging() -> None:
+    """Set up enhanced logging configuration."""
+    import os  # noqa: PLC0415
+
+    log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+    debug_mode = os.getenv("DEBUG", "false").lower() == "true"
+
+    # Enhanced format for development
+    if debug_mode:
+        log_format = "%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s"
+        logging.basicConfig(level=getattr(logging, log_level), format=log_format, datefmt="%Y-%m-%d %H:%M:%S")
+    else:
+        # Standard format for production
+        logging.basicConfig(level=getattr(logging, log_level))
+
+    # Set specific logger levels for better debugging
+    if debug_mode:
+        logging.getLogger("modules.infrastructure.error_handling").setLevel(logging.DEBUG)
+        logging.getLogger("modules.flow_engine").setLevel(logging.DEBUG)
+
+
+setup_logging()
 logger = logging.getLogger(__name__)
 
 # Initialize infrastructure service
@@ -67,11 +94,16 @@ def get_database_session() -> DatabaseSession:
 
 DatabaseDep = Annotated[DatabaseSession, Depends(get_database_session)]
 
+# Set up error handling
+setup_exception_handlers(app)
+setup_error_middleware(app)
+
 # Include modular routers
 app.include_router(content_creator_router, tags=["Content Creation"])
 app.include_router(learning_session_router, tags=["Learning Sessions"])
 app.include_router(lesson_catalog_router, tags=["Lesson Catalog"])
 app.include_router(admin_router, tags=["Admin"])
+app.include_router(debug_router, tags=["Debug"])  # Only active in DEBUG mode
 
 
 @app.on_event("startup")
