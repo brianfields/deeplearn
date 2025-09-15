@@ -163,7 +163,7 @@ class TestLessonCreationIntegration:
         print("🗄️ Getting database session...")
         db_session = infrastructure_service.get_database_session()
         print("📚 Creating content service...")
-        content_service = ContentService(ContentRepo(db_session))
+        content_service = ContentService(ContentRepo(db_session.session))
         print("🤖 Creating content creator service...")
         # llm_service no longer needed - flows handle LLM interactions internally
         creator_service = ContentCreatorService(content_service)
@@ -250,3 +250,7 @@ class TestLessonCreationIntegration:
 
         # Ensure all steps completed successfully
         assert all(s.status == "completed" for s in step_runs)
+
+        # Cleanup: Close the database session
+        infrastructure_service.close_database_session(db_session)
+        print("🧹 Database session cleanup complete")

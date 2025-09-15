@@ -9,8 +9,6 @@ from typing import Protocol
 
 from sqlalchemy.orm import Session
 
-from modules.infrastructure.public import DatabaseSession
-
 from .repo import ContentRepo
 from .service import ContentService, LessonCreate, LessonRead
 
@@ -36,7 +34,7 @@ def content_provider(session: Session) -> ContentProvider:
     Returns:
         ContentService instance that implements the ContentProvider protocol.
     """
-    return ContentService(ContentRepo(DatabaseSession(session=session, connection_id="api")))
+    return ContentService(ContentRepo(session))
 
 
 __all__ = ["ContentProvider", "LessonCreate", "LessonRead", "content_provider"]

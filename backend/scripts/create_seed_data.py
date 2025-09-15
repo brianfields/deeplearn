@@ -39,7 +39,9 @@ def create_sample_lesson_package(
     """Create sample lesson package with all components."""
 
     # Create metadata
-    meta = Meta(lesson_id=lesson_id, title=title, core_concept=core_concept, user_level=user_level, domain=domain, package_schema_version=1, content_version=1, length_budgets=LengthBudgets())
+    meta = Meta(
+        lesson_id=lesson_id, title=title, core_concept=core_concept, user_level=user_level, domain=domain, package_schema_version=1, content_version=1, length_budgets=LengthBudgets(stem_max_words=35, vignette_max_words=80, option_max_words=12)
+    )
 
     # Create learning objectives
     objectives = [
@@ -59,11 +61,22 @@ def create_sample_lesson_package(
         GlossaryTerm(id="term_5", term="Convex function", definition="A function with a single global minimum", relation_to_core="Cross-entropy loss is convex, ensuring reliable optimization"),
     ]
 
-    # Create didactic snippet
-    didactic_snippet = DidacticSnippet(
-        id="didactic_lo_1",
-        plain_explanation="Cross-entropy loss is a measure of the difference between two probability distributions. In machine learning, it quantifies how far our predicted probabilities are from the actual labels.",
-        key_takeaways=["Cross-entropy is always non-negative", "It reaches zero when predictions are perfect", "It's convex, ensuring a single global minimum", "It provides strong gradients for incorrect predictions"],
+    # Create lesson-wide didactic snippet (new mobile-friendly structure)
+    lesson_didactic_snippet = DidacticSnippet(
+        id="lesson_explanation",
+        plain_explanation="""Cross-entropy loss is a fundamental concept in machine learning that measures how different your model's predictions are from the actual answers.
+
+Think of it like a scoring system for classification tasks. When your model is confident and correct, the loss is very low. When it's confident but wrong, the loss becomes very high, sending a strong signal to improve.
+
+Cross-entropy works by comparing probability distributions. Your model outputs probabilities for each possible class, and cross-entropy measures how far these are from the true "one-hot" distribution where the correct class has probability 1.
+
+In practice, cross-entropy is the go-to loss function for classification because it provides strong learning signals and has nice mathematical properties that make optimization reliable.""",
+        key_takeaways=[
+            "Cross-entropy measures the difference between predicted and actual probability distributions",
+            "It provides strong gradients when predictions are wrong, helping models learn faster",
+            "The loss approaches zero when predictions are correct and confident",
+            "It's the standard choice for classification tasks in neural networks",
+        ],
         worked_example="For a 3-class problem with true label [0,1,0] and prediction [0.2,0.7,0.1], cross-entropy = -(0*log(0.2) + 1*log(0.7) + 0*log(0.1)) = -log(0.7) ≈ 0.357",
     )
 
@@ -131,8 +144,8 @@ def create_sample_lesson_package(
         ),
     ]
 
-    # Create the complete lesson package
-    return LessonPackage(meta=meta, objectives=objectives, glossary={"terms": glossary_terms}, didactic={"by_lo": {"lo_1": didactic_snippet}}, mcqs=mcqs, misconceptions=[], confusables=[])
+    # Create the complete lesson package with new didactic structure
+    return LessonPackage(meta=meta, objectives=objectives, glossary={"terms": glossary_terms}, didactic={"lesson": {"explanation": lesson_didactic_snippet}}, mcqs=mcqs, misconceptions=[], confusables=[])
 
 
 def create_sample_lesson_data(
@@ -227,7 +240,7 @@ def create_sample_flow_run(flow_run_id: uuid.UUID, lesson_id: str, lesson_data: 
         "outputs": {
             "learning_objectives": [obj["text"] for obj in package["objectives"]],
             "glossary": package["glossary"],
-            "didactic_snippet": package["didactic"]["by_lo"]["lo_1"],
+            "didactic_snippet": package["didactic"]["lesson"]["explanation"],
             "mcqs": package["mcqs"],
             "refined_material": lesson_data["refined_material"],
         },
@@ -269,8 +282,8 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, lesson_data: dict[str, Any])
         }
     )
 
-    # Step 2: Generate didactic snippet
-    didactic_snippet = package["didactic"]["by_lo"]["lo_1"]
+    # Step 2: Generate lesson-wide didactic snippet
+    didactic_snippet = package["didactic"]["lesson"]["explanation"]
     step_runs.append(
         {
             "id": uuid.uuid4(),
@@ -279,8 +292,19 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, lesson_data: dict[str, Any])
             "step_name": "generate_didactic_snippet",
             "step_order": 2,
             "status": "completed",
-            "inputs": {"lesson_title": lesson_data["title"], "core_concept": lesson_data["core_concept"]},
-            "outputs": {"explanation": didactic_snippet["plain_explanation"], "key_takeaways": didactic_snippet["key_takeaways"], "worked_example": didactic_snippet.get("worked_example")},
+            "inputs": {
+                "lesson_title": lesson_data["title"],
+                "core_concept": lesson_data["core_concept"],
+                "learning_objectives": [obj["text"] for obj in package["objectives"]],
+                "key_concepts": [term["term"] for term in package["glossary"]["terms"][:3]],
+            },
+            "outputs": {
+                "introduction": "Cross-entropy loss is a fundamental concept in machine learning...",
+                "core_explanation": didactic_snippet["plain_explanation"],
+                "key_points": didactic_snippet["key_takeaways"],
+                "practical_context": "In practice, cross-entropy is the go-to loss function for classification...",
+                "worked_example": didactic_snippet.get("worked_example"),
+            },
             "tokens_used": 1800,
             "cost_estimate": 0.009,
             "execution_time_ms": 4200,
@@ -505,7 +529,8 @@ async def main() -> None:
 
         # Calculate component counts from package
         package = lesson_data["package"]
-        component_count = len(package["mcqs"]) + len(package["didactic"]["by_lo"]) + len(package["glossary"]["terms"])
+        didactic_count = len(package["didactic"])  # Now just counts top-level keys (should be 1 for "lesson")
+        component_count = len(package["mcqs"]) + didactic_count + len(package["glossary"]["terms"])
 
         print("✅ Seed data created successfully!")
         print(f"   • Lesson ID: {lesson_id}")

@@ -168,10 +168,63 @@ class ContentCreatorService:
                 )
             )
 
-        # Build didactic snippets from flow result
-        didactic_by_lo: dict[str, DidacticSnippet] = {}
-        # Preferred: by-lo mapping
-        if "didactic_snippets" in flow_result:
+        # Build didactic snippet from flow result - single snippet for entire lesson
+        didactic_structure: dict[str, dict[str, DidacticSnippet]] = {}
+
+        if "didactic_snippet" in flow_result:
+            didactic_data = flow_result["didactic_snippet"]
+            if isinstance(didactic_data, dict):
+                # Handle new mobile-friendly structure
+                introduction = didactic_data.get("introduction", "")
+                core_explanation = didactic_data.get("core_explanation", "")
+                key_points = didactic_data.get("key_points", [])
+                practical_context = didactic_data.get("practical_context", "")
+
+                # Fallback to legacy fields if new ones aren't present
+                if not core_explanation:
+                    core_explanation = didactic_data.get("plain_explanation", "")
+                if not key_points:
+                    key_points = didactic_data.get("key_takeaways", [])
+
+                # Combine all parts into a cohesive explanation for mobile display
+                explanation_parts = []
+                if introduction:
+                    explanation_parts.append(introduction)
+                if core_explanation:
+                    explanation_parts.append(core_explanation)
+                if practical_context:
+                    explanation_parts.append(practical_context)
+
+                full_explanation = "\n\n".join(explanation_parts) if explanation_parts else "No explanation provided"
+
+                # Legacy fields for backward compatibility
+                mini_vignette = didactic_data.get("mini_vignette", None)
+                worked_example = didactic_data.get("worked_example", None)
+                near_miss_example = didactic_data.get("near_miss_example", None)
+                discriminator_hint = didactic_data.get("discriminator_hint", None)
+            else:
+                full_explanation = str(didactic_data)
+                key_points = []
+                mini_vignette = None
+                worked_example = None
+                near_miss_example = None
+                discriminator_hint = None
+
+            # Create single lesson-wide snippet
+            lesson_snippet = DidacticSnippet(
+                id="lesson_explanation",
+                mini_vignette=mini_vignette,
+                plain_explanation=full_explanation,
+                key_takeaways=key_points if isinstance(key_points, list) else [str(key_points)],
+                worked_example=worked_example,
+                near_miss_example=near_miss_example,
+                discriminator_hint=discriminator_hint,
+            )
+            # Store under "lesson" key to indicate this is lesson-wide content
+            didactic_structure["lesson"] = {"explanation": lesson_snippet}
+
+        # Legacy: per-LO didactic snippets (for backward compatibility with old data)
+        elif "didactic_snippets" in flow_result:
             raw_map = flow_result.get("didactic_snippets", {}) or {}
             if isinstance(raw_map, dict):
                 for lo_id, didactic_data in raw_map.items():
@@ -190,7 +243,7 @@ class ContentCreatorService:
                         near_miss_example = None
                         discriminator_hint = None
 
-                    didactic_by_lo[lo_id] = DidacticSnippet(
+                    snippet = DidacticSnippet(
                         id=f"didactic_{lo_id}",
                         mini_vignette=mini_vignette,
                         plain_explanation=plain_explanation,
@@ -199,34 +252,7 @@ class ContentCreatorService:
                         near_miss_example=near_miss_example,
                         discriminator_hint=discriminator_hint,
                     )
-        # Legacy: single didactic snippet
-        elif "didactic_snippet" in flow_result and objectives:
-            first_lo_id = objectives[0].id
-            didactic_data = flow_result["didactic_snippet"]
-            if isinstance(didactic_data, dict):
-                mini_vignette = didactic_data.get("mini_vignette", None)
-                plain_explanation = didactic_data.get("plain_explanation", didactic_data.get("explanation", ""))
-                key_takeaways = didactic_data.get("key_takeaways", [])
-                worked_example = didactic_data.get("worked_example", None)
-                near_miss_example = didactic_data.get("near_miss_example", None)
-                discriminator_hint = didactic_data.get("discriminator_hint", None)
-            else:
-                mini_vignette = None
-                plain_explanation = str(didactic_data)
-                key_takeaways = []
-                worked_example = None
-                near_miss_example = None
-                discriminator_hint = None
-
-            didactic_by_lo[first_lo_id] = DidacticSnippet(
-                id=f"didactic_{first_lo_id}",
-                mini_vignette=mini_vignette,
-                plain_explanation=plain_explanation,
-                key_takeaways=key_takeaways if isinstance(key_takeaways, list) else [str(key_takeaways)],
-                worked_example=worked_example,
-                near_miss_example=near_miss_example,
-                discriminator_hint=discriminator_hint,
-            )
+                    didactic_structure[lo_id] = {"main": snippet}
 
         # Build MCQs from flow result
         mcqs = []
@@ -311,7 +337,7 @@ class ContentCreatorService:
             meta=meta,
             objectives=objectives,
             glossary={"terms": glossary_terms},
-            didactic={"by_lo": didactic_by_lo},
+            didactic=didactic_structure,
             mcqs=mcqs,
             misconceptions=flow_result.get("misconceptions", []),
             confusables=flow_result.get("confusables", []),

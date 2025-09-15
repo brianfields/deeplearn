@@ -5,7 +5,7 @@ Database access layer that returns ORM objects.
 Handles all CRUD operations for lessons with embedded package content.
 """
 
-from modules.infrastructure.public import DatabaseSession
+from sqlalchemy.orm import Session
 
 from .models import LessonModel
 
@@ -13,9 +13,9 @@ from .models import LessonModel
 class ContentRepo:
     """Repository for content data access operations."""
 
-    def __init__(self, session: DatabaseSession):
-        """Initialize repository with database session."""
-        self.s = session.session
+    def __init__(self, session: Session) -> None:
+        """Initialize repository with raw SQLAlchemy session."""
+        self.s = session
 
     # Lesson operations
     def get_lesson_by_id(self, lesson_id: str) -> LessonModel | None:

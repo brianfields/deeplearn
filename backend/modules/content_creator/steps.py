@@ -109,16 +109,21 @@ class GenerateMisconceptionBankStep(StructuredStep):
 
 # ---------- Didactic snippet ----------
 class DidacticSnippetOutputs(BaseModel):
+    introduction: str
+    core_explanation: str
+    key_points: list[str]
+    practical_context: str
+    # Legacy fields for backward compatibility
     mini_vignette: str | None = None
-    plain_explanation: str
-    key_takeaways: list[str]
+    plain_explanation: str | None = None  # Will be populated from core_explanation
+    key_takeaways: list[str] | None = None  # Will be populated from key_points
     worked_example: str | None = None
     near_miss_example: str | None = None
     discriminator_hint: str | None = None
 
 
 class GenerateDidacticSnippetStep(StructuredStep):
-    """Generate a concise explanation + optional mini vignette for one LO."""
+    """Generate a mobile-friendly lesson explanation covering all learning objectives."""
 
     step_name = "generate_didactic_snippet"
     prompt_file = "generate_didactic_snippet.md"
@@ -128,8 +133,8 @@ class GenerateDidacticSnippetStep(StructuredStep):
     class Inputs(BaseModel):
         lesson_title: str
         core_concept: str
-        learning_objective: str  # LO text
-        bloom_level: str | None = None
+        learning_objectives: list[str]  # All LO texts for the lesson
+        key_concepts: list[str] | None = None  # Key concept terms
         user_level: str
         length_budgets: LengthBudgets | None = None
 

@@ -56,8 +56,21 @@ class LessonCreationFlow(BaseFlow):
         )
         bank_by_lo = {blk.lo_id: blk.distractors for blk in bank_result.output_content.by_lo}
 
-        # Step 3: Glossary (simple list of terms)
-        logger.info("📖 Step 3: Generating glossary...")
+        # Step 3: Generate single didactic snippet for entire lesson
+        logger.info("📖 Step 3: Generating lesson didactic snippet...")
+        didactic_input = {
+            "lesson_title": inputs["title"],
+            "core_concept": inputs["core_concept"],
+            "learning_objectives": [lo.text for lo in md.learning_objectives],
+            "key_concepts": [kc.term for kc in md.key_concepts],
+            "user_level": inputs["user_level"],
+            "length_budgets": md.length_budgets,
+        }
+        didactic_result = await GenerateDidacticSnippetStep().execute(didactic_input)
+        lesson_didactic = didactic_result.output_content
+
+        # Step 4: Glossary (simple list of terms)
+        logger.info("📚 Step 4: Generating glossary...")
         glossary_input = {
             "lesson_title": inputs["title"],
             "core_concept": inputs["core_concept"],
@@ -66,26 +79,12 @@ class LessonCreationFlow(BaseFlow):
         }
         glossary_result = await GenerateGlossaryStep().execute(glossary_input)
 
-        # Step 4: For each LO, generate didactic snippet → MCQ → validate
-        logger.info(f"❓ Step 4: Generating {len(md.learning_objectives)} MCQs...")
+        # Step 5: For each LO, generate MCQ → validate
+        logger.info(f"❓ Step 5: Generating {len(md.learning_objectives)} MCQs...")
         mcq_items = []
-        snippets = {}
 
-        for lo in md.learning_objectives:  # type: LearningObjective
-            # 4a: Per-LO didactic snippet
-            didactic_input = {
-                "lesson_title": inputs["title"],
-                "core_concept": inputs["core_concept"],
-                "learning_objective": lo.text,
-                "bloom_level": lo.bloom_level,
-                "user_level": inputs["user_level"],
-                "length_budgets": md.length_budgets,
-            }
-            didactic_result = await GenerateDidacticSnippetStep().execute(didactic_input)
-            didactic = didactic_result.output_content
-            snippets[lo.lo_id] = didactic
-
-            # 4b: MCQ using distractor pool
+        for lo in md.learning_objectives:
+            # MCQ using distractor pool and lesson didactic context
             mcq_input = {
                 "lesson_title": inputs["title"],
                 "core_concept": inputs["core_concept"],
@@ -93,13 +92,13 @@ class LessonCreationFlow(BaseFlow):
                 "bloom_level": lo.bloom_level,
                 "user_level": inputs["user_level"],
                 "length_budgets": md.length_budgets,
-                "didactic_context": didactic,
+                "didactic_context": lesson_didactic,
                 "distractor_pool": bank_by_lo.get(lo.lo_id, []),
             }
             mcq_result = await GenerateMCQStep().execute(mcq_input)
             item = mcq_result.output_content
 
-            # 4c: Validate & auto-tighten
+            # Validate & auto-tighten
             val_result = await ValidateMCQStep().execute({"item": item, "length_budgets": md.length_budgets})
             if val_result.output_content.status == "ok" and val_result.output_content.item:
                 mcq_items.append(val_result.output_content.item)
@@ -117,6 +116,6 @@ class LessonCreationFlow(BaseFlow):
             "refined_material": md.refined_material.model_dump(),
             "length_budgets": md.length_budgets.model_dump(),
             "glossary": glossary_result.output_content.model_dump(),
-            "didactic_snippets": {k: v.model_dump() for k, v in snippets.items()},
+            "didactic_snippet": lesson_didactic.model_dump(),
             "mcqs": [m.model_dump() for m in mcq_items],
         }
