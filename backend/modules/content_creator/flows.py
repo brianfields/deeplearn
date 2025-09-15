@@ -14,7 +14,6 @@ from .steps import (
     GenerateGlossaryStep,
     GenerateMCQStep,
     GenerateMisconceptionBankStep,
-    ValidateMCQStep,
 )
 
 logger = logging.getLogger(__name__)
@@ -79,33 +78,47 @@ class LessonCreationFlow(BaseFlow):
         }
         glossary_result = await GenerateGlossaryStep().execute(glossary_input)
 
-        # Step 5: For each LO, generate MCQ → validate
-        logger.info(f"❓ Step 5: Generating {len(md.learning_objectives)} MCQs...")
-        mcq_items = []
+        # Step 5: Generate all MCQs in one call
+        logger.info(f"❓ Step 5: Generating {len(md.learning_objectives)} MCQs in single call...")
+        mcq_input = {
+            "lesson_title": inputs["title"],
+            "core_concept": inputs["core_concept"],
+            "learning_objectives": md.learning_objectives,
+            "user_level": inputs["user_level"],
+            "length_budgets": md.length_budgets,
+            "didactic_context": lesson_didactic,
+            "distractor_pools": bank_by_lo,
+        }
+        mcq_result = await GenerateMCQStep().execute(mcq_input)
+        mcq_items = mcq_result.output_content.mcqs
+        logger.info(f"✅ Generated {len(mcq_items)} MCQs successfully")
 
-        for lo in md.learning_objectives:
-            # MCQ using distractor pool and lesson didactic context
-            mcq_input = {
-                "lesson_title": inputs["title"],
-                "core_concept": inputs["core_concept"],
-                "learning_objective": lo.text,
-                "bloom_level": lo.bloom_level,
-                "user_level": inputs["user_level"],
-                "length_budgets": md.length_budgets,
-                "didactic_context": lesson_didactic,
-                "distractor_pool": bank_by_lo.get(lo.lo_id, []),
+        # Convert MCQs to exercises
+        exercises = []
+        for i, mcq in enumerate(mcq_items):
+            # Convert MCQItem to MCQExercise format
+            # Generate a unique ID since MCQItem doesn't have one
+            exercise_id = f"mcq_{i + 1}"
+
+            # Convert options and add missing IDs
+            options_with_ids = []
+            for j, opt in enumerate(mcq.options):
+                option_dict = opt.model_dump()
+                option_dict["id"] = f"{exercise_id}_{opt.label.lower()}"  # e.g., "mcq_1_a"
+                options_with_ids.append(option_dict)
+
+            exercise = {
+                "id": exercise_id,
+                "exercise_type": "mcq",
+                "lo_id": mcq.lo_id,
+                "cognitive_level": mcq.cognitive_level,
+                "estimated_difficulty": mcq.estimated_difficulty,
+                "misconceptions_used": mcq.misconceptions_used,
+                "stem": mcq.stem,
+                "options": options_with_ids,
+                "answer_key": mcq.answer_key.model_dump(),
             }
-            mcq_result = await GenerateMCQStep().execute(mcq_input)
-            item = mcq_result.output_content
-
-            # Validate & auto-tighten
-            val_result = await ValidateMCQStep().execute({"item": item, "length_budgets": md.length_budgets})
-            if val_result.output_content.status == "ok" and val_result.output_content.item:
-                mcq_items.append(val_result.output_content.item)
-            else:
-                # Fallback: keep original but flag issues so UI can surface them
-                logger.warning(f"MCQ validation issues for LO {lo.lo_id}: {val_result.output_content.reasons}")
-                mcq_items.append(item)
+            exercises.append(exercise)
 
         # Final assembly
         return {
@@ -117,5 +130,5 @@ class LessonCreationFlow(BaseFlow):
             "length_budgets": md.length_budgets.model_dump(),
             "glossary": glossary_result.output_content.model_dump(),
             "didactic_snippet": lesson_didactic.model_dump(),
-            "mcqs": [m.model_dump() for m in mcq_items],
+            "exercises": exercises,
         }

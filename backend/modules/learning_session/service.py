@@ -135,7 +135,8 @@ class LearningSessionService:
         lesson_content = self.content.get_lesson(request.lesson_id)
         if lesson_content:
             # Calculate total components from package structure
-            total_components = len(lesson_content.package.mcqs) + len(lesson_content.package.didactic.get("by_lo", {})) + len(lesson_content.package.glossary.get("terms", []))
+            # 1 didactic snippet + exercises + glossary terms
+            total_components = 1 + len(lesson_content.package.exercises) + len(lesson_content.package.glossary.get("terms", []))
         else:
             total_components = 0
 

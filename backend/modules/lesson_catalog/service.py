@@ -104,7 +104,12 @@ class LessonCatalogService:
         for lesson in lessons:
             # Extract data from package
             objectives = [obj.text for obj in lesson.package.objectives]
-            component_count = len(lesson.package.mcqs) + len(lesson.package.didactic.get("by_lo", {})) + len(lesson.package.glossary.get("terms", []))
+
+            # Calculate component count
+            didactic_count = 1  # Single didactic snippet
+            exercise_count = len(lesson.package.exercises)
+            glossary_count = len(lesson.package.glossary.get("terms", []))
+            component_count = didactic_count + exercise_count + glossary_count
 
             summaries.append(
                 LessonSummary(
@@ -137,32 +142,45 @@ class LessonCatalogService:
         # Extract components from package
         components = []
 
-        # Add didactic snippets as components FIRST (learning material should come before questions)
-        for didactic_id, didactic in lesson.package.didactic.get("by_lo", {}).items():
-            components.append(
-                {
-                    "id": didactic.id,
-                    "component_type": "didactic_snippet",
-                    "title": "Learning Material",
-                    "content": {"explanation": didactic.plain_explanation, "key_takeaways": didactic.key_takeaways, "worked_example": didactic.worked_example, "near_miss_example": didactic.near_miss_example},
-                }
-            )
+        # Add single didactic snippet as FIRST component (learning material comes before exercises)
+        didactic = lesson.package.didactic_snippet
+        components.append(
+            {
+                "id": didactic.id,
+                "component_type": "didactic_snippet",
+                "title": "Learning Material",
+                "content": {
+                    "explanation": didactic.plain_explanation,
+                    "key_takeaways": didactic.key_takeaways,
+                    "worked_example": didactic.worked_example,
+                    "near_miss_example": didactic.near_miss_example,
+                    "mini_vignette": didactic.mini_vignette,
+                    "discriminator_hint": didactic.discriminator_hint,
+                },
+            }
+        )
 
-        # Add MCQs as components SECOND (questions come after learning)
-        for mcq in lesson.package.mcqs:
-            components.append(
-                {
-                    "id": mcq.id,
-                    "component_type": "mcq",
-                    "title": mcq.stem[:50] + "..." if len(mcq.stem) > 50 else mcq.stem,
-                    "content": {
-                        "question": mcq.stem,
-                        "options": [{"label": opt.label, "text": opt.text} for opt in mcq.options],
-                        "correct_answer": mcq.answer_key.label,
-                        "explanation": getattr(mcq, "explanation", None) or f"The correct answer is {mcq.answer_key.label}.",
-                    },
-                }
-            )
+        # Add exercises as components SECOND (exercises come after learning material)
+        for exercise in lesson.package.exercises:
+            if exercise.exercise_type == "mcq":
+                # Use getattr for safe access to MCQ-specific attributes
+                stem = getattr(exercise, "stem", "Question")
+                options = getattr(exercise, "options", [])
+                answer_key = getattr(exercise, "answer_key", None)
+
+                components.append(
+                    {
+                        "id": exercise.id,
+                        "component_type": "mcq",
+                        "title": stem[:50] + "..." if len(stem) > 50 else stem,
+                        "content": {
+                            "question": stem,
+                            "options": [{"label": opt.label, "text": opt.text} for opt in options],
+                            "correct_answer": answer_key.label if answer_key else "A",
+                            "explanation": (answer_key.rationale_right if answer_key and answer_key.rationale_right else f"The correct answer is {answer_key.label if answer_key else 'A'}."),
+                        },
+                    }
+                )
 
         # Add glossary terms as components LAST (reference material)
         for term in lesson.package.glossary.get("terms", []):
@@ -216,7 +234,7 @@ class LessonCatalogService:
             # Extract data from package
             objectives = [obj.text for obj in lesson.package.objectives]
             key_concepts = [term.term for term in lesson.package.glossary.get("terms", [])]
-            component_count = len(lesson.package.mcqs) + len(lesson.package.didactic.get("by_lo", {})) + len(lesson.package.glossary.get("terms", []))
+            component_count = len(lesson.package.exercises) + 1 + len(lesson.package.glossary.get("terms", []))  # exercises + 1 didactic + glossary terms
 
             summaries.append(
                 LessonSummary(
@@ -267,7 +285,7 @@ class LessonCatalogService:
             # Extract data from package
             objectives = [obj.text for obj in lesson.package.objectives]
             key_concepts = [term.term for term in lesson.package.glossary.get("terms", [])]
-            component_count = len(lesson.package.mcqs) + len(lesson.package.didactic.get("by_lo", {})) + len(lesson.package.glossary.get("terms", []))
+            component_count = len(lesson.package.exercises) + 1 + len(lesson.package.glossary.get("terms", []))  # exercises + 1 didactic + glossary terms
 
             summaries.append(
                 LessonSummary(
@@ -308,7 +326,7 @@ class LessonCatalogService:
 
         for lesson in all_lessons:
             # Extract component count from package
-            component_count = len(lesson.package.mcqs) + len(lesson.package.didactic.get("by_lo", {})) + len(lesson.package.glossary.get("terms", []))
+            component_count = len(lesson.package.exercises) + 1 + len(lesson.package.glossary.get("terms", []))  # exercises + 1 didactic + glossary terms
 
             # Readiness
             if component_count > 0:

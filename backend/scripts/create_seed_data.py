@@ -23,7 +23,7 @@ import uuid
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from modules.content.models import LessonModel
-from modules.content.package_models import DidacticSnippet, GlossaryTerm, LengthBudgets, LessonPackage, MCQAnswerKey, MCQItem, MCQOption, Meta, Objective
+from modules.content.package_models import DidacticSnippet, GlossaryTerm, LengthBudgets, LessonPackage, MCQAnswerKey, MCQExercise, MCQOption, Meta, Objective
 from modules.flow_engine.models import FlowRunModel, FlowStepRunModel
 from modules.infrastructure.public import infrastructure_provider
 from modules.llm_services.models import LLMRequestModel
@@ -80,72 +80,112 @@ In practice, cross-entropy is the go-to loss function for classification because
         worked_example="For a 3-class problem with true label [0,1,0] and prediction [0.2,0.7,0.1], cross-entropy = -(0*log(0.2) + 1*log(0.7) + 0*log(0.1)) = -log(0.7) ≈ 0.357",
     )
 
-    # Create MCQ questions
-    mcqs = [
-        MCQItem(
+    # Create exercises directly as proper MCQExercise objects
+    exercises = [
+        MCQExercise(
             id="mcq_1",
             lo_id="lo_1",
+            cognitive_level="Remember",
+            estimated_difficulty="Medium",
+            misconceptions_used=["mc_1", "mc_2"],
             stem="What is the mathematical formula for cross-entropy loss for a single sample?",
             options=[
-                MCQOption(id="mcq_1_a", label="A", text="L = ∑(y_i * log(ŷ_i))"),
-                MCQOption(id="mcq_1_b", label="B", text="L = -∑(y_i * log(ŷ_i))"),
-                MCQOption(id="mcq_1_c", label="C", text="L = ∑(y_i - ŷ_i)²"),
-                MCQOption(id="mcq_1_d", label="D", text="L = |y_i - ŷ_i|"),
+                MCQOption(id="mcq_1_a", label="A", text="L = ∑(y_i * log(ŷ_i))", rationale_wrong="Missing negative sign; this would give positive loss values"),
+                MCQOption(id="mcq_1_b", label="B", text="L = -∑(y_i * log(ŷ_i))", rationale_wrong=None),
+                MCQOption(id="mcq_1_c", label="C", text="L = ∑(y_i - ŷ_i)²", rationale_wrong="This is mean squared error, not cross-entropy loss"),
+                MCQOption(id="mcq_1_d", label="D", text="L = |y_i - ŷ_i|", rationale_wrong="This is mean absolute error, not cross-entropy loss"),
             ],
-            answer_key=MCQAnswerKey(label="B"),
+            answer_key=MCQAnswerKey(label="B", rationale_right="Cross-entropy loss requires the negative log-likelihood formulation"),
         ),
-        MCQItem(
+        MCQExercise(
             id="mcq_2",
             lo_id="lo_2",
+            cognitive_level="Understand",
+            estimated_difficulty="Medium",
+            misconceptions_used=["mc_3"],
             stem="Why is cross-entropy loss particularly suitable for classification tasks?",
             options=[
-                MCQOption(id="mcq_2_a", label="A", text="It's computationally efficient"),
-                MCQOption(id="mcq_2_b", label="B", text="It provides probabilistic interpretation and strong gradients"),
-                MCQOption(id="mcq_2_c", label="C", text="It works only with binary classification"),
-                MCQOption(id="mcq_2_d", label="D", text="It doesn't require gradient computation"),
+                MCQOption(id="mcq_2_a", label="A", text="It's computationally efficient", rationale_wrong="Efficiency alone doesn't explain its suitability for classification"),
+                MCQOption(id="mcq_2_b", label="B", text="It provides probabilistic interpretation and strong gradients", rationale_wrong=None),
+                MCQOption(id="mcq_2_c", label="C", text="It works only with binary classification", rationale_wrong="Cross-entropy works for multi-class classification too"),
+                MCQOption(id="mcq_2_d", label="D", text="It doesn't require gradient computation", rationale_wrong="All neural network training requires gradients"),
             ],
-            answer_key=MCQAnswerKey(label="B"),
+            answer_key=MCQAnswerKey(label="B", rationale_right="Cross-entropy naturally outputs probabilities and provides strong learning signals"),
         ),
-        MCQItem(
+        MCQExercise(
             id="mcq_3",
             lo_id="lo_3",
+            cognitive_level="Apply",
+            estimated_difficulty="Easy",
+            misconceptions_used=["mc_4"],
             stem="In PyTorch, which function implements cross-entropy loss?",
             options=[
-                MCQOption(id="mcq_3_a", label="A", text="nn.MSELoss()"),
-                MCQOption(id="mcq_3_b", label="B", text="nn.CrossEntropyLoss()"),
-                MCQOption(id="mcq_3_c", label="C", text="nn.BCELoss()"),
-                MCQOption(id="mcq_3_d", label="D", text="nn.L1Loss()"),
+                MCQOption(id="mcq_3_a", label="A", text="nn.MSELoss()", rationale_wrong="MSELoss is for regression, not classification"),
+                MCQOption(id="mcq_3_b", label="B", text="nn.CrossEntropyLoss()", rationale_wrong=None),
+                MCQOption(id="mcq_3_c", label="C", text="nn.BCELoss()", rationale_wrong="BCELoss is for binary classification only"),
+                MCQOption(id="mcq_3_d", label="D", text="nn.L1Loss()", rationale_wrong="L1Loss is for regression, not classification"),
             ],
-            answer_key=MCQAnswerKey(label="B"),
+            answer_key=MCQAnswerKey(label="B", rationale_right="nn.CrossEntropyLoss() combines softmax and cross-entropy in one function"),
         ),
-        MCQItem(
+        MCQExercise(
             id="mcq_4",
             lo_id="lo_4",
+            cognitive_level="Analyze",
+            estimated_difficulty="Hard",
+            misconceptions_used=["mc_5"],
             stem="How does cross-entropy loss compare to mean squared error for classification?",
             options=[
-                MCQOption(id="mcq_4_a", label="A", text="MSE is always better for classification"),
-                MCQOption(id="mcq_4_b", label="B", text="Cross-entropy provides better gradients and probabilistic interpretation"),
-                MCQOption(id="mcq_4_c", label="C", text="They are equivalent for classification tasks"),
-                MCQOption(id="mcq_4_d", label="D", text="MSE is faster to compute"),
+                MCQOption(id="mcq_4_a", label="A", text="MSE is always better for classification", rationale_wrong="MSE provides weaker gradients and no probabilistic interpretation"),
+                MCQOption(id="mcq_4_b", label="B", text="Cross-entropy provides better gradients and probabilistic interpretation", rationale_wrong=None),
+                MCQOption(id="mcq_4_c", label="C", text="They are equivalent for classification tasks", rationale_wrong="Cross-entropy is specifically designed for classification"),
+                MCQOption(id="mcq_4_d", label="D", text="MSE is faster to compute", rationale_wrong="Computational speed isn't the main consideration for loss choice"),
             ],
-            answer_key=MCQAnswerKey(label="B"),
+            answer_key=MCQAnswerKey(label="B", rationale_right="Cross-entropy gives stronger gradients when confident but wrong, ideal for classification"),
         ),
-        MCQItem(
+        MCQExercise(
             id="mcq_5",
             lo_id="lo_5",
+            cognitive_level="Apply",
+            estimated_difficulty="Medium",
+            misconceptions_used=["mc_6"],
             stem="What happens to cross-entropy loss when the model predicts the correct class with high confidence?",
             options=[
-                MCQOption(id="mcq_5_a", label="A", text="Loss increases significantly"),
-                MCQOption(id="mcq_5_b", label="B", text="Loss approaches zero"),
-                MCQOption(id="mcq_5_c", label="C", text="Loss becomes negative"),
-                MCQOption(id="mcq_5_d", label="D", text="Loss remains constant"),
+                MCQOption(id="mcq_5_a", label="A", text="Loss increases significantly", rationale_wrong="Correct predictions with high confidence should decrease loss"),
+                MCQOption(id="mcq_5_b", label="B", text="Loss approaches zero", rationale_wrong=None),
+                MCQOption(id="mcq_5_c", label="C", text="Loss becomes negative", rationale_wrong="Cross-entropy loss is always non-negative"),
+                MCQOption(id="mcq_5_d", label="D", text="Loss remains constant", rationale_wrong="Loss varies with prediction confidence"),
             ],
-            answer_key=MCQAnswerKey(label="B"),
+            answer_key=MCQAnswerKey(label="B", rationale_right="High confidence correct predictions minimize the negative log-likelihood"),
         ),
     ]
 
-    # Create the complete lesson package with new didactic structure
-    return LessonPackage(meta=meta, objectives=objectives, glossary={"terms": glossary_terms}, didactic={"lesson": {"explanation": lesson_didactic_snippet}}, mcqs=mcqs, misconceptions=[], confusables=[])
+    # Create misconceptions referenced in MCQs
+    misconceptions = [
+        {"mc_id": "mc_1", "concept": "Cross-entropy formula", "misbelief": "Cross-entropy should be positive like other loss functions"},
+        {"mc_id": "mc_2", "concept": "Loss function types", "misbelief": "All loss functions have the same mathematical form"},
+        {"mc_id": "mc_3", "concept": "Classification vs regression", "misbelief": "Any loss function can be used for any task"},
+        {"mc_id": "mc_4", "concept": "PyTorch loss functions", "misbelief": "BCELoss and CrossEntropyLoss are interchangeable"},
+        {"mc_id": "mc_5", "concept": "Loss function comparison", "misbelief": "MSE and cross-entropy are equivalent for classification"},
+        {"mc_id": "mc_6", "concept": "Loss behavior", "misbelief": "Loss functions can become negative"},
+    ]
+
+    # Create confusables (commonly confused concepts)
+    confusables = [
+        {"concept_a": "Cross-entropy loss", "concept_b": "Mean squared error", "distinction": "Cross-entropy for classification, MSE for regression"},
+        {"concept_b": "Binary cross-entropy", "concept_a": "Categorical cross-entropy", "distinction": "Binary for 2 classes, categorical for multiple classes"},
+        {"concept_a": "Log-likelihood", "concept_b": "Cross-entropy", "distinction": "Cross-entropy is negative log-likelihood"},
+    ]
+
+    # Create the complete lesson package with new structure
+    return LessonPackage(
+        meta=meta,
+        objectives=objectives,
+        glossary={"terms": glossary_terms},
+        didactic_snippet=lesson_didactic_snippet,
+        exercises=exercises,
+        misconceptions=misconceptions,
+        confusables=confusables,
+    )
 
 
 def create_sample_lesson_data(
@@ -219,8 +259,8 @@ def create_sample_flow_run(flow_run_id: uuid.UUID, lesson_id: str, lesson_data: 
         "status": "completed",
         "execution_mode": "sync",
         "current_step": None,
-        "step_progress": 8,  # 1 metadata + 1 didactic + 1 glossary + 5 MCQs
-        "total_steps": 8,
+        "step_progress": 5,  # 1 metadata + 1 misconception_bank + 1 didactic + 1 glossary + 1 MCQs
+        "total_steps": 5,
         "progress_percentage": 100.0,
         "created_at": now,
         "updated_at": now,
@@ -240,8 +280,8 @@ def create_sample_flow_run(flow_run_id: uuid.UUID, lesson_id: str, lesson_data: 
         "outputs": {
             "learning_objectives": [obj["text"] for obj in package["objectives"]],
             "glossary": package["glossary"],
-            "didactic_snippet": package["didactic"]["lesson"]["explanation"],
-            "mcqs": package["mcqs"],
+            "didactic_snippet": package["didactic_snippet"],
+            "exercises": package["exercises"],
             "refined_material": lesson_data["refined_material"],
         },
         "flow_metadata": {"lesson_id": lesson_id, "package_version": 1},
@@ -256,6 +296,16 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, lesson_data: dict[str, Any])
 
     # Extract package data
     package = lesson_data["package"]
+
+    # Get the original exercises from the lesson data creation
+    # We'll create a simplified version for the step outputs
+    sample_exercises = [
+        {"lo_id": "lo_1", "stem": "What is cross-entropy loss?", "options": ["Option A", "Option B", "Option C"], "correct_answer": "B"},
+        {"lo_id": "lo_2", "stem": "Why use cross-entropy?", "options": ["Option A", "Option B", "Option C"], "correct_answer": "B"},
+        {"lo_id": "lo_3", "stem": "PyTorch function?", "options": ["Option A", "Option B", "Option C"], "correct_answer": "B"},
+        {"lo_id": "lo_4", "stem": "Compare to MSE?", "options": ["Option A", "Option B", "Option C"], "correct_answer": "B"},
+        {"lo_id": "lo_5", "stem": "High confidence?", "options": ["Option A", "Option B", "Option C"], "correct_answer": "B"},
+    ]
 
     # Step 1: Extract lesson metadata
     step_runs.append(
@@ -282,15 +332,52 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, lesson_data: dict[str, Any])
         }
     )
 
-    # Step 2: Generate lesson-wide didactic snippet
-    didactic_snippet = package["didactic"]["lesson"]["explanation"]
+    # Step 2: Generate misconception bank
+    step_runs.append(
+        {
+            "id": uuid.uuid4(),
+            "flow_run_id": flow_run_id,
+            "llm_request_id": uuid.uuid4(),
+            "step_name": "generate_misconception_bank",
+            "step_order": 2,
+            "status": "completed",
+            "inputs": {
+                "core_concept": lesson_data["core_concept"],
+                "learning_objectives": [obj["text"] for obj in package["objectives"]],
+                "key_concepts": [term["term"] for term in package["glossary"]["terms"][:3]],
+            },
+            "outputs": {
+                "by_lo": [
+                    {
+                        "lo_id": f"lo_{i + 1}",
+                        "distractors": [
+                            {"text": f"Distractor {j + 1} for LO {i + 1}", "maps_to_mc_id": f"mc_{j + 1}"}
+                            for j in range(2)  # 2 distractors per LO
+                        ],
+                    }
+                    for i in range(len(package["objectives"]))
+                ]
+            },
+            "tokens_used": 2200,
+            "cost_estimate": 0.011,
+            "execution_time_ms": 5000,
+            "error_message": None,
+            "step_metadata": {"prompt_file": "generate_misconception_bank.md"},
+            "created_at": now,
+            "updated_at": now,
+            "completed_at": now,
+        }
+    )
+
+    # Step 3: Generate lesson-wide didactic snippet
+    didactic_snippet = package["didactic_snippet"]
     step_runs.append(
         {
             "id": uuid.uuid4(),
             "flow_run_id": flow_run_id,
             "llm_request_id": uuid.uuid4(),
             "step_name": "generate_didactic_snippet",
-            "step_order": 2,
+            "step_order": 3,
             "status": "completed",
             "inputs": {
                 "lesson_title": lesson_data["title"],
@@ -316,14 +403,14 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, lesson_data: dict[str, Any])
         }
     )
 
-    # Step 3: Generate glossary
+    # Step 4: Generate glossary
     step_runs.append(
         {
             "id": uuid.uuid4(),
             "flow_run_id": flow_run_id,
             "llm_request_id": uuid.uuid4(),
             "step_name": "generate_glossary",
-            "step_order": 3,
+            "step_order": 4,
             "status": "completed",
             "inputs": {"lesson_title": lesson_data["title"], "key_concepts": [term["term"] for term in package["glossary"]["terms"]]},
             "outputs": {"terms": package["glossary"]["terms"]},
@@ -338,32 +425,31 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, lesson_data: dict[str, Any])
         }
     )
 
-    # Steps 4-8: Generate MCQs
-    mcqs = package["mcqs"]
-    for i, mcq in enumerate(mcqs):
-        # Find the corresponding objective
-        objective_text = next((obj["text"] for obj in package["objectives"] if obj["id"] == mcq["lo_id"]), "Unknown objective")
-
-        step_runs.append(
-            {
-                "id": uuid.uuid4(),
-                "flow_run_id": flow_run_id,
-                "llm_request_id": uuid.uuid4(),
-                "step_name": "generate_mcq",
-                "step_order": 4 + i,
-                "status": "completed",
-                "inputs": {"lesson_title": lesson_data["title"], "learning_objective": objective_text},
-                "outputs": {"question": mcq["stem"], "options": [opt["text"] for opt in mcq["options"]], "correct_answer": mcq["answer_key"]["label"]},
-                "tokens_used": 1800 + (i * 50),  # Slight variation
-                "cost_estimate": 0.009 + (i * 0.0005),
-                "execution_time_ms": 4000 + (i * 200),
-                "error_message": None,
-                "step_metadata": {"prompt_file": "generate_mcq.md"},
-                "created_at": now,
-                "updated_at": now,
-                "completed_at": now,
-            }
-        )
+    # Step 5: Generate all exercises in one call
+    step_runs.append(
+        {
+            "id": uuid.uuid4(),
+            "flow_run_id": flow_run_id,
+            "llm_request_id": uuid.uuid4(),
+            "step_name": "generate_mcqs",  # Updated to match new step name
+            "step_order": 5,
+            "status": "completed",
+            "inputs": {
+                "lesson_title": lesson_data["title"],
+                "learning_objectives": [obj["text"] for obj in package["objectives"]],
+                "distractor_pools": {},  # Simplified for seed data
+            },
+            "outputs": {"exercises": sample_exercises},
+            "tokens_used": 3500,  # Higher token count for generating multiple MCQs
+            "cost_estimate": 0.0175,
+            "execution_time_ms": 8000,  # Longer execution time for multiple MCQs
+            "error_message": None,
+            "step_metadata": {"prompt_file": "generate_mcq.md"},
+            "created_at": now,
+            "updated_at": now,
+            "completed_at": now,
+        }
+    )
 
     return step_runs
 
@@ -382,6 +468,12 @@ def create_sample_llm_requests(step_runs: list[dict[str, Any]]) -> list[dict[str
                     {"role": "user", "content": "Extract learning objectives and key concepts from this material about Cross-Entropy Loss..."},
                 ]
                 response_content = json.dumps(step_run["outputs"])
+            elif step_run["step_name"] == "generate_misconception_bank":
+                messages = [
+                    {"role": "system", "content": "You are an expert educational content creator."},
+                    {"role": "user", "content": "Generate misconceptions and distractors for Cross-Entropy Loss..."},
+                ]
+                response_content = json.dumps(step_run["outputs"])
             elif step_run["step_name"] == "generate_didactic_snippet":
                 messages = [
                     {"role": "system", "content": "You are an expert educational content creator."},
@@ -394,10 +486,16 @@ def create_sample_llm_requests(step_runs: list[dict[str, Any]]) -> list[dict[str
                     {"role": "user", "content": "Generate a glossary of key terms for Cross-Entropy Loss..."},
                 ]
                 response_content = json.dumps(step_run["outputs"])
-            else:  # generate_mcq
+            elif step_run["step_name"] == "generate_mcqs":  # Updated step name
                 messages = [
                     {"role": "system", "content": "You are an expert educational content creator."},
-                    {"role": "user", "content": f"Generate a multiple choice question for: {step_run['inputs'].get('learning_objective', 'Unknown')}"},
+                    {"role": "user", "content": f"Generate multiple choice questions for all learning objectives in the lesson: {step_run['inputs'].get('lesson_title', 'Unknown')}"},
+                ]
+                response_content = json.dumps(step_run["outputs"])
+            else:  # fallback for any other steps
+                messages = [
+                    {"role": "system", "content": "You are an expert educational content creator."},
+                    {"role": "user", "content": f"Process step: {step_run['step_name']}"},
                 ]
                 response_content = json.dumps(step_run["outputs"])
 
@@ -529,13 +627,13 @@ async def main() -> None:
 
         # Calculate component counts from package
         package = lesson_data["package"]
-        didactic_count = len(package["didactic"])  # Now just counts top-level keys (should be 1 for "lesson")
-        component_count = len(package["mcqs"]) + didactic_count + len(package["glossary"]["terms"])
+        didactic_count = 1  # Single didactic snippet
+        component_count = len(package["exercises"]) + didactic_count + len(package["glossary"]["terms"])
 
         print("✅ Seed data created successfully!")
         print(f"   • Lesson ID: {lesson_id}")
         print(f"   • Title: {lesson_data['title']}")
-        print(f"   • Package components: {component_count} (5 MCQs, 1 didactic, 5 glossary terms)")
+        print(f"   • Package components: {component_count} (5 exercises, 1 didactic, 5 glossary terms)")
         print(f"   • Package version: {lesson_data['package_version']}")
         print("   • Flow runs: 1")
         print(f"   • Step runs: {len(step_runs)}")
@@ -556,7 +654,7 @@ async def main() -> None:
                 "package_components": component_count,
                 "objectives_count": len(package["objectives"]),
                 "glossary_terms_count": len(package["glossary"]["terms"]),
-                "mcqs_count": len(package["mcqs"]),
+                "exercises_count": len(package["exercises"]),
                 "flow_runs": 1,
                 "step_runs": len(step_runs),
                 "llm_requests": len(llm_requests),

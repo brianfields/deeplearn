@@ -80,20 +80,27 @@ class MCQAnswerKey(BaseModel):
     rationale_right: str | None = None
 
 
-class MCQItem(BaseModel):
-    """Multiple choice question item."""
+class Exercise(BaseModel):
+    """Base class for learning exercises."""
 
     id: str
+    exercise_type: str  # "mcq", "short_answer", "coding", etc.
     lo_id: str
-    stem: str
     cognitive_level: str | None = None
     estimated_difficulty: str | None = None  # "Easy" | "Medium" | "Hard"
-    options: list[MCQOption]
-    answer_key: MCQAnswerKey
     misconceptions_used: list[str] = []
 
+
+class MCQExercise(Exercise):
+    """Multiple choice question exercise."""
+
+    exercise_type: str = "mcq"
+    stem: str
+    options: list[MCQOption]
+    answer_key: MCQAnswerKey
+
     @model_validator(mode="after")
-    def _check_options_and_key(self) -> "MCQItem":
+    def _check_options_and_key(self) -> "MCQExercise":
         """Validate options and answer key consistency."""
         # 3-4 options, unique labels, exactly one key label present
         if not (3 <= len(self.options) <= 4):
@@ -116,8 +123,8 @@ class LessonPackage(BaseModel):
     meta: Meta
     objectives: list[Objective]
     glossary: dict[str, list[GlossaryTerm]]  # {"terms": [...]}
-    didactic: dict[str, dict[str, DidacticSnippet]]  # {"by_lo": {"lo_1": {...}}}
-    mcqs: list[MCQItem]
+    didactic_snippet: DidacticSnippet  # Single lesson-wide explanation
+    exercises: list[MCQExercise]  # For now, only MCQ exercises are supported
     misconceptions: list[dict[str, str]] = []  # keep loose; can tighten later
     confusables: list[dict[str, str]] = []
 
@@ -126,15 +133,9 @@ class LessonPackage(BaseModel):
         """Validate cross-references between package components."""
         lo_ids = {o.id for o in self.objectives}
 
-        # didactic.by_lo keys (if present) must be valid LO ids
-        by_lo = self.didactic.get("by_lo", {}) if self.didactic else {}
-        for lo_id in by_lo:
-            if lo_id not in lo_ids:
-                raise ValueError(f"Didactic snippet references unknown lo_id '{lo_id}'")
-
-        # every MCQ lo_id must exist; options count validated in MCQItem
-        for item in self.mcqs:
-            if item.lo_id not in lo_ids:
-                raise ValueError(f"MCQ '{item.id}' references unknown lo_id '{item.lo_id}'")
+        # every exercise lo_id must exist
+        for exercise in self.exercises:
+            if exercise.lo_id not in lo_ids:
+                raise ValueError(f"Exercise '{exercise.id}' references unknown lo_id '{exercise.lo_id}'")
 
         return self

@@ -229,23 +229,30 @@ export interface MCQAnswerKey {
   option_id: string | null;
 }
 
-export interface MCQItem {
+// Base Exercise interface
+export interface Exercise {
   id: string;
+  exercise_type: string; // "mcq", "short_answer", "coding", etc.
   lo_id: string;
-  stem: string;
   cognitive_level: string | null;
   estimated_difficulty: 'Easy' | 'Medium' | 'Hard' | null;
+  misconceptions_used: string[];
+}
+
+// MCQ Exercise (extends Exercise)
+export interface MCQExercise extends Exercise {
+  exercise_type: 'mcq';
+  stem: string;
   options: MCQOption[];
   answer_key: MCQAnswerKey;
-  misconceptions_used: string[];
 }
 
 export interface LessonPackage {
   meta: Meta;
   objectives: Objective[];
   glossary: Record<string, GlossaryTerm[]>;
-  didactic: Record<string, Record<string, DidacticSnippet>>;
-  mcqs: MCQItem[];
+  didactic_snippet: DidacticSnippet; // Single lesson-wide explanation
+  exercises: Exercise[]; // Generalized from MCQs to support multiple exercise types
   misconceptions: Record<string, string>[];
   confusables: Record<string, string>[];
 }

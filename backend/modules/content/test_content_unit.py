@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from unittest.mock import Mock
 
 from modules.content.models import LessonModel
-from modules.content.package_models import GlossaryTerm, LessonPackage, MCQAnswerKey, MCQItem, MCQOption, Meta, Objective
+from modules.content.package_models import DidacticSnippet, GlossaryTerm, LessonPackage, MCQAnswerKey, MCQExercise, MCQOption, Meta, Objective
 from modules.content.repo import ContentRepo
 from modules.content.service import ContentService, LessonCreate
 
@@ -40,9 +40,9 @@ class TestContentService:
             meta=Meta(lesson_id="test-id", title="Test Lesson", core_concept="Test Concept", user_level="beginner", domain="General"),
             objectives=[Objective(id="lo_1", text="Learn X")],
             glossary={"terms": [GlossaryTerm(id="term_1", term="Test Term", definition="Test Definition")]},
-            didactic={"by_lo": {}},
-            mcqs=[
-                MCQItem(
+            didactic_snippet=DidacticSnippet(id="lesson_explanation", plain_explanation="Test explanation", key_takeaways=["Key point 1"]),
+            exercises=[
+                MCQExercise(
                     id="mcq_1",
                     lo_id="lo_1",
                     stem="What is X?",
@@ -67,7 +67,7 @@ class TestContentService:
         assert result.title == "Test Lesson"
         assert result.package_version == 1
         assert len(result.package.objectives) == 1
-        assert len(result.package.mcqs) == 1
+        assert len(result.package.exercises) == 1
         assert result.package.objectives[0].text == "Learn X"
 
         repo.get_lesson_by_id.assert_called_once_with("test-id")
@@ -80,7 +80,11 @@ class TestContentService:
 
         # Create a sample package
         package = LessonPackage(
-            meta=Meta(lesson_id="test-id", title="Test Lesson", core_concept="Test Concept", user_level="beginner", domain="General"), objectives=[Objective(id="lo_1", text="Learn X")], glossary={"terms": []}, didactic={"by_lo": {}}, mcqs=[]
+            meta=Meta(lesson_id="test-id", title="Test Lesson", core_concept="Test Concept", user_level="beginner", domain="General"),
+            objectives=[Objective(id="lo_1", text="Learn X")],
+            glossary={"terms": []},
+            didactic_snippet=DidacticSnippet(id="lesson_explanation", plain_explanation="Test explanation", key_takeaways=[]),
+            exercises=[],
         )
 
         lesson_data = LessonCreate(id="test-id", title="Test Lesson", core_concept="Test Concept", user_level="beginner", package=package, package_version=1)

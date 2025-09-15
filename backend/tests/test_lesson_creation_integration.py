@@ -197,33 +197,32 @@ class TestLessonCreationIntegration:
         # Verify package components were created
         assert saved_lesson.package.glossary is not None
         assert len(saved_lesson.package.glossary.get("terms", [])) > 0
-        assert saved_lesson.package.mcqs is not None
-        assert len(saved_lesson.package.mcqs) > 0
+        assert saved_lesson.package.exercises is not None
+        assert len(saved_lesson.package.exercises) > 0
 
         # Verify component counts match result
         assert len(saved_lesson.package.objectives) == result.objectives_count
         assert len(saved_lesson.package.glossary.get("terms", [])) == result.glossary_terms_count
-        assert len(saved_lesson.package.mcqs) == result.mcqs_count
+        assert len(saved_lesson.package.exercises) == result.mcqs_count  # mcqs_count now represents exercises count
 
-        # Verify didactic snippet structure (should be in package.didactic)
-        # Note: didactic snippets may not always be created depending on flow implementation
-        if saved_lesson.package.didactic and "by_lo" in saved_lesson.package.didactic:
-            didactic_lo_keys = list(saved_lesson.package.didactic["by_lo"].keys())
-            if len(didactic_lo_keys) > 0:
-                first_didactic = saved_lesson.package.didactic["by_lo"][didactic_lo_keys[0]]
-                assert first_didactic.plain_explanation is not None
-                assert len(first_didactic.key_takeaways) > 0
+        # Verify didactic snippet structure (single lesson-wide snippet)
+        assert saved_lesson.package.didactic_snippet is not None
+        assert saved_lesson.package.didactic_snippet.plain_explanation is not None
+        assert len(saved_lesson.package.didactic_snippet.key_takeaways) > 0
 
         # Verify glossary structure (already checked counts above)
         for term in saved_lesson.package.glossary["terms"]:
             assert term.term is not None
             assert term.definition is not None
 
-        # Verify MCQ structure
-        for mcq in saved_lesson.package.mcqs:
-            assert mcq.stem is not None
-            assert len(mcq.options) >= 2  # Should have at least 2 options
-            assert mcq.answer_key is not None
+        # Verify exercise structure (MCQ exercises)
+        for exercise in saved_lesson.package.exercises:
+            assert exercise.exercise_type is not None
+            if exercise.exercise_type == "mcq":
+                # Use getattr to safely access MCQ-specific attributes
+                assert getattr(exercise, "stem", None) is not None
+                assert len(getattr(exercise, "options", [])) >= 2  # Should have at least 2 options
+                assert getattr(exercise, "answer_key", None) is not None
 
         # Verify flow run and step run records
         # Fetch the most recent flow run for this flow
@@ -237,16 +236,18 @@ class TestLessonCreationIntegration:
 
         # Verify expected steps exist and counts match
         step_runs = db_session.session.query(FlowStepRunModel).filter(FlowStepRunModel.flow_run_id == flow_run.id).order_by(FlowStepRunModel.step_order).all()
-        assert len(step_runs) >= 3
+        assert len(step_runs) >= 5  # Updated: metadata + misconception_bank + didactic + glossary + mcqs = 5 steps minimum
 
         step_names = [s.step_name for s in step_runs]
         assert "extract_lesson_metadata" in step_names
+        assert "generate_misconception_bank" in step_names
         assert "generate_didactic_snippet" in step_names
         assert "generate_glossary" in step_names
+        assert "generate_mcqs" in step_names  # Updated to check for single MCQ generation step
 
-        expected_mcq_count = len(flow_run.outputs.get("learning_objectives", []))
-        actual_mcq_count = sum(1 for n in step_names if n == "generate_mcq")
-        assert actual_mcq_count == expected_mcq_count
+        # Verify we have exactly one MCQ generation step (not one per learning objective)
+        mcq_step_count = sum(1 for n in step_names if n == "generate_mcqs")
+        assert mcq_step_count == 1, f"Expected exactly 1 MCQ generation step, got {mcq_step_count}"
 
         # Ensure all steps completed successfully
         assert all(s.status == "completed" for s in step_runs)

@@ -10,7 +10,7 @@ import uuid
 
 from pydantic import BaseModel
 
-from modules.content.package_models import DidacticSnippet, GlossaryTerm, LengthBudgets, LessonPackage, MCQAnswerKey, MCQItem, MCQOption, Meta, Objective
+from modules.content.package_models import DidacticSnippet, GlossaryTerm, LengthBudgets, LessonPackage, Meta, Objective
 from modules.content.public import ContentProvider, LessonCreate
 
 from .flows import LessonCreationFlow
@@ -169,176 +169,72 @@ class ContentCreatorService:
             )
 
         # Build didactic snippet from flow result - single snippet for entire lesson
-        didactic_structure: dict[str, dict[str, DidacticSnippet]] = {}
+        didactic_data = flow_result.get("didactic_snippet")
+        if didactic_data is None:
+            # Handle missing didactic snippet
+            full_explanation = "No explanation provided"
+            key_points = []
+            mini_vignette = None
+            worked_example = None
+            near_miss_example = None
+            discriminator_hint = None
+        elif isinstance(didactic_data, dict):
+            # Handle new mobile-friendly structure from DidacticSnippetOutputs
+            introduction = didactic_data.get("introduction", "")
+            core_explanation = didactic_data.get("core_explanation", "")
+            key_points = didactic_data.get("key_points", [])
+            practical_context = didactic_data.get("practical_context", "")
 
-        if "didactic_snippet" in flow_result:
-            didactic_data = flow_result["didactic_snippet"]
-            if isinstance(didactic_data, dict):
-                # Handle new mobile-friendly structure
-                introduction = didactic_data.get("introduction", "")
-                core_explanation = didactic_data.get("core_explanation", "")
-                key_points = didactic_data.get("key_points", [])
-                practical_context = didactic_data.get("practical_context", "")
+            # Fallback to legacy fields if new ones aren't present
+            if not core_explanation:
+                core_explanation = didactic_data.get("plain_explanation", "")
+            if not key_points:
+                key_points = didactic_data.get("key_takeaways", [])
 
-                # Fallback to legacy fields if new ones aren't present
-                if not core_explanation:
-                    core_explanation = didactic_data.get("plain_explanation", "")
-                if not key_points:
-                    key_points = didactic_data.get("key_takeaways", [])
+            # Combine all parts into a cohesive explanation for mobile display
+            explanation_parts = []
+            if introduction:
+                explanation_parts.append(introduction)
+            if core_explanation:
+                explanation_parts.append(core_explanation)
+            if practical_context:
+                explanation_parts.append(practical_context)
 
-                # Combine all parts into a cohesive explanation for mobile display
-                explanation_parts = []
-                if introduction:
-                    explanation_parts.append(introduction)
-                if core_explanation:
-                    explanation_parts.append(core_explanation)
-                if practical_context:
-                    explanation_parts.append(practical_context)
+            full_explanation = "\n\n".join(explanation_parts) if explanation_parts else "No explanation provided"
 
-                full_explanation = "\n\n".join(explanation_parts) if explanation_parts else "No explanation provided"
+            mini_vignette = didactic_data.get("mini_vignette", None)
+            worked_example = didactic_data.get("worked_example", None)
+            near_miss_example = didactic_data.get("near_miss_example", None)
+            discriminator_hint = didactic_data.get("discriminator_hint", None)
+        else:
+            full_explanation = str(didactic_data) if didactic_data else "No explanation provided"
+            key_points = []
+            mini_vignette = None
+            worked_example = None
+            near_miss_example = None
+            discriminator_hint = None
 
-                # Legacy fields for backward compatibility
-                mini_vignette = didactic_data.get("mini_vignette", None)
-                worked_example = didactic_data.get("worked_example", None)
-                near_miss_example = didactic_data.get("near_miss_example", None)
-                discriminator_hint = didactic_data.get("discriminator_hint", None)
-            else:
-                full_explanation = str(didactic_data)
-                key_points = []
-                mini_vignette = None
-                worked_example = None
-                near_miss_example = None
-                discriminator_hint = None
+        # Create single lesson-wide snippet
+        lesson_didactic_snippet = DidacticSnippet(
+            id="lesson_explanation",
+            mini_vignette=mini_vignette,
+            plain_explanation=full_explanation,
+            key_takeaways=key_points if isinstance(key_points, list) else [str(key_points)],
+            worked_example=worked_example,
+            near_miss_example=near_miss_example,
+            discriminator_hint=discriminator_hint,
+        )
 
-            # Create single lesson-wide snippet
-            lesson_snippet = DidacticSnippet(
-                id="lesson_explanation",
-                mini_vignette=mini_vignette,
-                plain_explanation=full_explanation,
-                key_takeaways=key_points if isinstance(key_points, list) else [str(key_points)],
-                worked_example=worked_example,
-                near_miss_example=near_miss_example,
-                discriminator_hint=discriminator_hint,
-            )
-            # Store under "lesson" key to indicate this is lesson-wide content
-            didactic_structure["lesson"] = {"explanation": lesson_snippet}
-
-        # Legacy: per-LO didactic snippets (for backward compatibility with old data)
-        elif "didactic_snippets" in flow_result:
-            raw_map = flow_result.get("didactic_snippets", {}) or {}
-            if isinstance(raw_map, dict):
-                for lo_id, didactic_data in raw_map.items():
-                    if isinstance(didactic_data, dict):
-                        mini_vignette = didactic_data.get("mini_vignette", None)
-                        plain_explanation = didactic_data.get("plain_explanation", didactic_data.get("explanation", ""))
-                        key_takeaways = didactic_data.get("key_takeaways", [])
-                        worked_example = didactic_data.get("worked_example", None)
-                        near_miss_example = didactic_data.get("near_miss_example", None)
-                        discriminator_hint = didactic_data.get("discriminator_hint", None)
-                    else:
-                        mini_vignette = None
-                        plain_explanation = str(didactic_data)
-                        key_takeaways = []
-                        worked_example = None
-                        near_miss_example = None
-                        discriminator_hint = None
-
-                    snippet = DidacticSnippet(
-                        id=f"didactic_{lo_id}",
-                        mini_vignette=mini_vignette,
-                        plain_explanation=plain_explanation,
-                        key_takeaways=key_takeaways if isinstance(key_takeaways, list) else [str(key_takeaways)],
-                        worked_example=worked_example,
-                        near_miss_example=near_miss_example,
-                        discriminator_hint=discriminator_hint,
-                    )
-                    didactic_structure[lo_id] = {"main": snippet}
-
-        # Build MCQs from flow result
-        mcqs = []
-        labels = ["A", "B", "C", "D"]  # Define labels once
-
-        for i, mcq_data in enumerate(flow_result.get("mcqs", [])):
-            if not objectives:
-                continue  # Skip MCQs if no objectives
-
-            # Associate with corresponding objective if counts match; else fallback to first objective
-            lo_id = objectives[min(i, len(objectives) - 1)].id if len(flow_result.get("mcqs", [])) == len(objectives) else objectives[0].id
-
-            if isinstance(mcq_data, dict):
-                stem = mcq_data.get("stem", mcq_data.get("question", f"Question {i + 1}"))
-                options_data = mcq_data.get("options", [])
-                # Prefer new shape: answer_key: {label, option_id?, rationale_right?}
-                answer_key_blob = mcq_data.get("answer_key")
-                rationale_right = None
-                if isinstance(answer_key_blob, dict) and "label" in answer_key_blob:
-                    correct_answer = str(answer_key_blob.get("label", "A"))
-                    rationale_right = answer_key_blob.get("rationale_right", None)
-                else:
-                    correct_answer_raw = mcq_data.get("correct_answer", "A")
-                    correct_answer = labels[correct_answer_raw] if isinstance(correct_answer_raw, int) and 0 <= correct_answer_raw < len(labels) else str(correct_answer_raw)
-                    rationale_right = mcq_data.get("rationale_right", None)
-                cognitive_level = mcq_data.get("cognitive_level", None)
-                estimated_difficulty = mcq_data.get("estimated_difficulty", None)
-                misconceptions_used = mcq_data.get("misconceptions_used", [])
-            else:
-                stem = str(mcq_data)
-                options_data = []
-                correct_answer = "A"
-                rationale_right = None
-                cognitive_level = None
-                estimated_difficulty = None
-                misconceptions_used = []
-
-            # Build options
-            options = []
-            for j, option_data in enumerate(options_data[:4]):  # Max 4 options
-                if j >= len(labels):
-                    break
-
-                if isinstance(option_data, dict):
-                    text = option_data.get("text", f"Option {labels[j]}")
-                    rationale_wrong = option_data.get("rationale_wrong", None)
-                else:
-                    text = str(option_data)
-                    rationale_wrong = None
-
-                options.append(MCQOption(id=f"mcq_{i + 1}_option_{labels[j]}", label=labels[j], text=text, rationale_wrong=rationale_wrong))
-
-            # Ensure we have at least 3 options
-            while len(options) < 3:
-                label = labels[len(options)]
-                options.append(MCQOption(id=f"mcq_{i + 1}_option_{label}", label=label, text=f"Option {label}", rationale_wrong=None))
-
-            # Build answer key
-            # Try to attach option_id convenience if label matches
-            option_id = None
-            for opt in options:
-                if opt.label == correct_answer:
-                    option_id = opt.id
-                    break
-            answer_key = MCQAnswerKey(label=correct_answer, option_id=option_id, rationale_right=rationale_right)
-
-            mcqs.append(
-                MCQItem(
-                    id=f"mcq_{i + 1}",
-                    lo_id=lo_id,
-                    stem=stem,
-                    cognitive_level=cognitive_level,
-                    estimated_difficulty=estimated_difficulty,
-                    options=options,
-                    answer_key=answer_key,
-                    misconceptions_used=misconceptions_used if isinstance(misconceptions_used, list) else [],
-                )
-            )
+        # Build exercises from flow result
+        exercises = flow_result.get("exercises", [])
 
         # Build complete lesson package
         package = LessonPackage(
             meta=meta,
             objectives=objectives,
             glossary={"terms": glossary_terms},
-            didactic=didactic_structure,
-            mcqs=mcqs,
+            didactic_snippet=lesson_didactic_snippet,
+            exercises=exercises,
             misconceptions=flow_result.get("misconceptions", []),
             confusables=flow_result.get("confusables", []),
         )
@@ -367,5 +263,5 @@ class ContentCreatorService:
         logger.info("💾 Saving lesson with package to database...")
         self.content.save_lesson(lesson_data)
 
-        logger.info(f"🎉 Lesson creation completed! Package contains {len(objectives)} objectives, {len(glossary_terms)} terms, {len(mcqs)} MCQs")
-        return LessonCreationResult(lesson_id=lesson_id, title=request.title, package_version=1, objectives_count=len(objectives), glossary_terms_count=len(glossary_terms), mcqs_count=len(mcqs))
+        logger.info(f"🎉 Lesson creation completed! Package contains {len(objectives)} objectives, {len(glossary_terms)} terms, {len(exercises)} exercises")
+        return LessonCreationResult(lesson_id=lesson_id, title=request.title, package_version=1, objectives_count=len(objectives), glossary_terms_count=len(glossary_terms), mcqs_count=len(exercises))

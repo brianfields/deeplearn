@@ -14,7 +14,7 @@
 import { useState } from 'react';
 import { JSONViewer } from '../shared/JSONViewer';
 import { cn } from '@/lib/utils';
-import type { LessonPackage } from '../../models';
+import type { LessonPackage, MCQExercise } from '../../models';
 
 interface LessonPackageViewerProps {
   package: LessonPackage;
@@ -28,7 +28,7 @@ export function LessonPackageViewer({ package: pkg }: LessonPackageViewerProps) 
     { id: 'objectives', name: 'Learning Objectives', icon: '🎯' },
     { id: 'glossary', name: 'Glossary', icon: '📚' },
     { id: 'didactic', name: 'Didactic Content', icon: '📖' },
-    { id: 'mcqs', name: 'MCQ Items', icon: '❓' },
+    { id: 'exercises', name: 'Exercises', icon: '❓' },
     { id: 'misconceptions', name: 'Misconceptions', icon: '⚠️' },
     { id: 'confusables', name: 'Confusables', icon: '🔄' },
   ];
@@ -172,71 +172,61 @@ export function LessonPackageViewer({ package: pkg }: LessonPackageViewerProps) 
         {activeSection === 'didactic' && (
           <div className="space-y-4">
             <h3 className="text-lg font-medium text-gray-900">Didactic Content</h3>
-            <div className="space-y-4">
-              {Object.entries(pkg.didactic).map(([objectiveId, snippets]) => (
-                <div key={objectiveId} className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                  <h4 className="font-medium text-purple-900 mb-3">Objective: {objectiveId}</h4>
-                  <div className="space-y-4">
-                    {Object.entries(snippets).map(([snippetId, snippet]) => (
-                      <div key={snippetId} className="bg-white rounded-lg p-4 border">
-                        <h5 className="font-medium text-gray-900 mb-3">Snippet: {snippetId}</h5>
-
-                        {snippet.mini_vignette && (
-                          <div className="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
-                            <strong className="text-yellow-800">Mini Vignette:</strong>
-                            <p className="mt-1 text-gray-700">{snippet.mini_vignette}</p>
-                          </div>
-                        )}
-
-                        <div className="mb-3">
-                          <strong className="text-gray-900">Explanation:</strong>
-                          <p className="mt-1 text-gray-700">{snippet.plain_explanation}</p>
-                        </div>
-
-                        {snippet.key_takeaways.length > 0 && (
-                          <div className="mb-3">
-                            <strong className="text-gray-900">Key Takeaways:</strong>
-                            <ul className="mt-1 list-disc list-inside text-gray-700">
-                              {snippet.key_takeaways.map((takeaway, idx) => (
-                                <li key={idx}>{takeaway}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {snippet.worked_example && (
-                          <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded">
-                            <strong className="text-green-800">Worked Example:</strong>
-                            <p className="mt-1 text-gray-700">{snippet.worked_example}</p>
-                          </div>
-                        )}
-
-                        {snippet.near_miss_example && (
-                          <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded">
-                            <strong className="text-red-800">Near Miss Example:</strong>
-                            <p className="mt-1 text-gray-700">{snippet.near_miss_example}</p>
-                          </div>
-                        )}
-
-                        {snippet.discriminator_hint && (
-                          <div className="p-3 bg-blue-50 border border-blue-200 rounded">
-                            <strong className="text-blue-800">Discriminator Hint:</strong>
-                            <p className="mt-1 text-gray-700">{snippet.discriminator_hint}</p>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+              <h4 className="font-medium text-purple-900 mb-3">Lesson Explanation</h4>
+              <div className="bg-white rounded-lg p-4 border">
+                {pkg.didactic_snippet.mini_vignette && (
+                  <div className="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                    <strong className="text-yellow-800">Mini Vignette:</strong>
+                    <p className="mt-1 text-gray-700">{pkg.didactic_snippet.mini_vignette}</p>
                   </div>
+                )}
+
+                <div className="mb-3">
+                  <strong className="text-gray-900">Explanation:</strong>
+                  <p className="mt-1 text-gray-700">{pkg.didactic_snippet.plain_explanation}</p>
                 </div>
-              ))}
+
+                {pkg.didactic_snippet.key_takeaways.length > 0 && (
+                  <div className="mb-3">
+                    <strong className="text-gray-900">Key Takeaways:</strong>
+                    <ul className="mt-1 list-disc list-inside text-gray-700">
+                      {pkg.didactic_snippet.key_takeaways.map((takeaway, idx) => (
+                        <li key={idx}>{takeaway}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {pkg.didactic_snippet.worked_example && (
+                  <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded">
+                    <strong className="text-green-800">Worked Example:</strong>
+                    <p className="mt-1 text-gray-700">{pkg.didactic_snippet.worked_example}</p>
+                  </div>
+                )}
+
+                {pkg.didactic_snippet.near_miss_example && (
+                  <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded">
+                    <strong className="text-red-800">Near Miss Example:</strong>
+                    <p className="mt-1 text-gray-700">{pkg.didactic_snippet.near_miss_example}</p>
+                  </div>
+                )}
+
+                {pkg.didactic_snippet.discriminator_hint && (
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded">
+                    <strong className="text-blue-800">Discriminator Hint:</strong>
+                    <p className="mt-1 text-gray-700">{pkg.didactic_snippet.discriminator_hint}</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
 
-        {activeSection === 'mcqs' && (
+        {activeSection === 'exercises' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium text-gray-900">MCQ Items</h3>
+              <h3 className="text-lg font-medium text-gray-900">Exercises</h3>
               <button
                 onClick={() => setShowAnswers(!showAnswers)}
                 className={cn(
@@ -251,73 +241,91 @@ export function LessonPackageViewer({ package: pkg }: LessonPackageViewerProps) 
             </div>
 
             <div className="space-y-6">
-              {pkg.mcqs.map((mcq, index) => (
-                <div key={mcq.id} className="bg-gray-50 border border-gray-200 rounded-lg p-6">
+              {pkg.exercises.map((exercise, index) => (
+                <div key={exercise.id} className="bg-gray-50 border border-gray-200 rounded-lg p-6">
                   <div className="flex items-start space-x-4">
                     <div className="flex-shrink-0 w-8 h-8 bg-gray-600 text-white rounded-full flex items-center justify-center font-medium">
                       {index + 1}
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center space-x-4 mb-3">
-                        <span className="text-sm text-gray-600">LO: {mcq.lo_id}</span>
-                        {mcq.cognitive_level && (
+                        <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded font-medium">
+                          {exercise.exercise_type.toUpperCase()}
+                        </span>
+                        <span className="text-sm text-gray-600">LO: {exercise.lo_id}</span>
+                        {exercise.cognitive_level && (
                           <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
-                            {mcq.cognitive_level}
+                            {exercise.cognitive_level}
                           </span>
                         )}
-                        {mcq.estimated_difficulty && (
+                        {exercise.estimated_difficulty && (
                           <span className={cn(
                             'px-2 py-1 text-xs rounded',
-                            mcq.estimated_difficulty === 'Easy' ? 'bg-green-100 text-green-800' :
-                            mcq.estimated_difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
+                            exercise.estimated_difficulty === 'Easy' ? 'bg-green-100 text-green-800' :
+                            exercise.estimated_difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
                             'bg-red-100 text-red-800'
                           )}>
-                            {mcq.estimated_difficulty}
+                            {exercise.estimated_difficulty}
                           </span>
                         )}
                       </div>
 
-                      <div className="mb-4">
-                        <strong className="text-gray-900">Question:</strong>
-                        <p className="mt-1 text-gray-700">{mcq.stem}</p>
-                      </div>
-
-                      <div className="space-y-2">
-                        {mcq.options.map((option) => (
-                          <div
-                            key={option.id}
-                            className={cn(
-                              'p-3 rounded border',
-                              showAnswers && option.label === mcq.answer_key.label
-                                ? 'bg-green-100 border-green-300'
-                                : 'bg-white border-gray-200'
-                            )}
-                          >
-                            <div className="flex items-start space-x-3">
-                              <span className="flex-shrink-0 w-6 h-6 bg-gray-100 text-gray-700 rounded-full flex items-center justify-center text-sm font-medium">
-                                {option.label}
-                              </span>
-                              <div className="flex-1">
-                                <p className="text-gray-900">{option.text}</p>
-                                {showAnswers && option.rationale_wrong && (
-                                  <p className="mt-1 text-sm text-red-600">
-                                    <strong>Why wrong:</strong> {option.rationale_wrong}
-                                  </p>
-                                )}
-                              </div>
-                              {showAnswers && option.label === mcq.answer_key.label && (
-                                <span className="text-green-600">✓</span>
-                              )}
-                            </div>
+                      {exercise.exercise_type === 'mcq' && (
+                        <>
+                          <div className="mb-4">
+                            <strong className="text-gray-900">Question:</strong>
+                            <p className="mt-1 text-gray-700">{(exercise as MCQExercise).stem}</p>
                           </div>
-                        ))}
-                      </div>
 
-                      {mcq.misconceptions_used.length > 0 && (
+                          <div className="space-y-2">
+                            {((exercise as MCQExercise).options || []).map((option) => (
+                              <div
+                                key={option.id}
+                                className={cn(
+                                  'p-3 rounded border',
+                                  showAnswers && option.label === (exercise as MCQExercise).answer_key.label
+                                    ? 'bg-green-100 border-green-300'
+                                    : 'bg-white border-gray-200'
+                                )}
+                              >
+                                <div className="flex items-start space-x-3">
+                                  <span className="flex-shrink-0 w-6 h-6 bg-gray-100 text-gray-700 rounded-full flex items-center justify-center text-sm font-medium">
+                                    {option.label}
+                                  </span>
+                                  <div className="flex-1">
+                                    <p className="text-gray-900">{option.text}</p>
+                                    {showAnswers && option.rationale_wrong && (
+                                      <p className="mt-1 text-sm text-red-600">
+                                        <strong>Why wrong:</strong> {option.rationale_wrong}
+                                      </p>
+                                    )}
+                                  </div>
+                                  {showAnswers && option.label === (exercise as MCQExercise).answer_key.label && (
+                                    <span className="text-green-600">✓</span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
+
+                      {exercise.exercise_type !== 'mcq' && (
+                        <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded">
+                          <p className="text-blue-800">
+                            <strong>Exercise Type:</strong> {exercise.exercise_type}
+                          </p>
+                          <p className="text-sm text-blue-600 mt-1">
+                            This exercise type is not yet fully supported in the admin viewer.
+                          </p>
+                        </div>
+                      )}
+
+                      {exercise.misconceptions_used.length > 0 && (
                         <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded">
                           <strong className="text-orange-800">Misconceptions addressed:</strong>
                           <p className="mt-1 text-sm text-gray-700">
-                            {mcq.misconceptions_used.join(', ')}
+                            {exercise.misconceptions_used.join(', ')}
                           </p>
                         </div>
                       )}

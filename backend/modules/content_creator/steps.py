@@ -182,6 +182,7 @@ class MCQAnswerKey(BaseModel):
 
 
 class MCQItem(BaseModel):
+    lo_id: str  # Added to identify which learning objective this MCQ targets
     stem: str
     options: list[MCQOption]  # 3 or 4
     answer_key: MCQAnswerKey
@@ -190,10 +191,16 @@ class MCQItem(BaseModel):
     misconceptions_used: list[str] = []  # mc_id list
 
 
-class GenerateMCQStep(StructuredStep):
-    """Generate a single-best-answer MCQ for a specific LO with short options."""
+class MCQSetOutputs(BaseModel):
+    """Output model for multiple MCQs generated in one call."""
 
-    step_name = "generate_mcq"
+    mcqs: list[MCQItem]
+
+
+class GenerateMCQStep(StructuredStep):
+    """Generate multiple MCQs for all learning objectives in one call."""
+
+    step_name = "generate_mcqs"  # Updated to reflect multiple MCQs
     prompt_file = "generate_mcq.md"
     reasoning_effort = "high"
     verbosity = "low"
@@ -201,31 +208,14 @@ class GenerateMCQStep(StructuredStep):
     class Inputs(BaseModel):
         lesson_title: str
         core_concept: str
-        learning_objective: str
-        bloom_level: str | None = None
+        learning_objectives: list[LearningObjective]  # All LOs for the lesson
         user_level: str
         length_budgets: LengthBudgets
         didactic_context: DidacticSnippetOutputs | None = None
-        distractor_pool: list[DistractorCandidate] = []
+        distractor_pools: dict[str, list[DistractorCandidate]] = {}  # Keyed by lo_id
 
-    class Outputs(MCQItem):
+    class Outputs(MCQSetOutputs):
         pass
 
 
-# ---------- Optional validator ----------
-class ValidateMCQStep(StructuredStep):
-    step_name = "validate_mcq"
-    prompt_file = "mcq_item_validator.md"
-    reasoning_effort = "medium"
-    verbosity = "low"
-
-    class Inputs(BaseModel):
-        item: MCQItem
-        length_budgets: LengthBudgets
-
-    class Outputs(BaseModel):
-        status: str  # "ok"|"reject"
-        item: MCQItem | None = None
-        fixes_applied: list[str] = []
-        reasons: list[str] = []
-        suggested_rewrite_brief: str | None = None
+# ValidateMCQStep removed - validation eliminated for simplicity

@@ -71,6 +71,7 @@ def get_lesson_details(lesson_id: str, catalog: LessonCatalogService = Depends(g
     except HTTPException:
         raise
     except Exception as e:
+        raise e
         raise HTTPException(status_code=500, detail="Failed to get lesson details") from e
 
 

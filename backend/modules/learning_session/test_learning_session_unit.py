@@ -43,8 +43,7 @@ class TestLearningSessionService:
         # Mock content with package structure
         mock_content = Mock()
         mock_package = Mock()
-        mock_package.mcqs = [1, 2]  # 2 MCQs
-        mock_package.didactic.get.return_value = {"lo1": "snippet1"}  # 1 didactic snippet
+        mock_package.exercises = [1, 2]  # 2 exercises
         mock_package.glossary.get.return_value = []  # 0 glossary terms
         mock_content.package = mock_package
         self.mock_content_provider.get_lesson.return_value = mock_content
@@ -60,7 +59,7 @@ class TestLearningSessionService:
             status=SessionStatus.ACTIVE.value,
             started_at=datetime.utcnow(),
             current_component_index=0,
-            total_components=3,  # 2 MCQs + 1 didactic snippet + 0 glossary terms
+            total_components=3,  # 1 didactic snippet + 2 exercises + 0 glossary terms
             progress_percentage=0.0,
             session_data={},
         )

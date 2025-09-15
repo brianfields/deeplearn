@@ -85,9 +85,6 @@ export function FlowStepsList({ steps, flowId }: FlowStepsListProps) {
                     <span>Duration: {formatExecutionTime(step.execution_time_ms)}</span>
                     <span>Tokens: {formatTokens(step.tokens_used)}</span>
                     <span>Cost: {formatCost(step.cost_estimate)}</span>
-                    {step.llm_request_id && (
-                      <span className="text-blue-600">Has LLM Request</span>
-                    )}
                   </div>
                 </div>
               </div>

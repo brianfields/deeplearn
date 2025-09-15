@@ -163,6 +163,7 @@ async def start_session(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
+        raise e
         raise HTTPException(status_code=500, detail=f"Failed to start session: {e!s}") from e
 
 
@@ -327,6 +328,7 @@ async def get_user_sessions(
             total=response.total,
         )
     except Exception as e:
+        raise e
         raise HTTPException(status_code=500, detail=f"Failed to get sessions: {e!s}") from e
 
 
