@@ -243,8 +243,9 @@ export default function LearningFlow({
             onPress={onBack}
             variant="secondary"
             style={styles.backButton}
+            testID="learning-flow-back-button"
           />
-          <Text style={styles.progressText}>
+          <Text style={styles.progressText} testID="learning-progress">
             {currentComponentIndex + 1} of {components?.length || 0}
           </Text>
         </View>

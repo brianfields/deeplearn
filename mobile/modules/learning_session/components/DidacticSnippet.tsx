@@ -131,6 +131,7 @@ export default function DidacticSnippet({
           onScroll={handleScroll}
           scrollEventThrottle={16}
           showsVerticalScrollIndicator={false}
+          testID="didactic-content-scroll"
         >
           {/* Main Content */}
           <View style={styles.contentSection}>
@@ -217,6 +218,7 @@ export default function DidacticSnippet({
           loading={isLoading}
           size="large"
           style={styles.continueButton}
+          testID="didactic-continue-button"
         />
       </Animated.View>
 

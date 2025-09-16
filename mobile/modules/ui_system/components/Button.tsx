@@ -27,6 +27,7 @@ export const Button: React.FC<ButtonProps> = ({
   icon,
   style,
   textStyle,
+  testID,
 }) => {
   const uiSystem = uiSystemProvider();
   const theme: Theme = uiSystem.getCurrentTheme();
@@ -60,6 +61,7 @@ export const Button: React.FC<ButtonProps> = ({
       onPress={onPress}
       disabled={disabled || loading}
       activeOpacity={0.8}
+      testID={testID}
     >
       {loading ? (
         <ActivityIndicator

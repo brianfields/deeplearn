@@ -16,7 +16,10 @@
     "format:check": "prettier --check .",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "e2e:maestro": "maestro test e2e/learning-flow.yaml",
+    "e2e:setup": "echo 'Start backend: cd ../backend && python3 server.py' && echo 'Start app: npx expo start --ios'",
+    "e2e:studio": "maestro studio"
   },
   "dependencies": {
     "@expo/metro-runtime": "~5.0.4",
@@ -58,14 +61,14 @@
     "@babel/plugin-transform-flow-strip-types": "^7.27.1",
     "@babel/preset-env": "^7.28.3",
     "@babel/preset-typescript": "^7.27.1",
-    "@testing-library/jest-native": "^5.4.3",
-    "@testing-library/react-native": "^13.3.3",
     "@types/axios": "^0.9.36",
+    "@types/detox": "^18.1.0",
     "@types/jest": "^30.0.0",
     "@types/react": "~19.0.10",
     "@typescript-eslint/eslint-plugin": "^8.38.0",
     "@typescript-eslint/parser": "^8.38.0",
     "babel-preset-expo": "^13.2.3",
+    "detox": "^20.19.3",
     "eslint": "^9.31.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.3",

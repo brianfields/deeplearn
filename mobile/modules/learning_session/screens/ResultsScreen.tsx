@@ -129,7 +129,9 @@ export default function ResultsScreen({ navigation, route }: Props) {
 
         {/* Score */}
         <Card style={styles.scoreContainer}>
-          <Text style={styles.scoreText}>{Math.round(scorePercentage)}%</Text>
+          <Text style={styles.scoreText} testID="results-score-percentage">
+            {Math.round(scorePercentage)}%
+          </Text>
           <Text style={styles.scoreLabel}>Final Score</Text>
         </Card>
 
@@ -137,11 +139,15 @@ export default function ResultsScreen({ navigation, route }: Props) {
         <Card style={styles.statsContainer}>
           <View style={styles.statRow}>
             <Text style={styles.statLabel}>Time Spent</Text>
-            <Text style={styles.statValue}>{timeInMinutes} min</Text>
+            <Text style={styles.statValue} testID="results-time-spent">
+              {timeInMinutes} min
+            </Text>
           </View>
           <View style={styles.statRow}>
             <Text style={styles.statLabel}>Steps Completed</Text>
-            <Text style={styles.statValue}>{completedSteps}</Text>
+            <Text style={styles.statValue} testID="results-steps-completed">
+              {completedSteps}
+            </Text>
           </View>
           <View style={styles.statRow}>
             <Text style={styles.statLabel}>Status</Text>
@@ -161,6 +167,7 @@ export default function ResultsScreen({ navigation, route }: Props) {
             variant="primary"
             size="large"
             style={styles.button}
+            testID="results-continue-button"
           />
 
           {scorePercentage < 80 && (
@@ -170,6 +177,7 @@ export default function ResultsScreen({ navigation, route }: Props) {
               variant="outline"
               size="large"
               style={styles.button}
+              testID="results-retry-button"
             />
           )}
         </View>

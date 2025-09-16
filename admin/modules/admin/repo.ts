@@ -27,7 +27,7 @@ const ADMIN_BASE = '/admin';
 export const AdminRepo = {
   // ---- Flow Endpoints ----
   flows: {
-    async list(params?: FlowRunsQuery): Promise<FlowRunsListResponse> {
+    async list(params?: FlowRunsQuery): Promise<{ flows: ApiFlowRun[]; total_count: number; page: number; page_size: number; has_next: boolean }> {
       const queryParams = new URLSearchParams();
 
       if (params?.status) queryParams.append('status', params.status);
@@ -39,7 +39,7 @@ export const AdminRepo = {
       if (params?.page_size) queryParams.append('page_size', params.page_size.toString());
 
       const url = `${ADMIN_BASE}/flows${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-      const { data } = await apiClient.get<FlowRunsListResponse>(url);
+      const { data } = await apiClient.get(url);
       return data;
     },
 

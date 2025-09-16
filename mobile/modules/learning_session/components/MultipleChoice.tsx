@@ -65,6 +65,7 @@ interface ChoiceItemProps {
   isIncorrect?: boolean;
   onPress: () => void;
   disabled?: boolean;
+  testID?: string;
 }
 
 const ChoiceItem: React.FC<ChoiceItemProps> = ({
@@ -75,6 +76,7 @@ const ChoiceItem: React.FC<ChoiceItemProps> = ({
   isIncorrect,
   onPress,
   disabled = false,
+  testID,
 }) => {
   const uiSystem = uiSystemProvider();
   const theme = uiSystem.getCurrentTheme();
@@ -196,6 +198,7 @@ const ChoiceItem: React.FC<ChoiceItemProps> = ({
       onPress={handlePress}
       disabled={disabled}
       activeOpacity={0.8}
+      testID={testID}
     >
       <Animated.View style={[styles.choiceItem, animatedStyle]}>
         <Animated.View style={[styles.choiceLetter, letterStyle]}>
@@ -281,17 +284,6 @@ export default function MultipleChoice({
     if (correctIndex === undefined) return;
 
     const isCorrect = answerIndex === correctIndex;
-    const selectedChoice = choicesArray[answerIndex];
-    const selectedLetter = getChoiceLetter(answerIndex);
-
-    const result = {
-      questionId: question.number?.toString() || '0',
-      question: question.question,
-      selectedOption: selectedLetter, // For backward compatibility with results
-      selectedText: selectedChoice[1], // The choice text
-      isCorrect,
-      explanation: question.explanation || '',
-    };
 
     setShowResult(true);
 
@@ -305,26 +297,6 @@ export default function MultipleChoice({
     } else {
       Vibration.vibrate(isCorrect ? 50 : [0, 100, 50, 100]);
     }
-
-    // Handle completion based on correctness
-    if (isCorrect) {
-      // Auto-proceed for correct answers after showing result and green highlighting
-      setTimeout(() => {
-        onComplete({
-          componentType: 'multiple_choice_question',
-          timeSpent: 0,
-          completed: true,
-          isCorrect: true,
-          userAnswer: selectedLetter,
-          data: {
-            correct: 1,
-            total: 1,
-            details: [result],
-          },
-        });
-      }, 1500); // Longer delay to show green highlighting and explanation
-    }
-    // For incorrect answers, user must press Continue button
   };
 
   const handleContinue = () => {
@@ -367,8 +339,6 @@ export default function MultipleChoice({
   }
 
   const isCorrectAnswer = selectedAnswer === correctIndex;
-  const isIncorrectAnswer =
-    showResult && selectedAnswer !== null && !isCorrectAnswer;
 
   return (
     <View style={styles.container}>
@@ -407,6 +377,7 @@ export default function MultipleChoice({
                   }
                   onPress={() => handleAnswerSelect(index)}
                   disabled={showResult || isLoading}
+                  testID={`mcq-choice-${index}`}
                 />
               </Animated.View>
             ))}
@@ -417,6 +388,7 @@ export default function MultipleChoice({
             <Animated.View
               entering={SlideInUp.delay(300)}
               style={styles.explanationContainer}
+              testID="mcq-explanation"
             >
               <View style={styles.explanationCard}>
                 <View style={styles.explanationHeader}>
@@ -434,19 +406,18 @@ export default function MultipleChoice({
       </ScrollView>
 
       {/* Action buttons - only show Continue for incorrect answers */}
-      {isIncorrectAnswer && (
-        <Animated.View
-          entering={SlideInUp.delay(400)}
-          style={styles.actionContainer}
-        >
-          <Button
-            title="Continue"
-            onPress={handleContinue}
-            size="large"
-            style={styles.actionButton}
-          />
-        </Animated.View>
-      )}
+      <Animated.View
+        entering={SlideInUp.delay(400)}
+        style={styles.actionContainer}
+      >
+        <Button
+          title="Continue"
+          onPress={handleContinue}
+          size="large"
+          style={styles.actionButton}
+          testID="mcq-continue-button"
+        />
+      </Animated.View>
     </View>
   );
 }

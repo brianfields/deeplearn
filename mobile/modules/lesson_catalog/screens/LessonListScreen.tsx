@@ -108,6 +108,7 @@ export function LessonListScreen() {
           lesson={item}
           onPress={handleLessonPress}
           isOfflineAvailable={true} // TODO: Implement offline availability check
+          index={index}
         />
       </Animated.View>
     ),
@@ -182,6 +183,7 @@ export function LessonListScreen() {
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholderTextColor="#9CA3AF"
+            testID="search-input"
           />
         </View>
 
@@ -191,6 +193,7 @@ export function LessonListScreen() {
             Object.keys(filters).length > 0 && styles.filterButtonActive,
           ]}
           onPress={() => setShowFilters(true)}
+          testID="filter-button"
         >
           <Filter
             size={20}

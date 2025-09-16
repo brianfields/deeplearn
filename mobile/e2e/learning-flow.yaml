@@ -1,0 +1,74 @@
+appId: host.exp.Exponent
+---
+# Complete Learning Flow E2E Test
+# Tests: Lesson Selection → Didactic → MCQ → Results → Return to Catalog
+
+- assertVisible: 'Learning Lessons'
+
+# Step 1: Select first lesson from catalog
+- tapOn:
+    id: 'lesson-card-0'
+
+# Step 2: Wait for learning session to start and show progress
+- assertVisible:
+    id: 'learning-progress'
+
+# Step 3: Complete didactic content
+- assertVisible:
+    id: 'didactic-continue-button'
+- tapOn:
+    id: 'didactic-continue-button'
+
+# Step 4: Answer MCQ questions
+# Question 1
+- assertVisible:
+    id: 'mcq-choice-0'
+- tapOn:
+    id: 'mcq-choice-0'
+- tapOn:
+    id: 'mcq-continue-button'
+
+# Question 2
+- assertVisible:
+    id: 'mcq-choice-1'
+- tapOn:
+    id: 'mcq-choice-1'
+- tapOn:
+    id: 'mcq-continue-button'
+
+# Question 3
+- assertVisible:
+    id: 'mcq-choice-0'
+- tapOn:
+    id: 'mcq-choice-0'
+- tapOn:
+    id: 'mcq-continue-button'
+
+# Question 4
+- assertVisible:
+    id: 'mcq-choice-2'
+- tapOn:
+    id: 'mcq-choice-2'
+- tapOn:
+    id: 'mcq-continue-button'
+
+# Question 5
+- assertVisible:
+    id: 'mcq-choice-3'
+- tapOn:
+    id: 'mcq-choice-3'
+- tapOn:
+    id: 'mcq-continue-button'
+
+# Step 5: Verify results screen appears with score
+- assertVisible:
+    id: 'results-score-percentage'
+
+# Step 6: Return to lesson catalog
+- tapOn:
+    id: 'results-continue-button'
+
+# Step 7: Verify we're back at the lesson catalog
+- assertVisible: 'Learning Lessons'
+- assertVisible:
+    id: 'lesson-card-0'

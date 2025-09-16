@@ -28,6 +28,7 @@ interface LessonCardProps {
   isOfflineAvailable?: boolean;
   showProgress?: boolean;
   progressPercentage?: number;
+  index?: number;
 }
 
 export function LessonCard({
@@ -36,6 +37,7 @@ export function LessonCard({
   isOfflineAvailable = true,
   showProgress = false,
   progressPercentage = 0,
+  index,
 }: LessonCardProps) {
   const scaleValue = useSharedValue(1);
 
@@ -62,6 +64,7 @@ export function LessonCard({
       onPressOut={handlePressOut}
       activeOpacity={0.8}
       style={styles.container}
+      testID={index !== undefined ? `lesson-card-${index}` : undefined}
     >
       <Animated.View style={[styles.card, animatedStyle]}>
         <View style={styles.header}>

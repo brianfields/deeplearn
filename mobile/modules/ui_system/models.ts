@@ -83,6 +83,7 @@ export interface ButtonProps {
   fullWidth?: boolean;
   style?: any;
   textStyle?: any;
+  testID?: string;
 }
 
 export interface CardProps {

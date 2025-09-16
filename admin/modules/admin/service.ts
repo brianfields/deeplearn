@@ -34,6 +34,7 @@ import type {
 
   // Response types
   FlowRunsListResponse,
+  LLMRequestsListResponse,
   LessonsListResponse,
 } from './models';
 
@@ -140,7 +141,7 @@ export class AdminService {
     const response = await AdminRepo.flows.list(params);
 
     return {
-      flows: response.flows.map(flowRunToDTO),
+      flows: response.flows.map((flow: ApiFlowRun) => flowRunToDTO(flow)),
       total_count: response.total_count,
       page: response.page,
       page_size: response.page_size,
@@ -220,7 +221,7 @@ export class AdminService {
     }
   }
 
-  async getLLMRequests(params?: { page?: number; page_size?: number }): Promise<LLMRequestsListResponse> {
+  async getLLMRequestsList(params?: { page?: number; page_size?: number }): Promise<LLMRequestsListResponse> {
     try {
       const response = await AdminRepo.llmRequests.list(params);
 
@@ -314,6 +315,7 @@ export class AdminService {
         refined_material: apiLesson.refined_material,
         package: apiLesson.package, // Already structured as LessonPackage
         package_version: apiLesson.package_version,
+        flow_run_id: apiLesson.flow_run_id || null,
         created_at: new Date(apiLesson.created_at),
         updated_at: new Date(apiLesson.updated_at),
       };
