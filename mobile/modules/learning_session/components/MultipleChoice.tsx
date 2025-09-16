@@ -406,18 +406,20 @@ export default function MultipleChoice({
       </ScrollView>
 
       {/* Action buttons - only show Continue for incorrect answers */}
-      <Animated.View
-        entering={SlideInUp.delay(400)}
-        style={styles.actionContainer}
-      >
-        <Button
-          title="Continue"
-          onPress={handleContinue}
-          size="large"
-          style={styles.actionButton}
-          testID="mcq-continue-button"
-        />
-      </Animated.View>
+      {selectedAnswer !== null && (
+        <Animated.View
+          entering={SlideInUp.delay(400)}
+          style={styles.actionContainer}
+        >
+          <Button
+            title="Continue"
+            onPress={handleContinue}
+            size="large"
+            style={styles.actionButton}
+            testID="mcq-continue-button"
+          />
+        </Animated.View>
+      )}
     </View>
   );
 }

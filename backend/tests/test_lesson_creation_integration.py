@@ -51,6 +51,8 @@ class TestLessonCreationIntegration:
             logging.getLogger("modules.content_creator.flows").setLevel(logging.INFO)
             logging.getLogger("modules.content_creator.service").setLevel(logging.INFO)
             print("✅ Detailed logging configured")
+        else:
+            logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", handlers=[logging.StreamHandler()])
 
         print("✅ Test environment setup complete")
         yield
