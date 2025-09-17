@@ -30,7 +30,7 @@ def ensure_venv_activated() -> bool:
     virtual_env = os.getenv("VIRTUAL_ENV")
     if virtual_env:
         venv_name = Path(virtual_env).name
-        if venv_name == "deeplearn":
+        if venv_name in {"deeplearn", "venv"}:
             print("✅ Virtual environment 'deeplearn' is already activated")
             return True
         else:
