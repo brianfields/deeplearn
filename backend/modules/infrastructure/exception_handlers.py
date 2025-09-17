@@ -2,9 +2,10 @@
 FastAPI exception handlers for comprehensive error handling.
 """
 
+from collections.abc import Callable
 import logging
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
@@ -62,7 +63,7 @@ def setup_error_middleware(app: FastAPI) -> None:
     """Set up error handling middleware."""
 
     @app.middleware("http")
-    async def error_logging_middleware(request: Request, call_next):
+    async def error_logging_middleware(request: Request, call_next: Callable) -> Response:
         """Middleware to catch and log errors that slip through route handlers."""
         try:
             response = await call_next(request)

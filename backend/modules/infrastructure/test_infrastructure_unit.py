@@ -16,17 +16,17 @@ from modules.infrastructure.service import InfrastructureService
 class TestInfrastructureService:
     """Test cases for InfrastructureService."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Setup for each test method."""
         self.service = InfrastructureService()
 
-    def teardown_method(self):
+    def teardown_method(self) -> None:
         """Cleanup after each test method."""
         if hasattr(self, "service"):
             self.service.shutdown()
 
     @patch.dict(os.environ, {"DATABASE_URL": "sqlite:///:memory:", "API_PORT": "8000", "LOG_LEVEL": "INFO"})
-    def test_initialize_success(self):
+    def test_initialize_success(self) -> None:
         """Test successful initialization of infrastructure service."""
         self.service.initialize()
 
@@ -36,18 +36,18 @@ class TestInfrastructureService:
         assert config.api_config.port == 8000
         assert config.logging_config.level == "INFO"
 
-    def test_get_database_session_before_init_raises_error(self):
+    def test_get_database_session_before_init_raises_error(self) -> None:
         """Test that getting database session before initialization raises error."""
         with pytest.raises(RuntimeError, match="Infrastructure service not initialized"):
             self.service.get_database_session()
 
-    def test_get_config_before_init_raises_error(self):
+    def test_get_config_before_init_raises_error(self) -> None:
         """Test that getting config before initialization raises error."""
         with pytest.raises(RuntimeError, match="Infrastructure service not initialized"):
             self.service.get_config()
 
     @patch.dict(os.environ, {"DATABASE_URL": "sqlite:///:memory:"})
-    def test_database_session_lifecycle(self):
+    def test_database_session_lifecycle(self) -> None:
         """Test database session creation and cleanup."""
         self.service.initialize()
 
@@ -61,7 +61,7 @@ class TestInfrastructureService:
         # Should not raise an error
 
     @patch.dict(os.environ, {"DATABASE_URL": "sqlite:///:memory:"})
-    def test_session_context_manager(self):
+    def test_session_context_manager(self) -> None:
         """Test database session context manager."""
         self.service.initialize()
 
@@ -71,14 +71,14 @@ class TestInfrastructureService:
             # Session should be automatically cleaned up
 
     @patch.dict(os.environ, {"DATABASE_URL": "sqlite:///:memory:", "DEBUG": "true"})
-    def test_debug_mode_detection(self):
+    def test_debug_mode_detection(self) -> None:
         """Test debug mode detection."""
         self.service.initialize()
 
         assert self.service.is_debug_mode() is True
 
     @patch.dict(os.environ, {"DATABASE_URL": "sqlite:///:memory:"})
-    def test_validate_environment_success(self):
+    def test_validate_environment_success(self) -> None:
         """Test successful environment validation."""
         self.service.initialize()
 
@@ -86,13 +86,13 @@ class TestInfrastructureService:
         assert status.is_valid is True
         assert len(status.errors) == 0
 
-    def test_validate_environment_before_init(self):
+    def test_validate_environment_before_init(self) -> None:
         """Test environment validation before initialization."""
         status = self.service.validate_environment()
         assert status.is_valid is False
         assert "Infrastructure service not initialized" in status.errors
 
-    def test_validate_environment_with_invalid_database_url(self):
+    def test_validate_environment_with_invalid_database_url(self) -> None:
         """Test environment validation with invalid database configuration."""
         # Set an invalid database URL that will fail connection
         with patch.dict(os.environ, {"DATABASE_URL": "postgresql://invalid:invalid@nonexistent:5432/invalid"}, clear=True):
@@ -103,7 +103,7 @@ class TestInfrastructureService:
             assert "Database connection is not healthy" in status.errors
 
     @patch.dict(os.environ, {"DATABASE_URL": "sqlite:///:memory:"})
-    def test_shutdown_cleanup(self):
+    def test_shutdown_cleanup(self) -> None:
         """Test that shutdown properly cleans up resources."""
         self.service.initialize()
 
@@ -122,17 +122,17 @@ class TestInfrastructureService:
 class TestInfrastructureServiceIntegration:
     """Integration tests for InfrastructureService."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Setup for each test method."""
         self.service = InfrastructureService()
 
-    def teardown_method(self):
+    def teardown_method(self) -> None:
         """Cleanup after each test method."""
         if hasattr(self, "service"):
             self.service.shutdown()
 
     @patch.dict(os.environ, {"DATABASE_URL": "sqlite:///:memory:", "API_PORT": "9000", "LOG_LEVEL": "DEBUG", "DEBUG": "true", "FEATURE_FLAG_NEW_UI": "true"})
-    def test_full_configuration_loading(self):
+    def test_full_configuration_loading(self) -> None:
         """Test loading complete configuration from environment."""
         self.service.initialize()
 

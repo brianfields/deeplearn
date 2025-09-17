@@ -58,7 +58,6 @@ def get_admin_service(session: Session = Depends(get_session)) -> AdminService:
 
     # Create placeholder providers for async services
     # In practice, these would be properly initialized with async context
-    learning_sessions = None  # Would need proper async initialization
 
     # Create admin service with all dependencies
     return AdminService(

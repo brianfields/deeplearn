@@ -17,7 +17,7 @@ from .service import CompleteSessionRequest, LearningSessionService, StartSessio
 class TestLearningSessionService:
     """Test cases for LearningSessionService"""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures"""
         self.mock_repo = Mock(spec=LearningSessionRepo)
         self.mock_content_provider = Mock()
@@ -30,7 +30,7 @@ class TestLearningSessionService:
         )
 
     @pytest.mark.asyncio
-    async def test_start_session_success(self):
+    async def test_start_session_success(self) -> None:
         """Test successful session start"""
         # Arrange
         request = StartSessionRequest(lesson_id="test-lesson", user_id="test-user")
@@ -82,7 +82,7 @@ class TestLearningSessionService:
         self.mock_repo.create_session.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_start_session_lesson_not_found(self):
+    async def test_start_session_lesson_not_found(self) -> None:
         """Test session start with non-existent lesson"""
         # Arrange
         request = StartSessionRequest(lesson_id="nonexistent-lesson")
@@ -93,7 +93,7 @@ class TestLearningSessionService:
             await self.service.start_session(request)
 
     @pytest.mark.asyncio
-    async def test_get_session_success(self):
+    async def test_get_session_success(self) -> None:
         """Test successful session retrieval"""
         # Arrange
         mock_session = LearningSessionModel(
@@ -121,7 +121,7 @@ class TestLearningSessionService:
         assert result.progress_percentage == 33.3
 
     @pytest.mark.asyncio
-    async def test_get_session_not_found(self):
+    async def test_get_session_not_found(self) -> None:
         """Test session retrieval with non-existent ID"""
         # Arrange
         self.mock_repo.get_session_by_id.return_value = None
@@ -133,7 +133,7 @@ class TestLearningSessionService:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_update_progress_success(self):
+    async def test_update_progress_success(self) -> None:
         """Test successful progress update"""
         # Arrange
         request = UpdateProgressRequest(
@@ -170,7 +170,7 @@ class TestLearningSessionService:
         self.mock_repo.update_session_progress.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_complete_session_success(self):
+    async def test_complete_session_success(self) -> None:
         """Test successful session completion"""
         # Arrange
         request = CompleteSessionRequest(session_id="session-123")
@@ -200,7 +200,7 @@ class TestLearningSessionService:
         self.mock_repo.update_session_status.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_check_health(self):
+    async def test_check_health(self) -> None:
         """Test health check"""
         # Arrange
         self.mock_repo.health_check.return_value = True

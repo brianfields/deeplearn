@@ -68,7 +68,7 @@ def run_command(cmd: str, check: bool = True, capture_output: bool = False, cwd:
     print(f"🔧 Running: {cmd}")
 
     try:
-        result = subprocess.run(cmd, shell=True, check=check, capture_output=capture_output, text=True, cwd=cwd)
+        result = subprocess.run(cmd, shell=True, check=check, capture_output=capture_output, text=True, cwd=cwd)  # noqa: S602
 
         if capture_output and result.stdout:
             print(f"   Output: {result.stdout.strip()}")
@@ -235,7 +235,7 @@ def load_seed_data(verbose: bool = False, **seed_kwargs: str) -> None:
         cmd_parts.extend(["--domain", seed_kwargs["domain"]])
 
     try:
-        result = subprocess.run(cmd_parts, cwd=str(backend_dir), check=True, capture_output=True, text=True)
+        result = subprocess.run(cmd_parts, cwd=str(backend_dir), check=True, capture_output=True, text=True)  # noqa: S603
 
         # Print the output from seed script
         if result.stdout:

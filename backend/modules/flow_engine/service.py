@@ -19,7 +19,7 @@ class FlowEngineService:
     This service provides infrastructure support for the base classes.
     """
 
-    def __init__(self, flow_run_repo: FlowRunRepo, step_run_repo: FlowStepRunRepo, llm_services: LLMServicesProvider):
+    def __init__(self, flow_run_repo: FlowRunRepo, step_run_repo: FlowStepRunRepo, llm_services: LLMServicesProvider) -> None:
         self.flow_run_repo = flow_run_repo
         self.step_run_repo = step_run_repo
         self.llm_services = llm_services
@@ -128,7 +128,7 @@ class FlowRunQueryService:
     It provides read-only access to flow execution data for monitoring and analytics.
     """
 
-    def __init__(self, flow_run_repo: FlowRunRepo, step_run_repo: FlowStepRunRepo):
+    def __init__(self, flow_run_repo: FlowRunRepo, step_run_repo: FlowStepRunRepo) -> None:
         self.flow_run_repo = flow_run_repo
         self.step_run_repo = step_run_repo
 

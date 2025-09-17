@@ -73,7 +73,7 @@ def infrastructure_provider() -> InfrastructureProvider:
     Returns:
         Infrastructure service instance that implements the protocol
     """
-    global _infrastructure_instance
+    global _infrastructure_instance  # noqa: PLW0603
 
     if _infrastructure_instance is None:
         _infrastructure_instance = InfrastructureService()

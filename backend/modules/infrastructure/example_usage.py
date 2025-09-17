@@ -5,10 +5,12 @@ This example shows how to use the new simplified infrastructure module
 following the backend.md pattern.
 """
 
+from typing import Any
+
 from modules.infrastructure.public import InfrastructureProvider, infrastructure_provider
 
 
-def example_usage():
+def example_usage() -> None:
     """Example of how to use the infrastructure module."""
 
     # Get the infrastructure service through the public API
@@ -38,7 +40,6 @@ def example_usage():
         print(f"✅ Got database session: {db_session.connection_id}")
 
         # Use the session for database operations
-        # db_session.session.execute(text("SELECT 1"))
 
         # Close the session
         infra.close_database_session(db_session)
@@ -49,10 +50,9 @@ def example_usage():
 
     # Use session context manager (recommended)
     try:
-        with infra.get_session_context() as session:
+        with infra.get_session_context():
             print("✅ Using database session context manager")
             # Use session for database operations
-            # result = session.execute(text("SELECT 1"))
             # Session will be automatically committed/rolled back and closed
 
     except Exception as e:
@@ -63,24 +63,23 @@ def example_usage():
     print("✅ Infrastructure service shut down")
 
 
-def example_dependency_injection():
+def example_dependency_injection() -> None:
     """Example of how another module would use the infrastructure service."""
 
     # This is how another module would import and use infrastructure
-    from modules.infrastructure.public import InfrastructureProvider
+    from modules.infrastructure.public import InfrastructureProvider  # noqa: PLC0415
 
     class SomeOtherService:
-        def __init__(self, infra: InfrastructureProvider):
+        def __init__(self, infra: InfrastructureProvider) -> None:
             self.infra = infra
 
-        def do_something_with_database(self):
+        def do_something_with_database(self) -> str:
             """Example method that uses database through infrastructure."""
-            with self.infra.get_session_context() as session:
+            with self.infra.get_session_context():
                 # Do database operations
-                # result = session.execute(text("SELECT * FROM some_table"))
                 return "Database operation completed"
 
-        def get_app_config(self):
+        def get_app_config(self) -> dict[str, Any]:
             """Example method that uses configuration."""
             config = self.infra.get_config()
             return {"api_port": config.api_config.port, "debug_mode": config.feature_flags["debug"]}

@@ -1,21 +1,26 @@
 """Base flow class with consistent execute() interface and automatic context management."""
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 import functools
 import logging
 from typing import Any
 
 from pydantic import BaseModel
 
+from ..infrastructure.public import infrastructure_provider
+from ..llm_services.public import llm_services_provider
 from .context import FlowContext
+from .repo import FlowRunRepo, FlowStepRunRepo
 from .service import FlowEngineService
+from .types import FlowExecutionKwargs
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["BaseFlow", "flow_execution"]
+__all__ = ["BaseFlow", "FlowExecutionKwargs", "flow_execution"]
 
 
-def flow_execution(func):
+def flow_execution(func: Callable[..., Any]) -> Callable[..., Any]:
     """
     Decorator that provides flow context automatically.
 
@@ -24,12 +29,8 @@ def flow_execution(func):
     """
 
     @functools.wraps(func)
-    async def wrapper(self, *args, **kwargs):
+    async def wrapper(self, *args: Any, **kwargs: FlowExecutionKwargs) -> Any:  # type: ignore[no-untyped-def]  # noqa: ANN001,ANN401
         # Get infrastructure service
-        from ..infrastructure.public import infrastructure_provider
-        from ..llm_services.public import llm_services_provider
-        from .repo import FlowRunRepo, FlowStepRunRepo
-
         infra = infrastructure_provider()
         infra.initialize()
         llm_services = llm_services_provider()
@@ -48,7 +49,7 @@ def flow_execution(func):
             flow_run_id = await service.create_flow_run_record(flow_name=self.flow_name, inputs=inputs, user_id=user_id)
 
             # Set up flow context
-            context = FlowContext.set(service=service, flow_run_id=flow_run_id, user_id=user_id, step_counter=0)
+            FlowContext.set(service=service, flow_run_id=flow_run_id, user_id=user_id, step_counter=0)
 
             try:
                 # Execute the flow method
@@ -94,7 +95,7 @@ class BaseFlow(ABC):
         return getattr(self, "Inputs", None)
 
     @flow_execution
-    async def execute(self, inputs: dict[str, Any], **kwargs: Any) -> dict[str, Any]:
+    async def execute(self, inputs: dict[str, Any], **kwargs: FlowExecutionKwargs) -> dict[str, Any]:  # noqa: ARG002
         """
         Execute the flow with automatic context management and input validation.
 

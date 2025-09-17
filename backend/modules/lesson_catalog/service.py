@@ -5,6 +5,8 @@ Simple lesson browsing and discovery service.
 Uses content module for data access.
 """
 
+from datetime import datetime
+
 from pydantic import BaseModel
 
 from modules.content.public import ContentProvider
@@ -81,7 +83,7 @@ class RefreshCatalogResponse(BaseModel):
 class LessonCatalogService:
     """Service for lesson catalog operations."""
 
-    def __init__(self, content: ContentProvider):
+    def __init__(self, content: ContentProvider) -> None:
         """Initialize with content provider."""
         self.content = content
 
@@ -204,8 +206,8 @@ class LessonCatalogService:
         self,
         query: str | None = None,
         user_level: str | None = None,
-        min_duration: int | None = None,
-        max_duration: int | None = None,
+        min_duration: int | None = None,  # noqa: ARG002
+        max_duration: int | None = None,  # noqa: ARG002
         ready_only: bool = False,
         limit: int = 100,
         offset: int = 0,
@@ -365,8 +367,6 @@ class LessonCatalogService:
         Returns:
             Refresh response with statistics
         """
-        from datetime import datetime
-
         # In a real implementation, this would refresh data from external sources
         # For now, just return current statistics
         all_lessons = self.content.search_lessons(limit=1000)

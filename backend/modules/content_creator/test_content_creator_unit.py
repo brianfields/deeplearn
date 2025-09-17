@@ -9,6 +9,8 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
+from modules.content.package_models import DidacticSnippet, LessonPackage, Meta, Objective
+from modules.content.service import LessonRead
 from modules.content_creator.service import ContentCreatorService, CreateLessonRequest
 
 
@@ -17,7 +19,7 @@ class TestContentCreatorService:
 
     @pytest.mark.asyncio
     @patch("modules.content_creator.service.LessonCreationFlow")
-    async def test_create_lesson_from_source_material(self, mock_flow_class):
+    async def test_create_lesson_from_source_material(self, mock_flow_class: Mock) -> None:
         """Test creating a lesson using flow engine."""
         # Arrange
         content = Mock()
@@ -55,8 +57,6 @@ class TestContentCreatorService:
         }
 
         # Mock content service responses
-        from modules.content.package_models import DidacticSnippet, LessonPackage, Meta, Objective
-        from modules.content.service import LessonRead
 
         # Create a mock package
         mock_package = LessonPackage(

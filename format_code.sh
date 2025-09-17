@@ -36,13 +36,13 @@ run_command() {
 echo "Starting code formatting and linting..."
 
 # Backend: Ruff format and lint
-if run_command "backend ruff format" "python3 -m ruff format" "backend"; then
+if run_command "backend ruff format" "source venv/bin/activate && python3 -m ruff format" "backend"; then
     echo "[PASS] Backend formatting completed"
 else
     echo "[FAIL] Backend formatting failed"
 fi
 
-if run_command "backend ruff lint fix" "python3 -m ruff check --fix" "backend"; then
+if run_command "backend ruff lint fix" "source venv/bin/activate && python3 -m ruff check --fix" "backend"; then
     echo "[PASS] Backend linting completed"
 else
     echo "[FAIL] Backend linting failed"

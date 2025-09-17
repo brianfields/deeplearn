@@ -6,6 +6,9 @@ from ..config import LLMConfig
 from ..types import LLMProviderType
 from .base import LLMProvider
 
+# Import provider classes
+from .openai import OpenAIProvider
+
 __all__ = ["LLMProviderError", "create_llm_provider"]
 
 
@@ -30,12 +33,8 @@ def create_llm_provider(config: LLMConfig, db_session: Session) -> LLMProvider:
         LLMProviderError: If provider type is not supported
     """
     if config.provider == LLMProviderType.OPENAI:
-        from .openai import OpenAIProvider
-
         return OpenAIProvider(config, db_session)
     elif config.provider == LLMProviderType.AZURE_OPENAI:
-        from .openai import OpenAIProvider
-
         # Azure OpenAI uses the same provider with different base URL
         return OpenAIProvider(config, db_session)
     elif config.provider == LLMProviderType.ANTHROPIC:
@@ -55,5 +54,4 @@ def get_available_providers() -> list[LLMProviderType]:
     return [
         LLMProviderType.OPENAI,
         LLMProviderType.AZURE_OPENAI,
-        # LLMProviderType.ANTHROPIC,  # TODO: Uncomment when implemented
     ]

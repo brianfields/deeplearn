@@ -1,6 +1,7 @@
 """Abstract base classes and common functionality for LLM providers."""
 
 from abc import ABC, abstractmethod
+import contextlib
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, TypeVar
 import uuid
@@ -16,6 +17,9 @@ from ..types import (
     LLMResponse,
     WebSearchResponse,
 )
+
+# Type alias for LLM provider kwargs
+LLMProviderKwargs = dict[str, Any]
 
 if TYPE_CHECKING:
     from ..models import LLMRequestModel
@@ -46,7 +50,7 @@ class LLMProvider(ABC):
         model: str | None = None,
         temperature: float | None = None,
         max_output_tokens: int | None = None,
-        **kwargs: Any,
+        **kwargs: LLMProviderKwargs,
     ) -> "LLMRequestModel":
         """
         Create a database record for an LLM request.
@@ -54,14 +58,15 @@ class LLMProvider(ABC):
         Args:
             messages: List of messages in the conversation
             user_id: Optional user identifier
-            model: Model name (defaults to config.model)
-            temperature: Temperature setting (defaults to config.temperature)
-            max_output_tokens: Maximum output tokens (optional)
+            model: Override model (optional)
+            temperature: Override temperature (optional)
+            max_output_tokens: Override max tokens (optional)
             **kwargs: Additional parameters
 
         Returns:
             LLMRequestModel database record
         """
+        # Import at runtime to ensure availability during integration runs
         from ..models import LLMRequestModel
 
         # Use provided values or fall back to config
@@ -70,14 +75,26 @@ class LLMProvider(ABC):
         request_max_output_tokens = max_output_tokens if max_output_tokens is not None else self.config.max_output_tokens
 
         # Convert messages to JSON-serializable format
-        messages_json = [msg.to_dict() for msg in messages]
-
-        # Build additional params
-        additional_params = {
-            "temperature": request_temperature,
-            **({"max_output_tokens": request_max_output_tokens} if request_max_output_tokens is not None else {}),
-            **kwargs,
-        }
+        messages_payload: list[dict[str, Any]] = []
+        for m in messages:
+            if hasattr(m, "model_dump"):
+                messages_payload.append(m.model_dump())
+            elif hasattr(m, "dict"):
+                # Pydantic v1 compatibility
+                messages_payload.append(m.dict())
+            elif hasattr(m, "to_dict"):
+                messages_payload.append(m.to_dict())
+            else:
+                # Fallback: try to build a dict from attributes
+                payload: dict[str, Any] = {}
+                for attr in ("role", "content", "name", "function_call", "tool_calls"):
+                    if hasattr(m, attr):
+                        value = getattr(m, attr)
+                        # If role is an Enum, convert to value
+                        if attr == "role" and hasattr(value, "value"):
+                            value = value.value
+                        payload[attr] = value
+                messages_payload.append(payload)
 
         llm_request = LLMRequestModel(
             user_id=user_id,
@@ -85,14 +102,13 @@ class LLMProvider(ABC):
             model=request_model,
             temperature=request_temperature,
             max_output_tokens=request_max_output_tokens,
-            messages=messages_json,
-            additional_params=additional_params,
-            status="pending",
+            messages=messages_payload,
             created_at=datetime.now(UTC),
         )
 
         self.db_session.add(llm_request)
-        self.db_session.flush()  # Get the ID
+        with contextlib.suppress(Exception):
+            self.db_session.flush()
 
         return llm_request
 
@@ -128,10 +144,8 @@ class LLMProvider(ABC):
     ) -> None:
         """Update LLMRequest record with error information."""
         # Ensure previous failed transaction is cleared
-        try:
+        with contextlib.suppress(Exception):
             self.db_session.rollback()
-        except Exception:
-            pass
         llm_request.status = "failed"
         llm_request.error_message = str(error)
         llm_request.error_type = type(error).__name__
@@ -161,48 +175,19 @@ class LLMProvider(ABC):
         self,
         messages: list[LLMMessage],
         user_id: uuid.UUID | None = None,
-        **kwargs: Any,
+        **kwargs: LLMProviderKwargs,
     ) -> tuple[LLMResponse, uuid.UUID]:
-        """
-        Generate a response from the LLM.
-
-        Args:
-            messages: List of conversation messages
-            user_id: Optional user identifier for tracking
-            **kwargs: Additional parameters (temperature, max_output_tokens, etc.)
-
-        Returns:
-            Tuple of (LLMResponse, LLMRequest ID)
-
-        Raises:
-            LLMError: If the request fails
-        """
+        """Generate a completion from the LLM provider."""
         raise NotImplementedError
 
-    @abstractmethod
     async def generate_structured_object(
         self,
         messages: list[LLMMessage],
         response_model: type[T],
         user_id: uuid.UUID | None = None,
-        **kwargs: Any,
+        **kwargs: LLMProviderKwargs,
     ) -> tuple[T, uuid.UUID]:
-        """
-        Generate a structured response using instructor and Pydantic models.
-
-        Args:
-            messages: List of conversation messages
-            response_model: Pydantic model class for structured output
-            user_id: Optional user identifier for tracking
-            **kwargs: Additional parameters
-
-        Returns:
-            Tuple of (structured response object, LLMRequest ID)
-
-        Raises:
-            LLMError: If the request fails
-            LLMValidationError: If response doesn't match the model
-        """
+        """Default structured object generation. Provider may override."""
         raise NotImplementedError
 
     @abstractmethod
@@ -210,22 +195,9 @@ class LLMProvider(ABC):
         self,
         request: ImageGenerationRequest,
         user_id: uuid.UUID | None = None,
-        **kwargs: Any,
+        **kwargs: LLMProviderKwargs,
     ) -> tuple[ImageResponse, uuid.UUID]:
-        """
-        Generate an image from a text prompt.
-
-        Args:
-            request: Image generation request parameters
-            user_id: Optional user identifier for tracking
-            **kwargs: Additional parameters
-
-        Returns:
-            Tuple of (ImageResponse, LLMRequest ID)
-
-        Raises:
-            LLMError: If the request fails
-        """
+        """Generate an image from the provider."""
         raise NotImplementedError
 
     @abstractmethod
@@ -233,29 +205,16 @@ class LLMProvider(ABC):
         self,
         search_queries: list[str],
         user_id: uuid.UUID | None = None,
-        **kwargs: Any,
+        **kwargs: LLMProviderKwargs,
     ) -> tuple[WebSearchResponse, uuid.UUID]:
-        """
-        Search for recent news using web search capabilities.
-
-        Args:
-            search_queries: List of search queries
-            user_id: Optional user identifier for tracking
-            **kwargs: Additional parameters
-
-        Returns:
-            Tuple of (WebSearchResponse, LLMRequest ID)
-
-        Raises:
-            LLMError: If the search fails
-        """
+        """Search recent news using the provider."""
         raise NotImplementedError
 
     def estimate_cost(
         self,
-        prompt_tokens: int,
-        completion_tokens: int,
-        model: str | None = None,
+        prompt_tokens: int,  # noqa: ARG002
+        completion_tokens: int,  # noqa: ARG002
+        model: str | None = None,  # noqa: ARG002
     ) -> float:
         """
         Estimate cost for a request based on token usage.

@@ -31,6 +31,7 @@ import json
 import logging
 from pathlib import Path
 import sys
+import traceback
 
 # Add the backend directory to the path so we can import modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -166,8 +167,6 @@ async def main() -> None:
     except Exception as e:
         print(f"❌ Error: {e}")
         if args.verbose or args.debug:
-            import traceback
-
             traceback.print_exc()
         sys.exit(1)
 

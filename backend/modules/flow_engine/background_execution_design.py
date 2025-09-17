@@ -12,6 +12,8 @@ import uuid
 
 from pydantic import BaseModel
 
+from .types import FlowExecutionKwargs
+
 
 # This would be added to flows/base.py
 class BaseFlowWithBackground(ABC):
@@ -23,7 +25,7 @@ class BaseFlowWithBackground(ABC):
     def inputs_model(self) -> type[BaseModel] | None:
         return getattr(self, "Inputs", None)
 
-    async def execute(self, inputs: dict[str, Any], background: bool = False, **kwargs: Any) -> dict[str, Any] | uuid.UUID:
+    async def execute(self, inputs: dict[str, Any], background: bool = False, **kwargs: FlowExecutionKwargs) -> dict[str, Any] | uuid.UUID:
         """
         Execute the flow with optional background execution.
 
@@ -41,22 +43,22 @@ class BaseFlowWithBackground(ABC):
         else:
             return await self._execute_foreground(inputs, **kwargs)
 
-    async def _execute_foreground(self, inputs: dict[str, Any], **kwargs: Any) -> dict[str, Any]:
+    async def _execute_foreground(self, inputs: dict[str, Any], **kwargs: FlowExecutionKwargs) -> dict[str, Any]:  # noqa: B027
         """Execute flow in foreground (current behavior)."""
         # This would use the existing @flow_execution decorator logic
         # ... existing implementation ...
         pass
 
-    async def _execute_background(self, inputs: dict[str, Any], **kwargs: Any) -> uuid.UUID:
+    async def _execute_background(self, inputs: dict[str, Any], **kwargs: FlowExecutionKwargs) -> uuid.UUID:
         """Execute flow in background and return flow_run_id."""
         # 1. Create flow run record with execution_mode="background"
         # 2. Submit to background task queue
         # 3. Return flow_run_id immediately
 
-        from ...infrastructure.public import infrastructure_provider
-        from ...llm_services.public import llm_services_provider
-        from ..repo import FlowRunRepo, FlowStepRunRepo
-        from ..service import FlowEngineService
+        from ...infrastructure.public import infrastructure_provider  # noqa: PLC0415
+        from ...llm_services.public import llm_services_provider  # noqa: PLC0415
+        from ..repo import FlowRunRepo, FlowStepRunRepo  # noqa: PLC0415
+        from ..service import FlowEngineService  # noqa: PLC0415
 
         # Set up infrastructure (same as foreground)
         infra = infrastructure_provider()
@@ -75,17 +77,17 @@ class BaseFlowWithBackground(ABC):
         )
 
         # Submit to background task queue
-        asyncio.create_task(self._background_execution_wrapper(flow_run_id, inputs, service, **kwargs))
+        asyncio.create_task(self._background_execution_wrapper(flow_run_id, inputs, service, **kwargs))  # noqa: RUF006
 
         return flow_run_id
 
-    async def _background_execution_wrapper(self, flow_run_id: uuid.UUID, inputs: dict[str, Any], service: "FlowEngineService", **kwargs: Any) -> None:
+    async def _background_execution_wrapper(self, flow_run_id: uuid.UUID, inputs: dict[str, Any], service: "FlowEngineService", **kwargs: FlowExecutionKwargs) -> None:  # noqa: F821
         """Wrapper that handles background execution with proper error handling."""
         try:
             # Set up flow context for background execution
-            from ..context import FlowContext
+            from ..context import FlowContext  # noqa: PLC0415
 
-            context = FlowContext.set(service=service, flow_run_id=flow_run_id, user_id=kwargs.get("user_id"), step_counter=0)
+            FlowContext.set(service=service, flow_run_id=flow_run_id, user_id=kwargs.get("user_id"), step_counter=0)
 
             # Validate inputs
             if self.inputs_model:
@@ -124,9 +126,9 @@ class FlowEngineServiceWithBackground:
         execution_mode: str = "sync",  # New parameter!
     ) -> uuid.UUID:
         """Create a new flow run record with specified execution mode."""
-        from datetime import UTC, datetime
+        from datetime import UTC, datetime  # noqa: PLC0415
 
-        from .models import FlowRunModel
+        from .models import FlowRunModel  # noqa: PLC0415
 
         flow_run = FlowRunModel(
             user_id=user_id,
@@ -169,7 +171,7 @@ class FlowEngineServiceWithBackground:
 
         if flow_run.status in ["pending", "running"]:
             flow_run.status = "cancelled"
-            flow_run.completed_at = datetime.now(UTC)
+            flow_run.completed_at = datetime.now(UTC)  # noqa: F821
             self.flow_run_repo.save(flow_run)
             return True
 
@@ -177,11 +179,11 @@ class FlowEngineServiceWithBackground:
 
 
 # Usage examples
-async def example_background_usage():
+async def example_background_usage() -> None:
     """Examples of how background execution would work."""
 
     # Example 1: Simple background flag
-    flow = ArticleProcessingFlow()
+    flow = ArticleProcessingFlow()  # noqa: F821
 
     # Foreground execution (current behavior)
     result = await flow.execute({"article_text": "Long article...", "style": "professional"})
@@ -210,7 +212,7 @@ async def example_background_usage():
 
 
 # Example 2: Batch background processing
-async def example_batch_background():
+async def example_batch_background() -> None:
     """Process multiple flows in background."""
 
     articles = ["Article 1...", "Article 2...", "Article 3..."]
@@ -218,7 +220,7 @@ async def example_batch_background():
 
     # Submit all flows to background
     for article in articles:
-        flow_run_id = await ArticleProcessingFlow().execute({"article_text": article, "style": "technical"}, background=True)
+        flow_run_id = await ArticleProcessingFlow().execute({"article_text": article, "style": "technical"}, background=True)  # noqa: F821
         flow_run_ids.append(flow_run_id)
 
     print(f"Started {len(flow_run_ids)} background flows")
@@ -239,7 +241,7 @@ async def example_batch_background():
     print(f"All {len(results)} flows completed!")
 
 
-def get_flow_engine_service():
+def get_flow_engine_service() -> None:
     """Helper to get flow engine service (would be in public.py)."""
     # Implementation would go here
     pass

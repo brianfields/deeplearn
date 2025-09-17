@@ -8,6 +8,8 @@ import logging
 from pathlib import Path
 from typing import Any
 
+# Import the type alias from providers
+from .providers.base import LLMProviderKwargs
 from .types import LLMMessage as LLMMessageInternal
 from .types import LLMResponse as LLMResponseInternal
 
@@ -34,7 +36,7 @@ class LLMCache:
         enabled: bool = True,
         ttl_hours: int = 24,
         max_cache_size_mb: int = 100,
-    ):
+    ) -> None:
         """
         Initialize the LLM cache.
 
@@ -54,7 +56,7 @@ class LLMCache:
         if enabled:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
 
-    def _generate_cache_key(self, messages: list[LLMMessageInternal], **kwargs: Any) -> str:
+    def _generate_cache_key(self, messages: list[LLMMessageInternal], **kwargs: LLMProviderKwargs) -> str:
         """
         Generate a cache key from messages and parameters.
 
@@ -81,7 +83,7 @@ class LLMCache:
         """Get the file path for a cache key."""
         return self.cache_dir / f"{cache_key}.json"
 
-    async def get(self, messages: list[LLMMessageInternal], **kwargs: Any) -> LLMResponseInternal | None:
+    async def get(self, messages: list[LLMMessageInternal], **kwargs: LLMProviderKwargs) -> LLMResponseInternal | None:
         """
         Retrieve a cached response if available.
 
@@ -137,7 +139,7 @@ class LLMCache:
                 cache_path.unlink(missing_ok=True)
                 return None
 
-    async def set(self, messages: list[LLMMessageInternal], response: LLMResponseInternal, **kwargs: Any) -> None:
+    async def set(self, messages: list[LLMMessageInternal], response: LLMResponseInternal, **kwargs: LLMProviderKwargs) -> None:
         """
         Store a response in the cache.
 

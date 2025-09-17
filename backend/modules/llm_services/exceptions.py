@@ -13,7 +13,7 @@ __all__ = [
 class LLMError(Exception):
     """Base exception for all LLM-related errors"""
 
-    def __init__(self, message: str, provider: str | None = None, model: str | None = None):
+    def __init__(self, message: str, provider: str | None = None, model: str | None = None) -> None:
         super().__init__(message)
         self.provider = provider
         self.model = model
@@ -28,7 +28,7 @@ class LLMAuthenticationError(LLMError):
 class LLMRateLimitError(LLMError):
     """Raised when LLM provider rate limits are exceeded"""
 
-    def __init__(self, message: str, retry_after: int | None = None, **kwargs):
+    def __init__(self, message: str, retry_after: int | None = None, **kwargs) -> None:
         super().__init__(message, **kwargs)
         self.retry_after = retry_after
 
@@ -48,6 +48,6 @@ class LLMValidationError(LLMError):
 class LLMProviderError(LLMError):
     """Raised when LLM provider returns an error"""
 
-    def __init__(self, message: str, error_code: str | None = None, **kwargs):
+    def __init__(self, message: str, error_code: str | None = None, **kwargs) -> None:
         super().__init__(message, **kwargs)
         self.error_code = error_code

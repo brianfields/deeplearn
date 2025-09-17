@@ -16,6 +16,7 @@ import json
 import logging
 from pathlib import Path
 import sys
+import traceback
 from typing import Any
 import uuid
 
@@ -663,15 +664,13 @@ async def main() -> None:
                 "created_with": "seed_data_script_package_model",
             }
 
-            with open(args.output, "w") as f:
+            with Path(args.output).open("w") as f:
                 json.dump(summary, f, indent=2, default=str)
             print(f"📁 Summary saved to: {args.output}")
 
     except Exception as e:
         print(f"❌ Error: {e}")
         if args.verbose:
-            import traceback
-
             traceback.print_exc()
         sys.exit(1)
 

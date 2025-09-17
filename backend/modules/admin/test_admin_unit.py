@@ -11,15 +11,17 @@ import uuid
 
 import pytest
 
-from modules.admin.service import AdminService, FlowRunsListResponse, FlowRunSummary
+from modules.admin.models import FlowRunsListResponse, FlowRunSummary
+from modules.admin.service import AdminService
 from modules.flow_engine.models import FlowRunModel, FlowStepRunModel
+from modules.llm_services.service import LLMRequest
 
 
 class TestAdminService:
     """Test cases for AdminService business logic."""
 
     @pytest.fixture
-    def mock_flow_engine_admin(self):
+    def mock_flow_engine_admin(self) -> Mock:
         """Mock FlowEngineAdminProvider for testing."""
         mock = Mock()
 
@@ -68,35 +70,35 @@ class TestAdminService:
         return mock
 
     @pytest.fixture
-    def mock_llm_services_admin(self):
+    def mock_llm_services_admin(self) -> Mock:
         """Mock LLMServicesAdminProvider for testing."""
         mock = Mock()
         mock.get_request.return_value = None  # Simple mock for now
         return mock
 
     @pytest.fixture
-    def mock_lesson_catalog_provider(self):
+    def mock_lesson_catalog_provider(self) -> Mock:
         """Mock LessonCatalogProvider for testing."""
         return Mock()
 
     @pytest.fixture
-    def mock_learning_sessions_provider(self):
+    def mock_learning_sessions_provider(self) -> Mock:
         """Mock LearningSessionProvider for testing."""
         return Mock()
 
     @pytest.fixture
-    def mock_content_provider(self):
+    def mock_content_provider(self) -> Mock:
         """Mock ContentProvider for testing."""
         return Mock()
 
     @pytest.fixture
     def admin_service(
         self,
-        mock_flow_engine_admin,
-        mock_llm_services_admin,
-        mock_lesson_catalog_provider,
-        mock_content_provider,
-    ):
+        mock_flow_engine_admin: Mock,
+        mock_llm_services_admin: Mock,
+        mock_lesson_catalog_provider: Mock,
+        mock_content_provider: Mock,
+    ) -> AdminService:
         """Create AdminService with mocked dependencies."""
         return AdminService(
             flow_engine_admin=mock_flow_engine_admin,
@@ -106,7 +108,7 @@ class TestAdminService:
         )
 
     @pytest.mark.asyncio
-    async def test_get_flow_runs_success(self, admin_service, mock_flow_engine_admin):
+    async def test_get_flow_runs_success(self, admin_service: AdminService, mock_flow_engine_admin: Mock) -> None:
         """Test successful flow runs retrieval."""
         # Act
         result = await admin_service.get_flow_runs(page=1, page_size=10)
@@ -131,7 +133,7 @@ class TestAdminService:
         mock_flow_engine_admin.count_flow_runs.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_get_flow_runs_pagination(self, admin_service, mock_flow_engine_admin):
+    async def test_get_flow_runs_pagination(self, admin_service: AdminService, mock_flow_engine_admin: Mock) -> None:
         """Test flow runs pagination."""
         # Act
         result = await admin_service.get_flow_runs(page=2, page_size=5)
@@ -144,7 +146,7 @@ class TestAdminService:
         mock_flow_engine_admin.get_recent_flow_runs.assert_called_once_with(limit=5, offset=5)
 
     @pytest.mark.asyncio
-    async def test_get_flow_run_details_success(self, admin_service, mock_flow_engine_admin):
+    async def test_get_flow_run_details_success(self, admin_service: AdminService, mock_flow_engine_admin: Mock) -> None:
         """Test successful flow run details retrieval."""
         # Arrange
         flow_id = str(uuid.uuid4())
@@ -163,7 +165,7 @@ class TestAdminService:
         mock_flow_engine_admin.get_flow_steps_by_run_id.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_get_flow_run_details_not_found(self, admin_service, mock_flow_engine_admin):
+    async def test_get_flow_run_details_not_found(self, admin_service: AdminService, mock_flow_engine_admin: Mock) -> None:
         """Test flow run details when flow not found."""
         # Arrange
         mock_flow_engine_admin.get_flow_run_by_id.return_value = None
@@ -176,7 +178,7 @@ class TestAdminService:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_get_flow_run_details_invalid_uuid(self, admin_service):
+    async def test_get_flow_run_details_invalid_uuid(self, admin_service: AdminService) -> None:
         """Test flow run details with invalid UUID."""
         # Act
         result = await admin_service.get_flow_run_details("invalid-uuid")
@@ -185,7 +187,7 @@ class TestAdminService:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_get_flow_step_details_success(self, admin_service, mock_flow_engine_admin):
+    async def test_get_flow_step_details_success(self, admin_service: AdminService, mock_flow_engine_admin: Mock) -> None:
         """Test successful flow step details retrieval."""
         # Arrange
         step_id = str(uuid.uuid4())
@@ -203,7 +205,7 @@ class TestAdminService:
         mock_flow_engine_admin.get_flow_step_by_id.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_get_flow_step_details_not_found(self, admin_service, mock_flow_engine_admin):
+    async def test_get_flow_step_details_not_found(self, admin_service: AdminService, mock_flow_engine_admin: Mock) -> None:
         """Test flow step details when step not found."""
         # Arrange
         mock_flow_engine_admin.get_flow_step_by_id.return_value = None
@@ -216,10 +218,9 @@ class TestAdminService:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_get_llm_request_details_success(self, admin_service, mock_llm_services_admin):
+    async def test_get_llm_request_details_success(self, admin_service: AdminService, mock_llm_services_admin: Mock) -> None:
         """Test successful LLM request details retrieval."""
         # Arrange
-        from modules.llm_services.service import LLMRequest
 
         mock_request = LLMRequest(
             id=uuid.uuid4(),
@@ -267,7 +268,7 @@ class TestAdminService:
         mock_llm_services_admin.get_request.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_get_llm_request_details_not_found(self, admin_service, mock_llm_services_admin):
+    async def test_get_llm_request_details_not_found(self, admin_service: AdminService, mock_llm_services_admin: Mock) -> None:
         """Test LLM request details when request not found."""
         # Arrange
         mock_llm_services_admin.get_request.return_value = None

@@ -46,7 +46,7 @@ class APIConfig:
     """API configuration DTO."""
 
     port: int = 8000
-    host: str = "0.0.0.0"
+    host: str = "0.0.0.0"  # noqa: S104
     max_retries: int = 3
     request_timeout: int = 30
 
@@ -193,7 +193,7 @@ class InfrastructureService:
 
         # API Configuration
         self.values["api_port"] = int(os.getenv("API_PORT", "8000"))
-        self.values["api_host"] = os.getenv("API_HOST", "0.0.0.0")
+        self.values["api_host"] = os.getenv("API_HOST", "0.0.0.0")  # noqa: S104
         self.values["max_retries"] = int(os.getenv("MAX_RETRIES", "3"))
         self.values["request_timeout"] = int(os.getenv("REQUEST_TIMEOUT", "30"))
 
@@ -222,7 +222,7 @@ class InfrastructureService:
         # API config
         self.api_config = APIConfig(
             port=self.values.get("api_port", 8000),
-            host=self.values.get("api_host", "0.0.0.0"),
+            host=self.values.get("api_host", "0.0.0.0"),  # noqa: S104
             max_retries=self.values.get("max_retries", 3),
             request_timeout=self.values.get("request_timeout", 30),
         )

@@ -16,7 +16,7 @@ from modules.content.service import ContentService, LessonCreate
 class TestContentService:
     """Unit tests for ContentService."""
 
-    def test_get_lesson_returns_none_when_not_found(self):
+    def test_get_lesson_returns_none_when_not_found(self) -> None:
         """Test that get_lesson returns None when lesson doesn't exist."""
         # Arrange
         repo = Mock(spec=ContentRepo)
@@ -30,7 +30,7 @@ class TestContentService:
         assert result is None
         repo.get_lesson_by_id.assert_called_once_with("nonexistent")
 
-    def test_get_lesson_returns_lesson_with_package(self):
+    def test_get_lesson_returns_lesson_with_package(self) -> None:
         """Test that get_lesson returns lesson with package when found."""
         # Arrange
         repo = Mock(spec=ContentRepo)
@@ -72,7 +72,7 @@ class TestContentService:
 
         repo.get_lesson_by_id.assert_called_once_with("test-id")
 
-    def test_save_lesson_creates_new_lesson_with_package(self):
+    def test_save_lesson_creates_new_lesson_with_package(self) -> None:
         """Test that save_lesson creates a new lesson with package."""
         # Arrange
         repo = Mock(spec=ContentRepo)
@@ -103,7 +103,7 @@ class TestContentService:
         assert len(result.package.objectives) == 1
         repo.save_lesson.assert_called_once()
 
-    def test_lesson_exists_returns_true_when_exists(self):
+    def test_lesson_exists_returns_true_when_exists(self) -> None:
         """Test that lesson_exists returns True when lesson exists."""
         # Arrange
         repo = Mock(spec=ContentRepo)
@@ -117,7 +117,7 @@ class TestContentService:
         assert result is True
         repo.lesson_exists.assert_called_once_with("test-id")
 
-    def test_delete_lesson_returns_true_when_deleted(self):
+    def test_delete_lesson_returns_true_when_deleted(self) -> None:
         """Test that delete_lesson returns True when lesson is deleted."""
         # Arrange
         repo = Mock(spec=ContentRepo)

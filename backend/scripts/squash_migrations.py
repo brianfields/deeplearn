@@ -21,7 +21,6 @@ Requirements:
 - Virtual environment should be activated
 """
 
-import glob
 import os
 from pathlib import Path
 import subprocess
@@ -50,7 +49,7 @@ def run_command(cmd: str, check: bool = True, capture_output: bool = False) -> s
     """Run a shell command and handle errors."""
     print(f"🔧 Running: {cmd}")
     try:
-        result = subprocess.run(cmd, shell=True, check=check, capture_output=capture_output, text=True)
+        result = subprocess.run(cmd, shell=True, check=check, capture_output=capture_output, text=True)  # noqa: S602
         if capture_output and result.stdout:
             print(f"   Output: {result.stdout.strip()}")
         return result
@@ -69,11 +68,11 @@ def check_prerequisites() -> bool:
     print("🔍 Checking prerequisites...")
 
     # Check if we're in backend directory
-    if not os.path.exists("alembic"):
+    if not Path("alembic").exists():
         print("❌ Not in backend directory (no alembic folder found)")
         return False
 
-    if not os.path.exists("alembic/versions"):
+    if not Path("alembic/versions").exists():
         print("❌ No alembic/versions directory found")
         return False
 
@@ -93,14 +92,14 @@ def check_prerequisites() -> bool:
     # Check if alembic is available
     try:
         run_command("alembic --help", capture_output=True)
-    except:
+    except Exception:
         print("❌ Alembic not available (is virtual environment activated?)")
         return False
 
     # Check if psql is available
     try:
         run_command("psql --version", capture_output=True)
-    except:
+    except Exception:
         print("❌ psql not available (needed for database operations)")
         return False
 
@@ -110,17 +109,16 @@ def check_prerequisites() -> bool:
 
 def get_migration_files() -> list[str]:
     """Get list of existing migration files."""
-    pattern = "alembic/versions/*.py"
-    files = glob.glob(pattern)
+    files = list(Path("alembic/versions").glob("*.py"))
     # Filter out __pycache__ and other non-migration files
-    migration_files = [f for f in files if not f.endswith("__init__.py")]
+    migration_files = [str(f) for f in files if not f.name.endswith("__init__.py")]
     return migration_files
 
 
 def confirm_action(message: str) -> bool:
     """Get user confirmation for destructive actions."""
     response = input(f"⚠️  {message} (y/N): ").lower().strip()
-    return response == "y" or response == "yes"
+    return response in {"y", "yes"}
 
 
 def remove_migration_files() -> None:
@@ -141,7 +139,7 @@ def remove_migration_files() -> None:
         sys.exit(0)
 
     for file in migration_files:
-        os.remove(file)
+        Path(file).unlink()
         print(f"   ✅ Removed {file}")
 
 
@@ -153,10 +151,7 @@ def reset_alembic_version() -> None:
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:
         password = os.environ.get("DATABASE_PASSWORD", "")
-        if password:
-            database_url = f"postgresql://digital_innie_user:{password}@localhost:5432/digital_innie_db"
-        else:
-            database_url = "postgresql://postgres:@localhost:5432/digital_innie_db"
+        database_url = f"postgresql://digital_innie_user:{password}@localhost:5432/digital_innie_db" if password else "postgresql://postgres:@localhost:5432/digital_innie_db"
 
     # Convert asyncpg URLs back to regular postgresql for psql
     if database_url.startswith("postgresql+asyncpg://"):
@@ -179,10 +174,7 @@ def drop_and_recreate_database() -> str | None:
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:
         password = os.environ.get("DATABASE_PASSWORD", "")
-        if password:
-            database_url = f"postgresql://digital_innie_user:{password}@localhost:5432/digital_innie_db"
-        else:
-            database_url = "postgresql://postgres:@localhost:5432/digital_innie_db"
+        database_url = f"postgresql://digital_innie_user:{password}@localhost:5432/digital_innie_db" if password else "postgresql://postgres:@localhost:5432/digital_innie_db"
 
     # Convert asyncpg URLs back to regular postgresql for psql
     if database_url.startswith("postgresql+asyncpg://"):
@@ -243,10 +235,7 @@ def drop_all_tables() -> None:
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:
         password = os.environ.get("DATABASE_PASSWORD", "")
-        if password:
-            database_url = f"postgresql://digital_innie_user:{password}@localhost:5432/digital_innie_db"
-        else:
-            database_url = "postgresql://postgres:@localhost:5432/digital_innie_db"
+        database_url = f"postgresql://digital_innie_user:{password}@localhost:5432/digital_innie_db" if password else "postgresql://postgres:@localhost:5432/digital_innie_db"
 
     # Convert asyncpg URLs back to regular postgresql for psql
     if database_url.startswith("postgresql+asyncpg://"):
@@ -283,7 +272,7 @@ def drop_all_tables() -> None:
 
     # Fallback: Drop tables individually
     # First, get list of all tables
-    list_tables_cmd = f"psql \"{database_url}\" -t -c \"SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename != 'alembic_version';\""
+    list_tables_cmd = f"psql \"{database_url}\" -t -c \"SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename != 'alembic_version';\""  # noqa: S608
     list_result = run_command(list_tables_cmd, check=False, capture_output=True)
 
     if list_result.returncode != 0:
@@ -374,7 +363,7 @@ def main() -> None:
     if migration_files:
         print(f"\n📋 Current migration files ({len(migration_files)}):")
         for file in migration_files:
-            print(f"   - {os.path.basename(file)}")
+            print(f"   - {Path(file).name}")
     else:
         print("\n📋 No existing migration files found")
         if not confirm_action("Continue anyway to create initial migration?"):

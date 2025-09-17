@@ -49,7 +49,7 @@ def ensure_venv_activated() -> bool:
 
         # Re-run the script with the venv activated
         cmd = f"source {activate_script} && python scripts/run_unit.py {' '.join(sys.argv[1:])}"
-        result = subprocess.run(["bash", "-c", cmd], cwd=Path(__file__).parent.parent, check=True, capture_output=True, text=True)
+        result = subprocess.run(["bash", "-c", cmd], cwd=Path(__file__).parent.parent, check=True, capture_output=True, text=True)  # noqa: S603,S607
         # If we reach here, the subprocess completed successfully
         # Exit with the same return code
         sys.exit(result.returncode)
@@ -67,11 +67,11 @@ def load_env_file(env_path: Path) -> None:
         return
 
     print(f"📄 Loading environment from: {env_path}")
-    with open(env_path) as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                key, value = line.split("=", 1)
+    with env_path.open() as f:
+        for line_content in f:
+            stripped_line = line_content.strip()
+            if stripped_line and not stripped_line.startswith("#") and "=" in stripped_line:
+                key, value = stripped_line.split("=", 1)
                 key = key.strip()
                 value = value.strip().strip('"').strip("'")
                 # Only set if not already in environment
@@ -79,7 +79,7 @@ def load_env_file(env_path: Path) -> None:
                     os.environ[key] = value
 
 
-def setup_environment():
+def setup_environment() -> None:
     """Setup environment by loading .env files"""
     backend_dir = Path(__file__).parent.parent
 
@@ -176,7 +176,7 @@ def run_unit_tests(module_name: str | None = None, verbose: bool = False) -> int
     print(f"🚀 Running: {' '.join(cmd)}")
 
     # Run tests
-    result = subprocess.run(cmd, check=False, cwd=Path(__file__).parent.parent)
+    result = subprocess.run(cmd, check=False, cwd=Path(__file__).parent.parent)  # noqa: S603
 
     if result.returncode == 0:
         print("✅ All unit tests passed!")

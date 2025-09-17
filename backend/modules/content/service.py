@@ -11,11 +11,11 @@ import uuid
 
 from pydantic import BaseModel, ConfigDict
 
-logger = logging.getLogger(__name__)
-
 from .models import LessonModel
 from .package_models import LessonPackage
 from .repo import ContentRepo
+
+logger = logging.getLogger(__name__)
 
 
 # DTOs (Data Transfer Objects)
@@ -58,7 +58,7 @@ class LessonCreate(BaseModel):
 class ContentService:
     """Service for content operations."""
 
-    def __init__(self, repo: ContentRepo):
+    def __init__(self, repo: ContentRepo) -> None:
         """Initialize service with repository."""
         self.repo = repo
 

@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..infrastructure.public import infrastructure_provider
+from .providers.base import LLMProviderKwargs
 from .repo import LLMRequestRepo
 from .service import ImageResponse, LLMMessage, LLMRequest, LLMResponse, LLMService, WebSearchResponse
 
@@ -28,7 +29,9 @@ class LLMServicesProvider(Protocol):
     - Request tracking and retrieval
     """
 
-    async def generate_response(self, messages: list[LLMMessage], user_id: uuid.UUID | None = None, model: str | None = None, temperature: float | None = None, max_output_tokens: int | None = None, **kwargs: Any) -> tuple[LLMResponse, uuid.UUID]:
+    async def generate_response(
+        self, messages: list[LLMMessage], user_id: uuid.UUID | None = None, model: str | None = None, temperature: float | None = None, max_output_tokens: int | None = None, **kwargs: LLMProviderKwargs
+    ) -> tuple[LLMResponse, uuid.UUID]:
         """
         Generate a text response from the LLM.
 
@@ -49,7 +52,7 @@ class LLMServicesProvider(Protocol):
         ...
 
     async def generate_structured_response(
-        self, messages: list[LLMMessage], response_model: type[T], user_id: uuid.UUID | None = None, model: str | None = None, temperature: float | None = None, max_output_tokens: int | None = None, **kwargs: Any
+        self, messages: list[LLMMessage], response_model: type[T], user_id: uuid.UUID | None = None, model: str | None = None, temperature: float | None = None, max_output_tokens: int | None = None, **kwargs: LLMProviderKwargs
     ) -> tuple[T, uuid.UUID, dict[str, Any]]:
         """
         Generate a structured response using a Pydantic model.
@@ -72,7 +75,7 @@ class LLMServicesProvider(Protocol):
         """
         ...
 
-    async def generate_image(self, prompt: str, user_id: uuid.UUID | None = None, size: str = "1024x1024", quality: str = "standard", style: str | None = None, **kwargs: Any) -> tuple[ImageResponse, uuid.UUID]:
+    async def generate_image(self, prompt: str, user_id: uuid.UUID | None = None, size: str = "1024x1024", quality: str = "standard", style: str | None = None, **kwargs: LLMProviderKwargs) -> tuple[ImageResponse, uuid.UUID]:
         """
         Generate an image from a text prompt.
 
@@ -92,7 +95,7 @@ class LLMServicesProvider(Protocol):
         """
         ...
 
-    async def search_web(self, queries: list[str], user_id: uuid.UUID | None = None, max_results: int = 10, **kwargs: Any) -> tuple[WebSearchResponse, uuid.UUID]:
+    async def search_web(self, queries: list[str], user_id: uuid.UUID | None = None, max_results: int = 10, **kwargs: LLMProviderKwargs) -> tuple[WebSearchResponse, uuid.UUID]:
         """
         Search the web for recent information.
 

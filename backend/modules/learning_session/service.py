@@ -130,7 +130,7 @@ class LearningSessionService:
         repo: LearningSessionRepo,
         content_provider: ContentProvider,
         lesson_catalog_provider: LessonCatalogProvider,
-    ):
+    ) -> None:
         self.repo = repo
         self.content = content_provider
         self.lesson_catalog = lesson_catalog_provider

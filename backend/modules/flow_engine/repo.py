@@ -13,7 +13,7 @@ __all__ = ["FlowRunRepo", "FlowStepRunRepo"]
 class FlowRunRepo:
     """Repository for FlowRun database operations."""
 
-    def __init__(self, session: Session):
+    def __init__(self, session: Session) -> None:
         self.s = session
 
     def by_id(self, flow_run_id: uuid.UUID) -> FlowRunModel | None:
@@ -66,7 +66,7 @@ class FlowRunRepo:
 class FlowStepRunRepo:
     """Repository for FlowStepRun database operations."""
 
-    def __init__(self, session: Session):
+    def __init__(self, session: Session) -> None:
         self.s = session
 
     def by_id(self, step_run_id: uuid.UUID) -> FlowStepRunModel | None:

@@ -319,7 +319,7 @@ class AdminService:
     async def get_lessons(
         self,
         user_level: str | None = None,
-        domain: str | None = None,  # Not used by lesson catalog but kept for API compatibility
+        _domain: str | None = None,  # Not used by lesson catalog but kept for API compatibility
         search: str | None = None,
         page: int = 1,
         page_size: int = 50,

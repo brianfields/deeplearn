@@ -24,7 +24,7 @@ from modules.lesson_catalog.service import LessonCatalogService, LessonDetail, L
 class TestLessonCatalogService:
     """Unit tests for LessonCatalogService."""
 
-    def test_browse_lessons_returns_summaries(self):
+    def test_browse_lessons_returns_summaries(self) -> None:
         """Test that browse_lessons returns lesson summaries."""
         # Arrange
         content = Mock()
@@ -75,7 +75,7 @@ class TestLessonCatalogService:
 
         content.search_lessons.assert_called_once_with(user_level="beginner", limit=10)
 
-    def test_get_lesson_details_returns_details(self):
+    def test_get_lesson_details_returns_details(self) -> None:
         """Test that get_lesson_details returns lesson details."""
         # Arrange
         content = Mock()
@@ -115,7 +115,7 @@ class TestLessonCatalogService:
 
         content.get_lesson.assert_called_once_with("lesson-1")
 
-    def test_get_lesson_details_returns_none_when_not_found(self):
+    def test_get_lesson_details_returns_none_when_not_found(self) -> None:
         """Test that get_lesson_details returns None when lesson doesn't exist."""
         # Arrange
         content = Mock()
@@ -129,7 +129,7 @@ class TestLessonCatalogService:
         assert result is None
         content.get_lesson.assert_called_once_with("nonexistent")
 
-    def test_lesson_summary_matches_user_level(self):
+    def test_lesson_summary_matches_user_level(self) -> None:
         """Test LessonSummary.matches_user_level method."""
         # Arrange
         summary = LessonSummary(id="test-id", title="Test Lesson", core_concept="Test Concept", user_level="beginner", learning_objectives=["Learn X"], key_concepts=["Key X"], component_count=1)
@@ -138,7 +138,7 @@ class TestLessonCatalogService:
         assert summary.matches_user_level("beginner") is True
         assert summary.matches_user_level("intermediate") is False
 
-    def test_lesson_detail_is_ready_for_learning(self):
+    def test_lesson_detail_is_ready_for_learning(self) -> None:
         """Test LessonDetail.is_ready_for_learning method."""
         # Arrange
         # Lesson with components
@@ -163,7 +163,7 @@ class TestLessonCatalogService:
         assert detail_with_components.is_ready_for_learning() is True
         assert detail_without_components.is_ready_for_learning() is False
 
-    def test_search_lessons_with_query(self):
+    def test_search_lessons_with_query(self) -> None:
         """Test that search_lessons filters by query."""
         # Arrange
         content = Mock()
@@ -209,7 +209,7 @@ class TestLessonCatalogService:
         assert result.lessons[0].title == "React Basics"
         assert result.query == "react"
 
-    def test_get_catalog_statistics(self):
+    def test_get_catalog_statistics(self) -> None:
         """Test that get_catalog_statistics returns statistics."""
         # Arrange
         content = Mock()

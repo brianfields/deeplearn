@@ -4,6 +4,8 @@ Example usage of the flow_engine module.
 This demonstrates how to create flows and steps using the consistent execute() interface.
 """
 
+import asyncio
+import traceback
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -124,7 +126,7 @@ class MasterContentFlow(BaseFlow):
 
 
 # Usage examples
-async def example_single_step():
+async def example_single_step() -> None:
     """Example of using a single step."""
 
     # Execute a single step
@@ -135,7 +137,7 @@ async def example_single_step():
     print(f"Cost: ${result.metadata['cost_estimate']:.4f}")
 
 
-async def example_single_flow():
+async def example_single_flow() -> None:
     """Example of using a single flow."""
 
     # Execute a complete flow
@@ -150,7 +152,7 @@ async def example_single_flow():
         print(f"Thumbnail URL: {result['thumbnail']['image_url']}")
 
 
-async def example_batch_processing():
+async def example_batch_processing() -> None:
     """Example of batch processing multiple articles."""
 
     articles = ["Article 1: Introduction to Machine Learning...", "Article 2: Deep Learning Fundamentals...", "Article 3: Natural Language Processing Applications..."]
@@ -167,7 +169,7 @@ async def example_batch_processing():
 
 
 # Main execution
-async def main():
+async def main() -> None:
     """Run all examples."""
     print("🚀 Flow Engine Examples")
     print("=" * 50)
@@ -186,12 +188,8 @@ async def main():
 
     except Exception as e:
         print(f"\n❌ Example failed: {e}")
-        import traceback
-
         traceback.print_exc()
 
 
 if __name__ == "__main__":
-    import asyncio
-
     asyncio.run(main())

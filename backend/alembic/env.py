@@ -34,10 +34,10 @@ try:
     # Import the main Base class
     # Import all model modules to register them with the Base metadata
     # This ensures all tables are included in migrations
-    from modules.content.models import LessonModel
-    from modules.flow_engine.models import FlowRunModel, FlowStepRunModel
-    from modules.learning_session.models import LearningSessionModel
-    from modules.llm_services.models import LLMRequestModel
+    from modules.content.models import LessonModel  # noqa: F401
+    from modules.flow_engine.models import FlowRunModel, FlowStepRunModel  # noqa: F401
+    from modules.learning_session.models import LearningSessionModel  # noqa: F401
+    from modules.llm_services.models import LLMRequestModel  # noqa: F401
     from modules.shared_models import Base
 
     target_metadata = Base.metadata
@@ -55,18 +55,8 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# add your model's MetaData object here
-# for 'autogenerate' support
-# from myapp import mymodel
-# target_metadata = mymodel.Base.metadata
 
-# other values from the config, defined by the needs of env.py,
-# can be acquired:
-# my_important_option = config.get_main_option("my_important_option")
-# ... etc.
-
-
-def get_database_url():
+def get_database_url() -> str:
     """Get database URL from environment or config"""
     # First try environment variable
     database_url = os.getenv("DATABASE_URL")

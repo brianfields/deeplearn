@@ -5,15 +5,15 @@ from enum import Enum
 import logging
 from pathlib import Path
 import time
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import Any, TypeVar
 import uuid
 
 from pydantic import BaseModel
 
-logger = logging.getLogger(__name__)
+from ..llm_services.public import LLMMessage
+from .context import FlowContext
 
-if TYPE_CHECKING:
-    from .context import FlowContext
+logger = logging.getLogger(__name__)
 
 # Type variable for input models
 InputT = TypeVar("InputT", bound=BaseModel)
@@ -107,8 +107,6 @@ class BaseStep(ABC):
 
         try:
             # Get infrastructure from context (will be implemented in flows/base.py)
-            from .context import FlowContext
-
             context = FlowContext.current()
 
             logger.info(f"🔧 Starting step: {self.step_name}")
@@ -168,7 +166,7 @@ class BaseStep(ABC):
             # Re-raise the exception
             raise
 
-    def _load_prompt_from_file(self, filename: str, context: "FlowContext") -> str:
+    def _load_prompt_from_file(self, filename: str, context: "FlowContext") -> str:  # noqa: ARG002
         """
         Load a prompt from a markdown file.
 
@@ -202,15 +200,16 @@ class BaseStep(ABC):
 
         # Try to read the file
         try:
-            with open(prompt_file_path, encoding="utf-8") as f:
+            with prompt_file_path.open(encoding="utf-8") as f:
                 return f.read().strip()
         except FileNotFoundError:
             # Fallback: try relative to current working directory
             try:
-                with open(f"prompts/{filename}", encoding="utf-8") as f:
+                fallback_path = Path(f"prompts/{filename}")
+                with fallback_path.open(encoding="utf-8") as f:
                     return f.read().strip()
             except FileNotFoundError:
-                raise FileNotFoundError(f"Prompt file '{filename}' not found. Looked in: {prompt_file_path} and prompts/{filename}")
+                raise FileNotFoundError(f"Prompt file '{filename}' not found. Looked in: {prompt_file_path} and prompts/{filename}") from None
 
     @abstractmethod
     async def _execute_step_logic(self, inputs: BaseModel, context: "FlowContext") -> tuple[Any, uuid.UUID | None]:
@@ -246,8 +245,6 @@ class UnstructuredStep(BaseStep):
         formatted_prompt = self._format_prompt(prompt_content, inputs.model_dump())
 
         # Generate response using LLM services
-        from ..llm_services.public import LLMMessage
-
         messages = [LLMMessage(role="user", content=formatted_prompt, name=None, function_call=None, tool_calls=None)]
 
         llm_services = context.service.get_llm_services()
@@ -272,7 +269,7 @@ class UnstructuredStep(BaseStep):
         try:
             return prompt.format(**inputs)
         except KeyError as e:
-            raise ValueError(f"Prompt template missing required input: {e}")
+            raise ValueError(f"Prompt template missing required input: {e}") from e
 
 
 class StructuredStep(BaseStep):
@@ -295,8 +292,6 @@ class StructuredStep(BaseStep):
         formatted_prompt = self._format_prompt(prompt_content, inputs.model_dump())
 
         # Generate structured response
-        from ..llm_services.public import LLMMessage
-
         messages = [LLMMessage(role="user", content=formatted_prompt, name=None, function_call=None, tool_calls=None)]
 
         llm_services = context.service.get_llm_services()
@@ -320,7 +315,7 @@ class StructuredStep(BaseStep):
         try:
             return prompt.format(**inputs)
         except KeyError as e:
-            raise ValueError(f"Prompt template missing required input: {e}")
+            raise ValueError(f"Prompt template missing required input: {e}") from e
 
 
 class ImageStep(BaseStep):

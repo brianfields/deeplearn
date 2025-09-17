@@ -1,5 +1,6 @@
 """Unit tests for flow_engine module."""
 
+from typing import Any
 from unittest.mock import MagicMock
 import uuid
 
@@ -15,7 +16,7 @@ from .service import FlowEngineService
 class TestModels:
     """Test SQLAlchemy models."""
 
-    def test_flow_run_model_creation(self):
+    def test_flow_run_model_creation(self) -> None:
         """Test FlowRunModel creation."""
         flow_run = FlowRunModel(
             flow_name="test_flow",
@@ -31,7 +32,7 @@ class TestModels:
         assert flow_run.execution_mode == "sync"  # default
         assert flow_run.progress_percentage == 0.0  # default
 
-    def test_flow_step_run_model_creation(self):
+    def test_flow_step_run_model_creation(self) -> None:
         """Test FlowStepRunModel creation."""
         flow_run_id = uuid.uuid4()
         step_run = FlowStepRunModel(flow_run_id=flow_run_id, step_name="test_step", step_order=1, inputs={"input": "value"}, status="pending")
@@ -46,14 +47,14 @@ class TestModels:
 class TestRepositories:
     """Test repository classes."""
 
-    def test_flow_run_repo_initialization(self):
+    def test_flow_run_repo_initialization(self) -> None:
         """Test FlowRunRepo initialization."""
         mock_session = MagicMock()
         repo = FlowRunRepo(mock_session)
 
         assert repo.s == mock_session
 
-    def test_flow_step_run_repo_initialization(self):
+    def test_flow_step_run_repo_initialization(self) -> None:
         """Test FlowStepRunRepo initialization."""
         mock_session = MagicMock()
         repo = FlowStepRunRepo(mock_session)
@@ -64,7 +65,7 @@ class TestRepositories:
 class TestService:
     """Test service layer."""
 
-    def test_flow_engine_service_initialization(self):
+    def test_flow_engine_service_initialization(self) -> None:
         """Test FlowEngineService initialization."""
         mock_flow_repo = MagicMock()
         mock_step_repo = MagicMock()
@@ -80,14 +81,14 @@ class TestService:
 class TestSteps:
     """Test step base classes."""
 
-    def test_step_type_enum(self):
+    def test_step_type_enum(self) -> None:
         """Test StepType enum values."""
         assert StepType.UNSTRUCTURED_LLM.value == "unstructured_llm"
         assert StepType.STRUCTURED_LLM.value == "structured_llm"
         assert StepType.IMAGE_GENERATION.value == "image_generation"
         assert StepType.NEWS_GATHERING.value == "news_gathering"
 
-    def test_step_result_creation(self):
+    def test_step_result_creation(self) -> None:
         """Test StepResult creation."""
         result = StepResult(step_name="test_step", output_content="test output", metadata={"tokens": 100, "cost": 0.01})
 
@@ -96,7 +97,7 @@ class TestSteps:
         assert result.metadata["tokens"] == 100
         assert result.metadata["cost"] == 0.01
 
-    def test_unstructured_step_properties(self):
+    def test_unstructured_step_properties(self) -> None:
         """Test UnstructuredStep properties."""
 
         class TestStep(UnstructuredStep):
@@ -112,7 +113,7 @@ class TestSteps:
         assert step.step_type == StepType.UNSTRUCTURED_LLM
         assert step.inputs_model == TestStep.Inputs
 
-    def test_structured_step_properties(self):
+    def test_structured_step_properties(self) -> None:
         """Test StructuredStep properties."""
 
         class TestStep(StructuredStep):
@@ -136,7 +137,7 @@ class TestSteps:
 class TestFlows:
     """Test flow base classes."""
 
-    def test_base_flow_properties(self):
+    def test_base_flow_properties(self) -> None:
         """Test BaseFlow properties."""
 
         class TestFlow(BaseFlow):
@@ -145,7 +146,7 @@ class TestFlows:
             class Inputs(BaseModel):
                 data: str = Field(..., description="Input data")
 
-            async def _execute_flow_logic(self, inputs):
+            async def _execute_flow_logic(self, inputs: dict[str, Any]) -> dict[str, Any]:
                 return {"result": inputs["data"]}
 
         flow = TestFlow()
