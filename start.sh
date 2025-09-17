@@ -65,14 +65,14 @@ echo -e "${BLUE}Web app: http://localhost:8082${NC}"
 echo -e "${BLUE}Press Ctrl+C to stop all services${NC}"
 
 # Start mobile app
-echo -e "${GREEN}Starting mobile app...${NC}"
+# echo -e "${GREEN}Starting mobile app...${NC}"
 cd ../mobile
-npm run ios &
-MOBILE_PID=$!
+# npm run ios &
+# MOBILE_PID=$!
 
 # Start web app
 echo -e "${GREEN}Starting web app...${NC}"
-npm run web -- --port 8082 &
+npm run web
 WEB_PID=$!
 
 # Wait for background processes

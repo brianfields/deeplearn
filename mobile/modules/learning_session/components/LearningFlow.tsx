@@ -275,7 +275,11 @@ export default function LearningFlow({
             testID="learning-flow-close-button"
           />
           <View style={styles.progressWrapper}>
-            <Progress progress={progress * 100} style={styles.progressBar} />
+            <Progress
+              progress={progress * 100}
+              style={styles.progressBar}
+              size="large"
+            />
           </View>
         </View>
       </View>
@@ -310,6 +314,7 @@ const createStyles = (theme: any) =>
     progressContainer: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'flex-start',
       marginTop: theme.spacing?.sm || 8,
       marginBottom: theme.spacing?.sm || 8,
       width: '100%',
@@ -339,6 +344,8 @@ const createStyles = (theme: any) =>
     },
     progressWrapper: {
       flex: 1,
+      justifyContent: 'center',
+      paddingVertical: 10,
     },
     lessonTitle: {
       fontSize: 20,

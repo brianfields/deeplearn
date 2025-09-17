@@ -18,6 +18,7 @@ modules/{name}/
 * **Service returns DTOs** (never ORM).
 * **Public** exposes a **Protocol** and returns the **service instance directly**.
 * **Routes** use the service; **other modules import only from `module.public`**.
+* **Routes** URLs match the module name, e.g. `/api/v1/users` for the `users` module.
 * Transactions live in a request-scoped `get_session()` (commit/rollback there).
 * The only way another module can access this module is through the public.py interface!
 * Don't create routes or public APIs unless there is a demonstrated need for them.

@@ -107,7 +107,7 @@ class HealthResponseModel(BaseModel):
 # Router Setup
 # ================================
 
-router = APIRouter(prefix="/api/v1/sessions")
+router = APIRouter(prefix="/api/v1/learning_session")
 
 
 # ================================

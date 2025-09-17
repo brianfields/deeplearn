@@ -62,7 +62,7 @@ interface ApiSessionListResponse {
 
 // API endpoints (future)
 
-const LEARNING_SESSION_BASE = '/api/v1/sessions';
+const LEARNING_SESSION_BASE = '/api/v1/learning_session';
 
 export class LearningSessionRepo {
   private infrastructure = infrastructureProvider();
