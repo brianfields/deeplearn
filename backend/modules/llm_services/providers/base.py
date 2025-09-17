@@ -50,7 +50,7 @@ class LLMProvider(ABC):
         model: str | None = None,
         temperature: float | None = None,
         max_output_tokens: int | None = None,
-        **kwargs: LLMProviderKwargs,
+        **_kwargs: LLMProviderKwargs,
     ) -> "LLMRequestModel":
         """
         Create a database record for an LLM request.
