@@ -270,16 +270,12 @@ export default function LearningFlow({
             title="✕"
             onPress={onBack}
             variant="secondary"
+            size="small"
             style={styles.closeButton}
             testID="learning-flow-close-button"
           />
           <View style={styles.progressWrapper}>
-            <Progress
-              progress={progress * 100}
-              showLabel={true}
-              label={`${completedExercisesCount}/${actualExercisesCount} exercises`}
-              style={styles.progressBar}
-            />
+            <Progress progress={progress * 100} style={styles.progressBar} />
           </View>
         </View>
       </View>
@@ -319,16 +315,16 @@ const createStyles = (theme: any) =>
       width: '100%',
     },
     closeButton: {
-      width: 28,
-      height: 28,
-      borderRadius: 14,
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      aspectRatio: 1,
       marginRight: theme.spacing?.md || 12,
       paddingHorizontal: 0,
       paddingVertical: 0,
-      minWidth: 28,
       justifyContent: 'center',
       alignItems: 'center',
-      backgroundColor: theme.colors?.surfaceVariant || '#F0F0F0',
+      backgroundColor: theme.colors?.surfaceVariant || '#B0B0B0',
       borderWidth: 0,
     },
     progressText: {

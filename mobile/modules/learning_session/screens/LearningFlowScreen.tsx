@@ -34,7 +34,13 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Text, ActivityIndicator } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  Text,
+  ActivityIndicator,
+  SafeAreaView,
+} from 'react-native';
 
 // Components
 import LearningFlow from '../components/LearningFlow';
@@ -148,19 +154,19 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
   // Loading state while creating session
   if (startSessionMutation.isPending && !sessionId) {
     return (
-      <View style={styles.loadingContainer}>
+      <SafeAreaView style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={theme.colors?.primary} />
         <Text style={styles.loadingText}>
           Starting your learning session...
         </Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   // Error state
   if (error) {
     return (
-      <View style={styles.errorContainer}>
+      <SafeAreaView style={styles.errorContainer}>
         <Text style={styles.errorTitle}>Unable to Start Session</Text>
         <Text style={styles.errorMessage}>{error}</Text>
         <View style={styles.errorActions}>
@@ -177,29 +183,29 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
             style={styles.backButton}
           />
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
   // Session created successfully - render learning flow
   if (sessionId) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container}>
         <LearningFlow
           sessionId={sessionId}
           onComplete={handleComplete}
           onBack={handleBack}
         />
-      </View>
+      </SafeAreaView>
     );
   }
 
   // Fallback loading state
   return (
-    <View style={styles.loadingContainer}>
+    <SafeAreaView style={styles.loadingContainer}>
       <ActivityIndicator size="large" color={theme.colors?.primary} />
       <Text style={styles.loadingText}>Preparing session...</Text>
-    </View>
+    </SafeAreaView>
   );
 }
 

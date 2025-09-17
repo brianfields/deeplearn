@@ -50,21 +50,21 @@ export const Progress: React.FC<ProgressProps> = ({
     width: `${progressWidth.value}%`,
   }));
 
-  // Separate pointerEvents from style to avoid deprecation warning
-  const { pointerEvents, ...otherStyles } = style || {};
+  // Apply incoming style to wrapper so width/flex take effect
+  const flattenedStyle = StyleSheet.flatten(style) || {};
+  const { pointerEvents, ...wrapperStyle } = flattenedStyle as any;
 
-  const containerStyle = [
+  const containerStyle = StyleSheet.flatten([
     styles.container,
     {
       height,
       backgroundColor: defaultBackgroundColor,
+      width: '100%' as const,
     },
-    otherStyles,
-    pointerEvents && { pointerEvents },
-  ];
+  ]) as React.ComponentProps<typeof View>['style'];
 
   return (
-    <View>
+    <View style={wrapperStyle} pointerEvents={pointerEvents}>
       {showLabel && (
         <Text style={[styles.label, { color: theme.colors.text }]}>
           {label || `${Math.round(progress)}%`}
