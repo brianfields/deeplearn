@@ -260,26 +260,28 @@ export default function LearningFlow({
 
   return (
     <View style={styles.container}>
-      {/* Header with progress */}
+      {/* Header with title and progress */}
       <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <Button
-            title="← Back"
-            onPress={onBack}
-            variant="secondary"
-            style={styles.backButton}
-            testID="learning-flow-back-button"
-          />
-        </View>
-        <Progress
-          progress={progress * 100}
-          showLabel={true}
-          label={`${completedExercisesCount}/${actualExercisesCount} exercises`}
-          style={styles.progressBar}
-        />
         {session?.lessonTitle && (
           <Text style={styles.lessonTitle}>{session.lessonTitle}</Text>
         )}
+        <View style={styles.progressContainer}>
+          <Button
+            title="✕"
+            onPress={onBack}
+            variant="secondary"
+            style={styles.closeButton}
+            testID="learning-flow-close-button"
+          />
+          <View style={styles.progressWrapper}>
+            <Progress
+              progress={progress * 100}
+              showLabel={true}
+              label={`${completedExercisesCount}/${actualExercisesCount} exercises`}
+              style={styles.progressBar}
+            />
+          </View>
+        </View>
       </View>
 
       {/* Current exercise */}
@@ -302,21 +304,32 @@ const createStyles = (theme: any) =>
       backgroundColor: theme.colors?.background || '#FFFFFF',
     },
     header: {
-      padding: theme.spacing?.lg || 16,
+      paddingTop: theme.spacing?.xl || 24,
+      paddingHorizontal: theme.spacing?.lg || 16,
       paddingBottom: theme.spacing?.md || 12,
       backgroundColor: theme.colors?.surface || '#F8F9FA',
       borderBottomWidth: 1,
       borderBottomColor: theme.colors?.border || '#E0E0E0',
     },
-    headerTop: {
+    progressContainer: {
       flexDirection: 'row',
-      justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: theme.spacing?.md || 12,
+      marginTop: theme.spacing?.sm || 8,
+      marginBottom: theme.spacing?.sm || 8,
+      width: '100%',
     },
-    backButton: {
-      paddingHorizontal: theme.spacing?.md || 12,
-      paddingVertical: theme.spacing?.sm || 8,
+    closeButton: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      marginRight: theme.spacing?.md || 12,
+      paddingHorizontal: 0,
+      paddingVertical: 0,
+      minWidth: 28,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: theme.colors?.surfaceVariant || '#F0F0F0',
+      borderWidth: 0,
     },
     progressText: {
       fontSize: 16,
@@ -324,13 +337,20 @@ const createStyles = (theme: any) =>
       color: theme.colors?.text || '#000000',
     },
     progressBar: {
-      marginBottom: theme.spacing?.md || 12,
+      flex: 1,
+      width: '100%',
+      marginTop: 0,
+    },
+    progressWrapper: {
+      flex: 1,
     },
     lessonTitle: {
-      fontSize: 18,
-      fontWeight: '600',
-      color: theme.colors?.text || '#000000',
+      fontSize: 20,
+      fontWeight: '700',
+      color: theme.colors?.text || '#0A0A0A',
       textAlign: 'center',
+      letterSpacing: 0.2,
+      marginBottom: theme.spacing?.xs || 6,
     },
     componentContainer: {
       flex: 1,
