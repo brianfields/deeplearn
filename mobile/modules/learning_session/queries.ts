@@ -25,8 +25,8 @@ export const learningSessionKeys = {
   sessions: () => ['learning_session', 'sessions'] as const,
   session: (sessionId: string) =>
     ['learning_session', 'session', sessionId] as const,
-  components: (sessionId: string) =>
-    ['learning_session', 'components', sessionId] as const,
+  exercises: (sessionId: string) =>
+    ['learning_session', 'exercises', sessionId] as const,
   userSessions: (userId?: string, filters?: SessionFilters) =>
     ['learning_session', 'user_sessions', userId, filters] as const,
   userStats: (userId: string) =>
@@ -57,9 +57,9 @@ export function useSession(
 }
 
 /**
- * Get session components with state
+ * Get session exercises with state
  */
-export function useSessionComponents(
+export function useSessionExercises(
   sessionId: string,
   options?: {
     enabled?: boolean;
@@ -67,11 +67,11 @@ export function useSessionComponents(
   }
 ) {
   return useQuery({
-    queryKey: learningSessionKeys.components(sessionId),
-    queryFn: () => learningSession.getSessionComponents(sessionId),
+    queryKey: learningSessionKeys.exercises(sessionId),
+    queryFn: () => learningSession.getSessionExercises(sessionId),
     enabled: options?.enabled ?? !!sessionId,
     staleTime: options?.staleTime ?? 60 * 1000, // 1 minute
-    refetchOnWindowFocus: false, // Components don't change often
+    refetchOnWindowFocus: false, // Exercises don't change often
   });
 }
 
@@ -184,9 +184,9 @@ export function useUpdateProgress() {
         queryKey: learningSessionKeys.session(request.sessionId),
       });
 
-      // Invalidate components to update completion state
+      // Invalidate exercises to update completion state
       queryClient.invalidateQueries({
-        queryKey: learningSessionKeys.components(request.sessionId),
+        queryKey: learningSessionKeys.exercises(request.sessionId),
       });
     },
   });
@@ -276,7 +276,7 @@ export function useLearningSessionHealth() {
  */
 export function useActiveLearningSession(sessionId: string) {
   const sessionQuery = useSession(sessionId);
-  const componentsQuery = useSessionComponents(sessionId, {
+  const exercisesQuery = useSessionExercises(sessionId, {
     enabled: !!sessionId && sessionQuery.data?.status === 'active',
   });
 
@@ -287,12 +287,12 @@ export function useActiveLearningSession(sessionId: string) {
   return {
     // Data
     session: sessionQuery.data,
-    components: componentsQuery.data,
+    exercises: exercisesQuery.data,
 
     // Loading states
-    isLoading: sessionQuery.isLoading || componentsQuery.isLoading,
-    isError: sessionQuery.isError || componentsQuery.isError,
-    error: sessionQuery.error || componentsQuery.error,
+    isLoading: sessionQuery.isLoading || exercisesQuery.isLoading,
+    isError: sessionQuery.isError || exercisesQuery.isError,
+    error: sessionQuery.error || exercisesQuery.error,
 
     // Actions
     updateProgress: updateProgressMutation.mutateAsync,
@@ -306,6 +306,6 @@ export function useActiveLearningSession(sessionId: string) {
 
     // Refetch functions
     refetchSession: sessionQuery.refetch,
-    refetchComponents: componentsQuery.refetch,
+    refetchExercises: exercisesQuery.refetch,
   };
 }

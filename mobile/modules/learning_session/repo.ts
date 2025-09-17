@@ -25,16 +25,16 @@ interface ApiLearningSession {
   status: 'active' | 'completed' | 'paused' | 'abandoned';
   started_at: string;
   completed_at?: string;
-  current_component_index: number;
-  total_components: number;
+  current_exercise_index: number;
+  total_exercises: number;
   progress_percentage: number;
   session_data: Record<string, any>;
 }
 
 interface ApiSessionProgress {
   session_id: string;
-  component_id: string;
-  component_type: string;
+  exercise_id: string;
+  exercise_type: string;
   started_at: string;
   completed_at?: string;
   is_correct?: boolean;
@@ -46,9 +46,9 @@ interface ApiSessionProgress {
 interface ApiSessionResults {
   session_id: string;
   lesson_id: string;
-  total_components: number;
-  completed_components: number;
-  correct_answers: number;
+  total_exercises: number;
+  completed_exercises: number;
+  correct_exercises: number;
   total_time_seconds: number;
   completion_percentage: number;
   score_percentage: number;
@@ -131,7 +131,8 @@ export class LearningSessionRepo {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            component_id: request.componentId,
+            exercise_id: request.exerciseId,
+            exercise_type: request.exerciseType,
             user_answer:
               request.userAnswer === null || request.userAnswer === undefined
                 ? null

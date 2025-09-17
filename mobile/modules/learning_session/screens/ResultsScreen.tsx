@@ -30,7 +30,7 @@ export default function ResultsScreen({ navigation, route }: Props) {
   // Calculate performance metrics (SessionResults shape)
   const scorePercentage = Math.max(0, Math.min(100, results.scorePercentage));
   const timeInMinutes = Math.round((results.totalTimeSeconds || 0) / 60);
-  const completedSteps = results.completedComponents;
+  const completedSteps = results.completedExercises;
 
   const handleContinue = () => {
     navigation.popToTop();

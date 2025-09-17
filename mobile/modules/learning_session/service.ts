@@ -12,7 +12,7 @@ import type {
   LearningSession,
   SessionProgress,
   SessionResults,
-  ComponentState,
+  ExerciseState,
   StartSessionRequest,
   UpdateProgressRequest,
   CompleteSessionRequest,
@@ -105,7 +105,7 @@ export class LearningSessionService {
   }
 
   /**
-   * Update progress for a component in the session
+   * Update progress for an exercise in the session
    */
   async updateProgress(
     request: UpdateProgressRequest
@@ -256,9 +256,9 @@ export class LearningSessionService {
   }
 
   /**
-   * Get session components with current state
+   * Get session exercises with current state
    */
-  async getSessionComponents(sessionId: string): Promise<ComponentState[]> {
+  async getSessionExercises(sessionId: string): Promise<ExerciseState[]> {
     try {
       // Get session details
       const session = await this.getSession(sessionId);
@@ -266,7 +266,7 @@ export class LearningSessionService {
         throw new Error('Session not found');
       }
 
-      // Get lesson details to get components
+      // Get lesson details to get exercises
       const lessonDetail = await this.lessonCatalog.getLessonDetail(
         session.lessonId
       );
@@ -274,8 +274,8 @@ export class LearningSessionService {
         throw new Error('Lesson not found');
       }
 
-      // Convert components to component state
-      const components: ComponentState[] = lessonDetail.components.map(
+      // Convert lesson items to exercise state
+      const exercises: ExerciseState[] = lessonDetail.components.map(
         (component, index) => ({
           id: component.id || `component-${index}`,
           type: component.component_type as
@@ -284,7 +284,7 @@ export class LearningSessionService {
             | 'glossary',
           title: component.title || `Component ${index + 1}`,
           content: component.content,
-          isCompleted: index < session.currentComponentIndex,
+          isCompleted: index < session.currentExerciseIndex,
           isCorrect: undefined, // Would be loaded from progress data
           userAnswer: undefined, // Would be loaded from progress data
           attempts: 0, // Would be loaded from progress data
@@ -293,9 +293,9 @@ export class LearningSessionService {
         })
       );
 
-      return components;
+      return exercises;
     } catch (error) {
-      throw this.handleServiceError(error, 'Failed to get session components');
+      throw this.handleServiceError(error, 'Failed to get session exercises');
     }
   }
 
@@ -400,15 +400,15 @@ export class LearningSessionService {
       // Update session progress
       const updatedSession: LearningSession = {
         ...session,
-        currentComponentIndex: Math.max(
-          session.currentComponentIndex,
+        currentExerciseIndex: Math.max(
+          session.currentExerciseIndex,
           progress.isCompleted
-            ? session.currentComponentIndex + 1
-            : session.currentComponentIndex
+            ? session.currentExerciseIndex + 1
+            : session.currentExerciseIndex
         ),
         progressPercentage: Math.min(
           100,
-          ((session.currentComponentIndex + 1) / session.totalComponents) * 100
+          ((session.currentExerciseIndex + 1) / session.totalExercises) * 100
         ),
       };
 
@@ -420,7 +420,7 @@ export class LearningSessionService {
 
       // Save progress data
       await this.infrastructure.setStorageItem(
-        `session_progress_${sessionId}_${progress.componentId}`,
+        `session_progress_${sessionId}_${progress.exerciseId}`,
         JSON.stringify(progress)
       );
     } catch (error) {
@@ -440,7 +440,7 @@ export class LearningSessionService {
         ...session,
         status: 'completed',
         completedAt: new Date().toISOString(),
-        currentComponentIndex: session.totalComponents,
+        currentExerciseIndex: session.totalExercises,
         progressPercentage: 100,
       };
 

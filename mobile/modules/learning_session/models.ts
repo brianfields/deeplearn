@@ -16,16 +16,16 @@ interface ApiLearningSession {
   status: 'active' | 'completed' | 'paused' | 'abandoned';
   started_at: string;
   completed_at?: string;
-  current_component_index: number;
-  total_components: number;
+  current_exercise_index: number;
+  total_exercises: number;
   progress_percentage: number;
   session_data: Record<string, any>;
 }
 
 interface ApiSessionProgress {
   session_id: string;
-  component_id: string;
-  component_type: string;
+  exercise_id: string;
+  exercise_type: string;
   started_at: string;
   completed_at?: string;
   is_correct?: boolean;
@@ -37,9 +37,9 @@ interface ApiSessionProgress {
 interface ApiSessionResults {
   session_id: string;
   lesson_id: string;
-  total_components: number;
-  completed_components: number;
-  correct_answers: number;
+  total_exercises: number;
+  completed_exercises: number;
+  correct_exercises: number;
   total_time_seconds: number;
   completion_percentage: number;
   score_percentage: number;
@@ -58,8 +58,8 @@ export interface LearningSession {
   readonly status: 'active' | 'completed' | 'paused' | 'abandoned';
   readonly startedAt: string;
   readonly completedAt?: string;
-  readonly currentComponentIndex: number;
-  readonly totalComponents: number;
+  readonly currentExerciseIndex: number;
+  readonly totalExercises: number;
   readonly progressPercentage: number;
   readonly sessionData: Record<string, any>;
   readonly estimatedTimeRemaining: number; // Calculated
@@ -69,8 +69,8 @@ export interface LearningSession {
 
 export interface SessionProgress {
   readonly sessionId: string;
-  readonly componentId: string;
-  readonly componentType: 'mcq' | 'didactic_snippet' | 'glossary';
+  readonly exerciseId: string;
+  readonly exerciseType: 'mcq' | 'didactic_snippet' | 'glossary';
   readonly startedAt: string;
   readonly completedAt?: string;
   readonly isCorrect?: boolean;
@@ -84,9 +84,9 @@ export interface SessionProgress {
 export interface SessionResults {
   readonly sessionId: string;
   readonly lessonId: string;
-  readonly totalComponents: number;
-  readonly completedComponents: number;
-  readonly correctAnswers: number;
+  readonly totalExercises: number;
+  readonly completedExercises: number;
+  readonly correctExercises: number;
   readonly totalTimeSeconds: number;
   readonly completionPercentage: number;
   readonly scorePercentage: number;
@@ -96,7 +96,7 @@ export interface SessionResults {
   readonly performanceSummary: string; // Calculated summary
 }
 
-export interface ComponentState {
+export interface ExerciseState {
   readonly id: string;
   readonly type: 'mcq' | 'didactic_snippet' | 'glossary';
   readonly title: string;
@@ -120,7 +120,8 @@ export interface StartSessionRequest {
 
 export interface UpdateProgressRequest {
   sessionId: string;
-  componentId: string;
+  exerciseId: string;
+  exerciseType: 'mcq' | 'didactic_snippet' | 'glossary';
   userAnswer?: any;
   isCorrect?: boolean;
   timeSpentSeconds: number;
@@ -144,7 +145,7 @@ export interface SessionFilters {
 }
 
 export interface SessionUIState {
-  currentComponentIndex: number;
+  currentExerciseIndex: number;
   showResults: boolean;
   showProgress: boolean;
   isFullscreen: boolean;
@@ -176,12 +177,12 @@ export function toLearningSessionDTO(
   const isCompleted = api.status === 'completed';
   const canResume = api.status === 'active' || api.status === 'paused';
 
-  // Estimate 3 minutes per remaining component
-  const remainingComponents = Math.max(
+  // Estimate 3 minutes per remaining exercise
+  const remainingExercises = Math.max(
     0,
-    api.total_components - api.current_component_index
+    api.total_exercises - api.current_exercise_index
   );
-  const estimatedTimeRemaining = remainingComponents * 3 * 60; // seconds
+  const estimatedTimeRemaining = remainingExercises * 3 * 60; // seconds
 
   return {
     id: api.id,
@@ -191,8 +192,8 @@ export function toLearningSessionDTO(
     status: api.status,
     startedAt: api.started_at,
     completedAt: api.completed_at,
-    currentComponentIndex: api.current_component_index,
-    totalComponents: api.total_components,
+    currentExerciseIndex: api.current_exercise_index,
+    totalExercises: api.total_exercises,
     progressPercentage: api.progress_percentage,
     sessionData: api.session_data,
     estimatedTimeRemaining,
@@ -210,11 +211,8 @@ export function toSessionProgressDTO(api: ApiSessionProgress): SessionProgress {
 
   return {
     sessionId: api.session_id,
-    componentId: api.component_id,
-    componentType: api.component_type as
-      | 'mcq'
-      | 'didactic_snippet'
-      | 'glossary',
+    exerciseId: api.exercise_id,
+    exerciseType: api.exercise_type as 'mcq' | 'didactic_snippet' | 'glossary',
     startedAt: api.started_at,
     completedAt: api.completed_at,
     isCorrect: api.is_correct,
@@ -241,9 +239,9 @@ export function toSessionResultsDTO(api: ApiSessionResults): SessionResults {
   return {
     sessionId: api.session_id,
     lessonId: api.lesson_id,
-    totalComponents: api.total_components,
-    completedComponents: api.completed_components,
-    correctAnswers: api.correct_answers,
+    totalExercises: api.total_exercises,
+    completedExercises: api.completed_exercises,
+    correctExercises: api.correct_exercises,
     totalTimeSeconds: api.total_time_seconds,
     completionPercentage: api.completion_percentage,
     scorePercentage: api.score_percentage,

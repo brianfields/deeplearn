@@ -30,7 +30,7 @@ run_test() {
 echo "Starting test suite..."
 
 # Backend Unit Tests
-if run_test "backend unit tests" "python scripts/run_unit.py" "backend"; then
+if run_test "backend unit tests" "python3 scripts/run_unit.py" "backend"; then
     echo "[PASS] Backend unit tests passed"
 else
     echo "[FAIL] Backend unit tests failed"
@@ -44,7 +44,7 @@ else
 fi
 
 # Backend Integration Tests
-if run_test "backend integration tests" "python scripts/run_integration.py" "backend"; then
+if run_test "backend integration tests" "python3 scripts/run_integration.py" "backend"; then
     echo "[PASS] Backend integration tests passed"
 else
     echo "[FAIL] Backend integration tests failed"

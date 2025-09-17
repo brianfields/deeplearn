@@ -7,8 +7,10 @@ This is a migration, not new feature development.
 
 from datetime import datetime
 from enum import Enum
+from typing import Any
 
-from sqlalchemy import JSON, Column, DateTime, Float, Integer, String
+from sqlalchemy import JSON, DateTime, Float, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column
 
 from modules.shared_models import Base
 
@@ -32,24 +34,24 @@ class LearningSessionModel(Base):
     __tablename__ = "learning_sessions"
 
     # Core fields matching frontend ApiLearningSession
-    id = Column(String, primary_key=True)
-    lesson_id = Column(String, nullable=False, index=True)
-    user_id = Column(String, nullable=True, index=True)  # Optional for anonymous sessions
-    status = Column(String, nullable=False, default=SessionStatus.ACTIVE.value, index=True)
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    lesson_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    user_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)  # Optional for anonymous sessions
+    status: Mapped[str] = mapped_column(String, nullable=False, default=SessionStatus.ACTIVE.value, index=True)
 
     # Timestamps
-    started_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    completed_at = Column(DateTime, nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Progress tracking - updated for didactic + exercises structure
-    current_exercise_index = Column(Integer, nullable=False, default=0)  # Current exercise being worked on (0 = show didactic)
-    total_exercises = Column(Integer, nullable=False, default=0)  # Total number of exercises
-    exercises_completed = Column(Integer, nullable=False, default=0)  # Number of exercises completed
-    exercises_correct = Column(Integer, nullable=False, default=0)  # Number of exercises answered correctly
-    progress_percentage = Column(Float, nullable=False, default=0.0)
+    current_exercise_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # Current exercise being worked on (0 = show didactic)
+    total_exercises: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # Total number of exercises
+    exercises_completed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # Number of exercises completed
+    exercises_correct: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # Number of exercises answered correctly
+    progress_percentage: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
 
     # Session data (flexible JSON field) - now stores exercise-specific answers
-    session_data = Column(JSON, nullable=False, default=dict)
+    session_data: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
 
     def __repr__(self) -> str:
         return f"<LearningSession(id={self.id}, lesson_id={self.lesson_id}, status={self.status})>"

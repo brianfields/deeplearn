@@ -18,7 +18,7 @@ from .models import LearningSessionModel, SessionStatus
 class LearningSessionRepo:
     """Repository for learning session database operations"""
 
-    def __init__(self, db: Session):
+    def __init__(self, db: Session) -> None:
         self.db = db
 
     def create_session(
@@ -94,7 +94,7 @@ class LearningSessionRepo:
 
         if session_data:
             # Merge with existing session data
-            current_data = session.session_data or {}
+            current_data: dict[str, Any] = session.session_data or {}
             current_data.update(session_data)
             session.session_data = current_data
 
@@ -147,7 +147,7 @@ class LearningSessionRepo:
         """Health check - verify database connectivity"""
         try:
             # Simple query to test database connection
-            self.db.execute("SELECT 1")
+            self.db.execute("SELECT 1")  # type: ignore[arg-type]
             return True
         except Exception:
             return False

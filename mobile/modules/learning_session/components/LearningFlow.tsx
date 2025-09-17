@@ -1,7 +1,7 @@
 /**
  * LearningFlow Component - Session Orchestrator
  *
- * Orchestrates the learning session flow, managing component progression,
+ * Orchestrates the learning session flow, managing exercise progression,
  * progress tracking, and session completion.
  */
 
@@ -20,7 +20,7 @@ interface LearningFlowProps {
   onBack: () => void;
 }
 
-// Simple component to auto-skip glossary components
+// Simple element to auto-skip glossary exercises
 function GlossarySkip({
   onComplete,
   styles,
@@ -39,7 +39,7 @@ function GlossarySkip({
 
   return (
     <View style={styles.glossarySkipContainer}>
-      <Text style={styles.glossarySkipText}>Loading next component...</Text>
+      <Text style={styles.glossarySkipText}>Loading next exercise...</Text>
     </View>
   );
 }
@@ -56,7 +56,7 @@ export default function LearningFlow({
   // Session data and actions
   const {
     session,
-    components,
+    exercises,
     isLoading,
     isError,
     error,
@@ -67,14 +67,12 @@ export default function LearningFlow({
   } = useActiveLearningSession(sessionId);
 
   // Local session state (select only what we need to avoid re-renders)
-  const currentComponentIndex = useLearningSessionStore(
-    s => s.currentComponentIndex
+  const currentExerciseIndex = useLearningSessionStore(
+    s => s.currentExerciseIndex
   );
   const setCurrentSession = useLearningSessionStore(s => s.setCurrentSession);
-  const setCurrentComponent = useLearningSessionStore(
-    s => s.setCurrentComponent
-  );
-  const completeComponent = useLearningSessionStore(s => s.completeComponent);
+  const setCurrentExercise = useLearningSessionStore(s => s.setCurrentExercise);
+  const completeExercise = useLearningSessionStore(s => s.completeExercise);
 
   // Initialize session in store
   useEffect(() => {
@@ -84,44 +82,65 @@ export default function LearningFlow({
     };
   }, [sessionId, setCurrentSession]);
 
-  // Current component data
-  const currentComponent = useMemo(() => {
-    if (!components || !Array.isArray(components)) return null;
-    return components[currentComponentIndex] || null;
-  }, [components, currentComponentIndex]);
+  // Current exercise data
+  const currentExercise = useMemo(() => {
+    if (!exercises || !Array.isArray(exercises)) return null;
+    return exercises[currentExerciseIndex] || null;
+  }, [exercises, currentExerciseIndex]);
 
   // Progress calculation
-  const progress = useMemo(() => {
-    if (!components || !Array.isArray(components)) return 0;
-    return components.length > 0
-      ? (currentComponentIndex + 1) / components.length
-      : 0;
-  }, [components, currentComponentIndex]);
+  // Progress across actual exercises only (exclude didactic_snippet and glossary)
+  const totalExercises = useMemo(() => {
+    if (!exercises || !Array.isArray(exercises)) return 0;
+    return exercises.filter(
+      e => e.type !== 'didactic_snippet' && e.type !== 'glossary'
+    ).length;
+  }, [exercises]);
 
-  // Handle component completion
-  const handleComponentComplete = async (componentResults: any) => {
-    if (!currentComponent) return;
+  const completedExercisesCount = useMemo(() => {
+    if (!exercises || !Array.isArray(exercises)) return 0;
+    const prior = exercises.slice(0, currentExerciseIndex);
+    return prior.filter(
+      e => e.type !== 'didactic_snippet' && e.type !== 'glossary'
+    ).length;
+  }, [exercises, currentExerciseIndex]);
+
+  const progress = useMemo(() => {
+    if (totalExercises === 0) return 0;
+    // If currently on an exercise, count it; if on didactic/glossary, use completed count as-is
+    const currentIsExercise =
+      !!currentExercise &&
+      currentExercise.type !== 'didactic_snippet' &&
+      currentExercise.type !== 'glossary';
+    const numerator = completedExercisesCount + (currentIsExercise ? 1 : 0);
+    return Math.min(1, numerator / totalExercises);
+  }, [totalExercises, completedExercisesCount, currentExercise]);
+
+  // Handle exercise completion
+  const handleExerciseComplete = async (exerciseResults: any) => {
+    if (!currentExercise) return;
 
     try {
       // Update local store
-      completeComponent(
-        currentComponent.id,
-        componentResults.isCorrect,
-        componentResults.userAnswer
+      completeExercise(
+        currentExercise.id,
+        exerciseResults.isCorrect,
+        exerciseResults.userAnswer
       );
 
       // Update server progress
       await updateProgress({
         sessionId,
-        componentId: currentComponent.id,
-        isCorrect: componentResults.isCorrect,
-        userAnswer: componentResults.userAnswer,
-        timeSpentSeconds: componentResults.timeSpent || 0,
+        exerciseId: currentExercise.id,
+        exerciseType: currentExercise.type,
+        isCorrect: exerciseResults.isCorrect,
+        userAnswer: exerciseResults.userAnswer,
+        timeSpentSeconds: exerciseResults.timeSpent || 0,
       });
 
-      // Move to next component or complete session
-      if (currentComponentIndex < (components?.length || 0) - 1) {
-        setCurrentComponent(currentComponentIndex + 1);
+      // Move to next exercise or complete session
+      if (currentExerciseIndex < (exercises?.length || 0) - 1) {
+        setCurrentExercise(currentExerciseIndex + 1);
       } else {
         // Session complete
         handleSessionComplete();
@@ -131,6 +150,15 @@ export default function LearningFlow({
       Alert.alert('Error', 'Failed to save your progress. Please try again.', [
         { text: 'OK' },
       ]);
+    }
+  };
+
+  const skipGlossary = () => {
+    // Advance without recording progress (glossary is not an exercise)
+    if (exercises && currentExerciseIndex < exercises.length - 1) {
+      setCurrentExercise(currentExerciseIndex + 1);
+    } else {
+      handleSessionComplete();
     }
   };
 
@@ -149,26 +177,26 @@ export default function LearningFlow({
     }
   };
 
-  // Note: component tracking start is handled inside each component (e.g., DidacticSnippet)
+  // Note: exercise tracking start is handled inside each UI element (e.g., DidacticSnippet)
 
-  // Render current component
-  const renderCurrentComponent = () => {
-    if (!currentComponent) {
+  // Render current exercise
+  const renderCurrentExercise = () => {
+    if (!currentExercise) {
       return (
         <View style={styles.emptyState}>
           <Text style={styles.emptyStateText}>
-            No components available for this session.
+            No exercises available for this session.
           </Text>
         </View>
       );
     }
 
-    switch (currentComponent.type) {
+    switch (currentExercise.type) {
       case 'didactic_snippet':
         return (
           <DidacticSnippet
-            snippet={currentComponent.content}
-            onContinue={() => handleComponentComplete({ isCorrect: true })}
+            snippet={currentExercise.content}
+            onContinue={() => handleExerciseComplete({ isCorrect: true })}
             isLoading={isUpdatingProgress}
           />
         );
@@ -176,30 +204,25 @@ export default function LearningFlow({
       case 'mcq':
         return (
           <MultipleChoice
-            question={currentComponent.content}
-            onComplete={handleComponentComplete}
+            question={currentExercise.content}
+            onComplete={handleExerciseComplete}
             isLoading={isUpdatingProgress}
           />
         );
 
       case 'glossary':
-        // Skip glossary components - they weren't in the old flow
-        return (
-          <GlossarySkip
-            onComplete={() => handleComponentComplete({ isCorrect: true })}
-            styles={styles}
-          />
-        );
+        // Skip glossary entries (not counted as exercises)
+        return <GlossarySkip onComplete={skipGlossary} styles={styles} />;
 
       default:
         return (
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateText}>
-              Unknown component type: {currentComponent.type}
+              Unknown exercise type: {currentExercise.type}
             </Text>
             <Button
               title="Skip"
-              onPress={() => handleComponentComplete({ isCorrect: true })}
+              onPress={() => handleExerciseComplete({ isCorrect: true })}
             />
           </View>
         );
@@ -246,7 +269,12 @@ export default function LearningFlow({
             testID="learning-flow-back-button"
           />
           <Text style={styles.progressText} testID="learning-progress">
-            {currentComponentIndex + 1} of {components?.length || 0}
+            {currentExercise &&
+            currentExercise.type !== 'didactic_snippet' &&
+            currentExercise.type !== 'glossary'
+              ? Math.min(completedExercisesCount + 1, totalExercises)
+              : completedExercisesCount}{' '}
+            of {totalExercises}
           </Text>
         </View>
         <Progress progress={progress} style={styles.progressBar} />
@@ -255,8 +283,8 @@ export default function LearningFlow({
         )}
       </View>
 
-      {/* Current component */}
-      <View style={styles.componentContainer}>{renderCurrentComponent()}</View>
+      {/* Current exercise */}
+      <View style={styles.componentContainer}>{renderCurrentExercise()}</View>
 
       {/* Footer with session controls */}
       {isCompleting && (

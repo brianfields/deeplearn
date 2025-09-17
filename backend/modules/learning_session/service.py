@@ -212,17 +212,17 @@ class LearningSessionService:
             # Update exercise progress
             exercise_not_completed = request.exercise_id not in [k for k, v in exercise_answers.items() if v.get("completed_at") and k != request.exercise_id]
             if exercise_not_completed:
-                updates["exercises_completed"] = session.exercises_completed + 1
+                updates["exercises_completed"] = (session.exercises_completed or 0) + 1
                 if request.is_correct:
-                    updates["exercises_correct"] = session.exercises_correct + 1
+                    updates["exercises_correct"] = (session.exercises_correct or 0) + 1
                 # Move to next exercise
-                updates["current_exercise_index"] = session.current_exercise_index + 1
+                updates["current_exercise_index"] = (session.current_exercise_index or 0) + 1
 
         # Calculate overall progress percentage
         # Progress is based on: didactic viewed (if current_exercise_index > 0) + exercises completed
-        didactic_viewed = 1 if session.current_exercise_index > 0 or updates.get("current_exercise_index", 0) > 0 else 0
-        total_items = 1 + session.total_exercises  # 1 didactic + N exercises
-        completed_items = didactic_viewed + updates.get("exercises_completed", session.exercises_completed)
+        didactic_viewed = 1 if (session.current_exercise_index or 0) > 0 or updates.get("current_exercise_index", 0) > 0 else 0
+        total_items = 1 + (session.total_exercises or 0)  # 1 didactic + N exercises
+        completed_items = didactic_viewed + updates.get("exercises_completed", session.exercises_completed or 0)
         progress_percentage = (completed_items / total_items * 100) if total_items > 0 else 0
 
         updates["progress_percentage"] = min(progress_percentage, 100)
@@ -301,7 +301,7 @@ class LearningSessionService:
             lesson_id=session.lesson_id,  # type: ignore
             user_id=session.user_id,  # type: ignore
             status=session.status,  # type: ignore
-            started_at=session.started_at.isoformat(),
+            started_at=session.started_at.isoformat() if session.started_at else "",
             completed_at=session.completed_at.isoformat() if session.completed_at else None,  # type: ignore
             current_exercise_index=session.current_exercise_index,  # type: ignore
             total_exercises=1 + session.total_exercises,  # type: ignore
@@ -317,9 +317,9 @@ class LearningSessionService:
         exercise_answers = session_data.get("exercise_answers", {})
 
         # Count exercises and correct answers from session fields
-        total_exercises = session.total_exercises  # type: ignore
-        completed_exercises = session.exercises_completed  # type: ignore
-        correct_exercises = session.exercises_correct  # type: ignore
+        total_exercises = session.total_exercises or 0
+        completed_exercises = session.exercises_completed or 0
+        correct_exercises = session.exercises_correct or 0
 
         # Debug logging
         logger.info(f"Calculating results for session {session.id}")
@@ -332,7 +332,7 @@ class LearningSessionService:
 
         # Calculate completion percentage (didactic + exercises)
         # Didactic is considered "completed" if current_exercise_index > 0
-        didactic_viewed = 1 if session.current_exercise_index > 0 else 0
+        didactic_viewed = 1 if (session.current_exercise_index or 0) > 0 else 0
         total_items = 1 + total_exercises  # 1 didactic + N exercises
         completed_items = didactic_viewed + completed_exercises
         completion_percentage = (completed_items / total_items * 100) if total_items > 0 else 0.0

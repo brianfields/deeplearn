@@ -6,16 +6,16 @@
  */
 
 import { create } from 'zustand';
-import type { SessionUIState, ComponentState } from './models';
+import type { SessionUIState, ExerciseState } from './models';
 
 interface LearningSessionState {
   // Current session UI state
   currentSessionId: string | null;
   uiState: SessionUIState;
 
-  // Component interaction state
-  currentComponentIndex: number;
-  componentStates: Record<string, ComponentState>; // componentId -> state
+  // Exercise interaction state
+  currentExerciseIndex: number;
+  exerciseStates: Record<string, ExerciseState>; // exerciseId -> state
 
   // User preferences
   preferences: {
@@ -27,23 +27,23 @@ interface LearningSessionState {
   };
 
   // Temporary session data (not persisted to server)
-  sessionNotes: Record<string, string>; // componentId -> notes
-  bookmarks: string[]; // componentIds
+  sessionNotes: Record<string, string>; // exerciseId -> notes
+  bookmarks: string[]; // exerciseIds
 
   // Performance tracking
-  componentStartTimes: Record<string, number>; // componentId -> timestamp
+  exerciseStartTimes: Record<string, number>; // exerciseId -> timestamp
 
   // Actions
   setCurrentSession: (sessionId: string | null) => void;
   updateUIState: (updates: Partial<SessionUIState>) => void;
-  setCurrentComponent: (index: number) => void;
-  updateComponentState: (
-    componentId: string,
-    state: Partial<ComponentState>
+  setCurrentExercise: (index: number) => void;
+  updateExerciseState: (
+    exerciseId: string,
+    state: Partial<ExerciseState>
   ) => void;
-  startComponent: (componentId: string) => void;
-  completeComponent: (
-    componentId: string,
+  startExercise: (exerciseId: string) => void;
+  completeExercise: (
+    exerciseId: string,
     isCorrect?: boolean,
     userAnswer?: any
   ) => void;
@@ -54,9 +54,9 @@ interface LearningSessionState {
   ) => void;
 
   // Notes and bookmarks
-  addNote: (componentId: string, note: string) => void;
-  removeNote: (componentId: string) => void;
-  toggleBookmark: (componentId: string) => void;
+  addNote: (exerciseId: string, note: string) => void;
+  removeNote: (exerciseId: string) => void;
+  toggleBookmark: (exerciseId: string) => void;
 
   // Session management
   resetSession: () => void;
@@ -64,7 +64,7 @@ interface LearningSessionState {
   resumeSession: () => void;
 
   // Performance tracking
-  getComponentTimeSpent: (componentId: string) => number;
+  getExerciseTimeSpent: (exerciseId: string) => number;
   getTotalTimeSpent: () => number;
 }
 
@@ -73,15 +73,15 @@ export const useLearningSessionStore = create<LearningSessionState>(
     // Initial state
     currentSessionId: null,
     uiState: {
-      currentComponentIndex: 0,
+      currentExerciseIndex: 0,
       showResults: false,
       showProgress: true,
       isFullscreen: false,
       autoAdvance: false,
       soundEnabled: true,
     },
-    currentComponentIndex: 0,
-    componentStates: {},
+    currentExerciseIndex: 0,
+    exerciseStates: {},
     preferences: {
       autoAdvance: false,
       soundEnabled: true,
@@ -91,7 +91,7 @@ export const useLearningSessionStore = create<LearningSessionState>(
     },
     sessionNotes: {},
     bookmarks: [],
-    componentStartTimes: {},
+    exerciseStartTimes: {},
 
     // Actions
     setCurrentSession: sessionId => {
@@ -101,14 +101,14 @@ export const useLearningSessionStore = create<LearningSessionState>(
           return {
             ...state,
             currentSessionId: sessionId,
-            currentComponentIndex: 0,
-            componentStates: {},
+            currentExerciseIndex: 0,
+            exerciseStates: {},
             sessionNotes: {},
             bookmarks: [],
-            componentStartTimes: {},
+            exerciseStartTimes: {},
             uiState: {
               ...state.uiState,
-              currentComponentIndex: 0,
+              currentExerciseIndex: 0,
               showResults: false,
               isFullscreen: false,
             },
@@ -125,63 +125,70 @@ export const useLearningSessionStore = create<LearningSessionState>(
       }));
     },
 
-    setCurrentComponent: index => {
+    setCurrentExercise: (index: number) => {
       set(state => ({
         ...state,
-        currentComponentIndex: index,
-        uiState: { ...state.uiState, currentComponentIndex: index },
+        currentExerciseIndex: index,
+        uiState: { ...state.uiState, currentExerciseIndex: index },
       }));
     },
 
-    updateComponentState: (componentId, stateUpdates) => {
+    updateExerciseState: (
+      exerciseId: string,
+      stateUpdates: Partial<ExerciseState>
+    ) => {
       set(state => ({
         ...state,
-        componentStates: {
-          ...state.componentStates,
-          [componentId]: {
-            ...state.componentStates[componentId],
+        exerciseStates: {
+          ...state.exerciseStates,
+          [exerciseId]: {
+            ...state.exerciseStates[exerciseId],
             ...stateUpdates,
           },
         },
       }));
     },
 
-    startComponent: componentId => {
+    startExercise: (exerciseId: string) => {
       const now = Date.now();
       set(state => ({
         ...state,
-        componentStartTimes: {
-          ...state.componentStartTimes,
-          [componentId]: now,
+        exerciseStartTimes: {
+          ...state.exerciseStartTimes,
+          [exerciseId]: now,
         },
       }));
     },
 
-    completeComponent: (componentId, isCorrect, userAnswer) => {
+    completeExercise: (
+      exerciseId: string,
+      isCorrect?: boolean,
+      userAnswer?: any
+    ) => {
       const state = get();
-      const startTime = state.componentStartTimes[componentId];
+      const startTime = state.exerciseStartTimes[exerciseId];
       const timeSpent = startTime ? Date.now() - startTime : 0;
 
       set(currentState => ({
         ...currentState,
-        componentStates: {
-          ...currentState.componentStates,
-          [componentId]: {
-            ...currentState.componentStates[componentId],
+        exerciseStates: {
+          ...currentState.exerciseStates,
+          [exerciseId]: {
+            ...currentState.exerciseStates[exerciseId],
             isCompleted: true,
             isCorrect,
             userAnswer,
             timeSpent: timeSpent / 1000, // Convert to seconds
             attempts:
-              (currentState.componentStates[componentId]?.attempts || 0) + 1,
+              (currentState.exerciseStates[exerciseId]?.attempts || 0) + 1,
           },
         },
       }));
 
       // Auto-advance if enabled
       if (state.preferences.autoAdvance) {
-        const nextIndex = state.currentComponentIndex + 1;
-        get().setCurrentComponent(nextIndex);
+        const nextIndex = state.currentExerciseIndex + 1;
+        get().setCurrentExercise(nextIndex);
       }
     },
 
@@ -197,19 +204,19 @@ export const useLearningSessionStore = create<LearningSessionState>(
       }));
     },
 
-    addNote: (componentId, note) => {
+    addNote: (exerciseId: string, note: string) => {
       set(state => ({
         ...state,
         sessionNotes: {
           ...state.sessionNotes,
-          [componentId]: note,
+          [exerciseId]: note,
         },
       }));
     },
 
-    removeNote: componentId => {
+    removeNote: (exerciseId: string) => {
       set(state => {
-        const { [componentId]: _removed, ...remainingNotes } =
+        const { [exerciseId]: _removed, ...remainingNotes } =
           state.sessionNotes;
         return {
           ...state,
@@ -218,14 +225,14 @@ export const useLearningSessionStore = create<LearningSessionState>(
       });
     },
 
-    toggleBookmark: componentId => {
+    toggleBookmark: (exerciseId: string) => {
       set(state => {
-        const isBookmarked = state.bookmarks.includes(componentId);
+        const isBookmarked = state.bookmarks.includes(exerciseId);
         return {
           ...state,
           bookmarks: isBookmarked
-            ? state.bookmarks.filter(id => id !== componentId)
-            : [...state.bookmarks, componentId],
+            ? state.bookmarks.filter(id => id !== exerciseId)
+            : [...state.bookmarks, exerciseId],
         };
       });
     },
@@ -233,14 +240,14 @@ export const useLearningSessionStore = create<LearningSessionState>(
     resetSession: () => {
       set(state => ({
         ...state,
-        currentComponentIndex: 0,
-        componentStates: {},
+        currentExerciseIndex: 0,
+        exerciseStates: {},
         sessionNotes: {},
         bookmarks: [],
-        componentStartTimes: {},
+        exerciseStartTimes: {},
         uiState: {
           ...state.uiState,
-          currentComponentIndex: 0,
+          currentExerciseIndex: 0,
           showResults: false,
           isFullscreen: false,
         },
@@ -255,22 +262,22 @@ export const useLearningSessionStore = create<LearningSessionState>(
     },
 
     resumeSession: () => {
-      // Resume from current component
+      // Resume from current exercise
       set(state => ({
         ...state,
         uiState: { ...state.uiState, showResults: false },
       }));
     },
 
-    getComponentTimeSpent: componentId => {
+    getExerciseTimeSpent: (exerciseId: string) => {
       const state = get();
-      const componentState = state.componentStates[componentId];
-      if (componentState?.timeSpent) {
-        return componentState.timeSpent;
+      const exerciseState = state.exerciseStates[exerciseId];
+      if (exerciseState?.timeSpent) {
+        return exerciseState.timeSpent;
       }
 
-      // If component is currently active, calculate time since start
-      const startTime = state.componentStartTimes[componentId];
+      // If exercise is currently active, calculate time since start
+      const startTime = state.exerciseStartTimes[exerciseId];
       if (startTime) {
         return (Date.now() - startTime) / 1000; // Convert to seconds
       }
@@ -282,17 +289,17 @@ export const useLearningSessionStore = create<LearningSessionState>(
       const state = get();
       let total = 0;
 
-      // Add completed component times
-      Object.values(state.componentStates).forEach(componentState => {
-        if (componentState.timeSpent) {
-          total += componentState.timeSpent;
+      // Add completed exercise times
+      Object.values(state.exerciseStates).forEach(exerciseState => {
+        if (exerciseState.timeSpent) {
+          total += exerciseState.timeSpent;
         }
       });
 
-      // Add current component time if active
-      Object.entries(state.componentStartTimes).forEach(
-        ([componentId, startTime]) => {
-          if (!state.componentStates[componentId]?.isCompleted) {
+      // Add current exercise time if active
+      Object.entries(state.exerciseStartTimes).forEach(
+        ([exerciseId, startTime]) => {
+          if (!state.exerciseStates[exerciseId]?.isCompleted) {
             total += (Date.now() - startTime) / 1000;
           }
         }
@@ -311,7 +318,7 @@ export const useLearningSessionSelectors = () => {
     // Current session info
     isSessionActive: !!store.currentSessionId,
     currentSession: store.currentSessionId,
-    currentComponent: store.currentComponentIndex,
+    currentExercise: store.currentExerciseIndex,
 
     // UI state
     isFullscreen: store.uiState.isFullscreen,
@@ -319,8 +326,8 @@ export const useLearningSessionSelectors = () => {
     autoAdvance: store.uiState.autoAdvance,
 
     // Progress info
-    completedComponents: Object.values(store.componentStates).filter(
-      c => c.isCompleted
+    completedExercises: Object.values(store.exerciseStates).filter(
+      (c: any) => c && (c as ExerciseState).isCompleted
     ).length,
     totalTimeSpent: store.getTotalTimeSpent(),
 
@@ -335,24 +342,24 @@ export const useLearningSessionSelectors = () => {
   };
 };
 
-// Hook for component-specific state
-export const useComponentState = (componentId: string) => {
+// Hook for exercise-specific state
+export const useExerciseState = (exerciseId: string) => {
   const store = useLearningSessionStore();
 
   return {
-    state: store.componentStates[componentId],
-    note: store.sessionNotes[componentId],
-    isBookmarked: store.bookmarks.includes(componentId),
-    timeSpent: store.getComponentTimeSpent(componentId),
+    state: store.exerciseStates[exerciseId],
+    note: store.sessionNotes[exerciseId],
+    isBookmarked: store.bookmarks.includes(exerciseId),
+    timeSpent: store.getExerciseTimeSpent(exerciseId),
 
     // Actions
-    updateState: (updates: Partial<ComponentState>) =>
-      store.updateComponentState(componentId, updates),
-    start: () => store.startComponent(componentId),
+    updateState: (updates: Partial<ExerciseState>) =>
+      store.updateExerciseState(exerciseId, updates),
+    start: () => store.startExercise(exerciseId),
     complete: (isCorrect?: boolean, userAnswer?: any) =>
-      store.completeComponent(componentId, isCorrect, userAnswer),
-    addNote: (note: string) => store.addNote(componentId, note),
-    removeNote: () => store.removeNote(componentId),
-    toggleBookmark: () => store.toggleBookmark(componentId),
+      store.completeExercise(exerciseId, isCorrect, userAnswer),
+    addNote: (note: string) => store.addNote(exerciseId, note),
+    removeNote: () => store.removeNote(exerciseId),
+    toggleBookmark: () => store.toggleBookmark(exerciseId),
   };
 };

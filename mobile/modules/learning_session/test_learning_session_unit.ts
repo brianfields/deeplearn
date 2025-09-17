@@ -103,8 +103,8 @@ describe('Learning Session Module', () => {
           user_id: 'user-1',
           status: 'active' as const,
           started_at: '2024-01-01T00:00:00Z',
-          current_component_index: 0,
-          total_components: 2,
+          current_exercise_index: 0,
+          total_exercises: 2,
           progress_percentage: 0,
           session_data: {},
         };
@@ -124,8 +124,8 @@ describe('Learning Session Module', () => {
           lessonId: 'topic-1',
           userId: 'user-1',
           status: 'active',
-          currentComponentIndex: 0,
-          totalComponents: 2,
+          currentExerciseIndex: 0,
+          totalExercises: 2,
           progressPercentage: 0,
         });
 
@@ -160,7 +160,8 @@ describe('Learning Session Module', () => {
         // Arrange
         const request: UpdateProgressRequest = {
           sessionId: 'session-1',
-          componentId: 'comp-1',
+          exerciseId: 'comp-1',
+          exerciseType: 'mcq',
           userAnswer: 'A',
           isCorrect: true,
           timeSpentSeconds: 30,
@@ -168,8 +169,8 @@ describe('Learning Session Module', () => {
 
         const mockApiProgress = {
           session_id: 'session-1',
-          component_id: 'comp-1',
-          component_type: 'mcq',
+          exercise_id: 'comp-1',
+          exercise_type: 'mcq',
           started_at: '2024-01-01T00:00:00Z',
           completed_at: '2024-01-01T00:00:30Z',
           is_correct: true,
@@ -182,8 +183,8 @@ describe('Learning Session Module', () => {
           id: 'session-1',
           lessonId: 'topic-1',
           status: 'active' as const,
-          currentComponentIndex: 0,
-          totalComponents: 2,
+          currentExerciseIndex: 0,
+          totalExercises: 2,
           progressPercentage: 0,
         };
 
@@ -199,8 +200,8 @@ describe('Learning Session Module', () => {
         // Assert
         expect(result).toMatchObject({
           sessionId: 'session-1',
-          componentId: 'comp-1',
-          componentType: 'mcq',
+          exerciseId: 'comp-1',
+          exerciseType: 'mcq',
           isCorrect: true,
           userAnswer: 'A',
           timeSpentSeconds: 30,
@@ -221,9 +222,9 @@ describe('Learning Session Module', () => {
         const mockApiResults = {
           session_id: 'session-1',
           lesson_id: 'topic-1',
-          total_components: 2,
-          completed_components: 2,
-          correct_answers: 1,
+          total_exercises: 2,
+          completed_exercises: 2,
+          correct_exercises: 1,
           total_time_seconds: 300,
           completion_percentage: 100,
           score_percentage: 50,
@@ -240,9 +241,9 @@ describe('Learning Session Module', () => {
         expect(result).toMatchObject({
           sessionId: 'session-1',
           lessonId: 'topic-1',
-          totalComponents: 2,
-          completedComponents: 2,
-          correctAnswers: 1,
+          totalExercises: 2,
+          completedExercises: 2,
+          correctExercises: 1,
           completionPercentage: 100,
           scorePercentage: 50,
           achievements: ['First Completion'],
@@ -330,10 +331,10 @@ describe('Learning Session Module', () => {
           user_id: 'user-1',
           status: 'active' as const,
           started_at: '2024-01-01T00:00:00Z',
-          current_component_index: 1,
-          total_components: 3,
+          current_exercise_index: 1,
+          total_exercises: 3,
           progress_percentage: 33,
-          session_data: { lastComponentId: 'comp-1' },
+          session_data: { lastExerciseId: 'comp-1' },
         };
 
         // Act
@@ -346,10 +347,10 @@ describe('Learning Session Module', () => {
           userId: 'user-1',
           status: 'active',
           startedAt: '2024-01-01T00:00:00Z',
-          currentComponentIndex: 1,
-          totalComponents: 3,
+          currentExerciseIndex: 1,
+          totalExercises: 3,
           progressPercentage: 33,
-          sessionData: { lastComponentId: 'comp-1' },
+          sessionData: { lastExerciseId: 'comp-1' },
           isCompleted: false,
           canResume: true,
         });
@@ -365,8 +366,8 @@ describe('Learning Session Module', () => {
           status: 'completed' as const,
           started_at: '2024-01-01T00:00:00Z',
           completed_at: '2024-01-01T00:15:00Z',
-          current_component_index: 3,
-          total_components: 3,
+          current_exercise_index: 3,
+          total_exercises: 3,
           progress_percentage: 100,
           session_data: {},
         };
@@ -386,8 +387,8 @@ describe('Learning Session Module', () => {
         // Arrange
         const apiProgress = {
           session_id: 'session-1',
-          component_id: 'comp-1',
-          component_type: 'mcq',
+          exercise_id: 'comp-1',
+          exercise_type: 'mcq',
           started_at: '2024-01-01T00:00:00Z',
           completed_at: '2024-01-01T00:00:30Z',
           is_correct: true,
@@ -402,8 +403,8 @@ describe('Learning Session Module', () => {
         // Assert
         expect(result).toMatchObject({
           sessionId: 'session-1',
-          componentId: 'comp-1',
-          componentType: 'mcq',
+          exerciseId: 'comp-1',
+          exerciseType: 'mcq',
           startedAt: '2024-01-01T00:00:00Z',
           completedAt: '2024-01-01T00:00:30Z',
           isCorrect: true,
@@ -422,9 +423,9 @@ describe('Learning Session Module', () => {
         const apiResults = {
           session_id: 'session-1',
           lesson_id: 'topic-1',
-          total_components: 5,
-          completed_components: 5,
-          correct_answers: 4,
+          total_exercises: 5,
+          completed_exercises: 5,
+          correct_exercises: 4,
           total_time_seconds: 900, // 15 minutes
           completion_percentage: 100,
           score_percentage: 80,
@@ -438,9 +439,9 @@ describe('Learning Session Module', () => {
         expect(result).toMatchObject({
           sessionId: 'session-1',
           lessonId: 'topic-1',
-          totalComponents: 5,
-          completedComponents: 5,
-          correctAnswers: 4,
+          totalExercises: 5,
+          completedExercises: 5,
+          correctExercises: 4,
           totalTimeSeconds: 900,
           completionPercentage: 100,
           scorePercentage: 80,
@@ -471,7 +472,7 @@ describe('Learning Session Module', () => {
       expect(typeof service.completeSession).toBe('function');
       expect(typeof service.pauseSession).toBe('function');
       expect(typeof service.resumeSession).toBe('function');
-      expect(typeof service.getSessionComponents).toBe('function');
+      expect(typeof (service as any).getSessionExercises).toBe('function');
       expect(typeof service.canStartSession).toBe('function');
       expect(typeof service.checkHealth).toBe('function');
     });

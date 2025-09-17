@@ -37,27 +37,13 @@ class StartSessionRequestModel(BaseModel):
 
 
 class UpdateProgressRequestModel(BaseModel):
-    """Request model for updating progress"""
+    """Request model for updating exercise progress"""
 
-    component_id: str = Field(..., description="ID of the component being completed")
+    exercise_id: str = Field(..., description="ID of the exercise being completed")
+    exercise_type: str = Field(..., description="Type of exercise, e.g. 'didactic_snippet', 'mcq'")
     user_answer: dict | None = Field(None, description="User's answer/response")
     is_correct: bool | None = Field(None, description="Whether the answer was correct")
     time_spent_seconds: int = Field(0, ge=0, description="Time spent on this exercise")
-
-    # Computed properties for backward compatibility
-    @property
-    def exercise_id(self) -> str:
-        return self.component_id
-
-    @property
-    def exercise_type(self) -> str:
-        # Infer type from component_id or default to didactic_snippet
-        if "mcq" in self.component_id.lower():
-            return "mcq"
-        elif "explanation" in self.component_id.lower():
-            return "didactic_snippet"
-        else:
-            return "didactic_snippet"
 
 
 class SessionResponseModel(BaseModel):
