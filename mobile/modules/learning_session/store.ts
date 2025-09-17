@@ -15,7 +15,7 @@ interface LearningSessionState {
 
   // Exercise interaction state
   currentExerciseIndex: number;
-  exerciseStates: Record<string, ExerciseState>; // exerciseId -> state
+  exerciseStates: Record<string, ExerciseState>; // exerciseId -> state (only actual exercises)
 
   // User preferences
   preferences: {
@@ -44,6 +44,7 @@ interface LearningSessionState {
   startExercise: (exerciseId: string) => void;
   completeExercise: (
     exerciseId: string,
+    exerciseType: 'mcq' | 'short_answer' | 'coding',
     isCorrect?: boolean,
     userAnswer?: any
   ) => void;
@@ -162,6 +163,7 @@ export const useLearningSessionStore = create<LearningSessionState>(
 
     completeExercise: (
       exerciseId: string,
+      exerciseType: 'mcq' | 'short_answer' | 'coding',
       isCorrect?: boolean,
       userAnswer?: any
     ) => {
@@ -174,13 +176,17 @@ export const useLearningSessionStore = create<LearningSessionState>(
         exerciseStates: {
           ...currentState.exerciseStates,
           [exerciseId]: {
-            ...currentState.exerciseStates[exerciseId],
+            id: exerciseId,
+            type: exerciseType,
+            title: currentState.exerciseStates[exerciseId]?.title || 'Exercise',
+            content: currentState.exerciseStates[exerciseId]?.content || {},
             isCompleted: true,
             isCorrect,
             userAnswer,
             timeSpent: timeSpent / 1000, // Convert to seconds
             attempts:
               (currentState.exerciseStates[exerciseId]?.attempts || 0) + 1,
+            maxAttempts: currentState.exerciseStates[exerciseId]?.maxAttempts,
           },
         },
       }));
@@ -356,8 +362,17 @@ export const useExerciseState = (exerciseId: string) => {
     updateState: (updates: Partial<ExerciseState>) =>
       store.updateExerciseState(exerciseId, updates),
     start: () => store.startExercise(exerciseId),
-    complete: (isCorrect?: boolean, userAnswer?: any) =>
-      store.completeExercise(exerciseId, isCorrect, userAnswer),
+    complete: (isCorrect?: boolean, userAnswer?: any) => {
+      const exerciseState = store.exerciseStates[exerciseId];
+      if (exerciseState) {
+        store.completeExercise(
+          exerciseId,
+          exerciseState.type,
+          isCorrect,
+          userAnswer
+        );
+      }
+    },
     addNote: (note: string) => store.addNote(exerciseId, note),
     removeNote: () => store.removeNote(exerciseId),
     toggleBookmark: () => store.toggleBookmark(exerciseId),

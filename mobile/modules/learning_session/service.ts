@@ -12,7 +12,6 @@ import type {
   LearningSession,
   SessionProgress,
   SessionResults,
-  ExerciseState,
   StartSessionRequest,
   UpdateProgressRequest,
   CompleteSessionRequest,
@@ -258,7 +257,7 @@ export class LearningSessionService {
   /**
    * Get session exercises with current state
    */
-  async getSessionExercises(sessionId: string): Promise<ExerciseState[]> {
+  async getSessionExercises(sessionId: string) {
     try {
       // Get session details
       const session = await this.getSession(sessionId);
@@ -274,24 +273,13 @@ export class LearningSessionService {
         throw new Error('Lesson not found');
       }
 
-      // Convert lesson items to exercise state
-      const exercises: ExerciseState[] = lessonDetail.components.map(
-        (component, index) => ({
-          id: component.id || `component-${index}`,
-          type: component.component_type as
-            | 'mcq'
-            | 'didactic_snippet'
-            | 'glossary',
-          title: component.title || `Component ${index + 1}`,
-          content: component.content,
-          isCompleted: index < session.currentExerciseIndex,
-          isCorrect: undefined, // Would be loaded from progress data
-          userAnswer: undefined, // Would be loaded from progress data
-          attempts: 0, // Would be loaded from progress data
-          timeSpent: 0, // Would be loaded from progress data
-          maxAttempts: component.component_type === 'mcq' ? 3 : undefined,
-        })
-      );
+      // Return lesson components directly (UI just needs to render them)
+      const exercises = lessonDetail.components.map((component, index) => ({
+        id: component.id || `component-${index}`,
+        type: component.component_type,
+        title: component.title || `Component ${index + 1}`,
+        content: component.content,
+      }));
 
       return exercises;
     } catch (error) {

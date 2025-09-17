@@ -44,7 +44,7 @@ class ExerciseProgress:
 
     session_id: str
     exercise_id: str
-    exercise_type: str  # "mcq", "short_answer", etc.
+    exercise_type: str  # "mcq", "short_answer", "coding" (only actual exercises)
     started_at: str
     completed_at: str | None
     is_correct: bool | None
@@ -59,7 +59,7 @@ class SessionProgress:
 
     session_id: str
     lesson_id: str
-    current_exercise_index: int  # 0 = show didactic, 1+ = show exercise N-1
+    current_exercise_index: int  # 0 = show didactic, 1+ = show exercise N
     total_exercises: int
     exercises_completed: int
     exercises_correct: int
@@ -96,7 +96,7 @@ class UpdateProgressRequest:
 
     session_id: str
     exercise_id: str  # Changed from component_id
-    exercise_type: str  # "didactic_snippet" or "mcq", etc.
+    exercise_type: str  # "mcq", "short_answer", "coding" (only actual exercises)
     user_answer: Any | None = None
     is_correct: bool | None = None
     time_spent_seconds: int = 0
@@ -203,27 +203,30 @@ class LearningSessionService:
         session_data["exercise_answers"] = exercise_answers  # type: ignore
         session_data["total_time_seconds"] = session_data.get("total_time_seconds", 0) + request.time_spent_seconds  # type: ignore
 
+        # Validate exercise type
+        valid_exercise_types = ["mcq", "short_answer", "coding"]
+        if request.exercise_type not in valid_exercise_types:
+            raise ValueError(f"Invalid exercise type: {request.exercise_type}. Must be one of {valid_exercise_types}")
+
         # Update session progress based on exercise type
         updates = {}
-        if request.exercise_type == "didactic_snippet":
-            # Move to first exercise after completing didactic
-            updates["current_exercise_index"] = 1
-        elif request.exercise_type in ["mcq", "short_answer", "coding"]:
+        if request.exercise_type in valid_exercise_types:
             # Update exercise progress
             exercise_not_completed = request.exercise_id not in [k for k, v in exercise_answers.items() if v.get("completed_at") and k != request.exercise_id]
             if exercise_not_completed:
                 updates["exercises_completed"] = (session.exercises_completed or 0) + 1
                 if request.is_correct:
                     updates["exercises_correct"] = (session.exercises_correct or 0) + 1
-                # Move to next exercise
-                updates["current_exercise_index"] = (session.current_exercise_index or 0) + 1
+
+            # Move to next exercise (advance from current position)
+            current_index = session.current_exercise_index or 0
+            updates["current_exercise_index"] = current_index + 1
 
         # Calculate overall progress percentage
-        # Progress is based on: didactic viewed (if current_exercise_index > 0) + exercises completed
-        didactic_viewed = 1 if (session.current_exercise_index or 0) > 0 or updates.get("current_exercise_index", 0) > 0 else 0
-        total_items = 1 + (session.total_exercises or 0)  # 1 didactic + N exercises
-        completed_items = didactic_viewed + updates.get("exercises_completed", session.exercises_completed or 0)
-        progress_percentage = (completed_items / total_items * 100) if total_items > 0 else 0
+        # Progress is based solely on actual exercises completed vs total exercises
+        total_exercises = session.total_exercises or 0
+        completed_exercises = updates.get("exercises_completed", session.exercises_completed or 0)
+        progress_percentage = (completed_exercises / total_exercises * 100) if total_exercises > 0 else 0
 
         updates["progress_percentage"] = min(progress_percentage, 100)
         updates["session_data"] = session_data
@@ -304,7 +307,7 @@ class LearningSessionService:
             started_at=session.started_at.isoformat() if session.started_at else "",
             completed_at=session.completed_at.isoformat() if session.completed_at else None,  # type: ignore
             current_exercise_index=session.current_exercise_index,  # type: ignore
-            total_exercises=1 + session.total_exercises,  # type: ignore
+            total_exercises=session.total_exercises,  # type: ignore
             progress_percentage=session.progress_percentage,  # type: ignore
             session_data=session.session_data or {},  # type: ignore
         )
@@ -330,12 +333,8 @@ class LearningSessionService:
         score_percentage = (correct_exercises / total_exercises * 100) if total_exercises > 0 else 0.0
         logger.info(f"Final calculation: {correct_exercises}/{total_exercises} = {score_percentage}%")
 
-        # Calculate completion percentage (didactic + exercises)
-        # Didactic is considered "completed" if current_exercise_index > 0
-        didactic_viewed = 1 if (session.current_exercise_index or 0) > 0 else 0
-        total_items = 1 + total_exercises  # 1 didactic + N exercises
-        completed_items = didactic_viewed + completed_exercises
-        completion_percentage = (completed_items / total_items * 100) if total_items > 0 else 0.0
+        # Calculate completion percentage based solely on exercises
+        completion_percentage = (completed_exercises / total_exercises * 100) if total_exercises > 0 else 0.0
 
         # Determine achievements based on performance
         achievements = []

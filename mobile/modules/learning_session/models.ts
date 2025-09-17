@@ -70,7 +70,7 @@ export interface LearningSession {
 export interface SessionProgress {
   readonly sessionId: string;
   readonly exerciseId: string;
-  readonly exerciseType: 'mcq' | 'didactic_snippet' | 'glossary';
+  readonly exerciseType: 'mcq' | 'short_answer' | 'coding';
   readonly startedAt: string;
   readonly completedAt?: string;
   readonly isCorrect?: boolean;
@@ -98,7 +98,7 @@ export interface SessionResults {
 
 export interface ExerciseState {
   readonly id: string;
-  readonly type: 'mcq' | 'didactic_snippet' | 'glossary';
+  readonly type: 'mcq' | 'short_answer' | 'coding';
   readonly title: string;
   readonly content: any;
   readonly isCompleted: boolean;
@@ -121,7 +121,7 @@ export interface StartSessionRequest {
 export interface UpdateProgressRequest {
   sessionId: string;
   exerciseId: string;
-  exerciseType: 'mcq' | 'didactic_snippet' | 'glossary';
+  exerciseType: 'mcq' | 'short_answer' | 'coding';
   userAnswer?: any;
   isCorrect?: boolean;
   timeSpentSeconds: number;
@@ -212,7 +212,7 @@ export function toSessionProgressDTO(api: ApiSessionProgress): SessionProgress {
   return {
     sessionId: api.session_id,
     exerciseId: api.exercise_id,
-    exerciseType: api.exercise_type as 'mcq' | 'didactic_snippet' | 'glossary',
+    exerciseType: api.exercise_type as 'mcq' | 'short_answer' | 'coding',
     startedAt: api.started_at,
     completedAt: api.completed_at,
     isCorrect: api.is_correct,

@@ -75,7 +75,7 @@ class TestLearningSessionService:
         assert result.lesson_id == "test-lesson"
         assert result.user_id == "test-user"
         assert result.status == SessionStatus.ACTIVE.value
-        assert result.total_exercises == 3  # 1 didactic + 2 exercises for compatibility
+        assert result.total_exercises == 2  # Only actual exercises, didactic snippets not counted
 
         self.mock_lesson_catalog_provider.get_lesson_details.assert_called_once_with("test-lesson")
         self.mock_content_provider.get_lesson.assert_called_once_with("test-lesson")
@@ -179,7 +179,7 @@ class TestLearningSessionService:
             id="session-123",
             lesson_id="test-lesson",
             status=SessionStatus.ACTIVE.value,
-            current_exercise_index=2,  # Completed didactic + 2 exercises
+            current_exercise_index=2,  # Past didactic (index 0) and completed 2 exercises (indices 1-2)
             total_exercises=2,
             exercises_completed=2,
             exercises_correct=2,

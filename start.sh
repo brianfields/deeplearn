@@ -49,7 +49,7 @@ echo -e "${BLUE}Press Ctrl+C to stop all services${NC}"
 # Start mobile app
 echo -e "${GREEN}Starting mobile app...${NC}"
 cd ../mobile
-npm start
+npm run ios
 MOBILE_PID=$!
 
 # Wait for background processes

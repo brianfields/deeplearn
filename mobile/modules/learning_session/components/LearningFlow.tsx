@@ -20,7 +20,7 @@ interface LearningFlowProps {
   onBack: () => void;
 }
 
-// Simple element to auto-skip glossary exercises
+// Simple element to auto-skip glossary entries
 function GlossarySkip({
   onComplete,
   styles,
@@ -39,7 +39,7 @@ function GlossarySkip({
 
   return (
     <View style={styles.glossarySkipContainer}>
-      <Text style={styles.glossarySkipText}>Loading next exercise...</Text>
+      <Text style={styles.glossarySkipText}>Loading next item...</Text>
     </View>
   );
 }
@@ -74,6 +74,14 @@ export default function LearningFlow({
   const setCurrentExercise = useLearningSessionStore(s => s.setCurrentExercise);
   const completeExercise = useLearningSessionStore(s => s.completeExercise);
 
+  // Get completed exercises count from store (only count valid exercise types)
+  const completedExercisesCount = useLearningSessionStore(
+    s =>
+      Object.values(s.exerciseStates).filter(
+        (exerciseState: any) => exerciseState?.isCompleted
+      ).length
+  );
+
   // Initialize session in store
   useEffect(() => {
     setCurrentSession(sessionId);
@@ -88,55 +96,49 @@ export default function LearningFlow({
     return exercises[currentExerciseIndex] || null;
   }, [exercises, currentExerciseIndex]);
 
-  // Progress calculation
-  // Progress across actual exercises only (exclude didactic_snippet and glossary)
-  const totalExercises = useMemo(() => {
+  // Count only actual exercises (filter to valid exercise types)
+  const actualExercisesCount = useMemo(() => {
     if (!exercises || !Array.isArray(exercises)) return 0;
-    return exercises.filter(
-      e => e.type !== 'didactic_snippet' && e.type !== 'glossary'
+    return exercises.filter(e =>
+      ['mcq', 'short_answer', 'coding'].includes(e.type)
     ).length;
   }, [exercises]);
 
-  const completedExercisesCount = useMemo(() => {
-    if (!exercises || !Array.isArray(exercises)) return 0;
-    const prior = exercises.slice(0, currentExerciseIndex);
-    return prior.filter(
-      e => e.type !== 'didactic_snippet' && e.type !== 'glossary'
-    ).length;
-  }, [exercises, currentExerciseIndex]);
-
   const progress = useMemo(() => {
-    if (totalExercises === 0) return 0;
-    // If currently on an exercise, count it; if on didactic/glossary, use completed count as-is
-    const currentIsExercise =
-      !!currentExercise &&
-      currentExercise.type !== 'didactic_snippet' &&
-      currentExercise.type !== 'glossary';
-    const numerator = completedExercisesCount + (currentIsExercise ? 1 : 0);
-    return Math.min(1, numerator / totalExercises);
-  }, [totalExercises, completedExercisesCount, currentExercise]);
+    if (actualExercisesCount === 0) return 0;
+    // Progress is the percentage of completed exercises out of total actual exercises
+    return Math.min(1, completedExercisesCount / actualExercisesCount);
+  }, [actualExercisesCount, completedExercisesCount]);
 
   // Handle exercise completion
   const handleExerciseComplete = async (exerciseResults: any) => {
     if (!currentExercise) return;
 
     try {
-      // Update local store
-      completeExercise(
-        currentExercise.id,
-        exerciseResults.isCorrect,
-        exerciseResults.userAnswer
-      );
+      // Only update store and server for actual exercises
+      const validExerciseTypes = ['mcq', 'short_answer', 'coding'];
+      if (validExerciseTypes.includes(currentExercise.type)) {
+        // Update local store for actual exercises only
+        completeExercise(
+          currentExercise.id,
+          currentExercise.type as 'mcq' | 'short_answer' | 'coding',
+          exerciseResults.isCorrect,
+          exerciseResults.userAnswer
+        );
 
-      // Update server progress
-      await updateProgress({
-        sessionId,
-        exerciseId: currentExercise.id,
-        exerciseType: currentExercise.type,
-        isCorrect: exerciseResults.isCorrect,
-        userAnswer: exerciseResults.userAnswer,
-        timeSpentSeconds: exerciseResults.timeSpent || 0,
-      });
+        // Update server progress
+        await updateProgress({
+          sessionId,
+          exerciseId: currentExercise.id,
+          exerciseType: currentExercise.type as
+            | 'mcq'
+            | 'short_answer'
+            | 'coding',
+          isCorrect: exerciseResults.isCorrect,
+          userAnswer: exerciseResults.userAnswer,
+          timeSpentSeconds: exerciseResults.timeSpent || 0,
+        });
+      }
 
       // Move to next exercise or complete session
       if (currentExerciseIndex < (exercises?.length || 0) - 1) {
@@ -268,16 +270,13 @@ export default function LearningFlow({
             style={styles.backButton}
             testID="learning-flow-back-button"
           />
-          <Text style={styles.progressText} testID="learning-progress">
-            {currentExercise &&
-            currentExercise.type !== 'didactic_snippet' &&
-            currentExercise.type !== 'glossary'
-              ? Math.min(completedExercisesCount + 1, totalExercises)
-              : completedExercisesCount}{' '}
-            of {totalExercises}
-          </Text>
         </View>
-        <Progress progress={progress} style={styles.progressBar} />
+        <Progress
+          progress={progress * 100}
+          showLabel={true}
+          label={`${completedExercisesCount}/${actualExercisesCount} exercises`}
+          style={styles.progressBar}
+        />
         {session?.lessonTitle && (
           <Text style={styles.lessonTitle}>{session.lessonTitle}</Text>
         )}

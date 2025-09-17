@@ -9,17 +9,13 @@ appId: host.exp.Exponent
 - tapOn:
     id: 'lesson-card-0'
 
-# Step 2: Wait for learning session to start and show progress
-- assertVisible:
-    id: 'learning-progress'
-
-# Step 3: Complete didactic content
+# Step 2: Complete didactic content
 - assertVisible:
     id: 'didactic-continue-button'
 - tapOn:
     id: 'didactic-continue-button'
 
-# Step 4: Answer MCQ questions
+# Step 3: Answer MCQ questions
 # Question 1
 - assertVisible:
     id: 'mcq-choice-0'

@@ -40,7 +40,7 @@ class UpdateProgressRequestModel(BaseModel):
     """Request model for updating exercise progress"""
 
     exercise_id: str = Field(..., description="ID of the exercise being completed")
-    exercise_type: str = Field(..., description="Type of exercise, e.g. 'didactic_snippet', 'mcq'")
+    exercise_type: str = Field(..., description="Type of exercise, e.g. 'mcq', 'short_answer', 'coding'", pattern="^(mcq|short_answer|coding)$")
     user_answer: dict | None = Field(None, description="User's answer/response")
     is_correct: bool | None = Field(None, description="Whether the answer was correct")
     time_spent_seconds: int = Field(0, ge=0, description="Time spent on this exercise")
