@@ -12,6 +12,7 @@ import { useActiveLearningSession } from '../queries';
 import { useLearningSessionStore } from '../store';
 import DidacticSnippet from './DidacticSnippet';
 import MultipleChoice from './MultipleChoice';
+import { lessonCatalogProvider } from '../../lesson_catalog/public';
 
 interface LearningFlowProps {
   sessionId: string;
@@ -90,6 +91,28 @@ export default function LearningFlow({
 
   // Track whether didactic has been shown this session locally
   const [didacticShown, setDidacticShown] = useState(false);
+  const [didacticData, setDidacticData] = useState<any | null>(null);
+
+  // Fetch didactic snippet from lesson details (package-aligned)
+  useEffect(() => {
+    let isMounted = true;
+    const fetchDidactic = async () => {
+      try {
+        if (!session?.lessonId) return;
+        const lessonCatalog = lessonCatalogProvider();
+        const detail = await lessonCatalog.getLessonDetail(session.lessonId);
+        if (!isMounted) return;
+        setDidacticData(detail?.didacticSnippet || null);
+      } catch (e) {
+        console.warn('Failed to load didactic snippet:', e);
+        if (isMounted) setDidacticData(null);
+      }
+    };
+    fetchDidactic();
+    return () => {
+      isMounted = false;
+    };
+  }, [session?.lessonId]);
 
   // Show didactic snippet first when session starts and no exercises completed yet
   const shouldShowDidactic = useMemo(() => {
@@ -98,6 +121,7 @@ export default function LearningFlow({
       currentExerciseIndex === 0 &&
       completedExercisesCount === 0 &&
       !didacticShown &&
+      !!didacticData &&
       Array.isArray(exercises) &&
       exercises.length > 0
     );
@@ -105,6 +129,7 @@ export default function LearningFlow({
     session,
     currentExerciseIndex,
     completedExercisesCount,
+    didacticData,
     exercises,
     didacticShown,
   ]);
@@ -268,17 +293,11 @@ export default function LearningFlow({
         {shouldShowDidactic && (
           <DidacticSnippet
             snippet={{
-              explanation:
-                session?.sessionData?.didactic?.plain_explanation ||
-                session?.sessionData?.didactic_snippet?.plain_explanation,
-              key_points:
-                session?.sessionData?.didactic?.key_takeaways ||
-                session?.sessionData?.didactic_snippet?.key_takeaways,
+              explanation: didacticData?.plain_explanation,
+              key_points: didacticData?.key_takeaways,
               examples: [
-                session?.sessionData?.didactic?.worked_example ||
-                  session?.sessionData?.didactic_snippet?.worked_example,
-                session?.sessionData?.didactic?.near_miss_example ||
-                  session?.sessionData?.didactic_snippet?.near_miss_example,
+                didacticData?.worked_example,
+                didacticData?.near_miss_example,
               ].filter(Boolean),
             }}
             onContinue={() => {

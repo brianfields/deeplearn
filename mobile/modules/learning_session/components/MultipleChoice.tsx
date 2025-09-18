@@ -46,7 +46,7 @@ interface MCQOption {
 interface MultipleChoiceQuestion {
   question: string;
   options: string[] | MCQOption[]; // Support both formats
-  correct_answer: number; // index
+  correct_answer: number | string; // index or letter label
   explanation?: string;
   number?: number;
 }
@@ -255,10 +255,14 @@ export default function MultipleChoice({
     }
   );
 
-  // Find the correct answer index by matching the label
-  const correctIndex = choicesArray.findIndex(
-    ([label, _]) => label === question.correct_answer.toString()
-  );
+  // Resolve correct answer index from either numeric index or letter label
+  const correctIndex = (() => {
+    if (typeof question.correct_answer === 'number') {
+      return question.correct_answer;
+    }
+    const label = (question.correct_answer || '').toString().trim();
+    return choicesArray.findIndex(([l]) => l === label);
+  })();
 
   // Generate letter for display (A, B, C, D, etc.)
   const getChoiceLetter = (index: number) => String.fromCharCode(65 + index); // 65 is 'A'
@@ -304,13 +308,14 @@ export default function MultipleChoice({
 
     const selectedChoice = choicesArray[selectedAnswer];
     const selectedLetter = getChoiceLetter(selectedAnswer);
+    const isCorrectAnswer = selectedAnswer === correctIndex;
 
     const result = {
       questionId: question.number?.toString() || '0',
       question: question.question,
       selectedOption: selectedLetter,
       selectedText: selectedChoice[1],
-      isCorrect: false,
+      isCorrect: isCorrectAnswer,
       explanation: question.explanation || '',
     };
 
@@ -318,7 +323,7 @@ export default function MultipleChoice({
       componentType: 'multiple_choice_question',
       timeSpent: 0,
       completed: true,
-      isCorrect: false,
+      isCorrect: isCorrectAnswer,
       userAnswer: selectedLetter,
       data: {
         correct: 0,
