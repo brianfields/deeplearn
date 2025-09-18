@@ -89,6 +89,9 @@
 * [ ] No dead code/files: if `public`, `repo`, `models`, or `routes` aren’t needed, they **don’t exist**.
 * [ ] Interfaces remain minimal; no “just in case” methods.
 
+## 15) Seed data
+* [ ] Seed data is correctly created in the `create_seed_data.py` script.
+
 ---
 
 ## Quick Hygiene Greps

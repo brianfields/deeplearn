@@ -51,10 +51,23 @@ else
 fi
 
 # Frontend E2E Tests
+echo "Starting required services for E2E (backend + iOS only)..."
+./start.sh --no-admin --only-ios &
+E2E_STACK_PID=$!
+
+# Allow services to boot up
+sleep 10
+
 if run_test "frontend E2E tests" "npm run e2e:maestro" "mobile"; then
     echo "[PASS] Frontend E2E tests passed"
 else
     echo "[FAIL] Frontend E2E tests failed"
+fi
+
+echo "Stopping E2E services..."
+if [ -n "$E2E_STACK_PID" ]; then
+    kill -TERM $E2E_STACK_PID 2>/dev/null || true
+    wait $E2E_STACK_PID 2>/dev/null || true
 fi
 
 # Final result

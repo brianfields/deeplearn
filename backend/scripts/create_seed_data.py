@@ -2,8 +2,9 @@
 """
 Seed Data Creation Script
 
-Creates sample lesson data with all components without making actual LLM calls.
-This creates realistic seed data for development and testing purposes.
+Creates sample lesson data using the canonical package structure (didactic_snippet,
+exercises, glossary) without making actual LLM calls. This creates realistic seed
+data for development and testing purposes.
 
 Usage:
     python scripts/create_seed_data.py --verbose
@@ -243,7 +244,7 @@ def create_sample_lesson_data(
     }
 
 
-# Components are now embedded in the lesson package, no separate function needed
+# All content fields are embedded in the lesson package; no separate component list
 
 
 def create_sample_flow_run(flow_run_id: uuid.UUID, lesson_id: str, lesson_data: dict[str, Any]) -> dict[str, Any]:
@@ -626,15 +627,15 @@ async def main() -> None:
             if args.verbose:
                 print("💾 Committing changes...")
 
-        # Calculate component counts from package
+        # Report package content counts by type
         package = lesson_data["package"]
-        didactic_count = 1  # Single didactic snippet
-        component_count = len(package["exercises"]) + didactic_count + len(package["glossary"]["terms"])
+        exercises_count = len(package["exercises"])
+        glossary_terms_count = len(package["glossary"]["terms"])
 
         print("✅ Seed data created successfully!")
         print(f"   • Lesson ID: {lesson_id}")
         print(f"   • Title: {lesson_data['title']}")
-        print(f"   • Package components: {component_count} (5 exercises, 1 didactic, 5 glossary terms)")
+        print(f"   • Exercises: {exercises_count}; Didactic snippet: present; Glossary terms: {glossary_terms_count}")
         print(f"   • Package version: {lesson_data['package_version']}")
         print("   • Flow runs: 1")
         print(f"   • Step runs: {len(step_runs)}")
@@ -652,10 +653,10 @@ async def main() -> None:
                 "user_level": args.level,
                 "domain": args.domain,
                 "package_version": lesson_data["package_version"],
-                "package_components": component_count,
                 "objectives_count": len(package["objectives"]),
                 "glossary_terms_count": len(package["glossary"]["terms"]),
                 "exercises_count": len(package["exercises"]),
+                "didactic_snippet_present": bool(package.get("didactic_snippet")),
                 "flow_runs": 1,
                 "step_runs": len(step_runs),
                 "llm_requests": len(llm_requests),

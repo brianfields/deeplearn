@@ -4,8 +4,7 @@
  * Orchestrates the learning session flow, managing exercise progression,
  * progress tracking, and session completion.
  */
-
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Alert } from 'react-native';
 import { Button, Progress } from '../../ui_system/public';
 import { uiSystemProvider } from '../../ui_system/public';
@@ -21,28 +20,7 @@ interface LearningFlowProps {
 }
 
 // Simple element to auto-skip glossary entries
-function GlossarySkip({
-  onComplete,
-  styles,
-}: {
-  onComplete: () => void;
-  styles: any;
-}) {
-  useEffect(() => {
-    // Auto-advance after a brief moment
-    const timer = setTimeout(() => {
-      onComplete();
-    }, 100);
-
-    return () => clearTimeout(timer);
-  }, [onComplete]);
-
-  return (
-    <View style={styles.glossarySkipContainer}>
-      <Text style={styles.glossarySkipText}>Loading next item...</Text>
-    </View>
-  );
-}
+// Glossary content is no longer part of exercise flow
 
 export default function LearningFlow({
   sessionId,
@@ -110,6 +88,27 @@ export default function LearningFlow({
     return Math.min(1, completedExercisesCount / actualExercisesCount);
   }, [actualExercisesCount, completedExercisesCount]);
 
+  // Track whether didactic has been shown this session locally
+  const [didacticShown, setDidacticShown] = useState(false);
+
+  // Show didactic snippet first when session starts and no exercises completed yet
+  const shouldShowDidactic = useMemo(() => {
+    return (
+      !!session &&
+      currentExerciseIndex === 0 &&
+      completedExercisesCount === 0 &&
+      !didacticShown &&
+      Array.isArray(exercises) &&
+      exercises.length > 0
+    );
+  }, [
+    session,
+    currentExerciseIndex,
+    completedExercisesCount,
+    exercises,
+    didacticShown,
+  ]);
+
   // Handle exercise completion
   const handleExerciseComplete = async (exerciseResults: any) => {
     if (!currentExercise) return;
@@ -155,14 +154,7 @@ export default function LearningFlow({
     }
   };
 
-  const skipGlossary = () => {
-    // Advance without recording progress (glossary is not an exercise)
-    if (exercises && currentExerciseIndex < exercises.length - 1) {
-      setCurrentExercise(currentExerciseIndex + 1);
-    } else {
-      handleSessionComplete();
-    }
-  };
+  // Glossary is excluded from exercise flow; no skip needed
 
   // Handle session completion
   const handleSessionComplete = async () => {
@@ -194,15 +186,6 @@ export default function LearningFlow({
     }
 
     switch (currentExercise.type) {
-      case 'didactic_snippet':
-        return (
-          <DidacticSnippet
-            snippet={currentExercise.content}
-            onContinue={() => handleExerciseComplete({ isCorrect: true })}
-            isLoading={isUpdatingProgress}
-          />
-        );
-
       case 'mcq':
         return (
           <MultipleChoice
@@ -211,10 +194,6 @@ export default function LearningFlow({
             isLoading={isUpdatingProgress}
           />
         );
-
-      case 'glossary':
-        // Skip glossary entries (not counted as exercises)
-        return <GlossarySkip onComplete={skipGlossary} styles={styles} />;
 
       default:
         return (
@@ -284,8 +263,33 @@ export default function LearningFlow({
         </View>
       </View>
 
-      {/* Current exercise */}
-      <View style={styles.componentContainer}>{renderCurrentExercise()}</View>
+      {/* Didactic first, then exercises */}
+      <View style={styles.componentContainer}>
+        {shouldShowDidactic && (
+          <DidacticSnippet
+            snippet={{
+              explanation:
+                session?.sessionData?.didactic?.plain_explanation ||
+                session?.sessionData?.didactic_snippet?.plain_explanation,
+              key_points:
+                session?.sessionData?.didactic?.key_takeaways ||
+                session?.sessionData?.didactic_snippet?.key_takeaways,
+              examples: [
+                session?.sessionData?.didactic?.worked_example ||
+                  session?.sessionData?.didactic_snippet?.worked_example,
+                session?.sessionData?.didactic?.near_miss_example ||
+                  session?.sessionData?.didactic_snippet?.near_miss_example,
+              ].filter(Boolean),
+            }}
+            onContinue={() => {
+              setDidacticShown(true);
+              setCurrentExercise(0);
+            }}
+            isLoading={isUpdatingProgress}
+          />
+        )}
+        {!shouldShowDidactic && renderCurrentExercise()}
+      </View>
 
       {/* Footer with session controls */}
       {isCompleting && (

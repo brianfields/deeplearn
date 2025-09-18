@@ -255,7 +255,7 @@ export class LearningSessionService {
   }
 
   /**
-   * Get session exercises with current state
+   * Get session content aligned to package structure
    */
   async getSessionExercises(sessionId: string) {
     try {
@@ -273,13 +273,38 @@ export class LearningSessionService {
         throw new Error('Lesson not found');
       }
 
-      // Return lesson components directly (UI just needs to render them)
-      const exercises = lessonDetail.components.map((component, index) => ({
-        id: component.id || `component-${index}`,
-        type: component.component_type,
-        title: component.title || `Component ${index + 1}`,
-        content: component.content,
-      }));
+      // Build exercise list from package (exclude non-assessment content)
+      const exercises = (lessonDetail.exercises || [])
+        .map((ex: any, index: number) => {
+          if (ex.exercise_type === 'mcq') {
+            // Map to UI consumption shape
+            return {
+              id: ex.id || `exercise-${index}`,
+              type: 'mcq',
+              title:
+                ex.title || ex.stem?.slice(0, 50) || `Exercise ${index + 1}`,
+              content: {
+                question: ex.stem,
+                options: (ex.options || []).map((opt: any) => ({
+                  label: opt.label,
+                  text: opt.text,
+                })),
+                correct_answer: ex.answer_key?.label || 'A',
+                explanation:
+                  ex.answer_key?.rationale_right ||
+                  `The correct answer is ${ex.answer_key?.label || 'A'}.`,
+              },
+            };
+          }
+          // Unknown exercise types can be skipped for now
+          return null;
+        })
+        .filter(Boolean) as Array<{
+        id: string;
+        type: string;
+        title: string;
+        content: any;
+      }>;
 
       return exercises;
     } catch (error) {

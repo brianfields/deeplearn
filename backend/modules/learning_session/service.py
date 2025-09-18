@@ -59,7 +59,7 @@ class SessionProgress:
 
     session_id: str
     lesson_id: str
-    current_exercise_index: int  # 0 = show didactic, 1+ = show exercise N
+    current_exercise_index: int  # Index within exercises array only
     total_exercises: int
     exercises_completed: int
     exercises_correct: int

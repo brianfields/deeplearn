@@ -58,7 +58,7 @@ def get_lesson_details(lesson_id: str, catalog: LessonCatalogService = Depends(g
     """
     Get detailed information about a specific lesson.
 
-    Includes all components and metadata for learning.
+    Includes package-aligned content and metadata for learning.
     """
     lesson = catalog.get_lesson_details(lesson_id)
     if not lesson:

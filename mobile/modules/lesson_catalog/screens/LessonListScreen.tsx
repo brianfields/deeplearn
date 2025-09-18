@@ -75,8 +75,10 @@ export function LessonListScreen() {
         userLevel: lesson.userLevel,
         learningObjectives: lesson.learningObjectives,
         keyConcepts: lesson.keyConcepts,
-        components: [], // Will be fetched by LearningFlow if needed
-        componentCount: lesson.componentCount,
+        didacticSnippet: {},
+        exercises: [],
+        glossaryTerms: [],
+        exerciseCount: lesson.componentCount,
         createdAt: lesson.createdAt || new Date().toISOString(),
         estimatedDuration: lesson.estimatedDuration,
         isReadyForLearning: lesson.isReadyForLearning,

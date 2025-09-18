@@ -97,7 +97,7 @@ export function LessonCard({
           <View style={styles.detailItem}>
             <BookOpen size={14} color="#6B7280" />
             <Text style={styles.detailText}>
-              {lesson.componentCount} components
+              {lesson.componentCount} exercises
             </Text>
           </View>
 

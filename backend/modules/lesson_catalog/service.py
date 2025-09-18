@@ -14,7 +14,7 @@ from modules.content.public import ContentProvider
 
 # DTOs
 class LessonSummary(BaseModel):
-    """DTO for lesson summary in browsing lists."""
+    """DTO for lesson summary in browsing lists (package-aligned)."""
 
     id: str
     title: str
@@ -22,7 +22,7 @@ class LessonSummary(BaseModel):
     user_level: str
     learning_objectives: list[str]
     key_concepts: list[str]
-    component_count: int
+    exercise_count: int
 
     def matches_user_level(self, user_level: str) -> bool:
         """Check if lesson matches specified user level."""
@@ -30,7 +30,7 @@ class LessonSummary(BaseModel):
 
 
 class LessonDetail(BaseModel):
-    """DTO for detailed lesson information."""
+    """DTO for detailed lesson information (package-aligned)."""
 
     id: str
     title: str
@@ -38,13 +38,15 @@ class LessonDetail(BaseModel):
     user_level: str
     learning_objectives: list[str]
     key_concepts: list[str]
-    components: list[dict]
+    didactic_snippet: dict
+    exercises: list[dict]
+    glossary_terms: list[dict]
     created_at: str
-    component_count: int
+    exercise_count: int
 
     def is_ready_for_learning(self) -> bool:
-        """Check if lesson has components for learning."""
-        return len(self.components) > 0
+        """Ready when there is at least one exercise."""
+        return len(self.exercises) > 0
 
 
 class BrowseLessonsResponse(BaseModel):
@@ -101,17 +103,14 @@ class LessonCatalogService:
         # Get lessons from content module
         lessons = self.content.search_lessons(user_level=user_level, limit=limit)
 
-        # Convert to summary DTOs
+        # Convert to summary DTOs (exercise-aligned)
         summaries = []
         for lesson in lessons:
             # Extract data from package
             objectives = [obj.text for obj in lesson.package.objectives]
 
-            # Calculate component count
-            didactic_count = 1  # Single didactic snippet
+            # Calculate exercise count (exclude didactic and glossary)
             exercise_count = len(lesson.package.exercises)
-            glossary_count = len(lesson.package.glossary.get("terms", []))
-            component_count = didactic_count + exercise_count + glossary_count
 
             summaries.append(
                 LessonSummary(
@@ -121,7 +120,7 @@ class LessonCatalogService:
                     user_level=lesson.user_level,
                     learning_objectives=objectives,
                     key_concepts=[],  # Key concepts are now in glossary terms
-                    component_count=component_count,
+                    exercise_count=exercise_count,
                 )
             )
 
@@ -141,52 +140,37 @@ class LessonCatalogService:
         if not lesson:
             return None
 
-        # Extract components from package
-        components = []
-
-        # Add single didactic snippet as FIRST component (learning material comes before exercises)
+        # Package-aligned fields
         didactic = lesson.package.didactic_snippet
-        components.append(
-            {
-                "id": didactic.id,
-                "component_type": "didactic_snippet",
-                "title": "Learning Material",
-                "content": {
-                    "explanation": didactic.plain_explanation,
-                    "key_takeaways": didactic.key_takeaways,
-                    "worked_example": didactic.worked_example,
-                    "near_miss_example": didactic.near_miss_example,
-                    "mini_vignette": didactic.mini_vignette,
-                    "discriminator_hint": didactic.discriminator_hint,
-                },
-            }
-        )
-
-        # Add exercises as components SECOND (exercises come after learning material)
+        exercises = []
         for exercise in lesson.package.exercises:
             if exercise.exercise_type == "mcq":
-                # Use getattr for safe access to MCQ-specific attributes
                 stem = getattr(exercise, "stem", "Question")
                 options = getattr(exercise, "options", [])
                 answer_key = getattr(exercise, "answer_key", None)
-
-                components.append(
+                exercises.append(
                     {
                         "id": exercise.id,
-                        "component_type": "mcq",
-                        "title": stem[:50] + "..." if len(stem) > 50 else stem,
-                        "content": {
-                            "question": stem,
-                            "options": [{"label": opt.label, "text": opt.text} for opt in options],
-                            "correct_answer": answer_key.label if answer_key else "A",
-                            "explanation": (answer_key.rationale_right if answer_key and answer_key.rationale_right else f"The correct answer is {answer_key.label if answer_key else 'A'}."),
+                        "exercise_type": "mcq",
+                        "stem": stem,
+                        "options": [{"label": opt.label, "text": opt.text} for opt in options],
+                        "answer_key": {
+                            "label": getattr(answer_key, "label", "A") if answer_key else "A",
+                            "rationale_right": getattr(answer_key, "rationale_right", None) if answer_key else None,
                         },
+                        "title": stem[:50] + "..." if len(stem) > 50 else stem,
                     }
                 )
 
-        # Add glossary terms as components LAST (reference material)
-        for term in lesson.package.glossary.get("terms", []):
-            components.append({"id": term.id, "component_type": "glossary", "title": f"Term: {term.term}", "content": {"term": term.term, "definition": term.definition, "relation_to_core": term.relation_to_core}})
+        glossary_terms = [
+            {
+                "id": term.id,
+                "term": term.term,
+                "definition": term.definition,
+                "relation_to_core": term.relation_to_core,
+            }
+            for term in lesson.package.glossary.get("terms", [])
+        ]
 
         objectives = [obj.text for obj in lesson.package.objectives]
 
@@ -197,9 +181,19 @@ class LessonCatalogService:
             user_level=lesson.user_level,
             learning_objectives=objectives,
             key_concepts=[],  # Key concepts are now in glossary terms
-            components=components,
+            didactic_snippet={
+                "id": didactic.id,
+                "plain_explanation": didactic.plain_explanation,
+                "key_takeaways": didactic.key_takeaways,
+                "worked_example": didactic.worked_example,
+                "near_miss_example": didactic.near_miss_example,
+                "mini_vignette": didactic.mini_vignette,
+                "discriminator_hint": didactic.discriminator_hint,
+            },
+            exercises=exercises,
+            glossary_terms=glossary_terms,
             created_at=str(lesson.created_at),
-            component_count=len(components),
+            exercise_count=len(exercises),
         )
 
     def search_lessons(
@@ -230,13 +224,13 @@ class LessonCatalogService:
         # Get lessons from content module (using existing search)
         lessons = self.content.search_lessons(user_level=user_level, limit=limit + offset)
 
-        # Convert to summary DTOs
+        # Convert to summary DTOs (exercise-aligned)
         summaries = []
         for lesson in lessons:
             # Extract data from package
             objectives = [obj.text for obj in lesson.package.objectives]
             key_concepts = [term.term for term in lesson.package.glossary.get("terms", [])]
-            component_count = len(lesson.package.exercises) + 1 + len(lesson.package.glossary.get("terms", []))  # exercises + 1 didactic + glossary terms
+            exercise_count = len(lesson.package.exercises)
 
             summaries.append(
                 LessonSummary(
@@ -245,8 +239,8 @@ class LessonCatalogService:
                     core_concept=lesson.core_concept,
                     user_level=lesson.user_level,
                     learning_objectives=objectives,
-                    key_concepts=key_concepts,  # Now extracted from glossary terms
-                    component_count=component_count,
+                    key_concepts=key_concepts,
+                    exercise_count=exercise_count,
                 )
             )
 
@@ -260,7 +254,7 @@ class LessonCatalogService:
             ]
 
         if ready_only:
-            summaries = [lesson for lesson in summaries if lesson.component_count > 0]
+            summaries = [lesson for lesson in summaries if lesson.exercise_count > 0]
 
         # Apply pagination
         total = len(summaries)
@@ -287,7 +281,7 @@ class LessonCatalogService:
             # Extract data from package
             objectives = [obj.text for obj in lesson.package.objectives]
             key_concepts = [term.term for term in lesson.package.glossary.get("terms", [])]
-            component_count = len(lesson.package.exercises) + 1 + len(lesson.package.glossary.get("terms", []))  # exercises + 1 didactic + glossary terms
+            exercise_count = len(lesson.package.exercises)
 
             summaries.append(
                 LessonSummary(
@@ -297,7 +291,7 @@ class LessonCatalogService:
                     user_level=lesson.user_level,
                     learning_objectives=objectives,
                     key_concepts=key_concepts,
-                    component_count=component_count,
+                    exercise_count=exercise_count,
                 )
             )
         return summaries
@@ -327,17 +321,17 @@ class LessonCatalogService:
         duration_distribution = {"0-15": 0, "15-30": 0, "30-60": 0, "60+": 0}
 
         for lesson in all_lessons:
-            # Extract component count from package
-            component_count = len(lesson.package.exercises) + 1 + len(lesson.package.glossary.get("terms", []))  # exercises + 1 didactic + glossary terms
+            # Extract exercise count from package (exclude didactic and glossary)
+            exercise_count = len(lesson.package.exercises)
 
             # Readiness
-            if component_count > 0:
+            if exercise_count > 0:
                 lessons_by_readiness["ready"] += 1
             else:
                 lessons_by_readiness["draft"] += 1
 
-            # Duration (estimate: 3 min per component, min 5 min)
-            duration = max(5, component_count * 3)
+            # Duration (estimate: 3 min per exercise, min 5 min)
+            duration = max(5, exercise_count * 3)
             total_duration += duration
 
             # Duration distribution

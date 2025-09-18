@@ -16,7 +16,7 @@ interface ApiLessonSummary {
   user_level: string;
   learning_objectives: string[];
   key_concepts: string[];
-  component_count: number;
+  exercise_count: number;
 }
 
 interface ApiBrowseLessonsResponse {
@@ -31,9 +31,11 @@ interface ApiLessonDetail {
   user_level: string;
   learning_objectives: string[];
   key_concepts: string[];
-  components: any[];
+  didactic_snippet: any;
+  exercises: any[];
+  glossary_terms: any[];
   created_at: string;
-  component_count: number;
+  exercise_count: number;
 }
 
 // ================================
@@ -65,8 +67,10 @@ export interface LessonDetail {
   readonly userLevel: 'beginner' | 'intermediate' | 'advanced';
   readonly learningObjectives: string[];
   readonly keyConcepts: string[];
-  readonly components: any[];
-  readonly componentCount: number;
+  readonly didacticSnippet: any;
+  readonly exercises: any[];
+  readonly glossaryTerms: any[];
+  readonly exerciseCount: number;
   readonly createdAt: string;
   readonly estimatedDuration: number;
   readonly isReadyForLearning: boolean;
@@ -148,8 +152,8 @@ export interface LessonCatalogError {
  * Convert API LessonSummary to frontend DTO
  */
 export function toLessonSummaryDTO(api: ApiLessonSummary): LessonSummary {
-  const estimatedDuration = Math.max(5, api.component_count * 3); // 3 min per component, min 5 min
-  const isReadyForLearning = api.component_count > 0;
+  const estimatedDuration = Math.max(5, api.exercise_count * 3); // 3 min per exercise, min 5 min
+  const isReadyForLearning = api.exercise_count > 0;
 
   return {
     id: api.id,
@@ -158,14 +162,14 @@ export function toLessonSummaryDTO(api: ApiLessonSummary): LessonSummary {
     userLevel: api.user_level as 'beginner' | 'intermediate' | 'advanced',
     learningObjectives: api.learning_objectives,
     keyConcepts: api.key_concepts,
-    componentCount: api.component_count,
+    componentCount: api.exercise_count, // kept for compatibility; represents exercises
     estimatedDuration,
     isReadyForLearning,
     difficultyLevel: formatDifficultyLevel(api.user_level),
     durationDisplay: formatDuration(estimatedDuration),
     readinessStatus: formatReadinessStatus(
       isReadyForLearning,
-      api.component_count
+      api.exercise_count
     ),
     tags: api.key_concepts.slice(0, 3), // Use first 3 key concepts as tags
   };
@@ -175,8 +179,8 @@ export function toLessonSummaryDTO(api: ApiLessonSummary): LessonSummary {
  * Convert API LessonDetail to frontend DTO
  */
 export function toLessonDetailDTO(api: ApiLessonDetail): LessonDetail {
-  const estimatedDuration = Math.max(5, api.component_count * 3);
-  const isReadyForLearning = api.component_count > 0;
+  const estimatedDuration = Math.max(5, api.exercise_count * 3);
+  const isReadyForLearning = api.exercise_count > 0;
 
   return {
     id: api.id,
@@ -185,8 +189,10 @@ export function toLessonDetailDTO(api: ApiLessonDetail): LessonDetail {
     userLevel: api.user_level as 'beginner' | 'intermediate' | 'advanced',
     learningObjectives: api.learning_objectives,
     keyConcepts: api.key_concepts,
-    components: api.components,
-    componentCount: api.component_count,
+    didacticSnippet: api.didactic_snippet,
+    exercises: api.exercises,
+    glossaryTerms: api.glossary_terms,
+    exerciseCount: api.exercise_count,
     createdAt: api.created_at,
     estimatedDuration,
     isReadyForLearning,
@@ -194,7 +200,7 @@ export function toLessonDetailDTO(api: ApiLessonDetail): LessonDetail {
     durationDisplay: formatDuration(estimatedDuration),
     readinessStatus: formatReadinessStatus(
       isReadyForLearning,
-      api.component_count
+      api.exercise_count
     ),
     tags: api.key_concepts.slice(0, 3),
   };

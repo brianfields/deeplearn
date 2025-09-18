@@ -91,10 +91,9 @@ describe('Learning Session Module', () => {
         const mockLessonDetail = {
           id: 'topic-1',
           title: 'Test Topic',
-          components: [
-            { id: 'comp-1', component_type: 'mcq', content: {} },
-            { id: 'comp-2', component_type: 'didactic_snippet', content: {} },
-          ],
+          didacticSnippet: { id: 'd1', plain_explanation: '...' },
+          exercises: [{ id: 'mcq-1', exercise_type: 'mcq', stem: 'Q?' }],
+          glossaryTerms: [],
         };
 
         const mockApiSession = {
@@ -262,7 +261,9 @@ describe('Learning Session Module', () => {
         const mockLessonDetail = {
           id: 'topic-1',
           title: 'Test Topic',
-          components: [],
+          didacticSnippet: { id: 'd1', plain_explanation: '...' },
+          exercises: [],
+          glossaryTerms: [],
         };
 
         mockLessonCatalogProvider.getLessonDetail.mockResolvedValue(

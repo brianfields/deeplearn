@@ -70,8 +70,8 @@ class TestLessonCatalogService:
         assert len(result.lessons) == 2
         assert result.total == 2
         assert result.lessons[0].id == "lesson-1"
-        assert result.lessons[0].component_count == 3  # 1 didactic + 1 exercise + 1 glossary term
-        assert result.lessons[1].component_count == 1  # 1 didactic snippet only
+        assert result.lessons[0].exercise_count == 1  # exercises only
+        assert result.lessons[1].exercise_count == 0  # no exercises
 
         content.search_lessons.assert_called_once_with(user_level="beginner", limit=10)
 
@@ -109,9 +109,8 @@ class TestLessonCatalogService:
         assert result is not None
         assert result.id == "lesson-1"
         assert result.title == "Lesson 1"
-        assert result.component_count == 3  # 1 didactic + 1 exercise + 1 glossary term
-        assert len(result.components) == 3
-        assert result.is_ready_for_learning() is True
+        assert result.exercise_count == 1  # exercises only
+        assert len(result.exercises) == 1
 
         content.get_lesson.assert_called_once_with("lesson-1")
 
@@ -132,7 +131,7 @@ class TestLessonCatalogService:
     def test_lesson_summary_matches_user_level(self) -> None:
         """Test LessonSummary.matches_user_level method."""
         # Arrange
-        summary = LessonSummary(id="test-id", title="Test Lesson", core_concept="Test Concept", user_level="beginner", learning_objectives=["Learn X"], key_concepts=["Key X"], component_count=1)
+        summary = LessonSummary(id="test-id", title="Test Lesson", core_concept="Test Concept", user_level="beginner", learning_objectives=["Learn X"], key_concepts=["Key X"], exercise_count=1)
 
         # Act & Assert
         assert summary.matches_user_level("beginner") is True
@@ -141,27 +140,39 @@ class TestLessonCatalogService:
     def test_lesson_detail_is_ready_for_learning(self) -> None:
         """Test LessonDetail.is_ready_for_learning method."""
         # Arrange
-        # Lesson with components
-        detail_with_components = LessonDetail(
+        # Lesson with exercises
+        detail_with_exercises = LessonDetail(
             id="test-id",
             title="Test Lesson",
             core_concept="Test Concept",
             user_level="beginner",
             learning_objectives=["Learn X"],
             key_concepts=["Key X"],
-            components=[{"type": "mcq", "content": "test"}],
+            didactic_snippet={"id": "d1", "plain_explanation": "..."},
+            exercises=[{"exercise_type": "mcq", "stem": "test"}],
+            glossary_terms=[],
             created_at="2024-01-01T00:00:00",
-            component_count=1,
+            exercise_count=1,
         )
 
-        # Lesson without components
-        detail_without_components = LessonDetail(
-            id="test-id-2", title="Test Lesson 2", core_concept="Test Concept 2", user_level="beginner", learning_objectives=["Learn Y"], key_concepts=["Key Y"], components=[], created_at="2024-01-01T00:00:00", component_count=0
+        # Lesson without exercises
+        detail_without_exercises = LessonDetail(
+            id="test-id-2",
+            title="Test Lesson 2",
+            core_concept="Test Concept 2",
+            user_level="beginner",
+            learning_objectives=["Learn Y"],
+            key_concepts=["Key Y"],
+            didactic_snippet={"id": "d2", "plain_explanation": "..."},
+            exercises=[],
+            glossary_terms=[],
+            created_at="2024-01-01T00:00:00",
+            exercise_count=0,
         )
 
-        # Act & Assert
-        assert detail_with_components.is_ready_for_learning() is True
-        assert detail_without_components.is_ready_for_learning() is False
+        # Act & Assert (ready means has at least one exercise)
+        assert detail_with_exercises.is_ready_for_learning() is True
+        assert detail_without_exercises.is_ready_for_learning() is False
 
     def test_search_lessons_with_query(self) -> None:
         """Test that search_lessons filters by query."""
@@ -254,5 +265,5 @@ class TestLessonCatalogService:
         assert result.total_lessons == 2
         assert result.lessons_by_user_level["beginner"] == 1
         assert result.lessons_by_user_level["intermediate"] == 1
-        assert result.lessons_by_readiness["ready"] == 2  # Both lessons have components (didactic snippets)
-        assert result.lessons_by_readiness["draft"] == 0  # No lessons without components
+        assert result.lessons_by_readiness["ready"] == 1  # Only lessons with exercises are ready
+        assert result.lessons_by_readiness["draft"] == 1

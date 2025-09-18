@@ -179,7 +179,7 @@ class TestLearningSessionService:
             id="session-123",
             lesson_id="test-lesson",
             status=SessionStatus.ACTIVE.value,
-            current_exercise_index=2,  # Past didactic (index 0) and completed 2 exercises (indices 1-2)
+            current_exercise_index=2,  # Completed 2 exercises
             total_exercises=2,
             exercises_completed=2,
             exercises_correct=2,

@@ -24,7 +24,7 @@ interface ApiBrowseLessonsResponse {
     user_level: string;
     learning_objectives: string[];
     key_concepts: string[];
-    component_count: number;
+    exercise_count: number;
   }>;
   total: number;
 }
@@ -36,9 +36,11 @@ interface ApiLessonDetail {
   user_level: string;
   learning_objectives: string[];
   key_concepts: string[];
-  components: any[];
+  didactic_snippet: any;
+  exercises: any[];
+  glossary_terms: any[];
   created_at: string;
-  component_count: number;
+  exercise_count: number;
 }
 
 export class LessonCatalogRepo {
@@ -157,7 +159,7 @@ export class LessonCatalogRepo {
           user_level: string;
           learning_objectives: string[];
           key_concepts: string[];
-          component_count: number;
+          exercise_count: number;
         }>
       >(endpoint, {
         method: 'GET',
