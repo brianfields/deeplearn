@@ -89,7 +89,7 @@ def run(
 
 
 def headed(prompt_text: str, model: str, dry_run: bool = False) -> int:
-    return run(["cursor-agent", model, prompt_text], dry_run=dry_run)
+    return run(["cursor-agent", "--model", model, prompt_text], dry_run=dry_run)
 
 
 def headless(
@@ -103,6 +103,7 @@ def headless(
     cmd = [
         "cursor-agent",
         "-p",
+        "--model",
         model,
         "--output-format",
         "stream-json" if stream else "text",

@@ -29,6 +29,7 @@ Phased approach (interactive):
        - Keep it flat and implementable; each item should be a meaningful step
        - Include both backend and frontend tasks; group with simple headings if helpful
      - Keep the test creation minimal: use unit tests for complex behavior on both backend and frontend. No integration tests.
+     - Make sure 'create_seed_data.py' is updated to create the seed data for the new features, if relevant.
      - We do not need to worry about backward compatibility as we have yet to deploy the application. We can reset the database and start fresh.
    - Present the spec and ask the user if any changes are needed. Iterate if requested.
 

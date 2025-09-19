@@ -16,4 +16,4 @@ Instructions:
 - Stop when either all tasks are complete or there is nothing you can confidently check off.
 
 Output format:
-- Do not explain. Just make edits to the repository and update {SPEC_PATH}.
+- Do not explain, but do note to the user what task you are working on and when you complete it so that they know what you are working on. Remember to also mark the task as complete in {SPEC_PATH} when it is complete.
