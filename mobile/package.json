@@ -17,7 +17,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "e2e:maestro": "maestro test e2e/learning-flow.yaml",
+    "e2e:maestro": "export _JAVA_OPTIONS=\"--enable-native-access=ALL-UNNAMED\" && open -a Simulator && sleep 10 && maestro test e2e/learning-flow.yaml",
     "e2e:setup": "echo 'Start backend: cd ../backend && python3 server.py' && echo 'Start app: npx expo start --ios'",
     "e2e:studio": "maestro studio"
   },

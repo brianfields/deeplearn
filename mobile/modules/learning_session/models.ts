@@ -96,6 +96,43 @@ export interface SessionResults {
   readonly performanceSummary: string; // Calculated summary
 }
 
+// ================================
+// Unit Progress DTOs
+// ================================
+
+export interface UnitLessonProgress {
+  readonly lessonId: string;
+  readonly totalExercises: number;
+  readonly completedExercises: number;
+  readonly correctExercises: number;
+  readonly progressPercentage: number; // 0-100
+  readonly lastActivityAt?: string | null;
+}
+
+export interface UnitProgress {
+  readonly unitId: string;
+  readonly totalLessons: number;
+  readonly lessonsCompleted: number;
+  readonly progressPercentage: number; // average of lesson progress (0-100)
+  readonly lessons: UnitLessonProgress[];
+}
+
+// ================================
+// Unit Session DTOs
+// ================================
+
+export interface UnitSession {
+  readonly unitId: string;
+  readonly userId: string;
+  readonly status: 'active' | 'completed' | 'paused' | 'abandoned';
+  readonly startedAt: string;
+  readonly completedAt?: string | null;
+  readonly updatedAt: string;
+  readonly progressPercentage: number; // 0-100
+  readonly lastLessonId?: string | null;
+  readonly completedLessonIds: string[];
+}
+
 export interface ExerciseState {
   readonly id: string;
   readonly type: 'mcq' | 'short_answer' | 'coding';

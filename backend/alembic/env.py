@@ -34,9 +34,9 @@ try:
     # Import the main Base class
     # Import all model modules to register them with the Base metadata
     # This ensures all tables are included in migrations
-    from modules.content.models import LessonModel  # noqa: F401
+    from modules.content.models import LessonModel, UnitModel  # noqa: F401
     from modules.flow_engine.models import FlowRunModel, FlowStepRunModel  # noqa: F401
-    from modules.learning_session.models import LearningSessionModel  # noqa: F401
+    from modules.learning_session.models import LearningSessionModel, UnitSessionModel  # noqa: F401
     from modules.llm_services.models import LLMRequestModel  # noqa: F401
     from modules.shared_models import Base
 

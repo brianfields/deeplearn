@@ -65,6 +65,14 @@ class SessionProgress:
     exercises_correct: int
     progress_percentage: float
     exercise_answers: dict[str, Any]  # exercise_id -> answer details
+    exercise_id: str  # The exercise that was just updated
+    exercise_type: str
+    time_spent_seconds: int
+    attempts: int
+    started_at: str
+    completed_at: str | None
+    is_correct: bool | None
+    user_answer: Any | None
 
 
 @dataclass
@@ -80,6 +88,29 @@ class SessionResults:
     completion_percentage: float
     score_percentage: float
     achievements: list[str]
+
+
+@dataclass
+class UnitLessonProgress:
+    """Per-lesson progress within a unit for a user."""
+
+    lesson_id: str
+    total_exercises: int
+    completed_exercises: int
+    correct_exercises: int
+    progress_percentage: float
+    last_activity_at: str | None
+
+
+@dataclass
+class UnitProgress:
+    """Aggregated unit progress for a user across lessons."""
+
+    unit_id: str
+    total_lessons: int
+    lessons_completed: int
+    progress_percentage: float
+    lessons: list[UnitLessonProgress]
 
 
 @dataclass
@@ -160,6 +191,18 @@ class LearningSessionService:
             total_exercises=total_exercises,
         )
 
+        # If user and unit context exist, ensure a unit session is created
+        try:
+            if request.user_id:
+                # Determine unit for this lesson using the lesson_content we already fetched
+                unit_id = getattr(lesson_content, "unit_id", None) if lesson_content else None
+                if unit_id:
+                    # Ensure unit session exists
+                    self.content.get_or_create_unit_session(user_id=request.user_id, unit_id=unit_id)
+        except Exception as _e:
+            # Non-fatal; proceed even if unit session cannot be created
+            pass
+
         return self._to_session_dto(session)
 
     async def get_session(self, session_id: str) -> LearningSession | None:
@@ -176,7 +219,7 @@ class LearningSessionService:
             return None
         return self._to_session_dto(session)
 
-    async def update_progress(self, request: UpdateProgressRequest) -> ExerciseProgress:
+    async def update_progress(self, request: UpdateProgressRequest) -> SessionProgress:
         """Update session progress and store exercise results"""
         # Get session to validate it exists and is active
         session = self.repo.get_session_by_id(request.session_id)
@@ -191,17 +234,19 @@ class LearningSessionService:
         exercise_answers = session_data.get("exercise_answers", {})
 
         # Store this exercise's result
+        existing = exercise_answers.get(request.exercise_id, {})
         exercise_answers[request.exercise_id] = {
             "exercise_type": request.exercise_type,
             "is_correct": request.is_correct,
             "user_answer": request.user_answer,
             "time_spent_seconds": request.time_spent_seconds,
             "completed_at": datetime.utcnow().isoformat(),
-            "attempts": exercise_answers.get(request.exercise_id, {}).get("attempts", 0) + 1,
+            "attempts": existing.get("attempts", 0) + 1,
+            "started_at": existing.get("started_at", datetime.utcnow().isoformat()),
         }
 
-        session_data["exercise_answers"] = exercise_answers  # type: ignore
-        session_data["total_time_seconds"] = session_data.get("total_time_seconds", 0) + request.time_spent_seconds  # type: ignore
+        session_data["exercise_answers"] = exercise_answers
+        session_data["total_time_seconds"] = session_data.get("total_time_seconds", 0) + request.time_spent_seconds
 
         # Validate exercise type
         valid_exercise_types = ["mcq", "short_answer", "coding"]
@@ -209,7 +254,7 @@ class LearningSessionService:
             raise ValueError(f"Invalid exercise type: {request.exercise_type}. Must be one of {valid_exercise_types}")
 
         # Update session progress based on exercise type
-        updates = {}
+        updates: dict[str, Any] = {}
         if request.exercise_type in valid_exercise_types:
             # Update exercise progress
             exercise_not_completed = request.exercise_id not in [k for k, v in exercise_answers.items() if v.get("completed_at") and k != request.exercise_id]
@@ -228,23 +273,30 @@ class LearningSessionService:
         completed_exercises = updates.get("exercises_completed", session.exercises_completed or 0)
         progress_percentage = (completed_exercises / total_exercises * 100) if total_exercises > 0 else 0
 
-        updates["progress_percentage"] = min(progress_percentage, 100)
+        updates["progress_percentage"] = int(min(progress_percentage, 100))
         updates["session_data"] = session_data
 
         # Update session in database
         self.repo.update_session_progress(session_id=request.session_id, **updates)
 
-        # Return exercise progress response
-        return ExerciseProgress(
+        # Return session progress response
+        return SessionProgress(
             session_id=request.session_id,
+            lesson_id=session.lesson_id,
+            current_exercise_index=updates.get("current_exercise_index", session.current_exercise_index or 0),
+            total_exercises=session.total_exercises or 0,
+            exercises_completed=updates.get("exercises_completed", session.exercises_completed or 0),
+            exercises_correct=updates.get("exercises_correct", session.exercises_correct or 0),
+            progress_percentage=updates["progress_percentage"],
+            exercise_answers=exercise_answers,
             exercise_id=request.exercise_id,
             exercise_type=request.exercise_type,
-            started_at=datetime.utcnow().isoformat(),
-            completed_at=datetime.utcnow().isoformat(),
-            is_correct=request.is_correct,
-            user_answer=request.user_answer,
             time_spent_seconds=request.time_spent_seconds,
             attempts=exercise_answers[request.exercise_id]["attempts"],
+            started_at=exercise_answers[request.exercise_id]["started_at"],
+            completed_at=exercise_answers[request.exercise_id]["completed_at"],
+            is_correct=request.is_correct,
+            user_answer=request.user_answer,
         )
 
     async def complete_session(self, request: CompleteSessionRequest) -> SessionResults:
@@ -267,7 +319,134 @@ class LearningSessionService:
         if not completed_session:
             raise ValueError("Failed to complete session")
 
-        return self._calculate_session_results(completed_session)
+        results = self._calculate_session_results(completed_session)
+
+        # Update unit session progress if user and unit context available
+        try:
+            if completed_session.user_id:
+                # Fetch lesson and unit to update unit session state
+                lesson = self.content.get_lesson(completed_session.lesson_id)
+                unit_id = getattr(lesson, "unit_id", None) if lesson else None
+                if unit_id:
+                    # Determine total lessons in unit for percentage calculation
+                    lessons_in_unit = self.content.get_lessons_by_unit(unit_id)
+                    total_lessons = len(lessons_in_unit)
+                    # Compute if completing this lesson finishes the unit
+                    try:
+                        us = self.content.get_or_create_unit_session(user_id=completed_session.user_id, unit_id=unit_id)
+                        already_completed = set(us.completed_lesson_ids or [])
+                    except Exception:
+                        already_completed = set()
+                    will_be_completed = len(already_completed | {completed_session.lesson_id}) >= total_lessons and total_lessons > 0
+
+                    self.content.update_unit_session_progress(
+                        user_id=completed_session.user_id,
+                        unit_id=unit_id,
+                        completed_lesson_id=completed_session.lesson_id,
+                        total_lessons=total_lessons,
+                        mark_completed=will_be_completed,
+                    )
+        except Exception as _e:
+            # Non-fatal; unit session updates should not break session completion
+            pass
+
+        return results
+
+    async def get_unit_progress(self, user_id: str, unit_id: str) -> UnitProgress:
+        """Get unit progress primarily from persistent unit session, fallback to aggregation."""
+        # Try persistent unit session
+        unit = self.lesson_catalog.get_unit_details(unit_id)
+        lessons = self.content.get_lessons_by_unit(unit_id)
+        total_lessons = len(lessons)
+
+        # Fallback aggregation list for lesson-level stats
+        lesson_progress_list: list[UnitLessonProgress] = []
+        lessons_completed = 0
+
+        # Build lesson-level details from latest sessions
+        for lesson in lessons:
+            sessions, _ = self.repo.get_user_sessions(user_id=user_id, lesson_id=lesson.id, limit=1, offset=0)
+            if sessions:
+                s = sessions[0]
+                total_exercises = len(lesson.package.exercises)
+                completed_exercises = s.exercises_completed or 0
+                correct_exercises = s.exercises_correct or 0
+                progress_percentage = min(
+                    (completed_exercises / total_exercises * 100) if total_exercises > 0 else 0.0,
+                    100.0,
+                )
+                last_activity_at = (s.completed_at or s.started_at).isoformat() if (s.completed_at or s.started_at) else None
+                if progress_percentage >= 100.0:
+                    lessons_completed += 1
+            else:
+                total_exercises = len(lesson.package.exercises)
+                completed_exercises = 0
+                correct_exercises = 0
+                progress_percentage = 0.0
+                last_activity_at = None
+
+            lesson_progress_list.append(
+                UnitLessonProgress(
+                    lesson_id=lesson.id,
+                    total_exercises=total_exercises,
+                    completed_exercises=completed_exercises,
+                    correct_exercises=correct_exercises,
+                    progress_percentage=progress_percentage,
+                    last_activity_at=last_activity_at,
+                )
+            )
+
+        # Try persistent session
+        try:
+            us = self.content.get_or_create_unit_session(user_id=user_id, unit_id=unit_id)
+            avg_progress = us.progress_percentage if us else sum(lp.progress_percentage for lp in lesson_progress_list) / total_lessons if total_lessons > 0 else 0.0
+        except Exception:
+            avg_progress = sum(lp.progress_percentage for lp in lesson_progress_list) / total_lessons if total_lessons > 0 else 0.0
+
+        return UnitProgress(
+            unit_id=unit_id,
+            total_lessons=total_lessons,
+            lessons_completed=lessons_completed,
+            progress_percentage=avg_progress,
+            lessons=lesson_progress_list,
+        )
+
+    def _unit_all_lessons_completed(self, user_id: str, unit_id: str, total_lessons: int) -> bool:
+        """Check if all lessons in a unit are completed for a user based on unit session."""
+        try:
+            us = self.content.get_or_create_unit_session(user_id=user_id, unit_id=unit_id)
+            return len(us.completed_lesson_ids or []) >= total_lessons and total_lessons > 0
+        except Exception:
+            return False
+
+    async def get_next_lesson_to_resume(self, user_id: str, unit_id: str) -> str | None:
+        """Return next incomplete lesson id within a unit for resuming learning."""
+        unit_detail = self.lesson_catalog.get_unit_details(unit_id)
+        if not unit_detail:
+            return None
+        try:
+            us = self.content.get_or_create_unit_session(user_id=user_id, unit_id=unit_id)
+            completed = set(us.completed_lesson_ids or [])
+        except Exception:
+            completed = set()
+
+        # Prefer configured order
+        for lid in list(unit_detail.lesson_order or []):
+            if lid not in completed:
+                return lid
+        # Fallback to first lesson not completed
+        for lesson in unit_detail.lessons:
+            if lesson.id not in completed:
+                return lesson.id
+        return None
+
+    async def get_units_progress_overview(self, user_id: str, limit: int = 100, offset: int = 0) -> list[UnitProgress]:
+        """Get progress overview for multiple units using the catalog's unit browsing."""
+        units = self.lesson_catalog.browse_units(limit=limit, offset=offset)
+        results: list[UnitProgress] = []
+        for u in units:
+            results.append(await self.get_unit_progress(user_id=user_id, unit_id=u.id))
+        return results
 
     async def get_user_sessions(
         self,
@@ -300,16 +479,16 @@ class LearningSessionService:
     def _to_session_dto(self, session: LearningSessionModel) -> LearningSession:
         """Convert session model to DTO"""
         return LearningSession(
-            id=session.id,  # type: ignore
-            lesson_id=session.lesson_id,  # type: ignore
-            user_id=session.user_id,  # type: ignore
-            status=session.status,  # type: ignore
+            id=session.id,
+            lesson_id=session.lesson_id,
+            user_id=session.user_id,
+            status=session.status,
             started_at=session.started_at.isoformat() if session.started_at else "",
-            completed_at=session.completed_at.isoformat() if session.completed_at else None,  # type: ignore
-            current_exercise_index=session.current_exercise_index,  # type: ignore
-            total_exercises=session.total_exercises,  # type: ignore
-            progress_percentage=session.progress_percentage,  # type: ignore
-            session_data=session.session_data or {},  # type: ignore
+            completed_at=session.completed_at.isoformat() if session.completed_at else None,
+            current_exercise_index=session.current_exercise_index,
+            total_exercises=session.total_exercises,
+            progress_percentage=session.progress_percentage,
+            session_data=session.session_data or {},
         )
 
     def _calculate_session_results(self, session: LearningSessionModel) -> SessionResults:
@@ -348,13 +527,13 @@ class LearningSessionService:
             achievements.append("Well Done")
 
         return SessionResults(
-            session_id=session.id,  # type: ignore
-            lesson_id=session.lesson_id,  # type: ignore
-            total_exercises=total_exercises,  # type: ignore
-            completed_exercises=completed_exercises,  # type: ignore
-            correct_exercises=correct_exercises,  # type: ignore
+            session_id=session.id,
+            lesson_id=session.lesson_id,
+            total_exercises=total_exercises,
+            completed_exercises=completed_exercises,
+            correct_exercises=correct_exercises,
             total_time_seconds=session_data.get("total_time_seconds", 0),
-            completion_percentage=completion_percentage,  # type: ignore
-            score_percentage=score_percentage,  # type: ignore
+            completion_percentage=completion_percentage,
+            score_percentage=score_percentage,
             achievements=achievements,
         )

@@ -49,6 +49,7 @@ import { uiSystemProvider } from '../../ui_system/public';
 
 // Hooks
 import { useStartSession } from '../queries';
+import { unitsProvider } from '../../units/public';
 
 // Types
 import type { LearningStackParamList } from '../../../types';
@@ -61,6 +62,7 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
   const { lesson } = route.params;
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [unitTitle, setUnitTitle] = useState<string | null>(null);
 
   const uiSystem = uiSystemProvider();
   const theme = uiSystem.getCurrentTheme();
@@ -113,6 +115,30 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lesson.id, sessionId]);
 
+  // Lookup unit context for this lesson (best-effort)
+  useEffect(() => {
+    let cancelled = false;
+    setUnitTitle(null);
+    (async () => {
+      try {
+        const units = unitsProvider();
+        const list = await units.list({ limit: 100, offset: 0 });
+        for (const u of list) {
+          const detail = await units.detail(u.id);
+          if (detail && detail.lessons.some(l => l.id === lesson.id)) {
+            if (!cancelled) setUnitTitle(detail.title);
+            break;
+          }
+        }
+      } catch {
+        // ignore; unit context is optional
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [lesson.id]);
+
   const handleComplete = (results: SessionResults) => {
     // Navigate to results screen
     navigation.replace('Results', { results });
@@ -159,6 +185,9 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
         <Text style={styles.loadingText}>
           Starting your learning session...
         </Text>
+        {unitTitle && (
+          <Text style={styles.loadingSubtext}>Unit: {unitTitle}</Text>
+        )}
       </SafeAreaView>
     );
   }
@@ -205,6 +234,9 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
     <SafeAreaView style={styles.loadingContainer}>
       <ActivityIndicator size="large" color={theme.colors?.primary} />
       <Text style={styles.loadingText}>Preparing session...</Text>
+      {unitTitle && (
+        <Text style={styles.loadingSubtext}>Unit: {unitTitle}</Text>
+      )}
     </SafeAreaView>
   );
 }
@@ -225,6 +257,12 @@ const createStyles = (theme: any) =>
       marginTop: 16,
       fontSize: 16,
       color: theme.colors?.text || '#333333',
+      textAlign: 'center',
+    },
+    loadingSubtext: {
+      marginTop: 8,
+      fontSize: 14,
+      color: theme.colors?.textSecondary || '#666666',
       textAlign: 'center',
     },
     errorContainer: {

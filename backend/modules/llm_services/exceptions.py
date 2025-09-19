@@ -1,5 +1,7 @@
 """LLM-specific exceptions."""
 
+from typing import Any
+
 __all__ = [
     "LLMAuthenticationError",
     "LLMError",
@@ -28,7 +30,7 @@ class LLMAuthenticationError(LLMError):
 class LLMRateLimitError(LLMError):
     """Raised when LLM provider rate limits are exceeded"""
 
-    def __init__(self, message: str, retry_after: int | None = None, **kwargs) -> None:
+    def __init__(self, message: str, retry_after: int | None = None, **kwargs: Any) -> None:
         super().__init__(message, **kwargs)
         self.retry_after = retry_after
 
@@ -48,6 +50,6 @@ class LLMValidationError(LLMError):
 class LLMProviderError(LLMError):
     """Raised when LLM provider returns an error"""
 
-    def __init__(self, message: str, error_code: str | None = None, **kwargs) -> None:
+    def __init__(self, message: str, error_code: str | None = None, **kwargs: Any) -> None:
         super().__init__(message, **kwargs)
         self.error_code = error_code

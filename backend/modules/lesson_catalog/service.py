@@ -6,6 +6,7 @@ Uses content module for data access.
 """
 
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -38,9 +39,9 @@ class LessonDetail(BaseModel):
     user_level: str
     learning_objectives: list[str]
     key_concepts: list[str]
-    didactic_snippet: dict
-    exercises: list[dict]
-    glossary_terms: list[dict]
+    didactic_snippet: dict[str, Any]
+    exercises: list[dict[str, Any]]
+    glossary_terms: list[dict[str, Any]]
     created_at: str
     exercise_count: int
 
@@ -82,12 +83,34 @@ class RefreshCatalogResponse(BaseModel):
     timestamp: str
 
 
+class UnitSummary(BaseModel):
+    """DTO for unit summary in browsing lists."""
+
+    id: str
+    title: str
+    description: str | None = None
+    difficulty: str
+    lesson_count: int
+
+
+class UnitDetail(BaseModel):
+    """DTO for unit details with aggregated lessons."""
+
+    id: str
+    title: str
+    description: str | None = None
+    difficulty: str
+    lesson_order: list[str]
+    lessons: list["LessonSummary"]
+
+
 class LessonCatalogService:
     """Service for lesson catalog operations."""
 
-    def __init__(self, content: ContentProvider) -> None:
-        """Initialize with content provider."""
+    def __init__(self, content: ContentProvider, units: ContentProvider) -> None:
+        """Initialize with content and units providers."""
         self.content = content
+        self.units = units
 
     def browse_lessons(self, user_level: str | None = None, limit: int = 100) -> BrowseLessonsResponse:
         """
@@ -310,7 +333,7 @@ class LessonCatalogService:
         total_lessons = len(all_lessons)
 
         # Group by user level
-        lessons_by_user_level = {}
+        lessons_by_user_level: dict[str, int] = {}
         for lesson in all_lessons:
             level = lesson.user_level
             lessons_by_user_level[level] = lessons_by_user_level.get(level, 0) + 1
@@ -369,4 +392,71 @@ class LessonCatalogService:
             refreshed_lessons=len(all_lessons),
             total_lessons=len(all_lessons),
             timestamp=datetime.now().isoformat(),
+        )
+
+    # ================================
+    # Unit browsing & aggregation
+    # ================================
+
+    def browse_units(self, limit: int = 100, offset: int = 0) -> list[UnitSummary]:
+        """Browse units with simple metadata and lesson counts."""
+        units = self.units.list_units(limit=limit, offset=offset)
+        summaries: list[UnitSummary] = []
+        for u in units:
+            # Prefer configured order length; fallback to query count if empty
+            lesson_count = len(u.lesson_order) if getattr(u, "lesson_order", None) else len(self.content.get_lessons_by_unit(u.id))
+            summaries.append(
+                UnitSummary(
+                    id=u.id,
+                    title=u.title,
+                    description=u.description,
+                    difficulty=u.difficulty,
+                    lesson_count=lesson_count,
+                )
+            )
+        return summaries
+
+    def get_unit_details(self, unit_id: str) -> UnitDetail | None:
+        """Get unit details with ordered aggregated lesson summaries."""
+        unit = self.units.get_unit(unit_id)
+        if not unit:
+            return None
+
+        # Fetch lessons for unit and convert to LessonSummary
+        lessons = self.content.get_lessons_by_unit(unit_id)
+        lesson_summaries: dict[str, LessonSummary] = {}
+        for lesson in lessons:
+            objectives = [obj.text for obj in lesson.package.objectives]
+            exercise_count = len(lesson.package.exercises)
+            lesson_summaries[lesson.id] = LessonSummary(
+                id=lesson.id,
+                title=lesson.title,
+                core_concept=lesson.core_concept,
+                user_level=lesson.user_level,
+                learning_objectives=objectives,
+                key_concepts=[],
+                exercise_count=exercise_count,
+            )
+
+        # Order lessons according to unit.lesson_order; append any extras at the end
+        ordered_ids = list(unit.lesson_order or [])
+        ordered_lessons: list[LessonSummary] = []
+        seen: set[str] = set()
+        for lid in ordered_ids:
+            if lid in lesson_summaries:
+                ordered_lessons.append(lesson_summaries[lid])
+                seen.add(lid)
+
+        # Append lessons that are part of the unit but not in the order list
+        for lid, summary in lesson_summaries.items():
+            if lid not in seen:
+                ordered_lessons.append(summary)
+
+        return UnitDetail(
+            id=unit.id,
+            title=unit.title,
+            description=unit.description,
+            difficulty=unit.difficulty,
+            lesson_order=ordered_ids,
+            lessons=ordered_lessons,
         )

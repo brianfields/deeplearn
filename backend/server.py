@@ -29,6 +29,8 @@ from modules.infrastructure.exception_handlers import (
 from modules.infrastructure.public import DatabaseSession, infrastructure_provider
 from modules.learning_session.routes import router as learning_session_router
 from modules.lesson_catalog.routes import router as lesson_catalog_router
+# Units are consolidated under content; keep units routes shim if needed
+from modules.units.routes import router as units_router
 
 
 # Configure enhanced logging
@@ -102,6 +104,7 @@ setup_error_middleware(app)
 app.include_router(content_creator_router, tags=["Content Creation"])
 app.include_router(learning_session_router, tags=["Learning Sessions"])
 app.include_router(lesson_catalog_router, tags=["Lesson Catalog"])
+app.include_router(units_router, tags=["Units"])  # Units module
 app.include_router(admin_router, tags=["Admin"])
 app.include_router(debug_router, tags=["Debug"])  # Only active in DEBUG mode
 

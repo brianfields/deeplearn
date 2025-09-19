@@ -8,7 +8,7 @@ import { jest } from '@jest/globals';
 
 // Mock dependencies
 jest.mock('../infrastructure/public');
-jest.mock('../lesson_catalog/public');
+jest.mock('../unit_catalog/public');
 
 import { LearningSessionService } from './service';
 import { LearningSessionRepo } from './repo';
@@ -37,7 +37,7 @@ const mockInfrastructureProvider = {
 // Mock the providers
 jest
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  .mocked(require('../lesson_catalog/public').lessonCatalogProvider)
+  .mocked(require('../unit_catalog/public').lessonCatalogProvider)
   .mockReturnValue(mockLessonCatalogProvider);
 jest
   // eslint-disable-next-line @typescript-eslint/no-require-imports

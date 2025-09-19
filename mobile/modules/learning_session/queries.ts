@@ -34,6 +34,10 @@ export const learningSessionKeys = {
   canStart: (lessonId: string, userId?: string) =>
     ['learning_session', 'can_start', lessonId, userId] as const,
   health: () => ['learning_session', 'health'] as const,
+  unitProgress: (userId: string, unitId: string) =>
+    ['learning_session', 'unit_progress', userId, unitId] as const,
+  nextLessonToResume: (userId: string, unitId: string) =>
+    ['learning_session', 'next_resume', userId, unitId] as const,
 };
 
 /**
@@ -266,6 +270,43 @@ export function useLearningSessionHealth() {
     queryFn: () => learningSession.checkHealth(),
     staleTime: 60 * 1000, // 1 minute
     refetchInterval: 5 * 60 * 1000, // Check every 5 minutes
+    refetchOnWindowFocus: false,
+  });
+}
+
+/**
+ * Get aggregated unit progress for a user
+ */
+export function useUnitProgress(
+  userId: string,
+  unitId: string,
+  options?: {
+    enabled?: boolean;
+    staleTime?: number;
+  }
+) {
+  return useQuery({
+    queryKey: learningSessionKeys.unitProgress(userId, unitId),
+    queryFn: () => learningSession.getUnitProgress(userId, unitId),
+    enabled: options?.enabled ?? (!!userId && !!unitId),
+    staleTime: options?.staleTime ?? 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+/**
+ * Get next lesson to resume within a unit
+ */
+export function useNextLessonToResume(
+  userId: string,
+  unitId: string,
+  options?: { enabled?: boolean; staleTime?: number }
+) {
+  return useQuery({
+    queryKey: learningSessionKeys.nextLessonToResume(userId, unitId),
+    queryFn: () => learningSession.getNextLessonToResume(userId, unitId),
+    enabled: options?.enabled ?? (!!userId && !!unitId),
+    staleTime: options?.staleTime ?? 60 * 1000,
     refetchOnWindowFocus: false,
   });
 }

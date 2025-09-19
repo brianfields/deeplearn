@@ -4,7 +4,8 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 import functools
 import logging
-from typing import Any
+from typing import Any, cast
+import uuid
 
 from pydantic import BaseModel
 
@@ -29,7 +30,7 @@ def flow_execution(func: Callable[..., Any]) -> Callable[..., Any]:
     """
 
     @functools.wraps(func)
-    async def wrapper(self, *args: Any, **kwargs: FlowExecutionKwargs) -> Any:  # type: ignore[no-untyped-def]  # noqa: ANN001,ANN401
+    async def wrapper(self: Any, *args: Any, **kwargs: FlowExecutionKwargs) -> Any:
         # Get infrastructure service
         infra = infrastructure_provider()
         infra.initialize()
@@ -41,7 +42,7 @@ def flow_execution(func: Callable[..., Any]) -> Callable[..., Any]:
 
             # Create flow run record
             inputs = args[0] if args else {}
-            user_id = kwargs.get("user_id")
+            user_id = cast(uuid.UUID | None, kwargs.get("user_id"))
 
             logger.info(f"🚀 Starting flow: {self.flow_name}")
             logger.debug(f"Flow inputs: {list(inputs.keys()) if isinstance(inputs, dict) else 'N/A'}")

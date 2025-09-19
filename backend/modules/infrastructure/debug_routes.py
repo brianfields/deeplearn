@@ -42,7 +42,7 @@ if os.getenv("DEBUG", "false").lower() == "true":
         elif error_type == "division":
             # Trigger a ZeroDivisionError
             result = 1 / 0
-            return {"result": result}
+            return {"result": str(result)}
         else:
             raise Exception(f"Path-triggered generic exception: {message}")
 

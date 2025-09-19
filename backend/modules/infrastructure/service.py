@@ -9,7 +9,7 @@ from dataclasses import dataclass
 import os
 from pathlib import Path
 from types import TracebackType
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
@@ -117,7 +117,7 @@ class InfrastructureService:
 
     def __init__(self) -> None:
         self.engine: Engine | None = None
-        self.session_factory: sessionmaker | None = None
+        self.session_factory: sessionmaker[Session] | None = None
         self.database_config = DatabaseConfig()
         self.api_config = APIConfig()
         self.logging_config = LoggingConfig()
@@ -252,7 +252,7 @@ class InfrastructureService:
                 engine_kwargs["pool_recycle"] = self.database_config.pool_recycle
 
             self.engine = create_engine(database_url, **engine_kwargs)
-            self.session_factory = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
+            self.session_factory = sessionmaker(bind=self.engine, autoflush=False, autocommit=False)
 
         except SQLAlchemyError as e:
             raise DatabaseConnectionError(f"Failed to connect to database: {e}") from e
@@ -355,7 +355,7 @@ class InfrastructureService:
         Returns:
             True if debug mode is enabled
         """
-        return self.values.get("debug", False)
+        return cast(bool, self.values.get("debug", False))
 
     def validate_environment(self) -> EnvironmentStatus:
         """
@@ -451,7 +451,7 @@ class DatabaseSessionContext:
     Handles automatic session creation, commit/rollback, and cleanup.
     """
 
-    def __init__(self, session_factory: sessionmaker) -> None:
+    def __init__(self, session_factory: sessionmaker[Session]) -> None:
         """
         Initialize session context.
 

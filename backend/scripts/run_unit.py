@@ -101,8 +101,6 @@ def setup_environment() -> None:
     if not loaded_any:
         print("ℹ️  No .env files found. Using system environment variables only.")
 
-    return loaded_any
-
 
 def find_test_files(module_name: str | None = None) -> list[str]:
     """Find unit test files to run"""

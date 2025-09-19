@@ -6,12 +6,14 @@
  */
 
 import { LearningSessionRepo } from './repo';
-import { lessonCatalogProvider } from '../lesson_catalog/public';
+import { lessonCatalogProvider } from '../unit_catalog/public';
 import { infrastructureProvider } from '../infrastructure/public';
 import type {
   LearningSession,
   SessionProgress,
   SessionResults,
+  UnitProgress,
+  UnitLessonProgress,
   StartSessionRequest,
   UpdateProgressRequest,
   CompleteSessionRequest,
@@ -478,6 +480,120 @@ export class LearningSessionService {
     // In a real implementation, this would check consecutive days
     const completedSessions = sessions.filter(s => s.status === 'completed');
     return Math.min(completedSessions.length, 30); // Cap at 30 day streak
+  }
+
+  /**
+   * Get aggregated unit progress for a user by delegating to backend
+   */
+  async getUnitProgress(userId: string, unitId: string): Promise<UnitProgress> {
+    try {
+      // For now, derive progress using lesson catalog + local heuristics if backend not available
+      const unit = await this.lessonCatalog.getUnitDetail(unitId);
+      if (!unit) {
+        throw new Error('Unit not found');
+      }
+
+      // Compute per-lesson progress approximation using readiness (placeholder until richer data)
+      const lessons: UnitLessonProgress[] = await Promise.all(
+        unit.lessons.map(async l => {
+          // Try to find the latest session for this lesson
+          const { sessions } = await this.getUserSessions(
+            userId,
+            { lessonId: l.id },
+            1,
+            0
+          );
+          const s = sessions[0];
+          const totalExercises = l.componentCount;
+          const completedExercises = s
+            ? Math.round(
+                (s.progressPercentage / 100) *
+                  (s.totalExercises || totalExercises)
+              )
+            : 0;
+          const correctExercises = 0; // Unknown without results; backend provides this
+          const progressPercentage = s
+            ? s.progressPercentage
+            : l.isReadyForLearning
+              ? 0
+              : 0;
+          const lastActivityAt = s?.completedAt || s?.startedAt || null;
+          return {
+            lessonId: l.id,
+            totalExercises,
+            completedExercises,
+            correctExercises,
+            progressPercentage,
+            lastActivityAt,
+          };
+        })
+      );
+
+      const totalLessons = lessons.length;
+      const lessonsCompleted = lessons.filter(
+        lp => lp.progressPercentage >= 100
+      ).length;
+      const avg =
+        totalLessons > 0
+          ? lessons.reduce((sum, lp) => sum + lp.progressPercentage, 0) /
+            totalLessons
+          : 0;
+
+      return {
+        unitId,
+        totalLessons,
+        lessonsCompleted,
+        progressPercentage: avg,
+        lessons,
+      };
+    } catch (error) {
+      throw this.handleServiceError(error, 'Failed to get unit progress');
+    }
+  }
+
+  /**
+   * Get the next lesson to resume within a unit, based on persistent unit session where possible.
+   * Fallback: first lesson in unit that is not 100% complete.
+   */
+  async getNextLessonToResume(
+    userId: string,
+    unitId: string
+  ): Promise<string | null> {
+    try {
+      const unit = await this.lessonCatalog.getUnitDetail(unitId);
+      if (!unit) return null;
+
+      // Prefer explicit order from unit
+      const orderedLessonIds = unit.lessonIds.length
+        ? unit.lessonIds
+        : unit.lessons.map(l => l.id);
+
+      // Look up progress for each lesson (latest session)
+      for (const lessonId of orderedLessonIds) {
+        const { sessions } = await this.getUserSessions(
+          userId,
+          { lessonId },
+          1,
+          0
+        );
+        const s = sessions[0];
+        const total =
+          s?.totalExercises ??
+          unit.lessons.find(l => l.id === lessonId)?.componentCount ??
+          0;
+        const completed = s?.progressPercentage ?? 0;
+        const isDone = total > 0 && Math.round(completed) >= 100;
+        if (!isDone) return lessonId;
+      }
+
+      // If all done, return null
+      return null;
+    } catch (error) {
+      throw this.handleServiceError(
+        error,
+        'Failed to get next lesson to resume'
+      );
+    }
   }
 
   /**

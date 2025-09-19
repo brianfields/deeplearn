@@ -13,6 +13,7 @@ import type {
   LessonsQuery,
   MetricsQuery,
 } from './models';
+import type { UnitDetail } from './models';
 
 const service = new AdminService();
 
@@ -30,6 +31,9 @@ export const adminKeys = {
   lessons: () => [...adminKeys.all, 'lessons'] as const,
   lessonsList: (params?: LessonsQuery) => [...adminKeys.lessons(), 'list', params] as const,
   lessonDetail: (id: string) => [...adminKeys.lessons(), 'detail', id] as const,
+  units: () => [...adminKeys.all, 'units'] as const,
+  unitsList: () => [...adminKeys.units(), 'list'] as const,
+  unitDetail: (id: string) => [...adminKeys.units(), 'detail', id] as const,
   metrics: () => [...adminKeys.all, 'metrics'] as const,
   systemMetrics: (params?: MetricsQuery) => [...adminKeys.metrics(), 'system', params] as const,
   flowMetrics: (params?: MetricsQuery) => [...adminKeys.metrics(), 'flows', params] as const,
@@ -137,5 +141,24 @@ export function useHealthCheck() {
     queryFn: () => service.healthCheck(),
     staleTime: 30 * 1000, // 30 seconds
     retry: 3,
+  });
+}
+
+// ---- Units Hooks ----
+
+export function useUnits() {
+  return useQuery({
+    queryKey: adminKeys.unitsList(),
+    queryFn: () => service.getUnits(),
+    staleTime: 60 * 1000,
+  });
+}
+
+export function useUnit(unitId: string) {
+  return useQuery<UnitDetail | null>({
+    queryKey: adminKeys.unitDetail(unitId),
+    queryFn: () => service.getUnitDetail(unitId),
+    enabled: !!unitId,
+    staleTime: 60 * 1000,
   });
 }

@@ -50,7 +50,7 @@ class ErrorContext:
                         # Fallback to string representation
                         context["body"] = body.decode(errors="replace")
                 else:
-                    context["body"] = None
+                    context["body"] = None  # type: ignore[assignment]
             except Exception as e:
                 context["body"] = f"Error reading body: {e!s}"
 

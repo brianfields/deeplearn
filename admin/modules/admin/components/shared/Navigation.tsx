@@ -31,6 +31,11 @@ const navigationItems = [
     href: '/lessons',
     description: 'Browse lesson catalog and packages',
   },
+  {
+    name: 'Units',
+    href: '/units',
+    description: 'Browse units and their lessons',
+  },
 ];
 
 export function Navigation() {

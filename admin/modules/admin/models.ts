@@ -291,6 +291,74 @@ export interface DailyMetrics {
   unique_users: number;
 }
 
+// ---- Units Types ----
+
+// API wire formats
+export interface ApiUnitSummary {
+  id: string;
+  title: string;
+  description: string | null;
+  difficulty: string;
+  lesson_count: number;
+}
+
+export interface ApiUnitLessonSummary {
+  id: string;
+  title: string;
+  core_concept: string;
+  user_level: string;
+  learning_objectives: string[];
+  key_concepts: string[];
+  exercise_count: number;
+}
+
+export interface ApiUnitDetail {
+  id: string;
+  title: string;
+  description: string | null;
+  difficulty: string;
+  lesson_order: string[];
+  lessons: ApiUnitLessonSummary[];
+}
+
+// Basic unit from /api/v1/units
+export interface ApiUnitBasic {
+  id: string;
+  title: string;
+  description: string | null;
+  difficulty: string;
+  lesson_order: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+// DTOs used by admin UI
+export interface UnitSummary {
+  id: string;
+  title: string;
+  description: string | null;
+  difficulty: string;
+  lesson_count: number;
+}
+
+export interface UnitLessonSummary {
+  id: string;
+  title: string;
+  user_level: string;
+  exercise_count: number;
+}
+
+export interface UnitDetail {
+  id: string;
+  title: string;
+  description: string | null;
+  difficulty: string;
+  lesson_order: string[];
+  lessons: UnitLessonSummary[];
+}
+
+export type LessonToUnitMap = Record<string, { unit_id: string; unit_title: string }>;
+
 // ---- API Wire Types (private to module) ----
 
 export interface ApiFlowRun {

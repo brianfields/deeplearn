@@ -17,6 +17,8 @@ from .service import (
     LessonSummary,
     RefreshCatalogResponse,
     SearchLessonsResponse,
+    UnitDetail,
+    UnitSummary,
 )
 
 
@@ -25,6 +27,8 @@ class LessonCatalogProvider(Protocol):
 
     def browse_lessons(self, user_level: str | None = None, limit: int = 100) -> BrowseLessonsResponse: ...
     def get_lesson_details(self, lesson_id: str) -> LessonDetail | None: ...
+    def browse_units(self, limit: int = 100, offset: int = 0) -> list[UnitSummary]: ...
+    def get_unit_details(self, unit_id: str) -> UnitDetail | None: ...
     def search_lessons(
         self,
         query: str | None = None,
@@ -40,17 +44,18 @@ class LessonCatalogProvider(Protocol):
     def refresh_catalog(self) -> RefreshCatalogResponse: ...
 
 
-def lesson_catalog_provider(content: ContentProvider) -> LessonCatalogProvider:
+def lesson_catalog_provider(content: ContentProvider, units: ContentProvider) -> LessonCatalogProvider:
     """
     Dependency injection provider for lesson catalog services.
 
     Args:
         content: Content service instance (built with same session as caller).
+        units: Units service instance (built with same session as caller).
 
     Returns:
         LessonCatalogService instance that implements the LessonCatalogProvider protocol.
     """
-    return LessonCatalogService(content)
+    return LessonCatalogService(content, units)
 
 
 __all__ = [
@@ -61,5 +66,7 @@ __all__ = [
     "LessonSummary",
     "RefreshCatalogResponse",
     "SearchLessonsResponse",
+    "UnitDetail",
+    "UnitSummary",
     "lesson_catalog_provider",
 ]

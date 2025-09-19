@@ -8,6 +8,8 @@
 
 import Link from 'next/link';
 import { useLesson } from '../../queries';
+import { useEffect, useState } from 'react';
+import { AdminService } from '../../service';
 import { LoadingSpinner } from '../shared/LoadingSpinner';
 import { ErrorMessage } from '../shared/ErrorMessage';
 import { JSONViewer } from '../shared/JSONViewer';
@@ -20,6 +22,15 @@ interface LessonDetailsProps {
 
 export function LessonDetails({ lessonId }: LessonDetailsProps) {
   const { data: lesson, isLoading, error, refetch } = useLesson(lessonId);
+  const [unitRef, setUnitRef] = useState<{ unit_id: string; unit_title: string } | null>(null);
+
+  useEffect(() => {
+    const svc = new AdminService();
+    svc
+      .getLessonToUnitMap()
+      .then((map) => setUnitRef(map[lessonId] ?? null))
+      .catch(() => setUnitRef(null));
+  }, [lessonId]);
 
   if (isLoading) {
     return <LoadingSpinner size="lg" text="Loading lesson details..." />;
@@ -71,6 +82,14 @@ export function LessonDetails({ lessonId }: LessonDetailsProps) {
             <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
               {lesson.user_level}
             </span>
+            {unitRef && (
+              <Link
+                href={`/units/${unitRef.unit_id}`}
+                className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 hover:bg-green-200"
+              >
+                Unit: {unitRef.unit_title}
+              </Link>
+            )}
             {lesson.source_domain && (
               <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
                 {lesson.source_domain}

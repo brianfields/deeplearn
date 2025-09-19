@@ -5,7 +5,7 @@ from enum import Enum
 import logging
 from pathlib import Path
 import time
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 import uuid
 
 from pydantic import BaseModel
@@ -73,7 +73,7 @@ class BaseStep(ABC):
         # Convention: looks for self.Inputs class
         inputs_class = getattr(self, "Inputs", None)
         if inputs_class is not None:
-            return inputs_class
+            return cast(type[BaseModel], inputs_class)
         raise NotImplementedError(f"Step {self.__class__.__name__} must define an Inputs class")
 
     @property
@@ -83,7 +83,7 @@ class BaseStep(ABC):
 
     def _get_llm_config(self) -> dict[str, Any]:
         """Build LLM configuration from step settings."""
-        config = {}
+        config: dict[str, Any] = {}
 
         if self.reasoning_effort:
             config["reasoning"] = {"effort": self.reasoning_effort}

@@ -9,6 +9,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useLessons } from '../../queries';
+import { AdminService } from '../../service';
 import { useLessonFilters, useAdminStore } from '../../store';
 import { LoadingSpinner } from '../shared/LoadingSpinner';
 import { ErrorMessage } from '../shared/ErrorMessage';
@@ -19,6 +20,13 @@ export function LessonsList() {
   const { setLessonFilters } = useAdminStore();
 
   const { data, isLoading, error, refetch } = useLessons(filters);
+  const [lessonUnitMap, setLessonUnitMap] = useState<Record<string, { unit_id: string; unit_title: string }>>({});
+
+  // Fetch a lightweight map of lesson -> unit using units basics endpoint
+  useState(() => {
+    const svc = new AdminService();
+    svc.getLessonToUnitMap().then(setLessonUnitMap).catch(() => setLessonUnitMap({}));
+  });
 
   const handlePageChange = (newPage: number) => {
     setLessonFilters({ page: newPage });
@@ -204,6 +212,11 @@ export function LessonsList() {
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                         {lesson.user_level}
                       </span>
+                      {lessonUnitMap[lesson.id] && (
+                        <Link href={`/units/${lessonUnitMap[lesson.id].unit_id}`} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 hover:bg-green-200">
+                          Unit: {lessonUnitMap[lesson.id].unit_title}
+                        </Link>
+                      )}
                       {lesson.source_domain && (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                           {lesson.source_domain}

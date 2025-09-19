@@ -20,6 +20,8 @@ from .service import (
     LessonSummary,
     RefreshCatalogResponse,
     SearchLessonsResponse,
+    UnitDetail,
+    UnitSummary,
 )
 
 router = APIRouter(prefix="/api/v1/lesson_catalog")
@@ -36,7 +38,8 @@ def get_session() -> Generator[Session, None, None]:
 def get_lesson_catalog_service(s: Session = Depends(get_session)) -> LessonCatalogService:
     """Build LessonCatalogService for this request."""
     content_service = content_provider(s)
-    return LessonCatalogService(content_service)
+    units_via_content = content_service  # Units are consolidated in content provider
+    return LessonCatalogService(content_service, units_via_content)
 
 
 @router.get("/", response_model=BrowseLessonsResponse)
@@ -128,3 +131,22 @@ def refresh_catalog(
     Triggers a refresh of lesson data (placeholder implementation).
     """
     return catalog.refresh_catalog()
+
+
+@router.get("/units", response_model=list[UnitSummary])
+def browse_units(
+    limit: int = Query(100, ge=1, le=500, description="Maximum number of units to return"),
+    offset: int = Query(0, ge=0, description="Pagination offset"),
+    catalog: LessonCatalogService = Depends(get_lesson_catalog_service),
+) -> list[UnitSummary]:
+    """Browse learning units with simple metadata and lesson counts."""
+    return catalog.browse_units(limit=limit, offset=offset)
+
+
+@router.get("/units/{unit_id}", response_model=UnitDetail)
+def get_unit_details(unit_id: str, catalog: LessonCatalogService = Depends(get_lesson_catalog_service)) -> UnitDetail:
+    """Get unit details with ordered aggregated lesson summaries."""
+    unit = catalog.get_unit_details(unit_id)
+    if not unit:
+        raise HTTPException(status_code=404, detail="Unit not found")
+    return unit

@@ -1,6 +1,7 @@
 """Repository layer for LLM services."""
 
 from datetime import datetime
+from typing import Any
 import uuid
 
 from sqlalchemy import desc
@@ -47,7 +48,7 @@ class LLMRequestRepo:
         self,
         request_id: uuid.UUID,
         response_content: str,
-        response_raw: dict,
+        response_raw: dict[str, Any],
         tokens_used: int | None = None,
         input_tokens: int | None = None,
         output_tokens: int | None = None,
@@ -56,7 +57,7 @@ class LLMRequestRepo:
         cached: bool = False,
         provider_response_id: str | None = None,
         system_fingerprint: str | None = None,
-        response_output: dict | list[dict] | None = None,
+        response_output: dict[str, Any] | list[dict[str, Any]] | None = None,
         response_created_at: datetime | None = None,
     ) -> None:
         """Update LLM request with successful response data."""

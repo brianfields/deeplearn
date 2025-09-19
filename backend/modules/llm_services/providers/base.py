@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..config import LLMConfig
+from ..models import LLMRequestModel
 from ..types import (
     ImageGenerationRequest,
     ImageResponse,
@@ -66,8 +67,6 @@ class LLMProvider(ABC):
         Returns:
             LLMRequestModel database record
         """
-        # Import at runtime to ensure availability during integration runs
-        from ..models import LLMRequestModel
 
         # Use provided values or fall back to config
         request_model = model or self.config.model
@@ -159,7 +158,7 @@ class LLMProvider(ABC):
         llm_request: "LLMRequestModel",
         response: ImageResponse,
         execution_time_ms: int,
-        response_raw: dict | None = None,
+        response_raw: dict[str, Any] | None = None,
     ) -> None:
         """Update LLMRequest record with successful image response data."""
         llm_request.response_content = response.image_url
@@ -186,7 +185,7 @@ class LLMProvider(ABC):
         response_model: type[T],
         user_id: uuid.UUID | None = None,
         **kwargs: LLMProviderKwargs,
-    ) -> tuple[T, uuid.UUID]:
+    ) -> tuple[T, uuid.UUID, dict[str, Any]]:
         """Default structured object generation. Provider may override."""
         raise NotImplementedError
 

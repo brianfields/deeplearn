@@ -1,6 +1,7 @@
 """Configuration classes and factory functions for LLM providers."""
 
 import os
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -78,7 +79,7 @@ class LLMConfig(BaseModel):
 
         return True
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary format"""
         return self.model_dump()
 

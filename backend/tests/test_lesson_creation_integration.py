@@ -7,8 +7,10 @@ to test the complete lesson creation workflow from source material to stored con
 The test uses gpt-5 model to test the new GPT-5 Responses API functionality.
 """
 
+from collections.abc import Generator
 import logging
 import os
+from typing import Any
 
 import pytest
 from sqlalchemy import desc
@@ -24,7 +26,7 @@ class TestLessonCreationIntegration:
     """Integration test for complete lesson creation workflow."""
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_environment(self):
+    def setup_environment(self) -> Generator[None, None, None]:
         """Set up test environment and validate required variables."""
         print("🔧 Setting up test environment...")
 
@@ -59,7 +61,7 @@ class TestLessonCreationIntegration:
         print("🧹 Test environment cleanup complete")
 
     @pytest.fixture(scope="class")
-    def test_database_url(self):
+    def test_database_url(self) -> str:
         """Get test database URL - use existing database for integration tests."""
         # For integration tests, we use the existing database
         # This is acceptable since we're testing the real workflow
@@ -67,7 +69,7 @@ class TestLessonCreationIntegration:
         return os.environ["DATABASE_URL"]
 
     @pytest.fixture(scope="class")
-    def infrastructure_service(self):
+    def infrastructure_service(self) -> Any:
         """Set up infrastructure service with database."""
         print("🏗️ Setting up infrastructure service...")
 
@@ -94,7 +96,7 @@ class TestLessonCreationIntegration:
         print("🧹 Infrastructure cleanup complete")
 
     @pytest.fixture
-    def sample_source_material(self):
+    def sample_source_material(self) -> str:
         """Provide sample source material for testing."""
         return """
         # Cross-Entropy Loss in Deep Learning
@@ -143,7 +145,7 @@ class TestLessonCreationIntegration:
         """
 
     @pytest.mark.asyncio
-    async def test_complete_lesson_creation_workflow(self, infrastructure_service, sample_source_material):
+    async def test_complete_lesson_creation_workflow(self, infrastructure_service, sample_source_material) -> None:
         """
         Test the complete lesson creation workflow with real database and LLM calls.
 

@@ -3,7 +3,7 @@ appId: host.exp.Exponent
 # Complete Learning Flow E2E Test
 # Tests: Lesson Selection → Didactic → MCQ → Results → Return to Catalog
 
-- assertVisible: 'Learning Lessons'
+- assertVisible: 'Units'
 
 # Step 1: Select first lesson from catalog
 - tapOn:
@@ -65,6 +65,6 @@ appId: host.exp.Exponent
     id: 'results-continue-button'
 
 # Step 7: Verify we're back at the lesson catalog
-- assertVisible: 'Learning Lessons'
+- assertVisible: 'Units'
 - assertVisible:
     id: 'lesson-card-0'

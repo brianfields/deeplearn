@@ -45,7 +45,7 @@ except ImportError:
     print("   Install with: pip install python-dotenv")
 
 
-def run_command(cmd: str, check: bool = True, capture_output: bool = False) -> subprocess.CompletedProcess:
+def run_command(cmd: str, check: bool = True, capture_output: bool = False) -> subprocess.CompletedProcess[str]:
     """Run a shell command and handle errors."""
     print(f"🔧 Running: {cmd}")
     try:
@@ -314,7 +314,7 @@ def create_fresh_migration(migration_name: str) -> str:
         for line in output_lines:
             if "Generating" in line and ".py" in line:
                 # Extract filename from path
-                migration_file = line.split("/")[-1].replace(" ...  done", "")
+                migration_file: str = line.split("/")[-1].replace(" ...  done", "")
                 return migration_file
         return "unknown"
     else:

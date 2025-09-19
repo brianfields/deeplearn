@@ -117,8 +117,6 @@ def setup_environment() -> None:
     if not loaded_any:
         print("ℹ️  No .env files found. Using system environment variables only.")
 
-    return loaded_any
-
 
 def check_environment() -> list[str]:
     """Check if environment is properly configured for integration tests"""

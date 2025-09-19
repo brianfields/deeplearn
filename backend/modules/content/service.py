@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Content Module - Service Layer
 
@@ -7,11 +9,16 @@ Handles content operations and data transformation.
 
 from datetime import UTC, datetime
 import logging
+from typing import Any
 import uuid
 
 from pydantic import BaseModel, ConfigDict
 
-from .models import LessonModel
+from .models import LessonModel, UnitModel
+# Import inside methods when needed to avoid circular imports with public/providers
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:  # pragma: no cover - type checking only
+    from ..learning_session.models import UnitSessionModel  # noqa: F401
 from .package_models import LessonPackage
 from .repo import ContentRepo
 
@@ -26,10 +33,11 @@ class LessonRead(BaseModel):
     title: str
     core_concept: str
     user_level: str
+    unit_id: str | None = None
     source_material: str | None = None
     source_domain: str | None = None
     source_level: str | None = None
-    refined_material: dict | None = None
+    refined_material: dict[str, Any] | None = None
     package: LessonPackage
     package_version: int
     flow_run_id: uuid.UUID | None = None
@@ -49,7 +57,7 @@ class LessonCreate(BaseModel):
     source_material: str | None = None
     source_domain: str | None = None
     source_level: str | None = None
-    refined_material: dict | None = None
+    refined_material: dict[str, Any] | None = None
     package: LessonPackage
     package_version: int = 1
     flow_run_id: uuid.UUID | None = None
@@ -79,6 +87,7 @@ class ContentService:
                 "title": lesson.title,
                 "core_concept": lesson.core_concept,
                 "user_level": lesson.user_level,
+                "unit_id": getattr(lesson, "unit_id", None),
                 "source_material": lesson.source_material,
                 "source_domain": lesson.source_domain,
                 "source_level": lesson.source_level,
@@ -110,6 +119,7 @@ class ContentService:
                     "title": lesson.title,
                     "core_concept": lesson.core_concept,
                     "user_level": lesson.user_level,
+                    "unit_id": getattr(lesson, "unit_id", None),
                     "source_material": lesson.source_material,
                     "source_domain": lesson.source_domain,
                     "source_level": lesson.source_level,
@@ -143,6 +153,7 @@ class ContentService:
                     "title": lesson.title,
                     "core_concept": lesson.core_concept,
                     "user_level": lesson.user_level,
+                    "unit_id": getattr(lesson, "unit_id", None),
                     "source_material": lesson.source_material,
                     "source_domain": lesson.source_domain,
                     "source_level": lesson.source_level,
@@ -159,6 +170,35 @@ class ContentService:
                 logger.warning(f"⚠️ Skipping lesson {lesson.id} ({lesson.title}) due to data validation error: {e}")
                 continue
 
+        return result
+
+    # New: Lessons by unit
+    def get_lessons_by_unit(self, unit_id: str, limit: int = 100, offset: int = 0) -> list[LessonRead]:
+        """Return lessons that belong to the given unit."""
+        lessons = self.repo.get_lessons_by_unit(unit_id=unit_id, limit=limit, offset=offset)
+        result: list[LessonRead] = []
+        for lesson in lessons:
+            try:
+                package = LessonPackage.model_validate(lesson.package)
+                lesson_dict = {
+                    "id": lesson.id,
+                    "title": lesson.title,
+                    "core_concept": lesson.core_concept,
+                    "user_level": lesson.user_level,
+                    "source_material": lesson.source_material,
+                    "source_domain": lesson.source_domain,
+                    "source_level": lesson.source_level,
+                    "refined_material": lesson.refined_material,
+                    "package": package,
+                    "package_version": lesson.package_version,
+                    "flow_run_id": lesson.flow_run_id,
+                    "created_at": lesson.created_at,
+                    "updated_at": lesson.updated_at,
+                }
+                result.append(LessonRead.model_validate(lesson_dict))
+            except Exception as e:  # pragma: no cover - defensive
+                logger.warning(f"⚠️ Skipping lesson {lesson.id} due to data validation error: {e}")
+                continue
         return result
 
     def save_lesson(self, lesson_data: LessonCreate) -> LessonRead:
@@ -190,6 +230,7 @@ class ContentService:
             "title": saved_lesson.title,
             "core_concept": saved_lesson.core_concept,
             "user_level": saved_lesson.user_level,
+            "unit_id": getattr(saved_lesson, "unit_id", None),
             "source_material": saved_lesson.source_material,
             "source_domain": saved_lesson.source_domain,
             "source_level": saved_lesson.source_level,
@@ -214,3 +255,143 @@ class ContentService:
     def lesson_exists(self, lesson_id: str) -> bool:
         """Check if lesson exists."""
         return self.repo.lesson_exists(lesson_id)
+
+    # ======================
+    # Unit operations (moved)
+    # ======================
+    class UnitRead(BaseModel):
+        id: str
+        title: str
+        description: str | None = None
+        difficulty: str
+        lesson_order: list[str]
+        created_at: datetime
+        updated_at: datetime
+
+        model_config = ConfigDict(from_attributes=True)
+
+    class UnitCreate(BaseModel):
+        id: str | None = None
+        title: str
+        description: str | None = None
+        difficulty: str = "beginner"
+        lesson_order: list[str] = []
+
+    def get_unit(self, unit_id: str) -> "ContentService.UnitRead" | None:
+        u = self.repo.get_unit_by_id(unit_id)
+        return self.UnitRead.model_validate(u) if u else None
+
+    def list_units(self, limit: int = 100, offset: int = 0) -> list["ContentService.UnitRead"]:
+        arr = self.repo.list_units(limit=limit, offset=offset)
+        return [self.UnitRead.model_validate(u) for u in arr]
+
+    def create_unit(self, data: "ContentService.UnitCreate") -> "ContentService.UnitRead":
+        unit_id = data.id or str(uuid.uuid4())
+        model = UnitModel(
+            id=unit_id,
+            title=data.title,
+            description=data.description,
+            difficulty=data.difficulty,
+            lesson_order=list(data.lesson_order or []),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
+        created = self.repo.add_unit(model)
+        return self.UnitRead.model_validate(created)
+
+    def set_unit_lesson_order(self, unit_id: str, lesson_ids: list[str]) -> "ContentService.UnitRead":
+        updated = self.repo.update_unit_lesson_order(unit_id, lesson_ids)
+        if not updated:
+            raise ValueError("Unit not found")
+        return self.UnitRead.model_validate(updated)
+
+    # ======================
+    # Unit session operations
+    # ======================
+    class UnitSessionRead(BaseModel):
+        id: str
+        unit_id: str
+        user_id: str
+        status: str
+        progress_percentage: float
+        last_lesson_id: str | None = None
+        completed_lesson_ids: list[str]
+        started_at: datetime
+        completed_at: datetime | None = None
+        updated_at: datetime
+
+        model_config = ConfigDict(from_attributes=True)
+
+    def get_or_create_unit_session(self, user_id: str, unit_id: str) -> "ContentService.UnitSessionRead":
+        """Get existing unit session or create a new active one."""
+        existing = self.repo.get_unit_session(user_id=user_id, unit_id=unit_id)
+        if existing:
+            return self.UnitSessionRead.model_validate(existing)
+
+        from ..learning_session.models import UnitSessionModel
+        model = UnitSessionModel(
+            id=str(uuid.uuid4()),
+            unit_id=unit_id,
+            user_id=user_id,
+            status="active",
+            progress_percentage=0.0,
+            completed_lesson_ids=[],
+            last_lesson_id=None,
+            started_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
+        created = self.repo.add_unit_session(model)
+        return self.UnitSessionRead.model_validate(created)
+
+    def update_unit_session_progress(
+        self,
+        user_id: str,
+        unit_id: str,
+        *,
+        last_lesson_id: str | None = None,
+        completed_lesson_id: str | None = None,
+        total_lessons: int | None = None,
+        mark_completed: bool = False,
+        progress_percentage: float | None = None,
+    ) -> "ContentService.UnitSessionRead":
+        """Update progress for a unit session, creating one if needed."""
+        model = self.repo.get_unit_session(user_id=user_id, unit_id=unit_id)
+        if not model:
+            from ..learning_session.models import UnitSessionModel
+            model = UnitSessionModel(
+                id=str(uuid.uuid4()),
+                unit_id=unit_id,
+                user_id=user_id,
+                status="active",
+                progress_percentage=0.0,
+                completed_lesson_ids=[],
+                last_lesson_id=None,
+                started_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC),
+            )
+            self.repo.add_unit_session(model)
+
+        # Update fields
+        if last_lesson_id:
+            model.last_lesson_id = last_lesson_id
+        if completed_lesson_id:
+            existing = set(model.completed_lesson_ids or [])
+            existing.add(completed_lesson_id)
+            model.completed_lesson_ids = list(existing)  # type: ignore[assignment]
+
+        # Compute progress if total provided
+        if total_lessons is not None:
+            completed_count = len(model.completed_lesson_ids or [])
+            pct = (completed_count / total_lessons * 100) if total_lessons > 0 else 0.0
+            model.progress_percentage = float(min(pct, 100.0))
+
+        if progress_percentage is not None:
+            model.progress_percentage = float(progress_percentage)
+
+        if mark_completed:
+            model.status = "completed"
+            model.completed_at = datetime.now(UTC)
+
+        model.updated_at = datetime.now(UTC)
+        self.repo.save_unit_session(model)
+        return self.UnitSessionRead.model_validate(model)

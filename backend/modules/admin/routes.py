@@ -54,7 +54,8 @@ def get_admin_service(session: Session = Depends(get_session)) -> AdminService:
 
     # Get other module providers (using same session for consistency)
     content = content_provider(session)
-    lesson_catalog = lesson_catalog_provider(content)
+    # Units are consolidated under content provider
+    lesson_catalog = lesson_catalog_provider(content, content)
 
     # Create placeholder providers for async services
     # In practice, these would be properly initialized with async context
@@ -151,7 +152,7 @@ async def list_lessons(
     """Get paginated list of lessons with optional filtering."""
     return await admin_service.get_lessons(
         user_level=user_level,
-        domain=domain,
+        _domain=domain,
         search=search,
         page=page,
         page_size=page_size,

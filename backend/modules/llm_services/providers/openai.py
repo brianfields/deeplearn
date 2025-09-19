@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 import importlib
 import json
 import logging
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 import uuid
 
 # Dynamically import OpenAI to avoid hard dependency during static analysis
@@ -23,14 +23,14 @@ try:  # pragma: no cover - dynamic import guard
     _OPENAI_AVAILABLE = True
 except Exception:
     _OPENAI_AVAILABLE = False
-    APIConnectionError = Exception  # type: ignore[assignment]
-    APIError = Exception  # type: ignore[assignment]
-    APITimeoutError = Exception  # type: ignore[assignment]
-    RateLimitError = Exception  # type: ignore[assignment]
-    AuthenticationError = Exception  # type: ignore[assignment]
-    PermissionDeniedError = Exception  # type: ignore[assignment]
-    AsyncAzureOpenAI = None  # type: ignore[assignment]
-    AsyncOpenAI = None  # type: ignore[assignment]
+    APIConnectionError = Exception
+    APIError = Exception
+    APITimeoutError = Exception
+    RateLimitError = Exception
+    AuthenticationError = Exception
+    PermissionDeniedError = Exception
+    AsyncAzureOpenAI = None
+    AsyncOpenAI = None
 
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -74,6 +74,8 @@ class OpenAIProvider(LLMProvider):
         """Initialize the OpenAI provider with configuration and database session."""
         super().__init__(config, db_session)
 
+        self._cache: LLMCache | None = None
+
         # Initialize cache if enabled
         try:
             self._cache = LLMCache(
@@ -98,17 +100,17 @@ class OpenAIProvider(LLMProvider):
                     api_key=self.config.api_key,
                     base_url=self.config.base_url,
                     timeout=self.config.timeout,
-                )  # type: ignore[misc]
+                )
             else:
                 self.client = AsyncOpenAI(
                     api_key=self.config.api_key,
                     base_url=self.config.base_url,
                     timeout=self.config.timeout,
-                )  # type: ignore[misc]
+                )
         except Exception as e:
             raise LLMAuthenticationError(f"Failed to setup OpenAI client: {e}") from e
 
-    def _to_jsonable(self, obj: Any) -> Any:  # noqa: ANN401
+    def _to_jsonable(self, obj: Any) -> Any:
         """Convert SDK/Pydantic objects to JSON-serializable structures recursively."""
         # Primitive types
         if obj is None or isinstance(obj, str | int | float | bool):
@@ -152,7 +154,7 @@ class OpenAIProvider(LLMProvider):
             input_messages.append(input_msg)
         return input_messages
 
-    def _parse_gpt5_response(self, response: Any) -> tuple[str, dict[str, Any] | list[dict[str, Any]] | None, dict[str, Any] | None]:  # noqa: ANN401
+    def _parse_gpt5_response(self, response: Any) -> tuple[str, dict[str, Any] | list[dict[str, Any]] | None, dict[str, Any] | None]:
         """Parse GPT-5 Responses API and extract content, output array, and usage."""
         # Use output_text if available (convenience property in SDK)
         if hasattr(response, "output_text"):
@@ -175,9 +177,9 @@ class OpenAIProvider(LLMProvider):
     async def _handle_cached_response(
         self,
         messages: list[LLMMessage],
-        llm_request: Any,  # noqa: ANN401
+        llm_request: Any,
         start_time: datetime,
-        **kwargs: Any,  # noqa: ANN401
+        **kwargs: Any,
     ) -> LLMResponse | None:
         """Check cache for existing response."""
         cache = getattr(self, "_cache", None)
@@ -189,14 +191,14 @@ class OpenAIProvider(LLMProvider):
                     cached_response,
                     int((datetime.now(UTC) - start_time).total_seconds() * 1000),
                 )
-                return cached_response
+                return cast(LLMResponse | None, cached_response)
         return None
 
     def _prepare_gpt5_request_params(
         self,
         messages: list[LLMMessage],
         model: str,
-        **kwargs: Any,  # noqa: ANN401
+        **kwargs: Any,
     ) -> dict[str, Any]:
         """Prepare request parameters for GPT-5 API call."""
         input_messages = self._convert_messages_to_gpt5_input(messages)
@@ -222,7 +224,7 @@ class OpenAIProvider(LLMProvider):
             logger.debug(f"Text config: {kwargs['text']}")
         elif "verbosity" in kwargs:
             # Support direct verbosity parameter for convenience
-            request_params["text"] = {"verbosity": kwargs["verbosity"]}
+            request_params["text"] = {"verbosity": kwargs["verbosity"]}  # type: ignore[assignment]
             logger.debug(f"Verbosity: {kwargs['verbosity']}")
 
         # Chain of thought persistence
@@ -242,7 +244,7 @@ class OpenAIProvider(LLMProvider):
         self,
         messages: list[LLMMessage],
         user_id: uuid.UUID | None = None,
-        **kwargs: Any,  # noqa: ANN401
+        **kwargs: Any,
     ) -> tuple[LLMResponse, uuid.UUID]:
         """
         Generate a response from OpenAI.
@@ -294,9 +296,7 @@ class OpenAIProvider(LLMProvider):
 
             # Make API call with retry logic
             logger.info("⏳ Making GPT-5 API call...")
-            response = await self._make_api_call_with_retry(
-                lambda: self.client.responses.create(**request_params)  # type: ignore[attr-defined]
-            )
+            response = await self._make_api_call_with_retry(lambda: self.client.responses.create(**request_params))
             logger.info("✅ GPT-5 API call completed")
 
             # Parse GPT-5 response
@@ -397,7 +397,7 @@ class OpenAIProvider(LLMProvider):
         messages: list[LLMMessage],
         response_model: type[T],
         model: str,
-        **kwargs: Any,  # noqa: ANN401
+        **kwargs: Any,
     ) -> dict[str, Any]:
         """Prepare request parameters for structured outputs."""
         schema = response_model.model_json_schema()
@@ -415,12 +415,12 @@ class OpenAIProvider(LLMProvider):
             # Merge with existing text.format configuration
             if "text" not in request_params:
                 request_params["text"] = {}
-            request_params["text"].update(kwargs["text"])
+            request_params["text"].update(kwargs["text"])  # type: ignore[attr-defined]
         elif "verbosity" in kwargs:
             # Support direct verbosity parameter
             if "text" not in request_params:
                 request_params["text"] = {}
-            request_params["text"]["verbosity"] = kwargs["verbosity"]
+            request_params["text"]["verbosity"] = kwargs["verbosity"]  # type: ignore[index]
 
         if "previous_response_id" in kwargs:
             request_params["previous_response_id"] = kwargs["previous_response_id"]
@@ -432,7 +432,7 @@ class OpenAIProvider(LLMProvider):
 
         return request_params
 
-    def _validate_structured_response(self, response: Any) -> None:  # noqa: ANN401
+    def _validate_structured_response(self, response: Any) -> None:
         """Validate structured response for errors and refusals."""
         if not hasattr(response, "status"):
             return
@@ -459,7 +459,7 @@ class OpenAIProvider(LLMProvider):
         messages: list[LLMMessage],
         response_model: type[T],
         user_id: uuid.UUID | None = None,
-        **kwargs: Any,  # noqa: ANN401
+        **kwargs: Any,
     ) -> tuple[T, uuid.UUID, dict[str, Any]]:
         """
         Generate a structured response using OpenAI's Structured Outputs feature.
@@ -543,9 +543,7 @@ class OpenAIProvider(LLMProvider):
                     return structured_obj, request_id, usage_info
 
             # Fallback to manual API call with structured outputs
-            response = await self._make_api_call_with_retry(
-                lambda: self.client.responses.create(**request_params)  # type: ignore[attr-defined]
-            )
+            response = await self._make_api_call_with_retry(lambda: self.client.responses.create(**request_params))
 
             # Handle potential refusals and errors
             self._validate_structured_response(response)
@@ -618,7 +616,7 @@ class OpenAIProvider(LLMProvider):
         self,
         request: ImageGenerationRequest,
         user_id: uuid.UUID | None = None,
-        **kwargs: Any,  # noqa: ANN401
+        **kwargs: Any,
     ) -> tuple[ImageResponse, uuid.UUID]:
         """Generate an image from a text prompt."""
         start_time = datetime.now(UTC)
@@ -650,9 +648,7 @@ class OpenAIProvider(LLMProvider):
                 request_params["style"] = request.style
 
             # Make API call with retry logic
-            response = await self._make_api_call_with_retry(
-                lambda: self.client.images.generate(**request_params)  # type: ignore[attr-defined]
-            )
+            response = await self._make_api_call_with_retry(lambda: self.client.images.generate(**request_params))
 
             # Extract response data
             image_data = response.data[0]
@@ -692,7 +688,7 @@ class OpenAIProvider(LLMProvider):
         self,
         search_queries: list[str],
         user_id: uuid.UUID | None = None,
-        **kwargs: Any,  # noqa: ANN401
+        **kwargs: Any,
     ) -> tuple[WebSearchResponse, uuid.UUID]:
         """
         Search for recent news.
@@ -739,7 +735,7 @@ class OpenAIProvider(LLMProvider):
         output_cost = (completion_tokens / 1000000.0) * output_rate
         return input_cost + output_cost
 
-    def _estimate_image_cost(self, size: Any, quality: Any) -> float:  # noqa: ANN401
+    def _estimate_image_cost(self, size: Any, quality: Any) -> float:
         """Estimate cost for DALL-E image generation."""
         # DALL-E 3 pricing (as of 2024)
         if quality.value == "hd":
@@ -752,7 +748,7 @@ class OpenAIProvider(LLMProvider):
         else:
             return 0.080  # Standard + large size
 
-    async def _make_api_call_with_retry(self, api_call_func: Any) -> Any:  # noqa: ANN401
+    async def _make_api_call_with_retry(self, api_call_func: Any) -> Any:
         """Make API call with retry logic for rate limits and transient errors."""
         last_exception = None
 
@@ -778,7 +774,7 @@ class OpenAIProvider(LLMProvider):
             raise self._convert_exception(last_exception)
         raise LLMError("Unknown error during OpenAI API call")
 
-    def _should_retry(self, exception: Any) -> bool:  # noqa: ANN401
+    def _should_retry(self, exception: Any) -> bool:
         """Determine if an exception should trigger a retry."""
 
         # Always retry on these errors
@@ -801,9 +797,9 @@ class OpenAIProvider(LLMProvider):
         base_delay = 1.0
         max_delay = 60.0
         delay = base_delay * (2**attempt)
-        return min(delay, max_delay)
+        return cast(float, min(delay, max_delay))
 
-    def _convert_exception(self, exception: Any) -> LLMError:  # noqa: ANN401
+    def _convert_exception(self, exception: Any) -> LLMError:
         """Convert OpenAI exceptions to LLM exceptions."""
         # Use imported symbols or fallbacks
         if isinstance(exception, AuthenticationError | PermissionDeniedError):

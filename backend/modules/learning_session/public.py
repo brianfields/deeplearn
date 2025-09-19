@@ -22,6 +22,8 @@ from .service import (
     SessionProgress,
     SessionResults,
     StartSessionRequest,
+    UnitLessonProgress,
+    UnitProgress,
     UpdateProgressRequest,
 )
 
@@ -75,6 +77,17 @@ class LearningSessionProvider(Protocol):
         """Health check for the learning session service"""
         ...
 
+    # --- Units progress ---
+    @abstractmethod
+    async def get_unit_progress(self, user_id: str, unit_id: str) -> UnitProgress:
+        """Get aggregated progress for a user across all lessons in a unit"""
+        ...
+
+    @abstractmethod
+    async def get_units_progress_overview(self, user_id: str, limit: int = 100, offset: int = 0) -> list[UnitProgress]:
+        """Get progress overview across multiple units for a user"""
+        ...
+
 
 def learning_session_provider(
     session: Session,
@@ -101,10 +114,13 @@ __all__ = [
     "CompleteSessionRequest",
     "LearningSession",
     "LearningSessionProvider",
+    "LearningSessionService",
     "SessionListResponse",
     "SessionProgress",
     "SessionResults",
     "StartSessionRequest",
+    "UnitLessonProgress",
+    "UnitProgress",
     "UpdateProgressRequest",
     "learning_session_provider",
 ]

@@ -21,6 +21,7 @@ import type {
   FlowMetrics,
   DailyMetrics,
 } from './models';
+import type { ApiUnitBasic, ApiUnitDetail, ApiUnitSummary } from './models';
 
 const ADMIN_BASE = '/admin';
 
@@ -138,5 +139,21 @@ export const AdminRepo = {
   async healthCheck(): Promise<{ status: string; service: string }> {
     const { data } = await apiClient.get(`${ADMIN_BASE}/health`);
     return data;
+  },
+
+  // ---- Units (via lesson_catalog and units modules) ----
+  units: {
+    async list(): Promise<ApiUnitSummary[]> {
+      const { data } = await apiClient.get<ApiUnitSummary[]>(`/lesson_catalog/units`);
+      return data;
+    },
+    async detail(unitId: string): Promise<ApiUnitDetail> {
+      const { data } = await apiClient.get<ApiUnitDetail>(`/lesson_catalog/units/${unitId}`);
+      return data;
+    },
+    async basics(): Promise<ApiUnitBasic[]> {
+      const { data } = await apiClient.get<ApiUnitBasic[]>(`/units`);
+      return data;
+    },
   },
 };

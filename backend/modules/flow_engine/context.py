@@ -5,8 +5,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 import uuid
 
-from .types import FlowExecutionKwargs
-
 if TYPE_CHECKING:
     from .service import FlowEngineService
 
@@ -38,7 +36,7 @@ class FlowContext:
     last_cost_estimate: float = 0.0
 
     @classmethod
-    def set(cls, **kwargs: FlowExecutionKwargs) -> "FlowContext":
+    def set(cls, **kwargs: Any) -> "FlowContext":
         """
         Set the current flow context for this async task.
 

@@ -7,12 +7,24 @@ to the existing architecture.
 
 from abc import ABC, abstractmethod
 import asyncio
-from typing import Any
+from typing import Any, cast
 import uuid
 
 from pydantic import BaseModel
 
+from ..service import FlowEngineService
 from .types import FlowExecutionKwargs
+
+
+# Placeholder for example
+class ArticleProcessingFlow(BaseFlowWithBackground):
+    """Example flow for article processing."""
+
+    flow_name = "article_processing"
+
+    async def _execute_flow_logic(self, inputs: dict[str, Any]) -> dict[str, Any]:
+        # Placeholder implementation
+        return {"processed": True}
 
 
 # This would be added to flows/base.py
@@ -43,11 +55,11 @@ class BaseFlowWithBackground(ABC):
         else:
             return await self._execute_foreground(inputs, **kwargs)
 
-    async def _execute_foreground(self, inputs: dict[str, Any], **kwargs: FlowExecutionKwargs) -> dict[str, Any]:  # noqa: B027
+    async def _execute_foreground(self, _inputs: dict[str, Any], **_kwargs: FlowExecutionKwargs) -> dict[str, Any]:
         """Execute flow in foreground (current behavior)."""
         # This would use the existing @flow_execution decorator logic
         # ... existing implementation ...
-        pass
+        return {}
 
     async def _execute_background(self, inputs: dict[str, Any], **kwargs: FlowExecutionKwargs) -> uuid.UUID:
         """Execute flow in background and return flow_run_id."""
@@ -69,11 +81,14 @@ class BaseFlowWithBackground(ABC):
 
         # Create flow run record with background mode
         user_id = kwargs.get("user_id")
-        flow_run_id = await service.create_flow_run_record(
-            flow_name=self.flow_name,
-            inputs=inputs,
-            user_id=user_id,
-            execution_mode="background",  # Key difference!
+        flow_run_id = cast(
+            uuid.UUID,
+            await service.create_flow_run_record(
+                flow_name=self.flow_name,
+                inputs=inputs,
+                user_id=user_id,
+                execution_mode="background",  # Key difference!
+            ),
         )
 
         # Submit to background task queue
@@ -81,7 +96,7 @@ class BaseFlowWithBackground(ABC):
 
         return flow_run_id
 
-    async def _background_execution_wrapper(self, flow_run_id: uuid.UUID, inputs: dict[str, Any], service: "FlowEngineService", **kwargs: FlowExecutionKwargs) -> None:  # noqa: F821
+    async def _background_execution_wrapper(self, flow_run_id: uuid.UUID, inputs: dict[str, Any], service: FlowEngineService, **kwargs: FlowExecutionKwargs) -> None:
         """Wrapper that handles background execution with proper error handling."""
         try:
             # Set up flow context for background execution
@@ -115,7 +130,7 @@ class BaseFlowWithBackground(ABC):
 
 
 # This would be added to service.py
-class FlowEngineServiceWithBackground:
+class FlowEngineServiceWithBackground(FlowEngineService):
     """Enhanced service with background execution support."""
 
     async def create_flow_run_record(
@@ -140,7 +155,7 @@ class FlowEngineServiceWithBackground:
         )
 
         created_run = self.flow_run_repo.create(flow_run)
-        return created_run.id
+        return cast(uuid.UUID, created_run.id)
 
     async def get_flow_status(self, flow_run_id: uuid.UUID) -> dict[str, Any]:
         """Get current status of a flow run."""
@@ -148,7 +163,7 @@ class FlowEngineServiceWithBackground:
         if not flow_run:
             raise ValueError(f"Flow run {flow_run_id} not found")
 
-        return flow_run.progress_info
+        return cast(dict[str, Any], flow_run.progress_info)
 
     async def get_flow_result(self, flow_run_id: uuid.UUID) -> dict[str, Any] | None:
         """Get result of completed flow, or None if still running."""
@@ -157,7 +172,7 @@ class FlowEngineServiceWithBackground:
             raise ValueError(f"Flow run {flow_run_id} not found")
 
         if flow_run.status == "completed":
-            return flow_run.outputs
+            return cast(dict[str, Any] | None, flow_run.outputs)
         elif flow_run.status == "failed":
             raise RuntimeError(f"Flow failed: {flow_run.error_message}")
         else:
@@ -165,13 +180,15 @@ class FlowEngineServiceWithBackground:
 
     async def cancel_flow(self, flow_run_id: uuid.UUID) -> bool:
         """Cancel a running background flow."""
+        from datetime import UTC, datetime  # noqa: PLC0415
+
         flow_run = self.flow_run_repo.by_id(flow_run_id)
         if not flow_run:
             return False
 
         if flow_run.status in ["pending", "running"]:
             flow_run.status = "cancelled"
-            flow_run.completed_at = datetime.now(UTC)  # noqa: F821
+            flow_run.completed_at = datetime.now(UTC)
             self.flow_run_repo.save(flow_run)
             return True
 
@@ -183,14 +200,14 @@ async def example_background_usage() -> None:
     """Examples of how background execution would work."""
 
     # Example 1: Simple background flag
-    flow = ArticleProcessingFlow()  # noqa: F821
+    flow = ArticleProcessingFlow()
 
     # Foreground execution (current behavior)
     result = await flow.execute({"article_text": "Long article...", "style": "professional"})
     print(f"Immediate result: {result}")
 
     # Background execution (new feature)
-    flow_run_id = await flow.execute({"article_text": "Long article...", "style": "professional"}, background=True)
+    flow_run_id = cast(uuid.UUID, await flow.execute({"article_text": "Long article...", "style": "professional"}, background=True))
     print(f"Started background flow: {flow_run_id}")
 
     # Check status periodically
@@ -207,8 +224,8 @@ async def example_background_usage() -> None:
 
     # Get final result
     if status["status"] == "completed":
-        result = await service.get_flow_result(flow_run_id)
-        print(f"Final result: {result}")
+        final_result = await service.get_flow_result(flow_run_id)
+        print(f"Final result: {final_result}")
 
 
 # Example 2: Batch background processing
@@ -220,7 +237,7 @@ async def example_batch_background() -> None:
 
     # Submit all flows to background
     for article in articles:
-        flow_run_id = await ArticleProcessingFlow().execute({"article_text": article, "style": "technical"}, background=True)  # noqa: F821
+        flow_run_id = cast(uuid.UUID, await ArticleProcessingFlow().execute({"article_text": article, "style": "technical"}, background=True))
         flow_run_ids.append(flow_run_id)
 
     print(f"Started {len(flow_run_ids)} background flows")
@@ -241,7 +258,7 @@ async def example_batch_background() -> None:
     print(f"All {len(results)} flows completed!")
 
 
-def get_flow_engine_service() -> None:
+def get_flow_engine_service() -> FlowEngineServiceWithBackground:
     """Helper to get flow engine service (would be in public.py)."""
     # Implementation would go here
-    pass
+    raise NotImplementedError

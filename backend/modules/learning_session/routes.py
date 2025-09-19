@@ -7,6 +7,7 @@ This is a migration, not new feature development.
 
 from collections.abc import Generator
 from datetime import datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -41,7 +42,7 @@ class UpdateProgressRequestModel(BaseModel):
 
     exercise_id: str = Field(..., description="ID of the exercise being completed")
     exercise_type: str = Field(..., description="Type of exercise, e.g. 'mcq', 'short_answer', 'coding'", pattern="^(mcq|short_answer|coding)$")
-    user_answer: dict | None = Field(None, description="User's answer/response")
+    user_answer: dict[str, Any] | None = Field(None, description="User's answer/response")
     is_correct: bool | None = Field(None, description="Whether the answer was correct")
     time_spent_seconds: int = Field(0, ge=0, description="Time spent on this exercise")
 
@@ -58,7 +59,7 @@ class SessionResponseModel(BaseModel):
     current_exercise_index: int
     total_exercises: int
     progress_percentage: float
-    session_data: dict
+    session_data: dict[str, Any]
 
 
 class ProgressResponseModel(BaseModel):
@@ -127,7 +128,8 @@ def get_learning_session_service(s: Session = Depends(get_db_session)) -> Learni
     """Build LearningSessionService with all dependencies sharing the same session."""
     # Build all services with the same session for transactional consistency
     content_service = content_provider(s)
-    lesson_catalog_service = lesson_catalog_provider(content_service)
+    # Units are consolidated under content provider
+    lesson_catalog_service = lesson_catalog_provider(content_service, content_service)
     return LearningSessionService(LearningSessionRepo(s), content_service, lesson_catalog_service)
 
 

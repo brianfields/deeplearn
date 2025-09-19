@@ -22,6 +22,26 @@ class ContentProvider(Protocol):
     def save_lesson(self, lesson_data: LessonCreate) -> LessonRead: ...
     def delete_lesson(self, lesson_id: str) -> bool: ...
     def lesson_exists(self, lesson_id: str) -> bool: ...
+    # New unit-related method (do not change existing signatures)
+    def get_lessons_by_unit(self, unit_id: str, limit: int = 100, offset: int = 0) -> list[LessonRead]: ...
+    # Unit operations (consolidated)
+    def get_unit(self, unit_id: str) -> ContentService.UnitRead | None: ...
+    def list_units(self, limit: int = 100, offset: int = 0) -> list[ContentService.UnitRead]: ...
+    def create_unit(self, data: ContentService.UnitCreate) -> ContentService.UnitRead: ...
+    def set_unit_lesson_order(self, unit_id: str, lesson_ids: list[str]) -> ContentService.UnitRead: ...
+    # Unit session operations
+    def get_or_create_unit_session(self, user_id: str, unit_id: str) -> ContentService.UnitSessionRead: ...
+    def update_unit_session_progress(
+        self,
+        user_id: str,
+        unit_id: str,
+        *,
+        last_lesson_id: str | None = None,
+        completed_lesson_id: str | None = None,
+        total_lessons: int | None = None,
+        mark_completed: bool = False,
+        progress_percentage: float | None = None,
+    ) -> ContentService.UnitSessionRead: ...
 
 
 def content_provider(session: Session) -> ContentProvider:
@@ -37,4 +57,9 @@ def content_provider(session: Session) -> ContentProvider:
     return ContentService(ContentRepo(session))
 
 
-__all__ = ["ContentProvider", "LessonCreate", "LessonRead", "content_provider"]
+__all__ = [
+    "ContentProvider",
+    "LessonCreate",
+    "LessonRead",
+    "content_provider",
+]

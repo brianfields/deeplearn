@@ -25,6 +25,9 @@ import type {
   DailyMetrics,
   LessonSummary,
   LessonDetails,
+  // Units DTOs
+  UnitSummary,
+  UnitDetail,
 
   // Query types
   FlowRunsQuery,
@@ -396,6 +399,52 @@ export class AdminService {
     } catch (error) {
       console.error('Health check failed:', error);
       return { status: 'unhealthy', service: 'admin' };
+    }
+  }
+
+  // ---- Units ----
+
+  async getUnits(): Promise<UnitSummary[]> {
+    const arr = await AdminRepo.units.list();
+    return arr.map((u) => ({
+      id: u.id,
+      title: u.title,
+      description: u.description,
+      difficulty: u.difficulty,
+      lesson_count: u.lesson_count,
+    }));
+  }
+
+  async getUnitDetail(unitId: string): Promise<UnitDetail | null> {
+    try {
+      const d = await AdminRepo.units.detail(unitId);
+      return {
+        id: d.id,
+        title: d.title,
+        description: d.description,
+        difficulty: d.difficulty,
+        lesson_order: d.lesson_order,
+        lessons: d.lessons.map((l) => ({ id: l.id, title: l.title, user_level: l.user_level, exercise_count: l.exercise_count })),
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  async getLessonToUnitMap(): Promise<Record<string, { unit_id: string; unit_title: string }>> {
+    try {
+      const basics = await AdminRepo.units.basics();
+      const map: Record<string, { unit_id: string; unit_title: string }> = {};
+      for (const u of basics) {
+        for (const lessonId of u.lesson_order || []) {
+          if (!map[lessonId]) {
+            map[lessonId] = { unit_id: u.id, unit_title: u.title };
+          }
+        }
+      }
+      return map;
+    } catch {
+      return {};
     }
   }
 }

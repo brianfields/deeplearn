@@ -17,7 +17,7 @@ from pathlib import Path
 from codegen.common import (
     DEFAULT_MODEL_CLAUDE,
     ProjectSpec,
-    headed,
+    headed_agent,
     render_prompt,
     setup_project,
     write_text,
@@ -31,6 +31,12 @@ def main() -> int:
     ap.add_argument("--project", help="Project name for docs/specs/<PROJECT>")
     ap.add_argument("--prompts-dir", default="codegen/prompts")
     ap.add_argument("--model", default=DEFAULT_MODEL_CLAUDE)
+    ap.add_argument(
+        "--agent",
+        default="cursor-agent",
+        choices=("cursor-agent", "codex"),
+        help="Agent to use: cursor-agent (default) or codex",
+    )
     ap.add_argument("--dry", action="store_true")
     args = ap.parse_args()
 
@@ -57,7 +63,7 @@ def main() -> int:
 
     # Headed run. The prompt is responsible for producing spec.md; however, we
     # also pass the target path via variables so the agent knows where to write.
-    rc = headed(prompt_text, args.model, dry_run=args.dry)
+    rc = headed_agent(prompt_text, args.model, agent=args.agent, dry_run=args.dry)
 
     if rc == 0 and not args.dry:
         # Ensure the file exists; if the model responded only in chat, create a stub.

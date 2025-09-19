@@ -61,7 +61,8 @@ class TestLessonCatalogService:
         ]
 
         content.search_lessons.return_value = mock_lessons
-        service = LessonCatalogService(content)
+        units = Mock()
+        service = LessonCatalogService(content, units)
 
         # Act
         result = service.browse_lessons(user_level="beginner", limit=10)
@@ -100,7 +101,8 @@ class TestLessonCatalogService:
         mock_lesson = LessonRead(id="lesson-1", title="Lesson 1", core_concept="Concept 1", user_level="beginner", package=package, package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC))
 
         content.get_lesson.return_value = mock_lesson
-        service = LessonCatalogService(content)
+        units = Mock()
+        service = LessonCatalogService(content, units)
 
         # Act
         result = service.get_lesson_details("lesson-1")
@@ -119,7 +121,8 @@ class TestLessonCatalogService:
         # Arrange
         content = Mock()
         content.get_lesson.return_value = None
-        service = LessonCatalogService(content)
+        units = Mock()
+        service = LessonCatalogService(content, units)
 
         # Act
         result = service.get_lesson_details("nonexistent")
@@ -210,7 +213,8 @@ class TestLessonCatalogService:
         ]
 
         content.search_lessons.return_value = mock_lessons
-        service = LessonCatalogService(content)
+        units = Mock()
+        service = LessonCatalogService(content, units)
 
         # Act
         result = service.search_lessons(query="react", limit=10)
@@ -256,7 +260,8 @@ class TestLessonCatalogService:
         ]
 
         content.search_lessons.return_value = mock_lessons
-        service = LessonCatalogService(content)
+        units = Mock()
+        service = LessonCatalogService(content, units)
 
         # Act
         result = service.get_catalog_statistics()

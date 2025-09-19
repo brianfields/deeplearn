@@ -8,7 +8,7 @@ import uuid
 from pydantic import BaseModel, ConfigDict, Field
 
 from .config import create_llm_config_from_env
-from .providers.base import LLMProviderKwargs
+from .providers.base import LLMProvider, LLMProviderKwargs
 from .providers.factory import create_llm_provider
 from .repo import LLMRequestRepo
 from .types import (
@@ -182,6 +182,7 @@ class LLMService:
 
     def __init__(self, repo: LLMRequestRepo) -> None:
         self.repo = repo
+        self.provider: LLMProvider | None = None
         # Initialize LLM provider
         try:
             config = create_llm_config_from_env()
@@ -204,8 +205,10 @@ class LLMService:
         # Convert DTOs to internal types
         internal_messages = [msg.to_llm_message() for msg in messages]
 
+        if self.provider is None:
+            raise RuntimeError("LLM provider not initialized")
         # Call provider
-        internal_response, request_id = await self.provider.generate_response(messages=internal_messages, user_id=user_id, model=model, temperature=temperature, max_output_tokens=max_output_tokens, **kwargs)
+        internal_response, request_id = await self.provider.generate_response(messages=internal_messages, user_id=user_id, model=model, temperature=temperature, max_output_tokens=max_output_tokens, **kwargs)  # type: ignore[arg-type]
 
         # Convert back to DTO
         response_dto = LLMResponse.from_llm_response(internal_response)
@@ -227,9 +230,14 @@ class LLMService:
         internal_messages = [msg.to_llm_message() for msg in messages]
 
         # Call provider
-        structured_obj, request_id, usage_info = await self.provider.generate_structured_object(
-            messages=internal_messages, response_model=response_model, user_id=user_id, model=model, temperature=temperature, max_output_tokens=max_output_tokens, **kwargs
-        )
+        provider_kwargs: dict[str, Any] = {}
+        if model is not None:
+            provider_kwargs["model"] = model
+        if temperature is not None:
+            provider_kwargs["temperature"] = temperature
+        if max_output_tokens is not None:
+            provider_kwargs["max_output_tokens"] = max_output_tokens
+        structured_obj, request_id, usage_info = await self.provider.generate_structured_object(messages=internal_messages, response_model=response_model, user_id=user_id, **provider_kwargs, **kwargs)
 
         return structured_obj, request_id, usage_info
 
@@ -262,7 +270,7 @@ class LLMService:
             raise RuntimeError("LLM provider not initialized")
 
         # Call provider (this will raise NotImplementedError for OpenAI)
-        internal_response, request_id = await self.provider.search_recent_news(search_queries=queries, user_id=user_id, max_results=max_results, **kwargs)
+        internal_response, request_id = await self.provider.search_recent_news(search_queries=queries, user_id=user_id, max_results=max_results, **kwargs)  # type: ignore[arg-type]
 
         # Convert to DTO
         response_dto = WebSearchResponse.from_web_search_response(internal_response)

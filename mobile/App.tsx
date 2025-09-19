@@ -12,9 +12,10 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Screens (using new modular structure)
-import { LessonListScreen } from './modules/lesson_catalog/screens/LessonListScreen';
+import { LessonListScreen } from './modules/unit_catalog/screens/LessonListScreen';
 import LearningFlowScreen from './modules/learning_session/screens/LearningFlowScreen';
 import ResultsScreen from './modules/learning_session/screens/ResultsScreen';
+import { UnitDetailScreen } from './modules/units/screens/UnitDetailScreen';
 
 // Types
 import type { RootStackParamList, LearningStackParamList } from './types';
@@ -53,6 +54,13 @@ function LearningStackNavigator() {
         component={LessonListScreen}
         options={{
           title: 'Learning Lessons',
+        }}
+      />
+      <LearningStack.Screen
+        name="UnitDetail"
+        component={UnitDetailScreen}
+        options={{
+          title: 'Unit',
         }}
       />
       <LearningStack.Screen

@@ -2,9 +2,9 @@
 """
 Seed Data Creation Script
 
-Creates sample lesson data using the canonical package structure (didactic_snippet,
-exercises, glossary) without making actual LLM calls. This creates realistic seed
-data for development and testing purposes.
+Creates sample unit and lesson data using the canonical package structure
+(didactic_snippet, exercises, glossary) without making actual LLM calls.
+This creates realistic seed data for development and testing purposes.
 
 Usage:
     python scripts/create_seed_data.py --verbose
@@ -29,6 +29,7 @@ from modules.content.package_models import DidacticSnippet, GlossaryTerm, Length
 from modules.flow_engine.models import FlowRunModel, FlowStepRunModel
 from modules.infrastructure.public import infrastructure_provider
 from modules.llm_services.models import LLMRequestModel
+from modules.content.models import UnitModel  # Import UnitModel so SQLAlchemy knows about the units table
 
 
 def create_sample_lesson_package(
@@ -551,6 +552,10 @@ async def main() -> None:
     parser.add_argument("--domain", default="Machine Learning", help="Subject domain")
     parser.add_argument("--verbose", action="store_true", help="Show detailed progress")
     parser.add_argument("--output", help="Save summary to JSON file")
+    # Unit-related options
+    parser.add_argument("--unit-title", default="Introduction to Machine Learning", help="Unit title for grouping lessons")
+    parser.add_argument("--unit-description", default="Foundational concepts and probability tools", help="Unit description")
+    parser.add_argument("--unit-difficulty", default="beginner", choices=["beginner", "intermediate", "advanced"], help="Unit difficulty")
 
     args = parser.parse_args()
 
@@ -571,55 +576,80 @@ async def main() -> None:
         infra = infrastructure_provider()
         infra.initialize()
 
-        # Generate lesson ID
-        lesson_id = str(uuid.uuid4())
-
-        flow_run_id = uuid.uuid4()
+        # Create a unit to group lessons
+        unit_id = str(uuid.uuid4())
         if args.verbose:
-            print("📚 Creating lesson data with package...")
-        lesson_data = create_sample_lesson_data(lesson_id, args.lesson, args.concept, args.level, args.domain, flow_run_id)
+            print(f"🧱 Creating unit: {args.unit_title} ({args.unit_difficulty})")
 
-        # Create sample data
+        # Generate first lesson (from args)
+        lesson_id_1 = str(uuid.uuid4())
+        flow_run_id_1 = uuid.uuid4()
         if args.verbose:
-            print("🔄 Creating flow run data...")
-        flow_run_data = create_sample_flow_run(flow_run_id, lesson_id, lesson_data)
+            print("📚 Creating lesson 1 data with package...")
+        lesson_data_1 = create_sample_lesson_data(lesson_id_1, args.lesson, args.concept, args.level, args.domain, flow_run_id_1)
+        flow_run_data_1 = create_sample_flow_run(flow_run_id_1, lesson_id_1, lesson_data_1)
+        step_runs_1 = create_sample_step_runs(flow_run_data_1["id"], lesson_data_1)
+        llm_requests_1 = create_sample_llm_requests(step_runs_1)
 
+        # Generate a second related lesson to demonstrate multi-lesson units
+        lesson_id_2 = str(uuid.uuid4())
+        flow_run_id_2 = uuid.uuid4()
         if args.verbose:
-            print("👣 Creating step run data...")
-        step_runs = create_sample_step_runs(flow_run_data["id"], lesson_data)
-
-        if args.verbose:
-            print("🤖 Creating LLM request data...")
-        llm_requests = create_sample_llm_requests(step_runs)
+            print("📚 Creating lesson 2 data with package...")
+        lesson_data_2 = create_sample_lesson_data(
+            lesson_id_2,
+            title="Softmax and Probabilities",
+            core_concept="Softmax Function",
+            user_level=args.level,
+            domain=args.domain,
+            flow_run_id=flow_run_id_2,
+        )
+        flow_run_data_2 = create_sample_flow_run(flow_run_id_2, lesson_id_2, lesson_data_2)
+        step_runs_2 = create_sample_step_runs(flow_run_data_2["id"], lesson_data_2)
+        llm_requests_2 = create_sample_llm_requests(step_runs_2)
 
         # Save to database
         with infra.get_session_context() as db_session:
             # Create flow run first (required for foreign key constraint)
             if args.verbose:
-                print("💾 Saving flow run...")
-            flow_run = FlowRunModel(**flow_run_data)
-            db_session.add(flow_run)
-            db_session.flush()  # Ensure flow run is persisted before creating lesson
+                print("💾 Saving flow runs...")
+            flow_run_1 = FlowRunModel(**flow_run_data_1)
+            flow_run_2 = FlowRunModel(**flow_run_data_2)
+            db_session.add(flow_run_1)
+            db_session.add(flow_run_2)
+            db_session.flush()  # Ensure flow runs are persisted before creating lessons
 
             if args.verbose:
-                print("💾 Saving lesson with package to database...")
+                print("💾 Saving lessons with packages to database...")
 
-            # Create lesson with embedded package (references flow run)
-            lesson = LessonModel(**lesson_data)
-            db_session.add(lesson)
+            # Create unit
+            unit = UnitModel(
+                id=unit_id,
+                title=args.unit_title,
+                description=args.unit_description,
+                difficulty=args.unit_difficulty,
+                lesson_order=[lesson_id_1, lesson_id_2],
+            )
+            db_session.add(unit)
+
+            # Create lessons with embedded packages and link to unit
+            lesson_1 = LessonModel(**{**lesson_data_1, "unit_id": unit_id})
+            lesson_2 = LessonModel(**{**lesson_data_2, "unit_id": unit_id})
+            db_session.add(lesson_1)
+            db_session.add(lesson_2)
 
             # Create LLM requests first (required for step run foreign key constraint)
             if args.verbose:
-                print(f"💾 Saving {len(llm_requests)} LLM requests...")
-            for llm_request_data in llm_requests:
+                print(f"💾 Saving {len(llm_requests_1) + len(llm_requests_2)} LLM requests...")
+            for llm_request_data in [*llm_requests_1, *llm_requests_2]:
                 llm_request = LLMRequestModel(**llm_request_data)
                 db_session.add(llm_request)
             db_session.flush()  # Ensure LLM requests are persisted before creating step runs
 
             # Create step runs (references LLM requests)
             if args.verbose:
-                print(f"💾 Saving {len(step_runs)} step runs...")
-            for step_run_data in step_runs:
+                print(f"💾 Saving {len(step_runs_1) + len(step_runs_2)} step runs...")
+            for step_run_data in [*step_runs_1, *step_runs_2]:
                 step_run = FlowStepRunModel(**step_run_data)
                 db_session.add(step_run)
 
@@ -628,41 +658,63 @@ async def main() -> None:
                 print("💾 Committing changes...")
 
         # Report package content counts by type
-        package = lesson_data["package"]
-        exercises_count = len(package["exercises"])
-        glossary_terms_count = len(package["glossary"]["terms"])
+        package_1 = lesson_data_1["package"]
+        package_2 = lesson_data_2["package"]
+        exercises_count_1 = len(package_1["exercises"])
+        glossary_terms_count_1 = len(package_1["glossary"]["terms"])
+        exercises_count_2 = len(package_2["exercises"])
+        glossary_terms_count_2 = len(package_2["glossary"]["terms"])
 
         print("✅ Seed data created successfully!")
-        print(f"   • Lesson ID: {lesson_id}")
-        print(f"   • Title: {lesson_data['title']}")
-        print(f"   • Exercises: {exercises_count}; Didactic snippet: present; Glossary terms: {glossary_terms_count}")
-        print(f"   • Package version: {lesson_data['package_version']}")
-        print("   • Flow runs: 1")
-        print(f"   • Step runs: {len(step_runs)}")
-        print(f"   • LLM requests: {len(llm_requests)}")
-        print(f"   • Total tokens: {flow_run_data['total_tokens']}")
-        print(f"   • Total cost: ${flow_run_data['total_cost']:.4f}")
-        print(f"   • Frontend URL: http://localhost:3000/learn/{lesson_id}?mode=learning")
+        print(f"   • Unit ID: {unit_id}")
+        print(f"   • Unit: {args.unit_title} — lessons: 2")
+        print(f"   • Lesson 1 ID: {lesson_id_1} — {lesson_data_1['title']}")
+        print(f"     • Exercises: {exercises_count_1}; Glossary terms: {glossary_terms_count_1}")
+        print(f"   • Lesson 2 ID: {lesson_id_2} — {lesson_data_2['title']}")
+        print(f"     • Exercises: {exercises_count_2}; Glossary terms: {glossary_terms_count_2}")
+        print(f"   • Package versions: {lesson_data_1['package_version']}, {lesson_data_2['package_version']}")
+        print("   • Flow runs: 2")
+        print(f"   • Step runs: {len(step_runs_1) + len(step_runs_2)}")
+        print(f"   • LLM requests: {len(llm_requests_1) + len(llm_requests_2)}")
+        print(f"   • Frontend URL (lesson 1): http://localhost:3000/learn/{lesson_id_1}?mode=learning")
 
         # Save summary if requested
         if args.output:
             summary = {
-                "lesson_id": lesson_id,
-                "title": lesson_data["title"],
-                "concept": args.concept,
-                "user_level": args.level,
-                "domain": args.domain,
-                "package_version": lesson_data["package_version"],
-                "objectives_count": len(package["objectives"]),
-                "glossary_terms_count": len(package["glossary"]["terms"]),
-                "exercises_count": len(package["exercises"]),
-                "didactic_snippet_present": bool(package.get("didactic_snippet")),
-                "flow_runs": 1,
-                "step_runs": len(step_runs),
-                "llm_requests": len(llm_requests),
-                "total_tokens": flow_run_data["total_tokens"],
-                "total_cost": flow_run_data["total_cost"],
-                "created_with": "seed_data_script_package_model",
+                "unit": {
+                    "id": unit_id,
+                    "title": args.unit_title,
+                    "description": args.unit_description,
+                    "difficulty": args.unit_difficulty,
+                    "lesson_order": [lesson_id_1, lesson_id_2],
+                },
+                "lessons": [
+                    {
+                        "lesson_id": lesson_id_1,
+                        "title": lesson_data_1["title"],
+                        "concept": lesson_data_1["core_concept"],
+                        "user_level": args.level,
+                        "domain": args.domain,
+                        "package_version": lesson_data_1["package_version"],
+                        "objectives_count": len(package_1["objectives"]),
+                        "glossary_terms_count": len(package_1["glossary"]["terms"]),
+                        "exercises_count": len(package_1["exercises"]),
+                        "didactic_snippet_present": bool(package_1.get("didactic_snippet")),
+                    },
+                    {
+                        "lesson_id": lesson_id_2,
+                        "title": lesson_data_2["title"],
+                        "concept": lesson_data_2["core_concept"],
+                        "user_level": args.level,
+                        "domain": args.domain,
+                        "package_version": lesson_data_2["package_version"],
+                        "objectives_count": len(package_2["objectives"]),
+                        "glossary_terms_count": len(package_2["glossary"]["terms"]),
+                        "exercises_count": len(package_2["exercises"]),
+                        "didactic_snippet_present": bool(package_2.get("didactic_snippet")),
+                    },
+                ],
+                "created_with": "seed_data_script_package_model_units",
             }
 
             with Path(args.output).open("w") as f:

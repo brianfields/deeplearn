@@ -18,7 +18,7 @@ from pathlib import Path
 from codegen.common import (
     DEFAULT_MODEL_GPT5,
     ProjectSpec,
-    headless,
+    headless_agent,
     read_text,
     render_prompt,
     setup_project,
@@ -44,6 +44,12 @@ def main() -> int:
     ap.add_argument("--project", help="Project name for docs/specs/<PROJECT>")
     ap.add_argument("--prompts-dir", default="codegen/prompts")
     ap.add_argument("--model", default=DEFAULT_MODEL_GPT5)
+    ap.add_argument(
+        "--agent",
+        default="cursor-agent",
+        choices=("cursor-agent", "codex"),
+        help="Agent to use: cursor-agent (default) or codex",
+    )
     ap.add_argument("--max-iters", type=int, default=10)
     ap.add_argument("--dry", action="store_true")
     args = ap.parse_args()
@@ -87,8 +93,13 @@ def main() -> int:
             raise SystemExit(f"Missing prompt template: {prompt_file}")
         prompt_text = render_prompt(prompt_file, variables)
 
-        rc = headless(
-            prompt_text, args.model, force=True, stream=True, dry_run=args.dry
+        rc = headless_agent(
+            prompt_text,
+            args.model,
+            agent=args.agent,
+            force=True,
+            stream=True,
+            dry_run=args.dry,
         )
         if rc != 0:
             print(f"❌ Implement iteration failed with code {rc}")
@@ -100,4 +111,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

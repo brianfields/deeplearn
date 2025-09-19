@@ -25,10 +25,12 @@ Phased approach (interactive):
    - Write a single file at {OUT_SPEC} named "spec.md" that contains:
      - Requirements summary (what to build, constraints, acceptance criteria)
      - Cross-stack mapping of functionality to modules (backend and frontend), with concrete files to be edited/added
+     - The task list should clearly divide backend and frontend tasks, with backend modules, backend tests, and database migrations, listed before the frontend tasks.
      - A concise, prioritized checklist with GitHub-style checkboxes, e.g. "- [ ] Step name"
        - Keep it flat and implementable; each item should be a meaningful step
        - Include both backend and frontend tasks; group with simple headings if helpful
-     - Keep the test creation minimal: use unit tests for complex behavior on both backend and frontend. No integration tests.
+     - Keep the test creation minimal: use unit tests for complex behavior on both backend and frontend. No new integration tests, but make any changes necessary to the existing integration tests to ensure they are up to date. Also, make sure to fix maestro tests in mobile/e2e, adding testID attributes if necessary.
+     - Add a task to the spec if there are any database migrations. Migrations should be created and run with Alembic.
      - Make sure 'create_seed_data.py' is updated to create the seed data for the new features, if relevant.
      - We do not need to worry about backward compatibility as we have yet to deploy the application. We can reset the database and start fresh.
    - Present the spec and ask the user if any changes are needed. Iterate if requested.

@@ -1,0 +1,22 @@
+
+> mobile@1.0.0 e2e:maestro
+> export _JAVA_OPTIONS="--enable-native-access=ALL-UNNAMED" && open -a Simulator && sleep 10 && maestro test e2e/learning-flow.yaml
+
+Picked up _JAVA_OPTIONS: --enable-native-access=ALL-UNNAMED
+Picked up _JAVA_OPTIONS: --enable-native-access=ALL-UNNAMED
+Running on iPhone 16 Plus - iOS 18.4 - 7F7D45C3-2F05-409F-91BD-1429F4B9031D
+ > Flow learning-flow
+Assert that "Learning Lessons" is visible... FAILED
+
+Assertion is false: "Learning Lessons" is visible
+
+Assertion '"Learning Lessons" is visible' failed. Check the UI hierarchy in debug artifacts to verify the element state and properties.
+
+Possible causes:
+- Element selector may be incorrect - check if there are similar elements with slightly different names/properties.
+- Element may be temporarily unavailable due to loading state
+- This could be a real regression that needs to be addressed
+
+==== Debug output (logs & screenshots) ====
+
+/Users/brian/.maestro/tests/2025-09-18_205542

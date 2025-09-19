@@ -2,8 +2,9 @@
 FastAPI exception handlers for comprehensive error handling.
 """
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 import logging
+from typing import cast
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError
@@ -63,7 +64,7 @@ def setup_error_middleware(app: FastAPI) -> None:
     """Set up error handling middleware."""
 
     @app.middleware("http")
-    async def error_logging_middleware(request: Request, call_next: Callable) -> Response:
+    async def error_logging_middleware(request: Request, call_next: Callable[..., Awaitable[Response]]) -> Response:
         """Middleware to catch and log errors that slip through route handlers."""
         try:
             response = await call_next(request)
@@ -81,9 +82,12 @@ def setup_error_middleware(app: FastAPI) -> None:
             # not handled by the route exception handlers
             logger.error(f"Middleware caught unhandled exception: {exc}", exc_info=True)
 
-            return await create_error_response(
-                request=request,
-                exc=exc,
-                status_code=500,
-                log_full_context=True,  # Always log full context for middleware errors
+            return cast(
+                Response,
+                await create_error_response(
+                    request=request,
+                    exc=exc,
+                    status_code=500,
+                    log_full_context=True,  # Always log full context for middleware errors
+                ),
             )

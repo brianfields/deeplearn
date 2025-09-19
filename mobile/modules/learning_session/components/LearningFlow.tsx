@@ -12,7 +12,7 @@ import { useActiveLearningSession } from '../queries';
 import { useLearningSessionStore } from '../store';
 import DidacticSnippet from './DidacticSnippet';
 import MultipleChoice from './MultipleChoice';
-import { lessonCatalogProvider } from '../../lesson_catalog/public';
+import { lessonCatalogProvider } from '../../unit_catalog/public';
 
 interface LearningFlowProps {
   sessionId: string;

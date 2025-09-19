@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Any
 import uuid
 
-from sqlalchemy import and_, desc
+from sqlalchemy import and_, desc, text
 from sqlalchemy.orm import Session
 
 from .models import LearningSessionModel, SessionStatus
@@ -147,7 +147,7 @@ class LearningSessionRepo:
         """Health check - verify database connectivity"""
         try:
             # Simple query to test database connection
-            self.db.execute("SELECT 1")  # type: ignore[arg-type]
+            self.db.execute(text("SELECT 1"))
             return True
         except Exception:
             return False

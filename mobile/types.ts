@@ -4,7 +4,7 @@
  * Centralized navigation type definitions used across the application.
  */
 
-import type { LessonDetail } from './modules/lesson_catalog/models';
+import type { LessonDetail } from './modules/unit_catalog/models';
 import type { SessionResults } from './modules/learning_session/models';
 
 // ================================
@@ -20,6 +20,7 @@ export type RootStackParamList = {
 export type LearningStackParamList = {
   LessonList: undefined;
   LearningFlow: { lessonId: string; lesson: LessonDetail };
+  UnitDetail: { unitId: string };
   Results: {
     results: SessionResults;
   };

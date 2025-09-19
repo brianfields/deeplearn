@@ -14,7 +14,7 @@ from sqlalchemy import (
     Text,
     func,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship  # type: ignore[attr-defined]
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from modules.shared_models import Base, PostgresUUID
 
