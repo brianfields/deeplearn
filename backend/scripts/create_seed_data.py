@@ -449,7 +449,7 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, lesson_data: dict[str, Any])
             "cost_estimate": 0.0175,
             "execution_time_ms": 8000,  # Longer execution time for multiple MCQs
             "error_message": None,
-            "step_metadata": {"prompt_file": "generate_mcq.md"},
+            "step_metadata": {"prompt_file": "generate_mcqs.md"},
             "created_at": now,
             "updated_at": now,
             "completed_at": now,
@@ -624,13 +624,24 @@ async def main() -> None:
             if args.verbose:
                 print("💾 Saving lessons with packages to database...")
 
-            # Create unit
+            # Create unit (populate new generation fields for admin/UI and tests)
             unit = UnitModel(
                 id=unit_id,
                 title=args.unit_title,
                 description=args.unit_description,
                 difficulty=args.unit_difficulty,
                 lesson_order=[lesson_id_1, lesson_id_2],
+                learning_objectives=[
+                    {"lo_id": "u_lo_1", "text": "Explain cross-entropy and its role in classification", "bloom_level": "Understand"},
+                    {"lo_id": "u_lo_2", "text": "Relate softmax probabilities to cross-entropy loss", "bloom_level": "Analyze"},
+                    {"lo_id": "u_lo_3", "text": "Implement classification with softmax + cross-entropy in PyTorch", "bloom_level": "Apply"},
+                ],
+                target_duration_minutes=10,
+                source_material=(
+                    "This unit introduces cross-entropy loss and softmax probabilities for classification.\n"
+                    "It covers the intuition, mathematical formulation, and practical implementation."
+                ),
+                generated_from_topic=True,
             )
             db_session.add(unit)
             # Ensure unit exists before inserting lessons that reference it
