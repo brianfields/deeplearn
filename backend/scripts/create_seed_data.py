@@ -24,12 +24,14 @@ import uuid
 # Add the backend directory to the path so we can import modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from modules.content.models import LessonModel
+from modules.content.models import (
+    LessonModel,
+    UnitModel,  # Import UnitModel so SQLAlchemy knows about the units table
+)
 from modules.content.package_models import DidacticSnippet, GlossaryTerm, LengthBudgets, LessonPackage, MCQAnswerKey, MCQExercise, MCQOption, Meta, Objective
 from modules.flow_engine.models import FlowRunModel, FlowStepRunModel
 from modules.infrastructure.public import infrastructure_provider
 from modules.llm_services.models import LLMRequestModel
-from modules.content.models import UnitModel  # Import UnitModel so SQLAlchemy knows about the units table
 
 
 def create_sample_lesson_package(
@@ -631,6 +633,8 @@ async def main() -> None:
                 lesson_order=[lesson_id_1, lesson_id_2],
             )
             db_session.add(unit)
+            # Ensure unit exists before inserting lessons that reference it
+            db_session.flush()
 
             # Create lessons with embedded packages and link to unit
             lesson_1 = LessonModel(**{**lesson_data_1, "unit_id": unit_id})

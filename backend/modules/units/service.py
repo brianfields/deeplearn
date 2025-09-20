@@ -12,7 +12,6 @@ import uuid
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from modules.content.service import ContentService
 from .repo import UnitsRepo
 
 

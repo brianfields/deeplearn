@@ -16,7 +16,6 @@ from sqlalchemy.orm import Session
 from modules.content.public import ContentProvider, content_provider
 from modules.content.service import ContentService
 
-
 # Re-export DTOs from ContentService for response/request models
 UnitRead = ContentService.UnitRead
 UnitCreate = ContentService.UnitCreate

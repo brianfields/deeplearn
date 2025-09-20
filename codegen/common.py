@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -472,10 +473,26 @@ def count_mypy_issues(backend_dir: Path) -> int:
             capture_output=True,
             text=True,
         )
-        out = (proc.stdout or "") + "\n" + (proc.stderr or "")
+        out = ((proc.stdout or "") + "\n" + (proc.stderr or "")).strip()
+        # Success/no issues
+        if proc.returncode == 0 or "Success: no issues found" in out:
+            return 0
         if proc.returncode not in (0, 1):
             return 10**9
-        # Count lines containing " error: " (typical mypy output)
+        # Prefer parsing mypy's summary if present: "Found X errors in Y files"
+        m = re.search(r"Found\s+(\d+)\s+error(s)?\b", out)
+        if m:
+            try:
+                return int(m.group(1))
+            except Exception:
+                pass
+        # Fallback: count canonical error lines like "path:line: col: error: message [code]"
+        per_error = re.findall(
+            r"^.+?:\d+:\s*(?:\d+:\s*)?error:\s", out, flags=re.MULTILINE
+        )
+        if per_error:
+            return len(per_error)
+        # Last resort: substring heuristic
         return sum(1 for line in out.splitlines() if " error: " in line)
     except FileNotFoundError:
         return 10**9

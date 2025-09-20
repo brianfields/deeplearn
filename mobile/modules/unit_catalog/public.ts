@@ -43,10 +43,8 @@ export interface LessonCatalogProvider {
   browseUnits(params?: {
     limit?: number;
     offset?: number;
-  }): Promise<import('../units/models').Unit[]>;
-  getUnitDetail(
-    unitId: string
-  ): Promise<import('../units/models').UnitDetail | null>;
+  }): Promise<import('./models').Unit[]>;
+  getUnitDetail(unitId: string): Promise<import('./models').UnitDetail | null>;
 }
 
 // Service instance (singleton)
@@ -87,3 +85,4 @@ export type {
   CatalogStatistics,
   PaginationInfo,
 } from './models';
+export type { Unit, UnitDetail } from './models';

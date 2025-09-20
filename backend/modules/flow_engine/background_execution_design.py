@@ -17,12 +17,12 @@ from .types import FlowExecutionKwargs
 
 
 # Placeholder for example
-class ArticleProcessingFlow(BaseFlowWithBackground):
+class ArticleProcessingFlow(BaseFlowWithBackground):  # noqa: F821
     """Example flow for article processing."""
 
     flow_name = "article_processing"
 
-    async def _execute_flow_logic(self, inputs: dict[str, Any]) -> dict[str, Any]:
+    async def _execute_flow_logic(self, _inputs: dict[str, Any]) -> dict[str, Any]:
         # Placeholder implementation
         return {"processed": True}
 

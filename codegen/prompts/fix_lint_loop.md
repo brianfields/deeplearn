@@ -14,4 +14,4 @@ Instructions:
 - Stop when no more lint errors can be resolved without changing behavior, or when issues reach zero.
 
 Output format:
-- Do not explain. Just make edits to the repository.
+- Output which issue you are fixing and very concise description of the fix.

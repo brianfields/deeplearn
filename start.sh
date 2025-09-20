@@ -145,12 +145,12 @@ echo -e "${BLUE}Web app: http://localhost:8082${NC}"
 fi
 echo -e "${BLUE}Press Ctrl+C to stop all services${NC}"
 
-# Start mobile app
+# Start mobile app (Expo dev server only; Maestro opens the URL)
 # echo -e "${GREEN}Starting mobile app...${NC}"
 cd ../mobile
 if [ $START_IOS -eq 1 ]; then
-echo -e "${GREEN}Starting iOS app...${NC}"
-npm run ios &
+echo -e "${GREEN}Starting Expo dev server (iOS)...${NC}"
+npm run start -- --host localhost &
 MOBILE_PID=$!
 fi
 

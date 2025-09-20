@@ -3,19 +3,55 @@ appId: host.exp.Exponent
 # Complete Learning Flow E2E Test
 # Tests: Lesson Selection → Didactic → MCQ → Results → Return to Catalog
 
-- assertVisible: 'Units'
+- launchApp
+- openLink: 'exp://127.0.0.1:8081'
 
-# Step 1: Select first lesson from catalog
+# Handle Expo "Recent projects" screen if it appears
+- runFlow:
+    when:
+      visible: 'Recent'
+    commands:
+      - tapOn:
+          text: 'deeplearn'
+
+# Alternative: Try clicking first item if deeplearn text not found
+- runFlow:
+    when:
+      visible: 'Recent'
+    commands:
+      - tapOn:
+          index: 0
+
+# Alternative: Try common Expo selectors
+- runFlow:
+    when:
+      visible: 'Open project'
+    commands:
+      - tapOn:
+          index: 0
+
+# Wait for app to load and verify we're on the units screen
+- assertVisible:
+    id: 'units-title'
+
+# Step 1: Select first unit from catalog
 - tapOn:
-    id: 'lesson-card-0'
+    id: 'unit-card-0'
 
-# Step 2: Complete didactic content
+# Step 2: Select first lesson from unit
+- assertVisible:
+    text: 'Lessons'
+- tapOn:
+    id: 'lesson-card'
+    index: 0
+
+# Step 3: Complete didactic content
 - assertVisible:
     id: 'didactic-continue-button'
 - tapOn:
     id: 'didactic-continue-button'
 
-# Step 3: Answer MCQ questions
+# Step 4: Answer MCQ questions
 # Question 1
 - assertVisible:
     id: 'mcq-choice-0'
@@ -56,15 +92,16 @@ appId: host.exp.Exponent
 - tapOn:
     id: 'mcq-continue-button'
 
-# Step 5: Verify results screen appears with score
+# Step 6: Verify results screen appears with score
 - assertVisible:
     id: 'results-score-percentage'
 
-# Step 6: Return to lesson catalog
+# Step 7: Return to lesson catalog
 - tapOn:
     id: 'results-continue-button'
 
-# Step 7: Verify we're back at the lesson catalog
-- assertVisible: 'Units'
+# Step 8: Verify we're back at the lesson catalog
 - assertVisible:
-    id: 'lesson-card-0'
+    id: 'units-title'
+- assertVisible:
+    id: 'unit-card-0'

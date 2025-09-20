@@ -1,6 +1,14 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, FlatList } from 'react-native';
-import { useRoute } from '@react-navigation/native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  SafeAreaView,
+  FlatList,
+  TouchableOpacity,
+  Alert,
+} from 'react-native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -11,6 +19,7 @@ import {
   useUnitProgress as useUnitProgressLS,
   useNextLessonToResume,
 } from '../../learning_session/queries';
+import { lessonCatalogProvider } from '../public';
 
 type UnitDetailScreenNavigationProp = NativeStackNavigationProp<
   LearningStackParamList,
@@ -20,6 +29,7 @@ type UnitDetailScreenNavigationProp = NativeStackNavigationProp<
 export function UnitDetailScreen() {
   const route = useRoute<RouteProp<LearningStackParamList, 'UnitDetail'>>();
   const unitId = route.params?.unitId as string | undefined;
+  const navigation = useNavigation<UnitDetailScreenNavigationProp>();
   const { data: unit } = useUnit(unitId || '');
   // For now, use anonymous user until auth is wired up
   const userId = 'anonymous';
@@ -50,6 +60,23 @@ export function UnitDetailScreen() {
     return unit.lessons.find(l => l.id === nextLessonId)?.title ?? null;
   }, [unit, nextLessonId]);
 
+  const handleLessonPress = async (lessonId: string): Promise<void> => {
+    try {
+      const catalog = lessonCatalogProvider();
+      const detail = await catalog.getLessonDetail(lessonId);
+      if (!detail) {
+        Alert.alert('Lesson not found', 'Unable to open this lesson.');
+        return;
+      }
+      navigation.navigate('LearningFlow', {
+        lessonId: detail.id,
+        lesson: detail,
+      });
+    } catch {
+      Alert.alert('Unable to open lesson', 'Please try again.');
+    }
+  };
+
   if (!unit) {
     return (
       <SafeAreaView style={styles.container}>
@@ -73,7 +100,11 @@ export function UnitDetailScreen() {
         data={unit.lessons}
         keyExtractor={l => l.id}
         renderItem={({ item }) => (
-          <View style={styles.lessonRow}>
+          <TouchableOpacity
+            onPress={() => handleLessonPress(item.id)}
+            style={styles.lessonRow}
+            testID={`lesson-card`}
+          >
             <Text style={styles.lessonTitle}>{item.title}</Text>
             <View style={styles.lessonRight}>
               {progressLS && (
@@ -89,7 +120,7 @@ export function UnitDetailScreen() {
                 {item.estimatedDuration} min
               </Text>
             </View>
-          </View>
+          </TouchableOpacity>
         )}
         contentContainerStyle={styles.listContent}
       />

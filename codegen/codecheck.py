@@ -72,10 +72,11 @@ def main() -> int:
     if rc != 0:
         print(f"handle_migrations exited with {rc}")
 
+    # Unit tests
     rc = run_script(
         [
             "python",
-            str(root / "codegen" / "fix_tests.py"),
+            str(root / "codegen" / "fix_unit_tests.py"),
             "--project",
             args.project,
             "--agent",
@@ -83,7 +84,35 @@ def main() -> int:
         ]
     )
     if rc != 0:
-        print(f"fix_tests exited with {rc}")
+        print(f"fix_unit_tests exited with {rc}")
+
+    # Integration tests
+    rc = run_script(
+        [
+            "python",
+            str(root / "codegen" / "fix_integration_tests.py"),
+            "--project",
+            args.project,
+            "--agent",
+            args.agent,
+        ]
+    )
+    if rc != 0:
+        print(f"fix_integration_tests exited with {rc}")
+
+    # E2E tests
+    rc = run_script(
+        [
+            "python",
+            str(root / "codegen" / "fix_e2e_tests.py"),
+            "--project",
+            args.project,
+            "--agent",
+            args.agent,
+        ]
+    )
+    if rc != 0:
+        print(f"fix_e2e_tests exited with {rc}")
 
     rc = run_script(["python", str(root / "codegen" / "lint_fix.py")])
     if rc != 0:

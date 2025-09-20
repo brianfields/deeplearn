@@ -6,6 +6,7 @@
  */
 
 import { InfrastructureService } from './service';
+import { Platform } from 'react-native';
 import type {
   HttpClientConfig,
   RequestConfig,
@@ -29,10 +30,14 @@ export interface InfrastructureProvider {
 }
 
 // Default configuration
+const DEV_BASE_URL: string = Platform.select({
+  ios: 'http://127.0.0.1:8000',
+  android: 'http://10.0.2.2:8000',
+  default: 'http://127.0.0.1:8000',
+}) as string;
+
 const DEFAULT_HTTP_CONFIG: HttpClientConfig = {
-  baseURL: __DEV__
-    ? 'http://192.168.4.188:8000'
-    : 'https://your-production-api.com',
+  baseURL: __DEV__ ? DEV_BASE_URL : 'https://your-production-api.com',
   timeout: 30000,
   retryAttempts: 3,
 };

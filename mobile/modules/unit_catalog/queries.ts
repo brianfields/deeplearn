@@ -16,6 +16,8 @@ export const lessonCatalogKeys = {
   all: ['lesson_catalog'] as const,
   units: (p?: { limit?: number; offset?: number }) =>
     ['lesson_catalog', 'units', p ?? {}] as const,
+  unitDetail: (id: string) =>
+    ['lesson_catalog', 'units', 'detail', id] as const,
   browse: (
     filters?: LessonFilters,
     pagination?: Omit<PaginationInfo, 'hasMore'>
@@ -123,6 +125,18 @@ export function useCatalogUnits(params?: { limit?: number; offset?: number }) {
     staleTime: 5 * 60 * 1000,
   });
 }
+
+export function useCatalogUnitDetail(unitId: string) {
+  return useQuery({
+    queryKey: lessonCatalogKeys.unitDetail(unitId),
+    queryFn: () => lessonCatalog.getUnitDetail(unitId),
+    enabled: !!unitId?.trim(),
+    staleTime: 10 * 60 * 1000,
+  });
+}
+
+// Alias for compatibility
+export const useUnit = useCatalogUnitDetail;
 
 /**
  * Get catalog statistics

@@ -24,7 +24,7 @@ from .service import (
     UnitSummary,
 )
 
-router = APIRouter(prefix="/api/v1/lesson_catalog")
+router = APIRouter(prefix="/api/v1/catalog")
 
 
 def get_session() -> Generator[Session, None, None]:
@@ -54,19 +54,6 @@ def browse_lessons(
     Returns a list of lesson summaries for browsing.
     """
     return catalog.browse_lessons(user_level=user_level, limit=limit)
-
-
-@router.get("/{lesson_id}", response_model=LessonDetail)
-def get_lesson_details(lesson_id: str, catalog: LessonCatalogService = Depends(get_lesson_catalog_service)) -> LessonDetail:
-    """
-    Get detailed information about a specific lesson.
-
-    Includes package-aligned content and metadata for learning.
-    """
-    lesson = catalog.get_lesson_details(lesson_id)
-    if not lesson:
-        raise HTTPException(status_code=404, detail="Lesson not found")
-    return lesson
 
 
 @router.get("/search", response_model=SearchLessonsResponse)
@@ -150,3 +137,16 @@ def get_unit_details(unit_id: str, catalog: LessonCatalogService = Depends(get_l
     if not unit:
         raise HTTPException(status_code=404, detail="Unit not found")
     return unit
+
+
+@router.get("/{lesson_id}", response_model=LessonDetail)
+def get_lesson_details(lesson_id: str, catalog: LessonCatalogService = Depends(get_lesson_catalog_service)) -> LessonDetail:
+    """
+    Get detailed information about a specific lesson.
+
+    Includes package-aligned content and metadata for learning.
+    """
+    lesson = catalog.get_lesson_details(lesson_id)
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+    return lesson

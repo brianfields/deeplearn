@@ -29,6 +29,7 @@ from modules.infrastructure.exception_handlers import (
 from modules.infrastructure.public import DatabaseSession, infrastructure_provider
 from modules.learning_session.routes import router as learning_session_router
 from modules.lesson_catalog.routes import router as lesson_catalog_router
+
 # Units are consolidated under content; keep units routes shim if needed
 from modules.units.routes import router as units_router
 
@@ -44,10 +45,42 @@ def setup_logging() -> None:
     # Enhanced format for development
     if debug_mode:
         log_format = "%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s"
-        logging.basicConfig(level=getattr(logging, log_level), format=log_format, datefmt="%Y-%m-%d %H:%M:%S")
+        logging.basicConfig(
+            level=getattr(logging, log_level),
+            format=log_format,
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
     else:
         # Standard format for production
         logging.basicConfig(level=getattr(logging, log_level))
+
+    # Always also write logs to backend/logs/learning_app.log so automation can tail them
+    try:
+        logs_dir = Path(__file__).parent / "logs"
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        file_handler = logging.FileHandler(logs_dir / "learning_app.log", encoding="utf-8")
+        if debug_mode:
+            file_handler.setFormatter(
+                logging.Formatter(
+                    "%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s",
+                    datefmt="%Y-%m-%d %H:%M:%S",
+                )
+            )
+        else:
+            file_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+        file_handler.setLevel(getattr(logging, log_level))
+        root_logger = logging.getLogger()
+        root_logger.addHandler(file_handler)
+
+        # Capture uvicorn logs (access and error) into the same file to record 4xx/5xx
+        for name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
+            lg = logging.getLogger(name)
+            lg.setLevel(getattr(logging, log_level))
+            lg.addHandler(file_handler)
+    except Exception:
+        # Never fail startup due to logging file handler issues
+        logger.error("Failed to set up logging file handler")
+        pass
 
     # Set specific logger levels for better debugging
     if debug_mode:

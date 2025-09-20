@@ -16,9 +16,9 @@ from __future__ import annotations
 import argparse
 import uuid
 
-from modules.infrastructure.public import infrastructure_provider
 from modules.content.public import content_provider
 from modules.content.service import ContentService
+from modules.infrastructure.public import infrastructure_provider
 
 
 def parse_args() -> argparse.Namespace:

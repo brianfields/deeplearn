@@ -8,7 +8,7 @@ Uses single lessons table with JSON package field.
 
 from datetime import datetime
 
-from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String, Text, Float
+from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String, Text
 
 from modules.shared_models import Base, PostgresUUID
 

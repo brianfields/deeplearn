@@ -49,7 +49,7 @@ import { uiSystemProvider } from '../../ui_system/public';
 
 // Hooks
 import { useStartSession } from '../queries';
-import { unitsProvider } from '../../units/public';
+import { lessonCatalogProvider } from '../../unit_catalog/public';
 
 // Types
 import type { LearningStackParamList } from '../../../types';
@@ -121,10 +121,10 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
     setUnitTitle(null);
     (async () => {
       try {
-        const units = unitsProvider();
-        const list = await units.list({ limit: 100, offset: 0 });
+        const catalog = lessonCatalogProvider();
+        const list = await catalog.browseUnits({ limit: 100, offset: 0 });
         for (const u of list) {
-          const detail = await units.detail(u.id);
+          const detail = await catalog.getUnitDetail(u.id);
           if (detail && detail.lessons.some(l => l.id === lesson.id)) {
             if (!cancelled) setUnitTitle(detail.title);
             break;

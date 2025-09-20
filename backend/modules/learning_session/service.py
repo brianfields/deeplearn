@@ -199,7 +199,8 @@ class LearningSessionService:
                 if unit_id:
                     # Ensure unit session exists
                     self.content.get_or_create_unit_session(user_id=request.user_id, unit_id=unit_id)
-        except Exception as _e:
+        except Exception as e:
+            logger.warning(f"Failed to create unit session: {e}")
             # Non-fatal; proceed even if unit session cannot be created
             pass
 
@@ -337,7 +338,7 @@ class LearningSessionService:
                         already_completed = set(us.completed_lesson_ids or [])
                     except Exception:
                         already_completed = set()
-                    will_be_completed = len(already_completed | {completed_session.lesson_id}) >= total_lessons and total_lessons > 0
+                    will_be_completed = len(already_completed | {completed_session.lesson_id}) >= total_lessons > 0
 
                     self.content.update_unit_session_progress(
                         user_id=completed_session.user_id,
@@ -346,7 +347,8 @@ class LearningSessionService:
                         total_lessons=total_lessons,
                         mark_completed=will_be_completed,
                     )
-        except Exception as _e:
+        except Exception as e:
+            logger.warning(f"Failed to update unit session: {e}")
             # Non-fatal; unit session updates should not break session completion
             pass
 
@@ -355,7 +357,6 @@ class LearningSessionService:
     async def get_unit_progress(self, user_id: str, unit_id: str) -> UnitProgress:
         """Get unit progress primarily from persistent unit session, fallback to aggregation."""
         # Try persistent unit session
-        unit = self.lesson_catalog.get_unit_details(unit_id)
         lessons = self.content.get_lessons_by_unit(unit_id)
         total_lessons = len(lessons)
 
@@ -415,7 +416,7 @@ class LearningSessionService:
         """Check if all lessons in a unit are completed for a user based on unit session."""
         try:
             us = self.content.get_or_create_unit_session(user_id=user_id, unit_id=unit_id)
-            return len(us.completed_lesson_ids or []) >= total_lessons and total_lessons > 0
+            return len(us.completed_lesson_ids or []) >= total_lessons > 0
         except Exception:
             return False
 

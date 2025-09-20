@@ -5,12 +5,12 @@ Database access layer that returns ORM objects.
 Handles all CRUD operations for lessons with embedded package content.
 """
 
-from sqlalchemy.orm import Session
+from typing import Any
 
 from sqlalchemy import and_, desc
+from sqlalchemy.orm import Session
 
 from .models import LessonModel, UnitModel
-from typing import Any
 
 
 class ContentRepo:
@@ -104,14 +104,9 @@ class ContentRepo:
     # Unit session operations
     def get_unit_session(self, user_id: str, unit_id: str) -> Any | None:
         """Get the latest unit session for a user and unit."""
-        from ..learning_session.models import UnitSessionModel  # Local import to avoid circular deps
+        from ..learning_session.models import UnitSessionModel  # Local import to avoid circular deps # noqa: PLC0415
 
-        return (
-            self.s.query(UnitSessionModel)
-            .filter(and_(UnitSessionModel.user_id == user_id, UnitSessionModel.unit_id == unit_id))
-            .order_by(desc(UnitSessionModel.updated_at))
-            .first()
-        )
+        return self.s.query(UnitSessionModel).filter(and_(UnitSessionModel.user_id == user_id, UnitSessionModel.unit_id == unit_id)).order_by(desc(UnitSessionModel.updated_at)).first()
 
     def add_unit_session(self, unit_session: Any) -> Any:
         """Add a new unit session and flush to obtain ID."""

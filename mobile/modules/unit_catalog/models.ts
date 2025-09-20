@@ -265,3 +265,95 @@ function formatReadinessStatus(
     return 'Draft';
   }
 }
+
+// ================================
+// Units (DTOs and Wire Types)
+// ================================
+
+// Backend API Wire Types (private to module)
+export interface ApiUnitSummary {
+  id: string;
+  title: string;
+  description: string | null;
+  difficulty: string;
+  lesson_count: number;
+}
+
+export interface ApiUnitDetail {
+  id: string;
+  title: string;
+  description: string | null;
+  difficulty: string;
+  lesson_order: string[];
+  lessons: Array<{
+    id: string;
+    title: string;
+    core_concept: string;
+    user_level: string;
+    learning_objectives: string[];
+    key_concepts: string[];
+    exercise_count: number;
+  }>;
+}
+
+export type UnitId = string;
+export type Difficulty = 'beginner' | 'intermediate' | 'advanced';
+
+export interface Unit {
+  readonly id: UnitId;
+  readonly title: string;
+  readonly description?: string | null;
+  readonly difficulty: Difficulty;
+  readonly lessonCount: number;
+  readonly difficultyLabel: string;
+}
+
+export interface UnitDetail {
+  readonly id: UnitId;
+  readonly title: string;
+  readonly description?: string | null;
+  readonly difficulty: Difficulty;
+  readonly lessonIds: string[];
+  readonly lessons: LessonSummary[];
+}
+
+export interface UnitProgress {
+  readonly unitId: UnitId;
+  readonly completedLessons: number;
+  readonly totalLessons: number;
+  readonly progressPercentage: number; // 0-100
+}
+
+export function toUnitDTO(api: ApiUnitSummary): Unit {
+  const difficulty = (api.difficulty as Difficulty) ?? 'beginner';
+  return {
+    id: api.id,
+    title: api.title,
+    description: api.description,
+    difficulty,
+    lessonCount: api.lesson_count,
+    difficultyLabel: formatDifficultyLevel(difficulty),
+  };
+}
+
+export function toUnitDetailDTO(api: ApiUnitDetail): UnitDetail {
+  const difficulty = (api.difficulty as Difficulty) ?? 'beginner';
+  return {
+    id: api.id,
+    title: api.title,
+    description: api.description,
+    difficulty,
+    lessonIds: [...(api.lesson_order ?? [])],
+    lessons: api.lessons.map(l =>
+      toLessonSummaryDTO({
+        id: l.id,
+        title: l.title,
+        core_concept: l.core_concept,
+        user_level: l.user_level,
+        learning_objectives: l.learning_objectives,
+        key_concepts: l.key_concepts,
+        exercise_count: l.exercise_count,
+      })
+    ),
+  };
+}

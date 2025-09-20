@@ -9,18 +9,19 @@ Handles content operations and data transformation.
 
 from datetime import UTC, datetime
 import logging
-from typing import Any
+
+# Import inside methods when needed to avoid circular imports with public/providers
+from typing import TYPE_CHECKING, Any
 import uuid
 
 from pydantic import BaseModel, ConfigDict
 
 from .models import LessonModel, UnitModel
-# Import inside methods when needed to avoid circular imports with public/providers
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:  # pragma: no cover - type checking only
-    from ..learning_session.models import UnitSessionModel  # noqa: F401
 from .package_models import LessonPackage
 from .repo import ContentRepo
+
+if TYPE_CHECKING:  # pragma: no cover - type checking only
+    from ..learning_session.models import UnitSessionModel  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -277,15 +278,15 @@ class ContentService:
         difficulty: str = "beginner"
         lesson_order: list[str] = []
 
-    def get_unit(self, unit_id: str) -> "ContentService.UnitRead" | None:
+    def get_unit(self, unit_id: str) -> ContentService.UnitRead | None:
         u = self.repo.get_unit_by_id(unit_id)
         return self.UnitRead.model_validate(u) if u else None
 
-    def list_units(self, limit: int = 100, offset: int = 0) -> list["ContentService.UnitRead"]:
+    def list_units(self, limit: int = 100, offset: int = 0) -> list[ContentService.UnitRead]:
         arr = self.repo.list_units(limit=limit, offset=offset)
         return [self.UnitRead.model_validate(u) for u in arr]
 
-    def create_unit(self, data: "ContentService.UnitCreate") -> "ContentService.UnitRead":
+    def create_unit(self, data: ContentService.UnitCreate) -> ContentService.UnitRead:
         unit_id = data.id or str(uuid.uuid4())
         model = UnitModel(
             id=unit_id,
@@ -299,7 +300,7 @@ class ContentService:
         created = self.repo.add_unit(model)
         return self.UnitRead.model_validate(created)
 
-    def set_unit_lesson_order(self, unit_id: str, lesson_ids: list[str]) -> "ContentService.UnitRead":
+    def set_unit_lesson_order(self, unit_id: str, lesson_ids: list[str]) -> ContentService.UnitRead:
         updated = self.repo.update_unit_lesson_order(unit_id, lesson_ids)
         if not updated:
             raise ValueError("Unit not found")
@@ -322,13 +323,14 @@ class ContentService:
 
         model_config = ConfigDict(from_attributes=True)
 
-    def get_or_create_unit_session(self, user_id: str, unit_id: str) -> "ContentService.UnitSessionRead":
+    def get_or_create_unit_session(self, user_id: str, unit_id: str) -> ContentService.UnitSessionRead:
         """Get existing unit session or create a new active one."""
         existing = self.repo.get_unit_session(user_id=user_id, unit_id=unit_id)
         if existing:
             return self.UnitSessionRead.model_validate(existing)
 
-        from ..learning_session.models import UnitSessionModel
+        from ..learning_session.models import UnitSessionModel  # noqa: PLC0415
+
         model = UnitSessionModel(
             id=str(uuid.uuid4()),
             unit_id=unit_id,
@@ -353,11 +355,12 @@ class ContentService:
         total_lessons: int | None = None,
         mark_completed: bool = False,
         progress_percentage: float | None = None,
-    ) -> "ContentService.UnitSessionRead":
+    ) -> ContentService.UnitSessionRead:
         """Update progress for a unit session, creating one if needed."""
         model = self.repo.get_unit_session(user_id=user_id, unit_id=unit_id)
         if not model:
-            from ..learning_session.models import UnitSessionModel
+            from ..learning_session.models import UnitSessionModel  # noqa: PLC0415
+
             model = UnitSessionModel(
                 id=str(uuid.uuid4()),
                 unit_id=unit_id,
@@ -377,7 +380,7 @@ class ContentService:
         if completed_lesson_id:
             existing = set(model.completed_lesson_ids or [])
             existing.add(completed_lesson_id)
-            model.completed_lesson_ids = list(existing)  # type: ignore[assignment]
+            model.completed_lesson_ids = list(existing)
 
         # Compute progress if total provided
         if total_lessons is not None:

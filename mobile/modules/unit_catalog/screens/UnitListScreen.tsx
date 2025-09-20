@@ -18,9 +18,9 @@ import { Search } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import { UnitCard } from '../../units/components/UnitCard';
+import { UnitCard } from '../components/UnitCard';
 import { useCatalogUnits } from '../queries';
-import type { Unit } from '../../units/public';
+import type { Unit } from '../public';
 import type { LearningStackParamList } from '../../../types';
 
 type LessonListScreenNavigationProp = NativeStackNavigationProp<
@@ -50,7 +50,9 @@ export function LessonListScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Units</Text>
+        <Text style={styles.title} testID="units-title">
+          Units
+        </Text>
         <Text style={styles.subtitle}>{units.length} available</Text>
       </View>
 

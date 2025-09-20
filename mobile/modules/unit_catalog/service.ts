@@ -6,7 +6,7 @@
  */
 
 import { LessonCatalogRepo } from './repo';
-import { unitsProvider, type Unit, type UnitDetail } from '../units/public';
+import type { Unit, UnitDetail } from './models';
 import type {
   LessonSummary,
   LessonDetail,
@@ -257,8 +257,17 @@ export class LessonCatalogService {
     limit?: number;
     offset?: number;
   }): Promise<Unit[]> {
-    const units = unitsProvider();
-    return units.list(params);
+    const apiUnits = await this.repo.listUnits(params);
+    return apiUnits.map(u => ({
+      id: u.id,
+      title: u.title,
+      description: u.description,
+      difficulty: (u.difficulty as any) ?? 'beginner',
+      lessonCount: u.lesson_count,
+      difficultyLabel: this.formatDifficulty(
+        (u.difficulty as any) ?? 'beginner'
+      ),
+    }));
   }
 
   /**
@@ -266,7 +275,54 @@ export class LessonCatalogService {
    */
   async getUnitDetail(unitId: string): Promise<UnitDetail | null> {
     if (!unitId?.trim()) return null;
-    const units = unitsProvider();
-    return units.detail(unitId);
+    try {
+      const api = await this.repo.getUnitDetail(unitId);
+      const difficulty = (api.difficulty as any) ?? 'beginner';
+      return {
+        id: api.id,
+        title: api.title,
+        description: api.description,
+        difficulty,
+        lessonIds: [...(api.lesson_order ?? [])],
+        lessons: api.lessons.map(l => ({
+          id: l.id,
+          title: l.title,
+          coreConcept: l.core_concept,
+          userLevel: l.user_level as any,
+          learningObjectives: l.learning_objectives,
+          keyConcepts: l.key_concepts,
+          componentCount: l.exercise_count,
+          estimatedDuration: Math.max(5, l.exercise_count * 3),
+          isReadyForLearning: l.exercise_count > 0,
+          difficultyLevel: this.formatDifficulty(l.user_level as any),
+          durationDisplay: this.formatDuration(
+            Math.max(5, l.exercise_count * 3)
+          ),
+          readinessStatus: l.exercise_count > 0 ? 'Ready' : 'Draft',
+          tags: (l.key_concepts ?? []).slice(0, 3),
+        })),
+      };
+    } catch (err: any) {
+      if (err?.statusCode === 404) return null;
+      throw err;
+    }
+  }
+
+  private formatDifficulty(
+    d: 'beginner' | 'intermediate' | 'advanced' | string
+  ): string {
+    const map: Record<string, string> = {
+      beginner: 'Beginner',
+      intermediate: 'Intermediate',
+      advanced: 'Advanced',
+    };
+    return map[d] ?? 'Unknown';
+  }
+
+  private formatDuration(minutes: number): string {
+    if (minutes < 60) return `${minutes} min`;
+    const hours = Math.floor(minutes / 60);
+    const remaining = minutes % 60;
+    return remaining === 0 ? `${hours} hr` : `${hours} hr ${remaining} min`;
   }
 }

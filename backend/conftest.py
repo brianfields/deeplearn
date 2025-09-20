@@ -1,6 +1,6 @@
 # Ensure the backend directory is on sys.path so tests can import `modules.*`
-import sys
 from pathlib import Path
+import sys
 
 BACKEND_DIR = Path(__file__).parent
 BACKEND_DIR_STR = str(BACKEND_DIR)

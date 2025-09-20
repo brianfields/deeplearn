@@ -188,7 +188,7 @@ These refinements will consolidate the architecture, add proper unit session tra
 #### Frontend Navigation Hierarchy Fix
 - [x] Mobile/navigation: Rename `mobile/modules/lesson_catalog` to `mobile/modules/unit_catalog` (reason: units should be primary navigation level)
 - [x] Mobile/unit_catalog: Update screens to browse units first, then lessons within selected unit (reason: correct user experience hierarchy)
-- [ ] Mobile/unit_catalog: Move unit browsing logic from `mobile/modules/units/` into unit_catalog (reason: consolidate unit selection interface)
-- [ ] Mobile/cleanup: Remove `mobile/modules/units/` module after consolidating with unit_catalog (reason: eliminate duplicate functionality)
+- [x] Mobile/unit_catalog: Move unit browsing logic from `mobile/modules/units/` into unit_catalog (reason: consolidate unit selection interface)
+- [x] Mobile/cleanup: Remove `mobile/modules/units/` module after consolidating with unit_catalog (reason: eliminate duplicate functionality)
 - [x] Mobile/app: Update main navigation to use unit_catalog as primary lesson selection interface (reason: units-first navigation flow)
-- [ ] Mobile/unit_catalog: Add lesson selection within unit context to unit_catalog screens (reason: maintain unit context during lesson selection)
+- [x] Mobile/unit_catalog: Add lesson selection within unit context to unit_catalog screens (reason: maintain unit context during lesson selection)

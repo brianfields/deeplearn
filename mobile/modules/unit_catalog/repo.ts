@@ -6,6 +6,7 @@
  */
 
 import { infrastructureProvider } from '../infrastructure/public';
+import type { ApiUnitSummary, ApiUnitDetail } from './models';
 import type {
   SearchLessonsRequest,
   CatalogStatistics,
@@ -13,7 +14,7 @@ import type {
 } from './models';
 
 // Backend API endpoints
-const LESSON_CATALOG_BASE = '/api/v1/lesson_catalog';
+const LESSON_CATALOG_BASE = '/api/v1/catalog';
 
 // API response types (private to repo)
 interface ApiBrowseLessonsResponse {
@@ -245,6 +246,37 @@ export class LessonCatalogRepo {
     } catch (error) {
       console.warn('[LessonCatalogRepo] Health check failed:', error);
       return false;
+    }
+  }
+
+  // ================================
+  // Units Endpoints
+  // ================================
+
+  async listUnits(params?: {
+    limit?: number;
+    offset?: number;
+  }): Promise<ApiUnitSummary[]> {
+    const limit = params?.limit ?? 100;
+    const offset = params?.offset ?? 0;
+    const url = `${LESSON_CATALOG_BASE}/units?limit=${encodeURIComponent(String(limit))}&offset=${encodeURIComponent(String(offset))}`;
+    try {
+      return await this.infrastructure.request<ApiUnitSummary[]>(url, {
+        method: 'GET',
+      });
+    } catch (error) {
+      throw this.handleError(error, 'Failed to list units');
+    }
+  }
+
+  async getUnitDetail(unitId: string): Promise<ApiUnitDetail> {
+    const url = `${LESSON_CATALOG_BASE}/units/${encodeURIComponent(unitId)}`;
+    try {
+      return await this.infrastructure.request<ApiUnitDetail>(url, {
+        method: 'GET',
+      });
+    } catch (error) {
+      throw this.handleError(error, `Failed to get unit ${unitId}`);
     }
   }
 
