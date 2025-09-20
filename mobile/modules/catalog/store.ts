@@ -7,7 +7,7 @@
 import { create } from 'zustand';
 import type { LessonFilters, LessonSortOptions } from './models';
 
-interface LessonCatalogState {
+interface CatalogState {
   // Search and filter state
   searchQuery: string;
   filters: LessonFilters;
@@ -44,7 +44,7 @@ const initialState = {
   recentLessonIds: [],
 };
 
-export const useLessonCatalogStore = create<LessonCatalogState>((set, get) => ({
+export const useCatalogStore = create<CatalogState>((set, get) => ({
   ...initialState,
 
   // Search actions
@@ -99,8 +99,8 @@ export const useLessonCatalogStore = create<LessonCatalogState>((set, get) => ({
 }));
 
 // Selectors for common state combinations
-export const useLessonCatalogSelectors = () => {
-  const store = useLessonCatalogStore();
+export const useCatalogSelectors = () => {
+  const store = useCatalogStore();
 
   return {
     // Combined search state

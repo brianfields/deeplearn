@@ -12,10 +12,10 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Screens (using new modular structure)
-import { LessonListScreen } from './modules/unit_catalog/screens/UnitListScreen';
+import { LessonListScreen } from './modules/catalog/screens/UnitListScreen';
 import LearningFlowScreen from './modules/learning_session/screens/LearningFlowScreen';
 import ResultsScreen from './modules/learning_session/screens/ResultsScreen';
-import { UnitDetailScreen } from './modules/unit_catalog/screens/UnitDetailScreen';
+import { UnitDetailScreen } from './modules/catalog/screens/UnitDetailScreen';
 
 // Types
 import type { RootStackParamList, LearningStackParamList } from './types';

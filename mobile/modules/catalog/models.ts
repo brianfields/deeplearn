@@ -137,7 +137,7 @@ export interface CatalogStatistics {
 // Error Types
 // ================================
 
-export interface LessonCatalogError {
+export interface CatalogError {
   readonly message: string;
   readonly code?: string;
   readonly statusCode?: number;

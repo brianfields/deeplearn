@@ -6,7 +6,7 @@
  */
 
 import { LearningSessionRepo } from './repo';
-import { lessonCatalogProvider } from '../unit_catalog/public';
+import { catalogProvider } from '../catalog/public';
 import { infrastructureProvider } from '../infrastructure/public';
 import type {
   LearningSession,
@@ -28,7 +28,7 @@ import {
 
 export class LearningSessionService {
   private repo: LearningSessionRepo;
-  private lessonCatalog = lessonCatalogProvider();
+  private catalog = catalogProvider();
   private infrastructure = infrastructureProvider();
 
   constructor(repo: LearningSessionRepo) {
@@ -41,9 +41,7 @@ export class LearningSessionService {
   async startSession(request: StartSessionRequest): Promise<LearningSession> {
     try {
       // Validate lesson exists and get lesson details
-      const lessonDetail = await this.lessonCatalog.getLessonDetail(
-        request.lessonId
-      );
+      const lessonDetail = await this.catalog.getLessonDetail(request.lessonId);
       if (!lessonDetail) {
         throw new Error(`Lesson ${request.lessonId} not found`);
       }
@@ -77,7 +75,7 @@ export class LearningSessionService {
         // Get lesson title for display
         let lessonTitle: string | undefined;
         try {
-          const lessonDetail = await this.lessonCatalog.getLessonDetail(
+          const lessonDetail = await this.catalog.getLessonDetail(
             apiSession.lesson_id
           );
           lessonTitle = lessonDetail?.title;
@@ -159,7 +157,7 @@ export class LearningSessionService {
       // Get lesson title for display
       let lessonTitle: string | undefined;
       try {
-        const lessonDetail = await this.lessonCatalog.getLessonDetail(
+        const lessonDetail = await this.catalog.getLessonDetail(
           apiSession.lesson_id
         );
         lessonTitle = lessonDetail?.title;
@@ -236,7 +234,7 @@ export class LearningSessionService {
         apiResponse.sessions.map(async apiSession => {
           let lessonTitle: string | undefined;
           try {
-            const lessonDetail = await this.lessonCatalog.getLessonDetail(
+            const lessonDetail = await this.catalog.getLessonDetail(
               apiSession.lesson_id
             );
             lessonTitle = lessonDetail?.title;
@@ -268,9 +266,7 @@ export class LearningSessionService {
       }
 
       // Get lesson details to get exercises
-      const lessonDetail = await this.lessonCatalog.getLessonDetail(
-        session.lessonId
-      );
+      const lessonDetail = await this.catalog.getLessonDetail(session.lessonId);
       if (!lessonDetail) {
         throw new Error('Lesson not found');
       }
@@ -320,7 +316,7 @@ export class LearningSessionService {
   async canStartSession(lessonId: string, userId?: string): Promise<boolean> {
     try {
       // Check if lesson exists
-      const lessonDetail = await this.lessonCatalog.getLessonDetail(lessonId);
+      const lessonDetail = await this.catalog.getLessonDetail(lessonId);
       if (!lessonDetail) {
         return false;
       }
@@ -488,7 +484,7 @@ export class LearningSessionService {
   async getUnitProgress(userId: string, unitId: string): Promise<UnitProgress> {
     try {
       // For now, derive progress using lesson catalog + local heuristics if backend not available
-      const unit = await this.lessonCatalog.getUnitDetail(unitId);
+      const unit = await this.catalog.getUnitDetail(unitId);
       if (!unit) {
         throw new Error('Unit not found');
       }
@@ -560,7 +556,7 @@ export class LearningSessionService {
     unitId: string
   ): Promise<string | null> {
     try {
-      const unit = await this.lessonCatalog.getUnitDetail(unitId);
+      const unit = await this.catalog.getUnitDetail(unitId);
       if (!unit) return null;
 
       // Prefer explicit order from unit

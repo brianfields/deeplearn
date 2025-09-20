@@ -10,7 +10,7 @@ import type { ApiUnitSummary, ApiUnitDetail } from './models';
 import type {
   SearchLessonsRequest,
   CatalogStatistics,
-  LessonCatalogError,
+  CatalogError,
 } from './models';
 
 // Backend API endpoints
@@ -44,7 +44,7 @@ interface ApiLessonDetail {
   exercise_count: number;
 }
 
-export class LessonCatalogRepo {
+export class CatalogRepo {
   private infrastructure = infrastructureProvider();
 
   /**
@@ -244,7 +244,7 @@ export class LessonCatalogRepo {
       const networkStatus = this.infrastructure.getNetworkStatus();
       return networkStatus.isConnected;
     } catch (error) {
-      console.warn('[LessonCatalogRepo] Health check failed:', error);
+      console.warn('[CatalogRepo] Health check failed:', error);
       return false;
     }
   }
@@ -283,8 +283,8 @@ export class LessonCatalogRepo {
   /**
    * Handle and transform errors
    */
-  private handleError(error: any, defaultMessage: string): LessonCatalogError {
-    console.error('[LessonCatalogRepo]', defaultMessage, error);
+  private handleError(error: any, defaultMessage: string): CatalogError {
+    console.error('[CatalogRepo]', defaultMessage, error);
 
     // If it's already a structured error from infrastructure
     if (error && typeof error === 'object') {

@@ -11,8 +11,8 @@ from modules.content.public import ContentProvider
 
 from .service import (
     BrowseLessonsResponse,
+    CatalogService,
     CatalogStatistics,
-    LessonCatalogService,
     LessonDetail,
     LessonSummary,
     RefreshCatalogResponse,
@@ -22,7 +22,7 @@ from .service import (
 )
 
 
-class LessonCatalogProvider(Protocol):
+class CatalogProvider(Protocol):
     """Protocol defining the lesson catalog module's public interface."""
 
     def browse_lessons(self, user_level: str | None = None, limit: int = 100) -> BrowseLessonsResponse: ...
@@ -44,7 +44,7 @@ class LessonCatalogProvider(Protocol):
     def refresh_catalog(self) -> RefreshCatalogResponse: ...
 
 
-def lesson_catalog_provider(content: ContentProvider, units: ContentProvider) -> LessonCatalogProvider:
+def catalog_provider(content: ContentProvider, units: ContentProvider) -> CatalogProvider:
     """
     Dependency injection provider for lesson catalog services.
 
@@ -53,20 +53,20 @@ def lesson_catalog_provider(content: ContentProvider, units: ContentProvider) ->
         units: Units service instance (built with same session as caller).
 
     Returns:
-        LessonCatalogService instance that implements the LessonCatalogProvider protocol.
+        CatalogService instance that implements the CatalogProvider protocol.
     """
-    return LessonCatalogService(content, units)
+    return CatalogService(content, units)
 
 
 __all__ = [
     "BrowseLessonsResponse",
+    "CatalogProvider",
     "CatalogStatistics",
-    "LessonCatalogProvider",
     "LessonDetail",
     "LessonSummary",
     "RefreshCatalogResponse",
     "SearchLessonsResponse",
     "UnitDetail",
     "UnitSummary",
-    "lesson_catalog_provider",
+    "catalog_provider",
 ]

@@ -7,6 +7,7 @@ Tests for the lesson catalog service layer.
 from datetime import UTC, datetime
 from unittest.mock import Mock
 
+from modules.catalog.service import CatalogService, LessonDetail, LessonSummary
 from modules.content.package_models import (
     DidacticSnippet,
     GlossaryTerm,
@@ -18,11 +19,10 @@ from modules.content.package_models import (
     Objective,
 )
 from modules.content.service import LessonRead
-from modules.lesson_catalog.service import LessonCatalogService, LessonDetail, LessonSummary
 
 
-class TestLessonCatalogService:
-    """Unit tests for LessonCatalogService."""
+class TestCatalogService:
+    """Unit tests for CatalogService."""
 
     def test_browse_lessons_returns_summaries(self) -> None:
         """Test that browse_lessons returns lesson summaries."""
@@ -62,7 +62,7 @@ class TestLessonCatalogService:
 
         content.search_lessons.return_value = mock_lessons
         units = Mock()
-        service = LessonCatalogService(content, units)
+        service = CatalogService(content, units)
 
         # Act
         result = service.browse_lessons(user_level="beginner", limit=10)
@@ -102,7 +102,7 @@ class TestLessonCatalogService:
 
         content.get_lesson.return_value = mock_lesson
         units = Mock()
-        service = LessonCatalogService(content, units)
+        service = CatalogService(content, units)
 
         # Act
         result = service.get_lesson_details("lesson-1")
@@ -122,7 +122,7 @@ class TestLessonCatalogService:
         content = Mock()
         content.get_lesson.return_value = None
         units = Mock()
-        service = LessonCatalogService(content, units)
+        service = CatalogService(content, units)
 
         # Act
         result = service.get_lesson_details("nonexistent")
@@ -214,7 +214,7 @@ class TestLessonCatalogService:
 
         content.search_lessons.return_value = mock_lessons
         units = Mock()
-        service = LessonCatalogService(content, units)
+        service = CatalogService(content, units)
 
         # Act
         result = service.search_lessons(query="react", limit=10)
@@ -261,7 +261,7 @@ class TestLessonCatalogService:
 
         content.search_lessons.return_value = mock_lessons
         units = Mock()
-        service = LessonCatalogService(content, units)
+        service = CatalogService(content, units)
 
         # Act
         result = service.get_catalog_statistics()

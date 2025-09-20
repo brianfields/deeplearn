@@ -104,7 +104,7 @@ class UnitDetail(BaseModel):
     lessons: list["LessonSummary"]
 
 
-class LessonCatalogService:
+class CatalogService:
     """Service for lesson catalog operations."""
 
     def __init__(self, content: ContentProvider, units: ContentProvider) -> None:

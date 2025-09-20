@@ -19,7 +19,7 @@ import {
   useUnitProgress as useUnitProgressLS,
   useNextLessonToResume,
 } from '../../learning_session/queries';
-import { lessonCatalogProvider } from '../public';
+import { catalogProvider } from '../public';
 
 type UnitDetailScreenNavigationProp = NativeStackNavigationProp<
   LearningStackParamList,
@@ -62,7 +62,7 @@ export function UnitDetailScreen() {
 
   const handleLessonPress = async (lessonId: string): Promise<void> => {
     try {
-      const catalog = lessonCatalogProvider();
+      const catalog = catalogProvider();
       const detail = await catalog.getLessonDetail(lessonId);
       if (!detail) {
         Alert.alert('Lesson not found', 'Unable to open this lesson.');

@@ -31,6 +31,7 @@ Phased approach (interactive):
        - Include both backend and frontend tasks; group with simple headings if helpful
      - Keep the test creation minimal: use unit tests for complex behavior on both backend and frontend. No new integration tests, but make any changes necessary to the existing integration tests to ensure they are up to date. Also, make sure to fix maestro tests in mobile/e2e, adding testID attributes if necessary.
      - Add a task to the spec if there are any database migrations. Migrations should be created and run with Alembic.
+     - As part of the checklist, identify any changes to terminology or naming caused by this spec and, if necessary, add one or more tasks to ensure each change is made consistently across the codebase.
      - Make sure 'create_seed_data.py' is updated to create the seed data for the new features, if relevant.
      - We do not need to worry about backward compatibility as we have yet to deploy the application. We can reset the database and start fresh.
    - Present the spec and ask the user if any changes are needed. Iterate if requested.

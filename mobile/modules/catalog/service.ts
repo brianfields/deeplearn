@@ -5,7 +5,7 @@
  * Returns DTOs only, never raw API responses.
  */
 
-import { LessonCatalogRepo } from './repo';
+import { CatalogRepo } from './repo';
 import type { Unit, UnitDetail } from './models';
 import type {
   LessonSummary,
@@ -14,7 +14,7 @@ import type {
   SearchLessonsRequest,
   LessonFilters,
   CatalogStatistics,
-  LessonCatalogError,
+  CatalogError,
   PaginationInfo,
 } from './models';
 import {
@@ -23,8 +23,8 @@ import {
   toBrowseLessonsResponseDTO,
 } from './models';
 
-export class LessonCatalogService {
-  constructor(private repo: LessonCatalogRepo) {}
+export class CatalogService {
+  constructor(private repo: CatalogRepo) {}
 
   /**
    * Browse lessons with optional filters
@@ -157,7 +157,7 @@ export class LessonCatalogService {
     try {
       return await this.repo.checkHealth();
     } catch (error) {
-      console.warn('[LessonCatalogService] Health check failed:', error);
+      console.warn('[CatalogService] Health check failed:', error);
       return false;
     }
   }
@@ -229,13 +229,10 @@ export class LessonCatalogService {
   /**
    * Handle and transform service errors
    */
-  private handleServiceError(
-    error: any,
-    defaultMessage: string
-  ): LessonCatalogError {
-    console.error('[LessonCatalogService]', defaultMessage, error);
+  private handleServiceError(error: any, defaultMessage: string): CatalogError {
+    console.error('[CatalogService]', defaultMessage, error);
 
-    // If it's already a LessonCatalogError, pass it through
+    // If it's already a CatalogError, pass it through
     if (error && error.code === 'TOPIC_CATALOG_ERROR') {
       return error;
     }
@@ -243,7 +240,7 @@ export class LessonCatalogService {
     // Transform other errors
     return {
       message: error?.message || defaultMessage,
-      code: 'TOPIC_CATALOG_SERVICE_ERROR',
+      code: 'CATALOG_SERVICE_ERROR',
       statusCode: error?.statusCode,
       details: error,
     };

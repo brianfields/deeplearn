@@ -12,7 +12,7 @@ import { useActiveLearningSession } from '../queries';
 import { useLearningSessionStore } from '../store';
 import DidacticSnippet from './DidacticSnippet';
 import MultipleChoice from './MultipleChoice';
-import { lessonCatalogProvider } from '../../unit_catalog/public';
+import { catalogProvider } from '../../catalog/public';
 
 interface LearningFlowProps {
   sessionId: string;
@@ -99,8 +99,8 @@ export default function LearningFlow({
     const fetchDidactic = async () => {
       try {
         if (!session?.lessonId) return;
-        const lessonCatalog = lessonCatalogProvider();
-        const detail = await lessonCatalog.getLessonDetail(session.lessonId);
+        const catalog = catalogProvider();
+        const detail = await catalog.getLessonDetail(session.lessonId);
         if (!isMounted) return;
         setDidacticData(detail?.didacticSnippet || null);
       } catch (e) {

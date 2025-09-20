@@ -8,7 +8,7 @@ import { jest } from '@jest/globals';
 
 // Mock dependencies
 jest.mock('../infrastructure/public');
-jest.mock('../unit_catalog/public');
+jest.mock('../catalog/public');
 
 import { LearningSessionService } from './service';
 import { LearningSessionRepo } from './repo';
@@ -24,7 +24,7 @@ import type {
 } from './models';
 
 // Mock implementations
-const mockLessonCatalogProvider = {
+const mockCatalogProvider = {
   getLessonDetail: jest.fn() as jest.MockedFunction<any>,
 };
 
@@ -37,8 +37,8 @@ const mockInfrastructureProvider = {
 // Mock the providers
 jest
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  .mocked(require('../unit_catalog/public').lessonCatalogProvider)
-  .mockReturnValue(mockLessonCatalogProvider);
+  .mocked(require('../catalog/public').catalogProvider)
+  .mockReturnValue(mockCatalogProvider);
 jest
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   .mocked(require('../infrastructure/public').infrastructureProvider)
@@ -108,9 +108,7 @@ describe('Learning Session Module', () => {
           session_data: {},
         };
 
-        mockLessonCatalogProvider.getLessonDetail.mockResolvedValue(
-          mockLessonDetail
-        );
+        mockCatalogProvider.getLessonDetail.mockResolvedValue(mockLessonDetail);
         mockRepo.startSession.mockResolvedValue(mockApiSession);
         mockInfrastructureProvider.setStorageItem.mockResolvedValue(undefined);
 
@@ -128,7 +126,7 @@ describe('Learning Session Module', () => {
           progressPercentage: 0,
         });
 
-        expect(mockLessonCatalogProvider.getLessonDetail).toHaveBeenCalledWith(
+        expect(mockCatalogProvider.getLessonDetail).toHaveBeenCalledWith(
           'topic-1'
         );
         expect(mockRepo.startSession).toHaveBeenCalledWith(request);
@@ -142,7 +140,7 @@ describe('Learning Session Module', () => {
           userId: 'user-1',
         };
 
-        mockLessonCatalogProvider.getLessonDetail.mockResolvedValue(null);
+        mockCatalogProvider.getLessonDetail.mockResolvedValue(null);
 
         // Act & Assert
         await expect(service.startSession(request)).rejects.toMatchObject({
@@ -266,9 +264,7 @@ describe('Learning Session Module', () => {
           glossaryTerms: [],
         };
 
-        mockLessonCatalogProvider.getLessonDetail.mockResolvedValue(
-          mockLessonDetail
-        );
+        mockCatalogProvider.getLessonDetail.mockResolvedValue(mockLessonDetail);
         mockRepo.getUserSessions.mockResolvedValue({ sessions: [], total: 0 });
 
         // Act
@@ -276,7 +272,7 @@ describe('Learning Session Module', () => {
 
         // Assert
         expect(result).toBe(true);
-        expect(mockLessonCatalogProvider.getLessonDetail).toHaveBeenCalledWith(
+        expect(mockCatalogProvider.getLessonDetail).toHaveBeenCalledWith(
           lessonId
         );
       });
@@ -286,7 +282,7 @@ describe('Learning Session Module', () => {
         const lessonId = 'nonexistent-topic';
         const userId = 'user-1';
 
-        mockLessonCatalogProvider.getLessonDetail.mockResolvedValue(null);
+        mockCatalogProvider.getLessonDetail.mockResolvedValue(null);
 
         // Act
         const result = await service.canStartSession(lessonId, userId);

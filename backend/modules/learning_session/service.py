@@ -10,8 +10,9 @@ from datetime import datetime
 import logging
 from typing import Any
 
+from modules.catalog.public import CatalogProvider
+
 from ..content.public import ContentProvider
-from ..lesson_catalog.public import LessonCatalogProvider
 from .models import LearningSessionModel, SessionStatus
 from .repo import LearningSessionRepo
 
@@ -160,16 +161,16 @@ class LearningSessionService:
         self,
         repo: LearningSessionRepo,
         content_provider: ContentProvider,
-        lesson_catalog_provider: LessonCatalogProvider,
+        catalog_provider: CatalogProvider,
     ) -> None:
         self.repo = repo
         self.content = content_provider
-        self.lesson_catalog = lesson_catalog_provider
+        self.catalog = catalog_provider
 
     async def start_session(self, request: StartSessionRequest) -> LearningSession:
         """Start a new learning session"""
         # Validate lesson exists
-        lesson_detail = self.lesson_catalog.get_lesson_details(request.lesson_id)
+        lesson_detail = self.catalog.get_lesson_details(request.lesson_id)
         if not lesson_detail:
             raise ValueError(f"Lesson {request.lesson_id} not found")
 
@@ -422,7 +423,7 @@ class LearningSessionService:
 
     async def get_next_lesson_to_resume(self, user_id: str, unit_id: str) -> str | None:
         """Return next incomplete lesson id within a unit for resuming learning."""
-        unit_detail = self.lesson_catalog.get_unit_details(unit_id)
+        unit_detail = self.catalog.get_unit_details(unit_id)
         if not unit_detail:
             return None
         try:
@@ -443,7 +444,7 @@ class LearningSessionService:
 
     async def get_units_progress_overview(self, user_id: str, limit: int = 100, offset: int = 0) -> list[UnitProgress]:
         """Get progress overview for multiple units using the catalog's unit browsing."""
-        units = self.lesson_catalog.browse_units(limit=limit, offset=offset)
+        units = self.catalog.browse_units(limit=limit, offset=offset)
         results: list[UnitProgress] = []
         for u in units:
             results.append(await self.get_unit_progress(user_id=user_id, unit_id=u.id))

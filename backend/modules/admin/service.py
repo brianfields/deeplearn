@@ -9,9 +9,9 @@ Returns DTOs for all admin functionality.
 from datetime import datetime
 import uuid
 
+from modules.catalog.public import CatalogProvider
 from modules.content.public import ContentProvider
 from modules.flow_engine.public import FlowEngineAdminProvider
-from modules.lesson_catalog.public import LessonCatalogProvider
 from modules.llm_services.public import LLMServicesAdminProvider
 
 from .models import (
@@ -35,13 +35,13 @@ class AdminService:
         self,
         flow_engine_admin: FlowEngineAdminProvider,
         llm_services_admin: LLMServicesAdminProvider,
-        lesson_catalog: LessonCatalogProvider,
+        catalog: CatalogProvider,
         content: ContentProvider,
     ) -> None:
         """Initialize admin service with required dependencies."""
         self.flow_engine_admin = flow_engine_admin
         self.llm_services_admin = llm_services_admin
-        self.lesson_catalog = lesson_catalog
+        self.catalog = catalog
         self.content = content
 
     # ---- Flow Management ----
@@ -327,7 +327,7 @@ class AdminService:
         """Get paginated list of lessons with optional filtering."""
         try:
             # Use search_lessons to get lessons with filtering
-            search_response = self.lesson_catalog.search_lessons(
+            search_response = self.catalog.search_lessons(
                 query=search,
                 user_level=user_level,
                 limit=page_size,

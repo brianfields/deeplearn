@@ -1,35 +1,5 @@
 appId: host.exp.Exponent
 ---
-# Complete Learning Flow E2E Test
-# Tests: Lesson Selection → Didactic → MCQ → Results → Return to Catalog
-
-- launchApp
-- openLink: 'exp://127.0.0.1:8081'
-
-# Handle Expo "Recent projects" screen if it appears
-- runFlow:
-    when:
-      visible: 'Recent'
-    commands:
-      - tapOn:
-          text: 'deeplearn'
-
-# Alternative: Try clicking first item if deeplearn text not found
-- runFlow:
-    when:
-      visible: 'Recent'
-    commands:
-      - tapOn:
-          index: 0
-
-# Alternative: Try common Expo selectors
-- runFlow:
-    when:
-      visible: 'Open project'
-    commands:
-      - tapOn:
-          index: 0
-
 # Wait for app to load and verify we're on the units screen
 - assertVisible:
     id: 'units-title'

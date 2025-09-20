@@ -21,12 +21,12 @@ class TestLearningSessionService:
         """Set up test fixtures"""
         self.mock_repo = Mock(spec=LearningSessionRepo)
         self.mock_content_provider = Mock()
-        self.mock_lesson_catalog_provider = Mock()
+        self.mock_catalog_provider = Mock()
 
         self.service = LearningSessionService(
             self.mock_repo,
             self.mock_content_provider,
-            self.mock_lesson_catalog_provider,
+            self.mock_catalog_provider,
         )
 
     @pytest.mark.asyncio
@@ -38,7 +38,7 @@ class TestLearningSessionService:
         # Mock lesson exists
         mock_lesson = Mock()
         mock_lesson.id = "test-lesson"
-        self.mock_lesson_catalog_provider.get_lesson_details.return_value = mock_lesson
+        self.mock_catalog_provider.get_lesson_details.return_value = mock_lesson
 
         # Mock content with package structure
         mock_content = Mock()
@@ -77,7 +77,7 @@ class TestLearningSessionService:
         assert result.status == SessionStatus.ACTIVE.value
         assert result.total_exercises == 2  # Only actual exercises, didactic snippets not counted
 
-        self.mock_lesson_catalog_provider.get_lesson_details.assert_called_once_with("test-lesson")
+        self.mock_catalog_provider.get_lesson_details.assert_called_once_with("test-lesson")
         self.mock_content_provider.get_lesson.assert_called_once_with("test-lesson")
         self.mock_repo.create_session.assert_called_once()
 
@@ -86,7 +86,7 @@ class TestLearningSessionService:
         """Test session start with non-existent lesson"""
         # Arrange
         request = StartSessionRequest(lesson_id="nonexistent-lesson")
-        self.mock_lesson_catalog_provider.get_lesson_details.return_value = None
+        self.mock_catalog_provider.get_lesson_details.return_value = None
 
         # Act & Assert
         with pytest.raises(ValueError, match="Lesson nonexistent-lesson not found"):

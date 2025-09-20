@@ -5,8 +5,8 @@
  * Pure forwarder - no logic, just selects/forwards service methods.
  */
 
-import { LessonCatalogService } from './service';
-import { LessonCatalogRepo } from './repo';
+import { CatalogService } from './service';
+import { CatalogRepo } from './repo';
 import type {
   LessonSummary,
   LessonDetail,
@@ -17,7 +17,7 @@ import type {
 } from './models';
 
 // Public interface protocol
-export interface LessonCatalogProvider {
+export interface CatalogProvider {
   // Only expose what learning_session actually needs
   getLessonDetail(lessonId: string): Promise<LessonDetail | null>;
 
@@ -48,18 +48,18 @@ export interface LessonCatalogProvider {
 }
 
 // Service instance (singleton)
-let serviceInstance: LessonCatalogService | null = null;
+let serviceInstance: CatalogService | null = null;
 
-function getServiceInstance(): LessonCatalogService {
+function getServiceInstance(): CatalogService {
   if (!serviceInstance) {
-    const repo = new LessonCatalogRepo();
-    serviceInstance = new LessonCatalogService(repo);
+    const repo = new CatalogRepo();
+    serviceInstance = new CatalogService(repo);
   }
   return serviceInstance;
 }
 
 // Public provider function
-export function lessonCatalogProvider(): LessonCatalogProvider {
+export function catalogProvider(): CatalogProvider {
   const service = getServiceInstance();
 
   // Pure forwarder - no logic

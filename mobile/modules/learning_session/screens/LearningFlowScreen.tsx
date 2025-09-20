@@ -49,7 +49,7 @@ import { uiSystemProvider } from '../../ui_system/public';
 
 // Hooks
 import { useStartSession } from '../queries';
-import { lessonCatalogProvider } from '../../unit_catalog/public';
+import { catalogProvider } from '../../catalog/public';
 
 // Types
 import type { LearningStackParamList } from '../../../types';
@@ -121,7 +121,7 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
     setUnitTitle(null);
     (async () => {
       try {
-        const catalog = lessonCatalogProvider();
+        const catalog = catalogProvider();
         const list = await catalog.browseUnits({ limit: 100, offset: 0 });
         for (const u of list) {
           const detail = await catalog.getUnitDetail(u.id);

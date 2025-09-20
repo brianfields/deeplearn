@@ -13,9 +13,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from modules.catalog.public import catalog_provider
 from modules.content.public import content_provider
 from modules.infrastructure.public import infrastructure_provider
-from modules.lesson_catalog.public import lesson_catalog_provider
 
 from .repo import LearningSessionRepo
 from .service import (
@@ -129,8 +129,8 @@ def get_learning_session_service(s: Session = Depends(get_db_session)) -> Learni
     # Build all services with the same session for transactional consistency
     content_service = content_provider(s)
     # Units are consolidated under content provider
-    lesson_catalog_service = lesson_catalog_provider(content_service, content_service)
-    return LearningSessionService(LearningSessionRepo(s), content_service, lesson_catalog_service)
+    catalog_service = catalog_provider(content_service, content_service)
+    return LearningSessionService(LearningSessionRepo(s), content_service, catalog_service)
 
 
 # ================================

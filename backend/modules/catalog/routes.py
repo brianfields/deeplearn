@@ -14,8 +14,8 @@ from modules.infrastructure.public import infrastructure_provider
 
 from .service import (
     BrowseLessonsResponse,
+    CatalogService,
     CatalogStatistics,
-    LessonCatalogService,
     LessonDetail,
     LessonSummary,
     RefreshCatalogResponse,
@@ -35,18 +35,18 @@ def get_session() -> Generator[Session, None, None]:
         yield s
 
 
-def get_lesson_catalog_service(s: Session = Depends(get_session)) -> LessonCatalogService:
-    """Build LessonCatalogService for this request."""
+def get_catalog_service(s: Session = Depends(get_session)) -> CatalogService:
+    """Build CatalogService for this request."""
     content_service = content_provider(s)
     units_via_content = content_service  # Units are consolidated in content provider
-    return LessonCatalogService(content_service, units_via_content)
+    return CatalogService(content_service, units_via_content)
 
 
 @router.get("/", response_model=BrowseLessonsResponse)
 def browse_lessons(
     user_level: str | None = Query(None, description="Filter by user level (beginner, intermediate, advanced)"),
     limit: int = Query(100, ge=1, le=500, description="Maximum number of lessons to return"),
-    catalog: LessonCatalogService = Depends(get_lesson_catalog_service),
+    catalog: CatalogService = Depends(get_catalog_service),
 ) -> BrowseLessonsResponse:
     """
     Browse lessons with optional user level filter.
@@ -65,7 +65,7 @@ def search_lessons(
     ready_only: bool = Query(False, description="Only return ready lessons"),
     limit: int = Query(100, ge=1, le=500, description="Maximum number of lessons to return"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
-    catalog: LessonCatalogService = Depends(get_lesson_catalog_service),
+    catalog: CatalogService = Depends(get_catalog_service),
 ) -> SearchLessonsResponse:
     """
     Search lessons with query and filters.
@@ -86,7 +86,7 @@ def search_lessons(
 @router.get("/popular", response_model=list[LessonSummary])
 def get_popular_lessons(
     limit: int = Query(10, ge=1, le=50, description="Maximum number of lessons to return"),
-    catalog: LessonCatalogService = Depends(get_lesson_catalog_service),
+    catalog: CatalogService = Depends(get_catalog_service),
 ) -> list[LessonSummary]:
     """
     Get popular lessons.
@@ -98,7 +98,7 @@ def get_popular_lessons(
 
 @router.get("/statistics", response_model=CatalogStatistics)
 def get_catalog_statistics(
-    catalog: LessonCatalogService = Depends(get_lesson_catalog_service),
+    catalog: CatalogService = Depends(get_catalog_service),
 ) -> CatalogStatistics:
     """
     Get catalog statistics.
@@ -110,7 +110,7 @@ def get_catalog_statistics(
 
 @router.post("/refresh", response_model=RefreshCatalogResponse)
 def refresh_catalog(
-    catalog: LessonCatalogService = Depends(get_lesson_catalog_service),
+    catalog: CatalogService = Depends(get_catalog_service),
 ) -> RefreshCatalogResponse:
     """
     Refresh the catalog.
@@ -124,14 +124,14 @@ def refresh_catalog(
 def browse_units(
     limit: int = Query(100, ge=1, le=500, description="Maximum number of units to return"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
-    catalog: LessonCatalogService = Depends(get_lesson_catalog_service),
+    catalog: CatalogService = Depends(get_catalog_service),
 ) -> list[UnitSummary]:
     """Browse learning units with simple metadata and lesson counts."""
     return catalog.browse_units(limit=limit, offset=offset)
 
 
 @router.get("/units/{unit_id}", response_model=UnitDetail)
-def get_unit_details(unit_id: str, catalog: LessonCatalogService = Depends(get_lesson_catalog_service)) -> UnitDetail:
+def get_unit_details(unit_id: str, catalog: CatalogService = Depends(get_catalog_service)) -> UnitDetail:
     """Get unit details with ordered aggregated lesson summaries."""
     unit = catalog.get_unit_details(unit_id)
     if not unit:
@@ -140,7 +140,7 @@ def get_unit_details(unit_id: str, catalog: LessonCatalogService = Depends(get_l
 
 
 @router.get("/{lesson_id}", response_model=LessonDetail)
-def get_lesson_details(lesson_id: str, catalog: LessonCatalogService = Depends(get_lesson_catalog_service)) -> LessonDetail:
+def get_lesson_details(lesson_id: str, catalog: CatalogService = Depends(get_catalog_service)) -> LessonDetail:
     """
     Get detailed information about a specific lesson.
 

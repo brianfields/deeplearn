@@ -77,8 +77,8 @@ class TestAdminService:
         return mock
 
     @pytest.fixture
-    def mock_lesson_catalog_provider(self) -> Mock:
-        """Mock LessonCatalogProvider for testing."""
+    def mock_catalog_provider(self) -> Mock:
+        """Mock CatalogProvider for testing."""
         return Mock()
 
     @pytest.fixture
@@ -96,14 +96,14 @@ class TestAdminService:
         self,
         mock_flow_engine_admin: Mock,
         mock_llm_services_admin: Mock,
-        mock_lesson_catalog_provider: Mock,
+        mock_catalog_provider: Mock,
         mock_content_provider: Mock,
     ) -> AdminService:
         """Create AdminService with mocked dependencies."""
         return AdminService(
             flow_engine_admin=mock_flow_engine_admin,
             llm_services_admin=mock_llm_services_admin,
-            lesson_catalog=mock_lesson_catalog_provider,
+            catalog=mock_catalog_provider,
             content=mock_content_provider,
         )
 

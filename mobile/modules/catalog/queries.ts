@@ -5,31 +5,30 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { lessonCatalogProvider } from './public';
+import { catalogProvider } from './public';
 import type { LessonFilters, PaginationInfo } from './models';
 
 // Get the lesson catalog service instance
-const lessonCatalog = lessonCatalogProvider();
+const catalog = catalogProvider();
 
 // Query keys
-export const lessonCatalogKeys = {
-  all: ['lesson_catalog'] as const,
+export const catalogKeys = {
+  all: ['catalog'] as const,
   units: (p?: { limit?: number; offset?: number }) =>
-    ['lesson_catalog', 'units', p ?? {}] as const,
-  unitDetail: (id: string) =>
-    ['lesson_catalog', 'units', 'detail', id] as const,
+    ['catalog', 'units', p ?? {}] as const,
+  unitDetail: (id: string) => ['catalog', 'units', 'detail', id] as const,
   browse: (
     filters?: LessonFilters,
     pagination?: Omit<PaginationInfo, 'hasMore'>
-  ) => ['lesson_catalog', 'browse', filters, pagination] as const,
+  ) => ['catalog', 'browse', filters, pagination] as const,
   search: (
     query: string,
     filters?: LessonFilters,
     pagination?: Omit<PaginationInfo, 'hasMore'>
-  ) => ['lesson_catalog', 'search', query, filters, pagination] as const,
-  detail: (lessonId: string) => ['lesson_catalog', 'detail', lessonId] as const,
-  popular: (limit?: number) => ['lesson_catalog', 'popular', limit] as const,
-  statistics: () => ['lesson_catalog', 'statistics'] as const,
+  ) => ['catalog', 'search', query, filters, pagination] as const,
+  detail: (lessonId: string) => ['catalog', 'detail', lessonId] as const,
+  popular: (limit?: number) => ['catalog', 'popular', limit] as const,
+  statistics: () => ['catalog', 'statistics'] as const,
 };
 
 /**
@@ -45,8 +44,8 @@ export function useBrowseLessons(
   }
 ) {
   return useQuery({
-    queryKey: lessonCatalogKeys.browse(filters, pagination),
-    queryFn: () => lessonCatalog.browseLessons(filters, pagination),
+    queryKey: catalogKeys.browse(filters, pagination),
+    queryFn: () => catalog.browseLessons(filters, pagination),
     staleTime: options?.staleTime ?? 5 * 60 * 1000, // 5 minutes
     refetchOnWindowFocus: options?.refetchOnWindowFocus ?? false,
     enabled: options?.enabled ?? true,
@@ -67,8 +66,8 @@ export function useSearchLessons(
   }
 ) {
   return useQuery({
-    queryKey: lessonCatalogKeys.search(query, filters, pagination),
-    queryFn: () => lessonCatalog.searchLessons(query, filters, pagination),
+    queryKey: catalogKeys.search(query, filters, pagination),
+    queryFn: () => catalog.searchLessons(query, filters, pagination),
     staleTime: options?.staleTime ?? 2 * 60 * 1000, // 2 minutes (search results change more frequently)
     refetchOnWindowFocus: options?.refetchOnWindowFocus ?? false,
     enabled: (options?.enabled ?? true) && query.trim().length > 0,
@@ -87,8 +86,8 @@ export function useLessonDetail(
   }
 ) {
   return useQuery({
-    queryKey: lessonCatalogKeys.detail(lessonId),
-    queryFn: () => lessonCatalog.getLessonDetail(lessonId),
+    queryKey: catalogKeys.detail(lessonId),
+    queryFn: () => catalog.getLessonDetail(lessonId),
     staleTime: options?.staleTime ?? 10 * 60 * 1000, // 10 minutes (lesson details change less frequently)
     refetchOnWindowFocus: options?.refetchOnWindowFocus ?? false,
     enabled: (options?.enabled ?? true) && !!lessonId?.trim(),
@@ -107,8 +106,8 @@ export function usePopularLessons(
   }
 ) {
   return useQuery({
-    queryKey: lessonCatalogKeys.popular(limit),
-    queryFn: () => lessonCatalog.getPopularLessons(limit),
+    queryKey: catalogKeys.popular(limit),
+    queryFn: () => catalog.getPopularLessons(limit),
     staleTime: options?.staleTime ?? 15 * 60 * 1000, // 15 minutes
     refetchOnWindowFocus: options?.refetchOnWindowFocus ?? false,
     enabled: options?.enabled ?? true,
@@ -120,16 +119,16 @@ export function usePopularLessons(
  */
 export function useCatalogUnits(params?: { limit?: number; offset?: number }) {
   return useQuery({
-    queryKey: lessonCatalogKeys.units(params),
-    queryFn: () => lessonCatalog.browseUnits(params),
+    queryKey: catalogKeys.units(params),
+    queryFn: () => catalog.browseUnits(params),
     staleTime: 5 * 60 * 1000,
   });
 }
 
 export function useCatalogUnitDetail(unitId: string) {
   return useQuery({
-    queryKey: lessonCatalogKeys.unitDetail(unitId),
-    queryFn: () => lessonCatalog.getUnitDetail(unitId),
+    queryKey: catalogKeys.unitDetail(unitId),
+    queryFn: () => catalog.getUnitDetail(unitId),
     enabled: !!unitId?.trim(),
     staleTime: 10 * 60 * 1000,
   });
@@ -147,8 +146,8 @@ export function useCatalogStatistics(options?: {
   refetchOnWindowFocus?: boolean;
 }) {
   return useQuery({
-    queryKey: lessonCatalogKeys.statistics(),
-    queryFn: () => lessonCatalog.getCatalogStatistics(),
+    queryKey: catalogKeys.statistics(),
+    queryFn: () => catalog.getCatalogStatistics(),
     staleTime: options?.staleTime ?? 30 * 60 * 1000, // 30 minutes
     refetchOnWindowFocus: options?.refetchOnWindowFocus ?? false,
     enabled: options?.enabled ?? true,
@@ -162,11 +161,11 @@ export function useRefreshCatalog() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: () => lessonCatalog.refreshCatalog(),
+    mutationFn: () => catalog.refreshCatalog(),
     onSuccess: () => {
       // Invalidate all lesson catalog queries
       queryClient.invalidateQueries({
-        queryKey: lessonCatalogKeys.all,
+        queryKey: catalogKeys.all,
       });
     },
   });
@@ -175,7 +174,7 @@ export function useRefreshCatalog() {
 /**
  * Combined hook for lesson list screen
  */
-export function useLessonCatalog(
+export function useCatalog(
   filters?: LessonFilters,
   searchQuery?: string,
   pagination?: Omit<PaginationInfo, 'hasMore'>
@@ -214,10 +213,10 @@ export function useLessonCatalog(
 /**
  * Health check query
  */
-export function useLessonCatalogHealth() {
+export function useCatalogHealth() {
   return useQuery({
-    queryKey: ['lesson_catalog', 'health'],
-    queryFn: () => lessonCatalog.checkHealth(),
+    queryKey: ['catalog', 'health'],
+    queryFn: () => catalog.checkHealth(),
     staleTime: 60 * 1000, // 1 minute
     refetchInterval: 5 * 60 * 1000, // Check every 5 minutes
     refetchOnWindowFocus: false,

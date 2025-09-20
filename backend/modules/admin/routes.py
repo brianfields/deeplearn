@@ -10,10 +10,10 @@ from collections.abc import Generator
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from modules.catalog.public import catalog_provider
 from modules.content.public import content_provider
 from modules.flow_engine.public import flow_engine_admin_provider
 from modules.infrastructure.public import infrastructure_provider
-from modules.lesson_catalog.public import lesson_catalog_provider
 from modules.llm_services.public import llm_services_admin_provider
 
 from .models import (
@@ -55,7 +55,7 @@ def get_admin_service(session: Session = Depends(get_session)) -> AdminService:
     # Get other module providers (using same session for consistency)
     content = content_provider(session)
     # Units are consolidated under content provider
-    lesson_catalog = lesson_catalog_provider(content, content)
+    catalog = catalog_provider(content, content)
 
     # Create placeholder providers for async services
     # In practice, these would be properly initialized with async context
@@ -64,7 +64,7 @@ def get_admin_service(session: Session = Depends(get_session)) -> AdminService:
     return AdminService(
         flow_engine_admin=flow_engine_admin,
         llm_services_admin=llm_services_admin,
-        lesson_catalog=lesson_catalog,
+        catalog=catalog,
         content=content,
     )
 

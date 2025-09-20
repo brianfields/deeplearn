@@ -10,8 +10,8 @@ from typing import Protocol
 
 from sqlalchemy.orm import Session
 
+from modules.catalog.public import CatalogProvider
 from modules.content.public import ContentProvider
-from modules.lesson_catalog.public import LessonCatalogProvider
 
 from .repo import LearningSessionRepo
 from .service import (
@@ -92,7 +92,7 @@ class LearningSessionProvider(Protocol):
 def learning_session_provider(
     session: Session,
     content: ContentProvider,
-    lesson_catalog: LessonCatalogProvider,
+    catalog: CatalogProvider,
 ) -> LearningSessionProvider:
     """
     Dependency injection provider for learning session services.
@@ -100,13 +100,13 @@ def learning_session_provider(
     Args:
         session: Database session managed at the route level for proper commits.
         content: Content service instance (built with same session).
-        lesson_catalog: Lesson catalog service instance (built with same session).
+        catalog: Lesson catalog service instance (built with same session).
 
     Returns:
         LearningSessionService instance that implements the LearningSessionProvider protocol.
     """
     repo = LearningSessionRepo(session)
-    return LearningSessionService(repo, content, lesson_catalog)
+    return LearningSessionService(repo, content, catalog)
 
 
 # Export DTOs that other modules might need

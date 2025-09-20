@@ -20,6 +20,7 @@ import uvicorn
 sys.path.insert(0, str(Path(__file__).parent))
 
 from modules.admin.routes import router as admin_router
+from modules.catalog.routes import router as catalog_router
 from modules.content_creator.routes import router as content_creator_router
 from modules.infrastructure.debug_routes import router as debug_router
 from modules.infrastructure.exception_handlers import (
@@ -28,7 +29,6 @@ from modules.infrastructure.exception_handlers import (
 )
 from modules.infrastructure.public import DatabaseSession, infrastructure_provider
 from modules.learning_session.routes import router as learning_session_router
-from modules.lesson_catalog.routes import router as lesson_catalog_router
 
 # Units are consolidated under content; keep units routes shim if needed
 from modules.units.routes import router as units_router
@@ -136,7 +136,7 @@ setup_error_middleware(app)
 # Include modular routers
 app.include_router(content_creator_router, tags=["Content Creation"])
 app.include_router(learning_session_router, tags=["Learning Sessions"])
-app.include_router(lesson_catalog_router, tags=["Lesson Catalog"])
+app.include_router(catalog_router, tags=["Catalog"])
 app.include_router(units_router, tags=["Units"])  # Units module
 app.include_router(admin_router, tags=["Admin"])
 app.include_router(debug_router, tags=["Debug"])  # Only active in DEBUG mode
@@ -155,7 +155,7 @@ async def startup_event() -> None:
             logger.warning(f"Environment validation issues: {env_status.errors}")
 
         logger.info("Learning API server started successfully")
-        logger.info("Modular architecture: content_creator, learning_session, lesson_catalog, infrastructure")
+        logger.info("Modular architecture: content_creator, learning_session, catalog, infrastructure")
 
     except Exception as e:
         logger.error(f"Failed to initialize services: {e}")
@@ -177,7 +177,7 @@ async def health_check() -> dict[str, str | dict[str, bool] | list[str]]:
             "database": env_status.is_valid,
             "content_creator": True,
             "learning_session": True,
-            "lesson_catalog": True,
+            "catalog": True,
         },
         "errors": env_status.errors if not env_status.is_valid else [],
     }
