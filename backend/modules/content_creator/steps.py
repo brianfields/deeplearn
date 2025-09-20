@@ -3,7 +3,7 @@
 
 from pydantic import BaseModel, Field
 
-from modules.flow_engine.public import StructuredStep
+from modules.flow_engine.public import StructuredStep, UnstructuredStep
 
 
 # ---------- Shared models ----------
@@ -201,7 +201,7 @@ class GenerateMCQStep(StructuredStep):
     """Generate multiple MCQs for all learning objectives in one call."""
 
     step_name = "generate_mcqs"  # Updated to reflect multiple MCQs
-    prompt_file = "generate_mcq.md"
+    prompt_file = "generate_mcqs.md"
     reasoning_effort = "high"
     verbosity = "low"
 
@@ -219,3 +219,78 @@ class GenerateMCQStep(StructuredStep):
 
 
 # ValidateMCQStep removed - validation eliminated for simplicity
+
+
+# ---------- Unit-level generation (NEW) ----------
+class GenerateUnitSourceMaterialStep(UnstructuredStep):
+    """Generate comprehensive source material for a unit from a topic."""
+
+    step_name = "generate_unit_source_material"
+    prompt_file = "generate_unit_source_material.md"
+    reasoning_effort = "high"
+    verbosity = "low"
+
+    class Inputs(BaseModel):
+        topic: str
+        target_lesson_count: int | None = None
+        user_level: str = "beginner"
+        domain: str | None = None
+
+
+class UnitMetadataOutputs(BaseModel):
+    unit_title: str
+    learning_objectives: list[LearningObjective]
+    lesson_titles: list[str]
+    lesson_count: int
+    recommended_per_lesson_minutes: int = 5
+    summary: str | None = None
+
+
+class ExtractUnitMetadataStep(StructuredStep):
+    """Extract unit-level learning objectives and lesson plan from material."""
+
+    step_name = "extract_unit_metadata"
+    prompt_file = "extract_unit_metadata.md"
+    reasoning_effort = "medium"
+    verbosity = "low"
+
+    class Inputs(BaseModel):
+        topic: str
+        source_material: str
+        target_lesson_count: int | None = None
+        user_level: str = "beginner"
+        domain: str | None = None
+
+    class Outputs(UnitMetadataOutputs):
+        pass
+
+
+class LessonChunk(BaseModel):
+    index: int
+    title: str
+    chunk_text: str
+    estimated_minutes: int = 5
+
+
+class ChunkSetOutputs(BaseModel):
+    chunks: list[LessonChunk]
+
+
+class ChunkSourceMaterialStep(StructuredStep):
+    """Chunk the unit source material into lesson-sized segments."""
+
+    step_name = "chunk_source_material"
+    prompt_file = "chunk_source_material.md"
+    reasoning_effort = "medium"
+    verbosity = "low"
+
+    class Inputs(BaseModel):
+        source_material: str
+        lesson_titles: list[str] | None = None
+        lesson_count: int | None = None
+        target_lesson_count: int | None = None
+        per_lesson_minutes: int | None = None
+        user_level: str = "beginner"
+
+    class Outputs(ChunkSetOutputs):
+        pass

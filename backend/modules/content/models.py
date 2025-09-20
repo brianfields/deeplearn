@@ -8,7 +8,7 @@ Uses single lessons table with JSON package field.
 
 from datetime import datetime
 
-from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, String, Text
 
 from modules.shared_models import Base, PostgresUUID
 
@@ -56,6 +56,16 @@ class UnitModel(Base):
 
     # Ordered list of lesson IDs belonging to this unit
     lesson_order = Column(JSON, nullable=False, default=list)
+
+    # New fields for unit-level generation and metadata
+    # JSON structure: list of unit-level learning objectives or structured objects
+    learning_objectives = Column(JSON, nullable=True)
+    # Target number of lessons for the unit (e.g., 5, 10, 20)
+    target_lesson_count = Column(Integer, nullable=True)
+    # Full source material used to generate the unit (if any)
+    source_material = Column(Text, nullable=True)
+    # Whether this unit was generated from topic-only input
+    generated_from_topic = Column(Boolean, nullable=False, default=False)
 
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)

@@ -91,6 +91,9 @@ class UnitSummary(BaseModel):
     description: str | None = None
     difficulty: str
     lesson_count: int
+    # New fields surfaced for admin list view
+    target_lesson_count: int | None = None
+    generated_from_topic: bool = False
 
 
 class UnitDetail(BaseModel):
@@ -102,6 +105,11 @@ class UnitDetail(BaseModel):
     difficulty: str
     lesson_order: list[str]
     lessons: list["LessonSummary"]
+    # New fields for admin details view
+    learning_objectives: list[str] | None = None
+    target_lesson_count: int | None = None
+    source_material: str | None = None
+    generated_from_topic: bool = False
 
 
 class CatalogService:
@@ -412,6 +420,8 @@ class CatalogService:
                     description=u.description,
                     difficulty=u.difficulty,
                     lesson_count=lesson_count,
+                    target_lesson_count=getattr(u, "target_lesson_count", None),
+                    generated_from_topic=bool(getattr(u, "generated_from_topic", False)),
                 )
             )
         return summaries
@@ -452,6 +462,31 @@ class CatalogService:
             if lid not in seen:
                 ordered_lessons.append(summary)
 
+        # Normalize unit-level learning objectives to a list of strings for UI
+        raw_los = getattr(unit, "learning_objectives", None)
+        los_list: list[str] | None
+        if raw_los is None:
+            los_list = None
+        else:
+            los_list = []
+            for item in list(raw_los):
+                try:
+                    if isinstance(item, str):
+                        los_list.append(item)
+                    elif isinstance(item, dict):
+                        text = item.get("text") or item.get("lo_text") or item.get("label")
+                        if text:
+                            los_list.append(str(text))
+                        else:
+                            los_list.append(str(item))
+                    else:
+                        # Fallback for objects with 'text' attribute
+                        text_attr = getattr(item, "text", None)
+                        los_list.append(str(text_attr) if text_attr else str(item))
+                except Exception:
+                    # Be resilient to odd data
+                    los_list.append(str(item))
+
         return UnitDetail(
             id=unit.id,
             title=unit.title,
@@ -459,4 +494,8 @@ class CatalogService:
             difficulty=unit.difficulty,
             lesson_order=ordered_ids,
             lessons=ordered_lessons,
+            learning_objectives=los_list,
+            target_lesson_count=getattr(unit, "target_lesson_count", None),
+            source_material=getattr(unit, "source_material", None),
+            generated_from_topic=bool(getattr(unit, "generated_from_topic", False)),
         )

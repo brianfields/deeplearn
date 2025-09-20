@@ -24,7 +24,7 @@ from codegen.common import (
     ProjectSpec,
     headed_agent,
     render_prompt,
-    setup_project,
+    require_existing_project,
     write_text,
 )
 
@@ -77,7 +77,7 @@ def main() -> int:
     ap.add_argument("--dry", action="store_true")
     args = ap.parse_args()
 
-    proj: ProjectSpec = setup_project(args.project)
+    proj: ProjectSpec = require_existing_project(args.project)
     spec_path = proj.dir / "spec.md"
     if not spec_path.exists():
         raise SystemExit(

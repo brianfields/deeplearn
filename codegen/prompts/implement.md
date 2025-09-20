@@ -9,7 +9,7 @@ Frontend architecture reference: {FRONTEND_ARCH}
 Instructions:
 - Read {SPEC_PATH}. Implement the next highest-priority unchecked item(s).
 - Make minimal, high-quality edits only where needed. Do not add public interfaces or routes without need.
-- Do backend tasks first and get *backend* tests to pass before doing frontend tasks.
+- Do backend tasks first and get *backend* *unit* tests to pass before doing frontend tasks. Do not run integration tests.
 - Use our modular architecture:
   - Follow all the rules in {BACKEND_ARCH} and {FRONTEND_ARCH}.
   - Keep names consistent across backend/frontend/mobile.
@@ -23,4 +23,4 @@ Instructions:
   - Stop when either all tasks are complete or there is nothing you can confidently check off.
 
 Output format:
-- Do not explain, but do note to the user what task you are working on and when you complete it so that they know what you are working on. Remember to also mark the task as complete in {SPEC_PATH} when it is complete.
+- Note to the user what task you are working on and when you complete it so that they know what you are working on. Remember to also mark the task as complete in {SPEC_PATH} when it is complete.

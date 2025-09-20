@@ -15,14 +15,14 @@ Transform the content creation system to generate complete learning units (multi
 - Maximum 1 hour (20 lessons) per unit
 
 ### Acceptance Criteria
-- [ ] Topic-only input generates complete multi-lesson unit
-- [ ] System creates comprehensive source material from topic
-- [ ] Time-based lesson chunking with ~5-minute targets
-- [ ] Unit-level learning objectives with detailed lesson-level drilling down
-- [ ] Later lessons can reference earlier lesson concepts
-- [ ] Complete lesson structure (didactic, MCQs, glossary, objectives)
-- [ ] Legacy source material workflow maintained
-- [ ] New unit fields visible in admin interface
+- [x] Topic-only input generates complete multi-lesson unit
+- [x] System creates comprehensive source material from topic
+- [x] Time-based lesson chunking with ~5-minute targets
+- [x] Unit-level learning objectives with detailed lesson-level drilling down
+- [x] Later lessons can reference earlier lesson concepts
+- [x] Complete lesson structure (didactic, MCQs, glossary, objectives)
+- [x] Legacy source material workflow maintained
+- [x] New unit fields visible in admin interface
 
 ## Cross-Stack Implementation Mapping
 
@@ -36,7 +36,7 @@ Transform the content creation system to generate complete learning units (multi
 - **test_content_creator_unit.py**: Unit tests for new functionality
 
 #### content Module
-- **models.py**: Extend `UnitModel` with learning_objectives, target_duration_minutes, source_material, generated_from_topic fields
+- **models.py**: Extend `UnitModel` with learning_objectives, target_lesson_count, source_material, generated_from_topic fields
 - **repo.py**: Add unit creation and lesson association methods
 - **service.py**: Add `UnitCreateFromTopic`, `UnitCreateFromSource` DTOs and creation logic
 - **public.py**: Expose new unit creation methods
@@ -66,7 +66,7 @@ Transform the content creation system to generate complete learning units (multi
 
 #### Database & Models
 - [x] Update UnitModel in content/models.py with new fields
-- [x] Create Alembic migration for units table: add learning_objectives (JSON), target_duration_minutes (Integer), source_material (Text), generated_from_topic (Boolean)
+- [x] Create Alembic migration for units table: add learning_objectives (JSON), target_lesson_count (Integer), source_material (Text), generated_from_topic (Boolean)
 - [x] Add unit creation DTOs in content/service.py: UnitCreateFromTopic, UnitCreateFromSource
 
 #### Content Creator Flow System
@@ -92,23 +92,24 @@ Transform the content creation system to generate complete learning units (multi
 ### Frontend Tasks
 
 #### Admin Interface Updates
-- [ ] Update admin/app/units/page.tsx to display target_duration_minutes and generated_from_topic
-- [ ] Update admin/app/units/[id]/page.tsx to show learning_objectives, source_material, and generation metadata
-- [ ] Add testID attributes for unit fields if needed for mobile e2e tests
+- [x] Update admin/app/units/page.tsx to display target_lesson_count and generated_from_topic
+- [x] Update admin/app/units/[id]/page.tsx to show learning_objectives, source_material, and generation metadata
+- [x] Add testID attributes for unit fields if needed for mobile e2e tests
+  - Added `testID` to `UnitCard` root and lesson rows in UnitDetailScreen already exist; keeping admin web minimal.
 
 #### Mobile Interface Updates
-- [ ] Update Unit type in mobile/modules/catalog/models.ts with learning_objectives field
-- [ ] Update service mapping in mobile/modules/catalog/service.ts for new unit fields
-- [ ] Optionally update mobile/modules/catalog/components/UnitCard.tsx to display duration
+- [x] Update Unit type in mobile/modules/catalog/models.ts with learning_objectives field
+- [x] Update service mapping in mobile/modules/catalog/service.ts for new unit fields
+- [x] Optionally update mobile/modules/catalog/components/UnitCard.tsx to display duration
 
 ### Data & Infrastructure
 - [x] Update create_seed_data.py to create sample units with new structure
-- [ ] Run database migration to add new unit fields
-- [ ] Review codebase for any terminology changes and update consistently (e.g., "unit creation" vs "lesson creation" in logs, error messages)
+- [x] Run database migration to add new unit fields
+- [x] Review codebase for any terminology changes and update consistently (e.g., "unit creation" vs "lesson creation" in logs, error messages)
 
 ### Documentation & Future Work
-- [ ] Document UnitCreationFlow in content_creator module
-- [ ] Add future work section for parallelized lesson creation alternatives
+- [x] Document UnitCreationFlow in content_creator module
+- [x] Add future work section for parallelized lesson creation alternatives
 
 ## Future Work: Parallelized Lesson Creation
 

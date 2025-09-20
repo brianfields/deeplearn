@@ -1,6 +1,5 @@
 ## 0) Structure & Naming
 
-* [ ] Folder is `modules/{name}/` and contains: `models.py`, `repo.py`, `service.py`, `public.py`, `routes.py`, `test_{name}_unit.py` (plus optional extras only if needed).
 * [ ] ORM classes live **only** in `models.py` and end with `Model` (e.g., `UserModel`).
 * [ ] Responsibilities match filenames (no HTTP in `service.py`, no DTOs in `routes.py`, etc.).
 

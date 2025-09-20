@@ -1,26 +1,28 @@
 #!/usr/bin/env python3
 """
-Iterative integration test fixer (headless, grok-code-fast-1).
+Iterative integration test fixer (headless).
 
 Phases:
   1) seed data generation
   2) backend integration tests
 
 Usage:
-  python codegen/fix_integration_tests.py --project my-feature
+  python codegen/fix_integration_tests.py --project my-feature  # Use project-specific logging
+  python codegen/fix_integration_tests.py                       # Use logs/fix_integration_tests.log
 """
 
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
 from pathlib import Path
 
 from codegen.common import (
-    DEFAULT_MODEL_GROK,
+    DEFAULT_MODEL_CLAUDE,
     ProjectSpec,
     headless_agent,
     render_prompt,
-    setup_project,
+    setup_fix_script_project,
     write_text,
 )
 from codegen.fix_unit_tests import stream_command_and_tail  # reuse helper
@@ -30,9 +32,12 @@ def main() -> int:
     ap = argparse.ArgumentParser(
         description="Fix integration tests iteratively (headless)"
     )
-    ap.add_argument("--project", help="Project name for docs/specs/<PROJECT>")
+    ap.add_argument(
+        "--project",
+        help="Project name for docs/specs/<PROJECT> (optional, uses logs/ if not specified)",
+    )
     ap.add_argument("--prompts-dir", default="codegen/prompts")
-    ap.add_argument("--model", default=DEFAULT_MODEL_GROK)
+    ap.add_argument("--model", default=DEFAULT_MODEL_CLAUDE)
     ap.add_argument(
         "--agent",
         default="cursor-agent",
@@ -43,9 +48,16 @@ def main() -> int:
     ap.add_argument("--dry", action="store_true")
     args = ap.parse_args()
 
-    proj: ProjectSpec = setup_project(args.project)
-    log_path = proj.dir / "fix_tests.md"
-    spec_path = proj.dir / "spec.md"
+    proj: ProjectSpec = setup_fix_script_project(args.project, "fix_integration_tests")
+
+    if args.project:
+        # Project mode: use project-specific log and spec files
+        log_path = proj.dir / "fix_tests.md"
+        spec_path = proj.dir / "spec.md"
+    else:
+        # No project mode: use logs directory
+        log_path = proj.dir / "fix_integration_tests.log"
+        spec_path = None
 
     prompt_file = Path(args.prompts_dir) / "fix_integration_tests.md"
     if not prompt_file.exists():
@@ -62,10 +74,10 @@ def main() -> int:
         },
         {
             "name": "integration tests",
-            "run": "cd backend && source venv/bin/activate && python3 scripts/run_integration.py",
+            "run": "cd backend && source venv/bin/activate && python3 scripts/run_integration.py --verbose",
             "instructions": (
                 "Run integration tests:\n"
-                "cd backend && source venv/bin/activate && python3 scripts/run_integration.py"
+                "cd backend && source venv/bin/activate && python3 scripts/run_integration.py --verbose"
             ),
         },
     ]
@@ -75,7 +87,8 @@ def main() -> int:
         print(f"\n🧪 Phase: {phase_name}")
         prev_fail_sig: str | None = None
         for i in range(1, args.max_iters + 1):
-            print(f"➡️  Iteration {i}… running: {phase['run']}")
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            print(f"➡️  Iteration {i} [{timestamp}]… running: {phase['run']}")
             rc, tail_text = stream_command_and_tail(phase["run"], cwd=Path.cwd())
             write_text(proj.dir / "last_test_output.txt", tail_text[-200000:])
 
@@ -94,7 +107,9 @@ def main() -> int:
                 "PROJECT_DIR": str(proj.dir).replace("\\", "/"),
                 "TEST_OUTPUT": tail,
                 "FIX_LOG": str(log_path).replace("\\", "/"),
-                "PROJECT_SPEC": str(spec_path).replace("\\", "/"),
+                "PROJECT_SPEC": str(spec_path).replace("\\", "/")
+                if spec_path
+                else "none",
                 "PHASE_NAME": phase_name,
                 "PHASE_INSTRUCTIONS": phase["instructions"],
             }

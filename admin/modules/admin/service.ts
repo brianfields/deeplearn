@@ -412,6 +412,8 @@ export class AdminService {
       description: u.description,
       difficulty: u.difficulty,
       lesson_count: u.lesson_count,
+      target_lesson_count: u.target_lesson_count ?? null,
+      generated_from_topic: Boolean(u.generated_from_topic),
     }));
   }
 
@@ -425,6 +427,10 @@ export class AdminService {
         difficulty: d.difficulty,
         lesson_order: d.lesson_order,
         lessons: d.lessons.map((l) => ({ id: l.id, title: l.title, user_level: l.user_level, exercise_count: l.exercise_count })),
+        learning_objectives: d.learning_objectives ?? null,
+        target_lesson_count: d.target_lesson_count ?? null,
+        source_material: d.source_material ?? null,
+        generated_from_topic: Boolean(d.generated_from_topic),
       };
     } catch {
       return null;

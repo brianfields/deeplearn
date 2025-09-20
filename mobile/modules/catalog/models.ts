@@ -277,6 +277,9 @@ export interface ApiUnitSummary {
   description: string | null;
   difficulty: string;
   lesson_count: number;
+  // New fields from backend
+  target_lesson_count?: number | null;
+  generated_from_topic?: boolean;
 }
 
 export interface ApiUnitDetail {
@@ -294,6 +297,11 @@ export interface ApiUnitDetail {
     key_concepts: string[];
     exercise_count: number;
   }>;
+  // New fields from backend
+  learning_objectives?: string[] | null;
+  target_lesson_count?: number | null;
+  source_material?: string | null;
+  generated_from_topic?: boolean;
 }
 
 export type UnitId = string;
@@ -306,6 +314,11 @@ export interface Unit {
   readonly difficulty: Difficulty;
   readonly lessonCount: number;
   readonly difficultyLabel: string;
+  // New optional fields for richer summaries
+  readonly targetLessonCount?: number | null;
+  readonly generatedFromTopic?: boolean;
+  // Optional LO list when available in summaries (not always provided)
+  readonly learningObjectives?: string[] | null;
 }
 
 export interface UnitDetail {
@@ -315,6 +328,11 @@ export interface UnitDetail {
   readonly difficulty: Difficulty;
   readonly lessonIds: string[];
   readonly lessons: LessonSummary[];
+  // New unit-level fields surfaced in details
+  readonly learningObjectives?: string[] | null;
+  readonly targetLessonCount?: number | null;
+  readonly sourceMaterial?: string | null;
+  readonly generatedFromTopic?: boolean;
 }
 
 export interface UnitProgress {
@@ -333,6 +351,8 @@ export function toUnitDTO(api: ApiUnitSummary): Unit {
     difficulty,
     lessonCount: api.lesson_count,
     difficultyLabel: formatDifficultyLevel(difficulty),
+    targetLessonCount: api.target_lesson_count ?? null,
+    generatedFromTopic: !!api.generated_from_topic,
   };
 }
 
@@ -355,5 +375,9 @@ export function toUnitDetailDTO(api: ApiUnitDetail): UnitDetail {
         exercise_count: l.exercise_count,
       })
     ),
+    learningObjectives: api.learning_objectives ?? null,
+    targetLessonCount: api.target_lesson_count ?? null,
+    sourceMaterial: api.source_material ?? null,
+    generatedFromTopic: !!api.generated_from_topic,
   };
 }

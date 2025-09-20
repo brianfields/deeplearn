@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import re
+from datetime import datetime
 from pathlib import Path
 
 from codegen.common import (
@@ -21,7 +22,7 @@ from codegen.common import (
     headless_agent,
     read_text,
     render_prompt,
-    setup_project,
+    require_existing_project,
 )
 
 CHECKBOX_PATTERN = re.compile(r"^\s*[-*]\s*\[(?P<state>[ xX])\]\s+", re.MULTILINE)
@@ -54,18 +55,15 @@ def main() -> int:
     ap.add_argument("--dry", action="store_true")
     args = ap.parse_args()
 
-    proj: ProjectSpec = setup_project(args.project)
+    proj: ProjectSpec = require_existing_project(args.project)
     spec_path = proj.dir / "spec.md"
-    if not spec_path.exists():
-        raise SystemExit(
-            f"Missing spec: {spec_path}. Run codegen/spec_generate.py first."
-        )
 
     prev_checked = -1
     for i in range(1, args.max_iters + 1):
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         spec_text = read_text(spec_path)
         checked, total = count_checked(spec_text)
-        print(f"📋 Iteration {i}: checklist {checked}/{total}")
+        print(f"📋 Iteration {i} [{timestamp}]: checklist {checked}/{total}")
 
         if total == 0:
             print("No checklist items found in spec. Stopping.")

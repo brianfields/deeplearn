@@ -7,7 +7,7 @@ following the backend.md pattern.
 
 from typing import Any
 
-from modules.infrastructure.public import InfrastructureProvider, infrastructure_provider
+from .public import InfrastructureProvider, infrastructure_provider
 
 
 def example_usage() -> None:
@@ -67,7 +67,6 @@ def example_dependency_injection() -> None:
     """Example of how another module would use the infrastructure service."""
 
     # This is how another module would import and use infrastructure
-    from modules.infrastructure.public import InfrastructureProvider  # noqa: PLC0415
 
     class SomeOtherService:
         def __init__(self, infra: InfrastructureProvider) -> None:

@@ -101,6 +101,44 @@ class ContentRepo:
         self.s.flush()
         return unit
 
+    def associate_lessons_with_unit(self, unit_id: str, lesson_ids: list[str]) -> UnitModel | None:
+        """Associate the specified lessons with the unit and set the unit's lesson order.
+
+        This method:
+        - Ensures the `units.lesson_order` matches the provided order (filtered to existing lessons)
+        - Sets `lessons.unit_id` for all provided lesson IDs
+        - Detaches any lessons currently assigned to the unit but not present in the provided list
+
+        Returns None if the unit is not found.
+        """
+        unit = self.get_unit_by_id(unit_id)
+        if not unit:
+            return None
+
+        # Detach lessons no longer associated
+        existing_in_unit: list[LessonModel] = self.s.query(LessonModel).filter(LessonModel.unit_id == unit_id).all()
+        provided_ids = set(lesson_ids)
+        for lesson in existing_in_unit:
+            if lesson.id not in provided_ids:
+                lesson.unit_id = None  # type: ignore[assignment]
+                self.s.add(lesson)
+
+        # Attach provided lessons (preserve provided order; skip missing IDs)
+        ordered_existing_ids: list[str] = []
+        for lid in lesson_ids:
+            lesson_obj: LessonModel | None = self.get_lesson_by_id(lid)
+            if not lesson_obj:
+                continue
+            lesson_obj.unit_id = unit_id  # type: ignore[assignment]
+            self.s.add(lesson_obj)
+            ordered_existing_ids.append(lid)
+
+        # Update unit order to reflect attached lessons only
+        unit.lesson_order = ordered_existing_ids  # type: ignore[assignment]
+        self.s.add(unit)
+        self.s.flush()
+        return unit
+
     # Unit session operations
     def get_unit_session(self, user_id: str, unit_id: str) -> Any | None:
         """Get the latest unit session for a user and unit."""

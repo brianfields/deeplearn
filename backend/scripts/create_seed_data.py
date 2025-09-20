@@ -636,11 +636,8 @@ async def main() -> None:
                     {"lo_id": "u_lo_2", "text": "Relate softmax probabilities to cross-entropy loss", "bloom_level": "Analyze"},
                     {"lo_id": "u_lo_3", "text": "Implement classification with softmax + cross-entropy in PyTorch", "bloom_level": "Apply"},
                 ],
-                target_duration_minutes=10,
-                source_material=(
-                    "This unit introduces cross-entropy loss and softmax probabilities for classification.\n"
-                    "It covers the intuition, mathematical formulation, and practical implementation."
-                ),
+                target_lesson_count=10,
+                source_material=("This unit introduces cross-entropy loss and softmax probabilities for classification.\nIt covers the intuition, mathematical formulation, and practical implementation."),
                 generated_from_topic=True,
             )
             db_session.add(unit)

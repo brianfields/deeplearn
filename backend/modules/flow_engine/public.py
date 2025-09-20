@@ -150,7 +150,6 @@ result = await ExtractContentStep().execute({
 
 ## Complete Example
 ```python
-from modules.flow_engine.public import BaseFlow, UnstructuredStep, StructuredStep
 from pydantic import BaseModel, Field
 
 # Define reusable steps

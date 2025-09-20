@@ -264,6 +264,8 @@ export class CatalogService {
       difficultyLabel: this.formatDifficulty(
         (u.difficulty as any) ?? 'beginner'
       ),
+      targetLessonCount: u.target_lesson_count ?? null,
+      generatedFromTopic: !!u.generated_from_topic,
     }));
   }
 
@@ -298,6 +300,10 @@ export class CatalogService {
           readinessStatus: l.exercise_count > 0 ? 'Ready' : 'Draft',
           tags: (l.key_concepts ?? []).slice(0, 3),
         })),
+        learningObjectives: api.learning_objectives ?? null,
+        targetLessonCount: api.target_lesson_count ?? null,
+        sourceMaterial: api.source_material ?? null,
+        generatedFromTopic: !!api.generated_from_topic,
       };
     } catch (err: any) {
       if (err?.statusCode === 404) return null;

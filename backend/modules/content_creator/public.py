@@ -17,6 +17,14 @@ class ContentCreatorProvider(Protocol):
 
     async def create_lesson_from_source_material(self, request: CreateLessonRequest) -> LessonCreationResult: ...
 
+    # Unit creation methods
+    async def create_unit_from_topic(self, request: ContentCreatorService.CreateUnitFromTopicRequest) -> ContentCreatorService.UnitCreationResult: ...
+    async def create_unit_from_source_material(self, request: ContentCreatorService.CreateUnitFromSourceRequest) -> ContentCreatorService.UnitCreationResult: ...
+
+    # Complete unit creation (unit + lessons)
+    async def create_complete_unit_from_topic(self, request: ContentCreatorService.CreateUnitFromTopicRequest) -> ContentCreatorService.UnitCreationResult: ...
+    async def create_complete_unit_from_source_material(self, request: ContentCreatorService.CreateUnitFromSourceRequest) -> ContentCreatorService.UnitCreationResult: ...
+
     # generate_component method removed - it was unused
 
 
@@ -34,4 +42,9 @@ def content_creator_provider(content: ContentProvider) -> ContentCreatorProvider
     return ContentCreatorService(content)
 
 
-__all__ = ["ContentCreatorProvider", "CreateLessonRequest", "LessonCreationResult", "content_creator_provider"]
+__all__ = [
+    "ContentCreatorProvider",
+    "CreateLessonRequest",
+    "LessonCreationResult",
+    "content_creator_provider",
+]

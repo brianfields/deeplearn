@@ -17,12 +17,12 @@ import re
 from pathlib import Path
 
 from codegen.common import (
-    DEFAULT_MODEL_GROK,
+    DEFAULT_MODEL_CLAUDE,
     ProjectSpec,
     headless_agent,
     read_text,
     render_prompt,
-    setup_project,
+    require_existing_project,
     write_text,
 )
 
@@ -62,7 +62,7 @@ def main() -> int:
     )
     ap.add_argument("--project", help="Project name for docs/specs/<PROJECT>")
     ap.add_argument("--prompts-dir", default="codegen/prompts")
-    ap.add_argument("--model", default=DEFAULT_MODEL_GROK)
+    ap.add_argument("--model", default=DEFAULT_MODEL_CLAUDE)
     ap.add_argument(
         "--agent",
         default="cursor-agent",
@@ -73,10 +73,10 @@ def main() -> int:
     ap.add_argument("--dry", action="store_true")
     args = ap.parse_args()
 
-    proj: ProjectSpec = setup_project(args.project)
+    proj: ProjectSpec = require_existing_project(args.project)
 
     backend_check, frontend_check = ensure_project_checklists(proj.dir)
-    arch_prompt_file = Path(args.prompts_dir) / "codecheck_arch.md"
+    arch_prompt_file = Path(args.prompts_dir) / "modulecheck.md"
     if not arch_prompt_file.exists():
         raise SystemExit(f"Missing prompt template: {arch_prompt_file}")
 

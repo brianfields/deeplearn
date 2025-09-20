@@ -18,7 +18,7 @@ from modules.content.package_models import (
     Meta,
     Objective,
 )
-from modules.content.service import LessonRead
+from modules.content.public import LessonRead
 
 
 class TestCatalogService:

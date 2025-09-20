@@ -7,7 +7,8 @@ Phases:
   2) frontend unit tests (mobile)
 
 Usage:
-  python codegen/fix_unit_tests.py --project my-feature
+  python codegen/fix_unit_tests.py --project my-feature  # Use project-specific logging
+  python codegen/fix_unit_tests.py                       # Use logs/fix_unit_tests.log
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from __future__ import annotations
 import argparse
 import subprocess
 from collections import deque
+from datetime import datetime
 from pathlib import Path
 from typing import Tuple
 
@@ -23,7 +25,7 @@ from codegen.common import (
     ProjectSpec,
     headless_agent,
     render_prompt,
-    setup_project,
+    setup_fix_script_project,
     write_text,
 )
 
@@ -56,7 +58,10 @@ def stream_command_and_tail(
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Fix unit tests iteratively (headless)")
-    ap.add_argument("--project", help="Project name for docs/specs/<PROJECT>")
+    ap.add_argument(
+        "--project",
+        help="Project name for docs/specs/<PROJECT> (optional, uses logs/ if not specified)",
+    )
     ap.add_argument("--prompts-dir", default="codegen/prompts")
     ap.add_argument("--model", default=DEFAULT_MODEL_GROK)
     ap.add_argument(
@@ -69,9 +74,16 @@ def main() -> int:
     ap.add_argument("--dry", action="store_true")
     args = ap.parse_args()
 
-    proj: ProjectSpec = setup_project(args.project)
-    log_path = proj.dir / "fix_tests.md"
-    spec_path = proj.dir / "spec.md"
+    proj: ProjectSpec = setup_fix_script_project(args.project, "fix_unit_tests")
+
+    if args.project:
+        # Project mode: use project-specific log and spec files
+        log_path = proj.dir / "fix_tests.md"
+        spec_path = proj.dir / "spec.md"
+    else:
+        # No project mode: use logs directory
+        log_path = proj.dir / "fix_unit_tests.log"
+        spec_path = None
 
     prompt_file = Path(args.prompts_dir) / "fix_unit_tests.md"
     if not prompt_file.exists():
@@ -101,7 +113,8 @@ def main() -> int:
         print(f"\n🧪 Phase: {phase_name}")
         prev_fail_sig: str | None = None
         for i in range(1, args.max_iters + 1):
-            print(f"➡️  Iteration {i}… running: {phase['run']}")
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            print(f"➡️  Iteration {i} [{timestamp}]… running: {phase['run']}")
             rc, tail_text = stream_command_and_tail(phase["run"], cwd=Path.cwd())
             write_text(proj.dir / "last_test_output.txt", tail_text[-200000:])
 
@@ -120,7 +133,9 @@ def main() -> int:
                 "PROJECT_DIR": str(proj.dir).replace("\\", "/"),
                 "TEST_OUTPUT": tail,
                 "FIX_LOG": str(log_path).replace("\\", "/"),
-                "PROJECT_SPEC": str(spec_path).replace("\\", "/"),
+                "PROJECT_SPEC": str(spec_path).replace("\\", "/")
+                if spec_path
+                else "none",
                 "PHASE_NAME": phase_name,
                 "PHASE_INSTRUCTIONS": phase["instructions"],
             }

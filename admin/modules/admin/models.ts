@@ -300,6 +300,9 @@ export interface ApiUnitSummary {
   description: string | null;
   difficulty: string;
   lesson_count: number;
+  // New fields from backend
+  target_lesson_count?: number | null;
+  generated_from_topic?: boolean;
 }
 
 export interface ApiUnitLessonSummary {
@@ -319,6 +322,11 @@ export interface ApiUnitDetail {
   difficulty: string;
   lesson_order: string[];
   lessons: ApiUnitLessonSummary[];
+  // New fields from backend
+  learning_objectives?: string[] | null;
+  target_lesson_count?: number | null;
+  source_material?: string | null;
+  generated_from_topic?: boolean;
 }
 
 // Basic unit from /api/v1/units
@@ -339,6 +347,9 @@ export interface UnitSummary {
   description: string | null;
   difficulty: string;
   lesson_count: number;
+  // New fields for admin list UI
+  target_lesson_count: number | null;
+  generated_from_topic: boolean;
 }
 
 export interface UnitLessonSummary {
@@ -355,6 +366,11 @@ export interface UnitDetail {
   difficulty: string;
   lesson_order: string[];
   lessons: UnitLessonSummary[];
+  // New fields for admin detail UI
+  learning_objectives: string[] | null;
+  target_lesson_count: number | null;
+  source_material: string | null;
+  generated_from_topic: boolean;
 }
 
 export type LessonToUnitMap = Record<string, { unit_id: string; unit_title: string }>;

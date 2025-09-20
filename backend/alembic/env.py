@@ -40,8 +40,8 @@ try:
     from modules.llm_services.models import LLMRequestModel  # noqa: F401
     from modules.shared_models import Base
 
-    target_metadata = Base.metadata
-    print(f"✅ Successfully imported models. Found {len(Base.metadata.tables)} tables.")
+    target_metadata = Base.metadata  # type: ignore[attr-defined]
+    print(f"✅ Successfully imported models. Found {len(Base.metadata.tables)} tables.")  # type: ignore[attr-defined]
 except ImportError as e:
     print(f"Warning: Could not import models: {e}")
     target_metadata = None

@@ -11,9 +11,9 @@ import uuid
 from pydantic import BaseModel
 
 from modules.content.package_models import DidacticSnippet, GlossaryTerm, LengthBudgets, LessonPackage, Meta, Objective
-from modules.content.public import ContentProvider, LessonCreate
+from modules.content.public import ContentProvider, LessonCreate, UnitCreate
 
-from .flows import LessonCreationFlow
+from .flows import LessonCreationFlow, UnitCreationFlow
 
 logger = logging.getLogger(__name__)
 
@@ -265,3 +265,274 @@ class ContentCreatorService:
 
         logger.info(f"🎉 Lesson creation completed! Package contains {len(objectives)} objectives, {len(glossary_terms)} terms, {len(exercises)} exercises")
         return LessonCreationResult(lesson_id=lesson_id, title=request.title, package_version=1, objectives_count=len(objectives), glossary_terms_count=len(glossary_terms), mcqs_count=len(exercises))
+
+    # ======================
+    # Unit creation (NEW)
+    # ======================
+    class CreateUnitFromTopicRequest(BaseModel):
+        topic: str
+        target_lesson_count: int | None = None
+        user_level: str = "beginner"
+        domain: str | None = None
+
+    class CreateUnitFromSourceRequest(BaseModel):
+        source_material: str
+        target_lesson_count: int | None = None
+        user_level: str = "beginner"
+        domain: str | None = None
+
+    class UnitCreationResult(BaseModel):
+        unit_id: str
+        title: str
+        lesson_titles: list[str]
+        lesson_count: int
+        target_lesson_count: int | None = None
+        generated_from_topic: bool = False
+        # When generating a complete unit (including lessons), these are returned
+        lesson_ids: list[str] | None = None
+
+    async def create_unit_from_topic(self, request: "ContentCreatorService.CreateUnitFromTopicRequest") -> "ContentCreatorService.UnitCreationResult":
+        """Create a learning unit end-to-end from just a topic using UnitCreationFlow."""
+        logger.info(f"🏗️ Creating unit from topic: {request.topic}")
+
+        flow = UnitCreationFlow()
+        flow_result = await flow.execute(
+            {
+                "topic": request.topic,
+                "source_material": None,
+                "target_lesson_count": request.target_lesson_count,
+                "user_level": request.user_level,
+                "domain": request.domain,
+            }
+        )
+
+        # Persist unit
+        unit_title = str(flow_result.get("unit_title") or request.topic)
+        data = UnitCreate(
+            title=unit_title,
+            description=flow_result.get("summary"),
+            difficulty=request.user_level,
+            lesson_order=[],
+            learning_objectives=flow_result.get("learning_objectives"),
+            target_lesson_count=flow_result.get("target_lesson_count"),
+            source_material=flow_result.get("source_material"),
+            generated_from_topic=True,
+        )
+        created = self.content.create_unit(data)
+
+        return self.UnitCreationResult(
+            unit_id=created.id,
+            title=created.title,
+            lesson_titles=list(flow_result.get("lesson_titles", [])),
+            lesson_count=int(flow_result.get("lesson_count", 0)),
+            target_lesson_count=flow_result.get("target_lesson_count"),
+            generated_from_topic=True,
+        )
+
+    async def create_unit_from_source_material(self, request: "ContentCreatorService.CreateUnitFromSourceRequest") -> "ContentCreatorService.UnitCreationResult":
+        """Create a learning unit from provided source material using UnitCreationFlow."""
+        logger.info("🏗️ Creating unit from provided source material")
+
+        flow = UnitCreationFlow()
+        flow_result = await flow.execute(
+            {
+                "topic": None,
+                "source_material": request.source_material,
+                "target_lesson_count": request.target_lesson_count,
+                "user_level": request.user_level,
+                "domain": request.domain,
+            }
+        )
+
+        # Persist unit
+        unit_title = str(flow_result.get("unit_title") or "Learning Unit")
+        data = UnitCreate(
+            title=unit_title,
+            description=flow_result.get("summary"),
+            difficulty=request.user_level,
+            lesson_order=[],
+            learning_objectives=flow_result.get("learning_objectives"),
+            target_lesson_count=flow_result.get("target_lesson_count"),
+            source_material=flow_result.get("source_material"),
+            generated_from_topic=False,
+        )
+        created = self.content.create_unit(data)
+
+        return self.UnitCreationResult(
+            unit_id=created.id,
+            title=created.title,
+            lesson_titles=list(flow_result.get("lesson_titles", [])),
+            lesson_count=int(flow_result.get("lesson_count", 0)),
+            target_lesson_count=flow_result.get("target_lesson_count"),
+            generated_from_topic=False,
+        )
+
+    # ======================
+    # Complete unit creation (unit + lessons)
+    # ======================
+    async def create_complete_unit_from_topic(
+        self,
+        request: "ContentCreatorService.CreateUnitFromTopicRequest",
+    ) -> "ContentCreatorService.UnitCreationResult":
+        """Create a unit and generate all lessons from topic-only input.
+
+        This orchestrates UnitCreationFlow to obtain lesson chunks, persists the
+        unit, generates a full lesson for each chunk via LessonCreationFlow, and
+        assigns the created lessons to the unit preserving order.
+        """
+        logger.info(f"🏗️ Creating complete unit from topic: {request.topic}")
+
+        # Run unit flow to get plan and chunks
+        flow = UnitCreationFlow()
+        flow_result = await flow.execute(
+            {
+                "topic": request.topic,
+                "source_material": None,
+                "target_lesson_count": request.target_lesson_count,
+                "user_level": request.user_level,
+                "domain": request.domain,
+            }
+        )
+
+        unit_title = str(flow_result.get("unit_title") or request.topic)
+
+        # Persist unit first
+        unit_data = UnitCreate(
+            title=unit_title,
+            description=flow_result.get("summary"),
+            difficulty=request.user_level,
+            lesson_order=[],
+            learning_objectives=flow_result.get("learning_objectives"),
+            target_lesson_count=flow_result.get("target_lesson_count"),
+            source_material=flow_result.get("source_material"),
+            generated_from_topic=True,
+        )
+        created_unit = self.content.create_unit(unit_data)
+
+        # Generate lessons per chunk and collect IDs
+        chunks = list(flow_result.get("chunks", []) or [])
+        lesson_titles: list[str] = list(flow_result.get("lesson_titles", []) or [])
+        lesson_ids: list[str] = []
+        previous_titles: list[str] = []
+
+        for index, chunk in enumerate(chunks):
+            # Determine title/core concept
+            chunk_title: str | None = None
+            chunk_text: str = ""
+            if isinstance(chunk, dict):
+                chunk_title = chunk.get("title")
+                chunk_text = str(chunk.get("chunk_text", ""))
+            # Fallbacks
+            title = chunk_title or (lesson_titles[index] if index < len(lesson_titles) else f"Lesson {index + 1}")
+            core_concept = title
+
+            # Add lightweight prior context to encourage cross-lesson references
+            prior_context = "Previously in this unit: " + ", ".join(previous_titles) + ".\n\n" if previous_titles else ""
+            lesson_source_material = f"{prior_context}{chunk_text}" if chunk_text else prior_context
+
+            # Create lesson from chunk
+            lesson_req = CreateLessonRequest(
+                title=title,
+                core_concept=core_concept,
+                source_material=lesson_source_material,
+                user_level=request.user_level,
+                domain=request.domain or "General",
+            )
+            lesson_result = await self.create_lesson_from_source_material(lesson_req)
+            lesson_ids.append(lesson_result.lesson_id)
+            previous_titles.append(title)
+
+        # Associate lessons with unit and set ordering
+        if lesson_ids:
+            self.content.assign_lessons_to_unit(created_unit.id, lesson_ids)
+
+        return self.UnitCreationResult(
+            unit_id=created_unit.id,
+            title=created_unit.title,
+            lesson_titles=lesson_titles or previous_titles,
+            lesson_count=len(lesson_ids) or int(flow_result.get("lesson_count", 0)),
+            target_lesson_count=flow_result.get("target_lesson_count"),
+            generated_from_topic=True,
+            lesson_ids=lesson_ids,
+        )
+
+    async def create_complete_unit_from_source_material(
+        self,
+        request: "ContentCreatorService.CreateUnitFromSourceRequest",
+    ) -> "ContentCreatorService.UnitCreationResult":
+        """Create a unit and generate all lessons from provided source material."""
+        logger.info("🏗️ Creating complete unit from provided source material")
+
+        # Run unit flow to get plan and chunks
+        flow = UnitCreationFlow()
+        flow_result = await flow.execute(
+            {
+                "topic": None,
+                "source_material": request.source_material,
+                "target_lesson_count": request.target_lesson_count,
+                "user_level": request.user_level,
+                "domain": request.domain,
+            }
+        )
+
+        unit_title = str(flow_result.get("unit_title") or "Learning Unit")
+
+        # Persist unit first
+        unit_data = UnitCreate(
+            title=unit_title,
+            description=flow_result.get("summary"),
+            difficulty=request.user_level,
+            lesson_order=[],
+            learning_objectives=flow_result.get("learning_objectives"),
+            target_lesson_count=flow_result.get("target_lesson_count"),
+            source_material=flow_result.get("source_material"),
+            generated_from_topic=False,
+        )
+        created_unit = self.content.create_unit(unit_data)
+
+        # Generate lessons per chunk and collect IDs
+        chunks = list(flow_result.get("chunks", []) or [])
+        lesson_titles: list[str] = list(flow_result.get("lesson_titles", []) or [])
+        lesson_ids: list[str] = []
+        previous_titles: list[str] = []
+
+        for index, chunk in enumerate(chunks):
+            # Determine title/core concept
+            chunk_title: str | None = None
+            chunk_text: str = ""
+            if isinstance(chunk, dict):
+                chunk_title = chunk.get("title")
+                chunk_text = str(chunk.get("chunk_text", ""))
+            # Fallbacks
+            title = chunk_title or (lesson_titles[index] if index < len(lesson_titles) else f"Lesson {index + 1}")
+            core_concept = title
+
+            # Add lightweight prior context
+            prior_context = "Previously in this unit: " + ", ".join(previous_titles) + ".\n\n" if previous_titles else ""
+            lesson_source_material = f"{prior_context}{chunk_text}" if chunk_text else prior_context
+
+            # Create lesson from chunk
+            lesson_req = CreateLessonRequest(
+                title=title,
+                core_concept=core_concept,
+                source_material=lesson_source_material,
+                user_level=request.user_level,
+                domain=request.domain or "General",
+            )
+            lesson_result = await self.create_lesson_from_source_material(lesson_req)
+            lesson_ids.append(lesson_result.lesson_id)
+            previous_titles.append(title)
+
+        # Associate lessons with unit and set ordering
+        if lesson_ids:
+            self.content.assign_lessons_to_unit(created_unit.id, lesson_ids)
+
+        return self.UnitCreationResult(
+            unit_id=created_unit.id,
+            title=created_unit.title,
+            lesson_titles=lesson_titles or previous_titles,
+            lesson_count=len(lesson_ids) or int(flow_result.get("lesson_count", 0)),
+            target_lesson_count=flow_result.get("target_lesson_count"),
+            generated_from_topic=False,
+            lesson_ids=lesson_ids,
+        )

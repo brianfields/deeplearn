@@ -12,4 +12,4 @@ Instructions:
 - Continue until no unchecked items remain or no further items can be confidently satisfied.
 
 Output format:
-- Do not explain. Make repository edits and update the checklist files at {BACKEND_CHECKLIST} and {FRONTEND_CHECKLIST}.
+- Make repository edits and update the checklist files at {BACKEND_CHECKLIST} and {FRONTEND_CHECKLIST}. Please append to those checklist brief description of each edit you needed to make to the code and why.

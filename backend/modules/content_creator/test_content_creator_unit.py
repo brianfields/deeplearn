@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
 from modules.content.package_models import DidacticSnippet, LessonPackage, Meta, Objective
-from modules.content.service import LessonRead
+from modules.content.public import LessonRead
 from modules.content_creator.service import ContentCreatorService, CreateLessonRequest
 
 

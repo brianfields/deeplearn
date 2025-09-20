@@ -8,11 +8,10 @@ Prefer using `modules.content.public` from other modules.
 from __future__ import annotations
 
 from datetime import datetime
-import uuid
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .repo import UnitsRepo
+from modules.content.public import ContentProvider
 
 
 class UnitRead(BaseModel):
@@ -42,43 +41,17 @@ class SetLessonOrder(BaseModel):
 class UnitsService:
     """Adapter service forwarding to consolidated content service via repo shim."""
 
-    def __init__(self, repo: UnitsRepo) -> None:
-        self.repo = repo
+    def __init__(self, content: ContentProvider) -> None:
+        self.content = content
 
     def get(self, unit_id: str) -> UnitRead | None:
-        u = self.repo.by_id(unit_id)
-        return UnitRead.model_validate(u) if u else None
+        return self.content.get_unit(unit_id)  # type: ignore[return-value]
 
     def list(self, limit: int = 100, offset: int = 0) -> list[UnitRead]:
-        arr = self.repo.list(limit=limit, offset=offset)
-        return [UnitRead.model_validate(u) for u in arr]
+        return self.content.list_units(limit=limit, offset=offset)  # type: ignore[return-value]
 
     def create(self, data: UnitCreate) -> UnitRead:
-        # Delegate creation to content model via repo shim
-        # Reuse ContentService semantics for timestamps, id generation handled here
-        unit_id = data.id or str(uuid.uuid4())
-        created = self.repo.add(
-            # Create a light-weight object compatible with repo.add (UnitModel in content)
-            # We cannot import UnitModel directly here to keep shim minimal
-            # The repo shim handles actual persistence
-            type(
-                "UnitModelProxy",
-                (),
-                {
-                    "id": unit_id,
-                    "title": data.title,
-                    "description": data.description,
-                    "difficulty": data.difficulty,
-                    "lesson_order": list(data.lesson_order or []),
-                    "created_at": datetime.utcnow(),
-                    "updated_at": datetime.utcnow(),
-                },
-            )()
-        )
-        return UnitRead.model_validate(created)
+        return self.content.create_unit(data)  # type: ignore[return-value,arg-type]
 
     def set_lesson_order(self, unit_id: str, order: SetLessonOrder) -> UnitRead:
-        updated = self.repo.update_lesson_order(unit_id, order.lesson_ids)
-        if not updated:
-            raise ValueError("Unit not found")
-        return UnitRead.model_validate(updated)
+        return self.content.set_unit_lesson_order(unit_id, order.lesson_ids)  # type: ignore[return-value]

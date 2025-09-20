@@ -10,7 +10,11 @@ from typing import Protocol
 from sqlalchemy.orm import Session
 
 from .repo import ContentRepo
-from .service import ContentService, LessonCreate, LessonRead
+from .service import (
+    ContentService,
+    LessonCreate,
+    LessonRead,
+)
 
 
 class ContentProvider(Protocol):
@@ -29,6 +33,7 @@ class ContentProvider(Protocol):
     def list_units(self, limit: int = 100, offset: int = 0) -> list[ContentService.UnitRead]: ...
     def create_unit(self, data: ContentService.UnitCreate) -> ContentService.UnitRead: ...
     def set_unit_lesson_order(self, unit_id: str, lesson_ids: list[str]) -> ContentService.UnitRead: ...
+    def assign_lessons_to_unit(self, unit_id: str, lesson_ids: list[str]) -> ContentService.UnitRead: ...
     # Unit session operations
     def get_or_create_unit_session(self, user_id: str, unit_id: str) -> ContentService.UnitSessionRead: ...
     def update_unit_session_progress(
@@ -57,9 +62,21 @@ def content_provider(session: Session) -> ContentProvider:
     return ContentService(ContentRepo(session))
 
 
+# Create aliases for nested classes to maintain backward compatibility
+UnitCreate = ContentService.UnitCreate
+UnitCreateFromSource = ContentService.UnitCreateFromSource
+UnitCreateFromTopic = ContentService.UnitCreateFromTopic
+UnitRead = ContentService.UnitRead
+UnitSessionRead = ContentService.UnitSessionRead
+
 __all__ = [
     "ContentProvider",
     "LessonCreate",
     "LessonRead",
+    "UnitCreate",
+    "UnitCreateFromSource",
+    "UnitCreateFromTopic",
+    "UnitRead",
+    "UnitSessionRead",
     "content_provider",
 ]

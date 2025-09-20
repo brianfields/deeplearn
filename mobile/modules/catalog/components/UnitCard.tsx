@@ -25,6 +25,9 @@ export function UnitCard({ unit, onPress, index }: Props) {
         </Text>
         <View style={styles.footer}>
           <Text style={styles.meta}>{unit.lessonCount} lessons</Text>
+          {typeof unit.targetLessonCount === 'number' && (
+            <Text style={styles.meta}>~{unit.targetLessonCount} min</Text>
+          )}
         </View>
       </View>
     </TouchableOpacity>

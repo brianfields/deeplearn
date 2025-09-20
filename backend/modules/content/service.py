@@ -266,6 +266,11 @@ class ContentService:
         description: str | None = None
         difficulty: str
         lesson_order: list[str]
+        # New fields
+        learning_objectives: list[Any] | None = None
+        target_lesson_count: int | None = None
+        source_material: str | None = None
+        generated_from_topic: bool = False
         created_at: datetime
         updated_at: datetime
 
@@ -277,6 +282,24 @@ class ContentService:
         description: str | None = None
         difficulty: str = "beginner"
         lesson_order: list[str] = []
+        learning_objectives: list[Any] | None = None
+        target_lesson_count: int | None = None
+        source_material: str | None = None
+        generated_from_topic: bool = False
+
+    # New DTOs for unit creation workflows
+    class UnitCreateFromTopic(BaseModel):
+        topic: str
+        target_lesson_count: int | None = None
+        user_level: str = "beginner"
+        domain: str | None = None
+
+    class UnitCreateFromSource(BaseModel):
+        title: str
+        source_material: str
+        target_lesson_count: int | None = None
+        user_level: str = "beginner"
+        domain: str | None = None
 
     def get_unit(self, unit_id: str) -> ContentService.UnitRead | None:
         u = self.repo.get_unit_by_id(unit_id)
@@ -294,6 +317,10 @@ class ContentService:
             description=data.description,
             difficulty=data.difficulty,
             lesson_order=list(data.lesson_order or []),
+            learning_objectives=list(data.learning_objectives or []) if data.learning_objectives is not None else None,
+            target_lesson_count=data.target_lesson_count,
+            source_material=data.source_material,
+            generated_from_topic=bool(data.generated_from_topic),
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
         )
@@ -302,6 +329,17 @@ class ContentService:
 
     def set_unit_lesson_order(self, unit_id: str, lesson_ids: list[str]) -> ContentService.UnitRead:
         updated = self.repo.update_unit_lesson_order(unit_id, lesson_ids)
+        if not updated:
+            raise ValueError("Unit not found")
+        return self.UnitRead.model_validate(updated)
+
+    def assign_lessons_to_unit(self, unit_id: str, lesson_ids: list[str]) -> ContentService.UnitRead:
+        """Assign lessons to a unit and set ordering in one operation.
+
+        Skips lesson IDs that don't exist. Removes lessons previously in the unit
+        if they are not in the provided list.
+        """
+        updated = self.repo.associate_lessons_with_unit(unit_id, lesson_ids)
         if not updated:
             raise ValueError("Unit not found")
         return self.UnitRead.model_validate(updated)

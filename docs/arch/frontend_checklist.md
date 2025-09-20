@@ -1,8 +1,6 @@
 ## 0) Structure & Naming
 
 * [ ] Module folder is `mobile/modules/{name}/`.
-* [ ] Required files exist (or are intentionally omitted with a current justification): `models.ts`, `repo.ts`, `service.ts`, `public.ts`, `queries.ts`, `test_{name}_unit.ts`.
-* [ ] Optional files only when needed: `store.ts`, `nav.tsx`, `screens/`, `components/`.
 * [ ] Responsibilities match filenames (no HTTP in `service.ts`, no business rules in `queries.ts`, no UI in `service.ts`).
 
 ## 1) Imports & Boundaries

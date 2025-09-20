@@ -3,6 +3,7 @@
 from abc import ABC, abstractmethod
 from enum import Enum
 import logging
+import os
 from pathlib import Path
 import time
 from typing import Any, TypeVar, cast
@@ -84,6 +85,10 @@ class BaseStep(ABC):
     def _get_llm_config(self) -> dict[str, Any]:
         """Build LLM configuration from step settings."""
         config: dict[str, Any] = {}
+
+        # Check for fast mode and override model
+        if os.getenv("FAST_MODE", "false").lower() == "true":
+            config["model"] = "gpt-5-mini"
 
         if self.reasoning_effort:
             config["reasoning"] = {"effort": self.reasoning_effort}

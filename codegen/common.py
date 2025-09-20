@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import shlex
 import subprocess
 import sys
@@ -386,6 +385,7 @@ class ProjectSpec:
 
 
 def setup_project(project_name: Optional[str]) -> ProjectSpec:
+    """Create or ensure project directory exists. Used by spec.py and refine_spec.py."""
     if not project_name:
         # Interactive prompt
         while True:
@@ -399,6 +399,48 @@ def setup_project(project_name: Optional[str]) -> ProjectSpec:
     return ProjectSpec(name=project_name, dir=project_dir)
 
 
+def require_existing_project(project_name: Optional[str]) -> ProjectSpec:
+    """Require that project directory already exists. Used by implement.py and fix_*.py scripts."""
+    if not project_name:
+        # Interactive prompt
+        while True:
+            project_name = input("Enter existing project name: ").strip()
+            if project_name:
+                break
+            print("Project name cannot be empty. Please try again.")
+    assert project_name is not None
+    project_dir = Path("docs/specs") / project_name
+
+    if not project_dir.exists():
+        raise SystemExit(
+            f"❌ Project directory does not exist: {project_dir}\n"
+            f"Create it first with: python codegen/spec.py --project {project_name}"
+        )
+
+    spec_file = project_dir / "spec.md"
+    if not spec_file.exists():
+        raise SystemExit(
+            f"❌ Project spec file does not exist: {spec_file}\n"
+            f"Create it first with: python codegen/spec.py --project {project_name}"
+        )
+
+    return ProjectSpec(name=project_name, dir=project_dir)
+
+
+def setup_fix_script_project(
+    project_name: Optional[str], script_name: str
+) -> ProjectSpec:
+    """Setup project for fix_*.py scripts. If no project provided, use logs directory."""
+    if project_name:
+        # Use existing project mode - require spec.md to exist
+        return require_existing_project(project_name)
+    else:
+        # No project mode - use logs directory
+        logs_dir = Path("logs")
+        ensure_dir(logs_dir)
+        return ProjectSpec(name=f"no-project-{script_name}", dir=logs_dir)
+
+
 def write_text(path: Path, content: str) -> None:
     ensure_dir(path.parent)
     path.write_text(content, encoding="utf-8")
@@ -406,33 +448,6 @@ def write_text(path: Path, content: str) -> None:
 
 def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
-
-
-def count_ruff_issues(backend_dir: Path) -> int:
-    try:
-        proc = subprocess.run(
-            [
-                "bash",
-                "-lc",
-                f"cd {shlex.quote(str(backend_dir))} && source venv/bin/activate && python3 -m ruff check --output-format json",
-            ],
-            capture_output=True,
-            text=True,
-        )
-        if proc.returncode not in (0, 1):
-            # 1 is errors found, 0 is none; other codes mean failure
-            print("ruff invocation failed:", proc.stderr)
-            return 10**9
-        data = proc.stdout.strip()
-        if not data:
-            return 0
-        try:
-            issues = json.loads(data)
-        except json.JSONDecodeError:
-            return 10**9
-        return sum(len(file_report.get("messages", [])) for file_report in issues)
-    except FileNotFoundError:
-        return 10**9
 
 
 def run_format_and_fix(timeout_seconds: int = 900) -> int:
@@ -454,77 +469,3 @@ def run_format_and_fix(timeout_seconds: int = 900) -> int:
     except subprocess.TimeoutExpired:
         print("⚠️ format_code.sh timed out; continuing to next iteration")
         return 124
-
-
-def count_mypy_issues(backend_dir: Path) -> int:
-    """Run mypy in backend venv and count errors. Returns large sentinel on failure."""
-    try:
-        proc = subprocess.run(
-            [
-                "bash",
-                "-lc",
-                (
-                    f"cd {shlex.quote(str(backend_dir))} && "
-                    "source venv/bin/activate && "
-                    "python3 -m mypy --config-file pyproject.toml . "
-                    "--hide-error-context --no-color-output --show-error-codes"
-                ),
-            ],
-            capture_output=True,
-            text=True,
-        )
-        out = ((proc.stdout or "") + "\n" + (proc.stderr or "")).strip()
-        # Success/no issues
-        if proc.returncode == 0 or "Success: no issues found" in out:
-            return 0
-        if proc.returncode not in (0, 1):
-            return 10**9
-        # Prefer parsing mypy's summary if present: "Found X errors in Y files"
-        m = re.search(r"Found\s+(\d+)\s+error(s)?\b", out)
-        if m:
-            try:
-                return int(m.group(1))
-            except Exception:
-                pass
-        # Fallback: count canonical error lines like "path:line: col: error: message [code]"
-        per_error = re.findall(
-            r"^.+?:\d+:\s*(?:\d+:\s*)?error:\s", out, flags=re.MULTILINE
-        )
-        if per_error:
-            return len(per_error)
-        # Last resort: substring heuristic
-        return sum(1 for line in out.splitlines() if " error: " in line)
-    except FileNotFoundError:
-        return 10**9
-
-
-def count_eslint_issues(mobile_dir: Path) -> int:
-    """Run ESLint in JSON mode and count messages. Returns large sentinel on failure."""
-    try:
-        proc = subprocess.run(
-            [
-                "bash",
-                "-lc",
-                (
-                    f"cd {shlex.quote(str(mobile_dir))} && "
-                    "npm run lint --silent -- --format json"
-                ),
-            ],
-            capture_output=True,
-            text=True,
-        )
-        # ESLint returns non-zero if errors exist; that's acceptable
-        data = proc.stdout.strip()
-        if not data:
-            return 0
-        try:
-            reports = json.loads(data)
-        except json.JSONDecodeError:
-            return 10**9
-        total = 0
-        for file_report in reports or []:
-            messages = file_report.get("messages", [])
-            total += len(messages)
-        return total
-    except FileNotFoundError:
-        return 10**9

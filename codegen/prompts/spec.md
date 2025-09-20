@@ -16,13 +16,17 @@ Phased approach (interactive):
    - Ask 5-10 targeted questions that would materially affect the design/implementation. Examples: user roles, data lifecycle, performance, auth, cross-module interactions, mobile vs web priorities.
    - Keep questions crisp; avoid generic ones. Wait for answers before proceeding.
    - Ask further clarifying questions if needed after the user responds.
-4) Propose module changes/additions for approval (backend and frontend)
+4) Draft a user story for the feature and ask the user to approve the user story.
+   - Include any frontend UI changes and how the user's experience will change.
+5) Propose module changes/additions for approval (backend and frontend)
    - Backend: list modules to change vs add; name impacted files (`models.py`, `repo.py`, `service.py`, `public.py`, `routes.py`, tests). Note DTOs and public interface changes, if any. Avoid adding routes or public APIs unless truly needed.
    - Frontend (admin and/or mobile): list modules to change vs add; name impacted files (`models.ts`, `repo.ts`, `service.ts`, `public.ts`, `queries.ts`, `store.ts`, `screens/*`, `components/*`, tests). Maintain DTO/ORM and boundary discipline.
    - End with a clear overview indication of what modules will change, what new modules (if any) will be created, and what public interfaces interconnecting the modules will change.
    - Ask the user to approve or adjust this module plan before drafting the spec.
-5) Draft spec.md and request review
+   * Note: Bias towards fewer modules and adding to existing modules rather than creating new ones. For any new module, include an explanation about why it is a better option than adding to any existing module. If there is a close call, ask the user to decide.
+6) Draft spec.md
    - Write a single file at {OUT_SPEC} named "spec.md" that contains:
+     - User story
      - Requirements summary (what to build, constraints, acceptance criteria)
      - Cross-stack mapping of functionality to modules (backend and frontend), with concrete files to be edited/added
      - The task list should clearly divide backend and frontend tasks, with backend modules, backend tests, and database migrations, listed before the frontend tasks.
@@ -30,11 +34,14 @@ Phased approach (interactive):
        - Keep it flat and implementable; each item should be a meaningful step
        - Include both backend and frontend tasks; group with simple headings if helpful
      - Keep the test creation minimal: use unit tests for complex behavior on both backend and frontend. No new integration tests, but make any changes necessary to the existing integration tests to ensure they are up to date. Also, make sure to fix maestro tests in mobile/e2e, adding testID attributes if necessary.
-     - Add a task to the spec if there are any database migrations. Migrations should be created and run with Alembic.
+     - Add a task to the spec if there are any database migrations. Migrations should be created and run with Alembic. Changes to the models should be done prior to generating the migration.
      - As part of the checklist, identify any changes to terminology or naming caused by this spec and, if necessary, add one or more tasks to ensure each change is made consistently across the codebase.
      - Make sure 'create_seed_data.py' is updated to create the seed data for the new features, if relevant.
      - We do not need to worry about backward compatibility as we have yet to deploy the application. We can reset the database and start fresh.
-   - Present the spec and ask the user if any changes are needed. Iterate if requested.
+6) Review spec.md and ensure it is sufficient to implement the user story.
+   - Add or alter tasks as necessary based on the review.
+7) Ask the user if any changes are needed. Iterate if requested.
+
 
 Conventions and preferences:
 - Follow {BACKEND_ARCH} and {FRONTEND_ARCH}.

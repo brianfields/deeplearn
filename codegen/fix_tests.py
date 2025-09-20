@@ -8,7 +8,8 @@ docs/specs/<project>/fix_tests.md. Stops when all tests pass or an iteration
 completes with no progress.
 
 Usage:
-  python codegen/fix_tests.py --project my-feature
+  python codegen/fix_tests.py --project my-feature  # Use project-specific logging
+  python codegen/fix_tests.py                       # Use logs/fix_tests.log
 """
 
 from __future__ import annotations
@@ -27,7 +28,7 @@ from codegen.common import (
     ProjectSpec,
     headless_agent,
     render_prompt,
-    setup_project,
+    setup_fix_script_project,
     write_text,
 )
 
@@ -133,7 +134,10 @@ def stop_stack(proc: subprocess.Popen) -> None:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Fix tests iteratively (headless)")
-    ap.add_argument("--project", help="Project name for docs/specs/<PROJECT>")
+    ap.add_argument(
+        "--project",
+        help="Project name for docs/specs/<PROJECT> (optional, uses logs/ if not specified)",
+    )
     ap.add_argument("--prompts-dir", default="codegen/prompts")
     ap.add_argument("--model", default=DEFAULT_MODEL_GROK)
     ap.add_argument(
@@ -146,9 +150,16 @@ def main() -> int:
     ap.add_argument("--dry", action="store_true")
     args = ap.parse_args()
 
-    proj: ProjectSpec = setup_project(args.project)
-    log_path = proj.dir / "fix_tests.md"
-    spec_path = proj.dir / "spec.md"
+    proj: ProjectSpec = setup_fix_script_project(args.project, "fix_tests")
+
+    if args.project:
+        # Project mode: use project-specific log and spec files
+        log_path = proj.dir / "fix_tests.md"
+        spec_path = proj.dir / "spec.md"
+    else:
+        # No project mode: use logs directory
+        log_path = proj.dir / "fix_tests.log"
+        spec_path = None
 
     prompt_file = Path(args.prompts_dir) / "fix_tests.md"
     if not prompt_file.exists():
@@ -232,7 +243,9 @@ def main() -> int:
                         "PROJECT_DIR": str(proj.dir).replace("\\", "/"),
                         "TEST_OUTPUT": combined_tail,
                         "FIX_LOG": str(log_path).replace("\\", "/"),
-                        "PROJECT_SPEC": str(spec_path).replace("\\", "/"),
+                        "PROJECT_SPEC": str(spec_path).replace("\\", "/")
+                        if spec_path
+                        else "none",
                         "PHASE_NAME": "startup (iOS stack)",
                         "PHASE_INSTRUCTIONS": (
                             "Start iOS stack:\n./start.sh --ios\nThen run Maestro:\ncd mobile && npm run e2e:maestro"
@@ -298,7 +311,9 @@ def main() -> int:
                             "PROJECT_DIR": str(proj.dir).replace("\\", "/"),
                             "TEST_OUTPUT": combined_tail,
                             "FIX_LOG": str(log_path).replace("\\", "/"),
-                            "PROJECT_SPEC": str(spec_path).replace("\\", "/"),
+                            "PROJECT_SPEC": str(spec_path).replace("\\", "/")
+                            if spec_path
+                            else "none",
                             "PHASE_NAME": "startup (iOS stack)",
                             "PHASE_INSTRUCTIONS": (
                                 "Start iOS stack:\n./start.sh --ios\nThen run Maestro:\ncd mobile && npm run e2e:maestro"
