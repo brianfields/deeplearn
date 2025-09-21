@@ -5,6 +5,7 @@ AI-powered content generation services.
 Uses LLM services to create educational content and stores it via content module.
 """
 
+import asyncio
 import logging
 import uuid
 
@@ -13,9 +14,13 @@ from pydantic import BaseModel
 from modules.content.package_models import DidacticSnippet, GlossaryTerm, LengthBudgets, LessonPackage, Meta, Objective
 from modules.content.public import ContentProvider, LessonCreate, UnitCreate
 
-from .flows import LessonCreationFlow, UnitCreationFlow
+from .flows import FastLessonCreationFlow, LessonCreationFlow, UnitCreationFlow
 
 logger = logging.getLogger(__name__)
+
+
+# Fast flow parallelization control
+MAX_PARALLEL_LESSONS = 4
 
 
 # DTOs
@@ -73,7 +78,7 @@ class ContentCreatorService:
         truncated = title[: max_length - 3] + "..."
         return truncated
 
-    async def create_lesson_from_source_material(self, request: CreateLessonRequest) -> LessonCreationResult:
+    async def create_lesson_from_source_material(self, request: CreateLessonRequest, *, use_fast_flow: bool = False) -> LessonCreationResult:
         """
         Create a complete lesson with AI-generated content from source material.
 
@@ -87,8 +92,8 @@ class ContentCreatorService:
         logger.info(f"🎯 Creating lesson: {request.title} (ID: {lesson_id})")
 
         # Use flow engine for content extraction
-        logger.info("🔄 Starting LessonCreationFlow...")
-        flow = LessonCreationFlow()
+        flow = FastLessonCreationFlow() if use_fast_flow else LessonCreationFlow()
+        logger.info("🔄 Starting %s...", flow.flow_name)
         flow_result = await flow.execute({"title": request.title, "core_concept": request.core_concept, "source_material": request.source_material, "user_level": request.user_level, "domain": request.domain})
         logger.info("✅ LessonCreationFlow completed successfully")
 
@@ -274,12 +279,14 @@ class ContentCreatorService:
         target_lesson_count: int | None = None
         user_level: str = "beginner"
         domain: str | None = None
+        use_fast_flow: bool = False
 
     class CreateUnitFromSourceRequest(BaseModel):
         source_material: str
         target_lesson_count: int | None = None
         user_level: str = "beginner"
         domain: str | None = None
+        use_fast_flow: bool = False
 
     class UnitCreationResult(BaseModel):
         unit_id: str
@@ -326,6 +333,7 @@ class ContentCreatorService:
             target_lesson_count=flow_result.get("target_lesson_count"),
             source_material=flow_result.get("source_material"),
             generated_from_topic=True,
+            flow_type="fast" if request.use_fast_flow else "standard",
         )
         created_unit = self.content.create_unit(unit_data)
 
@@ -335,22 +343,19 @@ class ContentCreatorService:
         lesson_ids: list[str] = []
         previous_titles: list[str] = []
 
-        for index, chunk in enumerate(chunks):
-            # Determine title/core concept
+        async def _create_one(index: int, chunk: dict[str, object]) -> tuple[int, str | None]:
             chunk_title: str | None = None
             chunk_text: str = ""
             if isinstance(chunk, dict):
-                chunk_title = chunk.get("title")
-                chunk_text = str(chunk.get("chunk_text", ""))
-            # Fallbacks
+                title_obj = chunk.get("title")
+                chunk_title = title_obj if isinstance(title_obj, str) else None
+                raw_text = chunk.get("chunk_text")
+                chunk_text = str(raw_text) if raw_text is not None else ""
             title = chunk_title or (lesson_titles[index] if index < len(lesson_titles) else f"Lesson {index + 1}")
             core_concept = title
-
-            # Add lightweight prior context to encourage cross-lesson references
+            # Use only titles as light prior context to avoid shared state issues
             prior_context = "Previously in this unit: " + ", ".join(previous_titles) + ".\n\n" if previous_titles else ""
             lesson_source_material = f"{prior_context}{chunk_text}" if chunk_text else prior_context
-
-            # Create lesson from chunk
             lesson_req = CreateLessonRequest(
                 title=title,
                 core_concept=core_concept,
@@ -358,9 +363,49 @@ class ContentCreatorService:
                 user_level=request.user_level,
                 domain=request.domain or "General",
             )
-            lesson_result = await self.create_lesson_from_source_material(lesson_req)
-            lesson_ids.append(lesson_result.lesson_id)
-            previous_titles.append(title)
+            try:
+                res = await self.create_lesson_from_source_material(lesson_req, use_fast_flow=request.use_fast_flow)
+                return (index, res.lesson_id)
+            except Exception as _e:
+                logger.exception("Lesson creation failed for index %s (title=%s)", index, title)
+                return (index, None)
+
+        if request.use_fast_flow and chunks:
+            tasks = [_create_one(i, c if isinstance(c, dict) else {"title": None, "chunk_text": str(c)}) for i, c in enumerate(chunks)]
+            results: list[tuple[int, str | None]] = []
+            for i in range(0, len(tasks), MAX_PARALLEL_LESSONS):
+                batch = tasks[i : i + MAX_PARALLEL_LESSONS]
+                batch_results = await asyncio.gather(*batch, return_exceptions=False)
+                results.extend(batch_results)
+                # update previous_titles best-effort for context of later batches
+                for idx, lid in batch_results:
+                    if lid is not None and idx < len(lesson_titles):
+                        previous_titles.append(lesson_titles[idx])
+            # Collect successful lesson ids in order
+            for _idx, lid in sorted(results, key=lambda t: t[0]):
+                if lid is not None:
+                    lesson_ids.append(lid)
+        else:
+            for index, chunk in enumerate(chunks):
+                chunk_title: str | None = None
+                chunk_text: str = ""
+                if isinstance(chunk, dict):
+                    chunk_title = chunk.get("title")
+                    chunk_text = str(chunk.get("chunk_text", ""))
+                title = chunk_title or (lesson_titles[index] if index < len(lesson_titles) else f"Lesson {index + 1}")
+                core_concept = title
+                prior_context = "Previously in this unit: " + ", ".join(previous_titles) + ".\n\n" if previous_titles else ""
+                lesson_source_material = f"{prior_context}{chunk_text}" if chunk_text else prior_context
+                lesson_req = CreateLessonRequest(
+                    title=title,
+                    core_concept=core_concept,
+                    source_material=lesson_source_material,
+                    user_level=request.user_level,
+                    domain=request.domain or "General",
+                )
+                lesson_result = await self.create_lesson_from_source_material(lesson_req, use_fast_flow=request.use_fast_flow)
+                lesson_ids.append(lesson_result.lesson_id)
+                previous_titles.append(title)
 
         # Associate lessons with unit and set ordering
         if lesson_ids:
@@ -408,6 +453,7 @@ class ContentCreatorService:
             target_lesson_count=flow_result.get("target_lesson_count"),
             source_material=flow_result.get("source_material"),
             generated_from_topic=False,
+            flow_type="fast" if request.use_fast_flow else "standard",
         )
         created_unit = self.content.create_unit(unit_data)
 
@@ -417,22 +463,18 @@ class ContentCreatorService:
         lesson_ids: list[str] = []
         previous_titles: list[str] = []
 
-        for index, chunk in enumerate(chunks):
-            # Determine title/core concept
+        async def _create_one_src(index: int, chunk: dict[str, object]) -> tuple[int, str | None]:
             chunk_title: str | None = None
             chunk_text: str = ""
             if isinstance(chunk, dict):
-                chunk_title = chunk.get("title")
-                chunk_text = str(chunk.get("chunk_text", ""))
-            # Fallbacks
+                title_obj = chunk.get("title")
+                chunk_title = title_obj if isinstance(title_obj, str) else None
+                raw_text = chunk.get("chunk_text")
+                chunk_text = str(raw_text) if raw_text is not None else ""
             title = chunk_title or (lesson_titles[index] if index < len(lesson_titles) else f"Lesson {index + 1}")
             core_concept = title
-
-            # Add lightweight prior context
             prior_context = "Previously in this unit: " + ", ".join(previous_titles) + ".\n\n" if previous_titles else ""
             lesson_source_material = f"{prior_context}{chunk_text}" if chunk_text else prior_context
-
-            # Create lesson from chunk
             lesson_req = CreateLessonRequest(
                 title=title,
                 core_concept=core_concept,
@@ -440,9 +482,47 @@ class ContentCreatorService:
                 user_level=request.user_level,
                 domain=request.domain or "General",
             )
-            lesson_result = await self.create_lesson_from_source_material(lesson_req)
-            lesson_ids.append(lesson_result.lesson_id)
-            previous_titles.append(title)
+            try:
+                res = await self.create_lesson_from_source_material(lesson_req, use_fast_flow=request.use_fast_flow)
+                return (index, res.lesson_id)
+            except Exception as _e:
+                logger.exception("Lesson creation failed for index %s (title=%s)", index, title)
+                return (index, None)
+
+        if request.use_fast_flow and chunks:
+            tasks = [_create_one_src(i, c if isinstance(c, dict) else {"title": None, "chunk_text": str(c)}) for i, c in enumerate(chunks)]
+            results: list[tuple[int, str | None]] = []
+            for i in range(0, len(tasks), MAX_PARALLEL_LESSONS):
+                batch = tasks[i : i + MAX_PARALLEL_LESSONS]
+                batch_results = await asyncio.gather(*batch, return_exceptions=False)
+                results.extend(batch_results)
+                for idx, lid in batch_results:
+                    if lid is not None and idx < len(lesson_titles):
+                        previous_titles.append(lesson_titles[idx])
+            for _idx, lid in sorted(results, key=lambda t: t[0]):
+                if lid is not None:
+                    lesson_ids.append(lid)
+        else:
+            for index, chunk in enumerate(chunks):
+                chunk_title: str | None = None
+                chunk_text: str = ""
+                if isinstance(chunk, dict):
+                    chunk_title = chunk.get("title")
+                    chunk_text = str(chunk.get("chunk_text", ""))
+                title = chunk_title or (lesson_titles[index] if index < len(lesson_titles) else f"Lesson {index + 1}")
+                core_concept = title
+                prior_context = "Previously in this unit: " + ", ".join(previous_titles) + ".\n\n" if previous_titles else ""
+                lesson_source_material = f"{prior_context}{chunk_text}" if chunk_text else prior_context
+                lesson_req = CreateLessonRequest(
+                    title=title,
+                    core_concept=core_concept,
+                    source_material=lesson_source_material,
+                    user_level=request.user_level,
+                    domain=request.domain or "General",
+                )
+                lesson_result = await self.create_lesson_from_source_material(lesson_req, use_fast_flow=request.use_fast_flow)
+                lesson_ids.append(lesson_result.lesson_id)
+                previous_titles.append(title)
 
         # Associate lessons with unit and set ordering
         if lesson_ids:

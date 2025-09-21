@@ -18,26 +18,36 @@ import pytest
 
 from modules.content.package_models import DidacticSnippet, LessonPackage, Meta, Objective
 from modules.content.public import LessonRead
+from modules.content_creator.flows import FastLessonCreationFlow, FastUnitCreationFlow, LessonCreationFlow, UnitCreationFlow
 from modules.content_creator.service import ContentCreatorService, CreateLessonRequest, LessonCreationResult
+from modules.content_creator.steps import (
+    ConfusablePair,
+    DidacticSnippetOutputs,
+    DistractorCandidate,
+    ExtractLessonMetadataStep,
+    FastLessonMetadataStep,
+    GenerateDidacticSnippetStep,
+    GenerateGlossaryStep,
+    GenerateMCQStep,
+    GenerateMisconceptionBankStep,
+    GlossaryTerm,
+    KeyConcept,
+    LearningObjective,
+    LengthBudgets,
+    LOWithDistractors,
+    MCQAnswerKey,
+    MCQItem,
+    MCQOption,
+    MCQSetOutputs,
+    Misconception,
+    RefinedMaterial,
+)
+from modules.flow_engine.base_step import StepResult
 
 
 @pytest.mark.asyncio
 async def test_fast_lesson_metadata_step_outputs_model_shape() -> None:
     """Validate combined outputs model fields and nesting for FastLessonMetadataStep."""
-    from modules.content_creator.steps import (
-        ConfusablePair,
-        DistractorCandidate,
-        FastLessonMetadataStep,
-        GlossaryTerm,
-        KeyConcept,
-        LearningObjective,
-        LOWithDistractors,
-        Misconception,
-        RefinedMaterial,
-        LengthBudgets,
-        DidacticSnippetOutputs,
-    )
-
     outputs = FastLessonMetadataStep.Outputs(
         title="Lesson Title",
         core_concept="Core Concept",
@@ -79,31 +89,6 @@ async def test_fast_lesson_creation_flow_output_shape_matches_standard_flow() ->
 
     We stub step/LLM calls to fixed outputs and call the flow logic directly.
     """
-    from modules.content_creator.flows import FastLessonCreationFlow, LessonCreationFlow
-    from modules.content_creator.steps import (
-        FastLessonMetadataStep,
-        ExtractLessonMetadataStep,
-        GenerateMisconceptionBankStep,
-        GenerateDidacticSnippetStep,
-        GenerateGlossaryStep,
-        GenerateMCQStep,
-        LengthBudgets,
-        LearningObjective,
-        KeyConcept,
-        Misconception,
-        ConfusablePair,
-        RefinedMaterial,
-        GlossaryTerm,
-        DidacticSnippetOutputs,
-        LOWithDistractors,
-        DistractorCandidate,
-        MCQItem,
-        MCQOption,
-        MCQAnswerKey,
-        MCQSetOutputs,
-    )
-    from modules.flow_engine.base_step import StepResult
-
     # Shared test fixtures
     learning_objectives = [
         LearningObjective(lo_id="lo_1", text="Understand A", bloom_level="Remember"),
@@ -200,9 +185,7 @@ async def test_fast_lesson_creation_flow_output_shape_matches_standard_flow() ->
             new=AsyncMock(
                 return_value=StepResult(
                     step_name="generate_misconception_bank",
-                    output_content=GenerateMisconceptionBankStep.Outputs(
-                        by_lo=[LOWithDistractors(lo_id="lo_1", distractors=[DistractorCandidate(text="d1", source="misconception")])]
-                    ),
+                    output_content=GenerateMisconceptionBankStep.Outputs(by_lo=[LOWithDistractors(lo_id="lo_1", distractors=[DistractorCandidate(text="d1", source="misconception")])]),
                     metadata={},
                 )
             ),
@@ -244,12 +227,8 @@ async def test_fast_lesson_creation_flow_output_shape_matches_standard_flow() ->
         fast_flow = FastLessonCreationFlow()
         std_flow = LessonCreationFlow()
 
-        fast_result = await fast_flow._execute_flow_logic(
-            {"title": "T", "core_concept": "C", "source_material": "M", "user_level": "beginner", "domain": "General"}
-        )
-        std_result = await std_flow._execute_flow_logic(
-            {"title": "T", "core_concept": "C", "source_material": "M", "user_level": "beginner", "domain": "General"}
-        )
+        fast_result = await fast_flow._execute_flow_logic({"title": "T", "core_concept": "C", "source_material": "M", "user_level": "beginner", "domain": "General"})
+        std_result = await std_flow._execute_flow_logic({"title": "T", "core_concept": "C", "source_material": "M", "user_level": "beginner", "domain": "General"})
 
         # Compare shapes and counts
         for key in [
@@ -270,15 +249,13 @@ async def test_fast_lesson_creation_flow_output_shape_matches_standard_flow() ->
         assert len(fast_result["exercises"]) == len(std_result["exercises"]) == 2
 
         # Ensure options have generated ids in both flows
-        assert all("id" in opt for ex in fast_result["exercises"] for opt in ex["options"])  # type: ignore[call-arg]
-        assert all("id" in opt for ex in std_result["exercises"] for opt in ex["options"])  # type: ignore[call-arg]
+        assert all("id" in opt for ex in fast_result["exercises"] for opt in ex["options"])
+        assert all("id" in opt for ex in std_result["exercises"] for opt in ex["options"])
 
 
 @pytest.mark.asyncio
 async def test_fast_unit_creation_flow_parallel_and_error_handling() -> None:
     """FastUnitCreationFlow should continue on individual lesson failures and preserve order."""
-    from modules.content_creator.flows import FastUnitCreationFlow, UnitCreationFlow, FastLessonCreationFlow
-
     unit_plan = {
         "unit_title": "Unit T",
         "lesson_titles": ["L1", "L2", "L3"],
@@ -305,30 +282,30 @@ async def test_fast_unit_creation_flow_parallel_and_error_handling() -> None:
         patch.object(FastLessonCreationFlow, "execute", new=AsyncMock(side_effect=fake_fast_lesson_execute)),
     ):
         flow = FastUnitCreationFlow()
-        result = await flow._execute_flow_logic({
-            "topic": None,
-            "source_material": "S",
-            "target_lesson_count": 3,
-            "user_level": "beginner",
-            "domain": "General",
-            "max_parallel_lessons": 2,
-        })
+        result = await flow._execute_flow_logic(
+            {
+                "topic": None,
+                "source_material": "S",
+                "target_lesson_count": 3,
+                "user_level": "beginner",
+                "domain": "General",
+                "max_parallel_lessons": 2,
+            }
+        )
 
         assert result["unit_title"] == "Unit T"
         lessons = result.get("lessons", [])
         # One failure => only 2 lessons produced
         assert len(lessons) == 2
         # Order preserved by index
-        assert [l["title"] for l in lessons] == ["L1", "L3"]
+        assert [lesson["title"] for lesson in lessons] == ["L1", "L3"]
 
 
 class TestServiceFastFlag:
     @pytest.mark.asyncio
     @patch("modules.content_creator.service.FastLessonCreationFlow")
     @patch("modules.content_creator.service.LessonCreationFlow")
-    async def test_create_lesson_respects_use_fast_flow_flag(
-        self, mock_std_flow_cls: Mock, mock_fast_flow_cls: Mock
-    ) -> None:
+    async def test_create_lesson_respects_use_fast_flow_flag(self, mock_std_flow_cls: Mock, mock_fast_flow_cls: Mock) -> None:
         content = Mock()
         svc = ContentCreatorService(content)
 
@@ -341,11 +318,18 @@ class TestServiceFastFlag:
             "didactic_snippet": {"core_explanation": "x", "key_points": []},
             "glossary": {"terms": []},
             "exercises": [
-                {"id": "ex1", "exercise_type": "mcq", "lo_id": "lo_1", "stem": "?", "options": [
-                    {"id": "ex1_a", "label": "A", "text": "A"},
-                    {"id": "ex1_b", "label": "B", "text": "B"},
-                    {"id": "ex1_c", "label": "C", "text": "C"},
-                ], "answer_key": {"label": "A"}}
+                {
+                    "id": "ex1",
+                    "exercise_type": "mcq",
+                    "lo_id": "lo_1",
+                    "stem": "?",
+                    "options": [
+                        {"id": "ex1_a", "label": "A", "text": "A"},
+                        {"id": "ex1_b", "label": "B", "text": "B"},
+                        {"id": "ex1_c", "label": "C", "text": "C"},
+                    ],
+                    "answer_key": {"label": "A"},
+                }
             ],
             "length_budgets": {"stem_max_words": 35, "vignette_max_words": 80, "option_max_words": 12},
         }
@@ -365,10 +349,7 @@ class TestServiceFastFlag:
             didactic_snippet=DidacticSnippet(id="lesson_explanation", plain_explanation="x", key_takeaways=[]),
             exercises=[],
         )
-        content.save_lesson.return_value = LessonRead(
-            id="id", title="T", core_concept="C", user_level="beginner", package=mock_package, package_version=1,
-            created_at=datetime(2024, 1, 1), updated_at=datetime(2024, 1, 1)
-        )
+        content.save_lesson.return_value = LessonRead(id="id", title="T", core_concept="C", user_level="beginner", package=mock_package, package_version=1, created_at=datetime(2024, 1, 1), updated_at=datetime(2024, 1, 1))
 
         req = CreateLessonRequest(title="T", core_concept="C", source_material="S", user_level="beginner", domain="General")
 
@@ -414,7 +395,7 @@ class TestServiceFastFlag:
         content.create_unit.return_value = created_unit_obj
 
         # Stub lesson creation to simulate parallel workers
-        async def fake_create_lesson(_req: CreateLessonRequest, *, use_fast_flow: bool = False) -> LessonCreationResult:  # noqa: FBT002
+        async def fake_create_lesson(_req: CreateLessonRequest, *, use_fast_flow: bool = False) -> LessonCreationResult:
             return LessonCreationResult(
                 lesson_id=f"lesson-{_req.title}",
                 title=_req.title,
@@ -432,7 +413,7 @@ class TestServiceFastFlag:
         assert result_fast.title == "Unit T"
         # flow_type passed to content.create_unit
         args, _ = content.create_unit.call_args
-        assert args[0].flow_type == "fast"  # type: ignore[index]
+        assert args[0].flow_type == "fast"
         # lessons assigned
         content.assign_lessons_to_unit.assert_called_once()
 
@@ -444,4 +425,4 @@ class TestServiceFastFlag:
         result_std = await svc.create_unit_from_topic(topic_req_std)
         assert result_std.title == "Unit T"
         args2, _ = content.create_unit.call_args
-        assert args2[0].flow_type == "standard"  # type: ignore[index]
+        assert args2[0].flow_type == "standard"

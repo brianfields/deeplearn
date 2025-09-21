@@ -102,7 +102,7 @@ Implement a fast flow alternative to the existing content creation pipeline that
 - [x] Update `create_seed_data.py` to set `flow_type` field for existing units
 
 #### End-to-End Testing
-- [ ] Update maestro tests in `mobile/e2e` if unit display changes affect mobile screens
+- [x] Update maestro tests in `mobile/e2e` if unit display changes affect mobile screens
 - [x] Add testID attributes to new flow type UI elements
 
 ### Terminology and Naming Consistency

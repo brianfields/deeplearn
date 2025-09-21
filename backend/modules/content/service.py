@@ -271,6 +271,7 @@ class ContentService:
         target_lesson_count: int | None = None
         source_material: str | None = None
         generated_from_topic: bool = False
+        flow_type: str = "standard"
         created_at: datetime
         updated_at: datetime
 
@@ -286,6 +287,7 @@ class ContentService:
         target_lesson_count: int | None = None
         source_material: str | None = None
         generated_from_topic: bool = False
+        flow_type: str = "standard"
 
     # New DTOs for unit creation workflows
     class UnitCreateFromTopic(BaseModel):
@@ -321,6 +323,7 @@ class ContentService:
             target_lesson_count=data.target_lesson_count,
             source_material=data.source_material,
             generated_from_topic=bool(data.generated_from_topic),
+            flow_type=str(getattr(data, "flow_type", "standard") or "standard"),
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
         )

@@ -639,6 +639,7 @@ async def main() -> None:
                 target_lesson_count=10,
                 source_material=("This unit introduces cross-entropy loss and softmax probabilities for classification.\nIt covers the intuition, mathematical formulation, and practical implementation."),
                 generated_from_topic=True,
+                flow_type="standard",
             )
             db_session.add(unit)
             # Ensure unit exists before inserting lessons that reference it

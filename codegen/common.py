@@ -27,6 +27,7 @@ DEFAULT_MODEL_CLAUDE: str = os.getenv("CURSOR_MODEL_CLAUDE_SONNET", "claude-4-so
 DEFAULT_MODEL_GPT5: str = os.getenv("CURSOR_MODEL_GPT_5", "gpt-5")
 DEFAULT_MODEL_GPTHIGH: str = os.getenv("CURSOR_MODEL_GPT_HIGH", "gpt-5-high")
 DEFAULT_MODEL_GROK: str = os.getenv("CURSOR_MODEL_GROK_FAST", "grok-code-fast-1")
+DEFAULT_MODEL_SUPERNOVA: str = os.getenv("CURSOR_MODEL_SUPERNOVA", "code-supernova")
 
 
 def ensure_dir(p: Path) -> None:

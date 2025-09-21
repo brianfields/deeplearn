@@ -221,6 +221,47 @@ class GenerateMCQStep(StructuredStep):
 # ValidateMCQStep removed - validation eliminated for simplicity
 
 
+# ---------- Fast combined lesson metadata (FAST FLOW) ----------
+class FastLessonMetadataStep(StructuredStep):
+    """Combine metadata extraction, misconception bank, didactic snippet, and glossary.
+
+    This single step reduces LLM round trips by returning all information
+    needed to assemble a complete lesson except the MCQs.
+    """
+
+    step_name = "fast_lesson_metadata"
+    prompt_file = "fast_lesson_metadata.md"
+    reasoning_effort = "medium"
+    verbosity = "low"
+
+    class Inputs(BaseModel):
+        title: str
+        core_concept: str
+        source_material: str
+        user_level: str
+        domain: str
+
+    class Outputs(BaseModel):
+        # Standard metadata
+        title: str
+        core_concept: str
+        user_level: str
+        domain: str
+        learning_objectives: list[LearningObjective]
+        key_concepts: list[KeyConcept]
+        misconceptions: list[Misconception]
+        confusables: list[ConfusablePair]
+        refined_material: RefinedMaterial
+        length_budgets: LengthBudgets
+
+        # Didactic content for the whole lesson
+        didactic_snippet: DidacticSnippetOutputs
+
+        # Optional glossary and distractor pools for MCQ generation
+        glossary: list[GlossaryTerm] = []
+        by_lo: list[LOWithDistractors] = []  # Distractor candidates grouped by LO
+
+
 # ---------- Unit-level generation (NEW) ----------
 class GenerateUnitSourceMaterialStep(UnstructuredStep):
     """Generate comprehensive source material for a unit from a topic."""

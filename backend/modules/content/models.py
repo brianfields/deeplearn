@@ -67,6 +67,9 @@ class UnitModel(Base):
     # Whether this unit was generated from topic-only input
     generated_from_topic = Column(Boolean, nullable=False, default=False)
 
+    # Track which content creation flow was used: "standard" | "fast"
+    flow_type = Column(String(20), nullable=False, default="standard")
+
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
