@@ -42,6 +42,13 @@ export default function UnitDetailsPage({ params }: UnitDetailsPageProps) {
             {typeof unit.target_lesson_count === 'number' && (
               <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">Target: {unit.target_lesson_count} lessons</span>
             )}
+            <span
+              data-testid={`flow-type-${unit.id}`}
+              className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${unit.flow_type === 'fast' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-800'}`}
+              title={`Flow: ${unit.flow_type}`}
+            >
+              {unit.flow_type === 'fast' ? 'Fast flow' : 'Standard flow'}
+            </span>
             {unit.generated_from_topic && (
               <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">Topic-generated</span>
             )}

@@ -303,6 +303,7 @@ export interface ApiUnitSummary {
   // New fields from backend
   target_lesson_count?: number | null;
   generated_from_topic?: boolean;
+  flow_type?: 'standard' | 'fast';
 }
 
 export interface ApiUnitLessonSummary {
@@ -327,6 +328,7 @@ export interface ApiUnitDetail {
   target_lesson_count?: number | null;
   source_material?: string | null;
   generated_from_topic?: boolean;
+  flow_type?: 'standard' | 'fast';
 }
 
 // Basic unit from /api/v1/units
@@ -350,6 +352,7 @@ export interface UnitSummary {
   // New fields for admin list UI
   target_lesson_count: number | null;
   generated_from_topic: boolean;
+  flow_type: 'standard' | 'fast';
 }
 
 export interface UnitLessonSummary {
@@ -371,6 +374,7 @@ export interface UnitDetail {
   target_lesson_count: number | null;
   source_material: string | null;
   generated_from_topic: boolean;
+  flow_type: 'standard' | 'fast';
 }
 
 export type LessonToUnitMap = Record<string, { unit_id: string; unit_title: string }>;

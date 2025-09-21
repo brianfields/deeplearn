@@ -414,6 +414,7 @@ export class AdminService {
       lesson_count: u.lesson_count,
       target_lesson_count: u.target_lesson_count ?? null,
       generated_from_topic: Boolean(u.generated_from_topic),
+      flow_type: (u.flow_type as UnitSummary['flow_type']) ?? 'standard',
     }));
   }
 
@@ -431,6 +432,7 @@ export class AdminService {
         target_lesson_count: d.target_lesson_count ?? null,
         source_material: d.source_material ?? null,
         generated_from_topic: Boolean(d.generated_from_topic),
+        flow_type: (d.flow_type as UnitDetail['flow_type']) ?? 'standard',
       };
     } catch {
       return null;
