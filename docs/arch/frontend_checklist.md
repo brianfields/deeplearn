@@ -107,6 +107,8 @@
 * [ ] No `public`/`repo`/`nav`/`queries`/`store` if there is no **current** consumer.
 * [ ] Public interface remains minimal; no “just in case” methods.
 * [ ] Unused components/hooks/exports are removed.
+* [ ] No code that has become antiquated by this feature still exists in the codebase.
+
 
 ## 17) Navigation (if present)
 

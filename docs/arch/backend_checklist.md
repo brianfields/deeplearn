@@ -87,6 +87,7 @@
 * [ ] No routes or public.py APIs without a **current** consumer or concrete need.
 * [ ] No dead code/files: if `public`, `repo`, `models`, or `routes` aren’t needed, they **don’t exist**.
 * [ ] Interfaces remain minimal; no “just in case” methods.
+* [ ] No code that has become antiquated by this feature still exists in the codebase.
 
 ## 15) Seed data
 * [ ] Seed data is correctly created in the `create_seed_data.py` script.

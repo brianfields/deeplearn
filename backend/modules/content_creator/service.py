@@ -291,96 +291,16 @@ class ContentCreatorService:
         # When generating a complete unit (including lessons), these are returned
         lesson_ids: list[str] | None = None
 
+    # ======================
+    # Unit creation (NEW)
+    # ======================
     async def create_unit_from_topic(self, request: "ContentCreatorService.CreateUnitFromTopicRequest") -> "ContentCreatorService.UnitCreationResult":
-        """Create a learning unit end-to-end from just a topic using UnitCreationFlow."""
-        logger.info(f"🏗️ Creating unit from topic: {request.topic}")
+        """Create a learning unit from just a topic using UnitCreationFlow.
 
-        flow = UnitCreationFlow()
-        flow_result = await flow.execute(
-            {
-                "topic": request.topic,
-                "source_material": None,
-                "target_lesson_count": request.target_lesson_count,
-                "user_level": request.user_level,
-                "domain": request.domain,
-            }
-        )
-
-        # Persist unit
-        unit_title = str(flow_result.get("unit_title") or request.topic)
-        data = UnitCreate(
-            title=unit_title,
-            description=flow_result.get("summary"),
-            difficulty=request.user_level,
-            lesson_order=[],
-            learning_objectives=flow_result.get("learning_objectives"),
-            target_lesson_count=flow_result.get("target_lesson_count"),
-            source_material=flow_result.get("source_material"),
-            generated_from_topic=True,
-        )
-        created = self.content.create_unit(data)
-
-        return self.UnitCreationResult(
-            unit_id=created.id,
-            title=created.title,
-            lesson_titles=list(flow_result.get("lesson_titles", [])),
-            lesson_count=int(flow_result.get("lesson_count", 0)),
-            target_lesson_count=flow_result.get("target_lesson_count"),
-            generated_from_topic=True,
-        )
-
-    async def create_unit_from_source_material(self, request: "ContentCreatorService.CreateUnitFromSourceRequest") -> "ContentCreatorService.UnitCreationResult":
-        """Create a learning unit from provided source material using UnitCreationFlow."""
-        logger.info("🏗️ Creating unit from provided source material")
-
-        flow = UnitCreationFlow()
-        flow_result = await flow.execute(
-            {
-                "topic": None,
-                "source_material": request.source_material,
-                "target_lesson_count": request.target_lesson_count,
-                "user_level": request.user_level,
-                "domain": request.domain,
-            }
-        )
-
-        # Persist unit
-        unit_title = str(flow_result.get("unit_title") or "Learning Unit")
-        data = UnitCreate(
-            title=unit_title,
-            description=flow_result.get("summary"),
-            difficulty=request.user_level,
-            lesson_order=[],
-            learning_objectives=flow_result.get("learning_objectives"),
-            target_lesson_count=flow_result.get("target_lesson_count"),
-            source_material=flow_result.get("source_material"),
-            generated_from_topic=False,
-        )
-        created = self.content.create_unit(data)
-
-        return self.UnitCreationResult(
-            unit_id=created.id,
-            title=created.title,
-            lesson_titles=list(flow_result.get("lesson_titles", [])),
-            lesson_count=int(flow_result.get("lesson_count", 0)),
-            target_lesson_count=flow_result.get("target_lesson_count"),
-            generated_from_topic=False,
-        )
-
-    # ======================
-    # Complete unit creation (unit + lessons)
-    # ======================
-    async def create_complete_unit_from_topic(
-        self,
-        request: "ContentCreatorService.CreateUnitFromTopicRequest",
-    ) -> "ContentCreatorService.UnitCreationResult":
-        """Create a unit and generate all lessons from topic-only input.
-
-        This orchestrates UnitCreationFlow to obtain lesson chunks, persists the
-        unit, generates a full lesson for each chunk via LessonCreationFlow, and
-        assigns the created lessons to the unit preserving order.
+        Returns:
+            UnitCreationResult with details about the created unit.
         """
-        logger.info(f"🏗️ Creating complete unit from topic: {request.topic}")
+        logger.info(f"🏗️ Creating unit from topic: {request.topic}")
 
         # Run unit flow to get plan and chunks
         flow = UnitCreationFlow()
@@ -409,7 +329,7 @@ class ContentCreatorService:
         )
         created_unit = self.content.create_unit(unit_data)
 
-        # Generate lessons per chunk and collect IDs
+        # Generate lessons per chunk
         chunks = list(flow_result.get("chunks", []) or [])
         lesson_titles: list[str] = list(flow_result.get("lesson_titles", []) or [])
         lesson_ids: list[str] = []
@@ -456,12 +376,13 @@ class ContentCreatorService:
             lesson_ids=lesson_ids,
         )
 
-    async def create_complete_unit_from_source_material(
-        self,
-        request: "ContentCreatorService.CreateUnitFromSourceRequest",
-    ) -> "ContentCreatorService.UnitCreationResult":
-        """Create a unit and generate all lessons from provided source material."""
-        logger.info("🏗️ Creating complete unit from provided source material")
+    async def create_unit_from_source_material(self, request: "ContentCreatorService.CreateUnitFromSourceRequest") -> "ContentCreatorService.UnitCreationResult":
+        """Create a learning unit from provided source material using UnitCreationFlow.
+
+        Returns:
+            UnitCreationResult with details about the created unit.
+        """
+        logger.info("🏗️ Creating unit from provided source material")
 
         # Run unit flow to get plan and chunks
         flow = UnitCreationFlow()
@@ -490,7 +411,7 @@ class ContentCreatorService:
         )
         created_unit = self.content.create_unit(unit_data)
 
-        # Generate lessons per chunk and collect IDs
+        # Generate lessons per chunk
         chunks = list(flow_result.get("chunks", []) or [])
         lesson_titles: list[str] = list(flow_result.get("lesson_titles", []) or [])
         lesson_ids: list[str] = []

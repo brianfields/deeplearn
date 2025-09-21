@@ -7,14 +7,11 @@ using the UnitCreationFlow via the content_creator service. By default, creates
 a complete unit with all lessons generated and persisted in the database.
 
 Examples:
-  # From a topic (creates unit + lessons by default)
+  # From a topic (creates unit + lessons)
   python scripts/create_unit.py --topic "Cross-Entropy Loss" --target-lessons 5 --user-level beginner
 
-  # From a source file (creates unit + lessons by default)
+  # From a source file (creates unit + lessons)
   python scripts/create_unit.py --source-file docs/samples/cross_entropy.md --target-lessons 10 --user-level intermediate
-
-  # Create only unit structure without lessons (faster, for testing)
-  python scripts/create_unit.py --topic "Machine Learning" --no-lessons
 
   # Enable verbose logging to see detailed progress
   python scripts/create_unit.py --topic "Python Basics" --target-lessons 5 --verbose
@@ -23,8 +20,7 @@ Examples:
   python scripts/create_unit.py --topic "Math Basics" --target-lessons 3 --fast --verbose
 
 Notes:
-  - By default, creates complete units with all lessons generated and persisted.
-  - Use --no-lessons to create only the unit structure (faster, for testing).
+  - Creates complete units with all lessons generated and persisted.
   - Use --verbose (-v) to see detailed progress information during long-running operations.
   - Use --fast to use GPT-5-mini for faster generation (useful for testing).
   - Requires environment configuration for infrastructure and LLM provider.
@@ -53,8 +49,6 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--target-lessons", type=int, default=None, help="Target number of lessons for the unit (e.g., 5, 10, 20)")
     p.add_argument("--user-level", default="beginner", choices=["beginner", "intermediate", "advanced"], help="Target learner level")
     p.add_argument("--domain", default=None, help="Optional domain context (e.g., 'Machine Learning')")
-    p.add_argument("--no-lessons", action="store_true", help="Only create unit structure without generating actual lessons")
-    p.add_argument("--generate-lessons", action="store_true", help="Generate lessons for each chunk and assign to the unit (default behavior)")  # Deprecated, kept for compatibility
     p.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging to see detailed progress")
     p.add_argument("--fast", action="store_true", help="Use GPT-5-mini for faster (but potentially lower quality) generation")
     return p.parse_args()
@@ -110,13 +104,9 @@ async def _run_async() -> int:
         content = content_provider(s)
         creator = content_creator_provider(content)
 
-        # Default behavior is to generate lessons unless --no-lessons is specified
-        generate_lessons = not args.no_lessons
-
         if args.verbose:
-            mode = "complete unit with lessons" if generate_lessons else "unit structure only"
             model = "GPT-5-mini (fast mode)" if args.fast else "GPT-5 (standard)"
-            print(f"🏗️  Creating {mode}...")
+            print("🏗️ Creating complete unit with lessons...")
             print(f"🤖 Using model: {model}")
             if args.topic:
                 print(f"📚 Topic: {args.topic}")
@@ -134,14 +124,9 @@ async def _run_async() -> int:
                 user_level=args.user_level,
                 domain=args.domain,
             )
-            if generate_lessons:
-                if args.verbose:
-                    print("⚡ Running complete unit creation flow (this may take several minutes)...")
-                result = await creator.create_complete_unit_from_topic(req)
-            else:
-                if args.verbose:
-                    print("⚡ Running unit structure creation flow...")
-                result = await creator.create_unit_from_topic(req)
+            if args.verbose:
+                print("⚡ Running complete unit creation flow (this may take several minutes)...")
+            result = await creator.create_unit_from_topic(req)
         else:
             assert source_material is not None
             req = ContentCreatorService.CreateUnitFromSourceRequest(
@@ -150,23 +135,15 @@ async def _run_async() -> int:
                 user_level=args.user_level,
                 domain=args.domain,
             )
-            if generate_lessons:
-                if args.verbose:
-                    print("⚡ Running complete unit creation flow from source material (this may take several minutes)...")
-                result = await creator.create_complete_unit_from_source_material(req)
-            else:
-                if args.verbose:
-                    print("⚡ Running unit structure creation flow from source material...")
-                result = await creator.create_unit_from_source_material(req)
+            if args.verbose:
+                print("⚡ Running complete unit creation flow from source material (this may take several minutes)...")
+            result = await creator.create_unit_from_source_material(req)
 
         lesson_ids = getattr(result, "lesson_ids", None)
         if args.verbose:
             print("\n🎉 Unit creation completed successfully!")
 
-        if lesson_ids:
-            print("✅ Created complete unit with lessons via UnitCreationFlow:")
-        else:
-            print("✅ Created unit structure via UnitCreationFlow (no lessons generated):")
+        print("✅ Created complete unit with lessons via UnitCreationFlow:")
 
         print(f"   • id: {result.unit_id}")
         print(f"   • title: {result.title}")
