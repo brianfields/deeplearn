@@ -23,12 +23,12 @@ Implement a fast flow alternative to the existing content creation pipeline that
 - Parallel lesson creation batch size controlled by constant
 
 ### Acceptance Criteria
-- [ ] Fast flow reduces content creation time through optimized LLM usage and parallelization
-- [ ] Users can choose between regular and fast flows via `use_fast_flow` parameter
-- [ ] Unit model tracks which approach was used (`flow_type` field)
-- [ ] Admin interface displays the flow type used for each unit
-- [ ] Failed lessons during parallel creation don't fail the entire unit
-- [ ] Error handling and retry logic matches existing implementation standards
+- [x] Fast flow reduces content creation time through optimized LLM usage and parallelization
+- [x] Users can choose between standard and fast flows via `use_fast_flow` parameter
+- [x] Unit model tracks which approach was used (`flow_type` field)
+- [x] Admin interface displays the flow type used for each unit
+- [x] Failed lessons during parallel creation don't fail the entire unit
+- [x] Error handling and retry logic matches existing implementation standards
 
 ## Cross-Stack Functionality Mapping
 
@@ -84,7 +84,7 @@ Implement a fast flow alternative to the existing content creation pipeline that
 
 #### Backend Tests
 - [x] Add unit tests for `FastLessonMetadataStep` to verify combined output format
-- [x] Add unit tests for `FastLessonCreationFlow` to verify same output as regular flow
+- [x] Add unit tests for `FastLessonCreationFlow` to verify same output as standard flow
 - [x] Add unit tests for `FastUnitCreationFlow` to verify parallel execution and error handling
 - [x] Add unit tests for service methods with `use_fast_flow` parameter
 - [x] Update existing integration tests to handle new `flow_type` field
@@ -106,9 +106,9 @@ Implement a fast flow alternative to the existing content creation pipeline that
 - [x] Add testID attributes to new flow type UI elements
 
 ### Terminology and Naming Consistency
-- [ ] Ensure consistent use of "fast flow" vs "regular flow" terminology across codebase
+- [x] Ensure consistent use of "fast flow" vs "standard flow" terminology across codebase
 - [x] Use consistent `flow_type` values: "standard" and "fast"
-- [ ] Update any relevant documentation or comments referencing content creation approaches
+- [x] Update any relevant documentation or comments referencing content creation approaches
 
 ## Technical Implementation Notes
 
