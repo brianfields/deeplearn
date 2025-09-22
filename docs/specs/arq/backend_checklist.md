@@ -10,6 +10,7 @@
 * [x] **No cross-module imports** except `from modules.<other>.public import ...`.
   - task_queue module correctly imports from infrastructure.public and flow_engine.public
   - Fixed boundary violation: content_creator/service.py now imports UnitStatus from content.public instead of content.service
+  - Fixed boundary violation: task_queue/tasks.py switched to `flow_engine.public` (added `FlowEngineWorkerProvider` and `FlowContext` export) instead of importing `flow_engine.repo/service`
 * [x] **This module does not import its own `public.py`** (prevents circulars).
   - Verified: no self-imports in task_queue module
 * [x] Nothing outside `routes.py` imports FastAPI/HTTP types (`APIRouter`, `Depends`, `HTTPException`, etc.).

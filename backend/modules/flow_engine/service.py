@@ -9,10 +9,12 @@ from ..llm_services.public import LLMServicesProvider
 from .models import FlowRunModel, FlowStepRunModel
 from .repo import FlowRunRepo, FlowStepRunRepo
 
+
 # DTOs for external consumption
 @dataclass
 class FlowRunSummaryDTO:
     """DTO for flow run summary data."""
+
     id: str
     flow_name: str
     status: str
@@ -31,6 +33,7 @@ class FlowRunSummaryDTO:
 @dataclass
 class FlowStepDetailsDTO:
     """DTO for flow step details."""
+
     id: str
     flow_run_id: str
     llm_request_id: str | None
@@ -51,6 +54,7 @@ class FlowStepDetailsDTO:
 @dataclass
 class FlowRunDetailsDTO:
     """DTO for complete flow run details."""
+
     id: str
     flow_name: str
     status: str
@@ -74,7 +78,7 @@ class FlowRunDetailsDTO:
     steps: list[FlowStepDetailsDTO]
 
 
-__all__ = ["FlowEngineService", "FlowRunQueryService", "FlowRunSummaryDTO", "FlowStepDetailsDTO", "FlowRunDetailsDTO"]
+__all__ = ["FlowEngineService", "FlowRunDetailsDTO", "FlowRunQueryService", "FlowRunSummaryDTO", "FlowStepDetailsDTO"]
 
 
 class FlowEngineService:
@@ -203,7 +207,7 @@ class FlowRunQueryService:
         flow_run = self.flow_run_repo.by_id(flow_run_id)
         if not flow_run:
             return None
-        
+
         return FlowRunSummaryDTO(
             id=str(flow_run.id),
             flow_name=flow_run.flow_name,
@@ -240,7 +244,8 @@ class FlowRunQueryService:
                 step_metadata=step.step_metadata,
                 created_at=step.created_at,
                 completed_at=step.completed_at,
-            ) for step in steps
+            )
+            for step in steps
         ]
 
     def get_flow_step_by_id(self, step_run_id: uuid.UUID) -> FlowStepDetailsDTO | None:
@@ -248,7 +253,7 @@ class FlowRunQueryService:
         step = self.step_run_repo.by_id(step_run_id)
         if not step:
             return None
-            
+
         return FlowStepDetailsDTO(
             id=str(step.id),
             flow_run_id=str(step.flow_run_id),
@@ -285,7 +290,8 @@ class FlowRunQueryService:
                 total_cost=run.total_cost or 0.0,
                 step_count=len(self.step_run_repo.by_flow_run_id(run.id)),
                 error_message=run.error_message,
-            ) for run in flow_runs
+            )
+            for run in flow_runs
         ]
 
     def count_flow_runs(self) -> int:

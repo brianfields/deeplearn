@@ -24,6 +24,7 @@
   - Verified: wire types are kept internal to modules
 * [x] DTOs are exported types/interfaces used by UI and other modules.
   - Verified: proper DTO exports for TaskStatus, WorkerHealth
+  - Verified: admin repo points to backend task-queue routes only (vertical slice)
 * [x] `service.ts` maps **Api → DTO**; DTOs contain normalized shapes (e.g., `Date` objects, narrowed unions).
   - Verified: service properly maps API responses to DTOs
 * [x] No `Api*` types appear in `public.ts`, `queries.ts`, `screens/`, or `components/`.
