@@ -19,6 +19,7 @@ export type RootStackParamList = {
 
 export type LearningStackParamList = {
   LessonList: undefined;
+  CreateUnit: undefined;
   LearningFlow: { lessonId: string; lesson: LessonDetail };
   UnitDetail: { unitId: string };
   Results: {

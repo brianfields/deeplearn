@@ -21,6 +21,9 @@ class ContentCreatorProvider(Protocol):
     async def create_unit_from_topic(self, request: ContentCreatorService.CreateUnitFromTopicRequest) -> ContentCreatorService.UnitCreationResult: ...
     async def create_unit_from_source_material(self, request: ContentCreatorService.CreateUnitFromSourceRequest) -> ContentCreatorService.UnitCreationResult: ...
 
+    # Mobile unit creation
+    async def create_unit_from_mobile(self, topic: str, difficulty: str = "beginner", target_lesson_count: int | None = None) -> ContentCreatorService.MobileUnitCreationResult: ...
+
     # generate_component method removed - it was unused
 
 

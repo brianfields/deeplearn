@@ -252,7 +252,7 @@ class InfrastructureService:
                 engine_kwargs["pool_recycle"] = self.database_config.pool_recycle
 
             self.engine = create_engine(database_url, **engine_kwargs)
-            self.session_factory = sessionmaker(bind=self.engine, class_=Session, autoflush=False, autocommit=False)  # type: ignore[type-var]
+            self.session_factory = sessionmaker(bind=self.engine, class_=Session, autoflush=False, autocommit=False)
 
         except SQLAlchemyError as e:
             raise DatabaseConnectionError(f"Failed to connect to database: {e}") from e

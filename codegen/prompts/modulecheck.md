@@ -1,4 +1,4 @@
-Unheaded mode. You will fix modular architecture issues and check off items.
+You will fix modular architecture issues and check off items.
 
 Project directory: {PROJECT_DIR}
 - Backend checklist (project-local): {BACKEND_CHECKLIST}

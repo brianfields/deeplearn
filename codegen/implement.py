@@ -17,6 +17,7 @@ from datetime import datetime
 from pathlib import Path
 
 from codegen.common import (
+    DEFAULT_MODEL_CLAUDE,
     DEFAULT_MODEL_GPT5,
     ProjectSpec,
     headless_agent,
@@ -44,7 +45,7 @@ def main() -> int:
     )
     ap.add_argument("--project", help="Project name for docs/specs/<PROJECT>")
     ap.add_argument("--prompts-dir", default="codegen/prompts")
-    ap.add_argument("--model", default=DEFAULT_MODEL_GPT5)
+    ap.add_argument("--model", default=DEFAULT_MODEL_CLAUDE)
     ap.add_argument(
         "--agent",
         default="cursor-agent",

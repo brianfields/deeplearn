@@ -5,6 +5,7 @@ Database access layer that returns ORM objects.
 Handles all CRUD operations for lessons with embedded package content.
 """
 
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import and_, desc
@@ -70,8 +71,12 @@ class ContentRepo:
         return self.s.get(UnitModel, unit_id)
 
     def list_units(self, limit: int = 100, offset: int = 0) -> list[UnitModel]:
-        """List units with pagination."""
-        return self.s.query(UnitModel).offset(offset).limit(limit).all()
+        """List units with pagination, ordered by updated_at descending (newest first)."""
+        return self.s.query(UnitModel).order_by(desc(UnitModel.updated_at)).offset(offset).limit(limit).all()
+
+    def get_units_by_status(self, status: str, limit: int = 100, offset: int = 0) -> list[UnitModel]:
+        """Get units by status, ordered by updated_at descending."""
+        return self.s.query(UnitModel).filter(UnitModel.status == status).order_by(desc(UnitModel.updated_at)).offset(offset).limit(limit).all()
 
     def add_unit(self, unit: UnitModel) -> UnitModel:
         """Add a new unit to the database and flush to obtain ID."""
@@ -83,13 +88,24 @@ class ContentRepo:
         """Persist changes to a unit."""
         self.s.add(unit)
 
-    def delete_unit(self, unit_id: str) -> bool:
-        """Delete unit by ID, returning True if removed."""
+    def update_unit_status(self, unit_id: str, status: str, error_message: str | None = None, creation_progress: dict[str, Any] | None = None) -> UnitModel | None:
+        """Update unit status and related fields, returning the updated model or None if not found."""
         unit = self.get_unit_by_id(unit_id)
         if not unit:
-            return False
-        self.s.delete(unit)
-        return True
+            return None
+
+        unit.status = status  # type: ignore[assignment]
+        if error_message is not None:
+            unit.error_message = error_message  # type: ignore[assignment]
+        if creation_progress is not None:
+            unit.creation_progress = creation_progress  # type: ignore[assignment]
+
+        # Update timestamp
+        unit.updated_at = datetime.now(UTC)  # type: ignore[assignment]
+
+        self.s.add(unit)
+        self.s.flush()
+        return unit
 
     def update_unit_lesson_order(self, unit_id: str, lesson_ids: list[str]) -> UnitModel | None:
         """Update lesson order for the given unit and return the updated model, or None if not found."""
@@ -155,3 +171,20 @@ class ContentRepo:
     def save_unit_session(self, unit_session: Any) -> None:
         """Persist changes to a unit session (no flush)."""
         self.s.add(unit_session)
+
+    def delete_unit(self, unit_id: str) -> bool:
+        """Delete a unit by ID. Returns True if successful, False if not found."""
+        unit = self.get_unit_by_id(unit_id)
+        if not unit:
+            return False
+
+        # First, unlink any lessons from this unit
+        lessons = self.s.query(LessonModel).filter(LessonModel.unit_id == unit_id).all()
+        for lesson in lessons:
+            lesson.unit_id = None  # type: ignore[assignment]
+            self.s.add(lesson)
+
+        # Delete the unit
+        self.s.delete(unit)
+        self.s.flush()
+        return True

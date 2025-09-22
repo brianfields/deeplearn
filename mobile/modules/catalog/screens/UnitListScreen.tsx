@@ -12,14 +12,19 @@ import {
   FlatList,
   SafeAreaView,
   TextInput,
+  TouchableOpacity,
 } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
-import { Search } from 'lucide-react-native';
+import { Search, Plus } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { UnitCard } from '../components/UnitCard';
-import { useCatalogUnits } from '../queries';
+import {
+  useCatalogUnits,
+  useRetryUnitCreation,
+  useDismissUnit,
+} from '../queries';
 import type { Unit } from '../public';
 import type { LearningStackParamList } from '../../../types';
 
@@ -31,7 +36,9 @@ type LessonListScreenNavigationProp = NativeStackNavigationProp<
 export function LessonListScreen() {
   const navigation = useNavigation<LessonListScreenNavigationProp>();
   const [searchQuery, setSearchQuery] = useState('');
-  const { data: units = [], isLoading } = useCatalogUnits();
+  const { data: units = [], isLoading, refetch } = useCatalogUnits();
+  const retryUnitMutation = useRetryUnitCreation();
+  const dismissUnitMutation = useDismissUnit();
 
   const filteredUnits = units.filter(
     u =>
@@ -46,6 +53,24 @@ export function LessonListScreen() {
     [navigation]
   );
 
+  const handleCreateUnit = useCallback(() => {
+    navigation.navigate('CreateUnit');
+  }, [navigation]);
+
+  const handleRetryUnit = useCallback(
+    (unitId: string) => {
+      retryUnitMutation.mutate(unitId);
+    },
+    [retryUnitMutation]
+  );
+
+  const handleDismissUnit = useCallback(
+    (unitId: string) => {
+      dismissUnitMutation.mutate(unitId);
+    },
+    [dismissUnitMutation]
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -56,7 +81,7 @@ export function LessonListScreen() {
         <Text style={styles.subtitle}>{units.length} available</Text>
       </View>
 
-      {/* Search */}
+      {/* Search and Create Button */}
       <View style={styles.searchContainer}>
         <View style={styles.searchInputContainer}>
           <Search size={20} color="#9CA3AF" style={styles.searchIcon} />
@@ -69,6 +94,13 @@ export function LessonListScreen() {
             testID="search-input"
           />
         </View>
+        <TouchableOpacity
+          style={styles.createButton}
+          onPress={handleCreateUnit}
+          testID="create-unit-button"
+        >
+          <Plus size={20} color="#FFFFFF" />
+        </TouchableOpacity>
       </View>
 
       {/* Unit List */}
@@ -79,7 +111,13 @@ export function LessonListScreen() {
             entering={FadeIn.delay(index * 100)}
             style={styles.listItemContainer}
           >
-            <UnitCard unit={item} onPress={handleUnitPress} index={index} />
+            <UnitCard
+              unit={item}
+              onPress={handleUnitPress}
+              onRetry={handleRetryUnit}
+              onDismiss={handleDismissUnit}
+              index={index}
+            />
           </Animated.View>
         )}
         keyExtractor={item => item.id}
@@ -88,7 +126,7 @@ export function LessonListScreen() {
           filteredUnits.length === 0 && styles.listContainerEmpty,
         ]}
         refreshing={isLoading}
-        onRefresh={() => {}}
+        onRefresh={() => refetch()}
         ListEmptyComponent={() => (
           <View style={styles.emptyState}>
             <Search size={48} color="#9CA3AF" />
@@ -158,6 +196,22 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: '#111827',
+  },
+  createButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#007AFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
   },
   listContainer: {
     padding: 20,

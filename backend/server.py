@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from modules.admin.routes import router as admin_router
 from modules.catalog.routes import router as catalog_router
+from modules.content_creator.routes import router as content_creator_router
 from modules.infrastructure.debug_routes import router as debug_router
 from modules.infrastructure.exception_handlers import (
     setup_error_middleware,
@@ -132,6 +133,7 @@ setup_error_middleware(app)
 # Include modular routers
 app.include_router(learning_session_router, tags=["Learning Sessions"])
 app.include_router(catalog_router, tags=["Catalog"])
+app.include_router(content_creator_router, tags=["Content Creator"])
 app.include_router(admin_router, tags=["Admin"])
 app.include_router(debug_router, tags=["Debug"])  # Only active in DEBUG mode
 

@@ -3,7 +3,7 @@
 
 import asyncio
 import logging
-from typing import Any
+from typing import Any, cast
 
 from pydantic import BaseModel
 
@@ -341,7 +341,7 @@ class FastUnitCreationFlow(BaseFlow):
 
         if not chunks:
             # Nothing to generate; return the plan as-is
-            return unit_plan
+            return cast(dict[str, Any], unit_plan)
 
         max_parallel = int(inputs.get("max_parallel_lessons") or DEFAULT_MAX_PARALLEL_LESSONS)
 
@@ -372,7 +372,7 @@ class FastUnitCreationFlow(BaseFlow):
                 logger.exception("Fast lesson creation failed for index %s (title=%s)", index, title)
                 return (index, None)
 
-        tasks: list[tuple[int, dict[str, Any]] | asyncio.Task] = []
+        tasks: list[Any] = []
         results: list[tuple[int, dict[str, Any] | None]] = []
         for i, c in enumerate(chunks):
             # We'll lazily build tasks per batch to embed updated prior context
@@ -381,12 +381,11 @@ class FastUnitCreationFlow(BaseFlow):
         # Execute in batches to limit concurrency and allow sequential context updates
         for batch_start in range(0, len(tasks), max_parallel):
             batch_slice = tasks[batch_start : batch_start + max_parallel]
-            batch_tasks: list[asyncio.Task] = []
-            for idx, payload in batch_slice:
-                chunk_dict: dict[str, Any] = payload.get("_raw", {})
-                # Capture a snapshot of prior titles for this batch
-                snapshot_prior = list(previous_titles)
-                batch_tasks.append(asyncio.create_task(_create_one(idx, chunk_dict, snapshot_prior)))
+            # Capture a snapshot of prior titles for this batch (shared across batch)
+            snapshot_prior = list(previous_titles)
+
+            # Create tasks with proper variable capture using list comprehension
+            batch_tasks = [asyncio.create_task(_create_one(idx, payload.get("_raw", {}), snapshot_prior)) for idx, payload in batch_slice]
 
             batch_results = await asyncio.gather(*batch_tasks, return_exceptions=False)
             # Update prior titles best-effort for subsequent batches

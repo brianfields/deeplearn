@@ -71,7 +71,7 @@ class ProgressResponseModel(BaseModel):
     started_at: str
     completed_at: str | None
     is_correct: bool | None
-    user_answer: dict | None
+    user_answer: dict[str, Any] | None
     time_spent_seconds: int
     attempts: int
 

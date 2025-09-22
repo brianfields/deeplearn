@@ -5,7 +5,7 @@ Protocol definition and dependency injection provider.
 This is the only interface other modules should import from.
 """
 
-from typing import Protocol
+from typing import Any, Protocol
 
 from sqlalchemy.orm import Session
 
@@ -14,6 +14,7 @@ from .service import (
     ContentService,
     LessonCreate,
     LessonRead,
+    UnitStatus,
 )
 
 
@@ -31,9 +32,12 @@ class ContentProvider(Protocol):
     # Unit operations (consolidated)
     def get_unit(self, unit_id: str) -> ContentService.UnitRead | None: ...
     def list_units(self, limit: int = 100, offset: int = 0) -> list[ContentService.UnitRead]: ...
+    def get_units_by_status(self, status: str, limit: int = 100, offset: int = 0) -> list[ContentService.UnitRead]: ...
+    def update_unit_status(self, unit_id: str, status: str, error_message: str | None = None, creation_progress: dict[str, Any] | None = None) -> ContentService.UnitRead | None: ...
     def create_unit(self, data: ContentService.UnitCreate) -> ContentService.UnitRead: ...
     def set_unit_lesson_order(self, unit_id: str, lesson_ids: list[str]) -> ContentService.UnitRead: ...
     def assign_lessons_to_unit(self, unit_id: str, lesson_ids: list[str]) -> ContentService.UnitRead: ...
+    def delete_unit(self, unit_id: str) -> bool: ...
     # Unit session operations
     def get_or_create_unit_session(self, user_id: str, unit_id: str) -> ContentService.UnitSessionRead: ...
     def update_unit_session_progress(
@@ -78,5 +82,6 @@ __all__ = [
     "UnitCreateFromTopic",
     "UnitRead",
     "UnitSessionRead",
+    "UnitStatus",
     "content_provider",
 ]

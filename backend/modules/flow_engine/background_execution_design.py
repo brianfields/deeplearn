@@ -12,7 +12,7 @@ import uuid
 
 from pydantic import BaseModel
 
-from ..service import FlowEngineService
+from .service import FlowEngineService
 from .types import FlowExecutionKwargs
 
 
@@ -67,10 +67,10 @@ class BaseFlowWithBackground(ABC):
         # 2. Submit to background task queue
         # 3. Return flow_run_id immediately
 
-        from ...infrastructure.public import infrastructure_provider  # noqa: PLC0415
-        from ...llm_services.public import llm_services_provider  # noqa: PLC0415
-        from ..repo import FlowRunRepo, FlowStepRunRepo  # noqa: PLC0415
-        from ..service import FlowEngineService  # noqa: PLC0415
+        from ..infrastructure.public import infrastructure_provider  # noqa: PLC0415
+        from ..llm_services.public import llm_services_provider  # noqa: PLC0415
+        from .repo import FlowRunRepo, FlowStepRunRepo  # noqa: PLC0415
+        from .service import FlowEngineService  # noqa: PLC0415
 
         # Set up infrastructure (same as foreground)
         infra = infrastructure_provider()
@@ -80,15 +80,12 @@ class BaseFlowWithBackground(ABC):
         service = FlowEngineService(FlowRunRepo(db_session.session), FlowStepRunRepo(db_session.session), llm_services)
 
         # Create flow run record with background mode
-        user_id = kwargs.get("user_id")
-        flow_run_id = cast(
-            uuid.UUID,
-            await service.create_flow_run_record(
-                flow_name=self.flow_name,
-                inputs=inputs,
-                user_id=user_id,
-                execution_mode="background",  # Key difference!
-            ),
+        user_id = cast(uuid.UUID | None, kwargs.get("user_id"))
+        flow_run_id = await service.create_flow_run_record(  # type: ignore
+            flow_name=self.flow_name,
+            inputs=inputs,
+            user_id=user_id,
+            execution_mode="background",  # Key difference!
         )
 
         # Submit to background task queue
@@ -100,7 +97,7 @@ class BaseFlowWithBackground(ABC):
         """Wrapper that handles background execution with proper error handling."""
         try:
             # Set up flow context for background execution
-            from ..context import FlowContext  # noqa: PLC0415
+            from .context import FlowContext  # noqa: PLC0415
 
             FlowContext.set(service=service, flow_run_id=flow_run_id, user_id=kwargs.get("user_id"), step_counter=0)
 
@@ -155,7 +152,7 @@ class FlowEngineServiceWithBackground(FlowEngineService):
         )
 
         created_run = self.flow_run_repo.create(flow_run)
-        return cast(uuid.UUID, created_run.id)
+        return created_run.id
 
     async def get_flow_status(self, flow_run_id: uuid.UUID) -> dict[str, Any]:
         """Get current status of a flow run."""
@@ -163,7 +160,7 @@ class FlowEngineServiceWithBackground(FlowEngineService):
         if not flow_run:
             raise ValueError(f"Flow run {flow_run_id} not found")
 
-        return cast(dict[str, Any], flow_run.progress_info)
+        return flow_run.progress_info
 
     async def get_flow_result(self, flow_run_id: uuid.UUID) -> dict[str, Any] | None:
         """Get result of completed flow, or None if still running."""
@@ -172,7 +169,7 @@ class FlowEngineServiceWithBackground(FlowEngineService):
             raise ValueError(f"Flow run {flow_run_id} not found")
 
         if flow_run.status == "completed":
-            return cast(dict[str, Any] | None, flow_run.outputs)
+            return flow_run.outputs
         elif flow_run.status == "failed":
             raise RuntimeError(f"Flow failed: {flow_run.error_message}")
         else:

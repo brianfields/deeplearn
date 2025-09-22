@@ -366,7 +366,7 @@ class TestServiceFastFlag:
         mock_fast_flow.execute.assert_not_called()
 
     @pytest.mark.asyncio
-    @patch("modules.content_creator.service.UnitCreationFlow")
+    @patch("modules.content_creator.service.FastUnitCreationFlow")
     async def test_create_unit_sets_flow_type_and_parallelizes(self, mock_unit_flow_cls: Mock) -> None:
         content = Mock()
         svc = ContentCreatorService(content)
@@ -395,7 +395,7 @@ class TestServiceFastFlag:
         content.create_unit.return_value = created_unit_obj
 
         # Stub lesson creation to simulate parallel workers
-        async def fake_create_lesson(_req: CreateLessonRequest, *, use_fast_flow: bool = False) -> LessonCreationResult:
+        async def fake_create_lesson(_req: CreateLessonRequest, *, _use_fast_flow: bool = False) -> LessonCreationResult:
             return LessonCreationResult(
                 lesson_id=f"lesson-{_req.title}",
                 title=_req.title,

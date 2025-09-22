@@ -33,11 +33,19 @@ Phased approach (interactive):
      - A concise, prioritized checklist with GitHub-style checkboxes, e.g. "- [ ] Step name"
        - Keep it flat and implementable; each item should be a meaningful step
        - Include both backend and frontend tasks; group with simple headings if helpful
-     - Keep the test creation minimal: use unit tests for complex behavior on both backend and frontend. No new integration tests, but make any changes necessary to the existing integration tests to ensure they are up to date. Also, make sure to fix maestro tests in mobile/e2e, adding testID attributes if necessary.
-     - Add a task to the spec if there are any database migrations. Migrations should be created and run with Alembic. Changes to the models should be done prior to generating the migration.
+     - Keep the test creation minimal: use unit tests for complex behavior on both backend and frontend. No new integration tests, but make any changes necessary to the existing integration tests to ensure they are up to date. Also, make sure to fix existing maestro tests in mobile/e2e, adding testID attributes if necessary (don't create new maestro tests).
+     - Add a task to the spec if there are any database migrations. Migrations should be created and run with Alembic, ensuring that checklist items for model changes appearing before the checklist item for generating and running the migration.
      - As part of the checklist, identify any changes to terminology or naming caused by this spec and, if necessary, add one or more tasks to ensure each change is made consistently across the codebase.
      - Make sure 'create_seed_data.py' is updated to create the seed data for the new features, if relevant.
      - We do not need to worry about backward compatibility as we have yet to deploy the application. We can reset the database and start fresh.
+     - Do not add tasks for deployment and rollout strategy; those will be handled separately.
+     - At the end of the checklist, add the following checklist items to check the implementation:
+       - [ ] Ensure lint passes, i.e. ./format_code.sh runs clean.
+       - [ ] Ensure unit tests pass, i.e. (in backend) scripts/run_unit.py and (in mobile) npm run test both run clean.
+       - [ ] Follow the instructions in codegen/prompts/trace.md to ensure the user story is implemented correctly.
+       - [ ] Fix any issues documented during the tracing of the user story in {TRACE}.
+       - [ ] Follow the instructions in codegen/prompts/modulecheck.md to ensure the new code is following the modular architecture correctly.
+       - [ ] Examine all new code that has been created and make sure all of it is being used; there is no dead code.
 6) Review spec.md and ensure it is sufficient to implement the user story.
    - Add or alter tasks as necessary based on the review.
 7) Ask the user if any changes are needed. Iterate if requested.

@@ -14,6 +14,8 @@ import type {
   LessonFilters,
   CatalogStatistics,
   PaginationInfo,
+  UnitCreationRequest,
+  UnitCreationResponse,
 } from './models';
 
 // Public interface protocol
@@ -45,6 +47,9 @@ export interface CatalogProvider {
     offset?: number;
   }): Promise<import('./models').Unit[]>;
   getUnitDetail(unitId: string): Promise<import('./models').UnitDetail | null>;
+  createUnit(request: UnitCreationRequest): Promise<UnitCreationResponse>;
+  retryUnitCreation(unitId: string): Promise<UnitCreationResponse>;
+  dismissUnit(unitId: string): Promise<void>;
 }
 
 // Service instance (singleton)
@@ -73,6 +78,9 @@ export function catalogProvider(): CatalogProvider {
     checkHealth: service.checkHealth.bind(service),
     browseUnits: service.browseUnits.bind(service),
     getUnitDetail: service.getUnitDetail.bind(service),
+    createUnit: service.createUnit.bind(service),
+    retryUnitCreation: service.retryUnitCreation.bind(service),
+    dismissUnit: service.dismissUnit.bind(service),
   };
 }
 
@@ -84,5 +92,7 @@ export type {
   LessonFilters,
   CatalogStatistics,
   PaginationInfo,
+  UnitCreationRequest,
+  UnitCreationResponse,
 } from './models';
-export type { Unit, UnitDetail } from './models';
+export type { Unit, UnitDetail, UnitStatus, Difficulty } from './models';

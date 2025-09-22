@@ -84,6 +84,102 @@ class TestContentCreatorService:
         # Verify flow was called with correct inputs
         mock_flow.execute.assert_called_once_with({"title": "Test Lesson", "core_concept": "Test Concept", "source_material": "Test material content", "user_level": "beginner", "domain": "Testing"})
 
-    # generate_component tests removed - method was unused and has been removed
+    @pytest.mark.asyncio
+    async def test_retry_unit_creation_success(self) -> None:
+        """Test successfully retrying a failed unit."""
+        # Arrange
+        content = Mock()
+        service = ContentCreatorService(content)
 
-    # Additional generate_component tests removed - method was unused and has been removed
+        # Mock a failed unit that can be retried
+        mock_unit = Mock()
+        mock_unit.id = "unit-123"
+        mock_unit.title = "Test Unit"
+        mock_unit.status = "failed"
+        mock_unit.generated_from_topic = True
+        mock_unit.difficulty = "beginner"
+        mock_unit.target_lesson_count = 3
+        content.get_unit.return_value = mock_unit
+
+        # Mock update status call
+        content.update_unit_status.return_value = mock_unit
+
+        # Mock the background task creation
+        with patch("modules.content_creator.service.asyncio.create_task") as _mock_create_task:
+            # Act
+            result = await service.retry_unit_creation("unit-123")
+
+            # Assert
+            assert result is not None
+            assert result.unit_id == "unit-123"
+            assert result.title == "Test Unit"
+            assert result.status == "in_progress"
+
+            # Verify status was updated to in_progress
+            content.update_unit_status.assert_called_once_with(unit_id="unit-123", status="in_progress", error_message=None, creation_progress={"stage": "retrying", "message": "Retrying unit creation..."})
+
+            # Verify background task was created (now runs synchronously)
+            # The implementation now runs synchronously, so we don't use create_task
+
+    @pytest.mark.asyncio
+    async def test_retry_unit_creation_unit_not_found(self) -> None:
+        """Test retrying a non-existent unit returns None."""
+        # Arrange
+        content = Mock()
+        service = ContentCreatorService(content)
+        content.get_unit.return_value = None
+
+        # Act
+        result = await service.retry_unit_creation("nonexistent-unit")
+
+        # Assert
+        assert result is None
+        content.get_unit.assert_called_once_with("nonexistent-unit")
+
+    @pytest.mark.asyncio
+    async def test_retry_unit_creation_not_failed_raises_error(self) -> None:
+        """Test retrying a unit that's not failed raises ValueError."""
+        # Arrange
+        content = Mock()
+        service = ContentCreatorService(content)
+
+        mock_unit = Mock()
+        mock_unit.status = "completed"  # Not failed
+        content.get_unit.return_value = mock_unit
+
+        # Act & Assert
+        with pytest.raises(ValueError, match="not in failed state"):
+            await service.retry_unit_creation("unit-123")
+
+    def test_dismiss_unit_success(self) -> None:
+        """Test successfully dismissing a unit."""
+        # Arrange
+        content = Mock()
+        service = ContentCreatorService(content)
+
+        mock_unit = Mock()
+        mock_unit.id = "unit-123"
+        content.get_unit.return_value = mock_unit
+        content.delete_unit.return_value = True
+
+        # Act
+        result = service.dismiss_unit("unit-123")
+
+        # Assert
+        assert result is True
+        content.get_unit.assert_called_once_with("unit-123")
+        content.delete_unit.assert_called_once_with("unit-123")
+
+    def test_dismiss_unit_not_found(self) -> None:
+        """Test dismissing a non-existent unit returns False."""
+        # Arrange
+        content = Mock()
+        service = ContentCreatorService(content)
+        content.get_unit.return_value = None
+
+        # Act
+        result = service.dismiss_unit("nonexistent-unit")
+
+        # Assert
+        assert result is False
+        content.get_unit.assert_called_once_with("nonexistent-unit")

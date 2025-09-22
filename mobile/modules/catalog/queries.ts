@@ -6,7 +6,11 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { catalogProvider } from './public';
-import type { LessonFilters, PaginationInfo } from './models';
+import type {
+  LessonFilters,
+  PaginationInfo,
+  UnitCreationRequest,
+} from './models';
 
 // Get the lesson catalog service instance
 const catalog = catalogProvider();
@@ -122,6 +126,13 @@ export function useCatalogUnits(params?: { limit?: number; offset?: number }) {
     queryKey: catalogKeys.units(params),
     queryFn: () => catalog.browseUnits(params),
     staleTime: 5 * 60 * 1000,
+    refetchInterval: data => {
+      // If any unit is in progress, poll every 5 seconds
+      // Otherwise, don't poll automatically
+      const hasInProgressUnit =
+        Array.isArray(data) && data.some(unit => unit.status === 'in_progress');
+      return hasInProgressUnit ? 5000 : false;
+    },
   });
 }
 
@@ -167,6 +178,123 @@ export function useRefreshCatalog() {
       queryClient.invalidateQueries({
         queryKey: catalogKeys.all,
       });
+    },
+  });
+}
+
+/**
+ * Create unit mutation
+ */
+export function useCreateUnit() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (request: UnitCreationRequest) => catalog.createUnit(request),
+    onSuccess: response => {
+      // Invalidate units list to show the new unit
+      queryClient.invalidateQueries({
+        queryKey: catalogKeys.units(),
+      });
+
+      // Optimistically add the new unit to the cache with in_progress status
+      // This will make it appear immediately in the units list
+      queryClient.setQueryData(catalogKeys.units(), (oldData: any) => {
+        if (!oldData) return oldData;
+
+        // Create optimistic unit data
+        const optimisticUnit = {
+          id: response.unitId,
+          title: response.title,
+          description: null,
+          difficulty: 'beginner' as any,
+          lessonCount: 0,
+          difficultyLabel: 'Beginner',
+          targetLessonCount: null,
+          generatedFromTopic: true,
+          status: response.status,
+          creationProgress: null,
+          errorMessage: null,
+          statusLabel: 'Creating...',
+          isInteractive: false,
+          progressMessage: 'Creating unit content...',
+        };
+
+        // Add to the beginning of the array (newest first)
+        return [optimisticUnit, ...oldData];
+      });
+    },
+    onError: error => {
+      console.error('Unit creation failed:', error);
+      // Optionally show a toast notification here
+    },
+  });
+}
+
+/**
+ * Retry unit creation mutation
+ */
+export function useRetryUnitCreation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (unitId: string) => catalog.retryUnitCreation(unitId),
+    onSuccess: response => {
+      // Invalidate units list to refresh status
+      queryClient.invalidateQueries({
+        queryKey: catalogKeys.units(),
+      });
+
+      // Optimistically update the unit status in cache
+      queryClient.setQueryData(catalogKeys.units(), (oldData: any) => {
+        if (!oldData) return oldData;
+
+        return oldData.map((unit: any) =>
+          unit.id === response.unitId
+            ? {
+                ...unit,
+                status: response.status,
+                errorMessage: null,
+                statusLabel: 'Creating...',
+                isInteractive: false,
+                progressMessage: 'Retrying unit creation...',
+                creationProgress: {
+                  stage: 'retrying',
+                  message: 'Retrying unit creation...',
+                },
+              }
+            : unit
+        );
+      });
+    },
+    onError: error => {
+      console.error('Unit retry failed:', error);
+    },
+  });
+}
+
+/**
+ * Dismiss unit mutation
+ */
+export function useDismissUnit() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (unitId: string) => catalog.dismissUnit(unitId),
+    onSuccess: (_: any, unitId: string) => {
+      // Invalidate units list to refresh
+      queryClient.invalidateQueries({
+        queryKey: catalogKeys.units(),
+      });
+
+      // Optimistically remove the unit from cache
+      queryClient.setQueryData(catalogKeys.units(), (oldData: any) => {
+        if (!oldData) return oldData;
+
+        return oldData.filter((unit: any) => unit.id !== unitId);
+      });
+    },
+    onError: error => {
+      console.error('Unit dismiss failed:', error);
     },
   });
 }

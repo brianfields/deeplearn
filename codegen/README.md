@@ -47,6 +47,18 @@ Creates/updates:
 - `docs/specs/unit/last_test_output.txt` (tail of the latest test run)
 - Repository code edits to satisfy checklists, lint/type checks, and tests
 
+4) Trace user story implementation (verification)
+
+Run the trace script to verify that the user story has been fully implemented by mapping each requirement to the actual code.
+
+Example:
+```bash
+python codegen/trace.py --project unit
+```
+
+Creates:
+- `docs/specs/unit/trace.md` (comprehensive analysis mapping user story steps to code implementation with confidence levels and concerns)
+
 Notes
 - These scripts support two agents: `cursor-agent` (default) and `codex` via `--agent`.
 - For `codex`, fewer CLI options are passed; the default model is used (no `--model`).

@@ -14,7 +14,7 @@ from sqlalchemy import (
     Text,
     func,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship  # type: ignore[attr-defined]
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from modules.shared_models import Base, PostgresUUID
 
@@ -71,7 +71,7 @@ class FlowRunModel(Base):
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Relationships
-    steps: Mapped[list["FlowStepRunModel"]] = relationship("FlowStepRunModel", back_populates="flow_run", cascade="all, delete-orphan")  # type: ignore
+    steps: Mapped[list["FlowStepRunModel"]] = relationship("FlowStepRunModel", back_populates="flow_run", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<FlowRunModel(id={self.id}, flow_name='{self.flow_name}', status='{self.status}')>"
@@ -160,7 +160,7 @@ class FlowStepRunModel(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships
-    flow_run: Mapped["FlowRunModel"] = relationship("FlowRunModel", back_populates="steps")  # type: ignore
+    flow_run: Mapped["FlowRunModel"] = relationship("FlowRunModel", back_populates="steps")
 
     def __repr__(self) -> str:
         return f"<FlowStepRunModel(id={self.id}, step_name='{self.step_name}', status='{self.status}')>"

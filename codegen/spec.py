@@ -48,6 +48,7 @@ def main() -> int:
     variables = {
         "PROJECT": proj.name,
         "PROJECT_DIR": str(proj.dir).replace("\\", "/"),
+        "TRACE": str(proj.dir / "trace.md").replace("\\", "/"),
         "USER_DESCRIPTION": str(user_desc).replace("\\", "/"),
         "BACKEND_ARCH": "docs/arch/backend.md",
         "FRONTEND_ARCH": "docs/arch/frontend.md",
