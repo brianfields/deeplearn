@@ -228,6 +228,8 @@ from .base_step import BaseStep, ImageStep, StepResult, StepType, StructuredStep
 from .models import FlowRunModel, FlowStepRunModel
 from .repo import FlowRunRepo, FlowStepRunRepo
 from .service import FlowRunQueryService
+from .context import FlowContext
+from ..llm_services.public import LLMServicesProvider
 
 
 class FlowEngineAdminProvider(Protocol):
@@ -280,9 +282,47 @@ def flow_engine_admin_provider(session: Session) -> FlowEngineAdminProvider:
     return FlowRunQueryService(flow_run_repo, step_run_repo)
 
 
+# Minimal provider for worker processes (used by task_queue)
+class FlowEngineWorkerProvider(Protocol):
+    """
+    Minimal protocol for worker-side flow engine operations.
+
+    Exposes only the methods required by background workers to update
+    flow and step run records.
+    """
+
+    async def create_step_run_record(self, flow_run_id: uuid.UUID, step_name: str, step_order: int, inputs: dict[str, Any]) -> uuid.UUID: ...
+    async def update_step_run_success(self, step_run_id: uuid.UUID, outputs: dict[str, Any], tokens_used: int, cost_estimate: float, execution_time_ms: int, llm_request_id: uuid.UUID | None = None) -> None: ...
+    async def update_step_run_error(self, step_run_id: uuid.UUID, error_message: str, execution_time_ms: int) -> None: ...
+    async def update_flow_progress(self, flow_run_id: uuid.UUID, current_step: str, step_progress: int, progress_percentage: float | None = None) -> None: ...
+    async def complete_flow_run(self, flow_run_id: uuid.UUID, outputs: dict[str, Any]) -> None: ...
+    async def fail_flow_run(self, flow_run_id: uuid.UUID, error_message: str) -> None: ...
+
+
+def flow_engine_worker_provider(session: Session, llm_services: LLMServicesProvider) -> FlowEngineWorkerProvider:
+    """
+    Build a minimal worker-facing provider backed by the internal service.
+
+    Notes:
+    - Returns the concrete FlowEngineService instance which implements the protocol
+    - Kept internal construction here to preserve module boundaries
+    """
+    if not isinstance(session, Session):
+        raise ValueError("Session must be a SQLAlchemy Session instance")
+
+    flow_run_repo = FlowRunRepo(session)
+    step_run_repo = FlowStepRunRepo(session)
+
+    # Lazy import to avoid widening the public surface with internal types
+    from .service import FlowEngineService  # local import
+
+    return FlowEngineService(flow_run_repo, step_run_repo, llm_services)
+
+
 __all__ = [
     "BaseFlow",
     "BaseStep",
+    "FlowContext",
     "FlowEngineAdminProvider",  # For admin module only
     "ImageStep",
     "StepResult",
@@ -290,4 +330,6 @@ __all__ = [
     "StructuredStep",
     "UnstructuredStep",
     "flow_engine_admin_provider",  # For admin module only
+    "FlowEngineWorkerProvider",  # For task_queue worker only
+    "flow_engine_worker_provider",  # For task_queue worker only
 ]

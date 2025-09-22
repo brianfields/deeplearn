@@ -22,6 +22,16 @@ const navigationItems = [
     description: 'Monitor flow executions',
   },
   {
+    name: 'Task Queue',
+    href: '/queue',
+    description: 'Monitor ARQ task queue status',
+  },
+  {
+    name: 'Workers',
+    href: '/workers',
+    description: 'Monitor ARQ worker health',
+  },
+  {
     name: 'LLM Requests',
     href: '/llm-requests',
     description: 'View LLM request details',

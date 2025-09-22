@@ -5,8 +5,16 @@ This module provides the narrow contract for the Infrastructure module
 and returns the service instance directly for dependency injection.
 """
 
-from typing import Protocol
+from typing import Optional, Protocol
 
+try:
+    import redis.asyncio as redis_async
+
+    REDIS_AVAILABLE = True
+except ImportError:
+    REDIS_AVAILABLE = False
+
+from .models import RedisConfig
 from .service import (
     APIConfig,
     AppConfig,
@@ -46,6 +54,10 @@ class InfrastructureProvider(Protocol):
         """Validate infrastructure environment."""
         ...
 
+    async def validate_environment_async(self) -> EnvironmentStatus:
+        """Validate infrastructure environment with async Redis ping."""
+        ...
+
     def get_database_config(self) -> DatabaseConfig:
         """Get database configuration."""
         ...
@@ -54,8 +66,16 @@ class InfrastructureProvider(Protocol):
         """Check if debug mode is enabled."""
         ...
 
-    def shutdown(self) -> None:
+    async def shutdown(self) -> None:
         """Shutdown infrastructure service and cleanup resources."""
+        ...
+
+    def get_redis_connection(self) -> Optional["redis_async.Redis"]:
+        """Get Redis connection."""
+        ...
+
+    def get_redis_config(self) -> RedisConfig:
+        """Get Redis configuration."""
         ...
 
 
@@ -91,5 +111,6 @@ __all__ = [
     "EnvironmentStatus",
     "InfrastructureProvider",
     "LoggingConfig",
+    "RedisConfig",
     "infrastructure_provider",
 ]

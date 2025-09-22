@@ -23,4 +23,5 @@ Instructions:
   - Stop when either all tasks are complete or there is nothing you can confidently check off.
 
 Output format:
-- Note to the user what task you are working on and when you complete it so that they know what you are working on. Remember to also mark the task as complete in {SPEC_PATH} when it is complete.
+- Note to the user what task you are working on and when you complete it so that they know what you are working on.
+- *** REMEMBER TO MARK THE TASK OFF IN {SPEC_PATH} WHEN COMPLETE BY PLACING A "x" IN THE CHECKBOX NEXT TO THE TASK. ***

@@ -39,6 +39,14 @@ import type {
   FlowRunsListResponse,
   LLMRequestsListResponse,
   LessonsListResponse,
+
+  // Task Queue types
+  TaskStatus,
+  WorkerHealth,
+  QueueStats,
+  QueueStatus,
+  ApiTaskStatus,
+  ApiWorkerHealth,
 } from './models';
 
 // ---- Data Transformation Functions ----
@@ -46,6 +54,32 @@ import type {
 const parseDate = (dateString: string | null): Date | null => {
   return dateString ? new Date(dateString) : null;
 };
+
+const taskStatusToDTO = (apiTask: ApiTaskStatus): TaskStatus => ({
+  task_id: apiTask.task_id,
+  status: apiTask.status as 'pending' | 'running' | 'completed' | 'failed' | 'cancelled',
+  submitted_at: new Date(apiTask.submitted_at),
+  started_at: parseDate(apiTask.started_at),
+  completed_at: parseDate(apiTask.completed_at),
+  retry_count: apiTask.retry_count,
+  error_message: apiTask.error_message,
+  result: apiTask.result,
+  queue_name: apiTask.queue_name,
+  priority: apiTask.priority,
+  flow_name: apiTask.flow_name,
+  flow_run_id: apiTask.flow_run_id,
+});
+
+const workerHealthToDTO = (apiWorker: ApiWorkerHealth): WorkerHealth => ({
+  worker_id: apiWorker.worker_id,
+  status: apiWorker.status as 'healthy' | 'busy' | 'unhealthy' | 'offline',
+  last_heartbeat: new Date(apiWorker.last_heartbeat),
+  current_task_id: apiWorker.current_task_id,
+  tasks_completed: apiWorker.tasks_completed,
+  queue_name: apiWorker.queue_name,
+  started_at: new Date(apiWorker.started_at),
+  version: apiWorker.version,
+});
 
 const flowRunToDTO = (apiFlow: ApiFlowRun): FlowRunSummary => ({
   id: apiFlow.id,
@@ -453,6 +487,69 @@ export class AdminService {
       return map;
     } catch {
       return {};
+    }
+  }
+
+  // ---- Task Queue Methods ----
+
+  async getQueueStatus(): Promise<QueueStatus[]> {
+    const data = await AdminRepo.taskQueue.status();
+    return data.map((queue: any) => ({
+      queue_name: queue.queue_name,
+      status: queue.status as 'healthy' | 'degraded' | 'down',
+      pending_count: queue.pending_count,
+      running_count: queue.running_count,
+      worker_count: queue.worker_count,
+      oldest_pending_minutes: queue.oldest_pending_minutes,
+    }));
+  }
+
+  async getQueueStats(): Promise<QueueStats[]> {
+    const data = await AdminRepo.taskQueue.stats();
+    return data.map((stats: any) => ({
+      queue_name: stats.queue_name,
+      pending_count: stats.pending_count,
+      running_count: stats.running_count,
+      completed_count: stats.completed_count,
+      failed_count: stats.failed_count,
+      total_processed: stats.total_processed,
+      workers_count: stats.workers_count,
+      workers_busy: stats.workers_busy,
+      oldest_pending_task: stats.oldest_pending_task ? new Date(stats.oldest_pending_task) : null,
+      avg_processing_time_ms: stats.avg_processing_time_ms,
+    }));
+  }
+
+  async getQueueTasks(limit: number = 50): Promise<TaskStatus[]> {
+    const data = await AdminRepo.taskQueue.tasks(limit);
+    return data.map(taskStatusToDTO);
+  }
+
+  async getTaskStatus(taskId: string): Promise<TaskStatus> {
+    const data = await AdminRepo.taskQueue.taskById(taskId);
+    return taskStatusToDTO(data);
+  }
+
+  async getWorkers(): Promise<WorkerHealth[]> {
+    const data = await AdminRepo.taskQueue.workers();
+    return data.map(workerHealthToDTO);
+  }
+
+  async getQueueHealth(): Promise<{ status: string; details: Record<string, any> }> {
+    return await AdminRepo.taskQueue.health();
+  }
+
+  // ---- Flow-Task Integration Methods ----
+
+  async getFlowTaskStatus(flowId: string): Promise<TaskStatus | null> {
+    try {
+      // This would query tasks by flow_run_id
+      const tasks = await AdminRepo.taskQueue.tasks(100);
+      const flowTask = tasks.find((task: any) => task.flow_run_id === flowId);
+      return flowTask ? taskStatusToDTO(flowTask) : null;
+    } catch (error) {
+      console.warn('Failed to get flow task status:', error);
+      return null;
     }
   }
 }

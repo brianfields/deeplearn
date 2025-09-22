@@ -13,6 +13,7 @@ import { ErrorMessage } from '../shared/ErrorMessage';
 import { StatusBadge } from '../shared/StatusBadge';
 import { JSONViewer } from '../shared/JSONViewer';
 import { FlowStepsList } from './FlowStepsList';
+import { ArqTaskStatus } from './ArqTaskStatus';
 import {
   formatDate,
   formatExecutionTime,
@@ -119,6 +120,13 @@ export function FlowRunDetails({ flowId }: FlowRunDetailsProps) {
           )}
         </div>
       </div>
+
+      {/* ARQ Task Status */}
+      <ArqTaskStatus 
+        flowId={flow.id}
+        executionMode={flow.execution_mode}
+        flowStatus={flow.status}
+      />
 
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

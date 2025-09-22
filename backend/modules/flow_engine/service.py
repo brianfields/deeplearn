@@ -1,5 +1,6 @@
 """Internal service layer for flow engine infrastructure."""
 
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 import uuid
@@ -8,7 +9,72 @@ from ..llm_services.public import LLMServicesProvider
 from .models import FlowRunModel, FlowStepRunModel
 from .repo import FlowRunRepo, FlowStepRunRepo
 
-__all__ = ["FlowEngineService", "FlowRunQueryService"]
+# DTOs for external consumption
+@dataclass
+class FlowRunSummaryDTO:
+    """DTO for flow run summary data."""
+    id: str
+    flow_name: str
+    status: str
+    execution_mode: str
+    user_id: str | None
+    created_at: datetime
+    started_at: datetime | None
+    completed_at: datetime | None
+    execution_time_ms: int | None
+    total_tokens: int
+    total_cost: float
+    step_count: int
+    error_message: str | None
+
+
+@dataclass
+class FlowStepDetailsDTO:
+    """DTO for flow step details."""
+    id: str
+    flow_run_id: str
+    llm_request_id: str | None
+    step_name: str
+    step_order: int
+    status: str
+    inputs: dict[str, Any]
+    outputs: dict[str, Any] | None
+    tokens_used: int
+    cost_estimate: float
+    execution_time_ms: int | None
+    error_message: str | None
+    step_metadata: dict[str, Any] | None
+    created_at: datetime
+    completed_at: datetime | None
+
+
+@dataclass
+class FlowRunDetailsDTO:
+    """DTO for complete flow run details."""
+    id: str
+    flow_name: str
+    status: str
+    execution_mode: str
+    user_id: str | None
+    current_step: str | None
+    step_progress: int
+    total_steps: int | None
+    progress_percentage: float
+    created_at: datetime
+    started_at: datetime | None
+    completed_at: datetime | None
+    last_heartbeat: datetime | None
+    execution_time_ms: int | None
+    total_tokens: int
+    total_cost: float
+    inputs: dict[str, Any]
+    outputs: dict[str, Any] | None
+    flow_metadata: dict[str, Any] | None
+    error_message: str | None
+    steps: list[FlowStepDetailsDTO]
+
+
+__all__ = ["FlowEngineService", "FlowRunQueryService", "FlowRunSummaryDTO", "FlowStepDetailsDTO", "FlowRunDetailsDTO"]
 
 
 class FlowEngineService:
@@ -24,9 +90,9 @@ class FlowEngineService:
         self.step_run_repo = step_run_repo
         self.llm_services = llm_services
 
-    async def create_flow_run_record(self, flow_name: str, inputs: dict[str, Any], user_id: uuid.UUID | None = None) -> uuid.UUID:
+    async def create_flow_run_record(self, flow_name: str, inputs: dict[str, Any], user_id: uuid.UUID | None = None, execution_mode: str = "sync") -> uuid.UUID:
         """Create a new flow run record (internal use)."""
-        flow_run = FlowRunModel(user_id=user_id, flow_name=flow_name, inputs=inputs, status="running", execution_mode="sync", started_at=datetime.now(UTC))
+        flow_run = FlowRunModel(user_id=user_id, flow_name=flow_name, inputs=inputs, status="running" if execution_mode == "sync" else "pending", execution_mode=execution_mode, started_at=datetime.now(UTC) if execution_mode == "sync" else None)
 
         created_run = self.flow_run_repo.create(flow_run)
         assert created_run.id is not None
@@ -132,21 +198,95 @@ class FlowRunQueryService:
         self.flow_run_repo = flow_run_repo
         self.step_run_repo = step_run_repo
 
-    def get_flow_run_by_id(self, flow_run_id: uuid.UUID) -> FlowRunModel | None:
+    def get_flow_run_by_id(self, flow_run_id: uuid.UUID) -> FlowRunSummaryDTO | None:
         """Get flow run by ID. FOR ADMIN USE ONLY."""
-        return self.flow_run_repo.by_id(flow_run_id)
+        flow_run = self.flow_run_repo.by_id(flow_run_id)
+        if not flow_run:
+            return None
+        
+        return FlowRunSummaryDTO(
+            id=str(flow_run.id),
+            flow_name=flow_run.flow_name,
+            status=flow_run.status,
+            execution_mode=flow_run.execution_mode,
+            user_id=str(flow_run.user_id) if flow_run.user_id else None,
+            created_at=flow_run.created_at,
+            started_at=flow_run.started_at,
+            completed_at=flow_run.completed_at,
+            execution_time_ms=flow_run.execution_time_ms,
+            total_tokens=flow_run.total_tokens or 0,
+            total_cost=flow_run.total_cost or 0.0,
+            step_count=len(self.step_run_repo.by_flow_run_id(flow_run.id)),
+            error_message=flow_run.error_message,
+        )
 
-    def get_flow_steps_by_run_id(self, flow_run_id: uuid.UUID) -> list[FlowStepRunModel]:
+    def get_flow_steps_by_run_id(self, flow_run_id: uuid.UUID) -> list[FlowStepDetailsDTO]:
         """Get all steps for a flow run. FOR ADMIN USE ONLY."""
-        return self.step_run_repo.by_flow_run_id(flow_run_id)
+        steps = self.step_run_repo.by_flow_run_id(flow_run_id)
+        return [
+            FlowStepDetailsDTO(
+                id=str(step.id),
+                flow_run_id=str(step.flow_run_id),
+                llm_request_id=str(step.llm_request_id) if step.llm_request_id else None,
+                step_name=step.step_name,
+                step_order=step.step_order,
+                status=step.status,
+                inputs=step.inputs or {},
+                outputs=step.outputs,
+                tokens_used=step.tokens_used or 0,
+                cost_estimate=step.cost_estimate or 0.0,
+                execution_time_ms=step.execution_time_ms,
+                error_message=step.error_message,
+                step_metadata=step.step_metadata,
+                created_at=step.created_at,
+                completed_at=step.completed_at,
+            ) for step in steps
+        ]
 
-    def get_flow_step_by_id(self, step_run_id: uuid.UUID) -> FlowStepRunModel | None:
+    def get_flow_step_by_id(self, step_run_id: uuid.UUID) -> FlowStepDetailsDTO | None:
         """Get flow step by ID. FOR ADMIN USE ONLY."""
-        return self.step_run_repo.by_id(step_run_id)
+        step = self.step_run_repo.by_id(step_run_id)
+        if not step:
+            return None
+            
+        return FlowStepDetailsDTO(
+            id=str(step.id),
+            flow_run_id=str(step.flow_run_id),
+            llm_request_id=str(step.llm_request_id) if step.llm_request_id else None,
+            step_name=step.step_name,
+            step_order=step.step_order,
+            status=step.status,
+            inputs=step.inputs or {},
+            outputs=step.outputs,
+            tokens_used=step.tokens_used or 0,
+            cost_estimate=step.cost_estimate or 0.0,
+            execution_time_ms=step.execution_time_ms,
+            error_message=step.error_message,
+            step_metadata=step.step_metadata,
+            created_at=step.created_at,
+            completed_at=step.completed_at,
+        )
 
-    def get_recent_flow_runs(self, limit: int = 50, offset: int = 0) -> list[FlowRunModel]:
+    def get_recent_flow_runs(self, limit: int = 50, offset: int = 0) -> list[FlowRunSummaryDTO]:
         """Get recent flow runs with pagination. FOR ADMIN USE ONLY."""
-        return self.flow_run_repo.get_recent(limit, offset)
+        flow_runs = self.flow_run_repo.get_recent(limit, offset)
+        return [
+            FlowRunSummaryDTO(
+                id=str(run.id),
+                flow_name=run.flow_name,
+                status=run.status,
+                execution_mode=run.execution_mode,
+                user_id=str(run.user_id) if run.user_id else None,
+                created_at=run.created_at,
+                started_at=run.started_at,
+                completed_at=run.completed_at,
+                execution_time_ms=run.execution_time_ms,
+                total_tokens=run.total_tokens or 0,
+                total_cost=run.total_cost or 0.0,
+                step_count=len(self.step_run_repo.by_flow_run_id(run.id)),
+                error_message=run.error_message,
+            ) for run in flow_runs
+        ]
 
     def count_flow_runs(self) -> int:
         """Get total count of flow runs. FOR ADMIN USE ONLY."""

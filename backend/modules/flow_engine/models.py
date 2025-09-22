@@ -42,7 +42,7 @@ class FlowRunModel(Base):
     # Execution tracking
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="pending", index=True)  # pending, running, completed, failed, cancelled
 
-    execution_mode: Mapped[str] = mapped_column(String(20), nullable=False, default="sync")  # sync, async, background
+    execution_mode: Mapped[str] = mapped_column(String(20), nullable=False, default="sync")  # sync, arq
 
     # Progress tracking for background tasks
     current_step: Mapped[str | None] = mapped_column(String(200), nullable=True)
