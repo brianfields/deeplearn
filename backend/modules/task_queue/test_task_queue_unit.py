@@ -267,7 +267,7 @@ class TestTaskQueueService:
         # Verify ARQ enqueue was called
         mock_arq_pool.enqueue_job.assert_called_once()
         call_args = mock_arq_pool.enqueue_job.call_args
-        assert call_args[0][0] == "execute_flow_task"  # function name
+        assert call_args[0][0] == "execute_registered_task"
 
         # Verify task payload
         payload = call_args[0][1]
