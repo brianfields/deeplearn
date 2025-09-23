@@ -30,12 +30,12 @@ As a mobile app user, I want the learning application to have a beautiful, cohes
 - Performance optimized for modern devices
 
 ### Acceptance Criteria
-- [ ] All screens implement Weimar Edge visual design consistently
+- [ ] All screens implement Weimar Edge visual design consistently (see THEME DESCRIPTION below)
 - [ ] Navigation allows users to back out of any screen
 - [ ] Interactive elements provide appropriate iOS haptic feedback
-- [ ] Animations follow specified timing (160ms/220ms/320ms) with proper easing
+- [ ] Animations follow specified timing (160ms/220ms/320ms) with proper easing (see THEME DESCRIPTION below)
 - [ ] Typography follows one-bold-move-per-screen principle
-- [ ] Color palette strictly adheres to Babylon Berlin specifications
+- [ ] Color palette strictly adheres to Babylon Berlin specifications (see THEME DESCRIPTION below)
 - [ ] Touch targets meet 44×44pt minimum with 56pt for list rows
 - [ ] Components use design tokens exclusively (no ad-hoc styling)
 - [ ] Learning flow maintains pedagogical effectiveness with new styling
@@ -105,7 +105,7 @@ As a mobile app user, I want the learning application to have a beautiful, cohes
 ### Phase 1: Design System Foundation
 - [x] Create Weimar Edge design tokens in `ui_system/tokens/index.ts`
 - [x] Replace existing theme system in `ui_system/theme/theme.ts`
-- [ ] Update theme manager service for new token structure
+- [x] Update theme manager service for new token structure
 - [ ] Create Box primitive component for layout consistency
 - [ ] Create Text primitive component for typography hierarchy
 - [ ] Implement haptic feedback hook for iOS interactions
