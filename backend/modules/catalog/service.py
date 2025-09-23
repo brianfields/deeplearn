@@ -94,6 +94,12 @@ class UnitSummary(BaseModel):
     # New fields surfaced for admin list view
     target_lesson_count: int | None = None
     generated_from_topic: bool = False
+    # Flow type used to generate the unit
+    flow_type: str = "standard"
+    # Status tracking fields for mobile unit creation
+    status: str = "completed"
+    creation_progress: dict[str, Any] | None = None
+    error_message: str | None = None
 
 
 class UnitDetail(BaseModel):
@@ -110,6 +116,8 @@ class UnitDetail(BaseModel):
     target_lesson_count: int | None = None
     source_material: str | None = None
     generated_from_topic: bool = False
+    # Flow type used to generate the unit
+    flow_type: str = "standard"
 
 
 class CatalogService:
@@ -422,6 +430,10 @@ class CatalogService:
                     lesson_count=lesson_count,
                     target_lesson_count=getattr(u, "target_lesson_count", None),
                     generated_from_topic=bool(getattr(u, "generated_from_topic", False)),
+                    flow_type=str(getattr(u, "flow_type", "standard") or "standard"),
+                    status=getattr(u, "status", "completed"),
+                    creation_progress=getattr(u, "creation_progress", None),
+                    error_message=getattr(u, "error_message", None),
                 )
             )
         return summaries
@@ -498,4 +510,5 @@ class CatalogService:
             target_lesson_count=getattr(unit, "target_lesson_count", None),
             source_material=getattr(unit, "source_material", None),
             generated_from_topic=bool(getattr(unit, "generated_from_topic", False)),
+            flow_type=str(getattr(unit, "flow_type", "standard") or "standard"),
         )

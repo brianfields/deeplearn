@@ -1,0 +1,13 @@
+
+> mobile@1.0.0 test
+> jest --runInBand --watchAll=false
+
+PASS modules/learning_session/test_learning_session_unit.ts
+PASS modules/ui_system/test_ui_system_unit.ts
+PASS modules/infrastructure/test_infrastructure_unit.ts
+
+Test Suites: 3 passed, 3 total
+Tests:       34 passed, 34 total
+Snapshots:   0 total
+Time:        1.23 s, estimated 4 s
+Ran all test suites.

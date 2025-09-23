@@ -1,0 +1,400 @@
+      at CatalogService.createUnit (modules/catalog/service.ts:311:18)
+      at Object.<anonymous> (modules/catalog/test_catalog_unit.ts:190:28)
+
+    console.error
+      [CatalogService] Failed to create unit Error: Invalid difficulty level
+          at CatalogService.createUnit (/Users/brian/code/deeplearn/mobile/modules/catalog/service.ts:297:15)
+          at Object.<anonymous> (/Users/brian/code/deeplearn/mobile/modules/catalog/test_catalog_unit.ts:205:28)
+          at Promise.then.completed (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/utils.js:298:28)
+          at new Promise (<anonymous>)
+          at callAsyncCircusFn (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/utils.js:231:10)
+          at _callCircusTest (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:316:40)
+          at _runTest (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:252:3)
+          at _runTestsForDescribeBlock (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:126:9)
+          at _runTestsForDescribeBlock (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:121:9)
+          at _runTestsForDescribeBlock (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:121:9)
+          at run (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:71:3)
+          at runAndTransformResultsToJestFormat (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+          at jestAdapter (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+          at runTestInternal (/Users/brian/code/deeplearn/mobile/node_modules/jest-runner/build/runTest.js:367:16)
+          at runTest (/Users/brian/code/deeplearn/mobile/node_modules/jest-runner/build/runTest.js:444:34)
+
+    [0m [90m 235 |[39m [90m   */[39m
+     [90m 236 |[39m   [36mprivate[39m handleServiceError(error[33m:[39m any[33m,[39m defaultMessage[33m:[39m string)[33m:[39m [33mCatalogError[39m {
+    [31m[1m>[22m[39m[90m 237 |[39m     console[33m.[39merror([32m'[CatalogService]'[39m[33m,[39m defaultMessage[33m,[39m error)[33m;[39m
+     [90m     |[39m             [31m[1m^[22m[39m
+     [90m 238 |[39m
+     [90m 239 |[39m     [90m// If it's already a CatalogError, pass it through[39m
+     [90m 240 |[39m     [36mif[39m (error [33m&&[39m error[33m.[39mcode [33m===[39m [32m'TOPIC_CATALOG_ERROR'[39m) {[0m
+
+      at CatalogService.handleServiceError (modules/catalog/service.ts:237:13)
+      at CatalogService.createUnit (modules/catalog/service.ts:311:18)
+      at Object.<anonymous> (modules/catalog/test_catalog_unit.ts:205:28)
+
+    console.error
+      [CatalogService] Failed to create unit Error: Target lesson count must be between 1 and 20
+          at CatalogService.createUnit (/Users/brian/code/deeplearn/mobile/modules/catalog/service.ts:305:17)
+          at Object.<anonymous> (/Users/brian/code/deeplearn/mobile/modules/catalog/test_catalog_unit.ts:227:28)
+          at Promise.then.completed (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/utils.js:298:28)
+          at new Promise (<anonymous>)
+          at callAsyncCircusFn (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/utils.js:231:10)
+          at _callCircusTest (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:316:40)
+          at _runTest (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:252:3)
+          at _runTestsForDescribeBlock (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:126:9)
+          at _runTestsForDescribeBlock (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:121:9)
+          at _runTestsForDescribeBlock (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:121:9)
+          at run (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:71:3)
+          at runAndTransformResultsToJestFormat (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+          at jestAdapter (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+          at runTestInternal (/Users/brian/code/deeplearn/mobile/node_modules/jest-runner/build/runTest.js:367:16)
+          at runTest (/Users/brian/code/deeplearn/mobile/node_modules/jest-runner/build/runTest.js:444:34)
+
+    [0m [90m 235 |[39m [90m   */[39m
+     [90m 236 |[39m   [36mprivate[39m handleServiceError(error[33m:[39m any[33m,[39m defaultMessage[33m:[39m string)[33m:[39m [33mCatalogError[39m {
+    [31m[1m>[22m[39m[90m 237 |[39m     console[33m.[39merror([32m'[CatalogService]'[39m[33m,[39m defaultMessage[33m,[39m error)[33m;[39m
+     [90m     |[39m             [31m[1m^[22m[39m
+     [90m 238 |[39m
+     [90m 239 |[39m     [90m// If it's already a CatalogError, pass it through[39m
+     [90m 240 |[39m     [36mif[39m (error [33m&&[39m error[33m.[39mcode [33m===[39m [32m'TOPIC_CATALOG_ERROR'[39m) {[0m
+
+      at CatalogService.handleServiceError (modules/catalog/service.ts:237:13)
+      at CatalogService.createUnit (modules/catalog/service.ts:311:18)
+      at Object.<anonymous> (modules/catalog/test_catalog_unit.ts:227:28)
+
+    console.error
+      [CatalogService] Failed to create unit Error: Target lesson count must be between 1 and 20
+          at CatalogService.createUnit (/Users/brian/code/deeplearn/mobile/modules/catalog/service.ts:305:17)
+          at Object.<anonymous> (/Users/brian/code/deeplearn/mobile/modules/catalog/test_catalog_unit.ts:231:28)
+
+    [0m [90m 235 |[39m [90m   */[39m
+     [90m 236 |[39m   [36mprivate[39m handleServiceError(error[33m:[39m any[33m,[39m defaultMessage[33m:[39m string)[33m:[39m [33mCatalogError[39m {
+    [31m[1m>[22m[39m[90m 237 |[39m     console[33m.[39merror([32m'[CatalogService]'[39m[33m,[39m defaultMessage[33m,[39m error)[33m;[39m
+     [90m     |[39m             [31m[1m^[22m[39m
+     [90m 238 |[39m
+     [90m 239 |[39m     [90m// If it's already a CatalogError, pass it through[39m
+     [90m 240 |[39m     [36mif[39m (error [33m&&[39m error[33m.[39mcode [33m===[39m [32m'TOPIC_CATALOG_ERROR'[39m) {[0m
+
+      at CatalogService.handleServiceError (modules/catalog/service.ts:237:13)
+      at CatalogService.createUnit (modules/catalog/service.ts:311:18)
+      at Object.<anonymous> (modules/catalog/test_catalog_unit.ts:231:28)
+
+    console.error
+      [CatalogService] Failed to create unit Error: API Error
+          at Object.<anonymous> (/Users/brian/code/deeplearn/mobile/modules/catalog/test_catalog_unit.ts:275:21)
+          at Promise.then.completed (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/utils.js:298:28)
+          at new Promise (<anonymous>)
+          at callAsyncCircusFn (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/utils.js:231:10)
+          at _callCircusTest (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:316:40)
+          at _runTest (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:252:3)
+          at _runTestsForDescribeBlock (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:126:9)
+          at _runTestsForDescribeBlock (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:121:9)
+          at _runTestsForDescribeBlock (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:121:9)
+          at run (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:71:3)
+          at runAndTransformResultsToJestFormat (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+          at jestAdapter (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+          at runTestInternal (/Users/brian/code/deeplearn/mobile/node_modules/jest-runner/build/runTest.js:367:16)
+          at runTest (/Users/brian/code/deeplearn/mobile/node_modules/jest-runner/build/runTest.js:444:34)
+
+    [0m [90m 235 |[39m [90m   */[39m
+     [90m 236 |[39m   [36mprivate[39m handleServiceError(error[33m:[39m any[33m,[39m defaultMessage[33m:[39m string)[33m:[39m [33mCatalogError[39m {
+    [31m[1m>[22m[39m[90m 237 |[39m     console[33m.[39merror([32m'[CatalogService]'[39m[33m,[39m defaultMessage[33m,[39m error)[33m;[39m
+     [90m     |[39m             [31m[1m^[22m[39m
+     [90m 238 |[39m
+     [90m 239 |[39m     [90m// If it's already a CatalogError, pass it through[39m
+     [90m 240 |[39m     [36mif[39m (error [33m&&[39m error[33m.[39mcode [33m===[39m [32m'TOPIC_CATALOG_ERROR'[39m) {[0m
+
+      at CatalogService.handleServiceError (modules/catalog/service.ts:237:13)
+      at CatalogService.createUnit (modules/catalog/service.ts:311:18)
+      at Object.<anonymous> (modules/catalog/test_catalog_unit.ts:279:7)
+
+    console.error
+      [CatalogService] Failed to retry unit creation Error: Unit ID is required
+          at CatalogService.retryUnitCreation (/Users/brian/code/deeplearn/mobile/modules/catalog/service.ts:321:15)
+          at Object.<anonymous> (/Users/brian/code/deeplearn/mobile/modules/catalog/test_catalog_unit.ts:307:28)
+          at Promise.then.completed (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/utils.js:298:28)
+          at new Promise (<anonymous>)
+          at callAsyncCircusFn (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/utils.js:231:10)
+          at _callCircusTest (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:316:40)
+          at _runTest (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:252:3)
+          at _runTestsForDescribeBlock (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:126:9)
+          at _runTestsForDescribeBlock (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:121:9)
+          at _runTestsForDescribeBlock (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:121:9)
+          at run (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:71:3)
+          at runAndTransformResultsToJestFormat (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+          at jestAdapter (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+          at runTestInternal (/Users/brian/code/deeplearn/mobile/node_modules/jest-runner/build/runTest.js:367:16)
+          at runTest (/Users/brian/code/deeplearn/mobile/node_modules/jest-runner/build/runTest.js:444:34)
+
+    [0m [90m 235 |[39m [90m   */[39m
+     [90m 236 |[39m   [36mprivate[39m handleServiceError(error[33m:[39m any[33m,[39m defaultMessage[33m:[39m string)[33m:[39m [33mCatalogError[39m {
+    [31m[1m>[22m[39m[90m 237 |[39m     console[33m.[39merror([32m'[CatalogService]'[39m[33m,[39m defaultMessage[33m,[39m error)[33m;[39m
+     [90m     |[39m             [31m[1m^[22m[39m
+     [90m 238 |[39m
+     [90m 239 |[39m     [90m// If it's already a CatalogError, pass it through[39m
+     [90m 240 |[39m     [36mif[39m (error [33m&&[39m error[33m.[39mcode [33m===[39m [32m'TOPIC_CATALOG_ERROR'[39m) {[0m
+
+      at CatalogService.handleServiceError (modules/catalog/service.ts:237:13)
+      at CatalogService.retryUnitCreation (modules/catalog/service.ts:326:18)
+      at Object.<anonymous> (modules/catalog/test_catalog_unit.ts:307:28)
+
+    console.error
+      [CatalogService] Failed to retry unit creation Error: Unit ID is required
+          at CatalogService.retryUnitCreation (/Users/brian/code/deeplearn/mobile/modules/catalog/service.ts:321:15)
+          at Object.<anonymous> (/Users/brian/code/deeplearn/mobile/modules/catalog/test_catalog_unit.ts:312:28)
+
+    [0m [90m 235 |[39m [90m   */[39m
+     [90m 236 |[39m   [36mprivate[39m handleServiceError(error[33m:[39m any[33m,[39m defaultMessage[33m:[39m string)[33m:[39m [33mCatalogError[39m {
+    [31m[1m>[22m[39m[90m 237 |[39m     console[33m.[39merror([32m'[CatalogService]'[39m[33m,[39m defaultMessage[33m,[39m error)[33m;[39m
+     [90m     |[39m             [31m[1m^[22m[39m
+     [90m 238 |[39m
+     [90m 239 |[39m     [90m// If it's already a CatalogError, pass it through[39m
+     [90m 240 |[39m     [36mif[39m (error [33m&&[39m error[33m.[39mcode [33m===[39m [32m'TOPIC_CATALOG_ERROR'[39m) {[0m
+
+      at CatalogService.handleServiceError (modules/catalog/service.ts:237:13)
+      at CatalogService.retryUnitCreation (modules/catalog/service.ts:326:18)
+      at Object.<anonymous> (modules/catalog/test_catalog_unit.ts:312:28)
+
+    console.error
+      [CatalogService] Failed to retry unit creation Error: Retry failed
+          at Object.<anonymous> (/Users/brian/code/deeplearn/mobile/modules/catalog/test_catalog_unit.ts:322:21)
+          at Promise.then.completed (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/utils.js:298:28)
+          at new Promise (<anonymous>)
+          at callAsyncCircusFn (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/utils.js:231:10)
+          at _callCircusTest (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:316:40)
+          at _runTest (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:252:3)
+          at _runTestsForDescribeBlock (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:126:9)
+          at _runTestsForDescribeBlock (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:121:9)
+          at _runTestsForDescribeBlock (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:121:9)
+          at run (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:71:3)
+          at runAndTransformResultsToJestFormat (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+          at jestAdapter (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+          at runTestInternal (/Users/brian/code/deeplearn/mobile/node_modules/jest-runner/build/runTest.js:367:16)
+          at runTest (/Users/brian/code/deeplearn/mobile/node_modules/jest-runner/build/runTest.js:444:34)
+
+    [0m [90m 235 |[39m [90m   */[39m
+     [90m 236 |[39m   [36mprivate[39m handleServiceError(error[33m:[39m any[33m,[39m defaultMessage[33m:[39m string)[33m:[39m [33mCatalogError[39m {
+    [31m[1m>[22m[39m[90m 237 |[39m     console[33m.[39merror([32m'[CatalogService]'[39m[33m,[39m defaultMessage[33m,[39m error)[33m;[39m
+     [90m     |[39m             [31m[1m^[22m[39m
+     [90m 238 |[39m
+     [90m 239 |[39m     [90m// If it's already a CatalogError, pass it through[39m
+     [90m 240 |[39m     [36mif[39m (error [33m&&[39m error[33m.[39mcode [33m===[39m [32m'TOPIC_CATALOG_ERROR'[39m) {[0m
+
+      at CatalogService.handleServiceError (modules/catalog/service.ts:237:13)
+      at CatalogService.retryUnitCreation (modules/catalog/service.ts:326:18)
+      at Object.<anonymous> (modules/catalog/test_catalog_unit.ts:326:7)
+
+    console.error
+      [CatalogService] Failed to dismiss unit Error: Unit ID is required
+          at CatalogService.dismissUnit (/Users/brian/code/deeplearn/mobile/modules/catalog/service.ts:336:15)
+          at Object.<anonymous> (/Users/brian/code/deeplearn/mobile/modules/catalog/test_catalog_unit.ts:347:28)
+          at Promise.then.completed (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/utils.js:298:28)
+          at new Promise (<anonymous>)
+          at callAsyncCircusFn (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/utils.js:231:10)
+          at _callCircusTest (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:316:40)
+          at _runTest (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:252:3)
+          at _runTestsForDescribeBlock (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:126:9)
+          at _runTestsForDescribeBlock (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:121:9)
+          at _runTestsForDescribeBlock (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:121:9)
+          at run (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:71:3)
+          at runAndTransformResultsToJestFormat (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+          at jestAdapter (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+          at runTestInternal (/Users/brian/code/deeplearn/mobile/node_modules/jest-runner/build/runTest.js:367:16)
+          at runTest (/Users/brian/code/deeplearn/mobile/node_modules/jest-runner/build/runTest.js:444:34)
+
+    [0m [90m 235 |[39m [90m   */[39m
+     [90m 236 |[39m   [36mprivate[39m handleServiceError(error[33m:[39m any[33m,[39m defaultMessage[33m:[39m string)[33m:[39m [33mCatalogError[39m {
+    [31m[1m>[22m[39m[90m 237 |[39m     console[33m.[39merror([32m'[CatalogService]'[39m[33m,[39m defaultMessage[33m,[39m error)[33m;[39m
+     [90m     |[39m             [31m[1m^[22m[39m
+     [90m 238 |[39m
+     [90m 239 |[39m     [90m// If it's already a CatalogError, pass it through[39m
+     [90m 240 |[39m     [36mif[39m (error [33m&&[39m error[33m.[39mcode [33m===[39m [32m'TOPIC_CATALOG_ERROR'[39m) {[0m
+
+      at CatalogService.handleServiceError (modules/catalog/service.ts:237:13)
+      at CatalogService.dismissUnit (modules/catalog/service.ts:341:18)
+      at Object.<anonymous> (modules/catalog/test_catalog_unit.ts:347:28)
+
+    console.error
+      [CatalogService] Failed to dismiss unit Error: Unit ID is required
+          at CatalogService.dismissUnit (/Users/brian/code/deeplearn/mobile/modules/catalog/service.ts:336:15)
+          at Object.<anonymous> (/Users/brian/code/deeplearn/mobile/modules/catalog/test_catalog_unit.ts:352:28)
+
+    [0m [90m 235 |[39m [90m   */[39m
+     [90m 236 |[39m   [36mprivate[39m handleServiceError(error[33m:[39m any[33m,[39m defaultMessage[33m:[39m string)[33m:[39m [33mCatalogError[39m {
+    [31m[1m>[22m[39m[90m 237 |[39m     console[33m.[39merror([32m'[CatalogService]'[39m[33m,[39m defaultMessage[33m,[39m error)[33m;[39m
+     [90m     |[39m             [31m[1m^[22m[39m
+     [90m 238 |[39m
+     [90m 239 |[39m     [90m// If it's already a CatalogError, pass it through[39m
+     [90m 240 |[39m     [36mif[39m (error [33m&&[39m error[33m.[39mcode [33m===[39m [32m'TOPIC_CATALOG_ERROR'[39m) {[0m
+
+      at CatalogService.handleServiceError (modules/catalog/service.ts:237:13)
+      at CatalogService.dismissUnit (modules/catalog/service.ts:341:18)
+      at Object.<anonymous> (modules/catalog/test_catalog_unit.ts:352:28)
+
+    console.error
+      [CatalogService] Failed to dismiss unit Error: Dismiss failed
+          at Object.<anonymous> (/Users/brian/code/deeplearn/mobile/modules/catalog/test_catalog_unit.ts:362:21)
+          at Promise.then.completed (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/utils.js:298:28)
+          at new Promise (<anonymous>)
+          at callAsyncCircusFn (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/utils.js:231:10)
+          at _callCircusTest (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:316:40)
+          at _runTest (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:252:3)
+          at _runTestsForDescribeBlock (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:126:9)
+          at _runTestsForDescribeBlock (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:121:9)
+          at _runTestsForDescribeBlock (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:121:9)
+          at run (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:71:3)
+          at runAndTransformResultsToJestFormat (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+          at jestAdapter (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+          at runTestInternal (/Users/brian/code/deeplearn/mobile/node_modules/jest-runner/build/runTest.js:367:16)
+          at runTest (/Users/brian/code/deeplearn/mobile/node_modules/jest-runner/build/runTest.js:444:34)
+
+    [0m [90m 235 |[39m [90m   */[39m
+     [90m 236 |[39m   [36mprivate[39m handleServiceError(error[33m:[39m any[33m,[39m defaultMessage[33m:[39m string)[33m:[39m [33mCatalogError[39m {
+    [31m[1m>[22m[39m[90m 237 |[39m     console[33m.[39merror([32m'[CatalogService]'[39m[33m,[39m defaultMessage[33m,[39m error)[33m;[39m
+     [90m     |[39m             [31m[1m^[22m[39m
+     [90m 238 |[39m
+     [90m 239 |[39m     [90m// If it's already a CatalogError, pass it through[39m
+     [90m 240 |[39m     [36mif[39m (error [33m&&[39m error[33m.[39mcode [33m===[39m [32m'TOPIC_CATALOG_ERROR'[39m) {[0m
+
+      at CatalogService.handleServiceError (modules/catalog/service.ts:237:13)
+      at CatalogService.dismissUnit (modules/catalog/service.ts:341:18)
+      at Object.<anonymous> (modules/catalog/test_catalog_unit.ts:366:7)
+
+    console.error
+      [CatalogService] Failed to get lesson lesson-1 { statusCode: 500, message: 'Server error' }
+
+    [0m [90m 235 |[39m [90m   */[39m
+     [90m 236 |[39m   [36mprivate[39m handleServiceError(error[33m:[39m any[33m,[39m defaultMessage[33m:[39m string)[33m:[39m [33mCatalogError[39m {
+    [31m[1m>[22m[39m[90m 237 |[39m     console[33m.[39merror([32m'[CatalogService]'[39m[33m,[39m defaultMessage[33m,[39m error)[33m;[39m
+     [90m     |[39m             [31m[1m^[22m[39m
+     [90m 238 |[39m
+     [90m 239 |[39m     [90m// If it's already a CatalogError, pass it through[39m
+     [90m 240 |[39m     [36mif[39m (error [33m&&[39m error[33m.[39mcode [33m===[39m [32m'TOPIC_CATALOG_ERROR'[39m) {[0m
+
+      at CatalogService.handleServiceError (modules/catalog/service.ts:237:13)
+      at CatalogService.getLessonDetail (modules/catalog/service.ts:115:18)
+      at Object.<anonymous> (modules/catalog/test_catalog_unit.ts:399:7)
+
+    console.error
+      [CatalogService] Failed to browse lessons Error: Browse failed
+          at Object.<anonymous> (/Users/brian/code/deeplearn/mobile/modules/catalog/test_catalog_unit.ts:421:21)
+          at Promise.then.completed (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/utils.js:298:28)
+          at new Promise (<anonymous>)
+          at callAsyncCircusFn (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/utils.js:231:10)
+          at _callCircusTest (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:316:40)
+          at _runTest (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:252:3)
+          at _runTestsForDescribeBlock (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:126:9)
+          at _runTestsForDescribeBlock (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:121:9)
+          at _runTestsForDescribeBlock (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:121:9)
+          at run (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:71:3)
+          at runAndTransformResultsToJestFormat (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+          at jestAdapter (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+          at runTestInternal (/Users/brian/code/deeplearn/mobile/node_modules/jest-runner/build/runTest.js:367:16)
+          at runTest (/Users/brian/code/deeplearn/mobile/node_modules/jest-runner/build/runTest.js:444:34)
+
+    [0m [90m 235 |[39m [90m   */[39m
+     [90m 236 |[39m   [36mprivate[39m handleServiceError(error[33m:[39m any[33m,[39m defaultMessage[33m:[39m string)[33m:[39m [33mCatalogError[39m {
+    [31m[1m>[22m[39m[90m 237 |[39m     console[33m.[39merror([32m'[CatalogService]'[39m[33m,[39m defaultMessage[33m,[39m error)[33m;[39m
+     [90m     |[39m             [31m[1m^[22m[39m
+     [90m 238 |[39m
+     [90m 239 |[39m     [90m// If it's already a CatalogError, pass it through[39m
+     [90m 240 |[39m     [36mif[39m (error [33m&&[39m error[33m.[39mcode [33m===[39m [32m'TOPIC_CATALOG_ERROR'[39m) {[0m
+
+      at CatalogService.handleServiceError (modules/catalog/service.ts:237:13)
+      at CatalogService.browseLessons (modules/catalog/service.ts:60:18)
+      at Object.<anonymous> (modules/catalog/test_catalog_unit.ts:425:7)
+
+    console.error
+      [CatalogService] Failed to search lessons Error: Search failed
+          at Object.<anonymous> (/Users/brian/code/deeplearn/mobile/modules/catalog/test_catalog_unit.ts:454:21)
+          at Promise.then.completed (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/utils.js:298:28)
+          at new Promise (<anonymous>)
+          at callAsyncCircusFn (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/utils.js:231:10)
+          at _callCircusTest (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:316:40)
+          at _runTest (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:252:3)
+          at _runTestsForDescribeBlock (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:126:9)
+          at _runTestsForDescribeBlock (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:121:9)
+          at _runTestsForDescribeBlock (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:121:9)
+          at run (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:71:3)
+          at runAndTransformResultsToJestFormat (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+          at jestAdapter (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+          at runTestInternal (/Users/brian/code/deeplearn/mobile/node_modules/jest-runner/build/runTest.js:367:16)
+          at runTest (/Users/brian/code/deeplearn/mobile/node_modules/jest-runner/build/runTest.js:444:34)
+
+    [0m [90m 235 |[39m [90m   */[39m
+     [90m 236 |[39m   [36mprivate[39m handleServiceError(error[33m:[39m any[33m,[39m defaultMessage[33m:[39m string)[33m:[39m [33mCatalogError[39m {
+    [31m[1m>[22m[39m[90m 237 |[39m     console[33m.[39merror([32m'[CatalogService]'[39m[33m,[39m defaultMessage[33m,[39m error)[33m;[39m
+     [90m     |[39m             [31m[1m^[22m[39m
+     [90m 238 |[39m
+     [90m 239 |[39m     [90m// If it's already a CatalogError, pass it through[39m
+     [90m 240 |[39m     [36mif[39m (error [33m&&[39m error[33m.[39mcode [33m===[39m [32m'TOPIC_CATALOG_ERROR'[39m) {[0m
+
+      at CatalogService.handleServiceError (modules/catalog/service.ts:237:13)
+      at CatalogService.searchLessons (modules/catalog/service.ts:95:18)
+      at Object.<anonymous> (modules/catalog/test_catalog_unit.ts:458:7)
+
+    console.error
+      [CatalogService] Failed to get popular lessons Error: Popular lessons failed
+          at Object.<anonymous> (/Users/brian/code/deeplearn/mobile/modules/catalog/test_catalog_unit.ts:479:21)
+          at Promise.then.completed (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/utils.js:298:28)
+          at new Promise (<anonymous>)
+          at callAsyncCircusFn (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/utils.js:231:10)
+          at _callCircusTest (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:316:40)
+          at _runTest (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:252:3)
+          at _runTestsForDescribeBlock (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:126:9)
+          at _runTestsForDescribeBlock (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:121:9)
+          at _runTestsForDescribeBlock (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:121:9)
+          at run (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:71:3)
+          at runAndTransformResultsToJestFormat (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+          at jestAdapter (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+          at runTestInternal (/Users/brian/code/deeplearn/mobile/node_modules/jest-runner/build/runTest.js:367:16)
+          at runTest (/Users/brian/code/deeplearn/mobile/node_modules/jest-runner/build/runTest.js:444:34)
+
+    [0m [90m 235 |[39m [90m   */[39m
+     [90m 236 |[39m   [36mprivate[39m handleServiceError(error[33m:[39m any[33m,[39m defaultMessage[33m:[39m string)[33m:[39m [33mCatalogError[39m {
+    [31m[1m>[22m[39m[90m 237 |[39m     console[33m.[39merror([32m'[CatalogService]'[39m[33m,[39m defaultMessage[33m,[39m error)[33m;[39m
+     [90m     |[39m             [31m[1m^[22m[39m
+     [90m 238 |[39m
+     [90m 239 |[39m     [90m// If it's already a CatalogError, pass it through[39m
+     [90m 240 |[39m     [36mif[39m (error [33m&&[39m error[33m.[39mcode [33m===[39m [32m'TOPIC_CATALOG_ERROR'[39m) {[0m
+
+      at CatalogService.handleServiceError (modules/catalog/service.ts:237:13)
+      at CatalogService.getPopularLessons (modules/catalog/service.ts:127:18)
+      at Object.<anonymous> (modules/catalog/test_catalog_unit.ts:483:7)
+
+    console.warn
+      [CatalogService] Health check failed: Error: Health check failed
+          at Object.<anonymous> (/Users/brian/code/deeplearn/mobile/modules/catalog/test_catalog_unit.ts:493:21)
+          at Promise.then.completed (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/utils.js:298:28)
+          at new Promise (<anonymous>)
+          at callAsyncCircusFn (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/utils.js:231:10)
+          at _callCircusTest (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:316:40)
+          at _runTest (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:252:3)
+          at _runTestsForDescribeBlock (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:126:9)
+          at _runTestsForDescribeBlock (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:121:9)
+          at _runTestsForDescribeBlock (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:121:9)
+          at run (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/run.js:71:3)
+          at runAndTransformResultsToJestFormat (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+          at jestAdapter (/Users/brian/code/deeplearn/mobile/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+          at runTestInternal (/Users/brian/code/deeplearn/mobile/node_modules/jest-runner/build/runTest.js:367:16)
+          at runTest (/Users/brian/code/deeplearn/mobile/node_modules/jest-runner/build/runTest.js:444:34)
+
+    [0m [90m 162 |[39m       [36mreturn[39m [36mawait[39m [36mthis[39m[33m.[39mrepo[33m.[39mcheckHealth()[33m;[39m
+     [90m 163 |[39m     } [36mcatch[39m (error) {
+    [31m[1m>[22m[39m[90m 164 |[39m       console[33m.[39mwarn([32m'[CatalogService] Health check failed:'[39m[33m,[39m error)[33m;[39m
+     [90m     |[39m               [31m[1m^[22m[39m
+     [90m 165 |[39m       [36mreturn[39m [36mfalse[39m[33m;[39m
+     [90m 166 |[39m     }
+     [90m 167 |[39m   }[0m
+
+      at CatalogService.checkHealth (modules/catalog/service.ts:164:15)
+      at Object.<anonymous> (modules/catalog/test_catalog_unit.ts:497:22)
+
+PASS modules/learning_session/test_learning_session_unit.ts
+PASS modules/ui_system/test_ui_system_unit.ts
+PASS modules/infrastructure/test_infrastructure_unit.ts
+
+Test Suites: 4 passed, 4 total
+Tests:       64 passed, 64 total
+Snapshots:   0 total
+Time:        6.059 s
+Ran all test suites.

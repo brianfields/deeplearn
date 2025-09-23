@@ -50,7 +50,8 @@ class ExtractLessonMetadataStep(StructuredStep):
 
     step_name = "extract_lesson_metadata"
     prompt_file = "extract_lesson_metadata.md"
-    reasoning_effort = "medium"
+    reasoning_effort = "low"
+    model = "gpt-5-mini"
     verbosity = "low"
 
     class Inputs(BaseModel):
@@ -91,8 +92,9 @@ class GenerateMisconceptionBankStep(StructuredStep):
 
     step_name = "generate_misconception_bank"
     prompt_file = "generate_misconception_bank.md"
-    reasoning_effort = "medium"
+    reasoning_effort = "low"
     verbosity = "low"
+    model = "gpt-5-mini"
 
     class Inputs(BaseModel):
         core_concept: str
@@ -129,6 +131,7 @@ class GenerateDidacticSnippetStep(StructuredStep):
     prompt_file = "generate_didactic_snippet.md"
     reasoning_effort = "low"
     verbosity = "low"
+    model = "gpt-5-mini"
 
     class Inputs(BaseModel):
         lesson_title: str
@@ -158,6 +161,7 @@ class GenerateGlossaryStep(StructuredStep):
     prompt_file = "generate_glossary.md"
     reasoning_effort = "low"
     verbosity = "low"
+    model = "gpt-5-mini"
 
     class Inputs(BaseModel):
         lesson_title: str
@@ -204,6 +208,7 @@ class GenerateMCQStep(StructuredStep):
     prompt_file = "generate_mcqs.md"
     reasoning_effort = "high"
     verbosity = "low"
+    model = "gpt-5-mini"
 
     class Inputs(BaseModel):
         lesson_title: str
@@ -221,14 +226,57 @@ class GenerateMCQStep(StructuredStep):
 # ValidateMCQStep removed - validation eliminated for simplicity
 
 
+# ---------- Fast combined lesson metadata (FAST FLOW) ----------
+class FastLessonMetadataStep(StructuredStep):
+    """Combine metadata extraction, misconception bank, didactic snippet, and glossary.
+
+    This single step reduces LLM round trips by returning all information
+    needed to assemble a complete lesson except the MCQs.
+    """
+
+    step_name = "fast_lesson_metadata"
+    prompt_file = "fast_lesson_metadata.md"
+    reasoning_effort = "low"
+    verbosity = "low"
+    model = "gpt-5-mini"
+
+    class Inputs(BaseModel):
+        title: str
+        core_concept: str
+        source_material: str
+        user_level: str
+        domain: str
+
+    class Outputs(BaseModel):
+        # Standard metadata
+        title: str
+        core_concept: str
+        user_level: str
+        domain: str
+        learning_objectives: list[LearningObjective]
+        key_concepts: list[KeyConcept]
+        misconceptions: list[Misconception]
+        confusables: list[ConfusablePair]
+        refined_material: RefinedMaterial
+        length_budgets: LengthBudgets
+
+        # Didactic content for the whole lesson
+        didactic_snippet: DidacticSnippetOutputs
+
+        # Optional glossary and distractor pools for MCQ generation
+        glossary: list[GlossaryTerm] = []
+        by_lo: list[LOWithDistractors] = []  # Distractor candidates grouped by LO
+
+
 # ---------- Unit-level generation (NEW) ----------
 class GenerateUnitSourceMaterialStep(UnstructuredStep):
     """Generate comprehensive source material for a unit from a topic."""
 
     step_name = "generate_unit_source_material"
     prompt_file = "generate_unit_source_material.md"
-    reasoning_effort = "high"
+    reasoning_effort = "low"
     verbosity = "low"
+    model = "gpt-5-mini"
 
     class Inputs(BaseModel):
         topic: str
@@ -251,7 +299,8 @@ class ExtractUnitMetadataStep(StructuredStep):
 
     step_name = "extract_unit_metadata"
     prompt_file = "extract_unit_metadata.md"
-    reasoning_effort = "medium"
+    reasoning_effort = "low"
+    model = "gpt-5-mini"
     verbosity = "low"
 
     class Inputs(BaseModel):
@@ -281,7 +330,8 @@ class ChunkSourceMaterialStep(StructuredStep):
 
     step_name = "chunk_source_material"
     prompt_file = "chunk_source_material.md"
-    reasoning_effort = "medium"
+    reasoning_effort = "low"
+    model = "gpt-5-mini"
     verbosity = "low"
 
     class Inputs(BaseModel):

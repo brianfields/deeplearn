@@ -16,13 +16,14 @@ Examples:
   # Enable verbose logging to see detailed progress
   python scripts/create_unit.py --topic "Python Basics" --target-lessons 5 --verbose
 
-  # Use fast mode for quicker testing (lower quality but faster)
-  python scripts/create_unit.py --topic "Math Basics" --target-lessons 3 --fast --verbose
+  # Use slow mode for higher quality (but slower generation)
+  python scripts/create_unit.py --topic "Math Basics" --target-lessons 3 --slow --verbose
 
 Notes:
   - Creates complete units with all lessons generated and persisted.
   - Use --verbose (-v) to see detailed progress information during long-running operations.
-  - Use --fast to use GPT-5-mini for faster generation (useful for testing).
+  - Uses fast flow by default for efficient generation with parallel lesson creation.
+  - Use --slow to use standard flow for potentially higher quality (but slower generation).
   - Requires environment configuration for infrastructure and LLM provider.
 """
 
@@ -31,7 +32,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
-import os
 from pathlib import Path
 
 from modules.content.public import content_provider
@@ -50,7 +50,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--user-level", default="beginner", choices=["beginner", "intermediate", "advanced"], help="Target learner level")
     p.add_argument("--domain", default=None, help="Optional domain context (e.g., 'Machine Learning')")
     p.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging to see detailed progress")
-    p.add_argument("--fast", action="store_true", help="Use GPT-5-mini for faster (but potentially lower quality) generation")
+    p.add_argument("--slow", action="store_true", help="Use standard flow for potentially higher quality (but slower generation)")
     return p.parse_args()
 
 
@@ -76,11 +76,11 @@ async def _run_async() -> int:
     # Setup logging based on verbosity
     setup_logging(args.verbose)
 
-    # Set fast mode environment variable if requested
-    if args.fast:
-        os.environ["FAST_MODE"] = "true"
-        if args.verbose:
-            print("⚡ Fast mode enabled - using GPT-5-mini for faster generation")
+    # Use fast flow by default, unless --slow is specified
+    use_fast_flow = not args.slow
+    if args.verbose:
+        flow_type = "standard (slow)" if args.slow else "fast (default)"
+        print(f"⚡ Using {flow_type} flow for content generation")
 
     if args.verbose:
         print("🚀 Starting unit creation process...")
@@ -105,9 +105,9 @@ async def _run_async() -> int:
         creator = content_creator_provider(content)
 
         if args.verbose:
-            model = "GPT-5-mini (fast mode)" if args.fast else "GPT-5 (standard)"
+            flow_type = "standard (slow)" if args.slow else "fast (default)"
             print("🏗️ Creating complete unit with lessons...")
-            print(f"🤖 Using model: {model}")
+            print(f"🤖 Using flow: {flow_type}")
             if args.topic:
                 print(f"📚 Topic: {args.topic}")
             if args.target_lessons:
@@ -123,6 +123,7 @@ async def _run_async() -> int:
                 target_lesson_count=args.target_lessons,
                 user_level=args.user_level,
                 domain=args.domain,
+                use_fast_flow=use_fast_flow,
             )
             if args.verbose:
                 print("⚡ Running complete unit creation flow (this may take several minutes)...")
@@ -134,6 +135,7 @@ async def _run_async() -> int:
                 target_lesson_count=args.target_lessons,
                 user_level=args.user_level,
                 domain=args.domain,
+                use_fast_flow=use_fast_flow,
             )
             if args.verbose:
                 print("⚡ Running complete unit creation flow from source material (this may take several minutes)...")

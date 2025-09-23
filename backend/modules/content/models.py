@@ -8,7 +8,7 @@ Uses single lessons table with JSON package field.
 
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, CheckConstraint, Column, DateTime, ForeignKey, Integer, String, Text
 
 from modules.shared_models import Base, PostgresUUID
 
@@ -67,8 +67,19 @@ class UnitModel(Base):
     # Whether this unit was generated from topic-only input
     generated_from_topic = Column(Boolean, nullable=False, default=False)
 
+    # Track which content creation flow was used: "standard" | "fast"
+    flow_type = Column(String(20), nullable=False, default="standard")
+
+    # Status tracking fields for mobile unit creation
+    status = Column(String(20), nullable=False, default="completed")
+    creation_progress = Column(JSON, nullable=True)
+    error_message = Column(Text, nullable=True)
+
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    # Add constraint for status enum
+    __table_args__ = (CheckConstraint("status IN ('draft', 'in_progress', 'completed', 'failed')", name="check_unit_status"),)
 
     def __repr__(self) -> str:  # pragma: no cover - repr convenience only
         return f"<UnitModel(id={self.id}, title='{self.title}', difficulty='{self.difficulty}')>"

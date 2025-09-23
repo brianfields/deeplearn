@@ -218,16 +218,17 @@ async def process_document():
 # Import base classes
 
 # Admin query interface (minimal, selective exposure)
-from typing import Protocol
+from typing import Any, Protocol
 import uuid
 
 from sqlalchemy.orm import Session
 
+from ..llm_services.public import LLMServicesProvider
 from .base_flow import BaseFlow
 from .base_step import BaseStep, ImageStep, StepResult, StepType, StructuredStep, UnstructuredStep
-from .models import FlowRunModel, FlowStepRunModel
+from .context import FlowContext
 from .repo import FlowRunRepo, FlowStepRunRepo
-from .service import FlowRunQueryService
+from .service import FlowRunDetailsDTO, FlowRunQueryService, FlowRunSummaryDTO, FlowStepDetailsDTO
 
 
 class FlowEngineAdminProvider(Protocol):
@@ -240,7 +241,7 @@ class FlowEngineAdminProvider(Protocol):
     Only exposes the specific methods needed for admin dashboard functionality.
     """
 
-    def get_recent_flow_runs(self, limit: int = 50, offset: int = 0) -> list[FlowRunModel]:
+    def get_recent_flow_runs(self, limit: int = 50, offset: int = 0) -> list[FlowRunSummaryDTO]:
         """Get recent flow runs with pagination. FOR ADMIN USE ONLY."""
         ...
 
@@ -248,15 +249,15 @@ class FlowEngineAdminProvider(Protocol):
         """Get total count of flow runs. FOR ADMIN USE ONLY."""
         ...
 
-    def get_flow_run_by_id(self, flow_run_id: uuid.UUID) -> FlowRunModel | None:
+    def get_flow_run_by_id(self, flow_run_id: uuid.UUID) -> FlowRunDetailsDTO | None:
         """Get flow run by ID. FOR ADMIN USE ONLY."""
         ...
 
-    def get_flow_steps_by_run_id(self, flow_run_id: uuid.UUID) -> list[FlowStepRunModel]:
+    def get_flow_steps_by_run_id(self, flow_run_id: uuid.UUID) -> list[FlowStepDetailsDTO]:
         """Get all steps for a flow run. FOR ADMIN USE ONLY."""
         ...
 
-    def get_flow_step_by_id(self, step_run_id: uuid.UUID) -> FlowStepRunModel | None:
+    def get_flow_step_by_id(self, step_run_id: uuid.UUID) -> FlowStepDetailsDTO | None:
         """Get flow step by ID. FOR ADMIN USE ONLY."""
         ...
 
@@ -280,14 +281,54 @@ def flow_engine_admin_provider(session: Session) -> FlowEngineAdminProvider:
     return FlowRunQueryService(flow_run_repo, step_run_repo)
 
 
+# Minimal provider for worker processes (used by task_queue)
+class FlowEngineWorkerProvider(Protocol):
+    """
+    Minimal protocol for worker-side flow engine operations.
+
+    Exposes only the methods required by background workers to update
+    flow and step run records.
+    """
+
+    async def create_step_run_record(self, flow_run_id: uuid.UUID, step_name: str, step_order: int, inputs: dict[str, Any]) -> uuid.UUID: ...
+    async def update_step_run_success(self, step_run_id: uuid.UUID, outputs: dict[str, Any], tokens_used: int, cost_estimate: float, execution_time_ms: int, llm_request_id: uuid.UUID | None = None) -> None: ...
+    async def update_step_run_error(self, step_run_id: uuid.UUID, error_message: str, execution_time_ms: int) -> None: ...
+    async def update_flow_progress(self, flow_run_id: uuid.UUID, current_step: str, step_progress: int, progress_percentage: float | None = None) -> None: ...
+    async def complete_flow_run(self, flow_run_id: uuid.UUID, outputs: dict[str, Any]) -> None: ...
+    async def fail_flow_run(self, flow_run_id: uuid.UUID, error_message: str) -> None: ...
+
+
+def flow_engine_worker_provider(session: Session, llm_services: LLMServicesProvider) -> FlowEngineWorkerProvider:
+    """
+    Build a minimal worker-facing provider backed by the internal service.
+
+    Notes:
+    - Returns the concrete FlowEngineService instance which implements the protocol
+    - Kept internal construction here to preserve module boundaries
+    """
+    if not isinstance(session, Session):
+        raise ValueError("Session must be a SQLAlchemy Session instance")
+
+    flow_run_repo = FlowRunRepo(session)
+    step_run_repo = FlowStepRunRepo(session)
+
+    # Lazy import to avoid widening the public surface with internal types
+    from .service import FlowEngineService  # local import  # noqa: PLC0415
+
+    return FlowEngineService(flow_run_repo, step_run_repo, llm_services)
+
+
 __all__ = [
     "BaseFlow",
     "BaseStep",
+    "FlowContext",
     "FlowEngineAdminProvider",  # For admin module only
+    "FlowEngineWorkerProvider",  # For task_queue worker only
     "ImageStep",
     "StepResult",
     "StepType",
     "StructuredStep",
     "UnstructuredStep",
     "flow_engine_admin_provider",  # For admin module only
+    "flow_engine_worker_provider",  # For task_queue worker only
 ]

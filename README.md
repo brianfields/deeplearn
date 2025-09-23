@@ -17,11 +17,23 @@ An intelligent learning platform that creates personalized educational experienc
 │   Next.js Web   │    │  FastAPI API    │    │   PostgreSQL    │
 │    Frontend     │◄──►│     Backend     │◄──►│    Database     │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
-                              │
-                       ┌─────────────────┐
-                       │   OpenAI API    │
-                       │  (GPT Models)   │
-                       └─────────────────┘
+                              │                         │
+                              │                ┌─────────────────┐
+                              │                │      Redis      │
+                              │                │  (Task Queue)   │
+                              │                └─────────────────┘
+                              │                         │
+                              ▼                         │
+                       ┌─────────────────┐              │
+                       │   OpenAI API    │              │
+                       │  (GPT Models)   │              │
+                       └─────────────────┘              │
+                                                        ▼
+                                               ┌─────────────────┐
+                                               │  ARQ Workers    │
+                                               │ (Background     │
+                                               │   Tasks)       │
+                                               └─────────────────┘
 ```
 
 ## 🚀 Quick Start
@@ -31,6 +43,7 @@ An intelligent learning platform that creates personalized educational experienc
 - **Node.js** 18+ and npm
 - **Python** 3.9+ and pip
 - **PostgreSQL** 12+
+- **Redis** 6+ (for background task queue)
 - **OpenAI API Key** (for content generation)
 
 ### 1. Database Setup
@@ -65,7 +78,36 @@ createuser --interactive deeplearn_user
 psql -d deeplearn -c "GRANT ALL PRIVILEGES ON DATABASE deeplearn TO deeplearn_user;"
 ```
 
-### 2. Backend Setup
+### 2. Redis Setup
+
+#### Install Redis
+
+**macOS (Homebrew):**
+```bash
+brew install redis
+brew services start redis
+```
+
+**Ubuntu/Debian:**
+```bash
+sudo apt update
+sudo apt install redis-server
+sudo systemctl start redis-server
+sudo systemctl enable redis-server
+```
+
+**Windows:**
+Download and install from [redis.io](https://redis.io/download) or use WSL.
+
+#### Verify Redis Installation
+
+```bash
+# Check if Redis is running
+redis-cli ping
+# Should return: PONG
+```
+
+### 3. Backend Setup
 
 ```bash
 # Navigate to backend
@@ -90,6 +132,14 @@ DATABASE_URL=postgresql://username:password@localhost:5432/deeplearn
 # DATABASE_USER=username
 # DATABASE_PASSWORD=password
 
+# Redis (choose one method)
+REDIS_URL=redis://localhost:6379/0
+# OR individual components:
+# REDIS_HOST=localhost
+# REDIS_PORT=6379
+# REDIS_PASSWORD=your_redis_password  # (optional)
+# REDIS_DB=0
+
 # OpenAI
 OPENAI_API_KEY=your_openai_api_key_here
 ```
@@ -113,7 +163,7 @@ python -m src.api.server
 # Server will run on http://localhost:8000
 ```
 
-### 3. Frontend Setup
+### 4. Frontend Setup
 
 ```bash
 # Navigate to frontend
@@ -128,7 +178,24 @@ npm run dev
 # Frontend will run on http://localhost:3000
 ```
 
-### 4. Verify Installation
+### 5. Background Workers (Optional)
+
+For background task processing (flow execution), start ARQ workers:
+
+```bash
+# Navigate to backend
+cd backend
+
+# Start a worker (in a separate terminal)
+python scripts/start_worker.py
+
+# With custom settings
+python scripts/start_worker.py --max-jobs 5 --log-level DEBUG
+```
+
+**Note**: Background workers are required for long-running flows but not for basic API operations.
+
+### 6. Verify Installation
 
 Visit `http://localhost:3000` and:
 1. Create a new learning path
@@ -209,6 +276,7 @@ deeplearn/
 - **SQLAlchemy**: Database ORM with PostgreSQL
 - **Alembic**: Database migration management
 - **Pydantic**: Data validation and serialization
+- **ARQ**: Async Redis Queue for background tasks
 - **OpenAI API**: GPT models for content generation
 
 **Frontend:**
@@ -217,8 +285,9 @@ deeplearn/
 - **Tailwind CSS**: Utility-first CSS framework
 - **Shadcn/ui**: Modern React component library
 
-**Database:**
+**Database & Queue:**
 - **PostgreSQL**: Production-grade relational database
+- **Redis**: In-memory data structure store for task queuing
 - **Connection pooling**: Optimized database connections
 - **Migrations**: Version-controlled schema changes
 
@@ -285,6 +354,18 @@ For production deployments:
 **Migration issues:**
 - Reset migrations: `alembic downgrade base && alembic upgrade head`
 - Check Alembic configuration in `alembic.ini`
+
+### Redis Issues
+
+**Connection errors:**
+- Verify Redis is running: `redis-cli ping`
+- Check REDIS_URL format and credentials
+- Ensure Redis is accessible on the configured port
+
+**Background task issues:**
+- Check if workers are running: `ps aux | grep start_worker`
+- Monitor worker logs for errors
+- Verify queue status: `redis-cli LLEN arq:queue:default`
 
 ### API Issues
 

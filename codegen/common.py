@@ -27,6 +27,7 @@ DEFAULT_MODEL_CLAUDE: str = os.getenv("CURSOR_MODEL_CLAUDE_SONNET", "claude-4-so
 DEFAULT_MODEL_GPT5: str = os.getenv("CURSOR_MODEL_GPT_5", "gpt-5")
 DEFAULT_MODEL_GPTHIGH: str = os.getenv("CURSOR_MODEL_GPT_HIGH", "gpt-5-high")
 DEFAULT_MODEL_GROK: str = os.getenv("CURSOR_MODEL_GROK_FAST", "grok-code-fast-1")
+DEFAULT_MODEL_SUPERNOVA: str = os.getenv("CURSOR_MODEL_SUPERNOVA", "code-supernova")
 
 
 def ensure_dir(p: Path) -> None:
@@ -387,13 +388,9 @@ class ProjectSpec:
 def setup_project(project_name: Optional[str]) -> ProjectSpec:
     """Create or ensure project directory exists. Used by spec.py and refine_spec.py."""
     if not project_name:
-        # Interactive prompt
-        while True:
-            project_name = input("Enter project name: ").strip()
-            if project_name:
-                break
-            print("Project name cannot be empty. Please try again.")
-    assert project_name is not None
+        raise SystemExit(
+            "❌ Project name is required. Please specify --project <PROJECT_NAME>"
+        )
     project_dir = Path("docs/specs") / project_name
     ensure_dir(project_dir)
     return ProjectSpec(name=project_name, dir=project_dir)
@@ -402,13 +399,9 @@ def setup_project(project_name: Optional[str]) -> ProjectSpec:
 def require_existing_project(project_name: Optional[str]) -> ProjectSpec:
     """Require that project directory already exists. Used by implement.py and fix_*.py scripts."""
     if not project_name:
-        # Interactive prompt
-        while True:
-            project_name = input("Enter existing project name: ").strip()
-            if project_name:
-                break
-            print("Project name cannot be empty. Please try again.")
-    assert project_name is not None
+        raise SystemExit(
+            "❌ Project name is required. Please specify --project <PROJECT_NAME>"
+        )
     project_dir = Path("docs/specs") / project_name
 
     if not project_dir.exists():

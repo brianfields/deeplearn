@@ -130,3 +130,31 @@ class TestContentService:
         # Assert
         assert result is True
         repo.delete_lesson.assert_called_once_with("test-id")
+
+    def test_delete_unit_returns_true_when_deleted(self) -> None:
+        """Test deleting an existing unit returns True."""
+        # Arrange
+        repo = Mock(spec=ContentRepo)
+        service = ContentService(repo)
+        repo.delete_unit.return_value = True
+
+        # Act
+        result = service.delete_unit("unit-1")
+
+        # Assert
+        assert result is True
+        repo.delete_unit.assert_called_once_with("unit-1")
+
+    def test_delete_unit_returns_false_when_not_found(self) -> None:
+        """Test deleting a non-existent unit returns False."""
+        # Arrange
+        repo = Mock(spec=ContentRepo)
+        service = ContentService(repo)
+        repo.delete_unit.return_value = False
+
+        # Act
+        result = service.delete_unit("nonexistent-unit")
+
+        # Assert
+        assert result is False
+        repo.delete_unit.assert_called_once_with("nonexistent-unit")

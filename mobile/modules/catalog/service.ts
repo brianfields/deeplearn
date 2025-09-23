@@ -16,11 +16,15 @@ import type {
   CatalogStatistics,
   CatalogError,
   PaginationInfo,
+  UnitCreationRequest,
+  UnitCreationResponse,
 } from './models';
 import {
   toLessonSummaryDTO,
   toLessonDetailDTO,
   toBrowseLessonsResponseDTO,
+  toUnitDTO,
+  toUnitDetailDTO,
 } from './models';
 
 export class CatalogService {
@@ -247,26 +251,19 @@ export class CatalogService {
   }
 
   /**
-   * Browse units (delegates to units module)
+   * Browse units with status information
    * Added for unit-based browsing in the catalog UI.
    */
   async browseUnits(params?: {
     limit?: number;
     offset?: number;
   }): Promise<Unit[]> {
-    const apiUnits = await this.repo.listUnits(params);
-    return apiUnits.map(u => ({
-      id: u.id,
-      title: u.title,
-      description: u.description,
-      difficulty: (u.difficulty as any) ?? 'beginner',
-      lessonCount: u.lesson_count,
-      difficultyLabel: this.formatDifficulty(
-        (u.difficulty as any) ?? 'beginner'
-      ),
-      targetLessonCount: u.target_lesson_count ?? null,
-      generatedFromTopic: !!u.generated_from_topic,
-    }));
+    try {
+      const apiUnits = await this.repo.listUnits(params);
+      return apiUnits.map(toUnitDTO);
+    } catch (error) {
+      throw this.handleServiceError(error, 'Failed to browse units');
+    }
   }
 
   /**
@@ -276,38 +273,72 @@ export class CatalogService {
     if (!unitId?.trim()) return null;
     try {
       const api = await this.repo.getUnitDetail(unitId);
-      const difficulty = (api.difficulty as any) ?? 'beginner';
-      return {
-        id: api.id,
-        title: api.title,
-        description: api.description,
-        difficulty,
-        lessonIds: [...(api.lesson_order ?? [])],
-        lessons: api.lessons.map(l => ({
-          id: l.id,
-          title: l.title,
-          coreConcept: l.core_concept,
-          userLevel: l.user_level as any,
-          learningObjectives: l.learning_objectives,
-          keyConcepts: l.key_concepts,
-          componentCount: l.exercise_count,
-          estimatedDuration: Math.max(5, l.exercise_count * 3),
-          isReadyForLearning: l.exercise_count > 0,
-          difficultyLevel: this.formatDifficulty(l.user_level as any),
-          durationDisplay: this.formatDuration(
-            Math.max(5, l.exercise_count * 3)
-          ),
-          readinessStatus: l.exercise_count > 0 ? 'Ready' : 'Draft',
-          tags: (l.key_concepts ?? []).slice(0, 3),
-        })),
-        learningObjectives: api.learning_objectives ?? null,
-        targetLessonCount: api.target_lesson_count ?? null,
-        sourceMaterial: api.source_material ?? null,
-        generatedFromTopic: !!api.generated_from_topic,
-      };
-    } catch (err: any) {
-      if (err?.statusCode === 404) return null;
-      throw err;
+      return toUnitDetailDTO(api);
+    } catch (error: any) {
+      if (error?.statusCode === 404) return null;
+      throw this.handleServiceError(error, `Failed to get unit ${unitId}`);
+    }
+  }
+
+  /**
+   * Create a new unit from mobile app
+   */
+  async createUnit(
+    request: UnitCreationRequest
+  ): Promise<UnitCreationResponse> {
+    try {
+      // Validate request
+      if (!request.topic?.trim()) {
+        throw new Error('Topic is required');
+      }
+
+      const validDifficulties = ['beginner', 'intermediate', 'advanced'];
+      if (!validDifficulties.includes(request.difficulty)) {
+        throw new Error('Invalid difficulty level');
+      }
+
+      if (
+        request.targetLessonCount !== null &&
+        request.targetLessonCount !== undefined
+      ) {
+        if (request.targetLessonCount < 1 || request.targetLessonCount > 20) {
+          throw new Error('Target lesson count must be between 1 and 20');
+        }
+      }
+
+      return await this.repo.createUnit(request);
+    } catch (error) {
+      throw this.handleServiceError(error, 'Failed to create unit');
+    }
+  }
+
+  /**
+   * Retry failed unit creation
+   */
+  async retryUnitCreation(unitId: string): Promise<UnitCreationResponse> {
+    try {
+      if (!unitId?.trim()) {
+        throw new Error('Unit ID is required');
+      }
+
+      return await this.repo.retryUnitCreation(unitId);
+    } catch (error) {
+      throw this.handleServiceError(error, 'Failed to retry unit creation');
+    }
+  }
+
+  /**
+   * Dismiss (delete) a failed unit
+   */
+  async dismissUnit(unitId: string): Promise<void> {
+    try {
+      if (!unitId?.trim()) {
+        throw new Error('Unit ID is required');
+      }
+
+      await this.repo.dismissUnit(unitId);
+    } catch (error) {
+      throw this.handleServiceError(error, 'Failed to dismiss unit');
     }
   }
 

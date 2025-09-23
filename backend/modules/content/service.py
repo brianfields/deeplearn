@@ -8,6 +8,7 @@ Handles content operations and data transformation.
 """
 
 from datetime import UTC, datetime
+from enum import Enum
 import logging
 
 # Import inside methods when needed to avoid circular imports with public/providers
@@ -24,6 +25,16 @@ if TYPE_CHECKING:  # pragma: no cover - type checking only
     from ..learning_session.models import UnitSessionModel  # noqa: F401
 
 logger = logging.getLogger(__name__)
+
+
+# Enums for status validation
+class UnitStatus(str, Enum):
+    """Valid unit statuses for creation flow tracking."""
+
+    DRAFT = "draft"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    FAILED = "failed"
 
 
 # DTOs (Data Transfer Objects)
@@ -271,6 +282,11 @@ class ContentService:
         target_lesson_count: int | None = None
         source_material: str | None = None
         generated_from_topic: bool = False
+        flow_type: str = "standard"
+        # Status tracking fields
+        status: str = "completed"
+        creation_progress: dict[str, Any] | None = None
+        error_message: str | None = None
         created_at: datetime
         updated_at: datetime
 
@@ -286,6 +302,7 @@ class ContentService:
         target_lesson_count: int | None = None
         source_material: str | None = None
         generated_from_topic: bool = False
+        flow_type: str = "standard"
 
     # New DTOs for unit creation workflows
     class UnitCreateFromTopic(BaseModel):
@@ -309,6 +326,16 @@ class ContentService:
         arr = self.repo.list_units(limit=limit, offset=offset)
         return [self.UnitRead.model_validate(u) for u in arr]
 
+    def get_units_by_status(self, status: str, limit: int = 100, offset: int = 0) -> list[ContentService.UnitRead]:
+        """Get units filtered by status."""
+        arr = self.repo.get_units_by_status(status=status, limit=limit, offset=offset)
+        return [self.UnitRead.model_validate(u) for u in arr]
+
+    def update_unit_status(self, unit_id: str, status: str, error_message: str | None = None, creation_progress: dict[str, Any] | None = None) -> ContentService.UnitRead | None:
+        """Update unit status and return the updated unit, or None if not found."""
+        updated = self.repo.update_unit_status(unit_id=unit_id, status=status, error_message=error_message, creation_progress=creation_progress)
+        return self.UnitRead.model_validate(updated) if updated else None
+
     def create_unit(self, data: ContentService.UnitCreate) -> ContentService.UnitRead:
         unit_id = data.id or str(uuid.uuid4())
         model = UnitModel(
@@ -321,6 +348,7 @@ class ContentService:
             target_lesson_count=data.target_lesson_count,
             source_material=data.source_material,
             generated_from_topic=bool(data.generated_from_topic),
+            flow_type=str(getattr(data, "flow_type", "standard") or "standard"),
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
         )
@@ -343,6 +371,10 @@ class ContentService:
         if not updated:
             raise ValueError("Unit not found")
         return self.UnitRead.model_validate(updated)
+
+    def delete_unit(self, unit_id: str) -> bool:
+        """Delete a unit by ID. Returns True if successful, False if not found."""
+        return self.repo.delete_unit(unit_id)
 
     # ======================
     # Unit session operations

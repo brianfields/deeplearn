@@ -266,6 +266,35 @@ function formatReadinessStatus(
   }
 }
 
+function formatUnitStatusLabel(status: UnitStatus): string {
+  const statusMap: Record<UnitStatus, string> = {
+    draft: 'Draft',
+    in_progress: 'Creating...',
+    completed: 'Ready',
+    failed: 'Failed',
+  };
+  return statusMap[status] ?? 'Unknown';
+}
+
+function formatUnitProgressMessage(
+  status: UnitStatus,
+  progress?: { stage: string; message: string } | null,
+  errorMessage?: string | null
+): string {
+  switch (status) {
+    case 'draft':
+      return 'Unit is being prepared';
+    case 'in_progress':
+      return progress?.message ?? 'Creating unit content...';
+    case 'completed':
+      return 'Ready to learn';
+    case 'failed':
+      return errorMessage ?? 'Creation failed';
+    default:
+      return 'Unknown status';
+  }
+}
+
 // ================================
 // Units (DTOs and Wire Types)
 // ================================
@@ -280,6 +309,10 @@ export interface ApiUnitSummary {
   // New fields from backend
   target_lesson_count?: number | null;
   generated_from_topic?: boolean;
+  // Status tracking fields
+  status: string;
+  creation_progress?: { stage: string; message: string } | null;
+  error_message?: string | null;
 }
 
 export interface ApiUnitDetail {
@@ -307,6 +340,26 @@ export interface ApiUnitDetail {
 export type UnitId = string;
 export type Difficulty = 'beginner' | 'intermediate' | 'advanced';
 
+// Unit status types for creation tracking
+export type UnitStatus = 'draft' | 'in_progress' | 'completed' | 'failed';
+
+export interface UnitCreationProgress {
+  readonly stage: string;
+  readonly message: string;
+}
+
+export interface UnitCreationRequest {
+  readonly topic: string;
+  readonly difficulty: Difficulty;
+  readonly targetLessonCount?: number | null;
+}
+
+export interface UnitCreationResponse {
+  readonly unitId: string;
+  readonly status: UnitStatus;
+  readonly title: string;
+}
+
 export interface Unit {
   readonly id: UnitId;
   readonly title: string;
@@ -319,6 +372,14 @@ export interface Unit {
   readonly generatedFromTopic?: boolean;
   // Optional LO list when available in summaries (not always provided)
   readonly learningObjectives?: string[] | null;
+  // Status tracking fields
+  readonly status: UnitStatus;
+  readonly creationProgress?: UnitCreationProgress | null;
+  readonly errorMessage?: string | null;
+  // Computed status display fields
+  readonly statusLabel: string;
+  readonly isInteractive: boolean; // Can user open/interact with this unit
+  readonly progressMessage: string; // User-friendly progress message
 }
 
 export interface UnitDetail {
@@ -344,6 +405,8 @@ export interface UnitProgress {
 
 export function toUnitDTO(api: ApiUnitSummary): Unit {
   const difficulty = (api.difficulty as Difficulty) ?? 'beginner';
+  const status = (api.status as UnitStatus) ?? 'completed';
+
   return {
     id: api.id,
     title: api.title,
@@ -353,6 +416,16 @@ export function toUnitDTO(api: ApiUnitSummary): Unit {
     difficultyLabel: formatDifficultyLevel(difficulty),
     targetLessonCount: api.target_lesson_count ?? null,
     generatedFromTopic: !!api.generated_from_topic,
+    status,
+    creationProgress: api.creation_progress || null,
+    errorMessage: api.error_message || null,
+    statusLabel: formatUnitStatusLabel(status),
+    isInteractive: status === 'completed',
+    progressMessage: formatUnitProgressMessage(
+      status,
+      api.creation_progress,
+      api.error_message
+    ),
   };
 }
 

@@ -15,6 +15,7 @@ Usage:
     python scripts/reset_database.py --seed --lesson "Neural Networks" --concept "Backpropagation"
 
 Features:
+- Terminates all active database sessions and locks
 - Drops all database tables (preserves database itself)
 - Resets Alembic migration state
 - Recreates database schema via Alembic migrations
@@ -112,6 +113,96 @@ def check_database_connection() -> bool:
     except Exception as e:
         print(f"❌ Unexpected database error: {e}")
         return False
+
+
+def kill_active_sessions(verbose: bool = False) -> None:
+    """Kill all active database sessions and locks to ensure clean reset."""
+    print("🔒 Terminating active database sessions and locks...")
+
+    try:
+        infra = infrastructure_provider()
+        infra.initialize()
+
+        with infra.get_session_context() as session:
+            if verbose:
+                print("   Querying active sessions...")
+
+            # Get current database name
+            db_result = session.execute(text("SELECT current_database()"))
+            current_db = db_result.scalar()
+
+            if verbose:
+                print(f"   Current database: {current_db}")
+
+            # Get all active sessions for the current database (excluding our own)
+            sessions_result = session.execute(
+                text("""
+                SELECT pid, usename, application_name, client_addr, state, query_start
+                FROM pg_stat_activity
+                WHERE datname = :db_name
+                AND pid != pg_backend_pid()
+                AND state != 'idle'
+            """),
+                {"db_name": current_db},
+            )
+            active_sessions = sessions_result.fetchall()
+
+            if verbose and active_sessions:
+                print(f"   Found {len(active_sessions)} active sessions:")
+                for session_info in active_sessions:
+                    pid, usename, app_name, client_addr, state, query_start = session_info
+                    print(f"     PID {pid}: {usename}@{client_addr or 'local'} ({app_name}) - {state}")
+
+            # Terminate all active sessions for the current database (excluding our own)
+            terminate_result = session.execute(
+                text("""
+                SELECT pg_terminate_backend(pid), pid, usename
+                FROM pg_stat_activity
+                WHERE datname = :db_name
+                AND pid != pg_backend_pid()
+            """),
+                {"db_name": current_db},
+            )
+            terminated_sessions = terminate_result.fetchall()
+
+            terminated_count = sum(1 for result, _, _ in terminated_sessions if result)
+
+            if terminated_count > 0:
+                print(f"✅ Terminated {terminated_count} active sessions")
+                if verbose:
+                    for result, pid, usename in terminated_sessions:
+                        status = "✓" if result else "✗"
+                        print(f"     {status} PID {pid} ({usename})")
+            else:
+                print("✅ No active sessions to terminate")
+
+            # Check for and release any remaining locks
+            if verbose:
+                print("   Checking for remaining locks...")
+
+            locks_result = session.execute(
+                text("""
+                SELECT COUNT(*)
+                FROM pg_locks l
+                JOIN pg_stat_activity a ON l.pid = a.pid
+                WHERE a.datname = :db_name
+                AND l.pid != pg_backend_pid()
+            """),
+                {"db_name": current_db},
+            )
+            remaining_locks = locks_result.scalar()
+
+            if remaining_locks and remaining_locks > 0:
+                if verbose:
+                    print(f"   Found {remaining_locks} remaining locks")
+                print("⚠️  Some locks may still be present - they should be released shortly")
+            elif verbose:
+                print("   No remaining locks found")
+
+    except Exception as e:
+        print(f"❌ Failed to terminate sessions: {e}")
+        # Don't raise here - we want to continue with the reset even if session termination fails
+        print("⚠️  Continuing with reset despite session termination issues...")
 
 
 def drop_all_tables(verbose: bool = False) -> None:
@@ -292,6 +383,7 @@ Examples:
     # Show warning and ask for confirmation unless --confirm or --force is used
     if not args.confirm and not args.force:
         print("⚠️  WARNING: This will permanently delete all data in the database!")
+        print("   - All active database sessions will be terminated")
         print("   - All tables will be dropped")
         print("   - Alembic migration state will be reset")
         print("   - Database schema will be recreated")
@@ -316,16 +408,19 @@ Examples:
 
         print("\n🚀 Starting database reset...")
 
-        # Step 1: Drop all tables
+        # Step 1: Kill active sessions and locks
+        kill_active_sessions(args.verbose)
+
+        # Step 2: Drop all tables
         drop_all_tables(args.verbose)
 
-        # Step 2: Reset Alembic version
+        # Step 3: Reset Alembic version
         reset_alembic_version(args.verbose)
 
-        # Step 3: Run migrations to recreate schema
+        # Step 4: Run migrations to recreate schema
         run_migrations(args.verbose)
 
-        # Step 4: Load seed data if requested
+        # Step 5: Load seed data if requested
         if args.seed:
             seed_kwargs = {}
             if args.lesson:
@@ -340,6 +435,7 @@ Examples:
             load_seed_data(args.verbose, **seed_kwargs)
 
         print("\n🎉 Database reset completed successfully!")
+        print("   ✅ Active sessions terminated")
         print("   ✅ All tables dropped and recreated")
         print("   ✅ Migration state reset")
         print("   ✅ Schema recreated from migrations")

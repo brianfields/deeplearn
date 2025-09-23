@@ -22,6 +22,7 @@ modules/{name}/
 * Transactions live in a request-scoped `get_session()` (commit/rollback there).
 * The only way another module can access this module is through the public.py interface!
 * Don't create routes or public APIs unless there is a demonstrated need for them.
+* If you add new routes, add the router to the server.py file.
 
 ---
 

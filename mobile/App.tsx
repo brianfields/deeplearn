@@ -13,6 +13,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Screens (using new modular structure)
 import { LessonListScreen } from './modules/catalog/screens/UnitListScreen';
+import { CreateUnitScreen } from './modules/catalog/screens/CreateUnitScreen';
 import LearningFlowScreen from './modules/learning_session/screens/LearningFlowScreen';
 import ResultsScreen from './modules/learning_session/screens/ResultsScreen';
 import { UnitDetailScreen } from './modules/catalog/screens/UnitDetailScreen';
@@ -54,6 +55,13 @@ function LearningStackNavigator() {
         component={LessonListScreen}
         options={{
           title: 'Learning Lessons',
+        }}
+      />
+      <LearningStack.Screen
+        name="CreateUnit"
+        component={CreateUnitScreen}
+        options={{
+          title: 'Create New Unit',
         }}
       />
       <LearningStack.Screen

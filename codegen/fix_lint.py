@@ -21,7 +21,7 @@ from datetime import datetime
 from pathlib import Path
 
 from codegen.common import (
-    DEFAULT_MODEL_GROK,
+    DEFAULT_MODEL_CLAUDE,
     ProjectSpec,
     headless_agent,
     render_prompt,
@@ -152,7 +152,7 @@ def main() -> int:
         help="Project name for docs/specs/<PROJECT> (optional, uses logs/ if not specified)",
     )
     ap.add_argument("--prompts-dir", default="codegen/prompts")
-    ap.add_argument("--model", default=DEFAULT_MODEL_GROK)
+    ap.add_argument("--model", default=DEFAULT_MODEL_CLAUDE)
     ap.add_argument(
         "--agent",
         default="cursor-agent",

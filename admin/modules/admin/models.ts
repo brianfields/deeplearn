@@ -11,7 +11,7 @@ export interface FlowRunSummary {
   id: string;
   flow_name: string;
   status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
-  execution_mode: 'sync' | 'async' | 'background';
+  execution_mode: 'sync' | 'async' | 'background' | 'arq';
   user_id: string | null;
   created_at: Date;
   started_at: Date | null;
@@ -45,7 +45,7 @@ export interface FlowRunDetails {
   id: string;
   flow_name: string;
   status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
-  execution_mode: 'sync' | 'async' | 'background';
+  execution_mode: 'sync' | 'async' | 'background' | 'arq';
   user_id: string | null;
   current_step: string | null;
   step_progress: number;
@@ -303,6 +303,7 @@ export interface ApiUnitSummary {
   // New fields from backend
   target_lesson_count?: number | null;
   generated_from_topic?: boolean;
+  flow_type?: 'standard' | 'fast';
 }
 
 export interface ApiUnitLessonSummary {
@@ -327,6 +328,7 @@ export interface ApiUnitDetail {
   target_lesson_count?: number | null;
   source_material?: string | null;
   generated_from_topic?: boolean;
+  flow_type?: 'standard' | 'fast';
 }
 
 // Basic unit from /api/v1/units
@@ -350,6 +352,7 @@ export interface UnitSummary {
   // New fields for admin list UI
   target_lesson_count: number | null;
   generated_from_topic: boolean;
+  flow_type: 'standard' | 'fast';
 }
 
 export interface UnitLessonSummary {
@@ -371,6 +374,7 @@ export interface UnitDetail {
   target_lesson_count: number | null;
   source_material: string | null;
   generated_from_topic: boolean;
+  flow_type: 'standard' | 'fast';
 }
 
 export type LessonToUnitMap = Record<string, { unit_id: string; unit_title: string }>;
@@ -499,4 +503,81 @@ export interface LessonsQuery {
 export interface MetricsQuery {
   start_date?: Date;
   end_date?: Date;
+}
+
+// ---- Task Queue Types ----
+
+export interface TaskStatus {
+  task_id: string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+  submitted_at: Date;
+  started_at: Date | null;
+  completed_at: Date | null;
+  retry_count: number;
+  error_message: string | null;
+  result: Record<string, any> | null;
+  queue_name: string;
+  priority: number;
+  flow_name?: string;
+  flow_run_id?: string;
+}
+
+export interface WorkerHealth {
+  worker_id: string;
+  status: 'healthy' | 'busy' | 'unhealthy' | 'offline';
+  last_heartbeat: Date;
+  current_task_id: string | null;
+  tasks_completed: number;
+  queue_name: string;
+  started_at: Date;
+  version: string | null;
+}
+
+export interface QueueStats {
+  queue_name: string;
+  pending_count: number;
+  running_count: number;
+  completed_count: number;
+  failed_count: number;
+  total_processed: number;
+  workers_count: number;
+  workers_busy: number;
+  oldest_pending_task: Date | null;
+  avg_processing_time_ms: number | null;
+}
+
+export interface QueueStatus {
+  queue_name: string;
+  status: 'healthy' | 'degraded' | 'down';
+  pending_count: number;
+  running_count: number;
+  worker_count: number;
+  oldest_pending_minutes: number | null;
+}
+
+// API wire formats for task queue
+export interface ApiTaskStatus {
+  task_id: string;
+  status: string;
+  submitted_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  retry_count: number;
+  error_message: string | null;
+  result: Record<string, any> | null;
+  queue_name: string;
+  priority: number;
+  flow_name?: string;
+  flow_run_id?: string;
+}
+
+export interface ApiWorkerHealth {
+  worker_id: string;
+  status: string;
+  last_heartbeat: string;
+  current_task_id: string | null;
+  tasks_completed: number;
+  queue_name: string;
+  started_at: string;
+  version: string | null;
 }

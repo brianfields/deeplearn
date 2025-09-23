@@ -56,6 +56,11 @@ ignore = [
     "S101",   # Allow asserts in tests
     "PLR2004", # Allow magic values in tests
 ]
+"modules/**/test_*.py" = [
+    "ANN",    # Don't require type annotations in tests
+    "S101",   # Allow asserts in tests
+    "PLR2004", # Allow magic values in tests
+]
 
 [tool.ruff.lint.isort]
 known-first-party = ["src"]

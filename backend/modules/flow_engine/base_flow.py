@@ -115,6 +115,57 @@ class BaseFlow(ABC):
         # Execute the flow logic
         return await self._execute_flow_logic(inputs)
 
+    async def execute_arq(self, inputs: dict[str, Any], **kwargs: FlowExecutionKwargs) -> uuid.UUID:
+        """
+        Execute the flow using ARQ background task queue and return the flow run ID for tracking.
+
+        Args:
+            inputs: Dictionary of input parameters
+            **kwargs: Additional parameters (user_id, etc.)
+
+        Returns:
+            Flow run ID that can be used to track progress
+        """
+        # Get infrastructure and task queue services
+        infra = infrastructure_provider()
+        infra.initialize()
+        llm_services = llm_services_provider()
+
+        # Import here to avoid circular imports
+        from ..task_queue.public import task_queue_provider  # noqa: PLC0415
+
+        task_queue = task_queue_provider()
+
+        # Validate inputs if model is defined
+        if self.inputs_model:
+            validated_inputs = self.inputs_model(**inputs)
+            inputs = validated_inputs.model_dump()
+
+        user_id = cast(uuid.UUID | None, kwargs.get("user_id"))
+
+        logger.info(f"🚀 Starting ARQ flow: {self.flow_name}")
+        logger.debug(f"Flow inputs: {list(inputs.keys()) if isinstance(inputs, dict) else 'N/A'}")
+
+        # Create flow run record first in a separate session
+        flow_run_id: uuid.UUID
+        with infra.get_session_context() as db_session:
+            service = FlowEngineService(FlowRunRepo(db_session), FlowStepRunRepo(db_session), llm_services)
+
+            # Create flow run record with ARQ execution mode
+            flow_run_id = await service.create_flow_run_record(flow_name=self.flow_name, inputs=inputs, user_id=user_id, execution_mode="arq")
+
+        # Submit task to ARQ queue
+        task_result = await task_queue.submit_flow_task(
+            flow_name=self.flow_name,
+            flow_run_id=flow_run_id,
+            inputs=inputs,
+            user_id=user_id,
+        )
+
+        logger.info(f"✅ Flow task submitted to ARQ: {self.flow_name} (task_id={task_result.task_id})")
+
+        return flow_run_id
+
     @abstractmethod
     async def _execute_flow_logic(self, inputs: dict[str, Any]) -> dict[str, Any]:
         """

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 import os
 from pathlib import Path
 from types import TracebackType
-from typing import Any, cast
+from typing import Any, Optional, cast
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
@@ -17,11 +17,20 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 try:
+    import redis.asyncio as redis_async
+
+    REDIS_AVAILABLE = True
+except ImportError:
+    REDIS_AVAILABLE = False
+
+try:
     from dotenv import load_dotenv
 
     DOTENV_AVAILABLE = True
 except ImportError:
     DOTENV_AVAILABLE = False
+
+from .models import RedisConfig
 
 
 # DTOs for external consumption
@@ -99,6 +108,12 @@ class DatabaseConnectionError(InfrastructureError):
     pass
 
 
+class RedisConnectionError(InfrastructureError):
+    """Exception raised for Redis connection errors."""
+
+    pass
+
+
 class ConfigurationError(InfrastructureError):
     """Exception raised for configuration errors."""
 
@@ -118,7 +133,9 @@ class InfrastructureService:
     def __init__(self) -> None:
         self.engine: Engine | None = None
         self.session_factory: sessionmaker[Session] | None = None
+        self.redis_connection: redis_async.Redis | None = None
         self.database_config = DatabaseConfig()
+        self.redis_config = RedisConfig()
         self.api_config = APIConfig()
         self.logging_config = LoggingConfig()
         self.values: dict[str, Any] = {}
@@ -139,6 +156,7 @@ class InfrastructureService:
 
         self._load_configuration(env_file)
         self._setup_database_connection()
+        self._setup_redis_connection()
         self._initialized = True
 
     def _load_configuration(self, env_file: str | None = None) -> None:
@@ -191,6 +209,13 @@ class InfrastructureService:
         self.values["database_password"] = os.getenv("DATABASE_PASSWORD")
         self.values["database_echo"] = os.getenv("DATABASE_ECHO", "false").lower() == "true"
 
+        # Redis Configuration
+        self.values["redis_url"] = os.getenv("REDIS_URL")
+        self.values["redis_host"] = os.getenv("REDIS_HOST", "localhost")
+        self.values["redis_port"] = int(os.getenv("REDIS_PORT", "6379"))
+        self.values["redis_password"] = os.getenv("REDIS_PASSWORD")
+        self.values["redis_db"] = int(os.getenv("REDIS_DB", "0"))
+
         # API Configuration
         self.values["api_port"] = int(os.getenv("API_PORT", "8000"))
         self.values["api_host"] = os.getenv("API_HOST", "0.0.0.0")  # noqa: S104
@@ -217,6 +242,15 @@ class InfrastructureService:
             user=self.values.get("database_user", "postgres"),
             password=self.values.get("database_password"),
             echo=self.values.get("database_echo", False),
+        )
+
+        # Redis config
+        self.redis_config = RedisConfig(
+            url=self.values.get("redis_url"),
+            host=self.values.get("redis_host", "localhost"),
+            port=self.values.get("redis_port", 6379),
+            password=self.values.get("redis_password"),
+            db=self.values.get("redis_db", 0),
         )
 
         # API config
@@ -252,10 +286,44 @@ class InfrastructureService:
                 engine_kwargs["pool_recycle"] = self.database_config.pool_recycle
 
             self.engine = create_engine(database_url, **engine_kwargs)
-            self.session_factory = sessionmaker(bind=self.engine, class_=Session, autoflush=False, autocommit=False)  # type: ignore[type-var]
+            self.session_factory = sessionmaker(bind=self.engine, class_=Session, autoflush=False, autocommit=False)
 
         except SQLAlchemyError as e:
             raise DatabaseConnectionError(f"Failed to connect to database: {e}") from e
+
+    def _setup_redis_connection(self) -> None:
+        """Set up Redis connection."""
+        if not REDIS_AVAILABLE:
+            return  # Redis not available, skip setup
+
+        redis_url = self.get_redis_url()
+        if not redis_url:
+            return  # No Redis configuration
+
+        try:
+            # Use redis URL if available, otherwise build from components
+            if self.redis_config.url:
+                self.redis_connection = redis_async.from_url(
+                    self.redis_config.url,
+                    max_connections=self.redis_config.max_connections,
+                    socket_timeout=self.redis_config.socket_timeout,
+                    socket_connect_timeout=self.redis_config.connection_timeout,
+                    health_check_interval=self.redis_config.health_check_interval,
+                )
+            else:
+                self.redis_connection = redis_async.Redis(
+                    host=self.redis_config.host,
+                    port=self.redis_config.port,
+                    password=self.redis_config.password,
+                    db=self.redis_config.db,
+                    max_connections=self.redis_config.max_connections,
+                    socket_timeout=self.redis_config.socket_timeout,
+                    socket_connect_timeout=self.redis_config.connection_timeout,
+                    health_check_interval=self.redis_config.health_check_interval,
+                )
+
+        except Exception as e:
+            raise RedisConnectionError(f"Failed to connect to Redis: {e}") from e
 
     def get_database_url(self) -> str | None:
         """
@@ -271,6 +339,41 @@ class InfrastructureService:
             return None
 
         return f"postgresql://{self.database_config.user}:{self.database_config.password}@{self.database_config.host}:{self.database_config.port}/{self.database_config.name}"
+
+    def get_redis_url(self) -> str | None:
+        """
+        Get Redis URL for connection.
+
+        Returns:
+            Redis URL or None if not configured
+        """
+        if self.redis_config.url:
+            return self.redis_config.url
+
+        # Build Redis URL from components if password is available
+        if self.redis_config.password:
+            return f"redis://:{self.redis_config.password}@{self.redis_config.host}:{self.redis_config.port}/{self.redis_config.db}"
+        else:
+            return f"redis://{self.redis_config.host}:{self.redis_config.port}/{self.redis_config.db}"
+
+    def get_redis_connection(self) -> Optional["redis_async.Redis"]:
+        """
+        Get Redis connection.
+
+        Returns:
+            Redis connection or None if not available/configured
+
+        Raises:
+            RuntimeError: If infrastructure not initialized
+            RedisConnectionError: If Redis connection is not available
+        """
+        if not self._initialized:
+            raise RuntimeError("Infrastructure service not initialized. Call initialize() first.")
+
+        if not REDIS_AVAILABLE:
+            raise RedisConnectionError("Redis library not available. Install redis package.")
+
+        return self.redis_connection
 
     def get_database_session(self) -> DatabaseSession:
         """
@@ -359,7 +462,7 @@ class InfrastructureService:
 
     def validate_environment(self) -> EnvironmentStatus:
         """
-        Validate infrastructure environment.
+        Validate infrastructure environment (synchronous version).
 
         Returns:
             Environment validation status
@@ -376,10 +479,50 @@ class InfrastructureService:
 
         # Validate database connection
         if self.engine:
-            if not self._health_check():
+            if not self._health_check_database():
                 errors.append("Database connection is not healthy")
         else:
             errors.append("Database connection not initialized")
+
+        # Validate Redis connection (required for ARQ task queue)
+        if self.redis_connection:
+            if not self._health_check_redis_sync():
+                errors.append("Redis connection is not healthy")
+        else:
+            errors.append("Redis connection not initialized - required for ARQ task queue")
+
+        return EnvironmentStatus(is_valid=len(errors) == 0, errors=errors)
+
+    async def validate_environment_async(self) -> EnvironmentStatus:
+        """
+        Validate infrastructure environment (async version for Redis ping).
+
+        Returns:
+            Environment validation status
+        """
+        if not self._initialized:
+            return EnvironmentStatus(is_valid=False, errors=["Infrastructure service not initialized"])
+
+        errors = []
+
+        # Validate configuration
+        missing_config = self._validate_required_config()
+        if missing_config:
+            errors.extend([f"Missing configuration: {config}" for config in missing_config])
+
+        # Validate database connection
+        if self.engine:
+            if not self._health_check_database():
+                errors.append("Database connection is not healthy")
+        else:
+            errors.append("Database connection not initialized")
+
+        # Validate Redis connection (required for ARQ task queue)
+        if self.redis_connection:
+            if not await self._health_check_redis():
+                errors.append("Redis connection is not healthy")
+        else:
+            errors.append("Redis connection not initialized - required for ARQ task queue")
 
         return EnvironmentStatus(is_valid=len(errors) == 0, errors=errors)
 
@@ -390,7 +533,7 @@ class InfrastructureService:
         Returns:
             List of missing required configuration keys
         """
-        required = ["database_url"]
+        required = ["database_url", "redis_url"]
         missing = []
 
         for key in required:
@@ -398,12 +541,16 @@ class InfrastructureService:
                 # Database URL can be constructed from components
                 if not self.get_database_url():
                     missing.append("database_url or database connection components")
+            elif key == "redis_url":
+                # Redis URL can be constructed from components
+                if not self.get_redis_url():
+                    missing.append("redis_url or redis connection components")
             elif not self.values.get(key):
                 missing.append(key)
 
         return missing
 
-    def _health_check(self) -> bool:
+    def _health_check_database(self) -> bool:
         """
         Check if database connection is healthy.
 
@@ -420,6 +567,33 @@ class InfrastructureService:
         except SQLAlchemyError:
             return False
 
+    def _health_check_redis_sync(self) -> bool:
+        """
+        Check if Redis connection is healthy (synchronous version).
+
+        Returns:
+            True if connection is healthy, False otherwise
+        """
+        # For synchronous check, we'll just verify connection exists
+        # Full health check requires async ping
+        return self.redis_connection is not None
+
+    async def _health_check_redis(self) -> bool:
+        """
+        Check if Redis connection is healthy.
+
+        Returns:
+            True if connection is healthy, False otherwise
+        """
+        if self.redis_connection is None:
+            return False
+
+        try:
+            await self.redis_connection.ping()
+            return True
+        except Exception:
+            return False
+
     def get_database_config(self) -> DatabaseConfig:
         """
         Get database configuration.
@@ -432,7 +606,19 @@ class InfrastructureService:
 
         return self.database_config
 
-    def shutdown(self) -> None:
+    def get_redis_config(self) -> RedisConfig:
+        """
+        Get Redis configuration.
+
+        Returns:
+            Redis configuration
+        """
+        if not self._initialized:
+            raise RuntimeError("Infrastructure service not initialized. Call initialize() first.")
+
+        return self.redis_config
+
+    async def shutdown(self) -> None:
         """
         Shutdown infrastructure service and cleanup resources.
         """
@@ -440,6 +626,10 @@ class InfrastructureService:
             self.engine.dispose()
             self.engine = None
             self.session_factory = None
+
+        if self.redis_connection:
+            await self.redis_connection.aclose()
+            self.redis_connection = None
 
         self._initialized = False
 

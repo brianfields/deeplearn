@@ -624,7 +624,7 @@ async def main() -> None:
             if args.verbose:
                 print("💾 Saving lessons with packages to database...")
 
-            # Create unit (populate new generation fields for admin/UI and tests)
+            # Create main unit (populate new generation fields for admin/UI and tests)
             unit = UnitModel(
                 id=unit_id,
                 title=args.unit_title,
@@ -639,9 +639,105 @@ async def main() -> None:
                 target_lesson_count=10,
                 source_material=("This unit introduces cross-entropy loss and softmax probabilities for classification.\nIt covers the intuition, mathematical formulation, and practical implementation."),
                 generated_from_topic=True,
+                flow_type="standard",
+                status="completed",  # Default completed unit
             )
             db_session.add(unit)
-            # Ensure unit exists before inserting lessons that reference it
+
+            # Create additional test units with different statuses for UI testing
+            if args.verbose:
+                print("🧱 Creating additional test units with various statuses...")
+
+            # In-progress unit
+            in_progress_unit_id = str(uuid.uuid4())
+            in_progress_unit = UnitModel(
+                id=in_progress_unit_id,
+                title="Natural Language Processing Fundamentals",
+                description="Learn the basics of text processing and language models",
+                difficulty="intermediate",
+                lesson_order=[],  # No lessons yet since it's being generated
+                learning_objectives=[
+                    {"lo_id": "nlp_lo_1", "text": "Understand text tokenization and preprocessing", "bloom_level": "Understand"},
+                    {"lo_id": "nlp_lo_2", "text": "Implement word embeddings", "bloom_level": "Apply"},
+                ],
+                target_lesson_count=8,
+                source_material=None,
+                generated_from_topic=True,
+                flow_type="fast",
+                status="in_progress",
+                creation_progress={"stage": "generating_lessons", "message": "Creating lesson 3 of 8: Word Embeddings"},
+                error_message=None,
+            )
+            db_session.add(in_progress_unit)
+
+            # Failed unit with error message
+            failed_unit_id = str(uuid.uuid4())
+            failed_unit = UnitModel(
+                id=failed_unit_id,
+                title="Advanced Quantum Computing",
+                description="Deep dive into quantum algorithms and error correction",
+                difficulty="advanced",
+                lesson_order=[],
+                learning_objectives=[
+                    {"lo_id": "qc_lo_1", "text": "Implement Shor's algorithm", "bloom_level": "Apply"},
+                    {"lo_id": "qc_lo_2", "text": "Design quantum error correction codes", "bloom_level": "Create"},
+                ],
+                target_lesson_count=15,
+                source_material=None,
+                generated_from_topic=True,
+                flow_type="standard",
+                status="failed",
+                creation_progress={"stage": "content_generation_failed", "message": "Failed to generate content"},
+                error_message="Unable to generate sufficient content for advanced quantum computing topics. Please try with more specific learning objectives or source material.",
+            )
+            db_session.add(failed_unit)
+
+            # Draft unit (newly created, not started yet)
+            draft_unit_id = str(uuid.uuid4())
+            draft_unit = UnitModel(
+                id=draft_unit_id,
+                title="Introduction to Data Visualization",
+                description="Learn to create compelling visualizations with Python",
+                difficulty="beginner",
+                lesson_order=[],
+                learning_objectives=[
+                    {"lo_id": "viz_lo_1", "text": "Create basic plots with matplotlib", "bloom_level": "Apply"},
+                    {"lo_id": "viz_lo_2", "text": "Design interactive dashboards", "bloom_level": "Create"},
+                ],
+                target_lesson_count=6,
+                source_material=None,
+                generated_from_topic=True,
+                flow_type="fast",
+                status="draft",
+                creation_progress=None,
+                error_message=None,
+            )
+            db_session.add(draft_unit)
+
+            # Another completed unit for variety
+            completed_unit_2_id = str(uuid.uuid4())
+            completed_unit_2 = UnitModel(
+                id=completed_unit_2_id,
+                title="Statistics for Data Science",
+                description="Essential statistical concepts for data analysis",
+                difficulty="intermediate",
+                lesson_order=[],  # Would normally have lesson IDs
+                learning_objectives=[
+                    {"lo_id": "stats_lo_1", "text": "Calculate and interpret confidence intervals", "bloom_level": "Apply"},
+                    {"lo_id": "stats_lo_2", "text": "Perform hypothesis testing", "bloom_level": "Analyze"},
+                    {"lo_id": "stats_lo_3", "text": "Apply regression analysis", "bloom_level": "Apply"},
+                ],
+                target_lesson_count=12,
+                source_material="Comprehensive statistical methods for data science applications",
+                generated_from_topic=False,  # Created from source material
+                flow_type="standard",
+                status="completed",
+                creation_progress=None,
+                error_message=None,
+            )
+            db_session.add(completed_unit_2)
+
+            # Ensure all units exist before inserting lessons that reference them
             db_session.flush()
 
             # Create lessons with embedded packages and link to unit
@@ -678,17 +774,25 @@ async def main() -> None:
         glossary_terms_count_2 = len(package_2["glossary"]["terms"])
 
         print("✅ Seed data created successfully!")
-        print(f"   • Unit ID: {unit_id}")
-        print(f"   • Unit: {args.unit_title} — lessons: 2")
+        print(f"   • Main Unit ID: {unit_id}")
+        print(f"   • Main Unit: {args.unit_title} — lessons: 2, status: completed")
         print(f"   • Lesson 1 ID: {lesson_id_1} — {lesson_data_1['title']}")
         print(f"     • Exercises: {exercises_count_1}; Glossary terms: {glossary_terms_count_1}")
         print(f"   • Lesson 2 ID: {lesson_id_2} — {lesson_data_2['title']}")
         print(f"     • Exercises: {exercises_count_2}; Glossary terms: {glossary_terms_count_2}")
         print(f"   • Package versions: {lesson_data_1['package_version']}, {lesson_data_2['package_version']}")
+        print()
+        print("📋 Test Units for UI Testing:")
+        print(f"   • In Progress: {in_progress_unit_id} — Natural Language Processing Fundamentals")
+        print(f"   • Failed: {failed_unit_id} — Advanced Quantum Computing (with error message)")
+        print(f"   • Draft: {draft_unit_id} — Introduction to Data Visualization")
+        print(f"   • Completed: {completed_unit_2_id} — Statistics for Data Science")
+        print()
         print("   • Flow runs: 2")
         print(f"   • Step runs: {len(step_runs_1) + len(step_runs_2)}")
         print(f"   • LLM requests: {len(llm_requests_1) + len(llm_requests_2)}")
         print(f"   • Frontend URL (lesson 1): http://localhost:3000/learn/{lesson_id_1}?mode=learning")
+        print("   • Mobile Units URL: http://localhost:3000/units")
 
         # Save summary if requested
         if args.output:

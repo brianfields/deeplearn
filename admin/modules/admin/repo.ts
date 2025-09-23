@@ -156,4 +156,43 @@ export const AdminRepo = {
       return data;
     },
   },
+
+  // ---- Task Queue Endpoints ----
+  taskQueue: {
+    async status(): Promise<any[]> {
+      const { data } = await apiClient.get('/task-queue/status');
+      return Array.isArray(data) ? data : [data];
+    },
+
+    async stats(): Promise<any[]> {
+      const { data } = await apiClient.get('/task-queue/stats');
+      return Array.isArray(data) ? data : [data];
+    },
+
+    async tasks(limit: number = 50): Promise<any[]> {
+      const { data } = await apiClient.get(`/task-queue/tasks?limit=${limit}`);
+      return data;
+    },
+
+    async taskById(taskId: string): Promise<any> {
+      const { data } = await apiClient.get(`/task-queue/tasks/${taskId}`);
+      return data;
+    },
+
+    async workers(): Promise<any[]> {
+      const { data } = await apiClient.get('/task-queue/workers');
+      return data;
+    },
+
+    async status(): Promise<any[]> {
+      const { data } = await apiClient.get('/task-queue/status');
+      // Wrap single queue object in array for consistency with service expectations
+      return Array.isArray(data) ? data : [data];
+    },
+
+    async health(): Promise<{ status: string; details: Record<string, any> }> {
+      const { data } = await apiClient.get('/task-queue/health');
+      return data;
+    },
+  },
 };
