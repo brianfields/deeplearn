@@ -5,16 +5,16 @@
  */
 
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-} from 'react-native';
+import { View, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { X, Check } from 'lucide-react-native';
 
 import { LessonFilters } from '../models';
+import {
+  Text,
+  Button,
+  uiSystemProvider,
+  useHaptics,
+} from '../../ui_system/public';
 
 interface SearchFiltersProps {
   filters: LessonFilters;
@@ -28,9 +28,13 @@ export function SearchFilters({
   onClose,
 }: SearchFiltersProps) {
   const [localFilters, setLocalFilters] = useState<LessonFilters>(filters);
+  const ui = uiSystemProvider();
+  const theme = ui.getCurrentTheme();
+  const { trigger } = useHaptics();
 
   const handleApplyFilters = () => {
     onFiltersChange(localFilters);
+    trigger('medium');
     onClose?.();
   };
 
@@ -38,6 +42,7 @@ export function SearchFilters({
     const clearedFilters: LessonFilters = {};
     setLocalFilters(clearedFilters);
     onFiltersChange(clearedFilters);
+    trigger('light');
     onClose?.();
   };
 
@@ -52,46 +57,102 @@ export function SearchFilters({
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Filter Lessons</Text>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: theme.colors.surface,
+          borderTopLeftRadius: 20,
+          borderTopRightRadius: 20,
+        },
+      ]}
+    >
+      {/* Grabber bar for sheet affordance */}
+      <View
+        style={{
+          alignItems: 'center',
+          paddingTop: ui.getSpacing('sm'),
+        }}
+      >
+        <View
+          style={{
+            width: 36,
+            height: 4,
+            borderRadius: 2,
+            backgroundColor: theme.colors.textSecondary,
+            opacity: 0.2,
+          }}
+        />
+      </View>
+
+      <View
+        style={[
+          styles.header,
+          {
+            padding: ui.getSpacing('lg'),
+            borderBottomWidth: StyleSheet.hairlineWidth,
+            borderBottomColor: theme.colors.border,
+          },
+        ]}
+      >
+        <Text variant="h2">Filter Lessons</Text>
         {onClose && (
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <X size={24} color="#6B7280" />
+            <X size={24} color={theme.colors.textSecondary} />
           </TouchableOpacity>
         )}
       </View>
 
-      <ScrollView style={styles.content}>
+      <ScrollView
+        style={[styles.content, { padding: ui.getSpacing('lg') }]}
+        contentContainerStyle={{ paddingBottom: ui.getSpacing('lg') }}
+      >
         {/* User Level Filter */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Difficulty Level</Text>
-          <View style={styles.optionGroup}>
+        <View style={[styles.section, { marginBottom: ui.getSpacing('lg') }]}>
+          <Text variant="title" weight="700">
+            Difficulty Level
+          </Text>
+          <View style={[styles.optionGroup, { gap: ui.getSpacing('xs') }]}>
             {(['beginner', 'intermediate', 'advanced'] as const).map(level => (
               <TouchableOpacity
                 key={level}
                 style={[
                   styles.option,
-                  localFilters.userLevel === level && styles.optionSelected,
+                  {
+                    borderRadius: 12,
+                    borderWidth: StyleSheet.hairlineWidth,
+                    borderColor: theme.colors.border,
+                    backgroundColor: theme.colors.surface,
+                    minHeight: 44,
+                    padding: ui.getSpacing('sm'),
+                  },
+                  localFilters.userLevel === level && {
+                    backgroundColor: theme.colors.primary,
+                    borderColor: theme.colors.primary,
+                  },
                 ]}
-                onPress={() =>
+                onPress={() => {
+                  trigger('medium');
                   updateFilter(
                     'userLevel',
                     localFilters.userLevel === level ? undefined : level
-                  )
-                }
+                  );
+                }}
               >
                 <Text
-                  style={[
-                    styles.optionText,
-                    localFilters.userLevel === level &&
-                      styles.optionTextSelected,
-                  ]}
+                  style={{ flex: 1 }}
+                  variant="body"
+                  color={
+                    localFilters.userLevel === level
+                      ? theme.colors.surface
+                      : theme.colors.text
+                  }
+                  weight={localFilters.userLevel === level ? '600' : undefined}
                 >
                   {level.charAt(0).toUpperCase() + level.slice(1)}
                 </Text>
                 {localFilters.userLevel === level && (
-                  <Check size={16} color="#FFFFFF" />
+                  <Check size={16} color={theme.colors.surface} />
                 )}
               </TouchableOpacity>
             ))}
@@ -99,42 +160,70 @@ export function SearchFilters({
         </View>
 
         {/* Duration Filter */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Duration</Text>
-          <View style={styles.optionGroup}>
+        <View style={[styles.section, { marginBottom: ui.getSpacing('lg') }]}>
+          <Text variant="title" weight="700">
+            Duration
+          </Text>
+          <View style={[styles.optionGroup, { gap: ui.getSpacing('xs') }]}>
             <TouchableOpacity
               style={[
                 styles.option,
-                localFilters.maxDuration === 15 && styles.optionSelected,
+                {
+                  borderRadius: 12,
+                  borderWidth: StyleSheet.hairlineWidth,
+                  borderColor: theme.colors.border,
+                  backgroundColor: theme.colors.surface,
+                  minHeight: 44,
+                  padding: ui.getSpacing('sm'),
+                },
+                localFilters.maxDuration === 15 && {
+                  backgroundColor: theme.colors.primary,
+                  borderColor: theme.colors.primary,
+                },
               ]}
-              onPress={() =>
+              onPress={() => {
+                trigger('medium');
                 updateFilter(
                   'maxDuration',
                   localFilters.maxDuration === 15 ? undefined : 15
-                )
-              }
+                );
+              }}
             >
               <Text
-                style={[
-                  styles.optionText,
-                  localFilters.maxDuration === 15 && styles.optionTextSelected,
-                ]}
+                variant="body"
+                color={
+                  localFilters.maxDuration === 15
+                    ? theme.colors.surface
+                    : theme.colors.text
+                }
+                weight={localFilters.maxDuration === 15 ? '600' : undefined}
               >
                 Quick (≤15 min)
               </Text>
               {localFilters.maxDuration === 15 && (
-                <Check size={16} color="#FFFFFF" />
+                <Check size={16} color={theme.colors.surface} />
               )}
             </TouchableOpacity>
 
             <TouchableOpacity
               style={[
                 styles.option,
+                {
+                  borderRadius: 12,
+                  borderWidth: StyleSheet.hairlineWidth,
+                  borderColor: theme.colors.border,
+                  backgroundColor: theme.colors.surface,
+                  minHeight: 44,
+                  padding: ui.getSpacing('sm'),
+                },
                 localFilters.minDuration === 16 &&
-                  localFilters.maxDuration === 30 &&
-                  styles.optionSelected,
+                  localFilters.maxDuration === 30 && {
+                    backgroundColor: theme.colors.primary,
+                    borderColor: theme.colors.primary,
+                  },
               ]}
               onPress={() => {
+                trigger('medium');
                 if (
                   localFilters.minDuration === 16 &&
                   localFilters.maxDuration === 30
@@ -148,92 +237,140 @@ export function SearchFilters({
               }}
             >
               <Text
-                style={[
-                  styles.optionText,
+                variant="body"
+                color={
                   localFilters.minDuration === 16 &&
-                    localFilters.maxDuration === 30 &&
-                    styles.optionTextSelected,
-                ]}
+                  localFilters.maxDuration === 30
+                    ? theme.colors.surface
+                    : theme.colors.text
+                }
+                weight={
+                  localFilters.minDuration === 16 &&
+                  localFilters.maxDuration === 30
+                    ? '600'
+                    : undefined
+                }
               >
                 Medium (16-30 min)
               </Text>
               {localFilters.minDuration === 16 &&
                 localFilters.maxDuration === 30 && (
-                  <Check size={16} color="#FFFFFF" />
+                  <Check size={16} color={theme.colors.surface} />
                 )}
             </TouchableOpacity>
 
             <TouchableOpacity
               style={[
                 styles.option,
-                localFilters.minDuration === 31 && styles.optionSelected,
+                {
+                  borderRadius: 12,
+                  borderWidth: StyleSheet.hairlineWidth,
+                  borderColor: theme.colors.border,
+                  backgroundColor: theme.colors.surface,
+                  minHeight: 44,
+                  padding: ui.getSpacing('sm'),
+                },
+                localFilters.minDuration === 31 && {
+                  backgroundColor: theme.colors.primary,
+                  borderColor: theme.colors.primary,
+                },
               ]}
-              onPress={() =>
+              onPress={() => {
+                trigger('medium');
                 updateFilter(
                   'minDuration',
                   localFilters.minDuration === 31 ? undefined : 31
-                )
-              }
+                );
+              }}
             >
               <Text
-                style={[
-                  styles.optionText,
-                  localFilters.minDuration === 31 && styles.optionTextSelected,
-                ]}
+                variant="body"
+                color={
+                  localFilters.minDuration === 31
+                    ? theme.colors.surface
+                    : theme.colors.text
+                }
+                weight={localFilters.minDuration === 31 ? '600' : undefined}
               >
                 Long ({'>'}30 min)
               </Text>
               {localFilters.minDuration === 31 && (
-                <Check size={16} color="#FFFFFF" />
+                <Check size={16} color={theme.colors.surface} />
               )}
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Readiness Filter */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Availability</Text>
+        <View style={[styles.section, { marginBottom: ui.getSpacing('lg') }]}>
+          <Text variant="title" weight="700">
+            Availability
+          </Text>
           <TouchableOpacity
             style={[
               styles.option,
-              localFilters.readyOnly === true && styles.optionSelected,
+              {
+                borderRadius: 12,
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: theme.colors.border,
+                backgroundColor: theme.colors.surface,
+                minHeight: 44,
+                padding: ui.getSpacing('sm'),
+              },
+              localFilters.readyOnly === true && {
+                backgroundColor: theme.colors.primary,
+                borderColor: theme.colors.primary,
+              },
             ]}
-            onPress={() =>
+            onPress={() => {
+              trigger('medium');
               updateFilter(
                 'readyOnly',
                 localFilters.readyOnly === true ? undefined : true
-              )
-            }
+              );
+            }}
           >
             <Text
-              style={[
-                styles.optionText,
-                localFilters.readyOnly === true && styles.optionTextSelected,
-              ]}
+              variant="body"
+              color={
+                localFilters.readyOnly === true
+                  ? theme.colors.surface
+                  : theme.colors.text
+              }
+              weight={localFilters.readyOnly === true ? '600' : undefined}
             >
               Ready for Learning Only
             </Text>
             {localFilters.readyOnly === true && (
-              <Check size={16} color="#FFFFFF" />
+              <Check size={16} color={theme.colors.surface} />
             )}
           </TouchableOpacity>
         </View>
       </ScrollView>
 
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={styles.clearButton}
+      <View
+        style={{
+          flexDirection: 'row',
+          padding: ui.getSpacing('lg'),
+          gap: ui.getSpacing('sm'),
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: theme.colors.border,
+        }}
+      >
+        <Button
+          title="Clear All"
+          variant="secondary"
+          size="medium"
           onPress={handleClearFilters}
-        >
-          <Text style={styles.clearButtonText}>Clear All</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.applyButton}
+          fullWidth
+        />
+        <Button
+          title="Apply Filters"
+          variant="primary"
+          size="medium"
           onPress={handleApplyFilters}
-        >
-          <Text style={styles.applyButtonText}>Apply Filters</Text>
-        </TouchableOpacity>
+          fullWidth
+        />
       </View>
     </View>
   );
@@ -241,95 +378,28 @@ export function SearchFilters({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
     maxHeight: '80%',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#111827',
   },
   closeButton: {
     padding: 4,
   },
   content: {
     flex: 1,
-    padding: 20,
   },
   section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 12,
+    // margin provided dynamically
   },
   optionGroup: {
-    gap: 8,
+    // gap provided dynamically
   },
   option: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-  },
-  optionSelected: {
-    backgroundColor: '#3B82F6',
-    borderColor: '#3B82F6',
-  },
-  optionText: {
-    fontSize: 14,
-    color: '#374151',
-  },
-  optionTextSelected: {
-    color: '#FFFFFF',
-    fontWeight: '500',
-  },
-  footer: {
-    flexDirection: 'row',
-    padding: 20,
-    gap: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-  },
-  clearButton: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    alignItems: 'center',
-  },
-  clearButtonText: {
-    fontSize: 16,
-    color: '#374151',
-    fontWeight: '500',
-  },
-  applyButton: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: '#3B82F6',
-    alignItems: 'center',
-  },
-  applyButtonText: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    fontWeight: '600',
   },
 });

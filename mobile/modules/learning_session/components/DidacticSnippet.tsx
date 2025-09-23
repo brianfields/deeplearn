@@ -17,6 +17,7 @@ import Animated, {
   useSharedValue,
   withSpring,
   withTiming,
+  Easing,
 } from 'react-native-reanimated';
 
 // Icons
@@ -28,8 +29,10 @@ import {
 } from 'lucide-react-native';
 
 // Components
-import { Button, Card } from '../../ui_system/public';
+import { Button, Card, useHaptics } from '../../ui_system/public';
 import { uiSystemProvider } from '../../ui_system/public';
+import { reducedMotion } from '../../ui_system/utils/motion';
+import { animationTimings } from '../../ui_system/utils/animations';
 
 interface DidacticSnippetProps {
   snippet: {
@@ -53,6 +56,7 @@ export default function DidacticSnippet({
   const uiSystem = uiSystemProvider();
   const theme = uiSystem.getCurrentTheme();
   const styles = createStyles(theme);
+  const haptics = useHaptics();
 
   const [hasScrolled, setHasScrolled] = useState(false);
 
@@ -68,16 +72,26 @@ export default function DidacticSnippet({
 
     if (isScrolledToBottom && !hasScrolled) {
       setHasScrolled(true);
-      continueButtonOpacity.value = withSpring(1, {
-        damping: 15,
-        stiffness: 150,
-      });
+      if (reducedMotion.enabled) {
+        continueButtonOpacity.value = 1;
+      } else {
+        continueButtonOpacity.value = withSpring(1, {
+          damping: 15,
+          stiffness: 150,
+        });
+      }
     }
   };
 
   const continueButtonStyle = useAnimatedStyle(() => ({
     opacity: continueButtonOpacity.value,
-    transform: [{ translateY: withTiming(hasScrolled ? 0 : 20) }],
+    transform: [
+      {
+        translateY: reducedMotion.enabled
+          ? 0
+          : withTiming(hasScrolled ? 0 : 20),
+      },
+    ],
   }));
 
   // Show continue button after short delay if content is short
@@ -85,7 +99,7 @@ export default function DidacticSnippet({
     const timer = setTimeout(() => {
       if (!hasScrolled) {
         setHasScrolled(true);
-        continueButtonOpacity.value = withSpring(1);
+        continueButtonOpacity.value = reducedMotion.enabled ? 1 : withSpring(1);
       }
     }, 3000); // Show after 3 seconds even if not scrolled
 
@@ -115,14 +129,29 @@ export default function DidacticSnippet({
   return (
     <View style={styles.container}>
       {/* Clean Title */}
-      <Animated.View entering={FadeIn} style={styles.titleSection}>
+      <Animated.View
+        entering={
+          reducedMotion.enabled
+            ? undefined
+            : FadeIn.duration(animationTimings.ui).easing(
+                Easing.bezier(0.2, 0.8, 0.2, 1)
+              )
+        }
+        style={styles.titleSection}
+      >
         <Text style={styles.title}>{title}</Text>
         {core_concept && <Text style={styles.subtitle}>{core_concept}</Text>}
       </Animated.View>
 
       {/* Main Content */}
       <Animated.View
-        entering={SlideInUp.delay(200)}
+        entering={
+          reducedMotion.enabled
+            ? undefined
+            : SlideInUp.delay(200)
+                .duration(animationTimings.ui)
+                .easing(Easing.bezier(0.2, 0.8, 0.2, 1))
+        }
         style={styles.contentContainer}
       >
         <ScrollView
@@ -141,14 +170,17 @@ export default function DidacticSnippet({
           {/* Key Points Section */}
           {key_points && key_points.length > 0 && (
             <Animated.View
-              entering={FadeIn.delay(400)}
+              entering={
+                reducedMotion.enabled
+                  ? undefined
+                  : FadeIn.delay(400)
+                      .duration(animationTimings.ui)
+                      .easing(Easing.bezier(0.2, 0.8, 0.2, 1))
+              }
               style={styles.keyPointsSection}
             >
               <View style={styles.keyPointsHeader}>
-                <Target
-                  size={20}
-                  color={theme.colors?.secondary || '#007AFF'}
-                />
+                <Target size={20} color={theme.colors.secondary} />
                 <Text style={styles.keyPointsTitle}>Key Points</Text>
               </View>
 
@@ -156,14 +188,17 @@ export default function DidacticSnippet({
                 {key_points.map((point, index) => (
                   <Animated.View
                     key={index}
-                    entering={FadeIn.delay(500 + index * 100)}
+                    entering={
+                      reducedMotion.enabled
+                        ? undefined
+                        : FadeIn.delay(500 + index * animationTimings.stagger)
+                            .duration(animationTimings.ui)
+                            .easing(Easing.bezier(0.2, 0.8, 0.2, 1))
+                    }
                     style={styles.keyPointItem}
                   >
                     <View style={styles.keyPointBullet}>
-                      <CheckCircle
-                        size={16}
-                        color={theme.colors?.secondary || '#007AFF'}
-                      />
+                      <CheckCircle size={16} color={theme.colors.secondary} />
                     </View>
                     <Text style={styles.keyPointText}>{point}</Text>
                   </Animated.View>
@@ -175,14 +210,17 @@ export default function DidacticSnippet({
           {/* Examples Section */}
           {examples && examples.length > 0 && (
             <Animated.View
-              entering={FadeIn.delay(600)}
+              entering={
+                reducedMotion.enabled
+                  ? undefined
+                  : FadeIn.delay(600)
+                      .duration(animationTimings.ui)
+                      .easing(Easing.bezier(0.2, 0.8, 0.2, 1))
+              }
               style={styles.examplesSection}
             >
               <View style={styles.examplesHeader}>
-                <Lightbulb
-                  size={20}
-                  color={theme.colors?.warning || '#FF9500'}
-                />
+                <Lightbulb size={20} color={theme.colors.warning} />
                 <Text style={styles.examplesTitle}>Examples</Text>
               </View>
 
@@ -190,7 +228,13 @@ export default function DidacticSnippet({
                 {examples.map((example, index) => (
                   <Animated.View
                     key={index}
-                    entering={FadeIn.delay(700 + index * 100)}
+                    entering={
+                      reducedMotion.enabled
+                        ? undefined
+                        : FadeIn.delay(700 + index * animationTimings.stagger)
+                            .duration(animationTimings.ui)
+                            .easing(Easing.bezier(0.2, 0.8, 0.2, 1))
+                    }
                     style={[
                       styles.exampleItem,
                       index !== examples.length - 1 && styles.exampleItemBorder,
@@ -214,7 +258,10 @@ export default function DidacticSnippet({
       >
         <Button
           title="Continue"
-          onPress={onContinue}
+          onPress={() => {
+            haptics.trigger('medium');
+            onContinue();
+          }}
           loading={isLoading}
           size="large"
           style={styles.continueButton}
@@ -232,7 +279,7 @@ export default function DidacticSnippet({
           <Animated.View style={styles.scrollArrow}>
             <ChevronRight
               size={16}
-              color={theme.colors?.textSecondary || '#666666'}
+              color={theme.colors.textSecondary}
               style={{ transform: [{ rotate: '90deg' }] }}
             />
           </Animated.View>
@@ -246,7 +293,7 @@ const createStyles = (theme: any) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: theme.colors?.background || '#FFFFFF',
+      backgroundColor: theme.colors.background,
     },
 
     errorContainer: {
@@ -258,7 +305,7 @@ const createStyles = (theme: any) =>
 
     errorText: {
       fontSize: 16,
-      color: theme.colors?.textSecondary || '#666666',
+      color: theme.colors.textSecondary,
       textAlign: 'center',
     },
 
@@ -269,18 +316,15 @@ const createStyles = (theme: any) =>
     },
 
     title: {
-      fontSize: 28,
-      fontWeight: '700' as const,
-      lineHeight: 34,
-      color: theme.colors?.text || '#000000',
+      ...theme.typography?.heading2,
+      color: theme.colors.text,
       marginBottom: 8,
+      fontWeight: 'normal',
     },
 
     subtitle: {
-      fontSize: 17,
-      fontWeight: '400' as const,
-      lineHeight: 22,
-      color: theme.colors?.textSecondary || '#666666',
+      ...theme.typography?.body,
+      color: theme.colors.textSecondary,
     },
 
     contentContainer: {
@@ -301,11 +345,8 @@ const createStyles = (theme: any) =>
     },
 
     contentText: {
-      fontSize: 17,
-      fontWeight: '400' as const,
-      lineHeight: 28,
-      color: theme.colors?.text || '#000000',
-      letterSpacing: -0.24,
+      ...theme.typography?.body,
+      color: theme.colors.text,
     },
 
     keyPointsSection: {
@@ -319,9 +360,8 @@ const createStyles = (theme: any) =>
     },
 
     keyPointsTitle: {
-      fontSize: 20,
-      fontWeight: '600' as const,
-      color: theme.colors?.text || '#000000',
+      ...theme.typography?.heading3,
+      color: theme.colors.text,
       marginLeft: 12,
     },
 
@@ -341,11 +381,9 @@ const createStyles = (theme: any) =>
     },
 
     keyPointText: {
-      fontSize: 16,
-      fontWeight: '400' as const,
-      color: theme.colors?.text || '#000000',
+      ...theme.typography?.body,
+      color: theme.colors.text,
       flex: 1,
-      lineHeight: 24,
     },
 
     examplesSection: {
@@ -359,10 +397,10 @@ const createStyles = (theme: any) =>
     },
 
     examplesTitle: {
-      fontSize: 20,
-      fontWeight: '600' as const,
-      color: theme.colors?.text || '#000000',
+      ...theme.typography?.heading3,
+      color: theme.colors.text,
       marginLeft: 12,
+      fontWeight: 'normal',
     },
 
     examplesCard: {
@@ -375,15 +413,13 @@ const createStyles = (theme: any) =>
 
     exampleItemBorder: {
       borderBottomWidth: 1,
-      borderBottomColor: theme.colors?.border || '#E5E5E7',
+      borderBottomColor: theme.colors.border,
     },
 
     exampleText: {
-      fontSize: 16,
-      fontWeight: '400' as const,
-      color: theme.colors?.text || '#000000',
+      ...theme.typography?.body,
+      color: theme.colors.text,
       fontStyle: 'italic',
-      lineHeight: 24,
     },
 
     bottomSpacing: {
@@ -397,16 +433,7 @@ const createStyles = (theme: any) =>
       right: 20,
     },
 
-    continueButton: {
-      shadowColor: '#000',
-      shadowOffset: {
-        width: 0,
-        height: 4,
-      },
-      shadowOpacity: 0.3,
-      shadowRadius: 4.65,
-      elevation: 8,
-    },
+    continueButton: {},
 
     scrollIndicator: {
       position: 'absolute',
@@ -417,7 +444,7 @@ const createStyles = (theme: any) =>
 
     scrollIndicatorText: {
       fontSize: 12,
-      color: theme.colors?.textSecondary || '#666666',
+      color: theme.colors.textSecondary,
       marginBottom: 8,
     },
 

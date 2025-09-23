@@ -5,12 +5,15 @@
  * This is a placeholder implementation compatible with the new modular structure.
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, SafeAreaView } from 'react-native';
 import { CheckCircle } from 'lucide-react-native';
+import Animated, { FadeIn, Easing } from 'react-native-reanimated';
+import { reducedMotion } from '../../ui_system/utils/motion';
+import { animationTimings } from '../../ui_system/utils/animations';
 
 // Components
-import { Button, Card } from '../../ui_system/public';
+import { Button, Card, useHaptics } from '../../ui_system/public';
 
 // Theme & Types
 import { uiSystemProvider } from '../../ui_system/public';
@@ -26,6 +29,12 @@ export default function ResultsScreen({ navigation, route }: Props) {
   const uiSystem = uiSystemProvider();
   const theme = uiSystem.getCurrentTheme();
   const { colors, spacing, typography } = theme;
+  const haptics = useHaptics();
+
+  useEffect(() => {
+    // Celebrate with success haptic on entry
+    haptics.trigger('success');
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Calculate performance metrics (SessionResults shape)
   const scorePercentage = Math.max(0, Math.min(100, results.scorePercentage));
@@ -69,7 +78,7 @@ export default function ResultsScreen({ navigation, route }: Props) {
       color: colors.text,
       textAlign: 'center',
       marginBottom: spacing.sm,
-      fontWeight: 'bold',
+      fontWeight: 'normal',
     },
     scoreContainer: {
       alignItems: 'center',
@@ -79,7 +88,7 @@ export default function ResultsScreen({ navigation, route }: Props) {
       ...typography.heading1,
       color: colors.primary,
       fontSize: 48,
-      fontWeight: 'bold',
+      fontWeight: 'normal',
     },
     scoreLabel: {
       fontSize: typography.body.fontSize,
@@ -106,7 +115,7 @@ export default function ResultsScreen({ navigation, route }: Props) {
       fontSize: typography.body.fontSize,
       lineHeight: typography.body.lineHeight,
       color: colors.primary,
-      fontWeight: '600',
+      fontWeight: 'normal',
     },
     actionsContainer: {
       gap: spacing.md,
@@ -120,47 +129,85 @@ export default function ResultsScreen({ navigation, route }: Props) {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         {/* Header */}
-        <View style={styles.header}>
+        <Animated.View
+          entering={
+            reducedMotion.enabled
+              ? undefined
+              : FadeIn.duration(animationTimings.ui).easing(
+                  Easing.bezier(0.2, 0.8, 0.2, 1)
+                )
+          }
+          style={styles.header}
+        >
           <View style={styles.iconContainer}>
             <CheckCircle size={40} color={colors.surface} />
           </View>
           <Text style={styles.title}>Session Complete!</Text>
-        </View>
+        </Animated.View>
 
         {/* Score */}
-        <Card style={styles.scoreContainer}>
-          <Text style={styles.scoreText} testID="results-score-percentage">
-            {Math.round(scorePercentage)}%
-          </Text>
-          <Text style={styles.scoreLabel}>Final Score</Text>
-        </Card>
+        <Animated.View
+          entering={
+            reducedMotion.enabled
+              ? undefined
+              : FadeIn.delay(150)
+                  .duration(animationTimings.ui)
+                  .easing(Easing.bezier(0.2, 0.8, 0.2, 1))
+          }
+        >
+          <Card style={styles.scoreContainer}>
+            <Text style={styles.scoreText} testID="results-score-percentage">
+              {Math.round(scorePercentage)}%
+            </Text>
+            <Text style={styles.scoreLabel}>Final Score</Text>
+          </Card>
+        </Animated.View>
 
         {/* Stats */}
-        <Card style={styles.statsContainer}>
-          <View style={styles.statRow}>
-            <Text style={styles.statLabel}>Time Spent</Text>
-            <Text style={styles.statValue} testID="results-time-spent">
-              {timeInMinutes} min
-            </Text>
-          </View>
-          <View style={styles.statRow}>
-            <Text style={styles.statLabel}>Steps Completed</Text>
-            <Text style={styles.statValue} testID="results-steps-completed">
-              {completedSteps}
-            </Text>
-          </View>
-          <View style={styles.statRow}>
-            <Text style={styles.statLabel}>Status</Text>
-            <Text style={styles.statValue}>
-              {results.completionPercentage === 100
-                ? 'Completed'
-                : 'In Progress'}
-            </Text>
-          </View>
-        </Card>
+        <Animated.View
+          entering={
+            reducedMotion.enabled
+              ? undefined
+              : FadeIn.delay(250)
+                  .duration(animationTimings.ui)
+                  .easing(Easing.bezier(0.2, 0.8, 0.2, 1))
+          }
+        >
+          <Card style={styles.statsContainer}>
+            <View style={styles.statRow}>
+              <Text style={styles.statLabel}>Time Spent</Text>
+              <Text style={styles.statValue} testID="results-time-spent">
+                {timeInMinutes} min
+              </Text>
+            </View>
+            <View style={styles.statRow}>
+              <Text style={styles.statLabel}>Steps Completed</Text>
+              <Text style={styles.statValue} testID="results-steps-completed">
+                {completedSteps}
+              </Text>
+            </View>
+            <View style={styles.statRow}>
+              <Text style={styles.statLabel}>Status</Text>
+              <Text style={styles.statValue}>
+                {results.completionPercentage === 100
+                  ? 'Completed'
+                  : 'In Progress'}
+              </Text>
+            </View>
+          </Card>
+        </Animated.View>
 
         {/* Actions */}
-        <View style={styles.actionsContainer}>
+        <Animated.View
+          entering={
+            reducedMotion.enabled
+              ? undefined
+              : FadeIn.delay(350)
+                  .duration(animationTimings.ui)
+                  .easing(Easing.bezier(0.2, 0.8, 0.2, 1))
+          }
+          style={styles.actionsContainer}
+        >
           <Button
             title="Continue Learning"
             onPress={handleContinue}
@@ -174,13 +221,13 @@ export default function ResultsScreen({ navigation, route }: Props) {
             <Button
               title="Try Again"
               onPress={handleRetry}
-              variant="outline"
+              variant="secondary"
               size="large"
               style={styles.button}
               testID="results-retry-button"
             />
           )}
-        </View>
+        </Animated.View>
       </View>
     </SafeAreaView>
   );

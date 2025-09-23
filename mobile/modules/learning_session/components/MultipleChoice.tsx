@@ -15,8 +15,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Vibration,
-  Platform,
 } from 'react-native';
 import Animated, {
   FadeIn,
@@ -26,8 +24,11 @@ import Animated, {
   withSpring,
   withTiming,
   ZoomIn,
+  Easing,
 } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
+import { useHaptics } from '../../ui_system/public';
+import { reducedMotion } from '../../ui_system/utils/motion';
+import { animationTimings } from '../../ui_system/utils/animations';
 
 // Icons
 import { CheckCircle, XCircle } from 'lucide-react-native';
@@ -80,6 +81,7 @@ const ChoiceItem: React.FC<ChoiceItemProps> = ({
 }) => {
   const uiSystem = uiSystemProvider();
   const theme = uiSystem.getCurrentTheme();
+  const { trigger } = useHaptics();
 
   const scaleValue = useSharedValue(1);
   const colorValue = useSharedValue(0);
@@ -101,18 +103,18 @@ const ChoiceItem: React.FC<ChoiceItemProps> = ({
   }, [isSelected, isCorrect, isIncorrect]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const animatedStyle = useAnimatedStyle(() => {
-    let backgroundColor = theme.colors?.surface || '#FFFFFF';
-    let borderColor = theme.colors?.border || '#E5E5E7';
+    let backgroundColor = theme.colors.surface;
+    let borderColor = theme.colors.border;
 
     if (colorValue.value === 1) {
-      backgroundColor = `${theme.colors?.success || '#34C759'}20`;
-      borderColor = theme.colors?.success || '#34C759';
+      backgroundColor = `${theme.colors.success}1A`; // ~10% overlay
+      borderColor = theme.colors.success;
     } else if (colorValue.value === -1) {
-      backgroundColor = `${theme.colors?.error || '#FF3B30'}20`;
-      borderColor = theme.colors?.error || '#FF3B30';
+      backgroundColor = `${theme.colors.error}1A`; // ~10% overlay
+      borderColor = theme.colors.error;
     } else if (isSelected) {
-      backgroundColor = `${theme.colors?.primary || '#007AFF'}10`;
-      borderColor = theme.colors?.primary || '#007AFF';
+      backgroundColor = `${theme.colors.primary}1A`; // ~10% overlay
+      borderColor = theme.colors.primary;
     }
 
     return {
@@ -123,18 +125,18 @@ const ChoiceItem: React.FC<ChoiceItemProps> = ({
   });
 
   const letterStyle = useAnimatedStyle(() => {
-    let backgroundColor = theme.colors?.border || '#E5E5E7';
-    let color = theme.colors?.text || '#000000';
+    let backgroundColor = theme.colors.border;
+    let color = theme.colors.text;
 
     if (colorValue.value === 1) {
-      backgroundColor = theme.colors?.success || '#34C759';
-      color = theme.colors?.surface || '#FFFFFF';
+      backgroundColor = theme.colors.success;
+      color = theme.colors.surface;
     } else if (colorValue.value === -1) {
-      backgroundColor = theme.colors?.error || '#FF3B30';
-      color = theme.colors?.surface || '#FFFFFF';
+      backgroundColor = theme.colors.error;
+      color = theme.colors.surface;
     } else if (isSelected) {
-      backgroundColor = theme.colors?.primary || '#007AFF';
-      color = theme.colors?.surface || '#FFFFFF';
+      backgroundColor = theme.colors.primary;
+      color = theme.colors.surface;
     }
 
     return {
@@ -146,11 +148,7 @@ const ChoiceItem: React.FC<ChoiceItemProps> = ({
   const handlePress = () => {
     if (!disabled) {
       // Haptic feedback
-      if (Platform.OS === 'ios') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      } else {
-        Vibration.vibrate(10);
-      }
+      trigger('light');
       onPress();
     }
   };
@@ -161,29 +159,29 @@ const ChoiceItem: React.FC<ChoiceItemProps> = ({
       alignItems: 'center',
       paddingVertical: 16,
       paddingHorizontal: 12,
-      borderRadius: 16,
+      borderRadius: 12,
       borderWidth: 1,
-      borderColor: theme.colors?.border || '#E5E5E7',
-      backgroundColor: theme.colors?.surface || '#FFFFFF',
+      borderColor: theme.colors.border,
+      backgroundColor: theme.colors.surface,
     },
     choiceLetter: {
-      width: 28,
-      height: 28,
-      borderRadius: 14,
+      width: 24,
+      height: 24,
+      borderRadius: 12,
       justifyContent: 'center',
       alignItems: 'center',
       marginRight: 12,
-      backgroundColor: theme.colors?.border || '#E5E5E7',
+      backgroundColor: theme.colors.border,
     },
     choiceLetterText: {
       fontSize: 14,
       fontWeight: '600' as const,
-      color: theme.colors?.text || '#000000',
+      color: theme.colors.text,
     },
     choiceText: {
       fontSize: 17,
       fontWeight: '400' as const,
-      color: theme.colors?.text || '#000000',
+      color: theme.colors.text,
       flex: 1,
       lineHeight: 24,
       letterSpacing: -0.24,
@@ -199,6 +197,9 @@ const ChoiceItem: React.FC<ChoiceItemProps> = ({
       disabled={disabled}
       activeOpacity={0.8}
       testID={testID}
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
     >
       <Animated.View style={[styles.choiceItem, animatedStyle]}>
         <Animated.View style={[styles.choiceLetter, letterStyle]}>
@@ -211,14 +212,20 @@ const ChoiceItem: React.FC<ChoiceItemProps> = ({
 
         {/* Result icon */}
         {isCorrect && (
-          <Animated.View entering={ZoomIn} style={styles.resultIcon}>
-            <CheckCircle size={24} color={theme.colors?.success || '#34C759'} />
+          <Animated.View
+            entering={reducedMotion.enabled ? undefined : ZoomIn}
+            style={styles.resultIcon}
+          >
+            <CheckCircle size={24} color={theme.colors.success} />
           </Animated.View>
         )}
 
         {isIncorrect && (
-          <Animated.View entering={ZoomIn} style={styles.resultIcon}>
-            <XCircle size={24} color={theme.colors?.error || '#FF3B30'} />
+          <Animated.View
+            entering={reducedMotion.enabled ? undefined : ZoomIn}
+            style={styles.resultIcon}
+          >
+            <XCircle size={24} color={theme.colors.error} />
           </Animated.View>
         )}
       </Animated.View>
@@ -234,6 +241,7 @@ export default function MultipleChoice({
   const uiSystem = uiSystemProvider();
   const theme = uiSystem.getCurrentTheme();
   const styles = createStyles(theme);
+  const { trigger } = useHaptics();
 
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [showResult, setShowResult] = useState(false);
@@ -292,15 +300,7 @@ export default function MultipleChoice({
     setShowResult(true);
 
     // Haptic feedback for result
-    if (Platform.OS === 'ios') {
-      Haptics.impactAsync(
-        isCorrect
-          ? Haptics.ImpactFeedbackStyle.Medium
-          : Haptics.ImpactFeedbackStyle.Heavy
-      );
-    } else {
-      Vibration.vibrate(isCorrect ? 50 : [0, 100, 50, 100]);
-    }
+    trigger(isCorrect ? 'success' : 'medium');
   };
 
   const handleContinue = () => {
@@ -355,7 +355,13 @@ export default function MultipleChoice({
         {/* Question */}
         <Animated.View
           key={question.number || 'question'}
-          entering={SlideInUp}
+          entering={
+            reducedMotion.enabled
+              ? undefined
+              : SlideInUp.duration(animationTimings.ui).easing(
+                  Easing.bezier(0.2, 0.8, 0.2, 1)
+                )
+          }
           style={styles.content}
         >
           <View style={styles.questionSection}>
@@ -367,7 +373,13 @@ export default function MultipleChoice({
             {choicesArray.map(([_letter, text], index) => (
               <Animated.View
                 key={index}
-                entering={FadeIn.delay(200 + index * 100)}
+                entering={
+                  reducedMotion.enabled
+                    ? undefined
+                    : FadeIn.delay(200 + index * animationTimings.stagger)
+                        .duration(animationTimings.ui)
+                        .easing(Easing.bezier(0.2, 0.8, 0.2, 1))
+                }
                 style={styles.choiceWrapper}
               >
                 <ChoiceItem
@@ -391,7 +403,13 @@ export default function MultipleChoice({
           {/* Explanation */}
           {showResult && selectedAnswer !== null && question.explanation && (
             <Animated.View
-              entering={SlideInUp.delay(300)}
+              entering={
+                reducedMotion.enabled
+                  ? undefined
+                  : SlideInUp.delay(300)
+                      .duration(animationTimings.ui)
+                      .easing(Easing.bezier(0.2, 0.8, 0.2, 1))
+              }
               style={styles.explanationContainer}
               testID="mcq-explanation"
             >
@@ -413,7 +431,13 @@ export default function MultipleChoice({
       {/* Action buttons - only show Continue for incorrect answers */}
       {selectedAnswer !== null && (
         <Animated.View
-          entering={SlideInUp.delay(400)}
+          entering={
+            reducedMotion.enabled
+              ? undefined
+              : SlideInUp.delay(400)
+                  .duration(animationTimings.ui)
+                  .easing(Easing.bezier(0.2, 0.8, 0.2, 1))
+          }
           style={styles.actionContainer}
         >
           <Button
@@ -433,7 +457,7 @@ const createStyles = (theme: any) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: theme.colors?.background || '#FFFFFF',
+      backgroundColor: theme.colors.background,
     },
 
     errorContainer: {
@@ -447,7 +471,7 @@ const createStyles = (theme: any) =>
       fontSize: 16,
       fontWeight: '400' as const,
       lineHeight: 24,
-      color: theme.colors?.textSecondary || '#666666',
+      color: theme.colors.textSecondary,
       textAlign: 'center',
     },
 
@@ -470,9 +494,9 @@ const createStyles = (theme: any) =>
 
     questionText: {
       fontSize: 20,
-      fontWeight: '600' as const,
+      fontWeight: '400' as const,
       lineHeight: 30,
-      color: theme.colors?.text || '#000000',
+      color: theme.colors.text,
       letterSpacing: -0.32,
     },
 
@@ -490,11 +514,11 @@ const createStyles = (theme: any) =>
     },
 
     explanationCard: {
-      backgroundColor: theme.colors?.surface || '#FFFFFF',
+      backgroundColor: theme.colors.surface,
       borderRadius: 16,
       padding: 20,
       borderWidth: 1,
-      borderColor: theme.colors?.border || '#E5E5E7',
+      borderColor: theme.colors.border,
     },
 
     explanationHeader: {
@@ -503,8 +527,8 @@ const createStyles = (theme: any) =>
 
     explanationTitle: {
       fontSize: 18,
-      fontWeight: '600' as const,
-      color: theme.colors?.text || '#000000',
+      fontWeight: '400' as const,
+      color: theme.colors.text,
       letterSpacing: -0.32,
     },
 
@@ -512,7 +536,7 @@ const createStyles = (theme: any) =>
       fontSize: 17,
       fontWeight: '400' as const,
       lineHeight: 26,
-      color: theme.colors?.text || '#000000',
+      color: theme.colors.text,
       letterSpacing: -0.24,
     },
 

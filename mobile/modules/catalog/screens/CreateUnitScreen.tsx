@@ -17,6 +17,7 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
+import { uiSystemProvider, useHaptics } from '../../ui_system/public';
 import { useNavigation } from '@react-navigation/native';
 import type { Difficulty } from '../models';
 import { useCreateUnit } from '../queries';
@@ -36,6 +37,9 @@ interface CreateUnitErrors {
 export function CreateUnitScreen() {
   const navigation = useNavigation();
   const createUnit = useCreateUnit();
+  const ui = uiSystemProvider();
+  const theme = ui.getCurrentTheme();
+  const haptics = useHaptics();
 
   const [formData, setFormData] = useState<CreateUnitFormData>({
     topic: '',
@@ -76,6 +80,8 @@ export function CreateUnitScreen() {
     if (!validateForm()) {
       return;
     }
+
+    haptics.trigger('medium');
 
     console.log('Starting unit creation with data:', {
       topic: formData.topic.trim(),
@@ -118,6 +124,7 @@ export function CreateUnitScreen() {
   };
 
   const handleCancel = () => {
+    haptics.trigger('light');
     if (formData.topic.trim()) {
       Alert.alert(
         'Cancel Creation',
@@ -140,7 +147,7 @@ export function CreateUnitScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView
@@ -148,8 +155,17 @@ export function CreateUnitScreen() {
         contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.header}>
-          <Text style={styles.title}>Create New Unit</Text>
-          <Text style={styles.subtitle}>
+          <Text
+            style={[
+              styles.title,
+              { color: theme.colors.text, fontWeight: 'normal' },
+            ]}
+          >
+            Create New Unit
+          </Text>
+          <Text
+            style={[styles.subtitle, { color: theme.colors.textSecondary }]}
+          >
             Tell us what you&apos;d like to learn and we&apos;ll create a
             personalized unit for you.
           </Text>
@@ -158,11 +174,26 @@ export function CreateUnitScreen() {
         <View style={styles.form}>
           {/* Topic Input */}
           <View style={styles.fieldContainer}>
-            <Text style={styles.fieldLabel}>Topic *</Text>
+            <Text
+              style={[
+                styles.fieldLabel,
+                { color: theme.colors.text, fontWeight: 'normal' },
+              ]}
+            >
+              Topic *
+            </Text>
             <TextInput
-              style={[styles.textInput, errors.topic && styles.textInputError]}
+              style={[
+                styles.textInput,
+                {
+                  color: theme.colors.text,
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.border,
+                },
+                errors.topic && { borderColor: theme.colors.error },
+              ]}
               placeholder="e.g., JavaScript Promises, Ancient Rome, Quantum Physics"
-              placeholderTextColor="#8E8E93"
+              placeholderTextColor={theme.colors.textSecondary}
               value={formData.topic}
               onChangeText={text => {
                 setFormData({ ...formData, topic: text });
@@ -176,32 +207,50 @@ export function CreateUnitScreen() {
               editable={!isSubmitting}
             />
             {errors.topic && (
-              <Text style={styles.errorText}>{errors.topic}</Text>
+              <Text style={[styles.errorText, { color: theme.colors.error }]}>
+                {errors.topic}
+              </Text>
             )}
           </View>
 
           {/* Difficulty Selection */}
           <View style={styles.fieldContainer}>
-            <Text style={styles.fieldLabel}>Difficulty Level</Text>
+            <Text
+              style={[
+                styles.fieldLabel,
+                { color: theme.colors.text, fontWeight: 'normal' },
+              ]}
+            >
+              Difficulty Level
+            </Text>
             <View style={styles.difficultyContainer}>
               {difficultyOptions.map(option => (
                 <TouchableOpacity
                   key={option.value}
                   style={[
                     styles.difficultyOption,
-                    formData.difficulty === option.value &&
-                      styles.difficultyOptionSelected,
+                    {
+                      borderColor: theme.colors.border,
+                      backgroundColor: theme.colors.surface,
+                    },
+                    formData.difficulty === option.value && {
+                      borderColor: theme.colors.primary,
+                      backgroundColor: `${theme.colors.primary}1A`,
+                    },
                   ]}
-                  onPress={() =>
-                    setFormData({ ...formData, difficulty: option.value })
-                  }
+                  onPress={() => {
+                    haptics.trigger('medium');
+                    setFormData({ ...formData, difficulty: option.value });
+                  }}
                   disabled={isSubmitting}
                 >
                   <Text
                     style={[
                       styles.difficultyText,
-                      formData.difficulty === option.value &&
-                        styles.difficultyTextSelected,
+                      { color: theme.colors.text },
+                      formData.difficulty === option.value && {
+                        color: theme.colors.primary,
+                      },
                     ]}
                   >
                     {option.label}
@@ -213,17 +262,27 @@ export function CreateUnitScreen() {
 
           {/* Target Lesson Count */}
           <View style={styles.fieldContainer}>
-            <Text style={styles.fieldLabel}>
+            <Text
+              style={[
+                styles.fieldLabel,
+                { color: theme.colors.text, fontWeight: 'normal' },
+              ]}
+            >
               Target Lesson Count (Optional)
             </Text>
             <TextInput
               style={[
                 styles.textInput,
                 styles.numberInput,
-                errors.targetLessonCount && styles.textInputError,
+                {
+                  color: theme.colors.text,
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.border,
+                },
+                errors.targetLessonCount && { borderColor: theme.colors.error },
               ]}
               placeholder="5"
-              placeholderTextColor="#8E8E93"
+              placeholderTextColor={theme.colors.textSecondary}
               value={formData.targetLessonCount?.toString() || ''}
               onChangeText={text => {
                 const num = text ? parseInt(text, 10) : null;
@@ -239,9 +298,13 @@ export function CreateUnitScreen() {
               editable={!isSubmitting}
             />
             {errors.targetLessonCount && (
-              <Text style={styles.errorText}>{errors.targetLessonCount}</Text>
+              <Text style={[styles.errorText, { color: theme.colors.error }]}>
+                {errors.targetLessonCount}
+              </Text>
             )}
-            <Text style={styles.helperText}>
+            <Text
+              style={[styles.helperText, { color: theme.colors.textSecondary }]}
+            >
               Leave blank to let AI decide the optimal number of lessons
             </Text>
           </View>
@@ -249,21 +312,38 @@ export function CreateUnitScreen() {
       </ScrollView>
 
       {/* Action Buttons */}
-      <View style={styles.buttonContainer}>
+      <View
+        style={[
+          styles.buttonContainer,
+          {
+            borderTopColor: theme.colors.border,
+            backgroundColor: theme.colors.surface,
+          },
+        ]}
+      >
         <TouchableOpacity
-          style={[styles.button, styles.cancelButton]}
+          style={[
+            styles.button,
+            {
+              backgroundColor: theme.colors.border,
+              borderColor: theme.colors.border,
+            },
+          ]}
           onPress={handleCancel}
           disabled={isSubmitting}
         >
-          <Text style={styles.cancelButtonText}>Cancel</Text>
+          <Text style={[styles.cancelButtonText, { color: theme.colors.text }]}>
+            Cancel
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[
             styles.button,
-            styles.createButton,
-            (!formData.topic.trim() || isSubmitting) &&
-              styles.createButtonDisabled,
+            { backgroundColor: theme.colors.primary },
+            (!formData.topic.trim() || isSubmitting) && {
+              backgroundColor: theme.colors.border,
+            },
           ]}
           onPress={handleSubmit}
           disabled={!formData.topic.trim() || isSubmitting}
@@ -272,11 +352,13 @@ export function CreateUnitScreen() {
             {isSubmitting && (
               <ActivityIndicator
                 size="small"
-                color="#FFFFFF"
+                color={theme.colors.surface}
                 style={styles.buttonSpinner}
               />
             )}
-            <Text style={styles.createButtonText}>
+            <Text
+              style={[styles.createButtonText, { color: theme.colors.surface }]}
+            >
               {isSubmitting ? 'Creating...' : 'Create Unit'}
             </Text>
           </View>
@@ -289,7 +371,6 @@ export function CreateUnitScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   scrollView: {
     flex: 1,
@@ -303,13 +384,11 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1C1C1E',
+    fontWeight: 'normal',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#8E8E93',
     lineHeight: 22,
   },
   form: {
@@ -322,32 +401,24 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1C1C1E',
     marginBottom: 8,
   },
   textInput: {
     borderWidth: 1,
-    borderColor: '#D1D1D6',
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    color: '#1C1C1E',
-    backgroundColor: '#FFFFFF',
     minHeight: 44,
   },
   numberInput: {
     minHeight: 44,
   },
-  textInputError: {
-    borderColor: '#FF3B30',
-  },
+  textInputError: {},
   errorText: {
-    color: '#FF3B30',
     fontSize: 14,
     marginTop: 4,
   },
   helperText: {
-    color: '#8E8E93',
     fontSize: 14,
     marginTop: 4,
   },
@@ -358,33 +429,23 @@ const styles = StyleSheet.create({
   difficultyOption: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#D1D1D6',
     borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 16,
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
   },
-  difficultyOptionSelected: {
-    borderColor: '#007AFF',
-    backgroundColor: '#E3F2FD',
-  },
+  difficultyOptionSelected: {},
   difficultyText: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#1C1C1E',
   },
-  difficultyTextSelected: {
-    color: '#007AFF',
-  },
+  difficultyTextSelected: {},
   buttonContainer: {
     flexDirection: 'row',
     padding: 20,
     paddingTop: 16,
     gap: 12,
     borderTopWidth: 1,
-    borderTopColor: '#F2F2F7',
-    backgroundColor: '#FFFFFF',
   },
   button: {
     flex: 1,
@@ -394,25 +455,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cancelButton: {
-    backgroundColor: '#F2F2F7',
     borderWidth: 1,
-    borderColor: '#D1D1D6',
   },
   cancelButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1C1C1E',
   },
-  createButton: {
-    backgroundColor: '#007AFF',
-  },
-  createButtonDisabled: {
-    backgroundColor: '#C7C7CC',
-  },
+  createButton: {},
+  createButtonDisabled: {},
   createButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
   },
   buttonContent: {
     flexDirection: 'row',

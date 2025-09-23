@@ -14,6 +14,8 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
+import { reducedMotion } from '../../ui_system/utils/motion';
+import { animationTimings } from '../../ui_system/utils/animations';
 import { Search, Plus } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -26,7 +28,7 @@ import {
 } from '../queries';
 import type { Unit } from '../public';
 import type { LearningStackParamList } from '../../../types';
-import { uiSystemProvider, Text } from '../../ui_system/public';
+import { uiSystemProvider, Text, useHaptics } from '../../ui_system/public';
 
 type LessonListScreenNavigationProp = NativeStackNavigationProp<
   LearningStackParamList,
@@ -42,6 +44,7 @@ export function LessonListScreen() {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const ui = uiSystemProvider();
   const theme = ui.getCurrentTheme();
+  const haptics = useHaptics();
 
   const filteredUnits = units.filter(
     u =>
@@ -57,8 +60,9 @@ export function LessonListScreen() {
   );
 
   const handleCreateUnit = useCallback(() => {
+    haptics.trigger('medium');
     navigation.navigate('CreateUnit');
-  }, [navigation]);
+  }, [navigation, haptics]);
 
   const handleRetryUnit = useCallback(
     (unitId: string) => {
@@ -80,7 +84,11 @@ export function LessonListScreen() {
     >
       {/* Header */}
       <View style={styles.header}>
-        <Text variant="h1" testID="units-title">
+        <Text
+          variant="h1"
+          testID="units-title"
+          style={{ fontWeight: 'normal' }}
+        >
           Units
         </Text>
         <Text variant="secondary" color={theme.colors.textSecondary}>
@@ -123,11 +131,15 @@ export function LessonListScreen() {
           />
         </View>
         <TouchableOpacity
-          style={styles.createButton}
+          style={[
+            styles.createButton,
+            { backgroundColor: theme.colors.primary },
+            ui.getDesignSystem().shadows.medium as any,
+          ]}
           onPress={handleCreateUnit}
           testID="create-unit-button"
         >
-          <Plus size={20} color="#FFFFFF" />
+          <Plus size={20} color={theme.colors.surface} />
         </TouchableOpacity>
       </View>
 
@@ -136,7 +148,13 @@ export function LessonListScreen() {
         data={filteredUnits}
         renderItem={({ item, index }) => (
           <Animated.View
-            entering={FadeIn.delay(index * 24)}
+            entering={
+              reducedMotion.enabled
+                ? undefined
+                : FadeIn.duration(animationTimings.ui).delay(
+                    index * animationTimings.stagger
+                  )
+            }
             style={styles.listItemContainer}
           >
             <UnitCard
@@ -209,17 +227,8 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#007AFF',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 4,
   },
   listContainer: {
     padding: 20,
