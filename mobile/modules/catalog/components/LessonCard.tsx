@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -21,6 +21,7 @@ import {
 } from 'lucide-react-native';
 
 import { LessonSummary } from '../models';
+import { uiSystemProvider, Text, useHaptics } from '../../ui_system/public';
 
 interface LessonCardProps {
   lesson: LessonSummary;
@@ -42,6 +43,9 @@ export function LessonCard({
   unitTitle,
 }: LessonCardProps) {
   const scaleValue = useSharedValue(1);
+  const ui = uiSystemProvider();
+  const theme = ui.getCurrentTheme();
+  const haptics = useHaptics();
 
   const handlePressIn = () => {
     scaleValue.value = withSpring(0.98);
@@ -56,6 +60,7 @@ export function LessonCard({
   }));
 
   const handlePress = () => {
+    haptics.trigger('light');
     onPress(lesson);
   };
 
@@ -68,18 +73,50 @@ export function LessonCard({
       style={styles.container}
       testID={index !== undefined ? `lesson-card-${index}` : undefined}
     >
-      <Animated.View style={[styles.card, animatedStyle]}>
+      <Animated.View
+        style={[
+          styles.card,
+          animatedStyle,
+          {
+            backgroundColor: theme.colors.surface,
+            borderRadius: 12,
+            padding: ui.getSpacing('md'),
+            // Raised elevation per Weimar Edge
+            ...(ui.getDesignSystem().shadows.medium as any),
+          },
+        ]}
+      >
         <View style={styles.header}>
           <View style={styles.lessonInfo}>
-            <Text style={styles.title} numberOfLines={2}>
+            <Text
+              variant="title"
+              weight="700"
+              color={theme.colors.text}
+              numberOfLines={2}
+              style={{ marginBottom: 4 }}
+            >
               {lesson.title}
             </Text>
-            <Text style={styles.description} numberOfLines={2}>
+            <Text variant="secondary" numberOfLines={2}>
               {lesson.coreConcept}
             </Text>
             {unitTitle && (
-              <View style={styles.unitBadge}>
-                <Text style={styles.unitBadgeText} numberOfLines={1}>
+              <View
+                style={{
+                  alignSelf: 'flex-start',
+                  marginTop: 6,
+                  backgroundColor: theme.colors.border,
+                  paddingHorizontal: 8,
+                  paddingVertical: 2,
+                  borderRadius: 6,
+                }}
+              >
+                <Text
+                  variant="caption"
+                  numberOfLines={1}
+                  weight="600"
+                  color={theme.colors.text}
+                >
                   {unitTitle}
                 </Text>
               </View>
@@ -87,48 +124,65 @@ export function LessonCard({
           </View>
 
           <View style={styles.meta}>
-            {!isOfflineAvailable && <WifiOff size={16} color="#6B7280" />}
-            <ArrowRight size={20} color="#6B7280" />
+            {!isOfflineAvailable && (
+              <WifiOff size={16} color={theme.colors.textSecondary} />
+            )}
+            <ArrowRight size={20} color={theme.colors.textSecondary} />
           </View>
         </View>
 
         <View style={styles.details}>
           <View style={styles.detailItem}>
-            <Clock size={14} color="#6B7280" />
-            <Text style={styles.detailText}>{lesson.durationDisplay}</Text>
+            <Clock size={14} color={theme.colors.textSecondary} />
+            <Text variant="caption" color={theme.colors.textSecondary}>
+              {lesson.durationDisplay}
+            </Text>
           </View>
 
           <View style={styles.detailItem}>
-            <Target size={14} color="#6B7280" />
-            <Text style={styles.detailText}>{lesson.difficultyLevel}</Text>
+            <Target size={14} color={theme.colors.textSecondary} />
+            <Text variant="caption" color={theme.colors.textSecondary}>
+              {lesson.difficultyLevel}
+            </Text>
           </View>
 
           <View style={styles.detailItem}>
-            <BookOpen size={14} color="#6B7280" />
-            <Text style={styles.detailText}>
+            <BookOpen size={14} color={theme.colors.textSecondary} />
+            <Text variant="caption" color={theme.colors.textSecondary}>
               {lesson.componentCount} exercises
             </Text>
           </View>
 
           {lesson.isReadyForLearning && (
             <View style={styles.detailItem}>
-              <CheckCircle size={14} color="#10B981" />
-              <Text style={[styles.detailText, styles.readyText]}>Ready</Text>
+              <CheckCircle size={14} color={theme.colors.success} />
+              <Text variant="caption" color={theme.colors.success} weight="500">
+                Ready
+              </Text>
             </View>
           )}
         </View>
 
         {showProgress && progressPercentage > 0 && (
-          <View style={styles.progressContainer}>
-            <View style={styles.progressBar}>
+          <View style={{ marginBottom: ui.getSpacing('sm') }}>
+            <View
+              style={{
+                height: 4,
+                backgroundColor: theme.colors.border,
+                borderRadius: 2,
+                marginBottom: 4,
+              }}
+            >
               <View
-                style={[
-                  styles.progressFill,
-                  { width: `${progressPercentage}%` },
-                ]}
+                style={{
+                  height: '100%',
+                  backgroundColor: theme.colors.primary,
+                  borderRadius: 2,
+                  width: `${progressPercentage}%`,
+                }}
               />
             </View>
-            <Text style={styles.progressText}>
+            <Text variant="caption" color={theme.colors.textSecondary}>
               {Math.round(progressPercentage)}% complete
             </Text>
           </View>
@@ -136,8 +190,18 @@ export function LessonCard({
 
         <View style={styles.tags}>
           {lesson.tags.slice(0, 3).map((tag, index) => (
-            <View key={index} style={styles.tag}>
-              <Text style={styles.tagText}>{tag}</Text>
+            <View
+              key={index}
+              style={{
+                backgroundColor: theme.colors.border,
+                paddingHorizontal: 8,
+                paddingVertical: 4,
+                borderRadius: 6,
+              }}
+            >
+              <Text variant="caption" color={theme.colors.text} weight="500">
+                {tag}
+              </Text>
             </View>
           ))}
         </View>
@@ -151,17 +215,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    // colors and elevation pulled from theme dynamically
   },
   header: {
     flexDirection: 'row',
@@ -172,17 +226,6 @@ const styles = StyleSheet.create({
   lessonInfo: {
     flex: 1,
     marginRight: 12,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 4,
-  },
-  description: {
-    fontSize: 14,
-    color: '#6B7280',
-    lineHeight: 20,
   },
   meta: {
     flexDirection: 'row',
@@ -200,60 +243,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
   },
-  detailText: {
-    fontSize: 12,
-    color: '#6B7280',
-  },
-  readyText: {
-    color: '#10B981',
-    fontWeight: '500',
-  },
-  progressContainer: {
-    marginBottom: 12,
-  },
-  progressBar: {
-    height: 4,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 2,
-    marginBottom: 4,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#3B82F6',
-    borderRadius: 2,
-  },
-  progressText: {
-    fontSize: 12,
-    color: '#6B7280',
-    textAlign: 'right',
-  },
   tags: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-  },
-  tag: {
-    backgroundColor: '#F3F4F6',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  tagText: {
-    fontSize: 12,
-    color: '#374151',
-    fontWeight: '500',
-  },
-  unitBadge: {
-    alignSelf: 'flex-start',
-    marginTop: 6,
-    backgroundColor: '#EEF2FF',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  unitBadgeText: {
-    fontSize: 12,
-    color: '#3730A3',
-    fontWeight: '600',
   },
 });

@@ -4,7 +4,7 @@
  * A flexible button component with multiple variants and states
  */
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   TouchableOpacity,
   Text,
@@ -37,13 +37,6 @@ export const Button: React.FC<ButtonProps> = ({
   const designSystem = uiSystem.getDesignSystem();
   const [isPressed, setIsPressed] = useState(false);
 
-  // Map legacy variants to new design system
-  const resolvedVariant = useMemo<NonNullable<ButtonProps['variant']>>(() => {
-    if (variant === 'outline') return 'secondary';
-    if (variant === 'ghost') return 'tertiary';
-    return variant;
-  }, [variant]);
-
   // Normalize style: allow array/object
   const normalizedStyle = Array.isArray(style)
     ? style.filter(Boolean)
@@ -53,10 +46,10 @@ export const Button: React.FC<ButtonProps> = ({
 
   const buttonStyle = [
     styles.base,
-    getVariantStyle(resolvedVariant, theme),
+    getVariantStyle(variant, theme),
     getSizeStyle(size, theme, fullWidth === true),
-    resolvedVariant === 'primary' && (designSystem?.shadows?.medium as any),
-    resolvedVariant === 'primary' &&
+    variant === 'primary' && (designSystem?.shadows?.medium as any),
+    variant === 'primary' &&
       (isPressed ? { transform: [{ translateY: 1 }] } : null),
     disabled && styles.disabled,
     ...normalizedStyle,
@@ -64,7 +57,7 @@ export const Button: React.FC<ButtonProps> = ({
 
   const textStyles = [
     styles.text,
-    getVariantTextStyle(resolvedVariant, theme),
+    getVariantTextStyle(variant, theme),
     getSizeTextStyle(size, theme),
     disabled && styles.disabledText,
     textStyle,
@@ -73,9 +66,9 @@ export const Button: React.FC<ButtonProps> = ({
   const handlePress = useCallback(() => {
     if (disabled || loading) return;
     // Haptics: medium for primary, light for others per spec guidance
-    trigger(resolvedVariant === 'primary' ? 'medium' : 'light');
+    trigger(variant === 'primary' ? 'medium' : 'light');
     onPress();
-  }, [disabled, loading, onPress, trigger, resolvedVariant]);
+  }, [disabled, loading, onPress, trigger, variant]);
 
   return (
     <TouchableOpacity
@@ -86,13 +79,21 @@ export const Button: React.FC<ButtonProps> = ({
       disabled={disabled || loading}
       activeOpacity={0.8}
       testID={testID}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: disabled || loading }}
+      hitSlop={
+        // Ensure 44x44pt minimum touch target
+        size === 'small'
+          ? { top: 6, bottom: 6, left: 6, right: 6 }
+          : { top: 0, bottom: 0, left: 0, right: 0 }
+      }
     >
       {loading ? (
         <ActivityIndicator
           color={
-            resolvedVariant === 'tertiary' || resolvedVariant === 'secondary'
-              ? theme.colors?.primary || '#0E3A53'
-              : theme.colors?.surface || '#FFFFFF'
+            variant === 'tertiary' || variant === 'secondary'
+              ? theme.colors.primary
+              : theme.colors.surface
           }
           size="small"
         />
@@ -108,7 +109,7 @@ export const Button: React.FC<ButtonProps> = ({
           <Text
             style={[
               textStyles,
-              resolvedVariant === 'tertiary' && isPressed
+              variant === 'tertiary' && isPressed
                 ? { textDecorationLine: 'underline' }
                 : null,
             ]}
@@ -128,7 +129,7 @@ const getVariantStyle = (
   switch (variant) {
     case 'primary':
       return {
-        backgroundColor: theme.colors?.primary || '#0E3A53',
+        backgroundColor: theme.colors.primary,
         borderWidth: 0,
       };
     case 'secondary':
@@ -146,7 +147,7 @@ const getVariantStyle = (
       };
     case 'destructive':
       return {
-        backgroundColor: theme.colors?.error || '#4A1F1F',
+        backgroundColor: theme.colors.error,
         borderWidth: 0,
       };
     // Back-compat aliases handled earlier
@@ -194,11 +195,11 @@ const getVariantTextStyle = (
   switch (variant) {
     case 'primary':
     case 'destructive':
-      return { color: theme.colors?.surface || '#FFFFFF' };
+      return { color: theme.colors.surface };
     case 'secondary':
     case 'tertiary':
       return {
-        color: theme.colors?.primary || '#0E3A53',
+        color: theme.colors.primary,
         textDecorationLine: variant === 'tertiary' ? 'none' : 'none',
       };
     default:

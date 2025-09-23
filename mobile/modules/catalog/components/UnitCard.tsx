@@ -1,7 +1,15 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View } from 'react-native';
 import type { Unit } from '../models';
 import { UnitProgressIndicator } from './UnitProgressIndicator';
+import {
+  Card,
+  Text,
+  Box,
+  Button,
+  uiSystemProvider,
+  useHaptics,
+} from '../../ui_system/public';
 
 interface Props {
   unit: Unit;
@@ -11,68 +19,110 @@ interface Props {
   index?: number;
 }
 
-export function UnitCard({ unit, onPress, onRetry, onDismiss, index }: Props) {
-  const handlePress = () => {
-    // Only allow interaction if unit is completed
-    if (unit.isInteractive) {
-      onPress(unit);
-    }
+export function UnitCard({
+  unit,
+  onPress,
+  onRetry,
+  onDismiss,
+  index,
+}: Props): React.ReactElement {
+  const ui = uiSystemProvider();
+  const theme = ui.getCurrentTheme();
+  const { trigger } = useHaptics();
+
+  const isDisabled = !unit.isInteractive;
+  const showFailedActions: boolean =
+    unit.status === 'failed' && !!(onRetry || onDismiss);
+
+  const handlePress = (): void => {
+    if (isDisabled) return;
+    trigger('light');
+    onPress(unit);
   };
 
-  const handleRetry = () => {
-    if (onRetry) {
-      onRetry(unit.id);
-    }
+  const handleRetry = (): void => {
+    if (!onRetry) return;
+    trigger('medium');
+    onRetry(unit.id);
   };
 
-  const handleDismiss = () => {
-    if (onDismiss) {
-      onDismiss(unit.id);
-    }
+  const handleDismiss = (): void => {
+    if (!onDismiss) return;
+    trigger('light');
+    onDismiss(unit.id);
   };
-
-  const showFailedActions = unit.status === 'failed' && (onRetry || onDismiss);
 
   return (
-    <TouchableOpacity
-      onPress={handlePress}
-      activeOpacity={unit.isInteractive ? 0.85 : 1.0}
-      disabled={!unit.isInteractive}
-      testID={`unit-card-${index}`}
+    <Box
+      testID={index !== undefined ? `unit-card-${index}` : undefined}
+      mb="sm"
     >
-      <View
+      <Card
+        variant="default"
+        onPress={handlePress}
+        disabled={isDisabled}
         style={[
-          styles.card,
-          !unit.isInteractive && styles.cardDisabled,
-          unit.status === 'failed' && styles.cardFailed,
+          unit.status === 'failed'
+            ? { borderLeftWidth: 4, borderLeftColor: theme.colors.error }
+            : null,
         ]}
       >
-        <View style={styles.header}>
+        {/* Header */}
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: ui.getSpacing('sm'),
+          }}
+        >
           <Text
-            style={[
-              styles.title,
-              !unit.isInteractive && styles.titleDisabled,
-              unit.status === 'failed' && styles.titleFailed,
-            ]}
+            variant="title"
+            weight="700"
+            color={isDisabled ? theme.colors.textSecondary : theme.colors.text}
+            style={{ flex: 1, marginRight: ui.getSpacing('sm') }}
+            numberOfLines={2}
           >
             {unit.title}
           </Text>
-          <Text style={styles.badge}>{unit.difficultyLabel}</Text>
+
+          <View
+            style={{
+              backgroundColor: isDisabled
+                ? theme.colors.border
+                : theme.colors.accent,
+              paddingHorizontal: 8,
+              paddingVertical: 4,
+              borderRadius: 8,
+            }}
+          >
+            <Text
+              variant="caption"
+              color={
+                ui.isLightColor(theme.colors.accent)
+                  ? theme.colors.surface
+                  : theme.colors.background
+              }
+              weight="600"
+            >
+              {unit.difficultyLabel}
+            </Text>
+          </View>
         </View>
 
+        {/* Description */}
         <Text
-          style={[
-            styles.description,
-            !unit.isInteractive && styles.descriptionDisabled,
-          ]}
+          variant="secondary"
+          color={isDisabled ? theme.colors.textSecondary : undefined}
           numberOfLines={2}
+          style={{ marginBottom: ui.getSpacing('sm') }}
         >
           {unit.description || unit.progressMessage}
         </Text>
 
         {/* Status indicator for non-completed units */}
         {unit.status !== 'completed' && (
-          <View style={styles.statusContainer}>
+          <View style={{ marginBottom: ui.getSpacing('sm') }}>
             <UnitProgressIndicator
               status={unit.status}
               progress={unit.creationProgress}
@@ -83,147 +133,58 @@ export function UnitCard({ unit, onPress, onRetry, onDismiss, index }: Props) {
 
         {/* Failed unit actions */}
         {showFailedActions && (
-          <View style={styles.actionContainer}>
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'flex-end',
+              marginTop: ui.getSpacing('sm'),
+              marginBottom: ui.getSpacing('xs'),
+              columnGap: ui.getSpacing('sm'),
+            }}
+          >
             {onRetry && (
-              <TouchableOpacity
-                style={[styles.actionButton, styles.retryButton]}
+              <Button
+                title="Retry"
+                variant="primary"
+                size="small"
                 onPress={handleRetry}
-                testID={`retry-button-${index}`}
-              >
-                <Text style={styles.retryButtonText}>Retry</Text>
-              </TouchableOpacity>
+                testID={
+                  index !== undefined ? `retry-button-${index}` : undefined
+                }
+              />
             )}
             {onDismiss && (
-              <TouchableOpacity
-                style={[styles.actionButton, styles.dismissButton]}
+              <Button
+                title="Dismiss"
+                variant="secondary"
+                size="small"
                 onPress={handleDismiss}
-                testID={`dismiss-button-${index}`}
-              >
-                <Text style={styles.dismissButtonText}>Dismiss</Text>
-              </TouchableOpacity>
+                testID={
+                  index !== undefined ? `dismiss-button-${index}` : undefined
+                }
+              />
             )}
           </View>
         )}
 
-        <View style={styles.footer}>
+        {/* Footer */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
           <Text
-            style={[styles.meta, !unit.isInteractive && styles.metaDisabled]}
+            variant="caption"
+            color={isDisabled ? theme.colors.textSecondary : undefined}
           >
             {unit.lessonCount} lessons
           </Text>
           {typeof unit.targetLessonCount === 'number' && (
             <Text
-              style={[styles.meta, !unit.isInteractive && styles.metaDisabled]}
+              variant="caption"
+              color={isDisabled ? theme.colors.textSecondary : undefined}
             >
               Target: {unit.targetLessonCount}
             </Text>
           )}
         </View>
-      </View>
-    </TouchableOpacity>
+      </Card>
+    </Box>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  cardDisabled: {
-    backgroundColor: '#F8F9FA',
-    shadowOpacity: 0.02,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
-    flex: 1,
-    marginRight: 12,
-  },
-  titleDisabled: {
-    color: '#8E8E93',
-  },
-  badge: {
-    backgroundColor: '#E5E7EB',
-    color: '#374151',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    fontSize: 12,
-    overflow: 'hidden',
-  },
-  description: {
-    color: '#4B5563',
-    fontSize: 14,
-    marginBottom: 8,
-  },
-  descriptionDisabled: {
-    color: '#8E8E93',
-  },
-  statusContainer: {
-    marginBottom: 8,
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  meta: {
-    color: '#6B7280',
-    fontSize: 12,
-  },
-  metaDisabled: {
-    color: '#C7C7CC',
-  },
-  cardFailed: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#EF4444',
-  },
-  titleFailed: {
-    color: '#DC2626',
-  },
-  actionContainer: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 8,
-    marginBottom: 4,
-    gap: 8,
-  },
-  actionButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    minWidth: 64,
-    alignItems: 'center',
-  },
-  retryButton: {
-    backgroundColor: '#3B82F6',
-  },
-  retryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  dismissButton: {
-    backgroundColor: '#F3F4F6',
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-  },
-  dismissButtonText: {
-    color: '#6B7280',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-});

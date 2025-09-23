@@ -124,35 +124,35 @@ As a mobile app user, I want the learning application to have a beautiful, cohes
 - [x] Redesign UnitListScreen with new visual hierarchy and search styling
 - [x] Fix navigation flow to ensure back button functionality
 - [x] Redesign UnitDetailScreen with floating content card and proper CTAs
-- [ ] Update UnitCard component with Weimar Edge styling and interactions
-- [ ] Style SearchFilters with new input design patterns
-- [ ] Update LessonCard component with typography and spacing improvements
+- [x] Update UnitCard component with Weimar Edge styling and interactions
+- [x] Style SearchFilters with new input design patterns
+- [x] Update LessonCard component with typography and spacing improvements
 - [x] Redesign UnitProgress component with new visual treatment
 
 ### Phase 4: Learning Session Styling
-- [ ] Redesign LearningFlowScreen with new visual treatment
-- [ ] Ensure escape navigation works properly from learning flow
-- [ ] Redesign ResultsScreen with celebration styling and haptic feedback
-- [ ] Update MultipleChoice component with new button styling and states
-- [ ] Style DidacticSnippet component with proper typography hierarchy
-- [ ] Update LearningFlow component with smooth transitions and new visual design
+- [x] Redesign LearningFlowScreen with new visual treatment
+- [x] Ensure escape navigation works properly from learning flow
+- [x] Redesign ResultsScreen with celebration styling and haptic feedback
+- [x] Update MultipleChoice component with new button styling and states
+- [x] Style DidacticSnippet component with proper typography hierarchy
+- [x] Update LearningFlow component with smooth transitions and new visual design
 
 ### Phase 5: Navigation and Integration
-- [ ] Update App.tsx with new theme provider integration
-- [ ] Configure navigation theme to work with Weimar Edge colors
-- [ ] Test complete user flow from UnitList → UnitDetail → LearningFlow → Results
-- [ ] Verify back navigation works from all screens
-- [ ] Test haptic feedback patterns across all interactions
+- [x] Update App.tsx with new theme provider integration
+- [x] Configure navigation theme to work with Weimar Edge colors
+- [x] Test complete user flow from UnitList → UnitDetail → LearningFlow → Results
+- [x] Verify back navigation works from all screens
+- [x] Test haptic feedback patterns across all interactions
 
 ### Phase 6: Polish and Quality Assurance
-- [ ] Ensure all components use design tokens exclusively (no ad-hoc styles)
-- [ ] Verify touch targets meet 44×44pt minimum requirements
-- [ ] Test typography hierarchy follows one-bold-move-per-screen principle
-- [ ] Validate color contrast meets accessibility standards
-- [ ] Test animations with proper timing and easing curves
-- [ ] Verify reduced motion support for accessibility
-- [ ] Remove any remnants of old theme system (colors, spacing, typography references)
-- [ ] Update maestro e2e tests with new testIDs if needed
+- [x] Ensure all components use design tokens exclusively (no ad-hoc styles)
+- [x] Verify touch targets meet 44×44pt minimum requirements
+- [x] Test typography hierarchy follows one-bold-move-per-screen principle
+- [x] Validate color contrast meets accessibility standards
+- [x] Test animations with proper timing and easing curves
+- [x] Verify reduced motion support for accessibility
+- [x] Remove any remnants of old theme system (colors, spacing, typography references)
+- [x] Update maestro e2e tests with new testIDs if needed
 
 ### Phase 7: Final Validation
 - [ ] Complete visual review of all screens against Weimar Edge specification

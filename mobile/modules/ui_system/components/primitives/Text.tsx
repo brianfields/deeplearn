@@ -63,7 +63,7 @@ export function Text({
             .fontWeight as TextStyle['fontWeight'],
         } as TextStyle;
       case 'title':
-        return { fontSize: 18, lineHeight: 24, fontWeight: '600' } as TextStyle;
+        return { fontSize: 18, lineHeight: 24, fontWeight: '400' } as TextStyle;
       case 'secondary':
         return {
           fontSize: 14,

@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { uiSystemProvider } from '../../ui_system/public';
 import type { UnitStatus, UnitCreationProgress } from '../models';
 
 interface UnitProgressIndicatorProps {
@@ -21,7 +22,9 @@ export function UnitProgressIndicator({
   errorMessage,
   size = 'small',
 }: UnitProgressIndicatorProps) {
-  const styles = getStyles(size);
+  const ui = uiSystemProvider();
+  const theme = ui.getCurrentTheme();
+  const styles = getStyles(size, theme);
 
   const renderStatusIcon = () => {
     switch (status) {
@@ -36,7 +39,7 @@ export function UnitProgressIndicator({
           <View style={[styles.statusIcon, styles.progressIcon]}>
             <ActivityIndicator
               size={size === 'large' ? 'large' : 'small'}
-              color="#007AFF"
+              color={theme.colors.primary}
             />
           </View>
         );
@@ -75,15 +78,15 @@ export function UnitProgressIndicator({
   const getStatusColor = () => {
     switch (status) {
       case 'draft':
-        return '#8E8E93';
+        return theme.colors.textSecondary;
       case 'in_progress':
-        return '#007AFF';
+        return theme.colors.primary;
       case 'completed':
-        return '#34C759';
+        return theme.colors.success;
       case 'failed':
-        return '#FF3B30';
+        return theme.colors.error;
       default:
-        return '#8E8E93';
+        return theme.colors.textSecondary;
     }
   };
 
@@ -124,7 +127,7 @@ function getStatusLabel(status: UnitStatus): string {
   return statusMap[status] ?? 'Unknown';
 }
 
-function getStyles(size: 'small' | 'large') {
+function getStyles(size: 'small' | 'large', theme: any) {
   return StyleSheet.create({
     container: {
       flexDirection: 'row',
@@ -136,7 +139,7 @@ function getStyles(size: 'small' | 'large') {
       alignItems: 'flex-start',
       gap: 12,
       padding: 12,
-      backgroundColor: '#F2F2F7',
+      backgroundColor: theme.colors.surface,
       borderRadius: 8,
     },
     statusIcon: {
@@ -147,16 +150,16 @@ function getStyles(size: 'small' | 'large') {
       height: size === 'large' ? 40 : 24,
     },
     draftIcon: {
-      backgroundColor: '#E5E5EA',
+      backgroundColor: theme.colors.border,
     },
     progressIcon: {
-      backgroundColor: '#E3F2FD',
+      backgroundColor: theme.colors.border,
     },
     completedIcon: {
-      backgroundColor: '#E8F5E8',
+      backgroundColor: `${theme.colors.success}1A`,
     },
     failedIcon: {
-      backgroundColor: '#FFEBEE',
+      backgroundColor: `${theme.colors.error}1A`,
     },
     statusText: {
       fontSize: size === 'large' ? 18 : 12,
@@ -166,17 +169,17 @@ function getStyles(size: 'small' | 'large') {
     },
     statusLabel: {
       fontSize: size === 'large' ? 16 : 14,
-      fontWeight: '600',
+      fontWeight: '400',
       marginBottom: size === 'large' ? 4 : 0,
     },
     statusMessage: {
       fontSize: 14,
-      color: '#8E8E93',
+      color: theme.colors.textSecondary,
       lineHeight: 18,
     },
     stageText: {
       fontSize: 12,
-      color: '#8E8E93',
+      color: theme.colors.textSecondary,
       marginTop: 4,
       fontStyle: 'italic',
     },

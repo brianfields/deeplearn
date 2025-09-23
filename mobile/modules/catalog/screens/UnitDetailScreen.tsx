@@ -25,6 +25,7 @@ import {
   Text,
   Button,
   uiSystemProvider,
+  useHaptics,
 } from '../../ui_system/public';
 
 type UnitDetailScreenNavigationProp = NativeStackNavigationProp<
@@ -39,6 +40,7 @@ export function UnitDetailScreen() {
   const { data: unit } = useUnit(unitId || '');
   const ui = uiSystemProvider();
   const theme = ui.getCurrentTheme();
+  const haptics = useHaptics();
   // For now, use anonymous user until auth is wired up
   const userId = 'anonymous';
   const { data: progressLS } = useUnitProgressLS(userId, unit?.id || '', {
@@ -103,7 +105,10 @@ export function UnitDetailScreen() {
     >
       <Box p="lg" pb="sm">
         <TouchableOpacity
-          onPress={() => navigation.goBack()}
+          onPress={() => {
+            haptics.trigger('light');
+            navigation.goBack();
+          }}
           accessibilityRole="button"
           accessibilityLabel="Go back"
           style={{ paddingVertical: 6, paddingRight: 12 }}
@@ -112,7 +117,7 @@ export function UnitDetailScreen() {
             {'‹ Back'}
           </Text>
         </TouchableOpacity>
-        <Text variant="h1" style={{ marginTop: 8 }}>
+        <Text variant="h1" style={{ marginTop: 8, fontWeight: 'normal' }}>
           {unit.title}
         </Text>
       </Box>
@@ -124,7 +129,9 @@ export function UnitDetailScreen() {
               <Text variant="secondary" color={theme.colors.textSecondary}>
                 Resume next:
               </Text>
-              <Text variant="title">{nextLessonTitle}</Text>
+              <Text variant="title" style={{ fontWeight: 'normal' }}>
+                {nextLessonTitle}
+              </Text>
             </Box>
           )}
 
@@ -166,7 +173,10 @@ export function UnitDetailScreen() {
             <Card
               variant="outlined"
               style={{ margin: 0, marginBottom: 12 }}
-              onPress={() => handleLessonPress(item.id)}
+              onPress={() => {
+                haptics.trigger('light');
+                handleLessonPress(item.id);
+              }}
             >
               <View style={styles.lessonRowInner}>
                 <Text variant="body" style={{ flex: 1, marginRight: 12 }}>
