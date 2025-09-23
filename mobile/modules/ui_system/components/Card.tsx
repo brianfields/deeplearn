@@ -44,8 +44,15 @@ export const Card: React.FC<CardProps> = ({
       padding: paddingValue,
       margin: marginValue,
     },
-    variant === 'elevated' && designSystem.shadows?.medium,
-    variant === 'outlined' && { borderWidth: 1 },
+    // Default card: hairline border + Raised elevation per Weimar Edge
+    variant === 'default' && [
+      { borderWidth: StyleSheet.hairlineWidth },
+      designSystem.shadows?.medium,
+    ],
+    // Elevated variant: stronger elevation
+    variant === 'elevated' && designSystem.shadows?.large,
+    // Outlined variant: hairline border, no shadow
+    variant === 'outlined' && { borderWidth: StyleSheet.hairlineWidth },
     disabled && styles.disabled,
     otherStyles,
     pointerEvents && { pointerEvents },
