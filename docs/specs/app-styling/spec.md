@@ -123,11 +123,11 @@ As a mobile app user, I want the learning application to have a beautiful, cohes
 ### Phase 3: Catalog Module Styling
 - [x] Redesign UnitListScreen with new visual hierarchy and search styling
 - [x] Fix navigation flow to ensure back button functionality
-- [ ] Redesign UnitDetailScreen with floating content card and proper CTAs
+- [x] Redesign UnitDetailScreen with floating content card and proper CTAs
 - [ ] Update UnitCard component with Weimar Edge styling and interactions
 - [ ] Style SearchFilters with new input design patterns
 - [ ] Update LessonCard component with typography and spacing improvements
-- [ ] Redesign UnitProgress component with new visual treatment
+- [x] Redesign UnitProgress component with new visual treatment
 
 ### Phase 4: Learning Session Styling
 - [ ] Redesign LearningFlowScreen with new visual treatment
@@ -156,12 +156,15 @@ As a mobile app user, I want the learning application to have a beautiful, cohes
 
 ### Phase 7: Final Validation
 - [ ] Complete visual review of all screens against Weimar Edge specification
-- [ ] Test complete user journeys with new styling
 - [ ] Verify performance on target iOS devices
 - [ ] Ensure no regressions in learning flow functionality
 - [ ] Final haptic feedback testing and refinement
 - [ ] Update maestro e2e tests in mobile/e2e if screen elements changed significantly
 - [ ] Remove any outdated terminology or naming from previous theme system
+- [ ] Follow the instructions in codegen/prompts/trace.md to ensure the user story is implemented correctly.
+- [ ] Fix any issues documented during the tracing of the user story in docs.
+- [ ] Follow the instructions in codegen/prompts/modulecheck.md to ensure the new code is following the modular architecture correctly.
+- [ ] Examine all new code that has been created and make sure all of it is being used; there is no dead code, code meant for backward compatiblity, or code that has been deprecated.
 
 ## Technical Notes
 
