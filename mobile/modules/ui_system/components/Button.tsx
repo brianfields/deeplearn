@@ -4,7 +4,7 @@
  * A flexible button component with multiple variants and states
  */
 
-import React from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   TouchableOpacity,
   Text,
@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { uiSystemProvider } from '../public';
 import type { ButtonProps, Theme } from '../models';
+import { useHaptics } from '../hooks/useHaptics';
 
 export const Button: React.FC<ButtonProps> = ({
   title,
@@ -28,9 +29,20 @@ export const Button: React.FC<ButtonProps> = ({
   style,
   textStyle,
   testID,
+  fullWidth,
 }) => {
   const uiSystem = uiSystemProvider();
   const theme: Theme = uiSystem.getCurrentTheme();
+  const { trigger } = useHaptics();
+  const designSystem = uiSystem.getDesignSystem();
+  const [isPressed, setIsPressed] = useState(false);
+
+  // Map legacy variants to new design system
+  const resolvedVariant = useMemo<NonNullable<ButtonProps['variant']>>(() => {
+    if (variant === 'outline') return 'secondary';
+    if (variant === 'ghost') return 'tertiary';
+    return variant;
+  }, [variant]);
 
   // Normalize style: allow array/object
   const normalizedStyle = Array.isArray(style)
@@ -41,24 +53,36 @@ export const Button: React.FC<ButtonProps> = ({
 
   const buttonStyle = [
     styles.base,
-    getVariantStyle(variant, theme),
-    getSizeStyle(size, theme),
+    getVariantStyle(resolvedVariant, theme),
+    getSizeStyle(size, theme, fullWidth === true),
+    resolvedVariant === 'primary' && (designSystem?.shadows?.medium as any),
+    resolvedVariant === 'primary' &&
+      (isPressed ? { transform: [{ translateY: 1 }] } : null),
     disabled && styles.disabled,
     ...normalizedStyle,
   ];
 
   const textStyles = [
     styles.text,
-    getVariantTextStyle(variant, theme),
+    getVariantTextStyle(resolvedVariant, theme),
     getSizeTextStyle(size, theme),
     disabled && styles.disabledText,
     textStyle,
   ];
 
+  const handlePress = useCallback(() => {
+    if (disabled || loading) return;
+    // Haptics: medium for primary, light for others per spec guidance
+    trigger(resolvedVariant === 'primary' ? 'medium' : 'light');
+    onPress();
+  }, [disabled, loading, onPress, trigger, resolvedVariant]);
+
   return (
     <TouchableOpacity
       style={buttonStyle}
-      onPress={onPress}
+      onPress={handlePress}
+      onPressIn={() => setIsPressed(true)}
+      onPressOut={() => setIsPressed(false)}
       disabled={disabled || loading}
       activeOpacity={0.8}
       testID={testID}
@@ -66,8 +90,8 @@ export const Button: React.FC<ButtonProps> = ({
       {loading ? (
         <ActivityIndicator
           color={
-            variant === 'outline' || variant === 'ghost'
-              ? theme.colors?.primary || '#007AFF'
+            resolvedVariant === 'tertiary' || resolvedVariant === 'secondary'
+              ? theme.colors?.primary || '#0E3A53'
               : theme.colors?.surface || '#FFFFFF'
           }
           size="small"
@@ -81,80 +105,111 @@ export const Button: React.FC<ButtonProps> = ({
               {icon}
             </View>
           )}
-          <Text style={textStyles}>{title}</Text>
+          <Text
+            style={[
+              textStyles,
+              resolvedVariant === 'tertiary' && isPressed
+                ? { textDecorationLine: 'underline' }
+                : null,
+            ]}
+          >
+            {title}
+          </Text>
         </View>
       )}
     </TouchableOpacity>
   );
 };
 
-const getVariantStyle = (variant: string, theme: Theme): ViewStyle => {
+const getVariantStyle = (
+  variant: NonNullable<ButtonProps['variant']>,
+  theme: Theme
+): ViewStyle => {
   switch (variant) {
     case 'primary':
       return {
-        backgroundColor: theme.colors?.primary || '#007AFF',
+        backgroundColor: theme.colors?.primary || '#0E3A53',
         borderWidth: 0,
       };
     case 'secondary':
-      return {
-        backgroundColor: theme.colors?.secondary || '#6C757D',
-        borderWidth: 0,
-      };
-    case 'outline':
+      // Outline style
       return {
         backgroundColor: 'transparent',
-        borderWidth: 2,
-        borderColor: theme.colors?.primary || '#007AFF',
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: theme.colors?.border,
       };
-    case 'ghost':
+    case 'tertiary':
+      // Text button
       return {
         backgroundColor: 'transparent',
         borderWidth: 0,
       };
+    case 'destructive':
+      return {
+        backgroundColor: theme.colors?.error || '#4A1F1F',
+        borderWidth: 0,
+      };
+    // Back-compat aliases handled earlier
     default:
       return {};
   }
 };
 
-const getSizeStyle = (size: string, theme: Theme): ViewStyle => {
+const getSizeStyle = (
+  size: NonNullable<ButtonProps['size']>,
+  theme: Theme,
+  fullWidth: boolean
+): ViewStyle => {
   switch (size) {
     case 'small':
       return {
-        paddingVertical: theme.spacing?.xs || 6,
-        paddingHorizontal: theme.spacing?.sm || 10,
+        paddingVertical: theme.spacing?.xs ?? 4,
+        paddingHorizontal: 16,
         minHeight: 32,
+        alignSelf: fullWidth ? 'stretch' : 'auto',
       };
     case 'medium':
       return {
-        paddingVertical: theme.spacing?.sm || 10,
-        paddingHorizontal: theme.spacing?.md || 14,
+        paddingVertical: theme.spacing?.sm ?? 8,
+        paddingHorizontal: 20,
         minHeight: 44,
+        alignSelf: fullWidth ? 'stretch' : 'auto',
       };
     case 'large':
       return {
-        paddingVertical: theme.spacing?.md || 14,
-        paddingHorizontal: theme.spacing?.lg || 18,
-        minHeight: 56,
+        paddingVertical: theme.spacing?.md ?? 16,
+        paddingHorizontal: 24,
+        minHeight: 52,
+        alignSelf: fullWidth ? 'stretch' : 'auto',
       };
     default:
       return {};
   }
 };
 
-const getVariantTextStyle = (variant: string, theme: Theme): TextStyle => {
+const getVariantTextStyle = (
+  variant: NonNullable<ButtonProps['variant']>,
+  theme: Theme
+): TextStyle => {
   switch (variant) {
     case 'primary':
-    case 'secondary':
+    case 'destructive':
       return { color: theme.colors?.surface || '#FFFFFF' };
-    case 'outline':
-    case 'ghost':
-      return { color: theme.colors?.primary || '#007AFF' };
+    case 'secondary':
+    case 'tertiary':
+      return {
+        color: theme.colors?.primary || '#0E3A53',
+        textDecorationLine: variant === 'tertiary' ? 'none' : 'none',
+      };
     default:
       return {};
   }
 };
 
-const getSizeTextStyle = (size: string, _theme: any): TextStyle => {
+const getSizeTextStyle = (
+  size: NonNullable<ButtonProps['size']>,
+  _theme: any
+): TextStyle => {
   switch (size) {
     case 'small':
       return { fontSize: 14, lineHeight: 18 };
@@ -169,7 +224,7 @@ const getSizeTextStyle = (size: string, _theme: any): TextStyle => {
 
 const styles = StyleSheet.create({
   base: {
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',

@@ -24,6 +24,7 @@ module.exports = {
     '^@react-native-async-storage/async-storage$':
       '<rootDir>/__mocks__/async-storage.js',
     '^@react-native-community/netinfo$': '<rootDir>/__mocks__/netinfo.js',
+    '^expo-haptics$': '<rootDir>/__mocks__/expo-haptics.js',
   },
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
   testEnvironment: 'node',

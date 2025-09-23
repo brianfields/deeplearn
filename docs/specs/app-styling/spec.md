@@ -113,16 +113,16 @@ As a mobile app user, I want the learning application to have a beautiful, cohes
 - [x] Update ui_system public interface to export new primitives
 
 ### Phase 2: Core Component Redesign
-- [ ] Redesign Button component with four variants (primary, secondary, tertiary, destructive)
-- [ ] Update Button component with haptic feedback integration
-- [ ] Redesign Card component with 12pt radius, hairline borders, raised shadows
-- [ ] Update Progress component with new color system and animations
-- [ ] Test all ui_system components in isolation with new styling
-- [ ] Update ui_system unit tests for new component interfaces
+- [x] Redesign Button component with four variants (primary, secondary, tertiary, destructive)
+- [x] Update Button component with haptic feedback integration
+- [x] Redesign Card component with 12pt radius, hairline borders, raised shadows
+- [x] Update Progress component with new color system and animations
+- [x] Test all ui_system components in isolation with new styling
+- [x] Update ui_system unit tests for new component interfaces
 
 ### Phase 3: Catalog Module Styling
-- [ ] Redesign UnitListScreen with new visual hierarchy and search styling
-- [ ] Fix navigation flow to ensure back button functionality
+- [x] Redesign UnitListScreen with new visual hierarchy and search styling
+- [x] Fix navigation flow to ensure back button functionality
 - [ ] Redesign UnitDetailScreen with floating content card and proper CTAs
 - [ ] Update UnitCard component with Weimar Edge styling and interactions
 - [ ] Style SearchFilters with new input design patterns
@@ -472,34 +472,11 @@ export const tokens = {
 
 ---
 
-## 11) QA Checklist (shippable criteria)
-
-* [ ] All text meets AA contrast in both modes.
-* [ ] Touch targets ≥ 44×44pt; list rows 56pt.
-* [ ] Dynamic Type tested at XL; no truncation on titles.
-* [ ] Motion disabled under Reduce Motion; alternatives present.
-* [ ] Primary CTA clearly identifiable (color, position, affordance).
-* [ ] One “bold move” per screen; others subdued.
-* [ ] Haptics mapped and tested per interaction.
-* [ ] Tokens drive all styles; no ad‑hoc colors or radii.
-* [ ] Icons follow 1.5px stroke, rounded joins.
-* [ ] Component states (default/hover/pressed/disabled) implemented.
-
----
-
-## 12) Implementation Notes
+## 11) Implementation Notes
 
 * Prefer platform‑native controls styled via tokens; keep custom components minimal.
 * Use semantic names (`surface/subtle`, `surface/raised`), not raw hex, in app code.
 * Build a **storybook** with light & dark permutations and a11y tests.
 
----
-
-## 13) Future Extensions
-
-* **Data Viz Mini‑System:** Deco grids, capped palette (petrol, gilt, ink), 1.5px lines, tight legends.
-* **Theming Variants:** “Cabaret” (warmer: more gilt/rouge), “Bauhaus” (cooler: more petrol/steel).
-
----
 
 *References to study:* Apple HIG (iOS), Bauhaus posters (geometry/reduction), 1920s Art‑Deco wayfinding (type + icon pairing), Babylon Berlin stills (lighting, palette).

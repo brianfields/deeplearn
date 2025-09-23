@@ -87,7 +87,17 @@ export function UnitDetailScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>{unit.title}</Text>
+      <View style={styles.headerRow}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          style={styles.backButton}
+        >
+          <Text style={styles.backButtonText}>{'‹ Back'}</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>{unit.title}</Text>
+      </View>
       {nextLessonTitle && (
         <View style={styles.resumeContainer}>
           <Text style={styles.resumeLabel}>Resume next:</Text>
@@ -130,6 +140,9 @@ export function UnitDetailScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F9FAFB', padding: 20 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  backButton: { paddingVertical: 6, paddingRight: 12 },
+  backButtonText: { fontSize: 16, color: '#0E3A53' },
   title: { fontSize: 24, fontWeight: '700', color: '#111827' },
   subtitle: { fontSize: 16, color: '#6B7280', marginTop: 16 },
   lessonRow: {

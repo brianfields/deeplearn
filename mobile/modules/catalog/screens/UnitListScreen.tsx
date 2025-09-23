@@ -7,7 +7,6 @@
 import React, { useState, useCallback } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   FlatList,
   SafeAreaView,
@@ -27,6 +26,7 @@ import {
 } from '../queries';
 import type { Unit } from '../public';
 import type { LearningStackParamList } from '../../../types';
+import { uiSystemProvider, Text } from '../../ui_system/public';
 
 type LessonListScreenNavigationProp = NativeStackNavigationProp<
   LearningStackParamList,
@@ -39,6 +39,9 @@ export function LessonListScreen() {
   const { data: units = [], isLoading, refetch } = useCatalogUnits();
   const retryUnitMutation = useRetryUnitCreation();
   const dismissUnitMutation = useDismissUnit();
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const ui = uiSystemProvider();
+  const theme = ui.getCurrentTheme();
 
   const filteredUnits = units.filter(
     u =>
@@ -72,25 +75,50 @@ export function LessonListScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+    >
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title} testID="units-title">
+        <Text variant="h1" testID="units-title">
           Units
         </Text>
-        <Text style={styles.subtitle}>{units.length} available</Text>
+        <Text variant="secondary" color={theme.colors.textSecondary}>
+          {units.length} available
+        </Text>
       </View>
 
       {/* Search and Create Button */}
       <View style={styles.searchContainer}>
-        <View style={styles.searchInputContainer}>
-          <Search size={20} color="#9CA3AF" style={styles.searchIcon} />
+        <View
+          style={[
+            styles.searchInputContainer,
+            {
+              backgroundColor: theme.colors.surface,
+              borderWidth: StyleSheet.hairlineWidth,
+              borderColor: isSearchFocused
+                ? theme.colors.secondary
+                : theme.colors.border,
+              shadowOpacity: 0,
+              elevation: 0,
+              borderRadius: 20,
+              minHeight: 44,
+            },
+          ]}
+        >
+          <Search
+            size={20}
+            color={theme.colors.textSecondary}
+            style={styles.searchIcon}
+          />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: theme.colors.text }]}
             placeholder="Search units..."
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={theme.colors.textSecondary}
+            onFocus={() => setIsSearchFocused(true)}
+            onBlur={() => setIsSearchFocused(false)}
             testID="search-input"
           />
         </View>
@@ -108,7 +136,7 @@ export function LessonListScreen() {
         data={filteredUnits}
         renderItem={({ item, index }) => (
           <Animated.View
-            entering={FadeIn.delay(index * 100)}
+            entering={FadeIn.delay(index * 24)}
             style={styles.listItemContainer}
           >
             <UnitCard
@@ -129,9 +157,11 @@ export function LessonListScreen() {
         onRefresh={() => refetch()}
         ListEmptyComponent={() => (
           <View style={styles.emptyState}>
-            <Search size={48} color="#9CA3AF" />
-            <Text style={styles.emptyStateTitle}>No Units Found</Text>
-            <Text style={styles.emptyStateDescription}>
+            <Search size={48} color={theme.colors.textSecondary} />
+            <Text variant="title" style={{ marginTop: 16 }}>
+              No Units Found
+            </Text>
+            <Text variant="body" color={theme.colors.textSecondary}>
               {searchQuery
                 ? 'Try adjusting your search'
                 : 'Pull down to refresh'}
@@ -150,21 +180,10 @@ export function LessonListScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
   },
   header: {
     padding: 20,
     paddingBottom: 16,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#6B7280',
   },
   searchContainer: {
     flexDirection: 'row',
@@ -176,18 +195,8 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    paddingVertical: 8,
   },
   searchIcon: {
     marginRight: 12,
@@ -195,7 +204,6 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: '#111827',
   },
   createButton: {
     width: 48,
@@ -227,18 +235,5 @@ const styles = StyleSheet.create({
   emptyState: {
     alignItems: 'center',
     paddingVertical: 40,
-  },
-  emptyStateTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#374151',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptyStateDescription: {
-    fontSize: 16,
-    color: '#6B7280',
-    textAlign: 'center',
-    lineHeight: 24,
   },
 });
