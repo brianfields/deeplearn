@@ -18,6 +18,9 @@ import type {
 export { Button } from './components/Button';
 export { Card } from './components/Card';
 export { Progress } from './components/Progress';
+export { Box } from './components/primitives/Box';
+export { Text } from './components/primitives/Text';
+export { useHaptics } from './hooks/useHaptics';
 
 // Public interface protocol (for theme management)
 export interface UISystemProvider {

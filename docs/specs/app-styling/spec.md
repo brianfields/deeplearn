@@ -106,11 +106,11 @@ As a mobile app user, I want the learning application to have a beautiful, cohes
 - [x] Create Weimar Edge design tokens in `ui_system/tokens/index.ts`
 - [x] Replace existing theme system in `ui_system/theme/theme.ts`
 - [x] Update theme manager service for new token structure
-- [ ] Create Box primitive component for layout consistency
-- [ ] Create Text primitive component for typography hierarchy
-- [ ] Implement haptic feedback hook for iOS interactions
-- [ ] Create animation utilities with Weimar Edge timing specifications
-- [ ] Update ui_system public interface to export new primitives
+- [x] Create Box primitive component for layout consistency
+- [x] Create Text primitive component for typography hierarchy
+- [x] Implement haptic feedback hook for iOS interactions
+- [x] Create animation utilities with Weimar Edge timing specifications
+- [x] Update ui_system public interface to export new primitives
 
 ### Phase 2: Core Component Redesign
 - [ ] Redesign Button component with four variants (primary, secondary, tertiary, destructive)
