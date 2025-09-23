@@ -50,7 +50,8 @@ class ExtractLessonMetadataStep(StructuredStep):
 
     step_name = "extract_lesson_metadata"
     prompt_file = "extract_lesson_metadata.md"
-    reasoning_effort = "medium"
+    reasoning_effort = "low"
+    model = "gpt-5-mini"
     verbosity = "low"
 
     class Inputs(BaseModel):
@@ -91,8 +92,9 @@ class GenerateMisconceptionBankStep(StructuredStep):
 
     step_name = "generate_misconception_bank"
     prompt_file = "generate_misconception_bank.md"
-    reasoning_effort = "medium"
+    reasoning_effort = "low"
     verbosity = "low"
+    model = "gpt-5-mini"
 
     class Inputs(BaseModel):
         core_concept: str
@@ -129,6 +131,7 @@ class GenerateDidacticSnippetStep(StructuredStep):
     prompt_file = "generate_didactic_snippet.md"
     reasoning_effort = "low"
     verbosity = "low"
+    model = "gpt-5-mini"
 
     class Inputs(BaseModel):
         lesson_title: str
@@ -158,6 +161,7 @@ class GenerateGlossaryStep(StructuredStep):
     prompt_file = "generate_glossary.md"
     reasoning_effort = "low"
     verbosity = "low"
+    model = "gpt-5-mini"
 
     class Inputs(BaseModel):
         lesson_title: str
@@ -204,6 +208,7 @@ class GenerateMCQStep(StructuredStep):
     prompt_file = "generate_mcqs.md"
     reasoning_effort = "high"
     verbosity = "low"
+    model = "gpt-5-mini"
 
     class Inputs(BaseModel):
         lesson_title: str
@@ -231,8 +236,9 @@ class FastLessonMetadataStep(StructuredStep):
 
     step_name = "fast_lesson_metadata"
     prompt_file = "fast_lesson_metadata.md"
-    reasoning_effort = "medium"
+    reasoning_effort = "low"
     verbosity = "low"
+    model = "gpt-5-mini"
 
     class Inputs(BaseModel):
         title: str
@@ -268,8 +274,9 @@ class GenerateUnitSourceMaterialStep(UnstructuredStep):
 
     step_name = "generate_unit_source_material"
     prompt_file = "generate_unit_source_material.md"
-    reasoning_effort = "high"
+    reasoning_effort = "low"
     verbosity = "low"
+    model = "gpt-5-mini"
 
     class Inputs(BaseModel):
         topic: str
@@ -292,7 +299,8 @@ class ExtractUnitMetadataStep(StructuredStep):
 
     step_name = "extract_unit_metadata"
     prompt_file = "extract_unit_metadata.md"
-    reasoning_effort = "medium"
+    reasoning_effort = "low"
+    model = "gpt-5-mini"
     verbosity = "low"
 
     class Inputs(BaseModel):
@@ -322,7 +330,8 @@ class ChunkSourceMaterialStep(StructuredStep):
 
     step_name = "chunk_source_material"
     prompt_file = "chunk_source_material.md"
-    reasoning_effort = "medium"
+    reasoning_effort = "low"
+    model = "gpt-5-mini"
     verbosity = "low"
 
     class Inputs(BaseModel):

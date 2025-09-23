@@ -95,7 +95,7 @@ class TaskQueueService:
             self._arq_pool = await create_pool(self.redis_settings)
         return self._arq_pool
 
-    async def submit_flow_task(self, flow_name: str, flow_run_id: uuid.UUID, inputs: dict[str, Any], user_id: uuid.UUID | None = None, priority: int = 0, delay: float | None = None) -> TaskSubmissionResult:
+    async def submit_flow_task(self, flow_name: str, flow_run_id: uuid.UUID, inputs: dict[str, Any], user_id: uuid.UUID | None = None, priority: int = 0, delay: float | None = None, task_type: str | None = None) -> TaskSubmissionResult:
         """
         Submit a flow execution task to the ARQ queue.
 
@@ -124,10 +124,12 @@ class TaskQueueService:
                 "user_id": str(user_id) if user_id else None,
                 "task_id": task_id,
             }
+            if task_type:
+                task_payload["task_type"] = task_type
 
-            # Submit task to ARQ
+            # Submit task to ARQ (generic registered-task entrypoint)
             job = await pool.enqueue_job(
-                "execute_flow_task",
+                "execute_registered_task",
                 task_payload,
                 _job_id=task_id,
                 _defer_by=delay,
@@ -199,10 +201,11 @@ class TaskQueueService:
         if task_status.status == TaskStatusEnum.PENDING:
             # Try to cancel in ARQ
             try:
+                from arq import Job
+
                 pool = await self.get_arq_pool()
-                job = await pool.get_job(task_id)
-                if job:
-                    await job.abort()
+                job = Job(task_id, pool)
+                await job.abort()
 
                 # Update status
                 task_status.status = TaskStatusEnum.CANCELLED

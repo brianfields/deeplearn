@@ -228,7 +228,7 @@ from .base_flow import BaseFlow
 from .base_step import BaseStep, ImageStep, StepResult, StepType, StructuredStep, UnstructuredStep
 from .context import FlowContext
 from .repo import FlowRunRepo, FlowStepRunRepo
-from .service import FlowRunQueryService, FlowRunSummaryDTO, FlowStepDetailsDTO
+from .service import FlowRunDetailsDTO, FlowRunQueryService, FlowRunSummaryDTO, FlowStepDetailsDTO
 
 
 class FlowEngineAdminProvider(Protocol):
@@ -249,7 +249,7 @@ class FlowEngineAdminProvider(Protocol):
         """Get total count of flow runs. FOR ADMIN USE ONLY."""
         ...
 
-    def get_flow_run_by_id(self, flow_run_id: uuid.UUID) -> FlowRunSummaryDTO | None:
+    def get_flow_run_by_id(self, flow_run_id: uuid.UUID) -> FlowRunDetailsDTO | None:
         """Get flow run by ID. FOR ADMIN USE ONLY."""
         ...
 

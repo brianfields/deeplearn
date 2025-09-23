@@ -8,10 +8,11 @@ Uses LLM services to create educational content and stores it via content module
 import asyncio
 import inspect
 import logging
-from typing import Any
+import re
+from typing import Any, cast
 import uuid
 
-from fastapi import BackgroundTasks
+# FastAPI BackgroundTasks path was removed; keep import set minimal
 from pydantic import BaseModel
 
 from modules.content.package_models import (
@@ -25,6 +26,7 @@ from modules.content.package_models import (
 )
 from modules.content.public import ContentProvider, LessonCreate, UnitCreate, UnitStatus, content_provider
 from modules.infrastructure.public import infrastructure_provider
+from modules.task_queue.public import task_queue_provider
 
 from .flows import FastLessonCreationFlow, FastUnitCreationFlow, LessonCreationFlow
 
@@ -75,7 +77,7 @@ class ContentCreatorService:
         """Initialize with content storage only - flows handle LLM interactions."""
         self.content = content
 
-    async def _call_create_lesson_with_fast_flag(self, request: "ContentCreatorService.CreateLessonRequest", use_fast: bool) -> "LessonCreationResult":
+    async def _call_create_lesson_with_fast_flag(self, request: "CreateLessonRequest", use_fast: bool) -> "LessonCreationResult":
         """Call create_lesson_from_source_material with compatible kwarg name.
 
         Some tests stub this method with a signature that expects `_use_fast_flow` instead
@@ -644,9 +646,11 @@ class ContentCreatorService:
 
         return self.MobileUnitCreationResult(unit_id=unit_id, title=title, status=UnitStatus.IN_PROGRESS.value)
 
-    async def create_unit_from_mobile_with_background_tasks(self, topic: str, difficulty: str, target_lesson_count: int | None, background_tasks: BackgroundTasks) -> "ContentCreatorService.MobileUnitCreationResult":
-        """Create a unit from mobile app using FastAPI's BackgroundTasks for reliable background processing."""
-        logger.info(f"🔥 Starting mobile unit creation with FastAPI BackgroundTasks: topic='{topic}', difficulty='{difficulty}'")
+    # Removed: FastAPI BackgroundTasks path (unused/never worked). Use ARQ path instead.
+
+    async def create_unit_from_mobile_with_arq(self, topic: str, difficulty: str, target_lesson_count: int | None) -> "ContentCreatorService.MobileUnitCreationResult":
+        """Create a unit from mobile app using ARQ for reliable background processing."""
+        logger.info(f"🔥 Starting mobile unit creation with ARQ: topic='{topic}', difficulty='{difficulty}'")
 
         # Generate unit ID and title
         unit_id = str(uuid.uuid4())
@@ -666,23 +670,34 @@ class ContentCreatorService:
             flow_type="fast",
         )
 
-        # Create the unit in the database with in_progress status
         created_unit = self.content.create_unit(unit_data)
+        logger.info(f"✅ Created unit in database: {created_unit.id}")
 
         # Update status to in_progress (the unit is created with completed status by default)
         self.content.update_unit_status(unit_id=created_unit.id, status=UnitStatus.IN_PROGRESS.value, creation_progress={"stage": "starting", "message": "Initializing unit creation..."})
 
-        # Add background task using FastAPI's BackgroundTasks
-        logger.info(f"🔧 Adding background task to FastAPI BackgroundTasks for unit {created_unit.id}")
-        background_tasks.add_task(self._execute_background_unit_creation_sync_wrapper, created_unit.id, topic, difficulty, target_lesson_count)
-        logger.info(f"🔧 Background task added successfully for unit {created_unit.id}")
+        # Submit to ARQ for background processing
+        task_queue_service = task_queue_provider()
 
-        logger.info(f"✅ Mobile unit creation initiated with FastAPI BackgroundTasks: unit_id={created_unit.id}")
+        # Submit generic content_creator task type to ARQ
+        task_result = await task_queue_service.submit_flow_task(
+            flow_name="content_creator.unit_creation",
+            flow_run_id=uuid.UUID(unit_id),
+            inputs={
+                "unit_id": unit_id,
+                "topic": topic,
+                "difficulty": difficulty,
+                "target_lesson_count": target_lesson_count,
+                "task_type": "content_creator.unit_creation",
+            },
+        )
 
-        return self.MobileUnitCreationResult(unit_id=created_unit.id, title=title, status=UnitStatus.IN_PROGRESS.value)
+        logger.info(f"✅ Mobile unit creation submitted to ARQ: unit_id={unit_id}, task_id={task_result.task_id}")
+
+        return self.MobileUnitCreationResult(unit_id=unit_id, title=title, status=UnitStatus.IN_PROGRESS.value)
 
     def _execute_background_unit_creation_sync_wrapper(self, unit_id: str, topic: str, difficulty: str, target_lesson_count: int | None) -> None:
-        """Synchronous wrapper for FastAPI BackgroundTasks - runs the async function in a new event loop."""
+        """Deprecated background sync wrapper (legacy). Not used in ARQ path."""
 
         logger.info(f"🚀 FASTAPI BACKGROUND TASK SYNC WRAPPER CALLED for unit {unit_id}")
 
@@ -764,14 +779,35 @@ class ContentCreatorService:
                 logger.info(f"🔧 Lesson {i + 1} title: {lesson_title}")
                 logger.info(f"🔧 Lesson {i + 1} result keys: {list(lesson_result.keys())}")
 
+                # Generate a database-safe lesson id (<=36 chars)
+                db_lesson_id = str(uuid.uuid4())
+
                 # Transform flow result into LessonPackage format
-                # Create Meta object
-                meta = Meta(lesson_id=f"lesson-{unit_id}-{i + 1}", title=lesson_title, core_concept=lesson_result.get("core_concept", lesson_title), user_level=difficulty, domain="General")
+                # Create Meta object (keep IDs consistent with DB id)
+                meta = Meta(lesson_id=db_lesson_id, title=lesson_title, core_concept=lesson_result.get("core_concept", lesson_title), user_level=difficulty, domain="General")
 
                 # Transform learning_objectives to objectives
                 objectives: list[Objective] = []
                 for lo_data in lesson_result.get("learning_objectives", []):
                     objectives.append(Objective(id=lo_data.get("id", f"lo_{len(objectives) + 1}"), text=lo_data.get("text", "")))
+                # Ensure at least one objective exists
+                if not objectives:
+                    objectives.append(Objective(id="lo_1", text=lesson_result.get("core_concept", lesson_title)))
+
+                # Prepare mapping for LO ids (case/format-insensitive)
+                def _normalize_lo_id(value: str) -> str:
+                    v = value.strip()
+                    m = re.match(r"^lo[_-]?(\d+)$", v, flags=re.IGNORECASE)
+                    if m:
+                        return f"lo_{m.group(1)}".lower()
+                    return v.lower()
+
+                objective_id_map: dict[str, str] = {obj.id.lower(): obj.id for obj in objectives}
+                # Also map normalized numeric forms (e.g., LO1 -> lo_1)
+                for obj in objectives:
+                    m2 = re.match(r"^lo[_-]?(\d+)$", obj.id, flags=re.IGNORECASE)
+                    if m2:
+                        objective_id_map[f"lo_{m2.group(1)}".lower()] = obj.id
 
                 # Transform glossary
                 glossary_terms: list[GlossaryTerm] = []
@@ -781,17 +817,30 @@ class ContentCreatorService:
 
                 # Transform didactic_snippet
                 didactic_data = lesson_result.get("didactic_snippet", {})
-                didactic_snippet = DidacticSnippet(id=didactic_data.get("id", "lesson_explanation"), plain_explanation=didactic_data.get("plain_explanation", ""), key_takeaways=didactic_data.get("key_takeaways", []))
+                # Coerce None values to valid defaults for strict pydantic validation
+                plain_explanation = didactic_data.get("plain_explanation") or ""
+                key_takeaways = didactic_data.get("key_takeaways") or []
+                didactic_snippet = DidacticSnippet(
+                    id=didactic_data.get("id", "lesson_explanation"),
+                    plain_explanation=plain_explanation,
+                    key_takeaways=key_takeaways,
+                )
 
                 # Transform exercises
                 exercises: list[MCQExercise] = []
                 for ex_data in lesson_result.get("exercises", []):
                     # Create MCQExercise from the exercise data
+                    raw_lo: str | None = ex_data.get("lo_id")
+                    mapped_lo: str = objectives[0].id if objectives else "lo_1"
+                    if isinstance(raw_lo, str) and raw_lo.strip():
+                        norm = _normalize_lo_id(raw_lo)
+                        mapped_lo = objective_id_map.get(norm, mapped_lo)
+
                     exercises.append(
                         MCQExercise(
                             id=ex_data.get("id", f"ex_{len(exercises) + 1}"),
                             exercise_type=ex_data.get("exercise_type", "mcq"),
-                            lo_id=ex_data.get("lo_id", objectives[0].id if objectives else "lo_1"),
+                            lo_id=mapped_lo,
                             cognitive_level=ex_data.get("cognitive_level", "remember"),
                             estimated_difficulty=ex_data.get("estimated_difficulty", "easy"),
                             misconceptions_used=ex_data.get("misconceptions_used", []),
@@ -808,7 +857,7 @@ class ContentCreatorService:
 
                 # Create lesson using the properly formatted package
                 lesson_create = LessonCreate(
-                    id=f"lesson-{unit_id}-{i + 1}",
+                    id=db_lesson_id,
                     title=lesson_title,
                     core_concept=lesson_result.get("core_concept", lesson_title),
                     user_level=difficulty,
@@ -822,6 +871,14 @@ class ContentCreatorService:
             except Exception as e:
                 logger.error(f"❌ Failed to create lesson {i + 1} for unit {unit_id}: {e}")
                 logger.exception("Full exception details:")
+                # Ensure the DB session is usable for subsequent operations
+                try:
+                    maybe_repo = getattr(cast(Any, content), "repo", None)
+                    maybe_session = getattr(maybe_repo, "s", None)
+                    if maybe_session is not None and hasattr(maybe_session, "rollback"):
+                        maybe_session.rollback()
+                except Exception as rb_e:  # pragma: no cover - defensive
+                    logger.warning(f"⚠️ Rollback after lesson failure also failed: {rb_e}")
                 continue
 
         # Update the existing unit with the generated content

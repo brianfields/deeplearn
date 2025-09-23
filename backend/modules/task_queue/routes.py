@@ -39,8 +39,16 @@ async def get_queue_status(queue_name: str = Query(default="default", descriptio
         # Get worker information
         workers = await service.get_all_workers(queue_name)
 
+        # Determine queue status based on workers and tasks
+        queue_status = "healthy"
+        if stats.healthy_workers == 0:
+            queue_status = "down"
+        elif stats.failed_tasks > stats.completed_tasks * 0.1:  # More than 10% failure rate
+            queue_status = "degraded"
+
         return {
             "queue_name": queue_name,
+            "status": queue_status,
             "stats": {
                 "pending_tasks": stats.pending_tasks,
                 "in_progress_tasks": stats.in_progress_tasks,

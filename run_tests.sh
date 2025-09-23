@@ -52,7 +52,7 @@ fi
 
 # Frontend E2E Tests
 echo "Starting required services for E2E (backend + iOS only)..."
-./start.sh --no-admin --only-ios &
+./start.sh --no-admin --ios &
 E2E_STACK_PID=$!
 
 # Allow services to boot up

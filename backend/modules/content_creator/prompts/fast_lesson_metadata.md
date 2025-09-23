@@ -9,11 +9,11 @@ You are an expert instructional designer. Given the lesson inputs, produce a sin
 Return JSON strictly conforming to the schema implied by the fields below. Be concise but specific; avoid verbosity.
 
 Inputs:
-- title
-- core_concept
-- source_material
-- user_level
-- domain
+- {title}
+- {core_concept}
+- {source_material}
+- {user_level}
+- {domain}
 
 Output fields:
 - title, core_concept, user_level, domain

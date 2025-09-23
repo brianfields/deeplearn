@@ -97,16 +97,18 @@ async def run_arq_worker(config: ArqWorkerConfig | None = None) -> None:
     try:
         # Get base settings as dict
         base_settings = get_arq_worker_settings()
-        
+
         # Override with config if provided
         if config:
-            base_settings.update({
-                "queue_name": config.queue_name,
-                "max_jobs": config.max_jobs,
-                "job_timeout": config.job_timeout,
-                "keep_result": config.keep_result,
-                "max_tries": config.max_tries,
-            })
+            base_settings.update(
+                {
+                    "queue_name": config.queue_name,
+                    "max_jobs": config.max_jobs,
+                    "job_timeout": config.job_timeout,
+                    "keep_result": config.keep_result,
+                    "max_tries": config.max_tries,
+                }
+            )
 
         # Create a settings class dynamically
         class WorkerSettings:
@@ -159,7 +161,6 @@ def main() -> None:
 
     # Run the worker
     try:
-        # Use asyncio.run which handles event loop creation properly
         asyncio.run(run_arq_worker(config))
     except KeyboardInterrupt:
         print("\\n👋 Worker stopped by user")

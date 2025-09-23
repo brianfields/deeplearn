@@ -5,6 +5,7 @@ This module provides the narrow contract for the Task Queue module
 and returns the service instance directly for dependency injection.
 """
 
+from collections.abc import Awaitable, Callable
 from typing import Any, Protocol
 import uuid
 
@@ -16,7 +17,7 @@ from .service import TaskQueueService
 class TaskQueueProvider(Protocol):
     """Protocol defining the public interface for task queue operations."""
 
-    async def submit_flow_task(self, flow_name: str, flow_run_id: uuid.UUID, inputs: dict[str, Any], user_id: uuid.UUID | None = None, priority: int = 0, delay: float | None = None) -> TaskSubmissionResult:
+    async def submit_flow_task(self, flow_name: str, flow_run_id: uuid.UUID, inputs: dict[str, Any], user_id: uuid.UUID | None = None, priority: int = 0, delay: float | None = None, task_type: str | None = None) -> TaskSubmissionResult:
         """Submit a flow execution task to the queue."""
         ...
 
@@ -87,5 +88,28 @@ __all__ = [
     "TaskStatus",
     "TaskSubmissionResult",
     "WorkerHealth",
+    "get_task_handler",
+    "register_task_handler",
     "task_queue_provider",
 ]
+
+# -----------------------------
+# Lightweight task handler registry (module-global)
+# -----------------------------
+
+_task_handlers: dict[str, Callable[[dict[str, Any]], Awaitable[None]]] = {}
+
+
+def register_task_handler(task_type: str, handler: Callable[[dict[str, Any]], Awaitable[None]]) -> None:
+    """Register an async handler for a task_type.
+
+    Args:
+        task_type: Unique identifier for the task type (e.g., "content_creator.unit_creation").
+        handler: Async callable receiving a dict payload.
+    """
+    _task_handlers[task_type] = handler
+
+
+def get_task_handler(task_type: str) -> Callable[[dict[str, Any]], Awaitable[None]] | None:
+    """Lookup a registered task handler by type."""
+    return _task_handlers.get(task_type)

@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 import uuid
 
 from ..llm_services.public import LLMServicesProvider
@@ -166,8 +166,10 @@ class FlowEngineService:
             flow_run.total_cost = total_cost
 
             # Calculate execution time
-            if flow_run.started_at:
-                flow_run.execution_time_ms = int((flow_run.completed_at - flow_run.started_at).total_seconds() * 1000)
+            if flow_run.started_at is not None and flow_run.completed_at is not None:
+                started_at = cast(datetime, flow_run.started_at)
+                completed_at = cast(datetime, flow_run.completed_at)
+                flow_run.execution_time_ms = int((completed_at - started_at).total_seconds() * 1000)
 
             self.flow_run_repo.save(flow_run)
 
@@ -180,8 +182,10 @@ class FlowEngineService:
             flow_run.completed_at = datetime.now(UTC)
 
             # Calculate execution time
-            if flow_run.started_at:
-                flow_run.execution_time_ms = int((flow_run.completed_at - flow_run.started_at).total_seconds() * 1000)
+            if flow_run.started_at is not None and flow_run.completed_at is not None:
+                started_at = cast(datetime, flow_run.started_at)
+                completed_at = cast(datetime, flow_run.completed_at)
+                flow_run.execution_time_ms = int((completed_at - started_at).total_seconds() * 1000)
 
             self.flow_run_repo.save(flow_run)
 
@@ -202,26 +206,60 @@ class FlowRunQueryService:
         self.flow_run_repo = flow_run_repo
         self.step_run_repo = step_run_repo
 
-    def get_flow_run_by_id(self, flow_run_id: uuid.UUID) -> FlowRunSummaryDTO | None:
+    def get_flow_run_by_id(self, flow_run_id: uuid.UUID) -> FlowRunDetailsDTO | None:
         """Get flow run by ID. FOR ADMIN USE ONLY."""
         flow_run = self.flow_run_repo.by_id(flow_run_id)
         if not flow_run:
             return None
 
-        return FlowRunSummaryDTO(
+        # Collect steps to compute totals and include details
+        steps = self.step_run_repo.by_flow_run_id(flow_run.id)
+        step_dtos = [
+            FlowStepDetailsDTO(
+                id=str(step.id),
+                flow_run_id=str(step.flow_run_id),
+                llm_request_id=str(step.llm_request_id) if step.llm_request_id else None,
+                step_name=step.step_name,
+                step_order=step.step_order,
+                status=step.status,
+                inputs=step.inputs or {},
+                outputs=step.outputs,
+                tokens_used=step.tokens_used or 0,
+                cost_estimate=step.cost_estimate or 0.0,
+                execution_time_ms=step.execution_time_ms,
+                error_message=step.error_message,
+                step_metadata=step.step_metadata,
+                created_at=step.created_at,
+                completed_at=step.completed_at,
+            )
+            for step in steps
+        ]
+
+        total_tokens = sum(step.tokens_used or 0 for step in steps)
+        total_cost = sum(step.cost_estimate or 0.0 for step in steps)
+
+        return FlowRunDetailsDTO(
             id=str(flow_run.id),
             flow_name=flow_run.flow_name,
             status=flow_run.status,
             execution_mode=flow_run.execution_mode,
             user_id=str(flow_run.user_id) if flow_run.user_id else None,
+            current_step=flow_run.current_step,
+            step_progress=flow_run.step_progress,
+            total_steps=flow_run.total_steps,
+            progress_percentage=flow_run.progress_percentage,
             created_at=flow_run.created_at,
             started_at=flow_run.started_at,
             completed_at=flow_run.completed_at,
+            last_heartbeat=flow_run.last_heartbeat,
             execution_time_ms=flow_run.execution_time_ms,
-            total_tokens=flow_run.total_tokens or 0,
-            total_cost=flow_run.total_cost or 0.0,
-            step_count=len(self.step_run_repo.by_flow_run_id(flow_run.id)),
+            total_tokens=total_tokens,
+            total_cost=total_cost,
+            inputs=flow_run.inputs or {},
+            outputs=flow_run.outputs,
+            flow_metadata=flow_run.flow_metadata,
             error_message=flow_run.error_message,
+            steps=step_dtos,
         )
 
     def get_flow_steps_by_run_id(self, flow_run_id: uuid.UUID) -> list[FlowStepDetailsDTO]:

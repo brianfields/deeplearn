@@ -7,123 +7,96 @@ This module defines the actual ARQ tasks that will be executed by workers.
 import importlib
 import logging
 import os
+import time
 from typing import Any
 import uuid
 
-try:
-    import arq  # noqa: F401
-    from arq import ArqRedis, create_pool  # noqa: F401
-    from arq.connections import RedisSettings
+from arq.connections import RedisSettings
 
-    ARQ_AVAILABLE = True
-except ImportError:
-    ARQ_AVAILABLE = False
-
-from ..flow_engine.public import FlowContext, flow_engine_worker_provider
 from ..infrastructure.public import infrastructure_provider
-from ..llm_services.public import llm_services_provider
+from .public import get_task_handler
 from .service import TaskQueueService, WorkerManager
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["execute_flow_task", "get_arq_worker_settings"]
+__all__ = ["execute_registered_task", "get_arq_worker_settings"]
 
 
 # Global worker manager instance
 _worker_manager: WorkerManager | None = None
 
 
-async def execute_flow_task(_ctx: dict[str, Any], task_payload: dict[str, Any]) -> dict[str, Any]:
-    """
-    ARQ task for executing flows in background workers.
-
-    Args:
-        ctx: ARQ context (contains job info, redis connection, etc.)
-        task_payload: Task parameters containing flow execution data
-
-    Returns:
-        Dictionary containing flow execution results
-    """
+async def execute_registered_task(_ctx: dict[str, Any], task_payload: dict[str, Any]) -> dict[str, Any]:
+    """Generic ARQ task: resolve task_type and invoke registered handler."""
     global _worker_manager  # noqa: PLW0603
 
+    logger.debug("[worker] Received task payload keys: %s", list(task_payload.keys()))
+
     # Extract task information
-    task_id = task_payload.get("task_id")
-    flow_name = task_payload.get("flow_name")
-    flow_run_id_str = task_payload.get("flow_run_id")
     inputs = task_payload.get("inputs", {})
+    task_id = task_payload.get("task_id")
+    task_type = task_payload.get("task_type") or inputs.get("task_type")
+    flow_run_id_str = task_payload.get("flow_run_id")
     user_id_str = task_payload.get("user_id")
 
-    if not all([task_id, flow_name, flow_run_id_str]):
+    if not task_id or not task_type:
         raise ValueError("Missing required task parameters")
 
-    # Parse UUIDs
+    # Parse UUIDs if provided
+    flow_run_id = None
+    user_id = None
+    if flow_run_id_str:
+        try:
+            flow_run_id = uuid.UUID(flow_run_id_str)
+        except ValueError as e:
+            raise ValueError(f"Invalid flow_run_id UUID: {e}") from e
+    if user_id_str:
+        try:
+            user_id = uuid.UUID(user_id_str)
+        except ValueError as e:
+            raise ValueError(f"Invalid user_id UUID: {e}") from e
+
+    logger.info(f"🚀 Starting task: task_id={task_id}, type={task_type}")
+    if flow_run_id is not None or user_id is not None:
+        logger.debug("[worker] context ids: flow_run_id=%s user_id=%s", flow_run_id, user_id)
+    logger.debug("[worker] Inputs snapshot (keys only): %s", list(inputs.keys()) if isinstance(inputs, dict) else type(inputs))
     try:
-        flow_run_id = uuid.UUID(flow_run_id_str)
-        user_id = uuid.UUID(user_id_str) if user_id_str else None
-    except ValueError as e:
-        raise ValueError(f"Invalid UUID format: {e}") from e
+        infra = infrastructure_provider()
+        infra.initialize()
+        logger.debug("[worker] infra initialized")
+    except Exception as _e:  # Best-effort diagnostics only
+        logger.debug("[worker] infra precheck failed: %s", _e)
 
-    logger.info(f"🚀 Starting flow task: {flow_name} (task_id={task_id}, flow_run_id={flow_run_id})")
-
-    # Initialize infrastructure and services
-    infra = infrastructure_provider()
-    infra.initialize()
-    llm_services = llm_services_provider()
-
-    # Initialize worker manager if needed
+    # Initialize worker manager if needed (for task lifecycle only)
     if _worker_manager is None:
+        infra = infrastructure_provider()
+        infra.initialize()
         task_queue_service = TaskQueueService(infra)
         _worker_manager = WorkerManager(task_queue_service)
         await _worker_manager.start()
+
+    assert task_id is not None
+    # user_id/flow_run_id are optional for generic tasks
 
     # Report task started
     await _worker_manager.report_task_started(task_id)
 
     try:
-        # Execute the flow in a fresh database session
-        with infra.get_session_context() as db_session:
-            # Build worker-facing provider via public interface
-            service = flow_engine_worker_provider(db_session, llm_services)
+        # Resolve and execute registered handler only
+        handler = get_task_handler(task_type)
+        if handler is None:
+            raise ValueError(f"No handler registered for task_type: {task_type}")
+        t0 = time.perf_counter()
+        await handler(task_payload)
+        elapsed_ms = int((time.perf_counter() - t0) * 1000)
+        logger.debug("[worker] Handler %s completed in %sms", task_type, elapsed_ms)
+        await _worker_manager.service.complete_task(task_id, outputs={"status": "ok"})
+        return {"status": "ok"}
 
-            # Set up flow context for this worker execution
-            FlowContext.set(service=service, flow_run_id=flow_run_id, user_id=user_id, step_counter=0)
-
-            try:
-                # Find the flow class by name and execute it
-                flow_instance = _get_flow_instance(flow_name)
-                if not flow_instance:
-                    raise ValueError(f"Unknown flow: {flow_name}")
-
-                # Execute the flow logic directly (bypass the execute decorator)
-                logger.info(f"⚙️ Executing flow logic: {flow_name}")
-                result = await flow_instance._execute_flow_logic(inputs)
-
-                # Complete the flow run
-                await service.complete_flow_run(flow_run_id, result)
-
-                # Mark task as completed
-                await _worker_manager.service.complete_task(task_id, outputs=result)
-
-                logger.info(f"✅ Flow task completed successfully: {flow_name}")
-
-                return result
-
-            except Exception as e:
-                # Mark flow as failed
-                logger.error(f"❌ Flow task failed: {flow_name} - {e!s}")
-                await service.fail_flow_run(flow_run_id, str(e))
-
-                # Mark task as failed
-                await _worker_manager.service.complete_task(task_id, error_message=str(e))
-
-                raise
-
-            finally:
-                # Clean up context
-                FlowContext.clear()
+        logger.info("✅ Task completed successfully")
 
     except Exception as e:
-        logger.error(f"❌ Task execution failed completely: {task_id} - {e!s}")
+        logger.exception(f"❌ Task execution failed completely: {task_id}")
 
         # Try to mark task as failed even if infrastructure failed
         try:
@@ -140,38 +113,46 @@ async def execute_flow_task(_ctx: dict[str, Any], task_payload: dict[str, Any]) 
             await _worker_manager.report_task_completed(task_id)
 
 
-def _get_flow_instance(flow_name: str) -> Any:
-    """
-    Get a flow instance by name.
-
-    This function dynamically imports and instantiates flows based on their name.
-    Add new flows here as they are created.
-    """
-    # Import flows here to avoid circular imports
-    try:
-        if flow_name == "create_lesson_flow":
-            module = importlib.import_module("..content_creator.flows", __name__)
-            return module.CreateLessonFlow()
-        elif flow_name == "create_unit_flow":
-            module = importlib.import_module("..content_creator.flows", __name__)
-            return module.CreateUnitFlow()
-        # Add more flows as needed
-        else:
-            logger.error(f"Unknown flow name: {flow_name}")
-            return None
-    except ImportError as e:
-        logger.error(f"Failed to import flow {flow_name}: {e}")
-        return None
+# No flow lookups here by design; tasks are handled by registered handlers
 
 
 async def startup(_ctx: dict[str, Any]) -> None:
     """ARQ startup function - called when worker starts."""
+    global _worker_manager  # noqa: PLW0603
+
+    # Ensure verbose logging goes to stdout (captured by start.sh -> worker.log)
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
+    if not root_logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setLevel(logging.DEBUG)
+        formatter = logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
+        handler.setFormatter(formatter)
+        root_logger.addHandler(handler)
+    for name in ("modules", "modules.task_queue", "modules.flow_engine", "modules.content_creator"):
+        logging.getLogger(name).setLevel(logging.DEBUG)
+
     logger.info("🚀 ARQ Worker starting up...")
 
     # Initialize infrastructure (allow overriding .env via ENV_FILE)
     infra = infrastructure_provider()
     env_file = os.getenv("ENV_FILE")
     infra.initialize(env_file=env_file if env_file else None)
+
+    # Load task handler registrations from env (comma-separated module paths)
+    registrations = os.getenv("TASK_QUEUE_REGISTRATIONS", "")
+    if registrations:
+        for mod in [m.strip() for m in registrations.split(",") if m.strip()]:
+            try:
+                importlib.import_module(mod)
+                logger.debug("[worker] loaded task registration module: %s", mod)
+            except Exception as e:  # pragma: no cover
+                logger.error("Failed to import task registration module '%s': %s", mod, e)
+
+    # Initialize worker manager for health tracking (imports at top-level)
+    task_queue_service = TaskQueueService(infra)
+    _worker_manager = WorkerManager(task_queue_service)
+    await _worker_manager.start()
 
     logger.info("✅ ARQ Worker startup complete")
 
@@ -204,8 +185,6 @@ def get_arq_worker_settings() -> dict[str, Any]:
     Returns:
         Dictionary of ARQ worker configuration
     """
-    if not ARQ_AVAILABLE:
-        raise RuntimeError("ARQ library not available. Install arq package.")
 
     # Initialize infrastructure to get Redis config (respect ENV_FILE if provided)
     infra = infrastructure_provider()
@@ -222,13 +201,38 @@ def get_arq_worker_settings() -> dict[str, Any]:
     )
 
     return {
-        "functions": [execute_flow_task],
+        "functions": [execute_registered_task],
         "on_startup": startup,
         "on_shutdown": shutdown,
         "redis_settings": redis_settings,
-        "queue_name": "default",
+        # Use ARQ's default queue (no explicit queue_name)
         "max_jobs": 10,  # Maximum concurrent jobs per worker
         "job_timeout": 3600,  # 1 hour timeout for jobs
         "keep_result": 3600,  # Keep job results for 1 hour
         "max_tries": 2,  # Retry once on failure
     }
+
+
+# Initialize settings at module level for ARQ
+_settings = get_arq_worker_settings()
+
+
+# Create a proper ARQ WorkerSettings class for direct ARQ usage
+class WorkerSettings:
+    """
+    ARQ Worker Settings class for use with 'python -m arq' command.
+
+    This class follows ARQ's expected pattern and can be used directly
+    with ARQ's command line interface.
+    """
+
+    # Class attributes (not properties) as required by ARQ
+    functions = _settings["functions"]
+    on_startup = _settings["on_startup"]
+    on_shutdown = _settings["on_shutdown"]
+    redis_settings = _settings["redis_settings"]
+    # Do not set queue_name so ARQ uses its default queue key
+    max_jobs = _settings["max_jobs"]
+    job_timeout = _settings["job_timeout"]
+    keep_result = _settings["keep_result"]
+    max_tries = _settings["max_tries"]

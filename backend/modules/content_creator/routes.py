@@ -8,7 +8,7 @@ Provides endpoints for creating units from mobile app.
 from collections.abc import Generator
 import logging
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -54,7 +54,7 @@ class MobileUnitCreateResponse(BaseModel):
 
 
 @router.post("/units", response_model=MobileUnitCreateResponse, status_code=status.HTTP_201_CREATED)
-async def create_unit_from_mobile(request: MobileUnitCreateRequest, background_tasks: BackgroundTasks, service: ContentCreatorService = Depends(get_content_creator_service)) -> MobileUnitCreateResponse:
+async def create_unit_from_mobile(request: MobileUnitCreateRequest, service: ContentCreatorService = Depends(get_content_creator_service)) -> MobileUnitCreateResponse:
     """
     Create a unit from mobile app with topic and difficulty.
 
@@ -64,7 +64,7 @@ async def create_unit_from_mobile(request: MobileUnitCreateRequest, background_t
     try:
         logger.info(f"🔥 Mobile unit creation request: topic='{request.topic}', difficulty='{request.difficulty}'")
 
-        result = await service.create_unit_from_mobile_with_background_tasks(topic=request.topic, difficulty=request.difficulty, target_lesson_count=request.target_lesson_count, background_tasks=background_tasks)
+        result = await service.create_unit_from_mobile_with_arq(topic=request.topic, difficulty=request.difficulty, target_lesson_count=request.target_lesson_count)
 
         logger.info(f"✅ Mobile unit creation started: unit_id={result.unit_id}")
 
