@@ -238,20 +238,13 @@ class TestLessonCreationIntegration:
         assert isinstance(flow_run.outputs, dict)
         assert "learning_objectives" in flow_run.outputs
 
-        # Verify expected steps exist and counts match
+        # Verify expected steps exist and counts match (fast-default: 2 steps)
         step_runs = db_session.session.query(FlowStepRunModel).filter(FlowStepRunModel.flow_run_id == flow_run.id).order_by(FlowStepRunModel.step_order).all()
-        assert len(step_runs) >= 5  # Updated: metadata + misconception_bank + didactic + glossary + mcqs = 5 steps minimum
+        assert len(step_runs) == 2  # fast_lesson_metadata + generate_mcqs
 
         step_names = [s.step_name for s in step_runs]
-        assert "extract_lesson_metadata" in step_names
-        assert "generate_misconception_bank" in step_names
-        assert "generate_didactic_snippet" in step_names
-        assert "generate_glossary" in step_names
-        assert "generate_mcqs" in step_names  # Updated to check for single MCQ generation step
-
-        # Verify we have exactly one MCQ generation step (not one per learning objective)
-        mcq_step_count = sum(1 for n in step_names if n == "generate_mcqs")
-        assert mcq_step_count == 1, f"Expected exactly 1 MCQ generation step, got {mcq_step_count}"
+        assert "fast_lesson_metadata" in step_names
+        assert "generate_mcqs" in step_names
 
         # Ensure all steps completed successfully
         assert all(s.status == "completed" for s in step_runs)
@@ -261,7 +254,7 @@ class TestLessonCreationIntegration:
         print("🧹 Database session cleanup complete")
 
     @pytest.mark.asyncio
-    async def test_fast_lesson_creation_workflow(self, infrastructure_service, sample_source_material) -> None:
+    async def test_lesson_creation_workflow_fast_default(self, infrastructure_service, sample_source_material) -> None:
         """
         Test the fast lesson creation workflow with real database and LLM calls.
 
@@ -271,7 +264,7 @@ class TestLessonCreationIntegration:
         3. Checks that components are created with fewer LLM calls
         4. Validates the flow run uses "fast_lesson_creation" flow name
         """
-        print("⚡ Starting fast lesson creation workflow test...")
+        print("⚡ Starting lesson creation workflow test (fast-default)...")
 
         # Arrange: Ensure model is set before creating LLM service
         print("🔧 Setting up test environment and services for fast flow...")
@@ -289,8 +282,8 @@ class TestLessonCreationIntegration:
 
         request = CreateLessonRequest(title="Cross-Entropy Loss in Deep Learning (Fast)", core_concept="Cross-Entropy Loss Function", source_material=sample_source_material, user_level="intermediate", domain="Machine Learning")
 
-        # Act: Create the lesson using fast flow
-        result = await creator_service.create_lesson_from_source_material(request, use_fast_flow=True)
+        # Act: Create the lesson (fast-default)
+        result = await creator_service.create_lesson_from_source_material(request)
 
         # Assert: Verify the result structure (same as standard flow)
         assert result is not None
@@ -328,8 +321,8 @@ class TestLessonCreationIntegration:
         assert saved_lesson.package.didactic_snippet.plain_explanation is not None
         assert len(saved_lesson.package.didactic_snippet.key_takeaways) > 0
 
-        # Verify flow run record uses fast_lesson_creation flow
-        flow_run = db_session.session.query(FlowRunModel).filter(FlowRunModel.flow_name == "fast_lesson_creation").order_by(_desc(FlowRunModel.created_at)).first()
+        # Verify flow run record uses lesson_creation (fast-default)
+        flow_run = db_session.session.query(FlowRunModel).filter(FlowRunModel.flow_name == "lesson_creation").order_by(_desc(FlowRunModel.created_at)).first()
 
         assert flow_run is not None
         assert flow_run.status == "completed"
@@ -337,11 +330,11 @@ class TestLessonCreationIntegration:
         assert isinstance(flow_run.outputs, dict)
         assert "learning_objectives" in flow_run.outputs
 
-        # Verify fast flow has fewer steps than standard flow (should be 2 steps vs 5+)
+        # Verify fast-default has 2 steps
         step_runs = db_session.session.query(FlowStepRunModel).filter(FlowStepRunModel.flow_run_id == flow_run.id).order_by(FlowStepRunModel.step_order).all()
 
-        # Fast flow should have exactly 2 steps: fast_lesson_metadata + generate_mcqs
-        assert len(step_runs) == 2, f"Expected exactly 2 steps for fast flow, got {len(step_runs)}"
+        # Exactly 2 steps: fast_lesson_metadata + generate_mcqs
+        assert len(step_runs) == 2, f"Expected exactly 2 steps, got {len(step_runs)}"
 
         step_names = [s.step_name for s in step_runs]
         assert "fast_lesson_metadata" in step_names
@@ -445,15 +438,16 @@ class TestUnitCreationIntegration:
         print("✅ Services created successfully")
 
         topic = "Introduction to Gradient Descent"
-        request = ContentCreatorService.CreateUnitFromTopicRequest(
+
+        # Act: Create the unit via unified API (foreground)
+        result = await creator_service.create_unit(
             topic=topic,
+            source_material=None,
+            background=False,
             target_lesson_count=10,
             user_level="beginner",
             domain="Machine Learning",
         )
-
-        # Act: Create the unit
-        result = await creator_service.create_unit_from_topic(request)
 
         # Assert: Verify result structure
         assert result is not None
@@ -470,8 +464,8 @@ class TestUnitCreationIntegration:
         assert saved_unit.generated_from_topic is True
         assert saved_unit.target_lesson_count == 10
         assert saved_unit.learning_objectives is None or isinstance(saved_unit.learning_objectives, list)
-        # New: flow_type should default to 'standard' when not using fast flow
-        assert getattr(saved_unit, "flow_type", "standard") in ("standard", "fast")
+        # flow_type should default to 'standard'
+        assert getattr(saved_unit, "flow_type", "standard") == "standard"
 
         # Verify flow run record for unit_creation
         flow_run = db_session.session.query(FlowRunModel).filter(FlowRunModel.flow_name == "unit_creation").order_by(_desc(FlowRunModel.created_at)).first()
@@ -487,9 +481,9 @@ class TestUnitCreationIntegration:
         print("🧹 Database session cleanup complete")
 
     @pytest.mark.asyncio
-    async def test_fast_unit_creation_from_topic(self, infrastructure_service) -> None:
-        """Create a unit from a topic using fast flow for parallel lesson creation."""
-        print("⚡ Starting fast unit creation workflow test (topic-only)...")
+    async def test_unit_creation_from_topic_5_lessons(self, infrastructure_service) -> None:
+        """Create a unit from a topic targeting 5 lessons (fast-default)."""
+        print("⚡ Starting unit creation workflow test (topic-only, 5 lessons)...")
 
         # Arrange: Ensure model is set before creating services
         print("🔧 Setting up test environment and services...")
@@ -506,16 +500,16 @@ class TestUnitCreationIntegration:
         print("✅ Services created successfully")
 
         topic = "Introduction to Neural Networks"
-        request = ContentCreatorService.CreateUnitFromTopicRequest(
+
+        # Act: Create the unit via unified API (foreground)
+        result = await creator_service.create_unit(
             topic=topic,
+            source_material=None,
+            background=False,
             target_lesson_count=5,
             user_level="beginner",
             domain="Machine Learning",
-            use_fast_flow=True,
         )
-
-        # Act: Create the unit using fast flow
-        result = await creator_service.create_unit_from_topic(request)
 
         # Assert: Verify result structure
         assert result is not None
@@ -526,18 +520,17 @@ class TestUnitCreationIntegration:
         assert result.target_lesson_count == 5
         assert result.generated_from_topic is True
 
-        # Verify unit was saved to database with fast flow type
+        # Verify unit was saved to database
         saved_unit = content_service.get_unit(result.unit_id)
         assert saved_unit is not None
         assert saved_unit.generated_from_topic is True
         assert saved_unit.target_lesson_count == 5
-        assert getattr(saved_unit, "flow_type", "standard") == "fast"
+        assert getattr(saved_unit, "flow_type", "standard") == "standard"
 
-        # Verify lessons were created (should have lesson_ids if lessons were generated)
+        # Optionally verify at least one lesson was actually saved if lesson_ids returned
         lesson_ids = getattr(result, "lesson_ids", None)
         if lesson_ids:
             assert len(lesson_ids) >= 1
-            # Verify at least one lesson was actually saved
             first_lesson = content_service.get_lesson(lesson_ids[0])
             assert first_lesson is not None
 

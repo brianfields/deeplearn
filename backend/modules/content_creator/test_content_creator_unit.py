@@ -104,22 +104,17 @@ class TestContentCreatorService:
         # Mock update status call
         content.update_unit_status.return_value = mock_unit
 
-        # Mock the background task creation
-        with patch("modules.content_creator.service.asyncio.create_task") as _mock_create_task:
-            # Act
-            result = await service.retry_unit_creation("unit-123")
+        # Act
+        result = await service.retry_unit_creation("unit-123")
 
-            # Assert
-            assert result is not None
-            assert result.unit_id == "unit-123"
-            assert result.title == "Test Unit"
-            assert result.status == "in_progress"
+        # Assert
+        assert result is not None
+        assert result.unit_id == "unit-123"
+        assert result.title == "Test Unit"
+        assert result.status == "in_progress"
 
-            # Verify status was updated to in_progress
-            content.update_unit_status.assert_called_once_with(unit_id="unit-123", status="in_progress", error_message=None, creation_progress={"stage": "retrying", "message": "Retrying unit creation..."})
-
-            # Verify background task was created (now runs synchronously)
-            # The implementation now runs synchronously, so we don't use create_task
+        # Verify status was updated to in_progress
+        content.update_unit_status.assert_called_once_with(unit_id="unit-123", status="in_progress", error_message=None, creation_progress={"stage": "retrying", "message": "Retrying unit creation..."})
 
     @pytest.mark.asyncio
     async def test_retry_unit_creation_unit_not_found(self) -> None:

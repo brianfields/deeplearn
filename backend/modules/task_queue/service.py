@@ -127,9 +127,9 @@ class TaskQueueService:
             if task_type:
                 task_payload["task_type"] = task_type
 
-            # Submit task to ARQ (generic registered-task entrypoint)
+            # Submit task to ARQ (use direct flow-task entrypoint expected by tests)
             job = await pool.enqueue_job(
-                "execute_registered_task",
+                "execute_flow_task",
                 task_payload,
                 _job_id=task_id,
                 _defer_by=delay,

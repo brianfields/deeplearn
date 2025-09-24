@@ -5,11 +5,9 @@ AI-powered content generation services.
 Uses LLM services to create educational content and stores it via content module.
 """
 
-import asyncio
-import inspect
 import logging
 import re
-from typing import Any, cast
+from typing import Any
 import uuid
 
 # FastAPI BackgroundTasks path was removed; keep import set minimal
@@ -24,19 +22,13 @@ from modules.content.package_models import (
     Meta,
     Objective,
 )
-from modules.content.public import ContentProvider, LessonCreate, UnitCreate, UnitStatus, content_provider
-from modules.infrastructure.public import infrastructure_provider
+from modules.content.public import ContentProvider, LessonCreate, UnitCreate, UnitStatus
 from modules.task_queue.public import task_queue_provider
 
-from .flows import FastLessonCreationFlow, FastUnitCreationFlow, LessonCreationFlow
+from .flows import LessonCreationFlow, UnitCreationFlow
 
 logger = logging.getLogger(__name__)
 
-# Global set to keep references to background tasks to prevent garbage collection
-_background_tasks: set[asyncio.Task] = set()
-
-
-# Fast flow parallelization control
 MAX_PARALLEL_LESSONS = 4
 
 
@@ -77,29 +69,6 @@ class ContentCreatorService:
         """Initialize with content storage only - flows handle LLM interactions."""
         self.content = content
 
-    async def _call_create_lesson_with_fast_flag(self, request: "CreateLessonRequest", use_fast: bool) -> "LessonCreationResult":
-        """Call create_lesson_from_source_material with compatible kwarg name.
-
-        Some tests stub this method with a signature that expects `_use_fast_flow` instead
-        of `use_fast_flow`. To remain compatible, inspect the callable and pass whichever
-        parameter it supports. If neither is present, call without the flag.
-        """
-        func = self.create_lesson_from_source_material
-        try:
-            sig = inspect.signature(func)  # type: ignore[arg-type]
-            params = sig.parameters
-            if "use_fast_flow" in params:
-                return await func(request, use_fast_flow=use_fast)  # type: ignore[misc]
-            if "_use_fast_flow" in params:
-                return await func(request, _use_fast_flow=use_fast)  # type: ignore[misc]
-            return await func(request)  # type: ignore[misc]
-        except (TypeError, ValueError):
-            # Fallback: try both names
-            try:
-                return await func(request, use_fast_flow=use_fast)  # type: ignore[misc]
-            except TypeError:
-                return await func(request, _use_fast_flow=use_fast)  # type: ignore[misc]
-
     def _truncate_title(self, title: str, max_length: int = 255) -> str:
         """
         Truncate title to fit database constraint.
@@ -118,7 +87,7 @@ class ContentCreatorService:
         truncated = title[: max_length - 3] + "..."
         return truncated
 
-    async def create_lesson_from_source_material(self, request: CreateLessonRequest, *, use_fast_flow: bool = False) -> LessonCreationResult:
+    async def create_lesson_from_source_material(self, request: CreateLessonRequest) -> LessonCreationResult:
         """
         Create a complete lesson with AI-generated content from source material.
 
@@ -131,8 +100,8 @@ class ContentCreatorService:
         lesson_id = str(uuid.uuid4())
         logger.info(f"🎯 Creating lesson: {request.title} (ID: {lesson_id})")
 
-        # Use flow engine for content extraction
-        flow = FastLessonCreationFlow() if use_fast_flow else LessonCreationFlow()
+        # Use flow engine for content extraction (fast logic is default in LessonCreationFlow)
+        flow = LessonCreationFlow()
         logger.info("🔄 Starting %s...", flow.flow_name)
         flow_result = await flow.execute({"title": request.title, "core_concept": request.core_concept, "source_material": request.source_material, "user_level": request.user_level, "domain": request.domain})
         logger.info("✅ LessonCreationFlow completed successfully")
@@ -311,23 +280,6 @@ class ContentCreatorService:
         logger.info(f"🎉 Lesson creation completed! Package contains {len(objectives)} objectives, {len(glossary_terms)} terms, {len(exercises)} exercises")
         return LessonCreationResult(lesson_id=lesson_id, title=request.title, package_version=1, objectives_count=len(objectives), glossary_terms_count=len(glossary_terms), mcqs_count=len(exercises))
 
-    # ======================
-    # Unit creation (NEW)
-    # ======================
-    class CreateUnitFromTopicRequest(BaseModel):
-        topic: str
-        target_lesson_count: int | None = None
-        user_level: str = "beginner"
-        domain: str | None = None
-        use_fast_flow: bool = False
-
-    class CreateUnitFromSourceRequest(BaseModel):
-        source_material: str
-        target_lesson_count: int | None = None
-        user_level: str = "beginner"
-        domain: str | None = None
-        use_fast_flow: bool = False
-
     class UnitCreationResult(BaseModel):
         unit_id: str
         title: str
@@ -338,755 +290,227 @@ class ContentCreatorService:
         # When generating a complete unit (including lessons), these are returned
         lesson_ids: list[str] | None = None
 
-    # ======================
-    # Unit creation (NEW)
-    # ======================
-    async def create_unit_from_topic(self, request: "ContentCreatorService.CreateUnitFromTopicRequest") -> "ContentCreatorService.UnitCreationResult":
-        """Create a learning unit from just a topic using UnitCreationFlow.
-
-        Returns:
-            UnitCreationResult with details about the created unit.
-        """
-        logger.info(f"🏗️ Creating unit from topic: {request.topic}")
-
-        # Run unit flow to get plan and chunks
-        flow = FastUnitCreationFlow()
-        flow_result = await flow.execute(
-            {
-                "topic": request.topic,
-                "source_material": None,
-                "target_lesson_count": request.target_lesson_count,
-                "user_level": request.user_level,
-                "domain": request.domain,
-            }
-        )
-
-        unit_title = str(flow_result.get("unit_title") or request.topic)
-
-        # Persist unit first
-        unit_data = UnitCreate(
-            title=unit_title,
-            description=flow_result.get("summary"),
-            difficulty=request.user_level,
-            lesson_order=[],
-            learning_objectives=flow_result.get("learning_objectives"),
-            target_lesson_count=flow_result.get("target_lesson_count"),
-            source_material=flow_result.get("source_material"),
-            generated_from_topic=True,
-            flow_type="fast" if request.use_fast_flow else "standard",
-        )
-        created_unit = self.content.create_unit(unit_data)
-
-        # Generate lessons per chunk
-        chunks = list(flow_result.get("chunks", []) or [])
-        lesson_titles: list[str] = list(flow_result.get("lesson_titles", []) or [])
-        lesson_ids: list[str] = []
-        previous_titles: list[str] = []
-
-        async def _create_one(index: int, chunk: dict[str, object]) -> tuple[int, str | None]:
-            chunk_title: str | None = None
-            chunk_text: str = ""
-            if isinstance(chunk, dict):
-                title_obj = chunk.get("title")
-                chunk_title = title_obj if isinstance(title_obj, str) else None
-                raw_text = chunk.get("chunk_text")
-                chunk_text = str(raw_text) if raw_text is not None else ""
-            title = chunk_title or (lesson_titles[index] if index < len(lesson_titles) else f"Lesson {index + 1}")
-            core_concept = title
-            # Use only titles as light prior context to avoid shared state issues
-            prior_context = "Previously in this unit: " + ", ".join(previous_titles) + ".\n\n" if previous_titles else ""
-            lesson_source_material = f"{prior_context}{chunk_text}" if chunk_text else prior_context
-            lesson_req = CreateLessonRequest(
-                title=title,
-                core_concept=core_concept,
-                source_material=lesson_source_material,
-                user_level=request.user_level,
-                domain=request.domain or "General",
-            )
-            try:
-                res = await self._call_create_lesson_with_fast_flag(lesson_req, request.use_fast_flow)
-                return (index, res.lesson_id)
-            except Exception as _e:
-                logger.exception("Lesson creation failed for index %s (title=%s)", index, title)
-                return (index, None)
-
-        if request.use_fast_flow and chunks:
-            tasks = [_create_one(i, c if isinstance(c, dict) else {"title": None, "chunk_text": str(c)}) for i, c in enumerate(chunks)]
-            results: list[tuple[int, str | None]] = []
-            for i in range(0, len(tasks), MAX_PARALLEL_LESSONS):
-                batch = tasks[i : i + MAX_PARALLEL_LESSONS]
-                batch_results = await asyncio.gather(*batch, return_exceptions=False)
-                results.extend(batch_results)
-                # update previous_titles best-effort for context of later batches
-                for idx, lid in batch_results:
-                    if lid is not None and idx < len(lesson_titles):
-                        previous_titles.append(lesson_titles[idx])
-            # Collect successful lesson ids in order
-            for _idx, lid in sorted(results, key=lambda t: t[0]):
-                if lid is not None:
-                    lesson_ids.append(lid)
-        else:
-            for index, chunk in enumerate(chunks):
-                chunk_title: str | None = None
-                chunk_text: str = ""
-                if isinstance(chunk, dict):
-                    chunk_title = chunk.get("title")
-                    chunk_text = str(chunk.get("chunk_text", ""))
-                title = chunk_title or (lesson_titles[index] if index < len(lesson_titles) else f"Lesson {index + 1}")
-                core_concept = title
-                prior_context = "Previously in this unit: " + ", ".join(previous_titles) + ".\n\n" if previous_titles else ""
-                lesson_source_material = f"{prior_context}{chunk_text}" if chunk_text else prior_context
-                lesson_req = CreateLessonRequest(
-                    title=title,
-                    core_concept=core_concept,
-                    source_material=lesson_source_material,
-                    user_level=request.user_level,
-                    domain=request.domain or "General",
-                )
-                lesson_result = await self._call_create_lesson_with_fast_flag(lesson_req, request.use_fast_flow)
-                lesson_ids.append(lesson_result.lesson_id)
-                previous_titles.append(title)
-
-        # Associate lessons with unit and set ordering
-        if lesson_ids:
-            self.content.assign_lessons_to_unit(created_unit.id, lesson_ids)
-
-        return self.UnitCreationResult(
-            unit_id=created_unit.id,
-            title=created_unit.title,
-            lesson_titles=lesson_titles or previous_titles,
-            lesson_count=len(lesson_ids) or int(flow_result.get("lesson_count", 0)),
-            target_lesson_count=flow_result.get("target_lesson_count"),
-            generated_from_topic=True,
-            lesson_ids=lesson_ids,
-        )
-
-    async def create_unit_from_source_material(self, request: "ContentCreatorService.CreateUnitFromSourceRequest") -> "ContentCreatorService.UnitCreationResult":
-        """Create a learning unit from provided source material using UnitCreationFlow.
-
-        Returns:
-            UnitCreationResult with details about the created unit.
-        """
-        logger.info("🏗️ Creating unit from provided source material")
-
-        # Run unit flow to get plan and chunks
-        flow = FastUnitCreationFlow()
-        flow_result = await flow.execute(
-            {
-                "topic": None,
-                "source_material": request.source_material,
-                "target_lesson_count": request.target_lesson_count,
-                "user_level": request.user_level,
-                "domain": request.domain,
-            }
-        )
-
-        unit_title = str(flow_result.get("unit_title") or "Learning Unit")
-
-        # Persist unit first
-        unit_data = UnitCreate(
-            title=unit_title,
-            description=flow_result.get("summary"),
-            difficulty=request.user_level,
-            lesson_order=[],
-            learning_objectives=flow_result.get("learning_objectives"),
-            target_lesson_count=flow_result.get("target_lesson_count"),
-            source_material=flow_result.get("source_material"),
-            generated_from_topic=False,
-            flow_type="fast" if request.use_fast_flow else "standard",
-        )
-        created_unit = self.content.create_unit(unit_data)
-
-        # Generate lessons per chunk
-        chunks = list(flow_result.get("chunks", []) or [])
-        lesson_titles: list[str] = list(flow_result.get("lesson_titles", []) or [])
-        lesson_ids: list[str] = []
-        previous_titles: list[str] = []
-
-        async def _create_one_src(index: int, chunk: dict[str, object]) -> tuple[int, str | None]:
-            chunk_title: str | None = None
-            chunk_text: str = ""
-            if isinstance(chunk, dict):
-                title_obj = chunk.get("title")
-                chunk_title = title_obj if isinstance(title_obj, str) else None
-                raw_text = chunk.get("chunk_text")
-                chunk_text = str(raw_text) if raw_text is not None else ""
-            title = chunk_title or (lesson_titles[index] if index < len(lesson_titles) else f"Lesson {index + 1}")
-            core_concept = title
-            prior_context = "Previously in this unit: " + ", ".join(previous_titles) + ".\n\n" if previous_titles else ""
-            lesson_source_material = f"{prior_context}{chunk_text}" if chunk_text else prior_context
-            lesson_req = CreateLessonRequest(
-                title=title,
-                core_concept=core_concept,
-                source_material=lesson_source_material,
-                user_level=request.user_level,
-                domain=request.domain or "General",
-            )
-            try:
-                res = await self._call_create_lesson_with_fast_flag(lesson_req, request.use_fast_flow)
-                return (index, res.lesson_id)
-            except Exception as _e:
-                logger.exception("Lesson creation failed for index %s (title=%s)", index, title)
-                return (index, None)
-
-        if request.use_fast_flow and chunks:
-            tasks = [_create_one_src(i, c if isinstance(c, dict) else {"title": None, "chunk_text": str(c)}) for i, c in enumerate(chunks)]
-            results: list[tuple[int, str | None]] = []
-            for i in range(0, len(tasks), MAX_PARALLEL_LESSONS):
-                batch = tasks[i : i + MAX_PARALLEL_LESSONS]
-                batch_results = await asyncio.gather(*batch, return_exceptions=False)
-                results.extend(batch_results)
-                for idx, lid in batch_results:
-                    if lid is not None and idx < len(lesson_titles):
-                        previous_titles.append(lesson_titles[idx])
-            for _idx, lid in sorted(results, key=lambda t: t[0]):
-                if lid is not None:
-                    lesson_ids.append(lid)
-        else:
-            for index, chunk in enumerate(chunks):
-                chunk_title: str | None = None
-                chunk_text: str = ""
-                if isinstance(chunk, dict):
-                    chunk_title = chunk.get("title")
-                    chunk_text = str(chunk.get("chunk_text", ""))
-                title = chunk_title or (lesson_titles[index] if index < len(lesson_titles) else f"Lesson {index + 1}")
-                core_concept = title
-                prior_context = "Previously in this unit: " + ", ".join(previous_titles) + ".\n\n" if previous_titles else ""
-                lesson_source_material = f"{prior_context}{chunk_text}" if chunk_text else prior_context
-                lesson_req = CreateLessonRequest(
-                    title=title,
-                    core_concept=core_concept,
-                    source_material=lesson_source_material,
-                    user_level=request.user_level,
-                    domain=request.domain or "General",
-                )
-                lesson_result = await self._call_create_lesson_with_fast_flag(lesson_req, request.use_fast_flow)
-                lesson_ids.append(lesson_result.lesson_id)
-                previous_titles.append(title)
-
-        # Associate lessons with unit and set ordering
-        if lesson_ids:
-            self.content.assign_lessons_to_unit(created_unit.id, lesson_ids)
-
-        return self.UnitCreationResult(
-            unit_id=created_unit.id,
-            title=created_unit.title,
-            lesson_titles=lesson_titles or previous_titles,
-            lesson_count=len(lesson_ids) or int(flow_result.get("lesson_count", 0)),
-            target_lesson_count=flow_result.get("target_lesson_count"),
-            generated_from_topic=False,
-            lesson_ids=lesson_ids,
-        )
-
-    # ======================
-    # Mobile unit creation
-    # ======================
     class MobileUnitCreationResult(BaseModel):
-        """Result of mobile unit creation request."""
-
         unit_id: str
         title: str
-        status: str  # Unit status (in_progress initially)
+        status: str
 
-    async def create_unit_from_mobile(self, topic: str, difficulty: str = "beginner", target_lesson_count: int | None = None) -> "ContentCreatorService.MobileUnitCreationResult":
-        """
-        Create a unit from mobile app with background processing.
-
-        This method:
-        1. Creates a unit record with "in_progress" status immediately
-        2. Starts background processing to generate the unit content
-        3. Returns immediately so the mobile app doesn't have to wait
+    async def create_unit(
+        self,
+        *,
+        topic: str,
+        source_material: str | None = None,
+        background: bool = False,
+        target_lesson_count: int | None = None,
+        user_level: str = "beginner",
+        domain: str | None = None,
+    ) -> "ContentCreatorService.UnitCreationResult | ContentCreatorService.MobileUnitCreationResult":
+        """Create a learning unit (foreground or background).
 
         Args:
-            topic: The topic for the unit
-            difficulty: Difficulty level (beginner, intermediate, advanced)
-            target_lesson_count: Optional target number of lessons
-
-        Returns:
-            MobileUnitCreationResult with unit info and in_progress status
+            topic: Topic used to generate or contextualize the unit.
+            source_material: Optional pre-provided material. If None, it will be generated.
+            background: If True, enqueue and return immediately with in_progress status.
+            target_lesson_count: Optional target number of lessons.
+            user_level: Difficulty level.
+            domain: Optional domain context.
         """
-        logger.info(f"🔥 Starting mobile unit creation: topic='{topic}', difficulty='{difficulty}'")
+        # Pre-create the shell unit for both paths
+        provisional_title = f"Learning Unit: {topic}"
+        unit = self.content.create_unit(
+            UnitCreate(
+                title=provisional_title,
+                description=f"A learning unit about {topic}",
+                difficulty=user_level,
+                lesson_order=[],
+                learning_objectives=None,
+                target_lesson_count=target_lesson_count,
+                source_material=source_material,
+                generated_from_topic=(source_material is None),
+                flow_type="standard",
+            )
+        )
+        self.content.update_unit_status(
+            unit_id=unit.id,
+            status=UnitStatus.IN_PROGRESS.value,
+            creation_progress={"stage": "starting", "message": "Initialization"},
+        )
 
-        # Create unit record immediately with in_progress status
-        unit_id = str(uuid.uuid4())
-        title = f"Learning Unit: {topic}"
+        if background:
+            # Submit unified task to ARQ
+            task_queue_service = task_queue_provider()
+            await task_queue_service.submit_flow_task(
+                flow_name="content_creator.unit_creation",
+                flow_run_id=uuid.UUID(unit.id),
+                inputs={
+                    "unit_id": unit.id,
+                    "topic": topic,
+                    "source_material": source_material,
+                    "target_lesson_count": target_lesson_count,
+                    "user_level": user_level,
+                    "domain": domain,
+                },
+            )
+            return self.MobileUnitCreationResult(unit_id=unit.id, title=unit.title, status=UnitStatus.IN_PROGRESS.value)
 
-        unit_data = UnitCreate(
-            id=unit_id,
-            title=title,
-            description=f"A learning unit about {topic}",
-            difficulty=difficulty,
-            lesson_order=[],
-            learning_objectives=None,
+        # Foreground execution
+        return await self._execute_unit_creation_pipeline(
+            unit_id=unit.id,
+            topic=topic,
+            source_material=source_material,
             target_lesson_count=target_lesson_count,
-            source_material=None,
-            generated_from_topic=True,
-            flow_type="fast",
+            user_level=user_level,
+            domain=domain,
         )
 
-        # Create the unit in the database with in_progress status
-        created_unit = self.content.create_unit(unit_data)
+    async def _execute_unit_creation_pipeline(
+        self,
+        *,
+        unit_id: str,
+        topic: str,
+        source_material: str | None,
+        target_lesson_count: int | None,
+        user_level: str,
+        domain: str | None,
+    ) -> "ContentCreatorService.UnitCreationResult":
+        """Execute the end-to-end unit creation using fast-default flows."""
+        logger.info(f"🧱 Executing unit creation pipeline for unit {unit_id}")
+        self.content.update_unit_status(unit_id, UnitStatus.IN_PROGRESS.value, creation_progress={"stage": "planning", "message": "Planning unit structure..."})
 
-        # Update status to in_progress (the unit is created with completed status by default)
-        self.content.update_unit_status(unit_id=created_unit.id, status=UnitStatus.IN_PROGRESS.value, creation_progress={"stage": "starting", "message": "Initializing unit creation..."})
-
-        # Store the unit_id for background processing
-        unit_id = created_unit.id
-
-        # Return immediately to avoid holding the request session
-        # The background processing will happen with a fresh session
-        logger.info(f"✅ Mobile unit creation initiated: unit_id={unit_id}")
-
-        # Start background processing with fresh session (fire and forget)
-        task = asyncio.create_task(self._execute_background_unit_creation_with_fresh_session(unit_id=unit_id, topic=topic, difficulty=difficulty, target_lesson_count=target_lesson_count))
-        # Store task reference to prevent garbage collection
-        self._background_tasks: set[asyncio.Task[Any]] = getattr(self, "_background_tasks", set())
-        self._background_tasks.add(task)
-        task.add_done_callback(self._background_tasks.discard)
-
-        return self.MobileUnitCreationResult(unit_id=unit_id, title=title, status=UnitStatus.IN_PROGRESS.value)
-
-    # Removed: FastAPI BackgroundTasks path (unused/never worked). Use ARQ path instead.
-
-    async def create_unit_from_mobile_with_arq(self, topic: str, difficulty: str, target_lesson_count: int | None) -> "ContentCreatorService.MobileUnitCreationResult":
-        """Create a unit from mobile app using ARQ for reliable background processing."""
-        logger.info(f"🔥 Starting mobile unit creation with ARQ: topic='{topic}', difficulty='{difficulty}'")
-
-        # Generate unit ID and title
-        unit_id = str(uuid.uuid4())
-        title = f"Learning Unit: {topic}"
-
-        # Create unit with initial status
-        unit_data = UnitCreate(
-            id=unit_id,
-            title=title,
-            description=f"A learning unit about {topic}",
-            difficulty=difficulty,
-            lesson_order=[],
-            learning_objectives=None,
-            target_lesson_count=target_lesson_count,
-            source_material=None,
-            generated_from_topic=True,
-            flow_type="fast",
-        )
-
-        created_unit = self.content.create_unit(unit_data)
-        logger.info(f"✅ Created unit in database: {created_unit.id}")
-
-        # Update status to in_progress (the unit is created with completed status by default)
-        self.content.update_unit_status(unit_id=created_unit.id, status=UnitStatus.IN_PROGRESS.value, creation_progress={"stage": "starting", "message": "Initializing unit creation..."})
-
-        # Submit to ARQ for background processing
-        task_queue_service = task_queue_provider()
-
-        # Submit generic content_creator task type to ARQ
-        task_result = await task_queue_service.submit_flow_task(
-            flow_name="content_creator.unit_creation",
-            flow_run_id=uuid.UUID(unit_id),
-            inputs={
-                "unit_id": unit_id,
-                "topic": topic,
-                "difficulty": difficulty,
-                "target_lesson_count": target_lesson_count,
-                "task_type": "content_creator.unit_creation",
-            },
-        )
-
-        logger.info(f"✅ Mobile unit creation submitted to ARQ: unit_id={unit_id}, task_id={task_result.task_id}")
-
-        return self.MobileUnitCreationResult(unit_id=unit_id, title=title, status=UnitStatus.IN_PROGRESS.value)
-
-    def _execute_background_unit_creation_sync_wrapper(self, unit_id: str, topic: str, difficulty: str, target_lesson_count: int | None) -> None:
-        """Deprecated background sync wrapper (legacy). Not used in ARQ path."""
-
-        logger.info(f"🚀 FASTAPI BACKGROUND TASK SYNC WRAPPER CALLED for unit {unit_id}")
-
-        # Create a new event loop for this background task
-        try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(self._execute_background_unit_creation_with_fresh_session(unit_id, topic, difficulty, target_lesson_count))
-        except Exception as e:
-            logger.error(f"❌ Background task sync wrapper failed for unit {unit_id}: {e}")
-        finally:
-            loop.close()
-
-    async def _execute_background_unit_creation_with_fresh_session(self, unit_id: str, topic: str, difficulty: str, target_lesson_count: int | None) -> None:
-        """Execute background unit creation with a completely fresh database session to avoid connection pool issues."""
-        logger.info(f"🚀 FASTAPI BACKGROUND TASK CALLED for unit {unit_id}")
-        try:
-            logger.info(f"🎬 BACKGROUND TASK STARTED with fresh session for unit {unit_id}")
-
-            # Get fresh infrastructure and content provider for background execution
-            infra = infrastructure_provider()
-            infra.initialize()
-
-            # Execute in a separate session to avoid conflicts with the original request session
-            with infra.get_session_context() as db_session:
-                content = content_provider(db_session)
-
-                # Update status to show the task is running
-                content.update_unit_status(unit_id=unit_id, status=UnitStatus.IN_PROGRESS.value, creation_progress={"stage": "processing", "message": "Generating unit content..."})
-
-                # Now call the existing background unit creation logic
-                await self._execute_background_unit_creation_logic(content, unit_id, topic, difficulty, target_lesson_count)
-
-        except Exception as e:
-            logger.error(f"❌ Background unit creation failed for unit {unit_id}: {e}")
-            logger.exception("Full exception details:")
-
-            # Handle errors with fresh session for error updates
-            try:
-                infra = infrastructure_provider()
-                infra.initialize()
-                with infra.get_session_context() as error_session:
-                    error_content = content_provider(error_session)
-                    error_content.update_unit_status(unit_id=unit_id, status=UnitStatus.FAILED.value, error_message=str(e), creation_progress={"stage": "failed", "message": f"Creation failed: {e!s}"})
-            except Exception as error_update_exception:
-                logger.error(f"❌ Failed to update error status for unit {unit_id}: {error_update_exception}")
-
-    async def _execute_background_unit_creation_logic(self, content: ContentProvider, unit_id: str, topic: str, difficulty: str, target_lesson_count: int | None) -> None:
-        """Core logic for background unit creation - extracted to be reusable with different content providers."""
-        logger.info(f"⚙️ Executing background unit creation logic for unit {unit_id}")
-
-        # Run the flow to generate lessons but don't create a new unit
-        logger.info(f"🔧 Starting flow execution for unit {unit_id}")
-
-        flow = FastUnitCreationFlow()
-        flow_result = await flow.execute(
+        flow = UnitCreationFlow()
+        unit_plan = await flow.execute(
             {
                 "topic": topic,
+                "source_material": source_material,
                 "target_lesson_count": target_lesson_count,
-                "user_level": difficulty,
-                "domain": None,
+                "user_level": user_level,
+                "domain": domain,
             }
         )
-        logger.info(f"🔧 Flow execution completed for unit {unit_id}")
 
-        # Create lessons from the flow result
-        lessons_data = flow_result.get("lessons", [])
-        logger.info(f"🔧 Flow generated {len(lessons_data)} lessons for unit {unit_id}")
+        # Update unit metadata from plan
+        final_title = str(unit_plan.get("unit_title") or f"Learning Unit: {topic}")
+        self.content.update_unit_status(unit_id, UnitStatus.IN_PROGRESS.value, creation_progress={"stage": "generating", "message": "Generating lessons..."})
+        # Note: Title/metadata persistence beyond status updates is handled by assign/update ops below
 
-        lesson_ids = []
-        for i, lesson_wrapper in enumerate(lessons_data):
-            try:
-                logger.info(f"🔧 Creating lesson {i + 1}/{len(lessons_data)} for unit {unit_id}")
+        # Create lessons per chunk using the fast lesson flow (now default)
+        lesson_titles: list[str] = list(unit_plan.get("lesson_titles", []) or [])
+        chunks: list[dict[str, Any]] = list(unit_plan.get("chunks", []) or [])
+        lesson_ids: list[str] = []
 
-                # Extract the actual lesson data from the wrapper
-                lesson_title = lesson_wrapper.get("title", f"Lesson {i + 1}")
-                lesson_result = lesson_wrapper.get("result", {})
+        for i, chunk in enumerate(chunks):
+            lesson_title = chunk.get("title") or (lesson_titles[i] if i < len(lesson_titles) else f"Lesson {i + 1}")
+            chunk_text = str(chunk.get("chunk_text") or "")
 
-                logger.info(f"🔧 Lesson {i + 1} title: {lesson_title}")
-                logger.info(f"🔧 Lesson {i + 1} result keys: {list(lesson_result.keys())}")
+            # Execute lesson flow
+            lesson_result = await LessonCreationFlow().execute(
+                {
+                    "title": lesson_title,
+                    "core_concept": lesson_title,
+                    "source_material": chunk_text,
+                    "user_level": user_level,
+                    "domain": (domain or "General"),
+                }
+            )
 
-                # Generate a database-safe lesson id (<=36 chars)
-                db_lesson_id = str(uuid.uuid4())
+            # Build LessonPackage from fast result
+            # Create Meta
+            db_lesson_id = str(uuid.uuid4())
+            meta = Meta(lesson_id=db_lesson_id, title=lesson_title, core_concept=lesson_result.get("core_concept", lesson_title), user_level=user_level, domain=(domain or "General"))
 
-                # Transform flow result into LessonPackage format
-                # Create Meta object (keep IDs consistent with DB id)
-                meta = Meta(lesson_id=db_lesson_id, title=lesson_title, core_concept=lesson_result.get("core_concept", lesson_title), user_level=difficulty, domain="General")
-
-                # Transform learning_objectives to objectives
-                objectives: list[Objective] = []
-                for lo_data in lesson_result.get("learning_objectives", []):
+            # Objectives
+            objectives: list[Objective] = []
+            for lo_data in lesson_result.get("learning_objectives", []):
+                if isinstance(lo_data, dict):
                     objectives.append(Objective(id=lo_data.get("id", f"lo_{len(objectives) + 1}"), text=lo_data.get("text", "")))
-                # Ensure at least one objective exists
-                if not objectives:
-                    objectives.append(Objective(id="lo_1", text=lesson_result.get("core_concept", lesson_title)))
+            if not objectives:
+                objectives.append(Objective(id="lo_1", text=lesson_result.get("core_concept", lesson_title)))
 
-                # Prepare mapping for LO ids (case/format-insensitive)
-                def _normalize_lo_id(value: str) -> str:
-                    v = value.strip()
-                    m = re.match(r"^lo[_-]?(\d+)$", v, flags=re.IGNORECASE)
-                    if m:
-                        return f"lo_{m.group(1)}".lower()
-                    return v.lower()
+            # Map normalized LO ids for MCQ mapping
+            def _normalize_lo_id(value: str) -> str:
+                v = value.strip()
+                m = re.match(r"^lo[_-]?(\d+)$", v, flags=re.IGNORECASE)
+                if m:
+                    return f"lo_{m.group(1)}".lower()
+                return v.lower()
 
-                objective_id_map: dict[str, str] = {obj.id.lower(): obj.id for obj in objectives}
-                # Also map normalized numeric forms (e.g., LO1 -> lo_1)
-                for obj in objectives:
-                    m2 = re.match(r"^lo[_-]?(\d+)$", obj.id, flags=re.IGNORECASE)
-                    if m2:
-                        objective_id_map[f"lo_{m2.group(1)}".lower()] = obj.id
+            objective_id_map: dict[str, str] = {obj.id.lower(): obj.id for obj in objectives}
+            for obj in objectives:
+                m2 = re.match(r"^lo[_-]?(\d+)$", obj.id, flags=re.IGNORECASE)
+                if m2:
+                    objective_id_map[f"lo_{m2.group(1)}".lower()] = obj.id
 
-                # Transform glossary
-                glossary_terms: list[GlossaryTerm] = []
-                for term_data in lesson_result.get("glossary", {}).get("terms", []):
-                    glossary_terms.append(GlossaryTerm(id=term_data.get("id", f"term_{len(glossary_terms) + 1}"), term=term_data.get("term", ""), definition=term_data.get("definition", "")))
-                glossary = {"terms": glossary_terms}
+            # Glossary
+            glossary_terms: list[GlossaryTerm] = []
+            for term_data in lesson_result.get("glossary", {}).get("terms", []):
+                glossary_terms.append(GlossaryTerm(id=term_data.get("id", f"term_{len(glossary_terms) + 1}"), term=term_data.get("term", ""), definition=term_data.get("definition", "")))
+            glossary = {"terms": glossary_terms}
 
-                # Transform didactic_snippet
-                didactic_data = lesson_result.get("didactic_snippet", {})
-                # Coerce None values to valid defaults for strict pydantic validation
-                plain_explanation = didactic_data.get("plain_explanation") or ""
-                key_takeaways = didactic_data.get("key_takeaways") or []
-                didactic_snippet = DidacticSnippet(
-                    id=didactic_data.get("id", "lesson_explanation"),
-                    plain_explanation=plain_explanation,
-                    key_takeaways=key_takeaways,
-                )
+            # Didactic snippet
+            didactic_data = lesson_result.get("didactic_snippet", {})
+            plain_explanation = didactic_data.get("plain_explanation") or ""
+            key_takeaways = didactic_data.get("key_takeaways") or []
+            didactic_snippet = DidacticSnippet(id=didactic_data.get("id", "lesson_explanation"), plain_explanation=plain_explanation, key_takeaways=key_takeaways)
 
-                # Transform exercises
-                exercises: list[MCQExercise] = []
-                for ex_data in lesson_result.get("exercises", []):
-                    # Create MCQExercise from the exercise data
-                    raw_lo: str | None = ex_data.get("lo_id")
-                    mapped_lo: str = objectives[0].id if objectives else "lo_1"
-                    if isinstance(raw_lo, str) and raw_lo.strip():
-                        norm = _normalize_lo_id(raw_lo)
-                        mapped_lo = objective_id_map.get(norm, mapped_lo)
+            # Exercises
+            exercises: list[MCQExercise] = []
+            for ex_data in lesson_result.get("exercises", []):
+                raw_lo: str | None = ex_data.get("lo_id")
+                mapped_lo: str = objectives[0].id if objectives else "lo_1"
+                if isinstance(raw_lo, str) and raw_lo.strip():
+                    norm = _normalize_lo_id(raw_lo)
+                    mapped_lo = objective_id_map.get(norm, mapped_lo)
 
-                    exercises.append(
-                        MCQExercise(
-                            id=ex_data.get("id", f"ex_{len(exercises) + 1}"),
-                            exercise_type=ex_data.get("exercise_type", "mcq"),
-                            lo_id=mapped_lo,
-                            cognitive_level=ex_data.get("cognitive_level", "remember"),
-                            estimated_difficulty=ex_data.get("estimated_difficulty", "easy"),
-                            misconceptions_used=ex_data.get("misconceptions_used", []),
-                            stem=ex_data.get("stem", ""),
-                            options=ex_data.get("options", []),
-                            answer_key=ex_data.get("answer_key", {}),
-                        )
+                exercises.append(
+                    MCQExercise(
+                        id=ex_data.get("id", f"ex_{len(exercises) + 1}"),
+                        exercise_type=ex_data.get("exercise_type", "mcq"),
+                        lo_id=mapped_lo,
+                        cognitive_level=ex_data.get("cognitive_level", "remember"),
+                        estimated_difficulty=ex_data.get("estimated_difficulty", "easy"),
+                        misconceptions_used=ex_data.get("misconceptions_used", []),
+                        stem=ex_data.get("stem", ""),
+                        options=ex_data.get("options", []),
+                        answer_key=ex_data.get("answer_key", {}),
                     )
-
-                # Create the complete lesson package
-                lesson_package = LessonPackage(
-                    meta=meta, objectives=objectives, glossary=glossary, didactic_snippet=didactic_snippet, exercises=exercises, misconceptions=lesson_result.get("misconceptions", []), confusables=lesson_result.get("confusables", [])
                 )
 
-                # Create lesson using the properly formatted package
-                lesson_create = LessonCreate(
+            lesson_package = LessonPackage(
+                meta=meta,
+                objectives=objectives,
+                glossary=glossary,
+                didactic_snippet=didactic_snippet,
+                exercises=exercises,
+                misconceptions=lesson_result.get("misconceptions", []),
+                confusables=lesson_result.get("confusables", []),
+            )
+
+            created_lesson = self.content.save_lesson(
+                LessonCreate(
                     id=db_lesson_id,
                     title=lesson_title,
                     core_concept=lesson_result.get("core_concept", lesson_title),
-                    user_level=difficulty,
+                    user_level=user_level,
                     package=lesson_package,
                 )
+            )
+            lesson_ids.append(created_lesson.id)
 
-                created_lesson = content.save_lesson(lesson_create)
-                lesson_ids.append(created_lesson.id)
-                logger.info(f"🔧 Created lesson {created_lesson.id} for unit {unit_id}")
-
-            except Exception as e:
-                logger.error(f"❌ Failed to create lesson {i + 1} for unit {unit_id}: {e}")
-                logger.exception("Full exception details:")
-                # Ensure the DB session is usable for subsequent operations
-                try:
-                    maybe_repo = getattr(cast(Any, content), "repo", None)
-                    maybe_session = getattr(maybe_repo, "s", None)
-                    if maybe_session is not None and hasattr(maybe_session, "rollback"):
-                        maybe_session.rollback()
-                except Exception as rb_e:  # pragma: no cover - defensive
-                    logger.warning(f"⚠️ Rollback after lesson failure also failed: {rb_e}")
-                continue
-
-        # Update the existing unit with the generated content
+        # Associate lessons and complete
         if lesson_ids:
-            logger.info(f"🔧 Assigning {len(lesson_ids)} lessons to unit {unit_id}: {lesson_ids}")
-            result_unit = content.assign_lessons_to_unit(unit_id, lesson_ids)
-            logger.info(f"🔧 Lesson assignment completed for unit {unit_id}")
+            self.content.assign_lessons_to_unit(unit_id, lesson_ids)
 
-            # Verify the assignment worked
-            if result_unit:
-                logger.info(f"🔧 Unit {unit_id} now has lesson_order: {result_unit.lesson_order}")
-                # Double-check by querying lessons
-                unit_lessons = content.get_lessons_by_unit(unit_id)
-                logger.info(f"🔧 Unit {unit_id} has {len(unit_lessons)} lessons in database")
-            else:
-                logger.error(f"❌ Failed to assign lessons to unit {unit_id} - unit not found")
-        else:
-            logger.warning(f"⚠️ No lessons were created for unit {unit_id}")
+        self.content.update_unit_status(unit_id, UnitStatus.COMPLETED.value, creation_progress={"stage": "completed", "message": "Unit creation completed"})
 
-        # Mark as completed
-        logger.info(f"🔧 Marking unit {unit_id} as completed")
-        content.update_unit_status(unit_id=unit_id, status=UnitStatus.COMPLETED.value, creation_progress={"stage": "completed", "message": "Unit creation completed successfully"})
-        logger.info(f"🔧 Unit {unit_id} status updated to completed")
-
-        logger.info(f"✅ Background unit creation completed for unit {unit_id}")
-
-    async def _start_background_unit_creation(self, unit_id: str, topic: str, difficulty: str, target_lesson_count: int | None) -> None:
-        """Start background task to create unit content."""
-        logger.info(f"🔧 Starting background task creation for unit {unit_id}")
-
-        # Try a simpler approach - just call the method directly without asyncio.create_task
-        # This might work better in the FastAPI context
-        try:
-            # Schedule the task to run "soon" but don't await it
-            future = asyncio.ensure_future(self._execute_background_unit_creation(unit_id=unit_id, topic=topic, difficulty=difficulty, target_lesson_count=target_lesson_count))
-            # Store future reference to prevent garbage collection
-            self._background_futures: set[asyncio.Future[Any]] = getattr(self, "_background_futures", set())
-            self._background_futures.add(future)
-            future.add_done_callback(self._background_futures.discard)
-            logger.info(f"🚀 Background unit creation scheduled for unit {unit_id}")
-        except Exception as e:
-            logger.error(f"❌ Failed to schedule background task for unit {unit_id}: {e}")
-
-    async def _execute_background_unit_creation(self, unit_id: str, topic: str, difficulty: str, target_lesson_count: int | None) -> None:
-        """Execute the actual unit creation in the background with fresh database session."""
-        logger.info(f"🎬 BACKGROUND TASK STARTED for unit {unit_id}")
-
-        # Immediately update status to show the task is running
-        try:
-            infra = infrastructure_provider()
-            infra.initialize()
-            with infra.get_session_context() as test_session:
-                test_content = content_provider(test_session)
-                test_content.update_unit_status(unit_id=unit_id, status=UnitStatus.IN_PROGRESS.value, creation_progress={"stage": "task_started", "message": "Background task is running!"})
-                logger.info(f"🎬 BACKGROUND TASK STATUS UPDATED for unit {unit_id}")
-        except Exception as e:
-            logger.error(f"❌ Failed to update initial status for unit {unit_id}: {e}")
-
-        try:
-            logger.info(f"⚙️ Executing background unit creation for unit {unit_id}")
-
-            # Get fresh infrastructure and content provider for background execution
-            logger.info(f"🔧 Setting up fresh infrastructure for unit {unit_id}")
-            infra = infrastructure_provider()
-            infra.initialize()
-
-            # Execute in a separate session to avoid conflicts with the original request session
-            logger.info(f"🔧 Creating fresh database session for unit {unit_id}")
-            with infra.get_session_context() as db_session:
-                content = content_provider(db_session)
-
-                # We have a fresh content provider with the background session
-                logger.info(f"🔧 Using fresh content provider for unit {unit_id}")
-
-                # Update progress
-                content.update_unit_status(unit_id=unit_id, status=UnitStatus.IN_PROGRESS.value, creation_progress={"stage": "planning", "message": "Planning unit structure..."})
-
-                # Update progress
-                content.update_unit_status(unit_id=unit_id, status=UnitStatus.IN_PROGRESS.value, creation_progress={"stage": "generating", "message": "Generating lessons..."})
-
-                # Run the flow to generate lessons but don't create a new unit
-                logger.info(f"🔧 Starting flow execution for unit {unit_id}")
-                flow = FastUnitCreationFlow()
-                flow_result = await flow.execute(
-                    {
-                        "topic": topic,
-                        "target_lesson_count": target_lesson_count,
-                        "user_level": difficulty,
-                        "domain": None,
-                    }
-                )
-                logger.info(f"🔧 Flow execution completed for unit {unit_id}")
-
-                # Create lessons from the flow result
-                lessons_data = flow_result.get("lessons", [])
-                logger.info(f"🔧 Flow generated {len(lessons_data)} lessons for unit {unit_id}")
-
-                lesson_ids = []
-                for i, lesson_wrapper in enumerate(lessons_data):
-                    try:
-                        logger.info(f"🔧 Creating lesson {i + 1}/{len(lessons_data)} for unit {unit_id}")
-
-                        # Extract the actual lesson data from the wrapper
-                        lesson_title = lesson_wrapper.get("title", f"Lesson {i + 1}")
-                        lesson_result = lesson_wrapper.get("result", {})
-
-                        logger.info(f"🔧 Lesson {i + 1} title: {lesson_title}")
-                        logger.info(f"🔧 Lesson {i + 1} result keys: {list(lesson_result.keys())}")
-
-                        # Transform flow result into LessonPackage format
-                        # Create Meta object
-                        meta = Meta(lesson_id=f"lesson-{unit_id}-{i + 1}", title=lesson_title, core_concept=lesson_result.get("core_concept", lesson_title), user_level=difficulty, domain="General")
-
-                        # Transform learning_objectives to objectives
-                        objectives: list[Objective] = []
-                        for lo_data in lesson_result.get("learning_objectives", []):
-                            objectives.append(Objective(id=lo_data.get("id", f"lo_{len(objectives) + 1}"), text=lo_data.get("text", "")))
-
-                        # Transform glossary
-                        glossary_terms: list[GlossaryTerm] = []
-                        for term_data in lesson_result.get("glossary", {}).get("terms", []):
-                            glossary_terms.append(GlossaryTerm(id=term_data.get("id", f"term_{len(glossary_terms) + 1}"), term=term_data.get("term", ""), definition=term_data.get("definition", "")))
-                        glossary = {"terms": glossary_terms}
-
-                        # Transform didactic_snippet
-                        didactic_data = lesson_result.get("didactic_snippet", {})
-                        didactic_snippet = DidacticSnippet(id=didactic_data.get("id", "lesson_explanation"), plain_explanation=didactic_data.get("plain_explanation", ""), key_takeaways=didactic_data.get("key_takeaways", []))
-
-                        # Transform exercises
-                        exercises: list[MCQExercise] = []
-                        for ex_data in lesson_result.get("exercises", []):
-                            # Create MCQExercise from the exercise data
-                            exercises.append(
-                                MCQExercise(
-                                    id=ex_data.get("id", f"ex_{len(exercises) + 1}"),
-                                    exercise_type=ex_data.get("exercise_type", "mcq"),
-                                    lo_id=ex_data.get("lo_id", objectives[0].id if objectives else "lo_1"),
-                                    cognitive_level=ex_data.get("cognitive_level", "remember"),
-                                    estimated_difficulty=ex_data.get("estimated_difficulty", "easy"),
-                                    misconceptions_used=ex_data.get("misconceptions_used", []),
-                                    stem=ex_data.get("stem", ""),
-                                    options=ex_data.get("options", []),
-                                    answer_key=ex_data.get("answer_key", {}),
-                                )
-                            )
-
-                        # Create the complete lesson package
-                        lesson_package = LessonPackage(
-                            meta=meta, objectives=objectives, glossary=glossary, didactic_snippet=didactic_snippet, exercises=exercises, misconceptions=lesson_result.get("misconceptions", []), confusables=lesson_result.get("confusables", [])
-                        )
-
-                        # Create lesson using the properly formatted package
-                        lesson_create = LessonCreate(
-                            id=f"lesson-{unit_id}-{i + 1}",
-                            title=lesson_title,
-                            core_concept=lesson_result.get("core_concept", lesson_title),
-                            user_level=difficulty,
-                            package=lesson_package,
-                        )
-
-                        created_lesson = content.save_lesson(lesson_create)
-                        lesson_ids.append(created_lesson.id)
-                        logger.info(f"🔧 Created lesson {created_lesson.id} for unit {unit_id}")
-
-                    except Exception as e:
-                        logger.error(f"❌ Failed to create lesson {i + 1} for unit {unit_id}: {e}")
-                        logger.exception("Full exception details:")
-                        continue
-
-                # Update the existing unit with the generated content
-                if lesson_ids:
-                    logger.info(f"🔧 Assigning {len(lesson_ids)} lessons to unit {unit_id}: {lesson_ids}")
-                    result_unit = content.assign_lessons_to_unit(unit_id, lesson_ids)
-                    logger.info(f"🔧 Lesson assignment completed for unit {unit_id}")
-
-                    # Verify the assignment worked
-                    if result_unit:
-                        logger.info(f"🔧 Unit {unit_id} now has lesson_order: {result_unit.lesson_order}")
-                        # Double-check by querying lessons
-                        unit_lessons = content.get_lessons_by_unit(unit_id)
-                        logger.info(f"🔧 Unit {unit_id} has {len(unit_lessons)} lessons in database")
-                    else:
-                        logger.error(f"❌ Failed to assign lessons to unit {unit_id} - unit not found")
-                else:
-                    logger.warning(f"⚠️ No lessons were created for unit {unit_id}")
-
-                # Mark as completed
-                logger.info(f"🔧 Marking unit {unit_id} as completed")
-                content.update_unit_status(unit_id=unit_id, status=UnitStatus.COMPLETED.value, creation_progress={"stage": "completed", "message": "Unit creation completed successfully"})
-                logger.info(f"🔧 Unit {unit_id} status updated to completed")
-
-                logger.info(f"✅ Background unit creation completed for unit {unit_id}")
-
-        except Exception as e:
-            logger.error(f"❌ Background unit creation failed for unit {unit_id}: {e}")
-
-            # For error handling, we need another fresh session since the previous one might be rolled back
-            try:
-                infra = infrastructure_provider()
-                infra.initialize()
-                with infra.get_session_context() as error_db_session:
-                    error_content = content_provider(error_db_session)
-                    # Mark as failed
-                    error_content.update_unit_status(unit_id=unit_id, status=UnitStatus.FAILED.value, error_message=str(e), creation_progress={"stage": "failed", "message": f"Creation failed: {e!s}"})
-            except Exception as error_update_error:
-                logger.error(f"❌ Failed to update unit status to failed for unit {unit_id}: {error_update_error}")
-
-            # Don't re-raise - this is a background task
+        return self.UnitCreationResult(
+            unit_id=unit_id,
+            title=final_title,
+            lesson_titles=lesson_titles or [c.get("title", "") for c in chunks],
+            lesson_count=len(lesson_ids),
+            target_lesson_count=unit_plan.get("target_lesson_count"),
+            generated_from_topic=(source_material is None),
+            lesson_ids=lesson_ids,
+        )
 
     async def retry_unit_creation(self, unit_id: str) -> "ContentCreatorService.MobileUnitCreationResult | None":
         """
@@ -1117,8 +541,20 @@ class ContentCreatorService:
         difficulty = unit.difficulty
         target_lesson_count = unit.target_lesson_count
 
-        # Start background processing again
-        await self._start_background_unit_creation(unit_id=unit_id, topic=topic, difficulty=difficulty, target_lesson_count=target_lesson_count)
+        # Start background processing again via ARQ submission
+        task_queue_service = task_queue_provider()
+        await task_queue_service.submit_flow_task(
+            flow_name="content_creator.unit_creation",
+            flow_run_id=uuid.UUID(unit_id),
+            inputs={
+                "unit_id": unit_id,
+                "topic": topic,
+                "source_material": unit.source_material,
+                "target_lesson_count": target_lesson_count,
+                "user_level": difficulty,
+                "domain": None,
+            },
+        )
 
         logger.info(f"✅ Unit retry initiated: unit_id={unit_id}")
 
