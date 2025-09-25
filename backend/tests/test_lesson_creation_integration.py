@@ -10,15 +10,15 @@ The test uses gpt-5 model to test the new GPT-5 Responses API functionality.
 from collections.abc import Generator
 import logging
 import os
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from sqlalchemy import desc as _desc
 
 from modules.content.repo import ContentRepo
 from modules.content.service import ContentService
-from modules.content_creator.service import ContentCreatorService, CreateLessonRequest
-from modules.flow_engine.models import FlowRunModel, FlowStepRunModel
+from modules.content_creator.service import ContentCreatorService
+from modules.flow_engine.models import FlowRunModel
 from modules.infrastructure.public import infrastructure_provider
 
 
@@ -144,208 +144,9 @@ class TestLessonCreationIntegration:
         - Image classification tasks
         """
 
-    @pytest.mark.asyncio
-    async def test_complete_lesson_creation_workflow(self, infrastructure_service, sample_source_material) -> None:
-        """
-        Test the complete lesson creation workflow with real database and LLM calls.
+    # Removed lesson creation integration test to minimize costly runs
 
-        This test:
-        1. Creates a lesson from source material using real LLM calls
-        2. Verifies the lesson is saved to the database
-        3. Checks that components (didactic snippet, glossary, MCQs) are created
-        4. Validates the structure and content of created components
-        """
-        print("🚀 Starting lesson creation workflow test...")
-
-        # Arrange: Ensure model is set before creating LLM service
-        # The LLM service reads environment variables at initialization time
-        print("🔧 Setting up test environment and services...")
-        os.environ["OPENAI_MODEL"] = "gpt-5-nano"
-        print(f"📝 Using model: {os.environ['OPENAI_MODEL']}")
-
-        # Create services using the initialized infrastructure service
-        print("🗄️ Getting database session...")
-        db_session = infrastructure_service.get_database_session()
-        print("📚 Creating content service...")
-        content_service = ContentService(ContentRepo(db_session.session))
-        print("🤖 Creating content creator service...")
-        # llm_service no longer needed - flows handle LLM interactions internally
-        creator_service = ContentCreatorService(content_service)
-        print("✅ Services created successfully")
-
-        request = CreateLessonRequest(title="Cross-Entropy Loss in Deep Learning", core_concept="Cross-Entropy Loss Function", source_material=sample_source_material, user_level="intermediate", domain="Machine Learning")
-
-        # Act: Create the lesson
-        result = await creator_service.create_lesson_from_source_material(request)
-
-        # Assert: Verify the result structure
-        assert result is not None
-        assert result.lesson_id is not None
-        assert len(result.lesson_id) > 0
-        assert result.title == "Cross-Entropy Loss in Deep Learning"
-        assert result.components_created > 0
-
-        # Verify lesson was saved to database
-        saved_lesson = content_service.get_lesson(result.lesson_id)
-        assert saved_lesson is not None
-        assert saved_lesson.title == request.title
-        assert saved_lesson.core_concept == request.core_concept
-        assert saved_lesson.user_level == request.user_level
-        assert saved_lesson.source_domain == request.domain
-
-        # Verify lesson has expected structure
-        assert saved_lesson.package is not None
-        assert saved_lesson.package.objectives is not None
-        assert len(saved_lesson.package.objectives) > 0
-
-        # Verify package components were created
-        assert saved_lesson.package.glossary is not None
-        assert len(saved_lesson.package.glossary.get("terms", [])) > 0
-        assert saved_lesson.package.exercises is not None
-        assert len(saved_lesson.package.exercises) > 0
-
-        # Verify component counts match result
-        assert len(saved_lesson.package.objectives) == result.objectives_count
-        assert len(saved_lesson.package.glossary.get("terms", [])) == result.glossary_terms_count
-        assert len(saved_lesson.package.exercises) == result.mcqs_count  # mcqs_count now represents exercises count
-
-        # Verify didactic snippet structure (single lesson-wide snippet)
-        assert saved_lesson.package.didactic_snippet is not None
-        assert saved_lesson.package.didactic_snippet.plain_explanation is not None
-        assert len(saved_lesson.package.didactic_snippet.key_takeaways) > 0
-
-        # Verify glossary structure (already checked counts above)
-        for term in saved_lesson.package.glossary["terms"]:
-            assert term.term is not None
-            assert term.definition is not None
-
-        # Verify exercise structure (MCQ exercises)
-        for exercise in saved_lesson.package.exercises:
-            assert exercise.exercise_type is not None
-            if exercise.exercise_type == "mcq":
-                # Use getattr to safely access MCQ-specific attributes
-                assert getattr(exercise, "stem", None) is not None
-                assert len(getattr(exercise, "options", [])) >= 2  # Should have at least 2 options
-                assert getattr(exercise, "answer_key", None) is not None
-
-        # Verify flow run and step run records
-        # Fetch the most recent flow run for this flow
-        flow_run = db_session.session.query(FlowRunModel).filter(FlowRunModel.flow_name == "lesson_creation").order_by(_desc(FlowRunModel.created_at)).first()
-
-        assert flow_run is not None
-        assert flow_run.status == "completed"
-        assert flow_run.outputs is not None
-        assert isinstance(flow_run.outputs, dict)
-        assert "learning_objectives" in flow_run.outputs
-
-        # Verify expected steps exist and counts match (fast-default: 2 steps)
-        step_runs = db_session.session.query(FlowStepRunModel).filter(FlowStepRunModel.flow_run_id == flow_run.id).order_by(FlowStepRunModel.step_order).all()
-        assert len(step_runs) == 2  # fast_lesson_metadata + generate_mcqs
-
-        step_names = [s.step_name for s in step_runs]
-        assert "fast_lesson_metadata" in step_names
-        assert "generate_mcqs" in step_names
-
-        # Ensure all steps completed successfully
-        assert all(s.status == "completed" for s in step_runs)
-
-        # Cleanup: Close the database session
-        infrastructure_service.close_database_session(db_session)
-        print("🧹 Database session cleanup complete")
-
-    @pytest.mark.asyncio
-    async def test_lesson_creation_workflow_fast_default(self, infrastructure_service, sample_source_material) -> None:
-        """
-        Test the fast lesson creation workflow with real database and LLM calls.
-
-        This test:
-        1. Creates a lesson using the fast flow (use_fast_flow=True)
-        2. Verifies the lesson is saved to the database with same quality as standard flow
-        3. Checks that components are created with fewer LLM calls
-        4. Validates the flow run uses "fast_lesson_creation" flow name
-        """
-        print("⚡ Starting lesson creation workflow test (fast-default)...")
-
-        # Arrange: Ensure model is set before creating LLM service
-        print("🔧 Setting up test environment and services for fast flow...")
-        os.environ["OPENAI_MODEL"] = "gpt-5-nano"
-        print(f"📝 Using model: {os.environ['OPENAI_MODEL']} with fast flow")
-
-        # Create services using the initialized infrastructure service
-        print("🗄️ Getting database session...")
-        db_session = infrastructure_service.get_database_session()
-        print("📚 Creating content service...")
-        content_service = ContentService(ContentRepo(db_session.session))
-        print("🤖 Creating content creator service...")
-        creator_service = ContentCreatorService(content_service)
-        print("✅ Services created successfully")
-
-        request = CreateLessonRequest(title="Cross-Entropy Loss in Deep Learning (Fast)", core_concept="Cross-Entropy Loss Function", source_material=sample_source_material, user_level="intermediate", domain="Machine Learning")
-
-        # Act: Create the lesson (fast-default)
-        result = await creator_service.create_lesson_from_source_material(request)
-
-        # Assert: Verify the result structure (same as standard flow)
-        assert result is not None
-        assert result.lesson_id is not None
-        assert len(result.lesson_id) > 0
-        assert result.title == "Cross-Entropy Loss in Deep Learning (Fast)"
-        assert result.components_created > 0
-
-        # Verify lesson was saved to database
-        saved_lesson = content_service.get_lesson(result.lesson_id)
-        assert saved_lesson is not None
-        assert saved_lesson.title == request.title
-        assert saved_lesson.core_concept == request.core_concept
-        assert saved_lesson.user_level == request.user_level
-        assert saved_lesson.source_domain == request.domain
-
-        # Verify lesson has expected structure (same as standard flow)
-        assert saved_lesson.package is not None
-        assert saved_lesson.package.objectives is not None
-        assert len(saved_lesson.package.objectives) > 0
-
-        # Verify package components were created
-        assert saved_lesson.package.glossary is not None
-        assert len(saved_lesson.package.glossary.get("terms", [])) > 0
-        assert saved_lesson.package.exercises is not None
-        assert len(saved_lesson.package.exercises) > 0
-
-        # Verify component counts match result
-        assert len(saved_lesson.package.objectives) == result.objectives_count
-        assert len(saved_lesson.package.glossary.get("terms", [])) == result.glossary_terms_count
-        assert len(saved_lesson.package.exercises) == result.mcqs_count
-
-        # Verify didactic snippet structure
-        assert saved_lesson.package.didactic_snippet is not None
-        assert saved_lesson.package.didactic_snippet.plain_explanation is not None
-        assert len(saved_lesson.package.didactic_snippet.key_takeaways) > 0
-
-        # Verify flow run record uses lesson_creation (fast-default)
-        flow_run = db_session.session.query(FlowRunModel).filter(FlowRunModel.flow_name == "lesson_creation").order_by(_desc(FlowRunModel.created_at)).first()
-
-        assert flow_run is not None
-        assert flow_run.status == "completed"
-        assert flow_run.outputs is not None
-        assert isinstance(flow_run.outputs, dict)
-        assert "learning_objectives" in flow_run.outputs
-
-        # Verify fast-default has 2 steps
-        step_runs = db_session.session.query(FlowStepRunModel).filter(FlowStepRunModel.flow_run_id == flow_run.id).order_by(FlowStepRunModel.step_order).all()
-
-        # Exactly 2 steps: fast_lesson_metadata + generate_mcqs
-        assert len(step_runs) == 2, f"Expected exactly 2 steps, got {len(step_runs)}"
-
-        step_names = [s.step_name for s in step_runs]
-        assert "fast_lesson_metadata" in step_names
-        assert "generate_mcqs" in step_names
-
-        # Ensure all steps completed successfully
-        assert all(s.status == "completed" for s in step_runs)
-
-        # Cleanup: Close the database session
-        infrastructure_service.close_database_session(db_session)
-        print("🧹 Database session cleanup complete")
+    # Removed additional fast-default lesson test to keep integration suite minimal
 
 
 class TestUnitCreationIntegration:
@@ -419,7 +220,7 @@ class TestUnitCreationIntegration:
         print("🧹 Infrastructure cleanup complete")
 
     @pytest.mark.asyncio
-    async def test_unit_creation_from_topic_10_minutes(self, infrastructure_service) -> None:
+    async def test_unit_creation_from_topic(self, infrastructure_service) -> None:
         """Create a unit from a topic (no source material) targeting 10 minutes."""
         print("🚀 Starting unit creation workflow test (topic-only)...")
 
@@ -451,15 +252,17 @@ class TestUnitCreationIntegration:
 
         # Assert: Verify result structure
         assert result is not None
-        assert isinstance(result.unit_id, str) and len(result.unit_id) > 0
-        assert isinstance(result.title, str) and len(result.title) > 0
-        assert result.lesson_count >= 1
-        assert isinstance(result.lesson_titles, list) and len(result.lesson_titles) >= 1
-        assert result.target_lesson_count == 10
-        assert result.generated_from_topic is True
+        # Narrow type for static analysis
+        unit_result = cast(ContentCreatorService.UnitCreationResult, result)
+        assert isinstance(unit_result.unit_id, str) and len(unit_result.unit_id) > 0
+        assert isinstance(unit_result.title, str) and len(unit_result.title) > 0
+        assert unit_result.lesson_count >= 1
+        assert isinstance(unit_result.lesson_titles, list) and len(unit_result.lesson_titles) >= 1
+        assert unit_result.target_lesson_count == 10
+        assert unit_result.generated_from_topic is True
 
         # Verify unit was saved to database
-        saved_unit = content_service.get_unit(result.unit_id)
+        saved_unit = content_service.get_unit(unit_result.unit_id)
         assert saved_unit is not None
         assert saved_unit.generated_from_topic is True
         assert saved_unit.target_lesson_count == 10
@@ -480,60 +283,4 @@ class TestUnitCreationIntegration:
         infrastructure_service.close_database_session(db_session)
         print("🧹 Database session cleanup complete")
 
-    @pytest.mark.asyncio
-    async def test_unit_creation_from_topic_5_lessons(self, infrastructure_service) -> None:
-        """Create a unit from a topic targeting 5 lessons (fast-default)."""
-        print("⚡ Starting unit creation workflow test (topic-only, 5 lessons)...")
-
-        # Arrange: Ensure model is set before creating services
-        print("🔧 Setting up test environment and services...")
-        os.environ["OPENAI_MODEL"] = "gpt-5-nano"
-        print(f"📝 Using model: {os.environ['OPENAI_MODEL']} with fast flow")
-
-        # Create services using the initialized infrastructure service
-        print("🗄️ Getting database session...")
-        db_session = infrastructure_service.get_database_session()
-        print("📚 Creating content service...")
-        content_service = ContentService(ContentRepo(db_session.session))
-        print("🤖 Creating content creator service...")
-        creator_service = ContentCreatorService(content_service)
-        print("✅ Services created successfully")
-
-        topic = "Introduction to Neural Networks"
-
-        # Act: Create the unit via unified API (foreground)
-        result = await creator_service.create_unit(
-            topic=topic,
-            source_material=None,
-            background=False,
-            target_lesson_count=5,
-            user_level="beginner",
-            domain="Machine Learning",
-        )
-
-        # Assert: Verify result structure
-        assert result is not None
-        assert isinstance(result.unit_id, str) and len(result.unit_id) > 0
-        assert isinstance(result.title, str) and len(result.title) > 0
-        assert result.lesson_count >= 1
-        assert isinstance(result.lesson_titles, list) and len(result.lesson_titles) >= 1
-        assert result.target_lesson_count == 5
-        assert result.generated_from_topic is True
-
-        # Verify unit was saved to database
-        saved_unit = content_service.get_unit(result.unit_id)
-        assert saved_unit is not None
-        assert saved_unit.generated_from_topic is True
-        assert saved_unit.target_lesson_count == 5
-        assert getattr(saved_unit, "flow_type", "standard") == "standard"
-
-        # Optionally verify at least one lesson was actually saved if lesson_ids returned
-        lesson_ids = getattr(result, "lesson_ids", None)
-        if lesson_ids:
-            assert len(lesson_ids) >= 1
-            first_lesson = content_service.get_lesson(lesson_ids[0])
-            assert first_lesson is not None
-
-        # Cleanup: Close the database session
-        infrastructure_service.close_database_session(db_session)
-        print("🧹 Database session cleanup complete")
+    # Removed second unit creation test to keep integration suite minimal

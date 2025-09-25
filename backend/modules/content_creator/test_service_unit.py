@@ -93,7 +93,8 @@ class TestContentCreatorService:
 
         # Mock a failed unit that can be retried
         mock_unit = Mock()
-        mock_unit.id = "unit-123"
+        valid_unit_id = "123e4567-e89b-12d3-a456-426614174000"
+        mock_unit.id = valid_unit_id
         mock_unit.title = "Test Unit"
         mock_unit.status = "failed"
         mock_unit.generated_from_topic = True
@@ -104,17 +105,22 @@ class TestContentCreatorService:
         # Mock update status call
         content.update_unit_status.return_value = mock_unit
 
-        # Act
-        result = await service.retry_unit_creation("unit-123")
+        # Mock task queue provider to avoid infrastructure initialization
+        with patch("modules.content_creator.service.task_queue_provider") as mock_provider:
+            tq = AsyncMock()
+            mock_provider.return_value = tq
+
+            # Act
+            result = await service.retry_unit_creation(valid_unit_id)
 
         # Assert
         assert result is not None
-        assert result.unit_id == "unit-123"
+        assert result.unit_id == valid_unit_id
         assert result.title == "Test Unit"
         assert result.status == "in_progress"
 
         # Verify status was updated to in_progress
-        content.update_unit_status.assert_called_once_with(unit_id="unit-123", status="in_progress", error_message=None, creation_progress={"stage": "retrying", "message": "Retrying unit creation..."})
+        content.update_unit_status.assert_called_once_with(unit_id=valid_unit_id, status="in_progress", error_message=None, creation_progress={"stage": "retrying", "message": "Retrying unit creation..."})
 
     @pytest.mark.asyncio
     async def test_retry_unit_creation_unit_not_found(self) -> None:

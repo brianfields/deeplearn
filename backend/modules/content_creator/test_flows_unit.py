@@ -1,8 +1,8 @@
 """
-Fast Flow Unit Tests
+Content Creator Flow Unit Tests
 
 Covers:
-- FastLessonMetadataStep output format
+- Lesson metadata step output format
 - LessonCreationFlow output shape
 - UnitCreationFlow planning/chunking
 - Service create_unit precreate + complete pipeline
@@ -46,8 +46,8 @@ from modules.flow_engine.base_step import StepResult
 
 
 @pytest.mark.asyncio
-async def test_fast_lesson_metadata_step_outputs_model_shape() -> None:
-    """Validate combined outputs model fields and nesting for FastLessonMetadataStep."""
+async def test_lesson_metadata_step_outputs_model_shape() -> None:
+    """Validate combined outputs model fields and nesting for the lesson metadata step."""
     outputs = FastLessonMetadataStep.Outputs(
         title="Lesson Title",
         core_concept="Core Concept",
@@ -289,7 +289,7 @@ async def test_unit_creation_flow_plan_and_chunks() -> None:
         assert len(result.get("chunks", [])) == 3
 
 
-class TestServiceFastFlag:
+class TestServiceFlows:
     @pytest.mark.asyncio
     @patch("modules.content_creator.service.LessonCreationFlow")
     async def test_create_lesson_invokes_flow(self, mock_flow_cls: Mock) -> None:
@@ -374,6 +374,9 @@ class TestServiceFastFlag:
                 "exercises": [],
             }
             mock_lcf_cls.return_value = mock_lcf
+
+            # Ensure save_lesson returns an object with a string id
+            content.save_lesson.return_value = Mock(id="l1")
 
             result = await svc.create_unit(topic="Topic", target_lesson_count=1, user_level="beginner", domain=None, background=False)
             assert result.title == "Unit T"
