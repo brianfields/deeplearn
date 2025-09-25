@@ -36,7 +36,8 @@ export const colors: ThemeColors = {
 
   // Text
   text: tokens.color.ink900, // Charcoal noir
-  textSecondary: tokens.color.accent200, // Muted blue-gray
+  // Use ink at 80% opacity per spec for secondary text on light backgrounds
+  textSecondary: 'rgba(13, 14, 16, 0.8)',
 
   // UI / feedback
   border: tokens.color.accent200,
@@ -309,14 +310,15 @@ export const commonStyles = {
 
 export const animations: AnimationConfig = {
   // Durations
-  fast: 200,
-  normal: 300,
-  slow: 500,
+  fast: 160,
+  normal: 220,
+  slow: 320,
 
   // Easing curves
-  easeInOut: 'ease-in-out',
-  easeIn: 'ease-in',
-  easeOut: 'ease-out',
+  // Align with Weimar Edge timing/easing specs
+  easeInOut: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+  easeIn: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+  easeOut: 'cubic-bezier(0.4, 0.0, 1, 1)',
 };
 
 // ================================

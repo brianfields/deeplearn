@@ -69,9 +69,9 @@ async def _handle_unit_creation(payload: dict) -> None:
     target = payload.get("target_lesson_count") if payload.get("target_lesson_count") is not None else inputs.get("target_lesson_count")
     domain = inputs.get("domain")
 
-    from modules.content.public import content_provider
+    from modules.content.public import content_provider  # noqa: PLC0415
 
-    from .service import ContentCreatorService  # local import
+    from .service import ContentCreatorService  # local import  # noqa: PLC0415
 
     # Use a fresh DB session for the whole operation
     with infra.get_session_context() as s:

@@ -12,11 +12,13 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated';
-import { uiSystemProvider } from '../public';
+import { internalUiSystemProvider } from '../internalProvider';
 import type { ProgressProps } from '../models';
 import { animationTimings } from '../utils/animations';
 import { reducedMotion } from '../utils/motion';
 import { tokens } from '../tokens';
+
+const uiSystemProvider = internalUiSystemProvider;
 
 export const Progress: React.FC<ProgressProps> = ({
   progress,
@@ -76,8 +78,14 @@ export const Progress: React.FC<ProgressProps> = ({
     },
   ]) as React.ComponentProps<typeof View>['style'];
 
+  // On web, pointerEvents should be passed via style to avoid deprecation
+  const wrapperWithPointerEvents =
+    pointerEvents !== undefined
+      ? ({ ...wrapperStyle, pointerEvents } as any)
+      : wrapperStyle;
+
   return (
-    <View style={wrapperStyle} pointerEvents={pointerEvents}>
+    <View style={wrapperWithPointerEvents}>
       {showLabel && (
         <Text
           style={[

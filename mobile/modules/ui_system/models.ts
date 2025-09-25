@@ -75,18 +75,7 @@ export interface Theme {
 export interface ButtonProps {
   title: string;
   onPress: () => void;
-  /**
-   * Weimar Edge variants. `outline` and `ghost` are temporarily supported
-   * for backward compatibility and will be mapped to `secondary` and
-   * `tertiary` respectively within the component implementation.
-   */
-  variant?:
-    | 'primary'
-    | 'secondary'
-    | 'tertiary'
-    | 'destructive'
-    | 'outline'
-    | 'ghost';
+  variant?: 'primary' | 'secondary' | 'tertiary' | 'destructive';
   size?: 'small' | 'medium' | 'large';
   disabled?: boolean;
   loading?: boolean;

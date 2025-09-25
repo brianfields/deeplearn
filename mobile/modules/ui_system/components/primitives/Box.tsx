@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, ViewStyle } from 'react-native';
-import { uiSystemProvider } from '../../public';
+import { internalUiSystemProvider } from '../../internalProvider';
 import type { Spacing } from '../../models';
 
 export type BoxProps = {
@@ -34,6 +34,8 @@ function resolveSize(
   if (typeof value === 'number') return value;
   return getSpacing(value);
 }
+
+const uiSystemProvider = internalUiSystemProvider;
 
 export function Box({
   children,
