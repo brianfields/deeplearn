@@ -129,7 +129,7 @@ class TaskQueueService:
 
             # Submit task to ARQ using generic registered-task entrypoint
             job = await pool.enqueue_job(
-                "execute_registered_task",
+                "execute_flow_task",
                 task_payload,
                 _job_id=task_id,
                 _defer_by=delay,

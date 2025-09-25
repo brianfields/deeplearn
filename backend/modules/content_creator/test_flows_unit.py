@@ -1,11 +1,11 @@
 """
-Fast Flow Unit Tests
+Content Creator Flow Unit Tests
 
 Covers:
-- FastLessonMetadataStep output format
-- FastLessonCreationFlow output shape parity with LessonCreationFlow
-- FastUnitCreationFlow parallelization and error handling
-- Service methods selecting fast vs standard flow via use_fast_flow
+- Lesson metadata step output format
+- LessonCreationFlow output shape
+- UnitCreationFlow planning/chunking
+- Service create_unit precreate + complete pipeline
 """
 
 from __future__ import annotations
@@ -18,8 +18,8 @@ import pytest
 
 from modules.content.package_models import DidacticSnippet, LessonPackage, Meta, Objective
 from modules.content.public import LessonRead
-from modules.content_creator.flows import FastLessonCreationFlow, FastUnitCreationFlow, LessonCreationFlow, UnitCreationFlow
-from modules.content_creator.service import ContentCreatorService, CreateLessonRequest, LessonCreationResult
+from modules.content_creator.flows import LessonCreationFlow, UnitCreationFlow
+from modules.content_creator.service import ContentCreatorService, CreateLessonRequest
 from modules.content_creator.steps import (
     ConfusablePair,
     DidacticSnippetOutputs,
@@ -46,8 +46,8 @@ from modules.flow_engine.base_step import StepResult
 
 
 @pytest.mark.asyncio
-async def test_fast_lesson_metadata_step_outputs_model_shape() -> None:
-    """Validate combined outputs model fields and nesting for FastLessonMetadataStep."""
+async def test_lesson_metadata_step_outputs_model_shape() -> None:
+    """Validate combined outputs model fields and nesting for the lesson metadata step."""
     outputs = FastLessonMetadataStep.Outputs(
         title="Lesson Title",
         core_concept="Core Concept",
@@ -84,8 +84,8 @@ async def test_fast_lesson_metadata_step_outputs_model_shape() -> None:
 
 
 @pytest.mark.asyncio
-async def test_fast_lesson_creation_flow_output_shape_matches_standard_flow() -> None:
-    """Ensure fast and standard flows return comparable top-level keys and counts.
+async def test_lesson_creation_flow_output_shape() -> None:
+    """Ensure the lesson flow returns expected top-level keys and counts.
 
     We stub step/LLM calls to fixed outputs and call the flow logic directly.
     """
@@ -224,11 +224,8 @@ async def test_fast_lesson_creation_flow_output_shape_matches_standard_flow() ->
             ),
         ),
     ):
-        fast_flow = FastLessonCreationFlow()
-        std_flow = LessonCreationFlow()
-
-        fast_result = await fast_flow._execute_flow_logic({"title": "T", "core_concept": "C", "source_material": "M", "user_level": "beginner", "domain": "General"})
-        std_result = await std_flow._execute_flow_logic({"title": "T", "core_concept": "C", "source_material": "M", "user_level": "beginner", "domain": "General"})
+        flow = LessonCreationFlow()
+        result = await flow._execute_flow_logic({"title": "T", "core_concept": "C", "source_material": "M", "user_level": "beginner", "domain": "General"})
 
         # Compare shapes and counts
         for key in [
@@ -242,20 +239,18 @@ async def test_fast_lesson_creation_flow_output_shape_matches_standard_flow() ->
             "didactic_snippet",
             "exercises",
         ]:
-            assert key in fast_result
-            assert key in std_result
+            assert key in result
 
-        assert len(fast_result["learning_objectives"]) == len(std_result["learning_objectives"]) == 2
-        assert len(fast_result["exercises"]) == len(std_result["exercises"]) == 2
+        assert len(result["learning_objectives"]) == 2
+        assert len(result["exercises"]) == 2
 
-        # Ensure options have generated ids in both flows
-        assert all("id" in opt for ex in fast_result["exercises"] for opt in ex["options"])
-        assert all("id" in opt for ex in std_result["exercises"] for opt in ex["options"])
+        # Ensure options have generated ids
+        assert all("id" in opt for ex in result["exercises"] for opt in ex["options"])
 
 
 @pytest.mark.asyncio
-async def test_fast_unit_creation_flow_parallel_and_error_handling() -> None:
-    """FastUnitCreationFlow should continue on individual lesson failures and preserve order."""
+async def test_unit_creation_flow_plan_and_chunks() -> None:
+    """UnitCreationFlow returns a plan and chunks; lesson execution is handled by service."""
     unit_plan = {
         "unit_title": "Unit T",
         "lesson_titles": ["L1", "L2", "L3"],
@@ -277,35 +272,27 @@ async def test_fast_unit_creation_flow_parallel_and_error_handling() -> None:
             raise RuntimeError("boom")
         return {"ok": True}
 
-    with (
-        patch.object(UnitCreationFlow, "execute", new=AsyncMock(return_value=unit_plan)),
-        patch.object(FastLessonCreationFlow, "execute", new=AsyncMock(side_effect=fake_fast_lesson_execute)),
-    ):
-        flow = FastUnitCreationFlow()
-        result = await flow._execute_flow_logic(
+    with patch.object(UnitCreationFlow, "execute", new=AsyncMock(return_value=unit_plan)):
+        flow = UnitCreationFlow()
+        result = await flow.execute(
             {
                 "topic": None,
                 "source_material": "S",
                 "target_lesson_count": 3,
                 "user_level": "beginner",
                 "domain": "General",
-                "max_parallel_lessons": 2,
             }
         )
 
         assert result["unit_title"] == "Unit T"
-        lessons = result.get("lessons", [])
-        # One failure => only 2 lessons produced
-        assert len(lessons) == 2
-        # Order preserved by index
-        assert [lesson["title"] for lesson in lessons] == ["L1", "L3"]
+        assert result.get("lesson_titles") == ["L1", "L2", "L3"]
+        assert len(result.get("chunks", [])) == 3
 
 
-class TestServiceFastFlag:
+class TestServiceFlows:
     @pytest.mark.asyncio
-    @patch("modules.content_creator.service.FastLessonCreationFlow")
     @patch("modules.content_creator.service.LessonCreationFlow")
-    async def test_create_lesson_respects_use_fast_flow_flag(self, mock_std_flow_cls: Mock, mock_fast_flow_cls: Mock) -> None:
+    async def test_create_lesson_invokes_flow(self, mock_flow_cls: Mock) -> None:
         content = Mock()
         svc = ContentCreatorService(content)
 
@@ -333,13 +320,9 @@ class TestServiceFastFlag:
             ],
             "length_budgets": {"stem_max_words": 35, "vignette_max_words": 80, "option_max_words": 12},
         }
-        mock_fast_flow = AsyncMock()
-        mock_fast_flow.execute.return_value = fake_flow_result
-        mock_fast_flow_cls.return_value = mock_fast_flow
-
-        mock_std_flow = AsyncMock()
-        mock_std_flow.execute.return_value = fake_flow_result
-        mock_std_flow_cls.return_value = mock_std_flow
+        mock_flow = AsyncMock()
+        mock_flow.execute.return_value = fake_flow_result
+        mock_flow_cls.return_value = mock_flow
 
         # Mock content save
         mock_package = LessonPackage(
@@ -353,40 +336,15 @@ class TestServiceFastFlag:
 
         req = CreateLessonRequest(title="T", core_concept="C", source_material="S", user_level="beginner", domain="General")
 
-        # Fast path
-        await svc.create_lesson_from_source_material(req, use_fast_flow=True)
-        mock_fast_flow.execute.assert_awaited()
-        mock_std_flow.execute.assert_not_called()
-
-        # Standard path
-        mock_fast_flow.execute.reset_mock()
-        mock_std_flow.execute.reset_mock()
-        await svc.create_lesson_from_source_material(req, use_fast_flow=False)
-        mock_std_flow.execute.assert_awaited()
-        mock_fast_flow.execute.assert_not_called()
+        await svc.create_lesson_from_source_material(req)
+        mock_flow_cls.return_value.execute.assert_awaited()
 
     @pytest.mark.asyncio
-    @patch("modules.content_creator.service.FastUnitCreationFlow")
-    async def test_create_unit_sets_flow_type_and_parallelizes(self, mock_unit_flow_cls: Mock) -> None:
+    async def test_create_unit_precreates_and_completes(self) -> None:
         content = Mock()
         svc = ContentCreatorService(content)
 
-        # Unit plan with 3 chunks
-        mock_unit_flow = AsyncMock()
-        mock_unit_flow.execute.return_value = {
-            "unit_title": "Unit T",
-            "lesson_titles": ["L1", "L2", "L3"],
-            "lesson_count": 3,
-            "target_lesson_count": 3,
-            "source_material": "S",
-            "summary": "sum",
-            "chunks": [
-                {"index": 0, "title": "L1", "chunk_text": "t1"},
-                {"index": 1, "title": "L2", "chunk_text": "t2"},
-                {"index": 2, "title": "L3", "chunk_text": "t3"},
-            ],
-        }
-        mock_unit_flow_cls.return_value = mock_unit_flow
+        # Unit plan will be provided by mocked UnitCreationFlow below
 
         # Return created unit (minimal attributes required by service)
         created_unit_obj = Mock()
@@ -394,35 +352,32 @@ class TestServiceFastFlag:
         created_unit_obj.title = "Unit T"
         content.create_unit.return_value = created_unit_obj
 
-        # Stub lesson creation to simulate parallel workers
-        async def fake_create_lesson(_req: CreateLessonRequest, *, _use_fast_flow: bool = False) -> LessonCreationResult:
-            return LessonCreationResult(
-                lesson_id=f"lesson-{_req.title}",
-                title=_req.title,
-                package_version=1,
-                objectives_count=1,
-                glossary_terms_count=0,
-                mcqs_count=1,
-            )
+        # We'll patch flows to return minimal shapes and call create_unit (foreground)
+        with patch("modules.content_creator.service.UnitCreationFlow") as mock_ucf_cls, patch("modules.content_creator.service.LessonCreationFlow") as mock_lcf_cls:
+            mock_ucf = AsyncMock()
+            mock_ucf.execute.return_value = {
+                "unit_title": "Unit T",
+                "lesson_titles": ["L1"],
+                "lesson_count": 1,
+                "target_lesson_count": 1,
+                "source_material": "S",
+                "summary": "sum",
+                "chunks": [{"index": 0, "title": "L1", "chunk_text": "t1"}],
+            }
+            mock_ucf_cls.return_value = mock_ucf
 
-        svc.create_lesson_from_source_material = AsyncMock(side_effect=fake_create_lesson)  # type: ignore[method-assign]
+            mock_lcf = AsyncMock()
+            mock_lcf.execute.return_value = {
+                "learning_objectives": [{"id": "lo_1", "text": "A"}],
+                "didactic_snippet": {"plain_explanation": "x", "key_takeaways": []},
+                "glossary": {"terms": []},
+                "exercises": [],
+            }
+            mock_lcf_cls.return_value = mock_lcf
 
-        # Fast flow: sets flow_type fast and parallelizes
-        topic_req = ContentCreatorService.CreateUnitFromTopicRequest(topic="Topic", target_lesson_count=3, user_level="beginner", use_fast_flow=True)
-        result_fast = await svc.create_unit_from_topic(topic_req)
-        assert result_fast.title == "Unit T"
-        # flow_type passed to content.create_unit
-        args, _ = content.create_unit.call_args
-        assert args[0].flow_type == "fast"
-        # lessons assigned
-        content.assign_lessons_to_unit.assert_called_once()
+            # Ensure save_lesson returns an object with a string id
+            content.save_lesson.return_value = Mock(id="l1")
 
-        content.create_unit.reset_mock()
-        content.assign_lessons_to_unit.reset_mock()
-
-        # Standard flow: sets flow_type standard
-        topic_req_std = ContentCreatorService.CreateUnitFromTopicRequest(topic="Topic", target_lesson_count=3, user_level="beginner", use_fast_flow=False)
-        result_std = await svc.create_unit_from_topic(topic_req_std)
-        assert result_std.title == "Unit T"
-        args2, _ = content.create_unit.call_args
-        assert args2[0].flow_type == "standard"
+            result = await svc.create_unit(topic="Topic", target_lesson_count=1, user_level="beginner", domain=None, background=False)
+            assert result.title == "Unit T"
+            content.assign_lessons_to_unit.assert_called_once()

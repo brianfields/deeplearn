@@ -303,26 +303,29 @@ class TestTaskQueueService:
     @pytest.mark.asyncio
     async def test_cancel_task_success(self, service, mock_arq_pool):
         """Test successful task cancellation."""
-        # Mock ARQ pool and job
+        # Mock ARQ pool and Job constructor used in service.cancel_task
         service._arq_pool = mock_arq_pool
+        # Provide a fake arq module exposing Job that returns our mock job
         job = AsyncMock()
-        mock_arq_pool.get_job.return_value = job
+        fake_arq = MagicMock()
+        fake_arq.Job = MagicMock(return_value=job)
 
-        # Mock existing pending task
-        task_status = TaskStatus(
-            task_id="test-123",
-            flow_name="test_flow",
-            status=TaskStatusEnum.PENDING,
-            created_at=datetime.now(UTC),
-        )
-        service.repo.get_task_status = AsyncMock(return_value=task_status)
-        service.repo.store_task_status = AsyncMock()
+        with patch.dict("sys.modules", {"arq": fake_arq}):
+            # Mock existing pending task
+            task_status = TaskStatus(
+                task_id="test-123",
+                flow_name="test_flow",
+                status=TaskStatusEnum.PENDING,
+                created_at=datetime.now(UTC),
+            )
+            service.repo.get_task_status = AsyncMock(return_value=task_status)
+            service.repo.store_task_status = AsyncMock()
 
-        result = await service.cancel_task("test-123")
+            result = await service.cancel_task("test-123")
 
-        assert result is True
-        job.abort.assert_called_once()
-        service.repo.store_task_status.assert_called_once()
+            assert result is True
+            job.abort.assert_called_once()
+            service.repo.store_task_status.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_cancel_task_already_running(self, service):
