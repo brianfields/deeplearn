@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   SafeAreaView,
   FlatList,
@@ -20,6 +19,14 @@ import {
   useNextLessonToResume,
 } from '../../learning_session/queries';
 import { catalogProvider } from '../public';
+import {
+  Box,
+  Card,
+  Text,
+  Button,
+  uiSystemProvider,
+  useHaptics,
+} from '../../ui_system/public';
 
 type UnitDetailScreenNavigationProp = NativeStackNavigationProp<
   LearningStackParamList,
@@ -31,6 +38,9 @@ export function UnitDetailScreen() {
   const unitId = route.params?.unitId as string | undefined;
   const navigation = useNavigation<UnitDetailScreenNavigationProp>();
   const { data: unit } = useUnit(unitId || '');
+  const ui = uiSystemProvider();
+  const theme = ui.getCurrentTheme();
+  const haptics = useHaptics();
   // For now, use anonymous user until auth is wired up
   const userId = 'anonymous';
   const { data: progressLS } = useUnitProgressLS(userId, unit?.id || '', {
@@ -79,78 +89,131 @@ export function UnitDetailScreen() {
 
   if (!unit) {
     return (
-      <SafeAreaView style={styles.container}>
-        <Text style={styles.title}>Unit not found</Text>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
+      >
+        <Box p="lg">
+          <Text variant="h1">Unit not found</Text>
+        </Box>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>{unit.title}</Text>
-      {nextLessonTitle && (
-        <View style={styles.resumeContainer}>
-          <Text style={styles.resumeLabel}>Resume next:</Text>
-          <Text style={styles.resumeTitle}>{nextLessonTitle}</Text>
-        </View>
-      )}
-      {overallProgress && <UnitProgressView progress={overallProgress} />}
-      <Text style={styles.subtitle}>Lessons</Text>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+    >
+      <Box p="lg" pb="sm">
+        <TouchableOpacity
+          onPress={() => {
+            haptics.trigger('light');
+            navigation.goBack();
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          style={{ paddingVertical: 6, paddingRight: 12 }}
+        >
+          <Text variant="body" color={theme.colors.primary}>
+            {'‹ Back'}
+          </Text>
+        </TouchableOpacity>
+        <Text variant="h1" style={{ marginTop: 8, fontWeight: 'normal' }}>
+          {unit.title}
+        </Text>
+      </Box>
+
+      <Box px="lg">
+        <Card variant="default" style={{ margin: 0 }}>
+          {nextLessonTitle && (
+            <Box mb="md">
+              <Text variant="secondary" color={theme.colors.textSecondary}>
+                Resume next:
+              </Text>
+              <Text variant="title" style={{ fontWeight: 'normal' }}>
+                {nextLessonTitle}
+              </Text>
+            </Box>
+          )}
+
+          {overallProgress && (
+            <Box mb="md">
+              <UnitProgressView progress={overallProgress} />
+            </Box>
+          )}
+
+          <Button
+            title={nextLessonTitle ? 'Resume Lesson' : 'Start Learning'}
+            onPress={() => {
+              const next = unit.lessons[0]?.id;
+              if (next) {
+                handleLessonPress(next);
+              } else {
+                Alert.alert('No lessons', 'This unit has no lessons yet.');
+              }
+            }}
+            variant="primary"
+            size="large"
+            fullWidth
+            testID="primary-cta"
+          />
+        </Card>
+      </Box>
+
+      <Box px="lg" mt="lg">
+        <Text variant="title" style={{ marginBottom: 8 }}>
+          Lessons
+        </Text>
+      </Box>
+
       <FlatList
         data={unit.lessons}
         keyExtractor={l => l.id}
         renderItem={({ item }) => (
-          <TouchableOpacity
-            onPress={() => handleLessonPress(item.id)}
-            style={styles.lessonRow}
-            testID={`lesson-card`}
-          >
-            <Text style={styles.lessonTitle}>{item.title}</Text>
-            <View style={styles.lessonRight}>
-              {progressLS && (
-                <Text style={styles.progressText}>
-                  {Math.round(
-                    progressLS.lessons.find(lp => lp.lessonId === item.id)
-                      ?.progressPercentage || 0
-                  )}
-                  %
+          <Box px="lg" testID="lesson-card">
+            <Card
+              variant="outlined"
+              style={{ margin: 0, marginBottom: 12 }}
+              onPress={() => {
+                haptics.trigger('light');
+                handleLessonPress(item.id);
+              }}
+            >
+              <View style={styles.lessonRowInner}>
+                <Text variant="body" style={{ flex: 1, marginRight: 12 }}>
+                  {item.title}
                 </Text>
-              )}
-              <Text style={styles.lessonMeta}>
-                {item.estimatedDuration} min
-              </Text>
-            </View>
-          </TouchableOpacity>
+                <View style={styles.lessonRight}>
+                  {progressLS && (
+                    <Text variant="caption" color={theme.colors.accent}>
+                      {Math.round(
+                        progressLS.lessons.find(lp => lp.lessonId === item.id)
+                          ?.progressPercentage || 0
+                      )}
+                      %
+                    </Text>
+                  )}
+                  <Text variant="caption" color={theme.colors.textSecondary}>
+                    {item.estimatedDuration} min
+                  </Text>
+                </View>
+              </View>
+            </Card>
+          </Box>
         )}
         contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
       />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB', padding: 20 },
-  title: { fontSize: 24, fontWeight: '700', color: '#111827' },
-  subtitle: { fontSize: 16, color: '#6B7280', marginTop: 16 },
-  lessonRow: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 14,
-    marginTop: 8,
+  container: { flex: 1 },
+  lessonRight: { alignItems: 'flex-end' },
+  listContent: { paddingVertical: 8, paddingBottom: 24 },
+  lessonRowInner: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
   },
-  lessonTitle: { fontSize: 16, color: '#111827', flex: 1, marginRight: 12 },
-  lessonRight: { alignItems: 'flex-end' },
-  lessonMeta: { fontSize: 12, color: '#6B7280' },
-  progressText: { fontSize: 12, color: '#2563EB', marginBottom: 4 },
-  listContent: { paddingVertical: 8 },
-  resumeContainer: {
-    backgroundColor: '#DBEAFE',
-    borderRadius: 10,
-    padding: 12,
-    marginTop: 12,
-  },
-  resumeLabel: { fontSize: 12, color: '#1D4ED8' },
-  resumeTitle: { fontSize: 14, color: '#1F2937', fontWeight: '600' },
 });

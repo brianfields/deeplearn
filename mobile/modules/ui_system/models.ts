@@ -75,11 +75,11 @@ export interface Theme {
 export interface ButtonProps {
   title: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'tertiary' | 'destructive';
   size?: 'small' | 'medium' | 'large';
   disabled?: boolean;
   loading?: boolean;
-  icon?: string;
+  icon?: React.ReactNode;
   fullWidth?: boolean;
   style?: any;
   textStyle?: any;

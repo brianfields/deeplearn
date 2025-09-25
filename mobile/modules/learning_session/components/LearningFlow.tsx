@@ -6,7 +6,7 @@
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Alert } from 'react-native';
-import { Button, Progress } from '../../ui_system/public';
+import { Button, Progress, useHaptics } from '../../ui_system/public';
 import { uiSystemProvider } from '../../ui_system/public';
 import { useActiveLearningSession } from '../queries';
 import { useLearningSessionStore } from '../store';
@@ -31,6 +31,7 @@ export default function LearningFlow({
   const uiSystem = uiSystemProvider();
   const theme = uiSystem.getCurrentTheme();
   const styles = createStyles(theme);
+  const haptics = useHaptics();
 
   // Session data and actions
   const {
@@ -272,7 +273,10 @@ export default function LearningFlow({
         <View style={styles.progressContainer}>
           <Button
             title="✕"
-            onPress={onBack}
+            onPress={() => {
+              haptics.trigger('light');
+              onBack();
+            }}
             variant="secondary"
             size="small"
             style={styles.closeButton}
@@ -324,15 +328,15 @@ const createStyles = (theme: any) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: theme.colors?.background || '#FFFFFF',
+      backgroundColor: theme.colors.background,
     },
     header: {
       paddingTop: theme.spacing?.xl || 24,
       paddingHorizontal: theme.spacing?.lg || 16,
       paddingBottom: theme.spacing?.md || 12,
-      backgroundColor: theme.colors?.surface || '#F8F9FA',
+      backgroundColor: theme.colors.surface,
       borderBottomWidth: 1,
-      borderBottomColor: theme.colors?.border || '#E0E0E0',
+      borderBottomColor: theme.colors.border,
     },
     progressContainer: {
       flexDirection: 'row',
@@ -352,13 +356,13 @@ const createStyles = (theme: any) =>
       paddingVertical: 0,
       justifyContent: 'center',
       alignItems: 'center',
-      backgroundColor: theme.colors?.surfaceVariant || '#B0B0B0',
+      backgroundColor: theme.colors.border,
       borderWidth: 0,
     },
     progressText: {
       fontSize: 16,
-      fontWeight: '600',
-      color: theme.colors?.text || '#000000',
+      fontWeight: '400',
+      color: theme.colors.text,
     },
     progressBar: {
       flex: 1,
@@ -372,8 +376,8 @@ const createStyles = (theme: any) =>
     },
     lessonTitle: {
       fontSize: 20,
-      fontWeight: '700',
-      color: theme.colors?.text || '#0A0A0A',
+      fontWeight: '400',
+      color: theme.colors.text,
       textAlign: 'center',
       letterSpacing: 0.2,
       marginBottom: theme.spacing?.xs || 6,
@@ -385,11 +389,11 @@ const createStyles = (theme: any) =>
       flex: 1,
       justifyContent: 'center',
       alignItems: 'center',
-      backgroundColor: theme.colors?.background || '#FFFFFF',
+      backgroundColor: theme.colors.background,
     },
     loadingText: {
       fontSize: 16,
-      color: theme.colors?.textSecondary || '#666666',
+      color: theme.colors.textSecondary,
       marginTop: theme.spacing?.md || 12,
     },
     errorContainer: {
@@ -397,18 +401,18 @@ const createStyles = (theme: any) =>
       justifyContent: 'center',
       alignItems: 'center',
       padding: theme.spacing?.lg || 16,
-      backgroundColor: theme.colors?.background || '#FFFFFF',
+      backgroundColor: theme.colors.background,
     },
     errorTitle: {
       fontSize: 20,
-      fontWeight: 'bold',
-      color: theme.colors?.error || '#F44336',
+      fontWeight: 'normal',
+      color: theme.colors.error,
       marginBottom: theme.spacing?.md || 12,
       textAlign: 'center',
     },
     errorText: {
       fontSize: 16,
-      color: theme.colors?.textSecondary || '#666666',
+      color: theme.colors.textSecondary,
       textAlign: 'center',
       marginBottom: theme.spacing?.xl || 24,
       lineHeight: 22,
@@ -424,7 +428,7 @@ const createStyles = (theme: any) =>
     },
     emptyStateText: {
       fontSize: 16,
-      color: theme.colors?.textSecondary || '#666666',
+      color: theme.colors.textSecondary,
       textAlign: 'center',
       lineHeight: 22,
     },
@@ -432,11 +436,11 @@ const createStyles = (theme: any) =>
       flex: 1,
       justifyContent: 'center',
       alignItems: 'center',
-      backgroundColor: theme.colors?.background || '#FFFFFF',
+      backgroundColor: theme.colors.background,
     },
     glossarySkipText: {
       fontSize: 16,
-      color: theme.colors?.textSecondary || '#666666',
+      color: theme.colors.textSecondary,
     },
     completingOverlay: {
       position: 'absolute',
@@ -444,14 +448,14 @@ const createStyles = (theme: any) =>
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      backgroundColor: `${theme.colors.text}80`,
       justifyContent: 'center',
       alignItems: 'center',
     },
     completingText: {
       fontSize: 18,
-      fontWeight: '600',
-      color: '#FFFFFF',
+      fontWeight: '400',
+      color: theme.colors.surface,
       textAlign: 'center',
     },
   });

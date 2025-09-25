@@ -6,6 +6,7 @@
  */
 
 import { Dimensions, Platform } from 'react-native';
+import { tokens } from '../tokens';
 import type {
   Theme,
   ThemeColors,
@@ -24,25 +25,26 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 // ================================
 
 export const colors: ThemeColors = {
-  // Primary colors
-  primary: '#1CB0F6', // Bright blue
-  secondary: '#00CD9C', // Teal green
-  accent: '#FF9600', // Orange
+  // Map Weimar Edge tokens → app theme roles
+  primary: tokens.color.accent600, // Petrol blue as primary brand
+  secondary: tokens.color.gilt500, // Tarnished gold as secondary/accent
+  accent: tokens.color.accent400, // Lighter petrol for accents
 
-  // Background colors
-  background: '#F7F8FA', // Light gray
-  surface: '#FFFFFF', // White
+  // Background / surfaces
+  background: tokens.color.paper0, // Bone paper
+  surface: '#FFFFFF', // Keep white for elevated cards where needed
 
-  // Text colors
-  text: '#2B2D42', // Dark blue-gray
-  textSecondary: '#5E6B73', // Medium gray
+  // Text
+  text: tokens.color.ink900, // Charcoal noir
+  // Use ink at 80% opacity per spec for secondary text on light backgrounds
+  textSecondary: 'rgba(13, 14, 16, 0.8)',
 
-  // UI colors
-  border: '#E5E7EB', // Light border
-  success: '#22C55E', // Green
-  warning: '#F59E0B', // Amber
-  error: '#EF4444', // Red
-  info: '#3B82F6', // Blue
+  // UI / feedback
+  border: tokens.color.accent200,
+  success: tokens.color.emerald500,
+  warning: tokens.color.amber600,
+  error: tokens.color.rouge600,
+  info: tokens.color.sky500,
 };
 
 // ================================
@@ -50,12 +52,13 @@ export const colors: ThemeColors = {
 // ================================
 
 export const spacing: Spacing = {
-  xs: 4,
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
-  xxl: 48,
+  // Derive named scale from token space array
+  xs: tokens.space[1], // 4
+  sm: tokens.space[2], // 8
+  md: tokens.space[4], // 16
+  lg: tokens.space[6], // 24
+  xl: tokens.space[8], // 32
+  xxl: tokens.space[10], // 48
 };
 
 // ================================
@@ -63,30 +66,36 @@ export const spacing: Spacing = {
 // ================================
 
 export const typography: Typography = {
+  // Map Weimar Edge typographic scale into existing keys
   heading1: {
-    fontSize: 32,
-    fontWeight: Platform.OS === 'ios' ? '700' : 'bold',
-    lineHeight: 40,
+    fontSize: tokens.type.h1.size,
+    fontWeight:
+      Platform.OS === 'ios' ? tokens.type.h1.weight : ('bold' as const),
+    lineHeight: tokens.type.h1.line,
   },
   heading2: {
-    fontSize: 24,
-    fontWeight: Platform.OS === 'ios' ? '600' : 'bold',
-    lineHeight: 32,
+    fontSize: tokens.type.h2.size,
+    fontWeight:
+      Platform.OS === 'ios' ? tokens.type.h2.weight : ('bold' as const),
+    lineHeight: tokens.type.h2.line,
   },
   heading3: {
-    fontSize: 20,
-    fontWeight: Platform.OS === 'ios' ? '600' : 'bold',
-    lineHeight: 28,
+    fontSize: tokens.type.title.size,
+    fontWeight:
+      Platform.OS === 'ios' ? tokens.type.title.weight : ('bold' as const),
+    lineHeight: tokens.type.title.line,
   },
   body: {
-    fontSize: 16,
-    fontWeight: Platform.OS === 'ios' ? '400' : 'normal',
-    lineHeight: 24,
+    fontSize: tokens.type.body.size,
+    fontWeight:
+      Platform.OS === 'ios' ? tokens.type.body.weight : ('normal' as const),
+    lineHeight: tokens.type.body.line,
   },
   caption: {
-    fontSize: 14,
-    fontWeight: Platform.OS === 'ios' ? '400' : 'normal',
-    lineHeight: 20,
+    fontSize: tokens.type.caption.size,
+    fontWeight:
+      Platform.OS === 'ios' ? tokens.type.caption.weight : ('normal' as const),
+    lineHeight: tokens.type.caption.line,
   },
 };
 
@@ -301,14 +310,15 @@ export const commonStyles = {
 
 export const animations: AnimationConfig = {
   // Durations
-  fast: 200,
-  normal: 300,
-  slow: 500,
+  fast: 160,
+  normal: 220,
+  slow: 320,
 
   // Easing curves
-  easeInOut: 'ease-in-out',
-  easeIn: 'ease-in',
-  easeOut: 'ease-out',
+  // Align with Weimar Edge timing/easing specs
+  easeInOut: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+  easeIn: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+  easeOut: 'cubic-bezier(0.4, 0.0, 1, 1)',
 };
 
 // ================================

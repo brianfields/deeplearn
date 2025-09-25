@@ -6,7 +6,8 @@
 
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+import type { Theme as NavigationTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -23,6 +24,7 @@ import type { RootStackParamList, LearningStackParamList } from './types';
 
 // Theme (using new modular structure)
 import { uiSystemProvider } from './modules/ui_system/public';
+import { reducedMotion } from './modules/ui_system/utils/motion';
 
 // Create navigators
 const RootStack = createNativeStackNavigator<RootStackParamList>();
@@ -40,14 +42,17 @@ const queryClient = new QueryClient({
 });
 
 // Learning Stack Navigator
-function LearningStackNavigator() {
+function LearningStackNavigator(): React.ReactElement {
+  const uiSystem = uiSystemProvider();
+  const theme = uiSystem.getCurrentTheme();
   return (
     <LearningStack.Navigator
       id={undefined}
       screenOptions={{
         headerShown: false,
         animation: 'slide_from_right',
-        animationDuration: 300,
+        animationDuration: 220,
+        contentStyle: { backgroundColor: theme.colors.background },
       }}
     >
       <LearningStack.Screen
@@ -92,14 +97,17 @@ function LearningStackNavigator() {
 }
 
 // Main App Navigator
-function RootNavigator() {
+function RootNavigator(): React.ReactElement {
+  const uiSystem = uiSystemProvider();
+  const theme = uiSystem.getCurrentTheme();
   return (
     <RootStack.Navigator
       id={undefined}
       screenOptions={{
         headerShown: false,
         animation: 'slide_from_right',
-        animationDuration: 300,
+        animationDuration: 220,
+        contentStyle: { backgroundColor: theme.colors.background },
       }}
     >
       <RootStack.Screen name="Dashboard" component={LearningStackNavigator} />
@@ -114,48 +122,38 @@ function RootNavigator() {
   );
 }
 
-export default function App() {
+export default function App(): React.ReactElement {
   // Get theme from ui_system module
   const uiSystem = uiSystemProvider();
   const theme = uiSystem.getCurrentTheme();
+  const { isDarkMode } = uiSystem.getThemeState();
+
+  // Initialize reduced motion once at app start (guarded for tests)
+  (reducedMotion as any).initialize?.();
+
+  const navigationTheme: NavigationTheme = {
+    ...DefaultTheme,
+    dark: isDarkMode,
+    colors: {
+      ...DefaultTheme.colors,
+      primary: theme.colors.primary,
+      background: theme.colors.background,
+      card: theme.colors.surface,
+      text: theme.colors.text,
+      border: theme.colors.border,
+      notification: theme.colors.accent,
+    },
+  };
 
   return (
     // eslint-disable-next-line react-native/no-inline-styles
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryClientProvider client={queryClient}>
-        <NavigationContainer
-          theme={{
-            dark: false,
-            colors: {
-              primary: theme.colors.primary,
-              background: theme.colors.background,
-              card: theme.colors.surface,
-              text: theme.colors.text,
-              border: theme.colors.border,
-              notification: theme.colors.accent,
-            },
-            fonts: {
-              regular: {
-                fontFamily: 'System',
-                fontWeight: 'normal',
-              },
-              medium: {
-                fontFamily: 'System',
-                fontWeight: '500',
-              },
-              bold: {
-                fontFamily: 'System',
-                fontWeight: 'bold',
-              },
-              heavy: {
-                fontFamily: 'System',
-                fontWeight: '700',
-              },
-            },
-          }}
-        >
+        <NavigationContainer theme={navigationTheme}>
           <StatusBar
-            style="dark"
+            style={
+              uiSystem.isLightColor(theme.colors.surface) ? 'dark' : 'light'
+            }
             backgroundColor={theme.colors.surface}
             translucent={false}
           />

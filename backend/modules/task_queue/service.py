@@ -127,7 +127,7 @@ class TaskQueueService:
             if task_type:
                 task_payload["task_type"] = task_type
 
-            # Submit task to ARQ (generic registered-task entrypoint)
+            # Submit task to ARQ using generic registered-task entrypoint
             job = await pool.enqueue_job(
                 "execute_registered_task",
                 task_payload,
@@ -201,10 +201,11 @@ class TaskQueueService:
         if task_status.status == TaskStatusEnum.PENDING:
             # Try to cancel in ARQ
             try:
-                from arq import Job
-
-                pool = await self.get_arq_pool()
-                job = Job(task_id, pool)
+                pool_any: Any = await self.get_arq_pool()
+                job = await pool_any.get_job(task_id)  # type: ignore[attr-defined]
+                if not job:
+                    logger.warning(f"Failed to cancel task {task_id}: job not found")
+                    return False
                 await job.abort()
 
                 # Update status

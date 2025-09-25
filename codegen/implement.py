@@ -18,7 +18,6 @@ from pathlib import Path
 
 from codegen.common import (
     DEFAULT_MODEL_CLAUDE,
-    DEFAULT_MODEL_GPT5,
     ProjectSpec,
     headless_agent,
     read_text,
@@ -100,6 +99,12 @@ def main() -> int:
             stream=True,
             dry_run=args.dry,
         )
+        # Treat termination codes as non-fatal (often due to timeouts/runner limits)
+        if rc in (143, 137):
+            print(
+                f"⚠️ Implement iteration ended with code {rc} (terminated). Continuing to next iteration."
+            )
+            continue
         if rc != 0:
             print(f"❌ Implement iteration failed with code {rc}")
             return rc

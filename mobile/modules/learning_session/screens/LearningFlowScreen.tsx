@@ -44,7 +44,7 @@ import {
 
 // Components
 import LearningFlow from '../components/LearningFlow';
-import { Button } from '../../ui_system/public';
+import { Button, useHaptics } from '../../ui_system/public';
 import { uiSystemProvider } from '../../ui_system/public';
 
 // Hooks
@@ -67,6 +67,7 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
   const uiSystem = uiSystemProvider();
   const theme = uiSystem.getCurrentTheme();
   const styles = createStyles(theme);
+  const haptics = useHaptics();
 
   // Session creation mutation
   const startSessionMutation = useStartSession();
@@ -145,11 +146,13 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
   };
 
   const handleBack = () => {
+    haptics.trigger('light');
     // Navigate back to lesson list
     navigation.goBack();
   };
 
   const handleRetry = () => {
+    haptics.trigger('medium');
     setError(null);
     setSessionId(null);
     // Re-trigger session creation
@@ -188,6 +191,16 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
         {unitTitle && (
           <Text style={styles.loadingSubtext}>Unit: {unitTitle}</Text>
         )}
+        <View style={styles.loadingActions}>
+          <Button
+            title="Cancel"
+            onPress={handleBack}
+            variant="secondary"
+            size="large"
+            style={styles.backButton}
+            testID="learning-start-cancel-button"
+          />
+        </View>
       </SafeAreaView>
     );
   }
@@ -237,6 +250,16 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
       {unitTitle && (
         <Text style={styles.loadingSubtext}>Unit: {unitTitle}</Text>
       )}
+      <View style={styles.loadingActions}>
+        <Button
+          title="Cancel"
+          onPress={handleBack}
+          variant="secondary"
+          size="large"
+          style={styles.backButton}
+          testID="learning-prep-cancel-button"
+        />
+      </View>
     </SafeAreaView>
   );
 }
@@ -251,37 +274,42 @@ const createStyles = (theme: any) =>
       justifyContent: 'center',
       alignItems: 'center',
       padding: 20,
-      backgroundColor: theme.colors?.background || '#ffffff',
+      backgroundColor: theme.colors.background,
     },
     loadingText: {
       marginTop: 16,
       fontSize: 16,
-      color: theme.colors?.text || '#333333',
+      color: theme.colors.text,
       textAlign: 'center',
     },
     loadingSubtext: {
       marginTop: 8,
       fontSize: 14,
-      color: theme.colors?.textSecondary || '#666666',
+      color: theme.colors.textSecondary,
       textAlign: 'center',
+    },
+    loadingActions: {
+      marginTop: 20,
+      width: '100%',
+      paddingHorizontal: 20,
     },
     errorContainer: {
       flex: 1,
       justifyContent: 'center',
       alignItems: 'center',
       padding: 20,
-      backgroundColor: theme.colors?.background || '#ffffff',
+      backgroundColor: theme.colors.background,
     },
     errorTitle: {
       fontSize: 20,
-      fontWeight: 'bold',
-      color: theme.colors?.error || '#dc3545',
+      fontWeight: 'normal',
+      color: theme.colors.error,
       marginBottom: 12,
       textAlign: 'center',
     },
     errorMessage: {
       fontSize: 16,
-      color: theme.colors?.text || '#333333',
+      color: theme.colors.text,
       textAlign: 'center',
       marginBottom: 24,
       lineHeight: 22,

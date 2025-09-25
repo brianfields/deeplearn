@@ -5,6 +5,7 @@
  */
 
 import { Platform } from 'react-native';
+import { tokens } from '../tokens';
 
 export interface ThemeColors {
   // Primary colors
@@ -73,74 +74,74 @@ export interface Theme {
   shadows?: any;
 }
 
-// Light theme colors
+// Light theme colors mapped from Weimar Edge tokens
 const lightColors: ThemeColors = {
-  primary: '#1CB0F6',
-  secondary: '#00CD9C',
-  accent: '#FF9600',
-  background: '#F7F8FA',
+  primary: tokens.color.accent600,
+  secondary: tokens.color.gilt500,
+  accent: tokens.color.accent400,
+  background: tokens.color.paper0,
   surface: '#FFFFFF',
-  text: '#2B2D42',
-  textSecondary: '#5E6B73',
-  border: '#E5E7EB',
-  success: '#22C55E',
-  warning: '#F59E0B',
-  error: '#EF4444',
-  info: '#3B82F6',
+  text: tokens.color.ink900,
+  textSecondary: tokens.color.accent200,
+  border: tokens.color.accent200,
+  success: tokens.color.emerald500,
+  warning: tokens.color.amber600,
+  error: tokens.color.rouge600,
+  info: tokens.color.sky500,
 };
 
-// Dark theme colors
+// Dark theme colors (approximation using tokens; app uses single theme but keep parity)
 const darkColors: ThemeColors = {
-  primary: '#1CB0F6',
-  secondary: '#00CD9C',
-  accent: '#FF9600',
+  primary: tokens.color.accent400,
+  secondary: tokens.color.gilt500,
+  accent: tokens.color.sky500,
   background: '#1A1A1A',
   surface: '#2D2D2D',
   text: '#FFFFFF',
   textSecondary: '#B0B0B0',
   border: '#404040',
-  success: '#22C55E',
-  warning: '#F59E0B',
-  error: '#EF4444',
-  info: '#3B82F6',
+  success: tokens.color.emerald500,
+  warning: tokens.color.amber600,
+  error: tokens.color.rouge600,
+  info: tokens.color.sky500,
 };
 
-// Shared spacing
+// Shared spacing derived from tokens
 const spacing: Spacing = {
-  xs: 4,
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
-  xxl: 48,
+  xs: tokens.space[1],
+  sm: tokens.space[2],
+  md: tokens.space[4],
+  lg: tokens.space[6],
+  xl: tokens.space[8],
+  xxl: tokens.space[10],
 };
 
-// Shared typography
+// Shared typography derived from tokens
 const typography: Typography = {
   heading1: {
-    fontSize: 32,
-    fontWeight: Platform.OS === 'ios' ? '700' : 'bold',
-    lineHeight: 40,
+    fontSize: tokens.type.h1.size,
+    fontWeight: Platform.OS === 'ios' ? tokens.type.h1.weight : 'bold',
+    lineHeight: tokens.type.h1.line,
   },
   heading2: {
-    fontSize: 24,
-    fontWeight: Platform.OS === 'ios' ? '600' : 'bold',
-    lineHeight: 32,
+    fontSize: tokens.type.h2.size,
+    fontWeight: Platform.OS === 'ios' ? tokens.type.h2.weight : 'bold',
+    lineHeight: tokens.type.h2.line,
   },
   heading3: {
-    fontSize: 20,
-    fontWeight: Platform.OS === 'ios' ? '600' : 'bold',
-    lineHeight: 28,
+    fontSize: tokens.type.title.size,
+    fontWeight: Platform.OS === 'ios' ? tokens.type.title.weight : 'bold',
+    lineHeight: tokens.type.title.line,
   },
   body: {
-    fontSize: 16,
-    fontWeight: Platform.OS === 'ios' ? '400' : 'normal',
-    lineHeight: 24,
+    fontSize: tokens.type.body.size,
+    fontWeight: Platform.OS === 'ios' ? tokens.type.body.weight : 'normal',
+    lineHeight: tokens.type.body.line,
   },
   caption: {
-    fontSize: 14,
-    fontWeight: Platform.OS === 'ios' ? '400' : 'normal',
-    lineHeight: 20,
+    fontSize: tokens.type.caption.size,
+    fontWeight: Platform.OS === 'ios' ? tokens.type.caption.weight : 'normal',
+    lineHeight: tokens.type.caption.line,
   },
 };
 

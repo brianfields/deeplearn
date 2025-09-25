@@ -40,4 +40,20 @@ config.resolver.blockList = [
   /node_modules\/react-native-vector-icons\/.*\.flow$/,
 ];
 
+// Shim unsupported core RN native modules in Expo Go so the app can run.
+// These aliases map to a no-op module under mobile/shims.
+config.resolver.alias = {
+  // Deprecated core modules that may be pulled by transitive deps
+  PushNotificationIOS: path.resolve(__dirname, 'shims/emptyModule.js'),
+  'react-native/Libraries/PushNotificationIOS/PushNotificationIOS':
+    path.resolve(__dirname, 'shims/emptyModule.js'),
+  Clipboard: path.resolve(__dirname, 'shims/emptyModule.js'),
+  'react-native/Libraries/Components/Clipboard/Clipboard': path.resolve(
+    __dirname,
+    'shims/emptyModule.js'
+  ),
+  'react-native/Libraries/Components/ProgressBarAndroid/ProgressBarAndroid':
+    path.resolve(__dirname, 'shims/emptyModule.js'),
+};
+
 module.exports = config;

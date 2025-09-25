@@ -6,8 +6,10 @@
 
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { uiSystemProvider } from '../public';
+import { internalUiSystemProvider } from '../internalProvider';
 import type { CardProps } from '../models';
+
+const uiSystemProvider = internalUiSystemProvider;
 
 export const Card: React.FC<CardProps> = ({
   children,
@@ -33,8 +35,9 @@ export const Card: React.FC<CardProps> = ({
       : uiSystem.getSpacing(margin as keyof typeof theme.spacing)
     : 0;
 
-  // Separate pointerEvents from style to avoid deprecation warning
-  const { pointerEvents, ...otherStyles } = style || {};
+  // Flatten style to safely extract pointerEvents and avoid nested arrays
+  const flattened = StyleSheet.flatten(style) || ({} as any);
+  const { pointerEvents, ...otherStyles } = flattened as any;
 
   const cardStyle = [
     styles.base,
@@ -44,8 +47,13 @@ export const Card: React.FC<CardProps> = ({
       padding: paddingValue,
       margin: marginValue,
     },
-    variant === 'elevated' && designSystem.shadows?.medium,
-    variant === 'outlined' && { borderWidth: 1 },
+    // Default card: hairline border + Raised elevation per Weimar Edge
+    variant === 'default' && { borderWidth: StyleSheet.hairlineWidth },
+    variant === 'default' && designSystem.shadows?.medium,
+    // Elevated variant: stronger elevation
+    variant === 'elevated' && designSystem.shadows?.large,
+    // Outlined variant: hairline border, no shadow
+    variant === 'outlined' && { borderWidth: StyleSheet.hairlineWidth },
     disabled && styles.disabled,
     otherStyles,
     pointerEvents && { pointerEvents },
