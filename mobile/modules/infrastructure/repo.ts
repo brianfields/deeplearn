@@ -34,13 +34,26 @@ export class InfrastructureRepo {
   }
 
   private initNetworkListener(): void {
-    NetInfo.addEventListener(state => {
-      this.networkStatus = {
-        isConnected: state.isConnected ?? false,
-        type: state.type,
-        isInternetReachable: state.isInternetReachable ?? undefined,
-      };
-    });
+    try {
+      if (typeof NetInfo?.addEventListener === 'function') {
+        NetInfo.addEventListener(state => {
+          this.networkStatus = {
+            isConnected: state.isConnected ?? false,
+            type: state.type,
+            isInternetReachable: state.isInternetReachable ?? undefined,
+          };
+        });
+      } else {
+        console.warn(
+          '[NetInfo] Not available in this runtime; assuming online'
+        );
+        this.networkStatus = { isConnected: true } as any;
+      }
+    } catch (error) {
+      // Expo Go may not include this native module; fail open for dev
+      console.warn('[NetInfo] Listener unavailable; assuming online');
+      this.networkStatus = { isConnected: true } as any;
+    }
   }
 
   private setupInterceptors(): void {
@@ -104,7 +117,8 @@ export class InfrastructureRepo {
       retryAttempts = 3,
     } = config;
 
-    if (!this.networkStatus.isConnected) {
+    // In Expo Go, NetInfo may be unavailable; treat unknown as online
+    if (this.networkStatus.isConnected === false) {
       throw new Error('No network connection available');
     }
 

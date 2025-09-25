@@ -4,7 +4,7 @@ import {
   TextProps as RNTextProps,
   TextStyle,
 } from 'react-native';
-import { uiSystemProvider } from '../../public';
+import { internalUiSystemProvider } from '../../internalProvider';
 
 export type TextVariant =
   | 'display'
@@ -32,6 +32,8 @@ export interface TextProps extends RNTextProps {
     | '900';
   align?: 'auto' | 'left' | 'right' | 'center' | 'justify';
 }
+
+const uiSystemProvider = internalUiSystemProvider;
 
 export function Text({
   variant = 'body',

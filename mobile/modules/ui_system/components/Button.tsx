@@ -14,9 +14,16 @@ import {
   ViewStyle,
   TextStyle,
 } from 'react-native';
-import { uiSystemProvider } from '../public';
+import { UISystemService } from '../service';
 import type { ButtonProps, Theme } from '../models';
 import { useHaptics } from '../hooks/useHaptics';
+
+let __uiSystemService_Button: UISystemService | null = null;
+function uiSystemProvider(): UISystemService {
+  if (!__uiSystemService_Button)
+    __uiSystemService_Button = new UISystemService();
+  return __uiSystemService_Button;
+}
 
 export const Button: React.FC<ButtonProps> = ({
   title,
@@ -55,7 +62,7 @@ export const Button: React.FC<ButtonProps> = ({
     ...normalizedStyle,
   ];
 
-  const textStyles = [
+  const textStyleArray = [
     styles.text,
     getVariantTextStyle(variant, theme),
     getSizeTextStyle(size, theme),
@@ -108,7 +115,7 @@ export const Button: React.FC<ButtonProps> = ({
           )}
           <Text
             style={[
-              textStyles,
+              ...textStyleArray,
               variant === 'tertiary' && isPressed
                 ? { textDecorationLine: 'underline' }
                 : null,

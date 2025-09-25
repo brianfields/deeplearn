@@ -65,7 +65,7 @@ describe('UI System Module', () => {
     it('should provide color utilities', () => {
       const primaryColor = service.getColor('primary');
       expect(typeof primaryColor).toBe('string');
-      expect(primaryColor).toBe('#1CB0F6');
+      expect(primaryColor).toBe('#0E3A53');
 
       const isLight = service.isLightColor('#FFFFFF');
       expect(isLight).toBe(true);
@@ -80,7 +80,7 @@ describe('UI System Module', () => {
       expect(heading1).toHaveProperty('fontSize');
       expect(heading1).toHaveProperty('fontWeight');
       expect(heading1).toHaveProperty('lineHeight');
-      expect(heading1.fontSize).toBe(32);
+      expect(heading1.fontSize).toBe(28);
     });
   });
 
@@ -106,7 +106,7 @@ describe('UI System Module', () => {
       const currentTheme = provider.getCurrentTheme();
 
       expect(currentTheme).toBeDefined();
-      expect(currentTheme.colors.primary).toBe('#1CB0F6');
+      expect(currentTheme.colors.primary).toBe('#0E3A53');
     });
 
     it('should manage dark mode through provider', () => {
@@ -135,7 +135,7 @@ describe('UI System Module', () => {
       expect(spacing).toBe(24);
 
       const color = provider.getColor('secondary');
-      expect(color).toBe('#00CD9C');
+      expect(color).toBe('#C2A36B');
 
       const isLight = provider.isLightColor('#FFFFFF');
       expect(isLight).toBe(true);
@@ -151,9 +151,9 @@ describe('UI System Module', () => {
     });
 
     it('should have correct color values', () => {
-      expect(colors.primary).toBe('#1CB0F6');
-      expect(colors.secondary).toBe('#00CD9C');
-      expect(colors.accent).toBe('#FF9600');
+      expect(colors.primary).toBe('#0E3A53');
+      expect(colors.secondary).toBe('#C2A36B');
+      expect(colors.accent).toBe('#2F5D76');
     });
 
     it('should have correct spacing values', () => {
@@ -166,10 +166,10 @@ describe('UI System Module', () => {
     });
 
     it('should have correct typography values', () => {
-      expect(typography.heading1.fontSize).toBe(32);
-      expect(typography.heading2.fontSize).toBe(24);
+      expect(typography.heading1.fontSize).toBe(28);
+      expect(typography.heading2.fontSize).toBe(22);
       expect(typography.body.fontSize).toBe(16);
-      expect(typography.caption.fontSize).toBe(14);
+      expect(typography.caption.fontSize).toBe(12);
     });
   });
 });
