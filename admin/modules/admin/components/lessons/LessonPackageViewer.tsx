@@ -44,10 +44,6 @@ export function LessonPackageViewer({ package: pkg }: LessonPackageViewerProps) 
             <p className="text-gray-900">{pkg.meta.title}</p>
           </div>
           <div>
-            <span className="text-sm font-medium text-gray-600">Domain:</span>
-            <p className="text-gray-900">{pkg.meta.domain}</p>
-          </div>
-          <div>
             <span className="text-sm font-medium text-gray-600">Learner Level:</span>
             <p className="text-gray-900">{pkg.meta.learner_level}</p>
           </div>
@@ -58,25 +54,6 @@ export function LessonPackageViewer({ package: pkg }: LessonPackageViewerProps) 
           <div>
             <span className="text-sm font-medium text-gray-600">Content Version:</span>
             <p className="text-gray-900">v{pkg.meta.content_version}</p>
-          </div>
-        </div>
-
-        {/* Length Budgets */}
-        <div className="mt-4 p-4 bg-white rounded-lg border">
-          <h4 className="text-sm font-medium text-gray-900 mb-2">Length Budgets</h4>
-          <div className="grid grid-cols-3 gap-4 text-sm">
-            <div>
-              <span className="text-gray-600">Stem:</span>
-              <span className="ml-2 font-medium">{pkg.meta.length_budgets.stem_max_words} words</span>
-            </div>
-            <div>
-              <span className="text-gray-600">Vignette:</span>
-              <span className="ml-2 font-medium">{pkg.meta.length_budgets.vignette_max_words} words</span>
-            </div>
-            <div>
-              <span className="text-gray-600">Option:</span>
-              <span className="ml-2 font-medium">{pkg.meta.length_budgets.option_max_words} words</span>
-            </div>
           </div>
         </div>
       </div>
@@ -143,16 +120,6 @@ export function LessonPackageViewer({ package: pkg }: LessonPackageViewerProps) 
                           <div className="flex-1">
                             <h5 className="font-medium text-gray-900">{term.term}</h5>
                             <p className="mt-1 text-gray-700">{term.definition}</p>
-                            {term.relation_to_core && (
-                              <p className="mt-2 text-sm text-blue-600">
-                                <strong>Relation to core:</strong> {term.relation_to_core}
-                              </p>
-                            )}
-                            {term.common_confusion && (
-                              <p className="mt-1 text-sm text-orange-600">
-                                <strong>Common confusion:</strong> {term.common_confusion}
-                              </p>
-                            )}
                             {term.micro_check && (
                               <p className="mt-1 text-sm text-green-600">
                                 <strong>Micro check:</strong> {term.micro_check}

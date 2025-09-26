@@ -130,5 +130,5 @@
 - [x] Ensure unit tests pass, i.e. (in backend) scripts/run_unit.py and (in mobile) npm run test both run clean
 - [x] Follow the instructions in codegen/prompts/trace.md to ensure the user story is implemented correctly
 - [x] Fix any issues documented during the tracing of the user story in docs/specs/adapt-frontend-to-new-lesson-models/trace.md
-- [ ] Follow the instructions in codegen/prompts/modulecheck.md to ensure the new code is following the modular architecture correctly
-- [ ] Examine all new code that has been created and make sure all of it is being used; there is no dead code
+- [x] Follow the instructions in codegen/prompts/modulecheck.md to ensure the new code is following the modular architecture correctly
+- [x] Examine all new code that has been created and make sure all of it is being used; there is no dead code
