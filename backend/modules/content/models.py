@@ -30,7 +30,7 @@ class LessonModel(Base):
     # Reference to the flow run that generated this lesson
     flow_run_id = Column(PostgresUUID(), ForeignKey("flow_runs.id"), nullable=True, index=True)
 
-    # Association to unit (optional during transition; enforce later)
+    # Association to unit (every lesson belongs to a unit)
     unit_id = Column(String(36), ForeignKey("units.id"), nullable=True, index=True)
 
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
