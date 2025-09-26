@@ -116,19 +116,19 @@
 ### Backend Tasks
 
 #### User Module Creation
-- [ ] Create `backend/modules/user/models.py` with UserModel
-- [ ] Create `backend/modules/user/repo.py` with user database operations
-- [ ] Create `backend/modules/user/service.py` with authentication and user management
-- [ ] Create `backend/modules/user/public.py` with UserProvider protocol
-- [ ] Create `backend/modules/user/routes.py` with registration and login endpoints
-- [ ] Create `backend/modules/user/test_user_unit.py` with comprehensive unit tests
+- [x] Create `backend/modules/user/models.py` with UserModel
+- [x] Create `backend/modules/user/repo.py` with user database operations
+- [x] Create `backend/modules/user/service.py` with authentication and user management
+- [x] Create `backend/modules/user/public.py` with UserProvider protocol
+- [x] Create `backend/modules/user/routes.py` with registration and login endpoints
+- [x] Create `backend/modules/user/test_user_unit.py` with comprehensive unit tests
 
 #### Content Module Updates
-- [ ] Update `backend/modules/content/models.py` to add user_id and is_global to UnitModel
-- [ ] Update `backend/modules/content/repo.py` with user-aware unit queries
-- [ ] Update `backend/modules/content/service.py` with user ownership and sharing logic
-- [ ] Update `backend/modules/content/public.py` to expose user-aware operations
-- [ ] Update `backend/modules/content/routes.py` with user context and sharing endpoints
+- [x] Update `backend/modules/content/models.py` to add user_id and is_global to UnitModel
+- [x] Update `backend/modules/content/repo.py` with user-aware unit queries
+- [x] Update `backend/modules/content/service.py` with user ownership and sharing logic
+- [x] Update `backend/modules/content/public.py` to expose user-aware operations
+- [x] Update `backend/modules/content/routes.py` with user context and sharing endpoints
 
 #### Admin Module Updates
 - [ ] Update `backend/modules/admin/models.py` with user management DTOs

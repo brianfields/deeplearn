@@ -262,6 +262,8 @@ class ContentService:
         description: str | None = None
         learner_level: str
         lesson_order: list[str]
+        user_id: int | None = None
+        is_global: bool = False
         # New fields
         learning_objectives: list[Any] | None = None
         target_lesson_count: int | None = None
@@ -283,6 +285,8 @@ class ContentService:
         description: str | None = None
         learner_level: str = "beginner"
         lesson_order: list[str] = []
+        user_id: int | None = None
+        is_global: bool = False
         learning_objectives: list[Any] | None = None
         target_lesson_count: int | None = None
         source_material: str | None = None
@@ -295,6 +299,18 @@ class ContentService:
 
     def list_units(self, limit: int = 100, offset: int = 0) -> list[ContentService.UnitRead]:
         arr = self.repo.list_units(limit=limit, offset=offset)
+        return [self.UnitRead.model_validate(u) for u in arr]
+
+    def list_units_for_user(
+        self, user_id: int, *, limit: int = 100, offset: int = 0
+    ) -> list[ContentService.UnitRead]:
+        """Return units owned by a specific user."""
+        arr = self.repo.list_units_for_user(user_id=user_id, limit=limit, offset=offset)
+        return [self.UnitRead.model_validate(u) for u in arr]
+
+    def list_global_units(self, limit: int = 100, offset: int = 0) -> list[ContentService.UnitRead]:
+        """Return units that have been shared globally."""
+        arr = self.repo.list_global_units(limit=limit, offset=offset)
         return [self.UnitRead.model_validate(u) for u in arr]
 
     def get_units_by_status(self, status: str, limit: int = 100, offset: int = 0) -> list[ContentService.UnitRead]:
@@ -315,6 +331,8 @@ class ContentService:
             description=data.description,
             learner_level=data.learner_level,
             lesson_order=list(data.lesson_order or []),
+            user_id=data.user_id,
+            is_global=bool(data.is_global),
             learning_objectives=list(data.learning_objectives or []) if data.learning_objectives is not None else None,
             target_lesson_count=data.target_lesson_count,
             source_material=data.source_material,
@@ -328,6 +346,30 @@ class ContentService:
 
     def set_unit_lesson_order(self, unit_id: str, lesson_ids: list[str]) -> ContentService.UnitRead:
         updated = self.repo.update_unit_lesson_order(unit_id, lesson_ids)
+        if not updated:
+            raise ValueError("Unit not found")
+        return self.UnitRead.model_validate(updated)
+
+    def assign_unit_owner(self, unit_id: str, *, owner_user_id: int | None) -> ContentService.UnitRead:
+        """Assign or clear ownership of a unit."""
+        updated = self.repo.set_unit_owner(unit_id, owner_user_id)
+        if not updated:
+            raise ValueError("Unit not found")
+        return self.UnitRead.model_validate(updated)
+
+    def set_unit_sharing(
+        self,
+        unit_id: str,
+        *,
+        is_global: bool,
+        acting_user_id: int | None = None,
+    ) -> ContentService.UnitRead:
+        """Update whether a unit is shared globally, optionally enforcing ownership."""
+
+        if acting_user_id is not None and not self.repo.is_unit_owned_by_user(unit_id, acting_user_id):
+            raise PermissionError("User does not own this unit")
+
+        updated = self.repo.set_unit_sharing(unit_id, is_global)
         if not updated:
             raise ValueError("Unit not found")
         return self.UnitRead.model_validate(updated)
