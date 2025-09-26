@@ -309,10 +309,7 @@ export class AdminService {
       const lessons: LessonSummary[] = response.lessons.map((lesson: any) => ({
         id: lesson.id,
         title: lesson.title,
-        core_concept: lesson.core_concept,
-        user_level: lesson.user_level,
-        source_domain: lesson.source_domain,
-        source_level: lesson.source_level,
+        learner_level: lesson.learner_level,
         package_version: lesson.package_version,
         created_at: new Date(lesson.created_at),
         updated_at: new Date(lesson.updated_at),
@@ -344,12 +341,8 @@ export class AdminService {
       return {
         id: apiLesson.id,
         title: apiLesson.title,
-        core_concept: apiLesson.core_concept,
-        user_level: apiLesson.user_level,
+        learner_level: apiLesson.learner_level,
         source_material: apiLesson.source_material,
-        source_domain: apiLesson.source_domain,
-        source_level: apiLesson.source_level,
-        refined_material: apiLesson.refined_material,
         package: apiLesson.package, // Already structured as LessonPackage
         package_version: apiLesson.package_version,
         flow_run_id: apiLesson.flow_run_id || null,

@@ -40,8 +40,8 @@ export function LessonsList() {
     setLessonFilters({ page: 1, search: search || undefined });
   };
 
-  const handleLevelFilter = (user_level: string) => {
-    setLessonFilters({ page: 1, user_level: user_level || undefined });
+  const handleLevelFilter = (learner_level: string) => {
+    setLessonFilters({ page: 1, learner_level: learner_level || undefined });
   };
 
   const handleDomainFilter = (domain: string) => {
@@ -89,11 +89,11 @@ export function LessonsList() {
 
           <div>
             <label htmlFor="level" className="block text-sm font-medium text-gray-700 mb-2">
-              User Level
+              Learner Level
             </label>
             <select
               id="level"
-              value={filters.user_level || ''}
+              value={filters.learner_level || ''}
               onChange={(e) => handleLevelFilter(e.target.value)}
               className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
             >
@@ -188,7 +188,7 @@ export function LessonsList() {
             </svg>
             <h3 className="mt-2 text-sm font-medium text-gray-900">No lessons found</h3>
             <p className="mt-1 text-sm text-gray-500">
-              {filters.search || filters.user_level || filters.domain
+              {filters.search || filters.learner_level
                 ? 'Try adjusting your filters to see more results.'
                 : 'No lessons have been created yet.'}
             </p>
@@ -205,22 +205,15 @@ export function LessonsList() {
                     >
                       {lesson.title}
                     </Link>
-                    <p className="mt-1 text-sm text-gray-600 line-clamp-2">
-                      {lesson.core_concept}
-                    </p>
+                    {/* Core concept removed in new models; show nothing here */}
                     <div className="mt-3 flex items-center space-x-4 text-sm text-gray-500">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        {lesson.user_level}
+                        {lesson.learner_level}
                       </span>
                       {lessonUnitMap[lesson.id] && (
                         <Link href={`/units/${lessonUnitMap[lesson.id].unit_id}`} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 hover:bg-green-200">
                           Unit: {lessonUnitMap[lesson.id].unit_title}
                         </Link>
-                      )}
-                      {lesson.source_domain && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                          {lesson.source_domain}
-                        </span>
                       )}
                       <span className="text-xs text-gray-400">
                         v{lesson.package_version}

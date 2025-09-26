@@ -10,8 +10,9 @@ import { Button, Progress, useHaptics } from '../../ui_system/public';
 import { uiSystemProvider } from '../../ui_system/public';
 import { useActiveLearningSession } from '../queries';
 import { useLearningSessionStore } from '../store';
-import DidacticSnippet from './DidacticSnippet';
+import MiniLesson from './MiniLesson';
 import MultipleChoice from './MultipleChoice';
+import type { MCQContentDTO } from '../models';
 import { catalogProvider } from '../../catalog/public';
 
 interface LearningFlowProps {
@@ -215,7 +216,7 @@ export default function LearningFlow({
       case 'mcq':
         return (
           <MultipleChoice
-            question={currentExercise.content}
+            question={currentExercise.content as MCQContentDTO}
             onComplete={handleExerciseComplete}
             isLoading={isUpdatingProgress}
           />
@@ -295,7 +296,7 @@ export default function LearningFlow({
       {/* Didactic first, then exercises */}
       <View style={styles.componentContainer}>
         {shouldShowDidactic && (
-          <DidacticSnippet
+          <MiniLesson
             snippet={{
               explanation: didacticData as string,
             }}

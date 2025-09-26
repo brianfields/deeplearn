@@ -81,8 +81,7 @@ export const AdminRepo = {
     async list(params?: LessonsQuery): Promise<LessonsListResponse> {
       const queryParams = new URLSearchParams();
 
-      if (params?.user_level) queryParams.append('user_level', params.user_level);
-      if (params?.domain) queryParams.append('domain', params.domain);
+      if (params?.learner_level) queryParams.append('learner_level', params.learner_level);
       if (params?.search) queryParams.append('search', params.search);
       if (params?.page) queryParams.append('page', params.page.toString());
       if (params?.page_size) queryParams.append('page_size', params.page_size.toString());

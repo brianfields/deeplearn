@@ -80,7 +80,7 @@ export function LessonDetails({ lessonId }: LessonDetailsProps) {
           </h1>
           <div className="mt-2 flex items-center space-x-4">
             <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-              {lesson.user_level}
+              {lesson.learner_level}
             </span>
             {unitRef && (
               <Link
@@ -89,11 +89,6 @@ export function LessonDetails({ lessonId }: LessonDetailsProps) {
               >
                 Unit: {unitRef.unit_title}
               </Link>
-            )}
-            {lesson.source_domain && (
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
-                {lesson.source_domain}
-              </span>
             )}
             <span className="text-sm text-gray-500">
               Package v{lesson.package_version}
@@ -131,8 +126,8 @@ export function LessonDetails({ lessonId }: LessonDetailsProps) {
         <h2 className="text-lg font-medium text-gray-900 mb-4">Overview</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Core Concept</h3>
-            <p className="text-gray-900">{lesson.core_concept}</p>
+            <h3 className="text-sm font-medium text-gray-700 mb-2">Learner Level</h3>
+            <p className="text-gray-900">{lesson.learner_level}</p>
           </div>
 
           <div>
@@ -146,12 +141,6 @@ export function LessonDetails({ lessonId }: LessonDetailsProps) {
                 <span className="text-gray-600">Updated:</span>
                 <span className="text-gray-900">{formatDate(lesson.updated_at)}</span>
               </div>
-              {lesson.source_level && (
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Source Level:</span>
-                  <span className="text-gray-900">{lesson.source_level}</span>
-                </div>
-              )}
               {lesson.flow_run_id && (
                 <div className="flex justify-between">
                   <span className="text-gray-600">Created by Flow:</span>
@@ -224,16 +213,7 @@ export function LessonDetails({ lessonId }: LessonDetailsProps) {
         </div>
       )}
 
-      {/* Refined Material */}
-      {lesson.refined_material && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <JSONViewer
-            data={lesson.refined_material}
-            title="Refined Material"
-            maxHeight="max-h-64"
-          />
-        </div>
-      )}
+      {/* Mini lesson is displayed in package viewer */}
     </div>
   );
 }

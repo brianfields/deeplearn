@@ -20,6 +20,7 @@ import type {
   SessionFilters,
   LearningSessionError,
 } from './models';
+import type { SessionExercise, MCQContentDTO } from './models';
 import {
   toLearningSessionDTO,
   toSessionProgressDTO,
@@ -257,7 +258,7 @@ export class LearningSessionService {
   /**
    * Get session content aligned to package structure
    */
-  async getSessionExercises(sessionId: string) {
+  async getSessionExercises(sessionId: string): Promise<SessionExercise[]> {
     try {
       // Get session details
       const session = await this.getSession(sessionId);
@@ -272,37 +273,43 @@ export class LearningSessionService {
       }
 
       // Build exercise list from package (exclude non-assessment content)
-      const exercises = (lessonDetail.exercises || [])
+      const exercises: Array<SessionExercise | null> = (
+        lessonDetail.exercises || []
+      )
         .map((ex: any, index: number) => {
-          if (ex.exercise_type === 'mcq') {
-            // Map to UI consumption shape
-            return {
-              id: ex.id || `exercise-${index}`,
-              type: 'mcq',
-              title:
-                ex.title || ex.stem?.slice(0, 50) || `Exercise ${index + 1}`,
-              content: {
-                question: ex.stem,
-                options: (ex.options || []).map((opt: any) => ({
-                  label: opt.label,
-                  text: opt.text,
-                })),
-                correct_answer: ex.answer_key?.label || 'A',
-                explanation:
-                  ex.answer_key?.rationale_right ||
-                  `The correct answer is ${ex.answer_key?.label || 'A'}.`,
-              },
-            };
+          if (ex.exercise_type !== 'mcq') {
+            return null;
           }
-          // Unknown exercise types can be skipped for now
-          return null;
+
+          const options = (ex.options || []).map((opt: any) => ({
+            label: opt.label,
+            text: opt.text,
+          }));
+
+          const content: MCQContentDTO = {
+            question: ex.stem,
+            options,
+            correct_answer: ex.answer_key?.label || 'A',
+            explanation:
+              ex.answer_key?.rationale_right ||
+              `The correct answer is ${ex.answer_key?.label || 'A'}.`,
+          };
+
+          const title = ex.title
+            ? ex.title
+            : ex.stem
+              ? ex.stem.slice(0, 50)
+              : `Exercise ${index + 1}`;
+
+          const dto: SessionExercise = {
+            id: ex.id || `exercise-${index}`,
+            type: 'mcq',
+            title,
+            content,
+          };
+          return dto;
         })
-        .filter(Boolean) as Array<{
-        id: string;
-        type: string;
-        title: string;
-        content: any;
-      }>;
+        .filter(Boolean) as SessionExercise[];
 
       return exercises;
     } catch (error) {

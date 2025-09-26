@@ -27,7 +27,7 @@ export function LessonPackageViewer({ package: pkg }: LessonPackageViewerProps) 
   const sections = [
     { id: 'objectives', name: 'Learning Objectives', icon: '🎯' },
     { id: 'glossary', name: 'Glossary', icon: '📚' },
-    { id: 'didactic', name: 'Didactic Content', icon: '📖' },
+    { id: 'mini_lesson', name: 'Mini Lesson', icon: '📖' },
     { id: 'exercises', name: 'Exercises', icon: '❓' },
     { id: 'misconceptions', name: 'Misconceptions', icon: '⚠️' },
     { id: 'confusables', name: 'Confusables', icon: '🔄' },
@@ -169,55 +169,13 @@ export function LessonPackageViewer({ package: pkg }: LessonPackageViewerProps) 
           </div>
         )}
 
-        {activeSection === 'didactic' && (
+        {activeSection === 'mini_lesson' && (
           <div className="space-y-4">
-            <h3 className="text-lg font-medium text-gray-900">Didactic Content</h3>
+            <h3 className="text-lg font-medium text-gray-900">Mini Lesson</h3>
             <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-              <h4 className="font-medium text-purple-900 mb-3">Lesson Explanation</h4>
-              <div className="bg-white rounded-lg p-4 border">
-                {pkg.didactic_snippet.mini_vignette && (
-                  <div className="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
-                    <strong className="text-yellow-800">Mini Vignette:</strong>
-                    <p className="mt-1 text-gray-700">{pkg.didactic_snippet.mini_vignette}</p>
-                  </div>
-                )}
-
-                <div className="mb-3">
-                  <strong className="text-gray-900">Explanation:</strong>
-                  <p className="mt-1 text-gray-700">{pkg.didactic_snippet.plain_explanation}</p>
-                </div>
-
-                {pkg.didactic_snippet.key_takeaways.length > 0 && (
-                  <div className="mb-3">
-                    <strong className="text-gray-900">Key Takeaways:</strong>
-                    <ul className="mt-1 list-disc list-inside text-gray-700">
-                      {pkg.didactic_snippet.key_takeaways.map((takeaway, idx) => (
-                        <li key={idx}>{takeaway}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {pkg.didactic_snippet.worked_example && (
-                  <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded">
-                    <strong className="text-green-800">Worked Example:</strong>
-                    <p className="mt-1 text-gray-700">{pkg.didactic_snippet.worked_example}</p>
-                  </div>
-                )}
-
-                {pkg.didactic_snippet.near_miss_example && (
-                  <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded">
-                    <strong className="text-red-800">Near Miss Example:</strong>
-                    <p className="mt-1 text-gray-700">{pkg.didactic_snippet.near_miss_example}</p>
-                  </div>
-                )}
-
-                {pkg.didactic_snippet.discriminator_hint && (
-                  <div className="p-3 bg-blue-50 border border-blue-200 rounded">
-                    <strong className="text-blue-800">Discriminator Hint:</strong>
-                    <p className="mt-1 text-gray-700">{pkg.didactic_snippet.discriminator_hint}</p>
-                  </div>
-                )}
+              <h4 className="font-medium text-purple-900 mb-3">Lesson Explanation (Markdown)</h4>
+              <div className="bg-white rounded-lg p-4 border whitespace-pre-wrap break-words">
+                {pkg.mini_lesson || 'No mini lesson provided.'}
               </div>
             </div>
           </div>

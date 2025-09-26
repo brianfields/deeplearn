@@ -33,8 +33,7 @@ interface AdminState {
 
   // Lesson filters
   lessonFilters: {
-    user_level?: string;
-    domain?: string;
+    learner_level?: string;
     search?: string;
     page?: number;
     page_size?: number;
