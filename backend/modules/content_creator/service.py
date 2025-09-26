@@ -379,8 +379,13 @@ class ContentCreatorService:
 
             # MCQ exercises
             exercises: list[MCQExercise] = []
-            mcqs = md_res.get("mcqs", {}) or {}
-            for idx, mcq in enumerate(mcqs):
+            # Flow returns either a dict { metadata, mcqs: [...] } or a bare list
+            mcqs_container = md_res.get("mcqs", {}) or {}
+            mcq_items = mcqs_container.get("mcqs", []) if isinstance(mcqs_container, dict) else (mcqs_container or [])
+            for idx, mcq in enumerate(mcq_items):
+                if not isinstance(mcq, dict):
+                    # Skip malformed entries
+                    continue
                 exercise_id = f"mcq_{idx + 1}"
                 options_with_ids: list[MCQOption] = []
                 option_id_map: dict[str, str] = {}

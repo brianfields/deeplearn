@@ -24,8 +24,7 @@ interface ApiBrowseLessonsResponse {
   lessons: Array<{
     id: string;
     title: string;
-    core_concept: string;
-    user_level: string;
+    learner_level: string;
     learning_objectives: string[];
     key_concepts: string[];
     exercise_count: number;
@@ -36,11 +35,10 @@ interface ApiBrowseLessonsResponse {
 interface ApiLessonDetail {
   id: string;
   title: string;
-  core_concept: string;
-  user_level: string;
+  learner_level: string;
   learning_objectives: string[];
   key_concepts: string[];
-  didactic_snippet: any;
+  mini_lesson: string;
   exercises: any[];
   glossary_terms: any[];
   created_at: string;
@@ -59,8 +57,8 @@ export class CatalogRepo {
     try {
       const params = new URLSearchParams();
 
-      if (request.userLevel) {
-        params.append('user_level', request.userLevel);
+      if (request.learnerLevel) {
+        params.append('learner_level', request.learnerLevel);
       }
       if (request.limit !== undefined) {
         params.append('limit', request.limit.toString());
@@ -109,8 +107,8 @@ export class CatalogRepo {
       if (request.query) {
         params.append('query', request.query);
       }
-      if (request.userLevel) {
-        params.append('user_level', request.userLevel);
+      if (request.learnerLevel) {
+        params.append('learner_level', request.learnerLevel);
       }
       if (request.minDuration !== undefined) {
         params.append('min_duration', request.minDuration.toString());
@@ -159,8 +157,7 @@ export class CatalogRepo {
         Array<{
           id: string;
           title: string;
-          core_concept: string;
-          user_level: string;
+          learner_level: string;
           learning_objectives: string[];
           key_concepts: string[];
           exercise_count: number;
@@ -188,7 +185,7 @@ export class CatalogRepo {
 
       const response = await this.infrastructure.request<{
         total_lessons: number;
-        lessons_by_user_level: Record<string, number>;
+        lessons_by_learner_level: Record<string, number>;
         lessons_by_readiness: Record<string, number>;
         average_duration: number;
         duration_distribution: Record<string, number>;
@@ -199,7 +196,7 @@ export class CatalogRepo {
       // Convert snake_case to camelCase
       return {
         totalLessons: response.total_lessons,
-        lessonsByUserLevel: response.lessons_by_user_level,
+        lessonsByLearnerLevel: response.lessons_by_learner_level,
         lessonsByReadiness: response.lessons_by_readiness,
         averageDuration: response.average_duration,
         durationDistribution: response.duration_distribution,

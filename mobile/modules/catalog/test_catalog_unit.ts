@@ -29,7 +29,7 @@ describe('CatalogService', () => {
           id: 'unit-1',
           title: 'Test Unit 1',
           description: 'Test Description',
-          difficulty: 'beginner',
+          learner_level: 'beginner',
           lesson_count: 5,
           status: 'completed',
           target_lesson_count: null,
@@ -95,14 +95,13 @@ describe('CatalogService', () => {
         id: 'unit-1',
         title: 'Test Unit',
         description: 'Test Description',
-        difficulty: 'intermediate',
+        learner_level: 'intermediate',
         lesson_order: ['lesson-1', 'lesson-2'],
         lessons: [
           {
             id: 'lesson-1',
             title: 'Lesson 1',
-            core_concept: 'Concept 1',
-            user_level: 'intermediate',
+            learner_level: 'intermediate',
             learning_objectives: ['Learn A'],
             key_concepts: ['Key A'],
             exercise_count: 3,
@@ -440,7 +439,7 @@ describe('CatalogService', () => {
       // Assert
       expect(mockRepo.searchLessons).toHaveBeenCalledWith({
         query: undefined, // Empty query becomes undefined
-        userLevel: undefined,
+        learnerLevel: undefined,
         minDuration: undefined,
         maxDuration: undefined,
         readyOnly: undefined,

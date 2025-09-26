@@ -107,10 +107,10 @@ export function SearchFilters({
         style={[styles.content, { padding: ui.getSpacing('lg') }]}
         contentContainerStyle={{ paddingBottom: ui.getSpacing('lg') }}
       >
-        {/* User Level Filter */}
+        {/* Learner Level Filter */}
         <View style={[styles.section, { marginBottom: ui.getSpacing('lg') }]}>
           <Text variant="title" weight="700">
-            Difficulty Level
+            Learner Level
           </Text>
           <View style={[styles.optionGroup, { gap: ui.getSpacing('xs') }]}>
             {(['beginner', 'intermediate', 'advanced'] as const).map(level => (
@@ -126,7 +126,7 @@ export function SearchFilters({
                     minHeight: 44,
                     padding: ui.getSpacing('sm'),
                   },
-                  localFilters.userLevel === level && {
+                  localFilters.learnerLevel === level && {
                     backgroundColor: theme.colors.primary,
                     borderColor: theme.colors.primary,
                   },
@@ -134,8 +134,8 @@ export function SearchFilters({
                 onPress={() => {
                   trigger('medium');
                   updateFilter(
-                    'userLevel',
-                    localFilters.userLevel === level ? undefined : level
+                    'learnerLevel',
+                    localFilters.learnerLevel === level ? undefined : level
                   );
                 }}
               >
@@ -143,15 +143,17 @@ export function SearchFilters({
                   style={{ flex: 1 }}
                   variant="body"
                   color={
-                    localFilters.userLevel === level
+                    localFilters.learnerLevel === level
                       ? theme.colors.surface
                       : theme.colors.text
                   }
-                  weight={localFilters.userLevel === level ? '600' : undefined}
+                  weight={
+                    localFilters.learnerLevel === level ? '600' : undefined
+                  }
                 >
                   {level.charAt(0).toUpperCase() + level.slice(1)}
                 </Text>
-                {localFilters.userLevel === level && (
+                {localFilters.learnerLevel === level && (
                   <Check size={16} color={theme.colors.surface} />
                 )}
               </TouchableOpacity>

@@ -94,7 +94,7 @@ export default function LearningFlow({
   const [didacticShown, setDidacticShown] = useState(false);
   const [didacticData, setDidacticData] = useState<any | null>(null);
 
-  // Fetch didactic snippet from lesson details (package-aligned)
+  // Fetch mini lesson from lesson details (package-aligned)
   useEffect(() => {
     let isMounted = true;
     const fetchDidactic = async () => {
@@ -103,9 +103,9 @@ export default function LearningFlow({
         const catalog = catalogProvider();
         const detail = await catalog.getLessonDetail(session.lessonId);
         if (!isMounted) return;
-        setDidacticData(detail?.didacticSnippet || null);
+        setDidacticData(detail?.miniLesson || null);
       } catch (e) {
-        console.warn('Failed to load didactic snippet:', e);
+        console.warn('Failed to load mini lesson:', e);
         if (isMounted) setDidacticData(null);
       }
     };
@@ -297,12 +297,7 @@ export default function LearningFlow({
         {shouldShowDidactic && (
           <DidacticSnippet
             snippet={{
-              explanation: didacticData?.plain_explanation,
-              key_points: didacticData?.key_takeaways,
-              examples: [
-                didacticData?.worked_example,
-                didacticData?.near_miss_example,
-              ].filter(Boolean),
+              explanation: didacticData as string,
             }}
             onContinue={() => {
               setDidacticShown(true);
