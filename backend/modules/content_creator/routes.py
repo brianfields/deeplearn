@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from modules.content.public import content_provider
+from modules.content.service import UnitStatus
 from modules.infrastructure.public import infrastructure_provider
 
 from .service import ContentCreatorService
@@ -64,11 +65,11 @@ async def create_unit_from_mobile(request: MobileUnitCreateRequest, service: Con
     try:
         logger.info(f"🔥 Mobile unit creation request: topic='{request.topic}', difficulty='{request.difficulty}'")
 
-        result = await service.create_unit_from_mobile_with_arq(topic=request.topic, difficulty=request.difficulty, target_lesson_count=request.target_lesson_count)
+        result = await service.create_unit(topic=request.topic, learner_level=request.difficulty, target_lesson_count=request.target_lesson_count, background=True)
 
         logger.info(f"✅ Mobile unit creation started: unit_id={result.unit_id}")
 
-        return MobileUnitCreateResponse(unit_id=result.unit_id, status=result.status, title=result.title)
+        return MobileUnitCreateResponse(unit_id=result.unit_id, status=UnitStatus.IN_PROGRESS.value, title=result.title)
 
     except ValueError as e:
         logger.error(f"❌ Invalid request for mobile unit creation: {e}")

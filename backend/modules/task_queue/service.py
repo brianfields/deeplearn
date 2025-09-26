@@ -124,8 +124,9 @@ class TaskQueueService:
                 "user_id": str(user_id) if user_id else None,
                 "task_id": task_id,
             }
-            if task_type:
-                task_payload["task_type"] = task_type
+            # Ensure task_type is provided for the worker to resolve the handler.
+            # Default to flow_name for convenience if not explicitly set by caller.
+            task_payload["task_type"] = task_type or flow_name
 
             # Submit task to ARQ using generic registered-task entrypoint
             job = await pool.enqueue_job(
