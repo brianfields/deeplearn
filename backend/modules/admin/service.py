@@ -61,7 +61,11 @@ class AdminService:
             flow_summaries = []
             for flow_model in flow_models:
                 # Get step count for this flow
-                steps = self.flow_engine_admin.get_flow_steps_by_run_id(flow_model.id) if flow_model.id else []
+                try:
+                    flow_uuid = uuid.UUID(str(flow_model.id))
+                    steps = self.flow_engine_admin.get_flow_steps_by_run_id(flow_uuid)
+                except (ValueError, TypeError):
+                    steps = []
 
                 # Calculate totals from steps
                 total_tokens = sum(step.tokens_used or 0 for step in steps)
@@ -119,7 +123,14 @@ class AdminService:
             return None
 
         # Get steps for this flow
-        step_models = self.flow_engine_admin.get_flow_steps_by_run_id(flow_model.id) if flow_model.id else []
+        try:
+            if flow_model.id:
+                flow_uuid = uuid.UUID(flow_model.id) if isinstance(flow_model.id, str) else flow_model.id
+                step_models = self.flow_engine_admin.get_flow_steps_by_run_id(flow_uuid)
+            else:
+                step_models = []
+        except (ValueError, TypeError):
+            step_models = []
 
         # Convert steps to DTOs
         step_details = []
@@ -318,8 +329,7 @@ class AdminService:
 
     async def get_lessons(
         self,
-        user_level: str | None = None,
-        _domain: str | None = None,  # Not used by lesson catalog but kept for API compatibility
+        learner_level: str | None = None,
         search: str | None = None,
         page: int = 1,
         page_size: int = 50,
@@ -329,7 +339,7 @@ class AdminService:
             # Use search_lessons to get lessons with filtering
             search_response = self.catalog.search_lessons(
                 query=search,
-                user_level=user_level,
+                learner_level=learner_level,
                 limit=page_size,
                 offset=(page - 1) * page_size,
             )
@@ -337,19 +347,19 @@ class AdminService:
             # Convert lesson catalog DTOs to admin DTOs
             lesson_summaries = []
             for lesson in search_response.lessons:
-                lesson_summaries.append(
-                    LessonSummary(
-                        id=lesson.id,
-                        title=lesson.title,
-                        core_concept=lesson.core_concept,
-                        user_level=lesson.user_level,
-                        source_domain=None,  # Not available in lesson catalog
-                        source_level=None,  # Not available in lesson catalog
-                        package_version=1,  # Default version
-                        created_at=datetime.now(),  # Placeholder
-                        updated_at=datetime.now(),  # Placeholder
+                # Get the full lesson data from content module to access package_version, created_at, etc.
+                full_lesson = self.content.get_lesson(lesson.id)
+                if full_lesson:
+                    lesson_summaries.append(
+                        LessonSummary(
+                            id=lesson.id,
+                            title=lesson.title,
+                            learner_level=getattr(lesson, "learner_level", "beginner"),
+                            package_version=full_lesson.package_version,
+                            created_at=full_lesson.created_at,
+                            updated_at=full_lesson.updated_at,
+                        )
                     )
-                )
 
             # Calculate if there are more results
             has_next = len(search_response.lessons) == page_size
@@ -388,12 +398,8 @@ class AdminService:
             return LessonDetails(
                 id=lesson.id,
                 title=lesson.title,
-                core_concept=lesson.core_concept,
-                user_level=lesson.user_level,
+                learner_level=getattr(lesson, "learner_level", "beginner"),
                 source_material=lesson.source_material,
-                source_domain=lesson.source_domain,
-                source_level=lesson.source_level,
-                refined_material=lesson.refined_material,
                 package=package,  # Full package structure from content
                 package_version=lesson.package_version,
                 flow_run_id=str(lesson.flow_run_id) if lesson.flow_run_id else None,

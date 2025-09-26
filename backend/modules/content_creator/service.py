@@ -6,19 +6,17 @@ Uses LLM services to create educational content and stores it via content module
 """
 
 import logging
-import re
-from typing import Any
 import uuid
 
 # FastAPI BackgroundTasks path was removed; keep import set minimal
 from pydantic import BaseModel
 
 from modules.content.package_models import (
-    DidacticSnippet,
     GlossaryTerm,
-    LengthBudgets,
     LessonPackage,
+    MCQAnswerKey,
     MCQExercise,
+    MCQOption,
     Meta,
     Objective,
 )
@@ -34,13 +32,14 @@ MAX_PARALLEL_LESSONS = 4
 
 # DTOs
 class CreateLessonRequest(BaseModel):
-    """Request to create a lesson from source material."""
+    """Request to create a lesson using the new prompt-aligned flow."""
 
-    title: str
-    core_concept: str
-    source_material: str
-    user_level: str = "intermediate"
-    domain: str = "General"
+    topic: str
+    unit_source_material: str
+    learner_level: str = "intermediate"
+    voice: str = "Plain"
+    learning_objectives: list[str]
+    lesson_objective: str
 
 
 # CreateComponentRequest removed - generate_component method is unused
@@ -98,178 +97,124 @@ class ContentCreatorService:
         4. Returns summary of what was created
         """
         lesson_id = str(uuid.uuid4())
-        logger.info(f"🎯 Creating lesson: {request.title} (ID: {lesson_id})")
+        logger.info(f"🎯 Creating lesson: {request.topic} (ID: {lesson_id})")
 
-        # Use flow engine for content extraction (fast logic is default in LessonCreationFlow)
+        # Run lesson creation flow using new prompt-aligned inputs
         flow = LessonCreationFlow()
         logger.info("🔄 Starting %s...", flow.flow_name)
-        flow_result = await flow.execute({"title": request.title, "core_concept": request.core_concept, "source_material": request.source_material, "user_level": request.user_level, "domain": request.domain})
+        flow_result = await flow.execute(
+            {
+                "topic": request.topic,
+                "learner_level": request.learner_level,
+                "voice": request.voice,
+                "learning_objectives": request.learning_objectives,
+                "lesson_objective": request.lesson_objective,
+                "unit_source_material": request.unit_source_material,
+            }
+        )
         logger.info("✅ LessonCreationFlow completed successfully")
-
-        # Build package metadata (use budgets from flow if available)
-        flow_budgets = flow_result.get("length_budgets", {})
-        if isinstance(flow_budgets, dict):
-            budgets = LengthBudgets(
-                stem_max_words=flow_budgets.get("stem_max_words", 35),
-                vignette_max_words=flow_budgets.get("vignette_max_words", 80),
-                option_max_words=flow_budgets.get("option_max_words", 12),
-            )
-        else:
-            budgets = LengthBudgets(stem_max_words=35, vignette_max_words=80, option_max_words=12)
 
         meta = Meta(
             lesson_id=lesson_id,
-            title=request.title,
-            core_concept=request.core_concept,
-            user_level=request.user_level,
-            domain=request.domain,
+            title=request.topic,
+            learner_level=request.learner_level,
             package_schema_version=1,
             content_version=1,
-            length_budgets=budgets,
         )
 
-        # Build objectives from flow result (preserve LO ids from flow if provided)
+        # Build lesson-level objectives from request.learning_objectives (texts)
         objectives: list[Objective] = []
-        for i, lo in enumerate(flow_result.get("learning_objectives", [])):
-            if hasattr(lo, "text"):
-                text = lo.text
-                bloom_level = getattr(lo, "bloom_level", None)
-                lo_id_val = getattr(lo, "lo_id", None) or f"lo_{i + 1}"
-            elif isinstance(lo, dict):
-                text = lo.get("text", str(lo))
-                bloom_level = lo.get("bloom_level", None)
-                lo_id_val = lo.get("lo_id") or f"lo_{i + 1}"
+        for i, lo_text in enumerate(request.learning_objectives):
+            objectives.append(Objective(id=f"lo_{i + 1}", text=str(lo_text)))
+
+        # Build glossary from flow result (list of terms)
+        glossary_terms: list[GlossaryTerm] = []
+        for i, term_data in enumerate(flow_result.get("glossary", []) or []):
+            if isinstance(term_data, dict):
+                glossary_terms.append(
+                    GlossaryTerm(
+                        id=f"term_{i + 1}",
+                        term=term_data.get("term", f"Term {i + 1}"),
+                        definition=term_data.get("definition", ""),
+                        micro_check=term_data.get("micro_check"),
+                    )
+                )
             else:
-                text = str(lo)
-                bloom_level = None
-                lo_id_val = f"lo_{i + 1}"
+                glossary_terms.append(GlossaryTerm(id=f"term_{i + 1}", term=str(term_data), definition=""))
 
-            objectives.append(Objective(id=lo_id_val, text=text, bloom_level=bloom_level))
+        mini_lesson_text = str(flow_result.get("mini_lesson") or "")
 
-        # Build glossary from flow result (supports both dict with terms and raw list)
-        glossary_terms = []
-        glossary_blob = flow_result.get("glossary", {})
-        terms_iterable = glossary_blob.get("terms", []) if isinstance(glossary_blob, dict) else glossary_blob if isinstance(glossary_blob, list) else []
+        # Build exercises from MCQs
+        exercises: list[MCQExercise] = []
+        mcqs = flow_result.get("mcqs", {}) or {}
+        mcqs = mcqs.get("mcqs", []) or []
+        for idx, mcq in enumerate(mcqs):
+            exercise_id = f"mcq_{idx + 1}"
+            options_with_ids: list[MCQOption] = []
+            option_id_map: dict[str, str] = {}
+            for opt in mcq.get("options", []):
+                opt_label = opt.get("label", "").upper()
+                gen_opt_id = f"{exercise_id}_{opt_label.lower()}"
+                option_id_map[opt_label] = gen_opt_id
+                options_with_ids.append(
+                    MCQOption(
+                        id=gen_opt_id,
+                        label=opt_label,
+                        text=opt.get("text", ""),
+                        rationale_wrong=opt.get("rationale_wrong"),
+                    )
+                )
+            ak = mcq.get("answer_key", {}) or {}
+            key_label = str(ak.get("label", "")).upper()
+            answer_key = MCQAnswerKey(label=key_label, option_id=option_id_map.get(key_label), rationale_right=ak.get("rationale_right"))
+            # Choose a primary LO id from lesson objectives (first)
+            lo_id = objectives[0].id if objectives else "lo_1"
 
-        for i, term_data in enumerate(terms_iterable):
-            if hasattr(term_data, "term"):
-                term = term_data.term
-                definition = getattr(term_data, "definition", "")
-                relation_to_core = getattr(term_data, "relation_to_core", None)
-                common_confusion = getattr(term_data, "common_confusion", None)
-                micro_check = getattr(term_data, "micro_check", None)
-            elif isinstance(term_data, dict):
-                term = term_data.get("term", f"Term {i + 1}")
-                definition = term_data.get("definition", "")
-                relation_to_core = term_data.get("relation_to_core", None)
-                common_confusion = term_data.get("common_confusion", None)
-                micro_check = term_data.get("micro_check", None)
-            else:
-                term = f"Term {i + 1}"
-                definition = str(term_data)
-                relation_to_core = None
-                common_confusion = None
-                micro_check = None
-
-            glossary_terms.append(
-                GlossaryTerm(
-                    id=f"term_{i + 1}",
-                    term=term,
-                    definition=definition,
-                    relation_to_core=relation_to_core,
-                    common_confusion=common_confusion,
-                    micro_check=micro_check,
+            exercises.append(
+                MCQExercise(
+                    id=exercise_id,
+                    exercise_type="mcq",
+                    lo_id=lo_id,
+                    cognitive_level=None,
+                    estimated_difficulty=None,
+                    misconceptions_used=mcq.get("misconceptions_used", []),
+                    stem=mcq.get("stem", ""),
+                    options=options_with_ids,
+                    answer_key=answer_key,
                 )
             )
 
-        # Build didactic snippet from flow result - single snippet for entire lesson
-        didactic_data = flow_result.get("didactic_snippet")
-        if didactic_data is None:
-            # Handle missing didactic snippet
-            full_explanation = "No explanation provided"
-            key_points = []
-            mini_vignette = None
-            worked_example = None
-            near_miss_example = None
-            discriminator_hint = None
-        elif isinstance(didactic_data, dict):
-            # Handle new mobile-friendly structure from DidacticSnippetOutputs
-            introduction = didactic_data.get("introduction", "")
-            core_explanation = didactic_data.get("core_explanation", "")
-            key_points = didactic_data.get("key_points", [])
-            practical_context = didactic_data.get("practical_context", "")
-
-            # Fallback to legacy fields if new ones aren't present
-            if not core_explanation:
-                core_explanation = didactic_data.get("plain_explanation", "")
-            if not key_points:
-                key_points = didactic_data.get("key_takeaways", [])
-
-            # Combine all parts into a cohesive explanation for mobile display
-            explanation_parts = []
-            if introduction:
-                explanation_parts.append(introduction)
-            if core_explanation:
-                explanation_parts.append(core_explanation)
-            if practical_context:
-                explanation_parts.append(practical_context)
-
-            full_explanation = "\n\n".join(explanation_parts) if explanation_parts else "No explanation provided"
-
-            mini_vignette = didactic_data.get("mini_vignette", None)
-            worked_example = didactic_data.get("worked_example", None)
-            near_miss_example = didactic_data.get("near_miss_example", None)
-            discriminator_hint = didactic_data.get("discriminator_hint", None)
-        else:
-            full_explanation = str(didactic_data) if didactic_data else "No explanation provided"
-            key_points = []
-            mini_vignette = None
-            worked_example = None
-            near_miss_example = None
-            discriminator_hint = None
-
-        # Create single lesson-wide snippet
-        lesson_didactic_snippet = DidacticSnippet(
-            id="lesson_explanation",
-            mini_vignette=mini_vignette,
-            plain_explanation=full_explanation,
-            key_takeaways=key_points if isinstance(key_points, list) else [str(key_points)],
-            worked_example=worked_example,
-            near_miss_example=near_miss_example,
-            discriminator_hint=discriminator_hint,
-        )
-
-        # Build exercises from flow result
-        exercises = flow_result.get("exercises", [])
-
         # Build complete lesson package
+        # Normalize misconceptions/confusables to dicts
+        _misconceptions: list[dict[str, str]] = []
+        for m in flow_result.get("misconceptions", []) or []:
+            if isinstance(m, dict):
+                _misconceptions.append(m)
+            elif hasattr(m, "model_dump"):
+                _misconceptions.append(m.model_dump())
+        _confusables: list[dict[str, str]] = []
+        for c in flow_result.get("confusables", []) or []:
+            if isinstance(c, dict):
+                _confusables.append(c)
+            elif hasattr(c, "model_dump"):
+                _confusables.append(c.model_dump())
+
         package = LessonPackage(
             meta=meta,
             objectives=objectives,
             glossary={"terms": glossary_terms},
-            didactic_snippet=lesson_didactic_snippet,
+            mini_lesson=mini_lesson_text,
             exercises=exercises,
-            misconceptions=flow_result.get("misconceptions", []),
-            confusables=flow_result.get("confusables", []),
+            misconceptions=_misconceptions,
+            confusables=_confusables,
         )
-
-        # Convert refined material to dict format
-        refined_material_obj = flow_result.get("refined_material", {})
-        if hasattr(refined_material_obj, "outline_bullets"):
-            refined_material_dict = {"outline_bullets": refined_material_obj.outline_bullets, "evidence_anchors": getattr(refined_material_obj, "evidence_anchors", [])}
-        else:
-            refined_material_dict = refined_material_obj if isinstance(refined_material_obj, dict) else {}
 
         # Create lesson with package
         lesson_data = LessonCreate(
             id=lesson_id,
-            title=request.title,
-            core_concept=request.core_concept,
-            user_level=request.user_level,
-            source_material=request.source_material,
-            source_domain=request.domain,
-            source_level=request.user_level,
-            refined_material=refined_material_dict,
+            title=request.topic,
+            learner_level=request.learner_level,
+            source_material=request.unit_source_material,
             package=package,
             package_version=1,
         )
@@ -278,7 +223,7 @@ class ContentCreatorService:
         self.content.save_lesson(lesson_data)
 
         logger.info(f"🎉 Lesson creation completed! Package contains {len(objectives)} objectives, {len(glossary_terms)} terms, {len(exercises)} exercises")
-        return LessonCreationResult(lesson_id=lesson_id, title=request.title, package_version=1, objectives_count=len(objectives), glossary_terms_count=len(glossary_terms), mcqs_count=len(exercises))
+        return LessonCreationResult(lesson_id=lesson_id, title=request.topic, package_version=1, objectives_count=len(objectives), glossary_terms_count=len(glossary_terms), mcqs_count=len(exercises))
 
     class UnitCreationResult(BaseModel):
         unit_id: str
@@ -302,8 +247,7 @@ class ContentCreatorService:
         source_material: str | None = None,
         background: bool = False,
         target_lesson_count: int | None = None,
-        user_level: str = "beginner",
-        domain: str | None = None,
+        learner_level: str = "beginner",
     ) -> "ContentCreatorService.UnitCreationResult | ContentCreatorService.MobileUnitCreationResult":
         """Create a learning unit (foreground or background).
 
@@ -312,8 +256,7 @@ class ContentCreatorService:
             source_material: Optional pre-provided material. If None, it will be generated.
             background: If True, enqueue and return immediately with in_progress status.
             target_lesson_count: Optional target number of lessons.
-            user_level: Difficulty level.
-            domain: Optional domain context.
+            learner_level: Difficulty level.
         """
         # Pre-create the shell unit for both paths
         provisional_title = f"Learning Unit: {topic}"
@@ -321,7 +264,7 @@ class ContentCreatorService:
             UnitCreate(
                 title=provisional_title,
                 description=f"A learning unit about {topic}",
-                difficulty=user_level,
+                learner_level=learner_level,
                 lesson_order=[],
                 learning_objectives=None,
                 target_lesson_count=target_lesson_count,
@@ -345,10 +288,9 @@ class ContentCreatorService:
                 inputs={
                     "unit_id": unit.id,
                     "topic": topic,
-                    "source_material": source_material,
+                    "unit_source_material": source_material,
                     "target_lesson_count": target_lesson_count,
-                    "user_level": user_level,
-                    "domain": domain,
+                    "learner_level": learner_level,
                 },
             )
             return self.MobileUnitCreationResult(unit_id=unit.id, title=unit.title, status=UnitStatus.IN_PROGRESS.value)
@@ -359,8 +301,7 @@ class ContentCreatorService:
             topic=topic,
             source_material=source_material,
             target_lesson_count=target_lesson_count,
-            user_level=user_level,
-            domain=domain,
+            learner_level=learner_level,
         )
 
     async def _execute_unit_creation_pipeline(
@@ -370,10 +311,9 @@ class ContentCreatorService:
         topic: str,
         source_material: str | None,
         target_lesson_count: int | None,
-        user_level: str,
-        domain: str | None,
+        learner_level: str,
     ) -> "ContentCreatorService.UnitCreationResult":
-        """Execute the end-to-end unit creation using fast-default flows."""
+        """Execute the end-to-end unit creation using the active prompt-aligned flows."""
         logger.info(f"🧱 Executing unit creation pipeline for unit {unit_id}")
         self.content.update_unit_status(unit_id, UnitStatus.IN_PROGRESS.value, creation_progress={"stage": "planning", "message": "Planning unit structure..."})
 
@@ -381,97 +321,105 @@ class ContentCreatorService:
         unit_plan = await flow.execute(
             {
                 "topic": topic,
-                "source_material": source_material,
+                "unit_source_material": source_material,
                 "target_lesson_count": target_lesson_count,
-                "user_level": user_level,
-                "domain": domain,
+                "learner_level": learner_level,
             }
         )
 
         # Update unit metadata from plan
         final_title = str(unit_plan.get("unit_title") or f"Learning Unit: {topic}")
         self.content.update_unit_status(unit_id, UnitStatus.IN_PROGRESS.value, creation_progress={"stage": "generating", "message": "Generating lessons..."})
-        # Note: Title/metadata persistence beyond status updates is handled by assign/update ops below
 
-        # Create lessons per chunk using the fast lesson flow (now default)
-        lesson_titles: list[str] = list(unit_plan.get("lesson_titles", []) or [])
-        chunks: list[dict[str, Any]] = list(unit_plan.get("chunks", []) or [])
+        # Prepare look-up of unit-level LO texts by id
+        unit_los: dict[str, str] = {}
+        for lo in unit_plan.get("learning_objectives", []) or []:
+            if isinstance(lo, dict):
+                unit_los[lo.get("lo_id", "")] = lo.get("text", "")
+
         lesson_ids: list[str] = []
+        unit_material: str = str(unit_plan.get("unit_source_material") or source_material or "")
+        lessons_plan = unit_plan.get("lessons", []) or []
 
-        for i, chunk in enumerate(chunks):
-            lesson_title = chunk.get("title") or (lesson_titles[i] if i < len(lesson_titles) else f"Lesson {i + 1}")
-            chunk_text = str(chunk.get("chunk_text") or "")
+        for i, lp in enumerate(lessons_plan):
+            lesson_title = lp.get("title") or f"Lesson {i + 1}"
+            lesson_lo_ids: list[str] = list(lp.get("learning_objectives", []) or [])
+            lesson_lo_texts: list[str] = [unit_los.get(lid, lid) for lid in lesson_lo_ids]
+            lesson_objective_text: str = lp.get("lesson_objective", "")
 
-            # Execute lesson flow
-            lesson_result = await LessonCreationFlow().execute(
+            # Extract lesson metadata
+            md_res = await LessonCreationFlow().execute(
                 {
-                    "title": lesson_title,
-                    "core_concept": lesson_title,
-                    "source_material": chunk_text,
-                    "user_level": user_level,
-                    "domain": (domain or "General"),
+                    "topic": lesson_title,
+                    "learner_level": learner_level,
+                    "voice": "Plain",
+                    "learning_objectives": lesson_lo_texts,
+                    "lesson_objective": lesson_objective_text,
+                    "unit_source_material": unit_material,
                 }
             )
 
-            # Build LessonPackage from fast result
-            # Create Meta
+            # Build package for lesson
             db_lesson_id = str(uuid.uuid4())
-            meta = Meta(lesson_id=db_lesson_id, title=lesson_title, core_concept=lesson_result.get("core_concept", lesson_title), user_level=user_level, domain=(domain or "General"))
+            meta = Meta(lesson_id=db_lesson_id, title=lesson_title, learner_level=learner_level, package_schema_version=1, content_version=1)
 
-            # Objectives
+            # Objectives for lesson
             objectives: list[Objective] = []
-            for lo_data in lesson_result.get("learning_objectives", []):
-                if isinstance(lo_data, dict):
-                    objectives.append(Objective(id=lo_data.get("id", f"lo_{len(objectives) + 1}"), text=lo_data.get("text", "")))
-            if not objectives:
-                objectives.append(Objective(id="lo_1", text=lesson_result.get("core_concept", lesson_title)))
-
-            # Map normalized LO ids for MCQ mapping
-            def _normalize_lo_id(value: str) -> str:
-                v = value.strip()
-                m = re.match(r"^lo[_-]?(\d+)$", v, flags=re.IGNORECASE)
-                if m:
-                    return f"lo_{m.group(1)}".lower()
-                return v.lower()
-
-            objective_id_map: dict[str, str] = {obj.id.lower(): obj.id for obj in objectives}
-            for obj in objectives:
-                m2 = re.match(r"^lo[_-]?(\d+)$", obj.id, flags=re.IGNORECASE)
-                if m2:
-                    objective_id_map[f"lo_{m2.group(1)}".lower()] = obj.id
+            for j, lo_text in enumerate(lesson_lo_texts):
+                objectives.append(Objective(id=f"lo_{j + 1}", text=str(lo_text)))
 
             # Glossary
             glossary_terms: list[GlossaryTerm] = []
-            for term_data in lesson_result.get("glossary", {}).get("terms", []):
-                glossary_terms.append(GlossaryTerm(id=term_data.get("id", f"term_{len(glossary_terms) + 1}"), term=term_data.get("term", ""), definition=term_data.get("definition", "")))
+            for k, term in enumerate(md_res.get("glossary", []) or []):
+                glossary_terms.append(GlossaryTerm(id=f"term_{k + 1}", term=term.get("term", f"Term {k + 1}"), definition=term.get("definition", "")))
             glossary = {"terms": glossary_terms}
 
-            # Didactic snippet
-            didactic_data = lesson_result.get("didactic_snippet", {})
-            plain_explanation = didactic_data.get("plain_explanation") or ""
-            key_takeaways = didactic_data.get("key_takeaways") or []
-            didactic_snippet = DidacticSnippet(id=didactic_data.get("id", "lesson_explanation"), plain_explanation=plain_explanation, key_takeaways=key_takeaways)
+            # Mini lesson text
+            mini_lesson_text = str(md_res.get("mini_lesson") or "")
 
-            # Exercises
+            # MCQ exercises
             exercises: list[MCQExercise] = []
-            for ex_data in lesson_result.get("exercises", []):
-                raw_lo: str | None = ex_data.get("lo_id")
-                mapped_lo: str = objectives[0].id if objectives else "lo_1"
-                if isinstance(raw_lo, str) and raw_lo.strip():
-                    norm = _normalize_lo_id(raw_lo)
-                    mapped_lo = objective_id_map.get(norm, mapped_lo)
+            # Flow returns either a dict { metadata, mcqs: [...] } or a bare list
+            mcqs_container = md_res.get("mcqs", {}) or {}
+            mcq_items = mcqs_container.get("mcqs", []) if isinstance(mcqs_container, dict) else (mcqs_container or [])
+            for idx, mcq in enumerate(mcq_items):
+                if not isinstance(mcq, dict):
+                    # Skip malformed entries
+                    continue
+                exercise_id = f"mcq_{idx + 1}"
+                options_with_ids: list[MCQOption] = []
+                option_id_map: dict[str, str] = {}
+                for opt in mcq.get("options", []):
+                    opt_label = opt.get("label", "").upper()
+                    gen_opt_id = f"{exercise_id}_{opt_label.lower()}"
+                    option_id_map[opt_label] = gen_opt_id
+                    options_with_ids.append(
+                        MCQOption(
+                            id=gen_opt_id,
+                            label=opt_label,
+                            text=opt.get("text", ""),
+                            rationale_wrong=opt.get("rationale_wrong"),
+                        )
+                    )
+                ak = mcq.get("answer_key", {}) or {}
+                key_label = str(ak.get("label", "")).upper()
+                answer_key = MCQAnswerKey(
+                    label=key_label,
+                    option_id=option_id_map.get(key_label),
+                    rationale_right=ak.get("rationale_right"),
+                )
 
                 exercises.append(
                     MCQExercise(
-                        id=ex_data.get("id", f"ex_{len(exercises) + 1}"),
-                        exercise_type=ex_data.get("exercise_type", "mcq"),
-                        lo_id=mapped_lo,
-                        cognitive_level=ex_data.get("cognitive_level", "remember"),
-                        estimated_difficulty=ex_data.get("estimated_difficulty", "easy"),
-                        misconceptions_used=ex_data.get("misconceptions_used", []),
-                        stem=ex_data.get("stem", ""),
-                        options=ex_data.get("options", []),
-                        answer_key=ex_data.get("answer_key", {}),
+                        id=exercise_id,
+                        exercise_type="mcq",
+                        lo_id=objectives[0].id if objectives else "lo_1",
+                        cognitive_level=None,
+                        estimated_difficulty=None,
+                        misconceptions_used=mcq.get("misconceptions_used", []),
+                        stem=mcq.get("stem", ""),
+                        options=options_with_ids,
+                        answer_key=answer_key,
                     )
                 )
 
@@ -479,18 +427,17 @@ class ContentCreatorService:
                 meta=meta,
                 objectives=objectives,
                 glossary=glossary,
-                didactic_snippet=didactic_snippet,
+                mini_lesson=mini_lesson_text,
                 exercises=exercises,
-                misconceptions=lesson_result.get("misconceptions", []),
-                confusables=lesson_result.get("confusables", []),
+                misconceptions=md_res.get("misconceptions", []),
+                confusables=md_res.get("confusables", []),
             )
 
             created_lesson = self.content.save_lesson(
                 LessonCreate(
                     id=db_lesson_id,
                     title=lesson_title,
-                    core_concept=lesson_result.get("core_concept", lesson_title),
-                    user_level=user_level,
+                    learner_level=learner_level,
                     package=lesson_package,
                 )
             )
@@ -505,9 +452,9 @@ class ContentCreatorService:
         return self.UnitCreationResult(
             unit_id=unit_id,
             title=final_title,
-            lesson_titles=lesson_titles or [c.get("title", "") for c in chunks],
+            lesson_titles=[lp.get("title", "") for lp in lessons_plan],
             lesson_count=len(lesson_ids),
-            target_lesson_count=unit_plan.get("target_lesson_count"),
+            target_lesson_count=unit_plan.get("lesson_count"),
             generated_from_topic=(source_material is None),
             lesson_ids=lesson_ids,
         )
@@ -538,7 +485,7 @@ class ContentCreatorService:
         # Extract original parameters - we need to infer the topic from the unit description or title
         # Since we stored the description as "A learning unit about {topic}", we can extract it
         topic = unit.title  # Use title as topic for retry
-        difficulty = unit.difficulty
+        learner_level = unit.learner_level
         target_lesson_count = unit.target_lesson_count
 
         # Start background processing again via ARQ submission
@@ -551,8 +498,7 @@ class ContentCreatorService:
                 "topic": topic,
                 "source_material": unit.source_material,
                 "target_lesson_count": target_lesson_count,
-                "user_level": difficulty,
-                "domain": None,
+                "learner_level": learner_level,
             },
         )
 

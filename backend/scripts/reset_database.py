@@ -322,8 +322,6 @@ def load_seed_data(verbose: bool = False, **seed_kwargs: str) -> None:
         cmd_parts.extend(["--concept", seed_kwargs["concept"]])
     if seed_kwargs.get("level"):
         cmd_parts.extend(["--level", seed_kwargs["level"]])
-    if seed_kwargs.get("domain"):
-        cmd_parts.extend(["--domain", seed_kwargs["domain"]])
 
     try:
         result = subprocess.run(cmd_parts, cwd=str(backend_dir), check=True, capture_output=True, text=True)  # noqa: S603
@@ -369,7 +367,6 @@ Examples:
     parser.add_argument("--lesson", help="Lesson title for seed data")
     parser.add_argument("--concept", help="Core concept for seed data")
     parser.add_argument("--level", choices=["beginner", "intermediate", "advanced"], help="User level for seed data")
-    parser.add_argument("--domain", help="Subject domain for seed data")
 
     args = parser.parse_args()
 
@@ -429,8 +426,6 @@ Examples:
                 seed_kwargs["concept"] = args.concept
             if args.level:
                 seed_kwargs["level"] = args.level
-            if args.domain:
-                seed_kwargs["domain"] = args.domain
 
             load_seed_data(args.verbose, **seed_kwargs)
 

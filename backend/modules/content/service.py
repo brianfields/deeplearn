@@ -43,8 +43,8 @@ class LessonRead(BaseModel):
 
     id: str
     title: str
-    core_concept: str
-    user_level: str
+    learner_level: str
+    core_concept: str | None = None  # For admin compatibility
     unit_id: str | None = None
     source_material: str | None = None
     source_domain: str | None = None
@@ -64,8 +64,7 @@ class LessonCreate(BaseModel):
 
     id: str
     title: str
-    core_concept: str
-    user_level: str
+    learner_level: str
     source_material: str | None = None
     source_domain: str | None = None
     source_level: str | None = None
@@ -90,20 +89,17 @@ class ContentService:
             return None
 
         try:
-            # Convert package JSON to LessonPackage model for validation
             package = LessonPackage.model_validate(lesson.package)
 
-            # Create lesson dict for DTO conversion
             lesson_dict = {
                 "id": lesson.id,
                 "title": lesson.title,
-                "core_concept": lesson.core_concept,
-                "user_level": lesson.user_level,
+                "learner_level": lesson.learner_level,
                 "unit_id": getattr(lesson, "unit_id", None),
                 "source_material": lesson.source_material,
-                "source_domain": lesson.source_domain,
-                "source_level": lesson.source_level,
-                "refined_material": lesson.refined_material,
+                "source_domain": getattr(lesson, "source_domain", None),
+                "source_level": getattr(lesson, "source_level", None),
+                "refined_material": getattr(lesson, "refined_material", None),
                 "package": package,
                 "package_version": lesson.package_version,
                 "flow_run_id": lesson.flow_run_id,
@@ -123,19 +119,17 @@ class ContentService:
 
         for lesson in lessons:
             try:
-                # Convert package JSON to LessonPackage model for validation
                 package = LessonPackage.model_validate(lesson.package)
 
                 lesson_dict = {
                     "id": lesson.id,
                     "title": lesson.title,
-                    "core_concept": lesson.core_concept,
-                    "user_level": lesson.user_level,
+                    "learner_level": lesson.learner_level,
                     "unit_id": getattr(lesson, "unit_id", None),
                     "source_material": lesson.source_material,
-                    "source_domain": lesson.source_domain,
-                    "source_level": lesson.source_level,
-                    "refined_material": lesson.refined_material,
+                    "source_domain": getattr(lesson, "source_domain", None),
+                    "source_level": getattr(lesson, "source_level", None),
+                    "refined_material": getattr(lesson, "refined_material", None),
                     "package": package,
                     "package_version": lesson.package_version,
                     "flow_run_id": lesson.flow_run_id,
@@ -150,26 +144,24 @@ class ContentService:
 
         return result
 
-    def search_lessons(self, query: str | None = None, user_level: str | None = None, limit: int = 100, offset: int = 0) -> list[LessonRead]:
+    def search_lessons(self, query: str | None = None, learner_level: str | None = None, limit: int = 100, offset: int = 0) -> list[LessonRead]:
         """Search lessons with optional filters."""
-        lessons = self.repo.search_lessons(query, user_level, limit, offset)
+        lessons = self.repo.search_lessons(query, learner_level, limit, offset)
         result = []
 
         for lesson in lessons:
             try:
-                # Convert package JSON to LessonPackage model for validation
                 package = LessonPackage.model_validate(lesson.package)
 
                 lesson_dict = {
                     "id": lesson.id,
                     "title": lesson.title,
-                    "core_concept": lesson.core_concept,
-                    "user_level": lesson.user_level,
+                    "learner_level": lesson.learner_level,
                     "unit_id": getattr(lesson, "unit_id", None),
                     "source_material": lesson.source_material,
-                    "source_domain": lesson.source_domain,
-                    "source_level": lesson.source_level,
-                    "refined_material": lesson.refined_material,
+                    "source_domain": getattr(lesson, "source_domain", None),
+                    "source_level": getattr(lesson, "source_level", None),
+                    "refined_material": getattr(lesson, "refined_material", None),
                     "package": package,
                     "package_version": lesson.package_version,
                     "flow_run_id": lesson.flow_run_id,
@@ -195,12 +187,11 @@ class ContentService:
                 lesson_dict = {
                     "id": lesson.id,
                     "title": lesson.title,
-                    "core_concept": lesson.core_concept,
-                    "user_level": lesson.user_level,
+                    "learner_level": lesson.learner_level,
                     "source_material": lesson.source_material,
-                    "source_domain": lesson.source_domain,
-                    "source_level": lesson.source_level,
-                    "refined_material": lesson.refined_material,
+                    "source_domain": getattr(lesson, "source_domain", None),
+                    "source_level": getattr(lesson, "source_level", None),
+                    "refined_material": getattr(lesson, "refined_material", None),
                     "package": package,
                     "package_version": lesson.package_version,
                     "flow_run_id": lesson.flow_run_id,
@@ -215,18 +206,13 @@ class ContentService:
 
     def save_lesson(self, lesson_data: LessonCreate) -> LessonRead:
         """Create new lesson with package."""
-        # Validate package before saving
         package_dict = lesson_data.package.model_dump()
 
         lesson_model = LessonModel(
             id=lesson_data.id,
             title=lesson_data.title,
-            core_concept=lesson_data.core_concept,
-            user_level=lesson_data.user_level,
+            learner_level=lesson_data.learner_level,
             source_material=lesson_data.source_material,
-            source_domain=lesson_data.source_domain,
-            source_level=lesson_data.source_level,
-            refined_material=lesson_data.refined_material or {},
             package=package_dict,
             package_version=lesson_data.package_version,
             flow_run_id=lesson_data.flow_run_id,
@@ -240,13 +226,12 @@ class ContentService:
         lesson_dict = {
             "id": saved_lesson.id,
             "title": saved_lesson.title,
-            "core_concept": saved_lesson.core_concept,
-            "user_level": saved_lesson.user_level,
+            "learner_level": saved_lesson.learner_level,
             "unit_id": getattr(saved_lesson, "unit_id", None),
             "source_material": saved_lesson.source_material,
-            "source_domain": saved_lesson.source_domain,
-            "source_level": saved_lesson.source_level,
-            "refined_material": saved_lesson.refined_material,
+            "source_domain": getattr(saved_lesson, "source_domain", None),
+            "source_level": getattr(saved_lesson, "source_level", None),
+            "refined_material": getattr(saved_lesson, "refined_material", None),
             "package": lesson_data.package,  # Use original validated package
             "package_version": saved_lesson.package_version,
             "flow_run_id": saved_lesson.flow_run_id,
@@ -275,7 +260,7 @@ class ContentService:
         id: str
         title: str
         description: str | None = None
-        difficulty: str
+        learner_level: str
         lesson_order: list[str]
         # New fields
         learning_objectives: list[Any] | None = None
@@ -296,27 +281,13 @@ class ContentService:
         id: str | None = None
         title: str
         description: str | None = None
-        difficulty: str = "beginner"
+        learner_level: str = "beginner"
         lesson_order: list[str] = []
         learning_objectives: list[Any] | None = None
         target_lesson_count: int | None = None
         source_material: str | None = None
         generated_from_topic: bool = False
         flow_type: str = "standard"
-
-    # New DTOs for unit creation workflows
-    class UnitCreateFromTopic(BaseModel):
-        topic: str
-        target_lesson_count: int | None = None
-        user_level: str = "beginner"
-        domain: str | None = None
-
-    class UnitCreateFromSource(BaseModel):
-        title: str
-        source_material: str
-        target_lesson_count: int | None = None
-        user_level: str = "beginner"
-        domain: str | None = None
 
     def get_unit(self, unit_id: str) -> ContentService.UnitRead | None:
         u = self.repo.get_unit_by_id(unit_id)
@@ -342,7 +313,7 @@ class ContentService:
             id=unit_id,
             title=data.title,
             description=data.description,
-            difficulty=data.difficulty,
+            learner_level=data.learner_level,
             lesson_order=list(data.lesson_order or []),
             learning_objectives=list(data.learning_objectives or []) if data.learning_objectives is not None else None,
             target_lesson_count=data.target_lesson_count,

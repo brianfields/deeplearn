@@ -45,8 +45,7 @@ export interface LLMRequestFilters extends DateRangeFilter {
 }
 
 export interface LessonFilters {
-  user_level?: UserLevel;
-  domain?: string;
+  learner_level?: UserLevel;
   search?: string;
 }
 

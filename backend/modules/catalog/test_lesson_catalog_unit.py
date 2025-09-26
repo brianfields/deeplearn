@@ -9,7 +9,6 @@ from unittest.mock import Mock
 
 from modules.catalog.service import CatalogService, LessonDetail, LessonSummary
 from modules.content.package_models import (
-    DidacticSnippet,
     GlossaryTerm,
     LessonPackage,
     MCQAnswerKey,
@@ -31,10 +30,10 @@ class TestCatalogService:
 
         # Create mock packages
         package1 = LessonPackage(
-            meta=Meta(lesson_id="lesson-1", title="Lesson 1", core_concept="Concept 1", user_level="beginner", domain="Test"),
+            meta=Meta(lesson_id="lesson-1", title="Lesson 1", learner_level="beginner"),
             objectives=[Objective(id="obj1", text="Learn A")],
             glossary={"terms": [GlossaryTerm(id="term1", term="Key A", definition="Definition A")]},
-            didactic_snippet=DidacticSnippet(id="lesson_explanation", plain_explanation="Test explanation", key_takeaways=["Key point 1"]),
+            mini_lesson="Test explanation",
             exercises=[
                 MCQExercise(
                     id="mcq1",
@@ -47,17 +46,17 @@ class TestCatalogService:
         )
 
         package2 = LessonPackage(
-            meta=Meta(lesson_id="lesson-2", title="Lesson 2", core_concept="Concept 2", user_level="intermediate", domain="Test"),
+            meta=Meta(lesson_id="lesson-2", title="Lesson 2", learner_level="intermediate"),
             objectives=[Objective(id="obj2", text="Learn B")],
             glossary={"terms": []},
-            didactic_snippet=DidacticSnippet(id="lesson_explanation", plain_explanation="Test explanation", key_takeaways=[]),
+            mini_lesson="Test explanation",
             exercises=[],
         )
 
         # Mock lessons from content module
         mock_lessons = [
-            LessonRead(id="lesson-1", title="Lesson 1", core_concept="Concept 1", user_level="beginner", package=package1, package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC)),
-            LessonRead(id="lesson-2", title="Lesson 2", core_concept="Concept 2", user_level="intermediate", package=package2, package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC)),
+            LessonRead(id="lesson-1", title="Lesson 1", learner_level="beginner", package=package1, package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC)),
+            LessonRead(id="lesson-2", title="Lesson 2", learner_level="intermediate", package=package2, package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC)),
         ]
 
         content.search_lessons.return_value = mock_lessons
@@ -65,7 +64,7 @@ class TestCatalogService:
         service = CatalogService(content, units)
 
         # Act
-        result = service.browse_lessons(user_level="beginner", limit=10)
+        result = service.browse_lessons(learner_level="beginner", limit=10)
 
         # Assert
         assert len(result.lessons) == 2
@@ -74,7 +73,7 @@ class TestCatalogService:
         assert result.lessons[0].exercise_count == 1  # exercises only
         assert result.lessons[1].exercise_count == 0  # no exercises
 
-        content.search_lessons.assert_called_once_with(user_level="beginner", limit=10)
+        content.search_lessons.assert_called_once_with(learner_level="beginner", limit=10)
 
     def test_get_lesson_details_returns_details(self) -> None:
         """Test that get_lesson_details returns lesson details."""
@@ -83,10 +82,10 @@ class TestCatalogService:
 
         # Create mock package with components
         package = LessonPackage(
-            meta=Meta(lesson_id="lesson-1", title="Lesson 1", core_concept="Concept 1", user_level="beginner", domain="Test"),
+            meta=Meta(lesson_id="lesson-1", title="Lesson 1", learner_level="beginner"),
             objectives=[Objective(id="obj1", text="Learn A")],
             glossary={"terms": [GlossaryTerm(id="term1", term="Key A", definition="Definition A")]},
-            didactic_snippet=DidacticSnippet(id="lesson_explanation", plain_explanation="Test explanation", key_takeaways=["Key point 1"]),
+            mini_lesson="Test explanation",
             exercises=[
                 MCQExercise(
                     id="mcq1",
@@ -98,7 +97,7 @@ class TestCatalogService:
             ],
         )
 
-        mock_lesson = LessonRead(id="lesson-1", title="Lesson 1", core_concept="Concept 1", user_level="beginner", package=package, package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC))
+        mock_lesson = LessonRead(id="lesson-1", title="Lesson 1", learner_level="beginner", package=package, package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC))
 
         content.get_lesson.return_value = mock_lesson
         units = Mock()
@@ -131,14 +130,14 @@ class TestCatalogService:
         assert result is None
         content.get_lesson.assert_called_once_with("nonexistent")
 
-    def test_lesson_summary_matches_user_level(self) -> None:
-        """Test LessonSummary.matches_user_level method."""
+    def test_lesson_summary_matches_learner_level(self) -> None:
+        """Test LessonSummary.matches_learner_level method."""
         # Arrange
-        summary = LessonSummary(id="test-id", title="Test Lesson", core_concept="Test Concept", user_level="beginner", learning_objectives=["Learn X"], key_concepts=["Key X"], exercise_count=1)
+        summary = LessonSummary(id="test-id", title="Test Lesson", learner_level="beginner", learning_objectives=["Learn X"], key_concepts=["Key X"], exercise_count=1)
 
         # Act & Assert
-        assert summary.matches_user_level("beginner") is True
-        assert summary.matches_user_level("intermediate") is False
+        assert summary.matches_learner_level("beginner") is True
+        assert summary.matches_learner_level("intermediate") is False
 
     def test_lesson_detail_is_ready_for_learning(self) -> None:
         """Test LessonDetail.is_ready_for_learning method."""
@@ -147,11 +146,10 @@ class TestCatalogService:
         detail_with_exercises = LessonDetail(
             id="test-id",
             title="Test Lesson",
-            core_concept="Test Concept",
-            user_level="beginner",
+            learner_level="beginner",
             learning_objectives=["Learn X"],
             key_concepts=["Key X"],
-            didactic_snippet={"id": "d1", "plain_explanation": "..."},
+            mini_lesson="...",
             exercises=[{"exercise_type": "mcq", "stem": "test"}],
             glossary_terms=[],
             created_at="2024-01-01T00:00:00",
@@ -162,11 +160,10 @@ class TestCatalogService:
         detail_without_exercises = LessonDetail(
             id="test-id-2",
             title="Test Lesson 2",
-            core_concept="Test Concept 2",
-            user_level="beginner",
+            learner_level="beginner",
             learning_objectives=["Learn Y"],
             key_concepts=["Key Y"],
-            didactic_snippet={"id": "d2", "plain_explanation": "..."},
+            mini_lesson="...",
             exercises=[],
             glossary_terms=[],
             created_at="2024-01-01T00:00:00",
@@ -184,10 +181,10 @@ class TestCatalogService:
 
         # Create mock packages
         package1 = LessonPackage(
-            meta=Meta(lesson_id="lesson-1", title="React Basics", core_concept="Components", user_level="beginner", domain="Programming"),
+            meta=Meta(lesson_id="lesson-1", title="React Basics", learner_level="beginner"),
             objectives=[Objective(id="obj1", text="Learn React")],
             glossary={"terms": [GlossaryTerm(id="term1", term="JSX", definition="JSX definition"), GlossaryTerm(id="term2", term="Props", definition="Props definition")]},
-            didactic_snippet=DidacticSnippet(id="lesson_explanation", plain_explanation="Test explanation", key_takeaways=["Key point 1"]),
+            mini_lesson="Test explanation",
             exercises=[
                 MCQExercise(
                     id="mcq1",
@@ -200,16 +197,16 @@ class TestCatalogService:
         )
 
         package2 = LessonPackage(
-            meta=Meta(lesson_id="lesson-2", title="Python Basics", core_concept="Variables", user_level="beginner", domain="Programming"),
+            meta=Meta(lesson_id="lesson-2", title="Python Basics", learner_level="beginner"),
             objectives=[Objective(id="obj2", text="Learn Python")],
             glossary={"terms": [GlossaryTerm(id="term3", term="Variables", definition="Variables definition")]},
-            didactic_snippet=DidacticSnippet(id="lesson_explanation", plain_explanation="Test explanation", key_takeaways=[]),
+            mini_lesson="Test explanation",
             exercises=[],
         )
 
         mock_lessons = [
-            LessonRead(id="lesson-1", title="React Basics", core_concept="Components", user_level="beginner", package=package1, package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC)),
-            LessonRead(id="lesson-2", title="Python Basics", core_concept="Variables", user_level="beginner", package=package2, package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC)),
+            LessonRead(id="lesson-1", title="React Basics", learner_level="beginner", package=package1, package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC)),
+            LessonRead(id="lesson-2", title="Python Basics", learner_level="beginner", package=package2, package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC)),
         ]
 
         content.search_lessons.return_value = mock_lessons
@@ -231,10 +228,10 @@ class TestCatalogService:
 
         # Create mock packages
         package1 = LessonPackage(
-            meta=Meta(lesson_id="lesson-1", title="Lesson 1", core_concept="Concept", user_level="beginner", domain="Test"),
+            meta=Meta(lesson_id="lesson-1", title="Lesson 1", learner_level="beginner"),
             objectives=[Objective(id="obj1", text="Learn")],
             glossary={"terms": [GlossaryTerm(id="term1", term="Key", definition="Definition")]},
-            didactic_snippet=DidacticSnippet(id="lesson_explanation", plain_explanation="Test explanation", key_takeaways=["Key point 1"]),
+            mini_lesson="Test explanation",
             exercises=[
                 MCQExercise(
                     id="mcq1",
@@ -247,16 +244,16 @@ class TestCatalogService:
         )
 
         package2 = LessonPackage(
-            meta=Meta(lesson_id="lesson-2", title="Lesson 2", core_concept="Concept", user_level="intermediate", domain="Test"),
+            meta=Meta(lesson_id="lesson-2", title="Lesson 2", learner_level="intermediate"),
             objectives=[Objective(id="obj2", text="Learn")],
             glossary={"terms": []},
-            didactic_snippet=DidacticSnippet(id="lesson_explanation", plain_explanation="Test explanation", key_takeaways=[]),
+            mini_lesson="Test explanation",
             exercises=[],
         )
 
         mock_lessons = [
-            LessonRead(id="lesson-1", title="Lesson 1", core_concept="Concept", user_level="beginner", package=package1, package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC)),
-            LessonRead(id="lesson-2", title="Lesson 2", core_concept="Concept", user_level="intermediate", package=package2, package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC)),
+            LessonRead(id="lesson-1", title="Lesson 1", learner_level="beginner", package=package1, package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC)),
+            LessonRead(id="lesson-2", title="Lesson 2", learner_level="intermediate", package=package2, package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC)),
         ]
 
         content.search_lessons.return_value = mock_lessons
@@ -268,7 +265,7 @@ class TestCatalogService:
 
         # Assert
         assert result.total_lessons == 2
-        assert result.lessons_by_user_level["beginner"] == 1
-        assert result.lessons_by_user_level["intermediate"] == 1
+        assert result.lessons_by_learner_level["beginner"] == 1
+        assert result.lessons_by_learner_level["intermediate"] == 1
         assert result.lessons_by_readiness["ready"] == 1  # Only lessons with exercises are ready
         assert result.lessons_by_readiness["draft"] == 1

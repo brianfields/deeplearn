@@ -7,10 +7,10 @@ using the unified content_creator service create_unit API.
 
 Examples:
   # From a topic (creates unit + lessons)
-  python scripts/create_unit.py --topic "Cross-Entropy Loss" --target-lessons 5 --user-level beginner
+  python scripts/create_unit.py --topic "Cross-Entropy Loss" --target-lessons 5 --learner-level beginner
 
   # From a source file (creates unit + lessons)
-  python scripts/create_unit.py --source-file docs/samples/cross_entropy.md --target-lessons 10 --user-level intermediate
+  python scripts/create_unit.py --source-file docs/samples/cross_entropy.md --target-lessons 10 --learner-level intermediate
 
   # Enable verbose logging to see detailed progress
   python scripts/create_unit.py --topic "Python Basics" --target-lessons 5 --verbose
@@ -40,8 +40,7 @@ def parse_args() -> argparse.Namespace:
     src.add_argument("--source-file", help="Path to text/markdown file to use as source material")
 
     p.add_argument("--target-lessons", type=int, default=None, help="Target number of lessons for the unit (e.g., 5, 10, 20)")
-    p.add_argument("--user-level", default="beginner", choices=["beginner", "intermediate", "advanced"], help="Target learner level")
-    p.add_argument("--domain", default=None, help="Optional domain context (e.g., 'Machine Learning')")
+    p.add_argument("--learner-level", default="beginner", choices=["beginner", "intermediate", "advanced"], help="Target learner level")
     p.add_argument("--background", action="store_true", help="Run creation in the background (ARQ)")
     p.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging to see detailed progress")
     return p.parse_args()
@@ -95,9 +94,7 @@ async def _run_async() -> int:
                 print(f"📚 Topic: {args.topic}")
             if args.target_lessons:
                 print(f"🎯 Target lessons: {args.target_lessons}")
-            print(f"👤 User level: {args.user_level}")
-            if args.domain:
-                print(f"🔬 Domain: {args.domain}")
+            print(f"👤 Learner level: {args.learner_level}")
 
         if args.verbose:
             print("⚡ Running unit creation (this may take several minutes)...")
@@ -108,8 +105,7 @@ async def _run_async() -> int:
             source_material=source_material,
             background=bool(args.background),
             target_lesson_count=args.target_lessons,
-            user_level=args.user_level,
-            domain=args.domain,
+            learner_level=args.learner_level,
         )
 
         if args.background:

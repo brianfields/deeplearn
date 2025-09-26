@@ -10,8 +10,9 @@ import { Button, Progress, useHaptics } from '../../ui_system/public';
 import { uiSystemProvider } from '../../ui_system/public';
 import { useActiveLearningSession } from '../queries';
 import { useLearningSessionStore } from '../store';
-import DidacticSnippet from './DidacticSnippet';
+import MiniLesson from './MiniLesson';
 import MultipleChoice from './MultipleChoice';
+import type { MCQContentDTO } from '../models';
 import { catalogProvider } from '../../catalog/public';
 
 interface LearningFlowProps {
@@ -94,7 +95,7 @@ export default function LearningFlow({
   const [didacticShown, setDidacticShown] = useState(false);
   const [didacticData, setDidacticData] = useState<any | null>(null);
 
-  // Fetch didactic snippet from lesson details (package-aligned)
+  // Fetch mini lesson from lesson details (package-aligned)
   useEffect(() => {
     let isMounted = true;
     const fetchDidactic = async () => {
@@ -103,9 +104,9 @@ export default function LearningFlow({
         const catalog = catalogProvider();
         const detail = await catalog.getLessonDetail(session.lessonId);
         if (!isMounted) return;
-        setDidacticData(detail?.didacticSnippet || null);
+        setDidacticData(detail?.miniLesson || null);
       } catch (e) {
-        console.warn('Failed to load didactic snippet:', e);
+        console.warn('Failed to load mini lesson:', e);
         if (isMounted) setDidacticData(null);
       }
     };
@@ -215,7 +216,7 @@ export default function LearningFlow({
       case 'mcq':
         return (
           <MultipleChoice
-            question={currentExercise.content}
+            question={currentExercise.content as MCQContentDTO}
             onComplete={handleExerciseComplete}
             isLoading={isUpdatingProgress}
           />
@@ -295,14 +296,9 @@ export default function LearningFlow({
       {/* Didactic first, then exercises */}
       <View style={styles.componentContainer}>
         {shouldShowDidactic && (
-          <DidacticSnippet
+          <MiniLesson
             snippet={{
-              explanation: didacticData?.plain_explanation,
-              key_points: didacticData?.key_takeaways,
-              examples: [
-                didacticData?.worked_example,
-                didacticData?.near_miss_example,
-              ].filter(Boolean),
+              explanation: didacticData as string,
             }}
             onContinue={() => {
               setDidacticShown(true);

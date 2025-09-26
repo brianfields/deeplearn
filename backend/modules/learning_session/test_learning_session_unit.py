@@ -75,7 +75,7 @@ class TestLearningSessionService:
         assert result.lesson_id == "test-lesson"
         assert result.user_id == "test-user"
         assert result.status == SessionStatus.ACTIVE.value
-        assert result.total_exercises == 2  # Only actual exercises, didactic snippets not counted
+        assert result.total_exercises == 2
 
         self.mock_catalog_provider.get_lesson_details.assert_called_once_with("test-lesson")
         self.mock_content_provider.get_lesson.assert_called_once_with("test-lesson")

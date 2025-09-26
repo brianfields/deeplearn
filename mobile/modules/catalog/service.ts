@@ -39,7 +39,7 @@ export class CatalogService {
   ): Promise<BrowseLessonsResponse> {
     try {
       const request: SearchLessonsRequest = {
-        userLevel: filters.userLevel,
+        learnerLevel: filters.learnerLevel,
         readyOnly: filters.readyOnly,
         limit: pagination.limit,
         offset: pagination.offset,
@@ -72,7 +72,7 @@ export class CatalogService {
     try {
       const request: SearchLessonsRequest = {
         query: query.trim() || undefined,
-        userLevel: filters.userLevel,
+        learnerLevel: filters.learnerLevel,
         minDuration: filters.minDuration,
         maxDuration: filters.maxDuration,
         readyOnly: filters.readyOnly,
@@ -219,7 +219,6 @@ export class CatalogService {
     const searchTerm = query.toLowerCase();
     return (
       lesson.title.toLowerCase().includes(searchTerm) ||
-      lesson.coreConcept.toLowerCase().includes(searchTerm) ||
       lesson.keyConcepts.some(concept =>
         concept.toLowerCase().includes(searchTerm)
       ) ||

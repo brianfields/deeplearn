@@ -146,10 +146,7 @@ class LLMRequestsListResponse(BaseModel):
 class LessonSummary(BaseModel):
     id: str
     title: str
-    core_concept: str
-    user_level: str
-    source_domain: str | None
-    source_level: str | None
+    learner_level: str
     package_version: int
     created_at: datetime
     updated_at: datetime
@@ -158,12 +155,8 @@ class LessonSummary(BaseModel):
 class LessonDetails(BaseModel):
     id: str
     title: str
-    core_concept: str
-    user_level: str
+    learner_level: str
     source_material: str | None
-    source_domain: str | None
-    source_level: str | None
-    refined_material: dict[str, Any] | None
     package: dict[str, Any]  # LessonPackage as dict
     package_version: int
     flow_run_id: str | None

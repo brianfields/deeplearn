@@ -45,7 +45,7 @@ class LearningSessionModel(Base):
     started_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
-    # Progress tracking across exercises only (didactic/glossary excluded)
+    # Progress tracking across exercises
     current_exercise_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     total_exercises: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # Total number of exercises
     exercises_completed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # Number of exercises completed

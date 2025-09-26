@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from modules.content.package_models import DidacticSnippet, LessonPackage, Meta, Objective
+from modules.content.package_models import LessonPackage, Meta, Objective
 from modules.content.public import LessonRead
 from modules.content_creator.service import ContentCreatorService, CreateLessonRequest
 
@@ -25,49 +25,53 @@ class TestContentCreatorService:
         content = Mock()
         service = ContentCreatorService(content)
 
-        request = CreateLessonRequest(title="Test Lesson", core_concept="Test Concept", source_material="Test material content", user_level="beginner", domain="Testing")
+        request = CreateLessonRequest(topic="Test Lesson", unit_source_material="Test material content", learner_level="beginner", voice="Test voice", learning_objectives=["Learn X"], lesson_objective="Test objective")
 
         # Mock flow execution
         mock_flow = AsyncMock()
         mock_flow_class.return_value = mock_flow
         mock_flow.execute.return_value = {
+            "topic": "Test Lesson",
+            "learner_level": "beginner",
+            "voice": "Test voice",
             "learning_objectives": ["Learn X", "Understand Y"],
-            "key_concepts": ["Concept A", "Concept B"],
-            "refined_material": {"overview": "Test overview"},
-            "didactic_snippet": {"explanation": "Test explanation", "key_points": ["Point 1"]},
-            "glossary": {"terms": [{"term": "Test Term", "definition": "Test definition"}]},
-            "exercises": [
-                {
-                    "id": "ex1",
-                    "exercise_type": "mcq",
-                    "lo_id": "lo_1",
-                    "stem": "What is X?",
-                    "options": [{"id": "ex1_a", "label": "A", "text": "Option A"}, {"id": "ex1_b", "label": "B", "text": "Option B"}, {"id": "ex1_c", "label": "C", "text": "Option C"}],
-                    "answer_key": {"label": "A"},
-                },
-                {
-                    "id": "ex2",
-                    "exercise_type": "mcq",
-                    "lo_id": "lo_2",
-                    "stem": "What is Y?",
-                    "options": [{"id": "ex2_a", "label": "A", "text": "Option A"}, {"id": "ex2_b", "label": "B", "text": "Option B"}, {"id": "ex2_c", "label": "C", "text": "Option C"}],
-                    "answer_key": {"label": "A"},
-                },
-            ],
+            "misconceptions": [{"mc_id": "mc_1", "concept": "Test", "misbelief": "Wrong"}],
+            "confusables": [{"concept_a": "A", "concept_b": "B", "distinction": "Different"}],
+            "glossary": [{"id": "term_1", "term": "Test Term", "definition": "Test definition"}],
+            "mini_lesson": "Test explanation",
+            "mcqs": {
+                "metadata": {},
+                "mcqs": [
+                    {
+                        "id": "ex1",
+                        "lo_id": "lo_1",
+                        "stem": "What is X?",
+                        "options": [{"id": "ex1_a", "label": "A", "text": "Option A"}, {"id": "ex1_b", "label": "B", "text": "Option B"}, {"id": "ex1_c", "label": "C", "text": "Option C"}],
+                        "answer_key": {"label": "A", "rationale_right": "Correct"},
+                    },
+                    {
+                        "id": "ex2",
+                        "lo_id": "lo_2",
+                        "stem": "What is Y?",
+                        "options": [{"id": "ex2_a", "label": "A", "text": "Option A"}, {"id": "ex2_b", "label": "B", "text": "Option B"}, {"id": "ex2_c", "label": "C", "text": "Option C"}],
+                        "answer_key": {"label": "B", "rationale_right": "Correct"},
+                    },
+                ],
+            },
         }
 
         # Mock content service responses
 
         # Create a mock package
         mock_package = LessonPackage(
-            meta=Meta(lesson_id="test-id", title="Test Lesson", core_concept="Test Concept", user_level="beginner", domain="Testing"),
+            meta=Meta(lesson_id="test-id", title="Test Lesson", learner_level="beginner"),
             objectives=[Objective(id="lo_1", text="Learn X")],
             glossary={"terms": []},
-            didactic_snippet=DidacticSnippet(id="lesson_explanation", plain_explanation="Test explanation", key_takeaways=[]),
+            mini_lesson="Test explanation",
             exercises=[],
         )
 
-        mock_lesson = LessonRead(id="test-id", title="Test Lesson", core_concept="Test Concept", user_level="beginner", package=mock_package, package_version=1, created_at=datetime(2024, 1, 1), updated_at=datetime(2024, 1, 1))
+        mock_lesson = LessonRead(id="test-id", title="Test Lesson", learner_level="beginner", package=mock_package, package_version=1, created_at=datetime(2024, 1, 1), updated_at=datetime(2024, 1, 1))
         content.save_lesson.return_value = mock_lesson
 
         # Act
@@ -82,7 +86,7 @@ class TestContentCreatorService:
         # No more component calls - everything is in the package now
 
         # Verify flow was called with correct inputs
-        mock_flow.execute.assert_called_once_with({"title": "Test Lesson", "core_concept": "Test Concept", "source_material": "Test material content", "user_level": "beginner", "domain": "Testing"})
+        mock_flow.execute.assert_called_once_with({"topic": "Test Lesson", "unit_source_material": "Test material content", "learner_level": "beginner", "voice": "Test voice", "learning_objectives": ["Learn X"], "lesson_objective": "Test objective"})
 
     @pytest.mark.asyncio
     async def test_retry_unit_creation_success(self) -> None:
@@ -98,7 +102,7 @@ class TestContentCreatorService:
         mock_unit.title = "Test Unit"
         mock_unit.status = "failed"
         mock_unit.generated_from_topic = True
-        mock_unit.difficulty = "beginner"
+        mock_unit.learner_level = "beginner"
         mock_unit.target_lesson_count = 3
         content.get_unit.return_value = mock_unit
 

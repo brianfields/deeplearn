@@ -30,14 +30,14 @@ class ContentRepo:
         """Get all lessons with pagination."""
         return self.s.query(LessonModel).offset(offset).limit(limit).all()
 
-    def search_lessons(self, query: str | None = None, user_level: str | None = None, limit: int = 100, offset: int = 0) -> list[LessonModel]:
+    def search_lessons(self, query: str | None = None, learner_level: str | None = None, limit: int = 100, offset: int = 0) -> list[LessonModel]:
         """Search lessons with optional filters."""
         q = self.s.query(LessonModel)
 
         if query:
             q = q.filter(LessonModel.title.contains(query))
-        if user_level:
-            q = q.filter(LessonModel.user_level == user_level)
+        if learner_level:
+            q = q.filter(LessonModel.learner_level == learner_level)
 
         return q.offset(offset).limit(limit).all()
 

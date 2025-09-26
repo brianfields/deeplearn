@@ -23,7 +23,7 @@ class ContentProvider(Protocol):
 
     def get_lesson(self, lesson_id: str) -> LessonRead | None: ...
     def get_all_lessons(self, limit: int = 100, offset: int = 0) -> list[LessonRead]: ...
-    def search_lessons(self, query: str | None = None, user_level: str | None = None, limit: int = 100, offset: int = 0) -> list[LessonRead]: ...
+    def search_lessons(self, query: str | None = None, learner_level: str | None = None, limit: int = 100, offset: int = 0) -> list[LessonRead]: ...
     def save_lesson(self, lesson_data: LessonCreate) -> LessonRead: ...
     def delete_lesson(self, lesson_id: str) -> bool: ...
     def lesson_exists(self, lesson_id: str) -> bool: ...
@@ -68,8 +68,6 @@ def content_provider(session: Session) -> ContentProvider:
 
 # Create aliases for nested classes to maintain backward compatibility
 UnitCreate = ContentService.UnitCreate
-UnitCreateFromSource = ContentService.UnitCreateFromSource
-UnitCreateFromTopic = ContentService.UnitCreateFromTopic
 UnitRead = ContentService.UnitRead
 UnitSessionRead = ContentService.UnitSessionRead
 
@@ -78,8 +76,6 @@ __all__ = [
     "LessonCreate",
     "LessonRead",
     "UnitCreate",
-    "UnitCreateFromSource",
-    "UnitCreateFromTopic",
     "UnitRead",
     "UnitSessionRead",
     "UnitStatus",

@@ -140,10 +140,7 @@ export interface LLMRequestsListResponse {
 export interface LessonSummary {
   id: string;
   title: string;
-  core_concept: string;
-  user_level: string;
-  source_domain: string | null;
-  source_level: string | null;
+  learner_level: string;
   package_version: number;
   created_at: Date;
   updated_at: Date;
@@ -152,12 +149,8 @@ export interface LessonSummary {
 export interface LessonDetails {
   id: string;
   title: string;
-  core_concept: string;
-  user_level: string;
+  learner_level: string;
   source_material: string | null;
-  source_domain: string | null;
-  source_level: string | null;
-  refined_material: Record<string, any> | null;
   package: LessonPackage;
   package_version: number;
   flow_run_id: string | null;
@@ -175,21 +168,12 @@ export interface LessonsListResponse {
 
 // ---- Lesson Package Types (from backend package_models.py) ----
 
-export interface LengthBudgets {
-  stem_max_words: number;
-  vignette_max_words: number;
-  option_max_words: number;
-}
-
 export interface Meta {
   lesson_id: string;
   title: string;
-  core_concept: string;
-  user_level: string;
-  domain: string;
+  learner_level: string;
   package_schema_version: number;
   content_version: number;
-  length_budgets: LengthBudgets;
 }
 
 export interface Objective {
@@ -202,19 +186,7 @@ export interface GlossaryTerm {
   id: string;
   term: string;
   definition: string;
-  relation_to_core: string | null;
-  common_confusion: string | null;
   micro_check: string | null;
-}
-
-export interface DidacticSnippet {
-  id: string;
-  mini_vignette: string | null;
-  plain_explanation: string;
-  key_takeaways: string[];
-  worked_example: string | null;
-  near_miss_example: string | null;
-  discriminator_hint: string | null;
 }
 
 export interface MCQOption {
@@ -227,6 +199,7 @@ export interface MCQOption {
 export interface MCQAnswerKey {
   label: string;
   option_id: string | null;
+  rationale_right?: string | null;
 }
 
 // Base Exercise interface
@@ -251,8 +224,8 @@ export interface LessonPackage {
   meta: Meta;
   objectives: Objective[];
   glossary: Record<string, GlossaryTerm[]>;
-  didactic_snippet: DidacticSnippet; // Single lesson-wide explanation
-  exercises: Exercise[]; // Generalized from MCQs to support multiple exercise types
+  mini_lesson: string;
+  exercises: Exercise[];
   misconceptions: Record<string, string>[];
   confusables: Record<string, string>[];
 }
@@ -298,7 +271,7 @@ export interface ApiUnitSummary {
   id: string;
   title: string;
   description: string | null;
-  difficulty: string;
+  learner_level: string;
   lesson_count: number;
   // New fields from backend
   target_lesson_count?: number | null;
@@ -309,8 +282,7 @@ export interface ApiUnitSummary {
 export interface ApiUnitLessonSummary {
   id: string;
   title: string;
-  core_concept: string;
-  user_level: string;
+  learner_level: string;
   learning_objectives: string[];
   key_concepts: string[];
   exercise_count: number;
@@ -320,7 +292,7 @@ export interface ApiUnitDetail {
   id: string;
   title: string;
   description: string | null;
-  difficulty: string;
+  learner_level: string;
   lesson_order: string[];
   lessons: ApiUnitLessonSummary[];
   // New fields from backend
@@ -347,7 +319,7 @@ export interface UnitSummary {
   id: string;
   title: string;
   description: string | null;
-  difficulty: string;
+  learner_level: string;
   lesson_count: number;
   // New fields for admin list UI
   target_lesson_count: number | null;
@@ -358,7 +330,7 @@ export interface UnitSummary {
 export interface UnitLessonSummary {
   id: string;
   title: string;
-  user_level: string;
+  learner_level: string;
   exercise_count: number;
 }
 
@@ -366,7 +338,7 @@ export interface UnitDetail {
   id: string;
   title: string;
   description: string | null;
-  difficulty: string;
+  learner_level: string;
   lesson_order: string[];
   lessons: UnitLessonSummary[];
   // New fields for admin detail UI
@@ -493,8 +465,7 @@ export interface LLMRequestsQuery {
 }
 
 export interface LessonsQuery {
-  user_level?: string;
-  domain?: string;
+  learner_level?: string;
   search?: string;
   page?: number;
   page_size?: number;

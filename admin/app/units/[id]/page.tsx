@@ -37,7 +37,7 @@ export default function UnitDetailsPage({ params }: UnitDetailsPageProps) {
           <Link href="/units" className="text-sm text-gray-500 hover:text-gray-700">← Back to units</Link>
           <h1 className="mt-2 text-3xl font-bold text-gray-900">{unit.title}</h1>
           <div className="mt-2 flex items-center flex-wrap gap-2">
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">{unit.difficulty}</span>
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">{unit.learner_level}</span>
             <span className="text-sm text-gray-500">{unit.lessons.length} lessons</span>
             {typeof unit.target_lesson_count === 'number' && (
               <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">Target: {unit.target_lesson_count} lessons</span>
@@ -103,7 +103,7 @@ export default function UnitDetailsPage({ params }: UnitDetailsPageProps) {
                 <span className="w-8 h-8 inline-flex items-center justify-center rounded-full bg-gray-100 text-gray-700 text-sm font-medium">{idx + 1}</span>
                 <div>
                   <Link href={`/lessons/${l.id}`} className="text-blue-600 hover:text-blue-800 font-medium">{l.title}</Link>
-                  <div className="mt-1 text-sm text-gray-500">{l.user_level} • {l.exercise_count} exercises</div>
+                  <div className="mt-1 text-sm text-gray-500">{l.learner_level ?? 'beginner'} • {l.exercise_count} exercises</div>
                 </div>
               </div>
               <Link href={`/lessons/${l.id}`} className="text-sm text-blue-600 hover:text-blue-800">View lesson →</Link>

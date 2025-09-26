@@ -12,8 +12,7 @@
 interface ApiLessonSummary {
   id: string;
   title: string;
-  core_concept: string;
-  user_level: string;
+  learner_level: string;
   learning_objectives: string[];
   key_concepts: string[];
   exercise_count: number;
@@ -27,11 +26,10 @@ interface ApiBrowseLessonsResponse {
 interface ApiLessonDetail {
   id: string;
   title: string;
-  core_concept: string;
-  user_level: string;
+  learner_level: string;
   learning_objectives: string[];
   key_concepts: string[];
-  didactic_snippet: any;
+  mini_lesson: string;
   exercises: any[];
   glossary_terms: any[];
   created_at: string;
@@ -45,8 +43,7 @@ interface ApiLessonDetail {
 export interface LessonSummary {
   readonly id: string;
   readonly title: string;
-  readonly coreConcept: string;
-  readonly userLevel: 'beginner' | 'intermediate' | 'advanced';
+  readonly learnerLevel: 'beginner' | 'intermediate' | 'advanced';
   readonly learningObjectives: string[];
   readonly keyConcepts: string[];
   readonly componentCount: number;
@@ -54,7 +51,7 @@ export interface LessonSummary {
   readonly isReadyForLearning: boolean; // Calculated from component count
   readonly createdAt?: string;
   readonly updatedAt?: string;
-  readonly difficultyLevel: string; // Formatted user level
+  readonly learnerLevelLabel: string; // Formatted learner level
   readonly durationDisplay: string; // Formatted duration
   readonly readinessStatus: string; // Formatted readiness
   readonly tags: string[]; // Derived from key concepts
@@ -63,18 +60,17 @@ export interface LessonSummary {
 export interface LessonDetail {
   readonly id: string;
   readonly title: string;
-  readonly coreConcept: string;
-  readonly userLevel: 'beginner' | 'intermediate' | 'advanced';
+  readonly learnerLevel: 'beginner' | 'intermediate' | 'advanced';
   readonly learningObjectives: string[];
   readonly keyConcepts: string[];
-  readonly didacticSnippet: any;
+  readonly miniLesson: string;
   readonly exercises: any[];
   readonly glossaryTerms: any[];
   readonly exerciseCount: number;
   readonly createdAt: string;
   readonly estimatedDuration: number;
   readonly isReadyForLearning: boolean;
-  readonly difficultyLevel: string;
+  readonly learnerLevelLabel: string;
   readonly durationDisplay: string;
   readonly readinessStatus: string;
   readonly tags: string[];
@@ -94,14 +90,14 @@ export interface BrowseLessonsResponse {
 
 export interface LessonFilters {
   readonly query?: string;
-  readonly userLevel?: 'beginner' | 'intermediate' | 'advanced';
+  readonly learnerLevel?: 'beginner' | 'intermediate' | 'advanced';
   readonly minDuration?: number;
   readonly maxDuration?: number;
   readonly readyOnly?: boolean;
 }
 
 export interface LessonSortOptions {
-  readonly sortBy: 'relevance' | 'duration' | 'userLevel' | 'title';
+  readonly sortBy: 'relevance' | 'duration' | 'learnerLevel' | 'title';
   readonly sortOrder: 'asc' | 'desc';
 }
 
@@ -117,7 +113,7 @@ export interface PaginationInfo {
 
 export interface SearchLessonsRequest {
   readonly query?: string;
-  readonly userLevel?: 'beginner' | 'intermediate' | 'advanced';
+  readonly learnerLevel?: 'beginner' | 'intermediate' | 'advanced';
   readonly minDuration?: number;
   readonly maxDuration?: number;
   readonly readyOnly?: boolean;
@@ -127,7 +123,7 @@ export interface SearchLessonsRequest {
 
 export interface CatalogStatistics {
   readonly totalLessons: number;
-  readonly lessonsByUserLevel: Record<string, number>;
+  readonly lessonsByLearnerLevel: Record<string, number>;
   readonly lessonsByReadiness: Record<string, number>;
   readonly averageDuration: number;
   readonly durationDistribution: Record<string, number>;
@@ -158,14 +154,13 @@ export function toLessonSummaryDTO(api: ApiLessonSummary): LessonSummary {
   return {
     id: api.id,
     title: api.title,
-    coreConcept: api.core_concept,
-    userLevel: api.user_level as 'beginner' | 'intermediate' | 'advanced',
+    learnerLevel: api.learner_level as 'beginner' | 'intermediate' | 'advanced',
     learningObjectives: api.learning_objectives,
     keyConcepts: api.key_concepts,
     componentCount: api.exercise_count, // kept for compatibility; represents exercises
     estimatedDuration,
     isReadyForLearning,
-    difficultyLevel: formatDifficultyLevel(api.user_level),
+    learnerLevelLabel: formatLearnerLevel(api.learner_level),
     durationDisplay: formatDuration(estimatedDuration),
     readinessStatus: formatReadinessStatus(
       isReadyForLearning,
@@ -185,18 +180,17 @@ export function toLessonDetailDTO(api: ApiLessonDetail): LessonDetail {
   return {
     id: api.id,
     title: api.title,
-    coreConcept: api.core_concept,
-    userLevel: api.user_level as 'beginner' | 'intermediate' | 'advanced',
+    learnerLevel: api.learner_level as 'beginner' | 'intermediate' | 'advanced',
     learningObjectives: api.learning_objectives,
     keyConcepts: api.key_concepts,
-    didacticSnippet: api.didactic_snippet,
+    miniLesson: api.mini_lesson,
     exercises: api.exercises,
     glossaryTerms: api.glossary_terms,
     exerciseCount: api.exercise_count,
     createdAt: api.created_at,
     estimatedDuration,
     isReadyForLearning,
-    difficultyLevel: formatDifficultyLevel(api.user_level),
+    learnerLevelLabel: formatLearnerLevel(api.learner_level),
     durationDisplay: formatDuration(estimatedDuration),
     readinessStatus: formatReadinessStatus(
       isReadyForLearning,
@@ -229,13 +223,13 @@ export function toBrowseLessonsResponseDTO(
 // Helper Functions
 // ================================
 
-function formatDifficultyLevel(userLevel: string): string {
+function formatLearnerLevel(learnerLevel: string): string {
   const levelMap: Record<string, string> = {
     beginner: 'Beginner',
     intermediate: 'Intermediate',
     advanced: 'Advanced',
   };
-  return levelMap[userLevel] || 'Unknown';
+  return levelMap[learnerLevel] || 'Unknown';
 }
 
 function formatDuration(minutes: number): string {
@@ -304,7 +298,7 @@ export interface ApiUnitSummary {
   id: string;
   title: string;
   description: string | null;
-  difficulty: string;
+  learner_level: string;
   lesson_count: number;
   // New fields from backend
   target_lesson_count?: number | null;
@@ -319,13 +313,12 @@ export interface ApiUnitDetail {
   id: string;
   title: string;
   description: string | null;
-  difficulty: string;
+  learner_level: string;
   lesson_order: string[];
   lessons: Array<{
     id: string;
     title: string;
-    core_concept: string;
-    user_level: string;
+    learner_level: string;
     learning_objectives: string[];
     key_concepts: string[];
     exercise_count: number;
@@ -404,7 +397,7 @@ export interface UnitProgress {
 }
 
 export function toUnitDTO(api: ApiUnitSummary): Unit {
-  const difficulty = (api.difficulty as Difficulty) ?? 'beginner';
+  const difficulty = (api.learner_level as Difficulty) ?? 'beginner';
   const status = (api.status as UnitStatus) ?? 'completed';
 
   return {
@@ -413,7 +406,7 @@ export function toUnitDTO(api: ApiUnitSummary): Unit {
     description: api.description,
     difficulty,
     lessonCount: api.lesson_count,
-    difficultyLabel: formatDifficultyLevel(difficulty),
+    difficultyLabel: formatLearnerLevel(difficulty),
     targetLessonCount: api.target_lesson_count ?? null,
     generatedFromTopic: !!api.generated_from_topic,
     status,
@@ -430,7 +423,7 @@ export function toUnitDTO(api: ApiUnitSummary): Unit {
 }
 
 export function toUnitDetailDTO(api: ApiUnitDetail): UnitDetail {
-  const difficulty = (api.difficulty as Difficulty) ?? 'beginner';
+  const difficulty = (api.learner_level as Difficulty) ?? 'beginner';
   return {
     id: api.id,
     title: api.title,
@@ -441,8 +434,7 @@ export function toUnitDetailDTO(api: ApiUnitDetail): UnitDetail {
       toLessonSummaryDTO({
         id: l.id,
         title: l.title,
-        core_concept: l.core_concept,
-        user_level: l.user_level,
+        learner_level: l.learner_level,
         learning_objectives: l.learning_objectives,
         key_concepts: l.key_concepts,
         exercise_count: l.exercise_count,

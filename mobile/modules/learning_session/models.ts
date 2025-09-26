@@ -147,6 +147,32 @@ export interface ExerciseState {
 }
 
 // ================================
+// Session Exercise Types (UI consumption; aligned to new package)
+// ================================
+
+export type ExerciseType = 'mcq' | 'short_answer' | 'coding';
+
+export interface MCQOptionDTO {
+  readonly label: string;
+  readonly text: string;
+  readonly rationale_wrong?: string;
+}
+
+export interface MCQContentDTO {
+  readonly question: string;
+  readonly options: MCQOptionDTO[];
+  readonly correct_answer: string; // Letter label (e.g., "A")
+  readonly explanation: string;
+}
+
+export interface SessionExercise {
+  readonly id: string;
+  readonly type: ExerciseType;
+  readonly title: string;
+  readonly content: MCQContentDTO | Record<string, unknown>;
+}
+
+// ================================
 // Request/Response Types
 // ================================
 

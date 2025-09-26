@@ -1,11 +1,11 @@
 /**
- * DidacticSnippet Component - Educational Content Presentation
+ * MiniLesson Component - Educational Content Presentation
  *
  * This component presents educational content in an engaging, mobile-optimized format.
  * It's designed to deliver knowledge before testing understanding, serving as the
  * "teaching" phase of the learning experience.
  *
- * Based on the original DidacticSnippet component, adapted for the new modular architecture.
+ * Renamed from DidacticSnippet to MiniLesson per new model terminology.
  */
 
 import React, { useState } from 'react';
@@ -34,10 +34,9 @@ import { uiSystemProvider } from '../../ui_system/public';
 import { reducedMotion } from '../../ui_system/utils/motion';
 import { animationTimings } from '../../ui_system/utils/animations';
 
-interface DidacticSnippetProps {
+interface MiniLessonProps {
   snippet: {
     title?: string;
-    core_concept?: string;
     snippet?: string;
     explanation?: string;
     key_points?: string[];
@@ -48,11 +47,11 @@ interface DidacticSnippetProps {
   isLoading?: boolean;
 }
 
-export default function DidacticSnippet({
+export default function MiniLesson({
   snippet,
   onContinue,
   isLoading = false,
-}: DidacticSnippetProps) {
+}: MiniLessonProps) {
   const uiSystem = uiSystemProvider();
   const theme = uiSystem.getCurrentTheme();
   const styles = createStyles(theme);
@@ -60,7 +59,7 @@ export default function DidacticSnippet({
 
   const [hasScrolled, setHasScrolled] = useState(false);
 
-  console.log('📖 [DidacticSnippet] Received snippet:', snippet);
+  console.log('📖 [MiniLesson] Received snippet:', snippet);
 
   // Animated values
   const continueButtonOpacity = useSharedValue(0);
@@ -108,7 +107,7 @@ export default function DidacticSnippet({
 
   // Ensure we have valid content structure
   if (!snippet) {
-    console.error('DidacticSnippet: No snippet provided');
+    console.error('MiniLesson: No snippet provided');
     return (
       <View style={styles.container}>
         <View style={styles.errorContainer}>
@@ -122,7 +121,6 @@ export default function DidacticSnippet({
   const title = snippet.title || 'Learning Lesson';
   const content =
     snippet.explanation || snippet.snippet || 'Content will be displayed here.';
-  const core_concept = snippet.core_concept;
   const key_points = snippet.key_points || [];
   const examples = snippet.examples || [];
 
@@ -140,7 +138,7 @@ export default function DidacticSnippet({
         style={styles.titleSection}
       >
         <Text style={styles.title}>{title}</Text>
-        {core_concept && <Text style={styles.subtitle}>{core_concept}</Text>}
+        {/* core_concept removed per new models */}
       </Animated.View>
 
       {/* Main Content */}

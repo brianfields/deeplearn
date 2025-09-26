@@ -91,7 +91,7 @@ describe('Learning Session Module', () => {
         const mockLessonDetail = {
           id: 'topic-1',
           title: 'Test Topic',
-          didacticSnippet: { id: 'd1', plain_explanation: '...' },
+          miniLesson: '...',
           exercises: [{ id: 'mcq-1', exercise_type: 'mcq', stem: 'Q?' }],
           glossaryTerms: [],
         };
@@ -259,7 +259,7 @@ describe('Learning Session Module', () => {
         const mockLessonDetail = {
           id: 'topic-1',
           title: 'Test Topic',
-          didacticSnippet: { id: 'd1', plain_explanation: '...' },
+          miniLesson: '...',
           exercises: [],
           glossaryTerms: [],
         };

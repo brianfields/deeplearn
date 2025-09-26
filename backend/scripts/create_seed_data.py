@@ -3,7 +3,7 @@
 Seed Data Creation Script
 
 Creates sample unit and lesson data using the canonical package structure
-(didactic_snippet, exercises, glossary) without making actual LLM calls.
+without making actual LLM calls.
 This creates realistic seed data for development and testing purposes.
 
 Usage:
@@ -28,7 +28,7 @@ from modules.content.models import (
     LessonModel,
     UnitModel,  # Import UnitModel so SQLAlchemy knows about the units table
 )
-from modules.content.package_models import DidacticSnippet, GlossaryTerm, LengthBudgets, LessonPackage, MCQAnswerKey, MCQExercise, MCQOption, Meta, Objective
+from modules.content.package_models import GlossaryTerm, LessonPackage, MCQAnswerKey, MCQExercise, MCQOption, Meta, Objective
 from modules.flow_engine.models import FlowRunModel, FlowStepRunModel
 from modules.infrastructure.public import infrastructure_provider
 from modules.llm_services.models import LLMRequestModel
@@ -37,16 +37,12 @@ from modules.llm_services.models import LLMRequestModel
 def create_sample_lesson_package(
     lesson_id: str,
     title: str = "Cross-Entropy Loss in Deep Learning",
-    core_concept: str = "Cross-Entropy Loss Function",
-    user_level: str = "intermediate",
-    domain: str = "Machine Learning",
+    learner_level: str = "intermediate",
 ) -> LessonPackage:
     """Create sample lesson package with all components."""
 
     # Create metadata
-    meta = Meta(
-        lesson_id=lesson_id, title=title, core_concept=core_concept, user_level=user_level, domain=domain, package_schema_version=1, content_version=1, length_budgets=LengthBudgets(stem_max_words=35, vignette_max_words=80, option_max_words=12)
-    )
+    meta = Meta(lesson_id=lesson_id, title=title, learner_level=learner_level, package_schema_version=1, content_version=1)
 
     # Create learning objectives
     objectives = [
@@ -59,31 +55,21 @@ def create_sample_lesson_package(
 
     # Create glossary terms
     glossary_terms = [
-        GlossaryTerm(id="term_1", term="Cross-entropy loss", definition="A measure of difference between two probability distributions", relation_to_core="Core concept of the lesson"),
-        GlossaryTerm(id="term_2", term="One-hot encoding", definition="A representation where only one element is 1 and others are 0", relation_to_core="Used to represent true labels in cross-entropy calculation"),
-        GlossaryTerm(id="term_3", term="Softmax", definition="A function that converts logits to probabilities", relation_to_core="Often used before cross-entropy loss in neural networks"),
-        GlossaryTerm(id="term_4", term="Gradient descent", definition="An optimization algorithm that minimizes loss functions", relation_to_core="Algorithm used to minimize cross-entropy loss"),
-        GlossaryTerm(id="term_5", term="Convex function", definition="A function with a single global minimum", relation_to_core="Cross-entropy loss is convex, ensuring reliable optimization"),
+        GlossaryTerm(id="term_1", term="Cross-entropy loss", definition="A measure of difference between two probability distributions"),
+        GlossaryTerm(id="term_2", term="One-hot encoding", definition="A representation where only one element is 1 and others are 0"),
+        GlossaryTerm(id="term_3", term="Softmax", definition="A function that converts logits to probabilities"),
+        GlossaryTerm(id="term_4", term="Gradient descent", definition="An optimization algorithm that minimizes loss functions"),
+        GlossaryTerm(id="term_5", term="Convex function", definition="A function with a single global minimum"),
     ]
 
-    # Create lesson-wide didactic snippet (new mobile-friendly structure)
-    lesson_didactic_snippet = DidacticSnippet(
-        id="lesson_explanation",
-        plain_explanation="""Cross-entropy loss is a fundamental concept in machine learning that measures how different your model's predictions are from the actual answers.
+    # Create lesson-wide mini-lesson
+    mini_lesson = """Cross-entropy loss is a fundamental concept in machine learning that measures how different your model's predictions are from the actual answers.
 
 Think of it like a scoring system for classification tasks. When your model is confident and correct, the loss is very low. When it's confident but wrong, the loss becomes very high, sending a strong signal to improve.
 
 Cross-entropy works by comparing probability distributions. Your model outputs probabilities for each possible class, and cross-entropy measures how far these are from the true "one-hot" distribution where the correct class has probability 1.
 
-In practice, cross-entropy is the go-to loss function for classification because it provides strong learning signals and has nice mathematical properties that make optimization reliable.""",
-        key_takeaways=[
-            "Cross-entropy measures the difference between predicted and actual probability distributions",
-            "It provides strong gradients when predictions are wrong, helping models learn faster",
-            "The loss approaches zero when predictions are correct and confident",
-            "It's the standard choice for classification tasks in neural networks",
-        ],
-        worked_example="For a 3-class problem with true label [0,1,0] and prediction [0.2,0.7,0.1], cross-entropy = -(0*log(0.2) + 1*log(0.7) + 0*log(0.1)) = -log(0.7) ≈ 0.357",
-    )
+In practice, cross-entropy is the go-to loss function for classification because it provides strong learning signals and has nice mathematical properties that make optimization reliable."""
 
     # Create exercises directly as proper MCQExercise objects
     exercises = [
@@ -186,7 +172,7 @@ In practice, cross-entropy is the go-to loss function for classification because
         meta=meta,
         objectives=objectives,
         glossary={"terms": glossary_terms},
-        didactic_snippet=lesson_didactic_snippet,
+        mini_lesson=mini_lesson,
         exercises=exercises,
         misconceptions=misconceptions,
         confusables=confusables,
@@ -196,22 +182,19 @@ In practice, cross-entropy is the go-to loss function for classification because
 def create_sample_lesson_data(
     lesson_id: str,
     title: str = "Cross-Entropy Loss in Deep Learning",
-    core_concept: str = "Cross-Entropy Loss Function",
-    user_level: str = "intermediate",
-    domain: str = "Machine Learning",
+    learner_level: str = "intermediate",
     flow_run_id: uuid.UUID | None = None,
 ) -> dict[str, Any]:
     """Create sample lesson data structure with package."""
 
     # Create the lesson package
-    package = create_sample_lesson_package(lesson_id, title, core_concept, user_level, domain)
+    package = create_sample_lesson_package(lesson_id, title, learner_level)
 
     return {
         "id": lesson_id,
         "flow_run_id": flow_run_id,
         "title": title,
-        "core_concept": core_concept,
-        "user_level": user_level,
+        "learner_level": learner_level,
         "source_material": """
         # Cross-Entropy Loss in Deep Learning
 
@@ -228,20 +211,6 @@ def create_sample_lesson_data(
         - y_i is the true label (one-hot encoded)
         - ŷ_i is the predicted probability for class i
         """,
-        "source_domain": domain,
-        "source_level": user_level,
-        "refined_material": {
-            "outline_bullets": [
-                "Mathematical Foundation: Cross-entropy measures information content and difference between probability distributions",
-                "Implementation: PyTorch provides nn.CrossEntropyLoss() for numerically stable computation",
-                "Applications: Essential for multi-class classification tasks in neural networks",
-            ],
-            "evidence_anchors": [
-                "Cross-entropy quantifies how far predicted probabilities are from actual labels",
-                "Combines softmax activation and cross-entropy loss in single function",
-                "Used in multi-class classification where each sample belongs to exactly one class",
-            ],
-        },
         "package": package.model_dump(),
         "package_version": 1,
     }
@@ -264,7 +233,7 @@ def create_sample_flow_run(flow_run_id: uuid.UUID, lesson_id: str, lesson_data: 
         "status": "completed",
         "execution_mode": "sync",
         "current_step": None,
-        "step_progress": 5,  # 1 metadata + 1 misconception_bank + 1 didactic + 1 glossary + 1 MCQs
+        "step_progress": 5,
         "total_steps": 5,
         "progress_percentage": 100.0,
         "created_at": now,
@@ -276,18 +245,23 @@ def create_sample_flow_run(flow_run_id: uuid.UUID, lesson_id: str, lesson_data: 
         "total_cost": 0.0771,  # Realistic cost estimate
         "execution_time_ms": 45000,  # 45 seconds
         "inputs": {
-            "title": lesson_data["title"],
-            "core_concept": lesson_data["core_concept"],
-            "source_material": lesson_data["source_material"],
-            "user_level": lesson_data["user_level"],
-            "domain": lesson_data["source_domain"],
+            "topic": lesson_data["title"],
+            "unit_source_material": lesson_data["source_material"],
+            "learner_level": lesson_data["learner_level"],
+            "voice": "professional",
+            "learning_objectives": [obj["text"] for obj in package["objectives"]],
+            "lesson_objective": "Understand cross-entropy loss and its applications",
         },
         "outputs": {
+            "topic": lesson_data["title"],
+            "learner_level": lesson_data["learner_level"],
+            "voice": "professional",
             "learning_objectives": [obj["text"] for obj in package["objectives"]],
+            "misconceptions": package["misconceptions"],
+            "confusables": package["confusables"],
             "glossary": package["glossary"],
-            "didactic_snippet": package["didactic_snippet"],
-            "exercises": package["exercises"],
-            "refined_material": lesson_data["refined_material"],
+            "mini_lesson": package["mini_lesson"],
+            "mcqs": {"metadata": {"total_mcqs": len(package["exercises"]), "lo_coverage": len({e["lo_id"] for e in package["exercises"]})}, "mcqs": package["exercises"]},
         },
         "flow_metadata": {"lesson_id": lesson_id, "package_version": 1},
         "error_message": None,
@@ -302,15 +276,7 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, lesson_data: dict[str, Any])
     # Extract package data
     package = lesson_data["package"]
 
-    # Get the original exercises from the lesson data creation
-    # We'll create a simplified version for the step outputs
-    sample_exercises = [
-        {"lo_id": "lo_1", "stem": "What is cross-entropy loss?", "options": ["Option A", "Option B", "Option C"], "correct_answer": "B"},
-        {"lo_id": "lo_2", "stem": "Why use cross-entropy?", "options": ["Option A", "Option B", "Option C"], "correct_answer": "B"},
-        {"lo_id": "lo_3", "stem": "PyTorch function?", "options": ["Option A", "Option B", "Option C"], "correct_answer": "B"},
-        {"lo_id": "lo_4", "stem": "Compare to MSE?", "options": ["Option A", "Option B", "Option C"], "correct_answer": "B"},
-        {"lo_id": "lo_5", "stem": "High confidence?", "options": ["Option A", "Option B", "Option C"], "correct_answer": "B"},
-    ]
+    # We'll use the actual exercises from the package in the step outputs
 
     # Step 1: Extract lesson metadata
     step_runs.append(
@@ -321,7 +287,7 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, lesson_data: dict[str, Any])
             "step_name": "extract_lesson_metadata",
             "step_order": 1,
             "status": "completed",
-            "inputs": {"title": lesson_data["title"], "core_concept": lesson_data["core_concept"]},
+            "inputs": {"title": lesson_data["title"]},
             "outputs": {
                 "learning_objectives": [obj["text"] for obj in package["objectives"]],
                 "key_concepts": [term["term"] for term in package["glossary"]["terms"][:3]],  # First 3 terms
@@ -347,7 +313,6 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, lesson_data: dict[str, Any])
             "step_order": 2,
             "status": "completed",
             "inputs": {
-                "core_concept": lesson_data["core_concept"],
                 "learning_objectives": [obj["text"] for obj in package["objectives"]],
                 "key_concepts": [term["term"] for term in package["glossary"]["terms"][:3]],
             },
@@ -374,34 +339,32 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, lesson_data: dict[str, Any])
         }
     )
 
-    # Step 3: Generate lesson-wide didactic snippet
-    didactic_snippet = package["didactic_snippet"]
+    # Step 3: Generate lesson-wide mini-lesson
+    mini_lesson_text = package["mini_lesson"]
     step_runs.append(
         {
             "id": uuid.uuid4(),
             "flow_run_id": flow_run_id,
             "llm_request_id": uuid.uuid4(),
-            "step_name": "generate_didactic_snippet",
+            "step_name": "extract_lesson_metadata",
             "step_order": 3,
             "status": "completed",
             "inputs": {
-                "lesson_title": lesson_data["title"],
-                "core_concept": lesson_data["core_concept"],
+                "topic": lesson_data["title"],
+                "learner_level": lesson_data["learner_level"],
+                "voice": "professional",
                 "learning_objectives": [obj["text"] for obj in package["objectives"]],
-                "key_concepts": [term["term"] for term in package["glossary"]["terms"][:3]],
+                "lesson_objective": "Understand cross-entropy loss and its applications",
+                "unit_source_material": lesson_data["source_material"],
             },
             "outputs": {
-                "introduction": "Cross-entropy loss is a fundamental concept in machine learning...",
-                "core_explanation": didactic_snippet["plain_explanation"],
-                "key_points": didactic_snippet["key_takeaways"],
-                "practical_context": "In practice, cross-entropy is the go-to loss function for classification...",
-                "worked_example": didactic_snippet.get("worked_example"),
+                "mini_lesson": mini_lesson_text,
             },
             "tokens_used": 1800,
             "cost_estimate": 0.009,
             "execution_time_ms": 4200,
             "error_message": None,
-            "step_metadata": {"prompt_file": "generate_didactic_snippet.md"},
+            "step_metadata": {"prompt_file": "extract_lesson_metadata.md"},
             "created_at": now,
             "updated_at": now,
             "completed_at": now,
@@ -430,24 +393,28 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, lesson_data: dict[str, Any])
         }
     )
 
-    # Step 5: Generate all exercises in one call
+    # Step 4: Generate MCQs
     step_runs.append(
         {
             "id": uuid.uuid4(),
             "flow_run_id": flow_run_id,
             "llm_request_id": uuid.uuid4(),
-            "step_name": "generate_mcqs",  # Updated to match new step name
-            "step_order": 5,
+            "step_name": "generate_mcqs",
+            "step_order": 4,
             "status": "completed",
             "inputs": {
-                "lesson_title": lesson_data["title"],
+                "topic": lesson_data["title"],
+                "learner_level": lesson_data["learner_level"],
+                "voice": "professional",
                 "learning_objectives": [obj["text"] for obj in package["objectives"]],
-                "distractor_pools": {},  # Simplified for seed data
+                "misconceptions": package["misconceptions"],
+                "confusables": package["confusables"],
+                "glossary": package["glossary"],
             },
-            "outputs": {"exercises": sample_exercises},
-            "tokens_used": 3500,  # Higher token count for generating multiple MCQs
+            "outputs": {"mcqs": {"metadata": {"total_mcqs": len(package["exercises"]), "lo_coverage": len({e["lo_id"] for e in package["exercises"]})}, "mcqs": package["exercises"]}},
+            "tokens_used": 3500,
             "cost_estimate": 0.0175,
-            "execution_time_ms": 8000,  # Longer execution time for multiple MCQs
+            "execution_time_ms": 8000,
             "error_message": None,
             "step_metadata": {"prompt_file": "generate_mcqs.md"},
             "created_at": now,
@@ -479,7 +446,7 @@ def create_sample_llm_requests(step_runs: list[dict[str, Any]]) -> list[dict[str
                     {"role": "user", "content": "Generate misconceptions and distractors for Cross-Entropy Loss..."},
                 ]
                 response_content = json.dumps(step_run["outputs"])
-            elif step_run["step_name"] == "generate_didactic_snippet":
+            elif step_run["step_name"] == "generate_mini_lesson":
                 messages = [
                     {"role": "system", "content": "You are an expert educational content creator."},
                     {"role": "user", "content": "Generate an educational explanation for Cross-Entropy Loss..."},
@@ -549,15 +516,14 @@ async def main() -> None:
     """Main function to create seed data."""
     parser = argparse.ArgumentParser(description="Create seed data for development and testing")
     parser.add_argument("--lesson", default="Cross-Entropy Loss in Deep Learning", help="Lesson title")
-    parser.add_argument("--concept", default="Cross-Entropy Loss Function", help="Core concept")
-    parser.add_argument("--level", default="intermediate", choices=["beginner", "intermediate", "advanced"], help="User level")
-    parser.add_argument("--domain", default="Machine Learning", help="Subject domain")
+    parser.add_argument("--concept", default="Cross-Entropy Loss Function", help="Core concept (deprecated)")
+    parser.add_argument("--level", default="intermediate", choices=["beginner", "intermediate", "advanced"], help="Learner level")
     parser.add_argument("--verbose", action="store_true", help="Show detailed progress")
     parser.add_argument("--output", help="Save summary to JSON file")
     # Unit-related options
     parser.add_argument("--unit-title", default="Introduction to Machine Learning", help="Unit title for grouping lessons")
     parser.add_argument("--unit-description", default="Foundational concepts and probability tools", help="Unit description")
-    parser.add_argument("--unit-difficulty", default="beginner", choices=["beginner", "intermediate", "advanced"], help="Unit difficulty")
+    parser.add_argument("--unit-learner-level", default="beginner", choices=["beginner", "intermediate", "advanced"], help="Unit learner level")
 
     args = parser.parse_args()
 
@@ -567,8 +533,7 @@ async def main() -> None:
         print("🔧 Verbose mode enabled")
 
     print(f"🌱 Creating seed data for lesson: {args.lesson}")
-    print(f"🎯 Core concept: {args.concept}")
-    print(f"📊 Level: {args.level}, Domain: {args.domain}")
+    print(f"📊 Level: {args.level}")
     print()
 
     try:
@@ -581,14 +546,14 @@ async def main() -> None:
         # Create a unit to group lessons
         unit_id = str(uuid.uuid4())
         if args.verbose:
-            print(f"🧱 Creating unit: {args.unit_title} ({args.unit_difficulty})")
+            print(f"🧱 Creating unit: {args.unit_title} ({args.unit_learner_level})")
 
         # Generate first lesson (from args)
         lesson_id_1 = str(uuid.uuid4())
         flow_run_id_1 = uuid.uuid4()
         if args.verbose:
             print("📚 Creating lesson 1 data with package...")
-        lesson_data_1 = create_sample_lesson_data(lesson_id_1, args.lesson, args.concept, args.level, args.domain, flow_run_id_1)
+        lesson_data_1 = create_sample_lesson_data(lesson_id_1, args.lesson, args.level, flow_run_id_1)
         flow_run_data_1 = create_sample_flow_run(flow_run_id_1, lesson_id_1, lesson_data_1)
         step_runs_1 = create_sample_step_runs(flow_run_data_1["id"], lesson_data_1)
         llm_requests_1 = create_sample_llm_requests(step_runs_1)
@@ -601,9 +566,7 @@ async def main() -> None:
         lesson_data_2 = create_sample_lesson_data(
             lesson_id_2,
             title="Softmax and Probabilities",
-            core_concept="Softmax Function",
-            user_level=args.level,
-            domain=args.domain,
+            learner_level=args.level,
             flow_run_id=flow_run_id_2,
         )
         flow_run_data_2 = create_sample_flow_run(flow_run_id_2, lesson_id_2, lesson_data_2)
@@ -629,7 +592,7 @@ async def main() -> None:
                 id=unit_id,
                 title=args.unit_title,
                 description=args.unit_description,
-                difficulty=args.unit_difficulty,
+                learner_level=args.unit_learner_level,
                 lesson_order=[lesson_id_1, lesson_id_2],
                 learning_objectives=[
                     {"lo_id": "u_lo_1", "text": "Explain cross-entropy and its role in classification", "bloom_level": "Understand"},
@@ -654,7 +617,7 @@ async def main() -> None:
                 id=in_progress_unit_id,
                 title="Natural Language Processing Fundamentals",
                 description="Learn the basics of text processing and language models",
-                difficulty="intermediate",
+                learner_level="intermediate",
                 lesson_order=[],  # No lessons yet since it's being generated
                 learning_objectives=[
                     {"lo_id": "nlp_lo_1", "text": "Understand text tokenization and preprocessing", "bloom_level": "Understand"},
@@ -676,7 +639,7 @@ async def main() -> None:
                 id=failed_unit_id,
                 title="Advanced Quantum Computing",
                 description="Deep dive into quantum algorithms and error correction",
-                difficulty="advanced",
+                learner_level="advanced",
                 lesson_order=[],
                 learning_objectives=[
                     {"lo_id": "qc_lo_1", "text": "Implement Shor's algorithm", "bloom_level": "Apply"},
@@ -698,7 +661,7 @@ async def main() -> None:
                 id=draft_unit_id,
                 title="Introduction to Data Visualization",
                 description="Learn to create compelling visualizations with Python",
-                difficulty="beginner",
+                learner_level="beginner",
                 lesson_order=[],
                 learning_objectives=[
                     {"lo_id": "viz_lo_1", "text": "Create basic plots with matplotlib", "bloom_level": "Apply"},
@@ -720,7 +683,7 @@ async def main() -> None:
                 id=completed_unit_2_id,
                 title="Statistics for Data Science",
                 description="Essential statistical concepts for data analysis",
-                difficulty="intermediate",
+                learner_level="intermediate",
                 lesson_order=[],  # Would normally have lesson IDs
                 learning_objectives=[
                     {"lo_id": "stats_lo_1", "text": "Calculate and interpret confidence intervals", "bloom_level": "Apply"},
@@ -801,33 +764,29 @@ async def main() -> None:
                     "id": unit_id,
                     "title": args.unit_title,
                     "description": args.unit_description,
-                    "difficulty": args.unit_difficulty,
+                    "learner_level": args.unit_learner_level,
                     "lesson_order": [lesson_id_1, lesson_id_2],
                 },
                 "lessons": [
                     {
                         "lesson_id": lesson_id_1,
                         "title": lesson_data_1["title"],
-                        "concept": lesson_data_1["core_concept"],
-                        "user_level": args.level,
-                        "domain": args.domain,
+                        "learner_level": args.level,
                         "package_version": lesson_data_1["package_version"],
                         "objectives_count": len(package_1["objectives"]),
                         "glossary_terms_count": len(package_1["glossary"]["terms"]),
                         "exercises_count": len(package_1["exercises"]),
-                        "didactic_snippet_present": bool(package_1.get("didactic_snippet")),
+                        "mini_lesson_present": bool(package_1.get("mini_lesson")),
                     },
                     {
                         "lesson_id": lesson_id_2,
                         "title": lesson_data_2["title"],
-                        "concept": lesson_data_2["core_concept"],
-                        "user_level": args.level,
-                        "domain": args.domain,
+                        "learner_level": args.level,
                         "package_version": lesson_data_2["package_version"],
                         "objectives_count": len(package_2["objectives"]),
                         "glossary_terms_count": len(package_2["glossary"]["terms"]),
                         "exercises_count": len(package_2["exercises"]),
-                        "didactic_snippet_present": bool(package_2.get("didactic_snippet")),
+                        "mini_lesson_present": bool(package_2.get("mini_lesson")),
                     },
                 ],
                 "created_with": "seed_data_script_package_model_units",

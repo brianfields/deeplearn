@@ -13,103 +13,89 @@ from pydantic import BaseModel
 
 from modules.flow_engine.public import BaseFlow
 
-from .steps import ChunkSourceMaterialStep, ExtractUnitMetadataStep, FastLessonMetadataStep, GenerateMCQStep, GenerateUnitSourceMaterialStep
+from .steps import ExtractLessonMetadataStep, ExtractUnitMetadataStep, GenerateMCQStep, GenerateUnitSourceMaterialStep
 
 logger = logging.getLogger(__name__)
 
 
 class LessonCreationFlow(BaseFlow):
-    """Create a complete lesson using the fast combined step + MCQs."""
+    """Create a complete lesson using lesson metadata extraction + MCQs.
+
+    Pipeline:
+    1) Extract lesson metadata and mini-lesson from unit source material
+    2) Generate 5 MCQs that cover the provided learning objectives
+    """
 
     flow_name = "lesson_creation"
 
     class Inputs(BaseModel):
-        title: str
-        core_concept: str
-        source_material: str
-        user_level: str = "intermediate"
-        domain: str = "General"
+        topic: str
+        learner_level: str
+        voice: str
+        learning_objectives: list[str]
+        lesson_objective: str
+        unit_source_material: str
 
     async def _execute_flow_logic(self, inputs: dict[str, Any]) -> dict[str, Any]:
-        logger.info(f"⚡ Lesson Creation Flow (fast default) - {inputs.get('title', 'Unknown')}")
+        logger.info(f"🧪 Lesson Creation Flow - {inputs.get('topic', 'Unknown')}")
 
-        # Combined step
-        combo_result = await FastLessonMetadataStep().execute(inputs)
-        combo = combo_result.output_content
+        # Step 1: Extract lesson metadata and mini-lesson
+        md_result = await ExtractLessonMetadataStep().execute(
+            {
+                "topic": inputs["topic"],
+                "learner_level": inputs["learner_level"],
+                "voice": inputs["voice"],
+                "learning_objectives": inputs["learning_objectives"],
+                "lesson_objective": inputs["lesson_objective"],
+                "unit_source_material": inputs["unit_source_material"],
+            }
+        )
+        lesson_md = md_result.output_content
 
-        # Prepare distractor pools keyed by LO id
-        bank_by_lo = {blk.lo_id: blk.distractors for blk in getattr(combo, "by_lo", [])}
-
-        # MCQs in single call
-        mcq_input = {
-            "lesson_title": inputs["title"],
-            "core_concept": inputs["core_concept"],
-            "learning_objectives": combo.learning_objectives,
-            "user_level": inputs["user_level"],
-            "length_budgets": combo.length_budgets,
-            "didactic_context": combo.didactic_snippet,
-            "distractor_pools": bank_by_lo,
-        }
-        mcq_result = await GenerateMCQStep().execute(mcq_input)
-        mcq_items = mcq_result.output_content.mcqs
-
-        # Convert MCQs to exercise dicts
-        exercises: list[dict[str, Any]] = []
-        for i, mcq in enumerate(mcq_items):
-            exercise_id = f"mcq_{i + 1}"
-            options_with_ids = []
-            for opt in mcq.options:
-                od = opt.model_dump()
-                od["id"] = f"{exercise_id}_{opt.label.lower()}"
-                options_with_ids.append(od)
-            exercises.append(
-                {
-                    "id": exercise_id,
-                    "exercise_type": "mcq",
-                    "lo_id": mcq.lo_id,
-                    "cognitive_level": mcq.cognitive_level,
-                    "estimated_difficulty": mcq.estimated_difficulty,
-                    "misconceptions_used": mcq.misconceptions_used,
-                    "stem": mcq.stem,
-                    "options": options_with_ids,
-                    "answer_key": mcq.answer_key.model_dump(),
-                }
-            )
+        # Step 2: Generate MCQs for this lesson
+        mcq_result = await GenerateMCQStep().execute(
+            {
+                "learner_level": inputs["learner_level"],
+                "voice": inputs["voice"],
+                "lesson_title": inputs["topic"],
+                "lesson_objective": inputs["lesson_objective"],
+                "learning_objectives": inputs["learning_objectives"],
+                "mini_lesson": lesson_md.mini_lesson,
+                "misconceptions": lesson_md.misconceptions,
+                "confusables": lesson_md.confusables,
+                "glossary": lesson_md.glossary,
+            }
+        )
+        mcq_out = mcq_result.output_content
 
         return {
-            "learning_objectives": [lo.model_dump() for lo in combo.learning_objectives],
-            "key_concepts": [kc.model_dump() for kc in combo.key_concepts],
-            "misconceptions": [m.model_dump() for m in combo.misconceptions],
-            "confusables": [c.model_dump() for c in combo.confusables],
-            "refined_material": combo.refined_material.model_dump(),
-            "length_budgets": combo.length_budgets.model_dump(),
-            "glossary": {"terms": [t.model_dump() for t in getattr(combo, "glossary", [])]},
-            "didactic_snippet": combo.didactic_snippet.model_dump(),
-            "exercises": exercises,
+            "topic": lesson_md.topic,
+            "learner_level": lesson_md.learner_level,
+            "voice": lesson_md.voice,
+            "learning_objectives": list(lesson_md.learning_objectives),
+            "misconceptions": [m.model_dump() for m in lesson_md.misconceptions],
+            "confusables": [c.model_dump() for c in lesson_md.confusables],
+            "glossary": [g.model_dump() for g in lesson_md.glossary],
+            "mini_lesson": lesson_md.mini_lesson,
+            "mcqs": [it.model_dump() for it in mcq_out.mcqs],
         }
 
 
 class UnitCreationFlow(BaseFlow):
-    """
-    Create a coherent learning unit from either a topic or provided source material.
+    """Create a coherent learning unit using only the active steps.
 
-    This flow orchestrates three major steps:
-    1) Generate comprehensive source material when only a topic is provided
-    2) Extract unit-level metadata (learning objectives, lesson titles/count, summary)
-    3) Chunk the source material into lesson-sized segments aligned to the plan
-
-    Returns a structured dictionary suitable for persisting a `Unit` in the
-    content module, including unit title, objectives, lesson plan, and chunks.
+    Pipeline:
+    1) Generate unit source material if not provided
+    2) Extract unit-level metadata (title, objectives, lessons, count)
     """
 
     flow_name = "unit_creation"
 
     class Inputs(BaseModel):
-        topic: str | None = None
-        source_material: str | None = None
+        topic: str
+        unit_source_material: str | None = None
         target_lesson_count: int | None = None
-        user_level: str = "beginner"
-        domain: str | None = None
+        learner_level: str = "beginner"
 
     async def _execute_flow_logic(self, inputs: dict[str, Any]) -> dict[str, Any]:
         """
@@ -125,18 +111,15 @@ class UnitCreationFlow(BaseFlow):
         logger.info("🧱 Unit Creation Flow - Starting")
 
         # Step 0: Ensure we have source material
-        material: str | None = inputs.get("source_material")
+        material: str | None = inputs.get("unit_source_material")
         topic: str | None = inputs.get("topic")
         if not material:
-            if not topic:
-                raise ValueError("Either 'source_material' or 'topic' must be provided")
             logger.info("📝 Generating source material from topic…")
             gen_result = await GenerateUnitSourceMaterialStep().execute(
                 {
-                    "topic": topic,
+                    "topic": topic or "",
                     "target_lesson_count": inputs.get("target_lesson_count"),
-                    "user_level": inputs.get("user_level", "beginner"),
-                    "domain": inputs.get("domain"),
+                    "learner_level": inputs.get("learner_level", "beginner"),
                 }
             )
             material = str(gen_result.output_content)
@@ -148,37 +131,18 @@ class UnitCreationFlow(BaseFlow):
         md_result = await ExtractUnitMetadataStep().execute(
             {
                 "topic": topic or "",
-                "source_material": material,
+                "learner_level": inputs.get("learner_level", "beginner"),
                 "target_lesson_count": inputs.get("target_lesson_count"),
-                "user_level": inputs.get("user_level", "beginner"),
-                "domain": inputs.get("domain"),
+                "unit_source_material": material,
             }
         )
         unit_md = md_result.output_content
 
-        # Step 2: Chunk source material into lesson-sized chunks
-        logger.info("📦 Chunking source material into lessons…")
-        chunk_result = await ChunkSourceMaterialStep().execute(
-            {
-                "source_material": material,
-                "lesson_titles": unit_md.lesson_titles,
-                "lesson_count": unit_md.lesson_count,
-                "target_lesson_count": inputs.get("target_lesson_count"),
-                "per_lesson_minutes": getattr(unit_md, "recommended_per_lesson_minutes", 5),
-                "user_level": inputs.get("user_level", "beginner"),
-            }
-        )
-
-        # Final assembly
-        chunks_out = [c.model_dump() for c in chunk_result.output_content.chunks]
+        # Final assembly (no chunking in active prompt set)
         return {
             "unit_title": unit_md.unit_title,
             "learning_objectives": [lo.model_dump() for lo in unit_md.learning_objectives],
-            "lesson_titles": list(unit_md.lesson_titles),
+            "lessons": [ls.model_dump() for ls in unit_md.lessons],
             "lesson_count": int(unit_md.lesson_count),
-            "recommended_per_lesson_minutes": int(getattr(unit_md, "recommended_per_lesson_minutes", 5)),
-            "target_lesson_count": inputs.get("target_lesson_count"),
-            "source_material": material,
-            "summary": getattr(unit_md, "summary", None),
-            "chunks": chunks_out,
+            "unit_source_material": material,
         }

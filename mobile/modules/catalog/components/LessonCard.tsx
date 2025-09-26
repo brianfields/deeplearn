@@ -97,9 +97,7 @@ export function LessonCard({
             >
               {lesson.title}
             </Text>
-            <Text variant="secondary" numberOfLines={2}>
-              {lesson.coreConcept}
-            </Text>
+            {/* coreConcept removed in new model; keep spacer */}
             {unitTitle && (
               <View
                 style={{
@@ -142,7 +140,7 @@ export function LessonCard({
           <View style={styles.detailItem}>
             <Target size={14} color={theme.colors.textSecondary} />
             <Text variant="caption" color={theme.colors.textSecondary}>
-              {lesson.difficultyLevel}
+              {lesson.learnerLevelLabel}
             </Text>
           </View>
 
