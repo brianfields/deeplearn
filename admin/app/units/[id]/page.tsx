@@ -103,7 +103,7 @@ export default function UnitDetailsPage({ params }: UnitDetailsPageProps) {
                 <span className="w-8 h-8 inline-flex items-center justify-center rounded-full bg-gray-100 text-gray-700 text-sm font-medium">{idx + 1}</span>
                 <div>
                   <Link href={`/lessons/${l.id}`} className="text-blue-600 hover:text-blue-800 font-medium">{l.title}</Link>
-                  <div className="mt-1 text-sm text-gray-500">{l.user_level} • {l.exercise_count} exercises</div>
+                  <div className="mt-1 text-sm text-gray-500">{l.user_level ?? 'beginner'} • {l.exercise_count} exercises</div>
                 </div>
               </div>
               <Link href={`/lessons/${l.id}`} className="text-sm text-blue-600 hover:text-blue-800">View lesson →</Link>

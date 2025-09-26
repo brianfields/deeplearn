@@ -24,13 +24,13 @@ import { useCreateUnit } from '../queries';
 
 interface CreateUnitFormData {
   topic: string;
-  difficulty: Difficulty;
+  learner_level: Difficulty;
   targetLessonCount: number | null;
 }
 
 interface CreateUnitErrors {
   topic?: string;
-  difficulty?: string;
+  learner_level?: string;
   targetLessonCount?: string;
 }
 
@@ -43,7 +43,7 @@ export function CreateUnitScreen() {
 
   const [formData, setFormData] = useState<CreateUnitFormData>({
     topic: '',
-    difficulty: 'beginner',
+    learner_level: 'beginner',
     targetLessonCount: null,
   });
 
@@ -85,14 +85,14 @@ export function CreateUnitScreen() {
 
     console.log('Starting unit creation with data:', {
       topic: formData.topic.trim(),
-      difficulty: formData.difficulty,
+      learner_level: formData.learner_level,
       targetLessonCount: formData.targetLessonCount,
     });
 
     try {
       const response = await createUnit.mutateAsync({
         topic: formData.topic.trim(),
-        difficulty: formData.difficulty,
+        difficulty: formData.learner_level,
         targetLessonCount: formData.targetLessonCount,
       });
 
@@ -213,7 +213,7 @@ export function CreateUnitScreen() {
             )}
           </View>
 
-          {/* Difficulty Selection */}
+          {/* Learner Level Selection */}
           <View style={styles.fieldContainer}>
             <Text
               style={[
@@ -221,7 +221,7 @@ export function CreateUnitScreen() {
                 { color: theme.colors.text, fontWeight: 'normal' },
               ]}
             >
-              Difficulty Level
+              Learner Level
             </Text>
             <View style={styles.difficultyContainer}>
               {difficultyOptions.map(option => (
@@ -233,14 +233,14 @@ export function CreateUnitScreen() {
                       borderColor: theme.colors.border,
                       backgroundColor: theme.colors.surface,
                     },
-                    formData.difficulty === option.value && {
+                    formData.learner_level === option.value && {
                       borderColor: theme.colors.primary,
                       backgroundColor: `${theme.colors.primary}1A`,
                     },
                   ]}
                   onPress={() => {
                     haptics.trigger('medium');
-                    setFormData({ ...formData, difficulty: option.value });
+                    setFormData({ ...formData, learner_level: option.value });
                   }}
                   disabled={isSubmitting}
                 >
@@ -248,7 +248,7 @@ export function CreateUnitScreen() {
                     style={[
                       styles.difficultyText,
                       { color: theme.colors.text },
-                      formData.difficulty === option.value && {
+                      formData.learner_level === option.value && {
                         color: theme.colors.primary,
                       },
                     ]}

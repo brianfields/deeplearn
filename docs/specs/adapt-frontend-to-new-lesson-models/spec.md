@@ -124,10 +124,10 @@
 - [x] Update `admin/modules/admin/components/lessons/LessonPackageViewer.tsx` to render mini_lesson markdown instead of complex didactic_snippet
 
 ### Testing and Validation Tasks
-- [ ] Fix any issues identified during implementation
-- [ ] Update existing maestro tests in mobile/e2e to work with MiniLesson component, adding testID attributes as needed
-- [ ] Ensure lint passes, i.e. ./format_code.sh runs clean
-- [ ] Ensure unit tests pass, i.e. (in backend) scripts/run_unit.py and (in mobile) npm run test both run clean
+- [x] Fix any issues identified during implementation
+- [x] Update existing maestro tests in mobile/e2e to work with MiniLesson component, adding testID attributes as needed
+- [x] Ensure lint passes, i.e. ./format_code.sh runs clean
+- [x] Ensure unit tests pass, i.e. (in backend) scripts/run_unit.py and (in mobile) npm run test both run clean
 - [ ] Follow the instructions in codegen/prompts/trace.md to ensure the user story is implemented correctly
 - [ ] Fix any issues documented during the tracing of the user story in docs/specs/adapt-frontend-to-new-lesson-models/trace.md
 - [ ] Follow the instructions in codegen/prompts/modulecheck.md to ensure the new code is following the modular architecture correctly

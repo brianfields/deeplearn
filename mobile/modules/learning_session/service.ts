@@ -273,10 +273,8 @@ export class LearningSessionService {
       }
 
       // Build exercise list from package (exclude non-assessment content)
-      const exercises: Array<SessionExercise | null> = (
-        lessonDetail.exercises || []
-      )
-        .map((ex: any, index: number) => {
+      const exercises = (lessonDetail.exercises || [])
+        .map((ex: any, index: number): SessionExercise | null => {
           if (ex.exercise_type !== 'mcq') {
             return null;
           }
@@ -309,7 +307,7 @@ export class LearningSessionService {
           };
           return dto;
         })
-        .filter(Boolean) as SessionExercise[];
+        .filter((e): e is SessionExercise => e !== null);
 
       return exercises;
     } catch (error) {
