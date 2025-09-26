@@ -48,8 +48,8 @@ export function LessonPackageViewer({ package: pkg }: LessonPackageViewerProps) 
             <p className="text-gray-900">{pkg.meta.domain}</p>
           </div>
           <div>
-            <span className="text-sm font-medium text-gray-600">User Level:</span>
-            <p className="text-gray-900">{pkg.meta.user_level}</p>
+            <span className="text-sm font-medium text-gray-600">Learner Level:</span>
+            <p className="text-gray-900">{pkg.meta.learner_level}</p>
           </div>
           <div>
             <span className="text-sm font-medium text-gray-600">Schema Version:</span>

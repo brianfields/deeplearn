@@ -183,6 +183,7 @@ export interface Objective {
 }
 
 export interface GlossaryTerm {
+  id: string;
   term: string;
   definition: string;
   micro_check: string | null;
@@ -270,7 +271,7 @@ export interface ApiUnitSummary {
   id: string;
   title: string;
   description: string | null;
-  difficulty: string;
+  learner_level: string;
   lesson_count: number;
   // New fields from backend
   target_lesson_count?: number | null;
@@ -281,8 +282,7 @@ export interface ApiUnitSummary {
 export interface ApiUnitLessonSummary {
   id: string;
   title: string;
-  core_concept: string;
-  user_level: string;
+  learner_level: string;
   learning_objectives: string[];
   key_concepts: string[];
   exercise_count: number;
@@ -292,7 +292,7 @@ export interface ApiUnitDetail {
   id: string;
   title: string;
   description: string | null;
-  difficulty: string;
+  learner_level: string;
   lesson_order: string[];
   lessons: ApiUnitLessonSummary[];
   // New fields from backend
@@ -319,7 +319,7 @@ export interface UnitSummary {
   id: string;
   title: string;
   description: string | null;
-  difficulty: string;
+  learner_level: string;
   lesson_count: number;
   // New fields for admin list UI
   target_lesson_count: number | null;
@@ -330,7 +330,7 @@ export interface UnitSummary {
 export interface UnitLessonSummary {
   id: string;
   title: string;
-  user_level: string;
+  learner_level: string;
   exercise_count: number;
 }
 
@@ -338,7 +338,7 @@ export interface UnitDetail {
   id: string;
   title: string;
   description: string | null;
-  difficulty: string;
+  learner_level: string;
   lesson_order: string[];
   lessons: UnitLessonSummary[];
   // New fields for admin detail UI

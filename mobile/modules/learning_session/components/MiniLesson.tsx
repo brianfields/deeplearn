@@ -37,7 +37,6 @@ import { animationTimings } from '../../ui_system/utils/animations';
 interface MiniLessonProps {
   snippet: {
     title?: string;
-    core_concept?: string;
     snippet?: string;
     explanation?: string;
     key_points?: string[];
@@ -122,7 +121,6 @@ export default function MiniLesson({
   const title = snippet.title || 'Learning Lesson';
   const content =
     snippet.explanation || snippet.snippet || 'Content will be displayed here.';
-  const core_concept = snippet.core_concept;
   const key_points = snippet.key_points || [];
   const examples = snippet.examples || [];
 
@@ -140,7 +138,7 @@ export default function MiniLesson({
         style={styles.titleSection}
       >
         <Text style={styles.title}>{title}</Text>
-        {core_concept && <Text style={styles.subtitle}>{core_concept}</Text>}
+        {/* core_concept removed per new models */}
       </Animated.View>
 
       {/* Main Content */}

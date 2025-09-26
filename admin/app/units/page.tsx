@@ -42,7 +42,7 @@ export default function UnitsPage() {
                     )}
                     <div className="mt-3 flex items-center flex-wrap gap-2 text-sm text-gray-500">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                        {u.difficulty}
+                        {u.learner_level}
                       </span>
                       <span className="text-xs text-gray-400">{u.lesson_count} lessons</span>
                       {typeof u.target_lesson_count === 'number' && (
