@@ -20,13 +20,9 @@ class LessonModel(Base):
 
     id = Column(String(36), primary_key=True)
     title = Column(String(255), nullable=False)
-    core_concept = Column(String(500), nullable=False)
-    user_level = Column(String(50), nullable=False)
+    learner_level = Column(String(50), nullable=False)
 
     source_material = Column(Text)
-    source_domain = Column(String(100))
-    source_level = Column(String(50))
-    refined_material = Column(JSON)
 
     package = Column(JSON, nullable=False)  # Defined in @package_models.py
     package_version = Column(Integer, nullable=False, default=1)
@@ -52,7 +48,7 @@ class UnitModel(Base):
     id = Column(String(36), primary_key=True)
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
-    difficulty = Column(String(50), nullable=False, default="beginner")
+    learner_level = Column(String(50), nullable=False, default="beginner")
 
     # Ordered list of lesson IDs belonging to this unit
     lesson_order = Column(JSON, nullable=False, default=list)
@@ -82,7 +78,7 @@ class UnitModel(Base):
     __table_args__ = (CheckConstraint("status IN ('draft', 'in_progress', 'completed', 'failed')", name="check_unit_status"),)
 
     def __repr__(self) -> str:  # pragma: no cover - repr convenience only
-        return f"<UnitModel(id={self.id}, title='{self.title}', difficulty='{self.difficulty}')>"
+        return f"<UnitModel(id={self.id}, title='{self.title}', learner_level='{self.learner_level}')>"
 
 
 """

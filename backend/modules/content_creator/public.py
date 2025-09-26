@@ -26,8 +26,7 @@ class ContentCreatorProvider(Protocol):
         source_material: str | None = None,
         background: bool = False,
         target_lesson_count: int | None = None,
-        user_level: str = "beginner",
-        domain: str | None = None,
+        learner_level: str = "beginner",
     ) -> ContentCreatorService.UnitCreationResult | ContentCreatorService.MobileUnitCreationResult: ...
 
     # generate_component method removed - it was unused
@@ -57,7 +56,7 @@ logger = logging.getLogger(__name__)
 async def _handle_unit_creation(payload: dict) -> None:
     """ARQ handler: execute unit creation end-to-end in content_creator.
 
-    Expects payload to include: unit_id, topic, (optional) source_material, user_level, target_lesson_count, domain.
+    Expects payload to include: unit_id, topic, (optional) source_material, learner_level, target_lesson_count.
     """
     infra = infrastructure_provider()
     infra.initialize()
@@ -65,9 +64,8 @@ async def _handle_unit_creation(payload: dict) -> None:
     unit_id = str(payload.get("unit_id") or inputs.get("unit_id") or "")
     topic = str(payload.get("topic") or inputs.get("topic") or "")
     source_material = inputs.get("source_material")
-    user_level = str(payload.get("user_level") or inputs.get("user_level") or "beginner")
+    learner_level = str(payload.get("learner_level") or inputs.get("learner_level") or "beginner")
     target = payload.get("target_lesson_count") if payload.get("target_lesson_count") is not None else inputs.get("target_lesson_count")
-    domain = inputs.get("domain")
 
     from modules.content.public import content_provider  # noqa: PLC0415
 
@@ -83,8 +81,7 @@ async def _handle_unit_creation(payload: dict) -> None:
             topic=topic,
             source_material=source_material,
             target_lesson_count=target,
-            user_level=user_level,
-            domain=domain,
+            learner_level=learner_level,
         )
 
 

@@ -25,14 +25,14 @@ from .service import (
 class CatalogProvider(Protocol):
     """Protocol defining the lesson catalog module's public interface."""
 
-    def browse_lessons(self, user_level: str | None = None, limit: int = 100) -> BrowseLessonsResponse: ...
+    def browse_lessons(self, learner_level: str | None = None, limit: int = 100) -> BrowseLessonsResponse: ...
     def get_lesson_details(self, lesson_id: str) -> LessonDetail | None: ...
     def browse_units(self, limit: int = 100, offset: int = 0) -> list[UnitSummary]: ...
     def get_unit_details(self, unit_id: str) -> UnitDetail | None: ...
     def search_lessons(
         self,
         query: str | None = None,
-        user_level: str | None = None,
+        learner_level: str | None = None,
         min_duration: int | None = None,
         max_duration: int | None = None,
         ready_only: bool = False,

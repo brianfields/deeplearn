@@ -44,7 +44,7 @@ def get_catalog_service(s: Session = Depends(get_session)) -> CatalogService:
 
 @router.get("/", response_model=BrowseLessonsResponse)
 def browse_lessons(
-    user_level: str | None = Query(None, description="Filter by user level (beginner, intermediate, advanced)"),
+    learner_level: str | None = Query(None, description="Filter by learner level (beginner, intermediate, advanced)"),
     limit: int = Query(100, ge=1, le=500, description="Maximum number of lessons to return"),
     catalog: CatalogService = Depends(get_catalog_service),
 ) -> BrowseLessonsResponse:
@@ -53,13 +53,13 @@ def browse_lessons(
 
     Returns a list of lesson summaries for browsing.
     """
-    return catalog.browse_lessons(user_level=user_level, limit=limit)
+    return catalog.browse_lessons(learner_level=learner_level, limit=limit)
 
 
 @router.get("/search", response_model=SearchLessonsResponse)
 def search_lessons(
     query: str | None = Query(None, description="Search query string"),
-    user_level: str | None = Query(None, description="Filter by user level (beginner, intermediate, advanced)"),
+    learner_level: str | None = Query(None, description="Filter by learner level (beginner, intermediate, advanced)"),
     min_duration: int | None = Query(None, ge=1, description="Minimum duration in minutes"),
     max_duration: int | None = Query(None, ge=1, description="Maximum duration in minutes"),
     ready_only: bool = Query(False, description="Only return ready lessons"),
@@ -69,12 +69,10 @@ def search_lessons(
 ) -> SearchLessonsResponse:
     """
     Search lessons with query and filters.
-
-    Supports text search across title, core concept, learning objectives, and key concepts.
     """
     return catalog.search_lessons(
         query=query,
-        user_level=user_level,
+        learner_level=learner_level,
         min_duration=min_duration,
         max_duration=max_duration,
         ready_only=ready_only,

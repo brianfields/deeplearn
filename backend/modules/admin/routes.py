@@ -142,17 +142,15 @@ async def get_llm_request_details(
 
 @router.get("/lessons", response_model=LessonsListResponse)
 async def list_lessons(
-    user_level: str | None = Query(None, description="Filter by user level"),
-    domain: str | None = Query(None, description="Filter by domain"),
-    search: str | None = Query(None, description="Search in title and core concept"),
+    learner_level: str | None = Query(None, description="Filter by learner level"),
+    search: str | None = Query(None, description="Search in title"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(50, ge=1, le=100, description="Items per page"),
     admin_service: AdminService = Depends(get_admin_service),
 ) -> LessonsListResponse:
     """Get paginated list of lessons with optional filtering."""
     return await admin_service.get_lessons(
-        user_level=user_level,
-        _domain=domain,
+        learner_level=learner_level,
         search=search,
         page=page,
         page_size=page_size,

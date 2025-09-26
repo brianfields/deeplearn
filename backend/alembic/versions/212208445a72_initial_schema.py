@@ -1,11 +1,10 @@
 """initial_schema
 
-Revision ID: e3bdc04203e4
-Revises:
-Create Date: 2025-09-20 15:22:28.578800
+Revision ID: 212208445a72
+Revises: 
+Create Date: 2025-09-25 16:09:15.515024
 
 """
-# mypy: ignore-errors
 from typing import Sequence, Union
 
 from alembic import op
@@ -13,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'e3bdc04203e4'
+revision: str = '212208445a72'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -110,14 +109,19 @@ def upgrade() -> None:
     sa.Column('id', sa.String(length=36), nullable=False),
     sa.Column('title', sa.String(length=255), nullable=False),
     sa.Column('description', sa.Text(), nullable=True),
-    sa.Column('difficulty', sa.String(length=50), nullable=False),
+    sa.Column('learner_level', sa.String(length=50), nullable=False),
     sa.Column('lesson_order', sa.JSON(), nullable=False),
     sa.Column('learning_objectives', sa.JSON(), nullable=True),
     sa.Column('target_lesson_count', sa.Integer(), nullable=True),
     sa.Column('source_material', sa.Text(), nullable=True),
     sa.Column('generated_from_topic', sa.Boolean(), nullable=False),
+    sa.Column('flow_type', sa.String(length=20), nullable=False),
+    sa.Column('status', sa.String(length=20), nullable=False),
+    sa.Column('creation_progress', sa.JSON(), nullable=True),
+    sa.Column('error_message', sa.Text(), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.CheckConstraint("status IN ('draft', 'in_progress', 'completed', 'failed')", name='check_unit_status'),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('flow_step_runs',
@@ -148,12 +152,8 @@ def upgrade() -> None:
     op.create_table('lessons',
     sa.Column('id', sa.String(length=36), nullable=False),
     sa.Column('title', sa.String(length=255), nullable=False),
-    sa.Column('core_concept', sa.String(length=500), nullable=False),
-    sa.Column('user_level', sa.String(length=50), nullable=False),
+    sa.Column('learner_level', sa.String(length=50), nullable=False),
     sa.Column('source_material', sa.Text(), nullable=True),
-    sa.Column('source_domain', sa.String(length=100), nullable=True),
-    sa.Column('source_level', sa.String(length=50), nullable=True),
-    sa.Column('refined_material', sa.JSON(), nullable=True),
     sa.Column('package', sa.JSON(), nullable=False),
     sa.Column('package_version', sa.Integer(), nullable=False),
     sa.Column('flow_run_id', sa.UUID(), nullable=True),

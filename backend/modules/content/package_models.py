@@ -5,17 +5,9 @@ Pydantic models for the structured lesson package format.
 These models define the comprehensive content structure stored in the JSON package field.
 """
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, model_validator
 
 # ---- Core value objects ----
-
-
-class LengthBudgets(BaseModel):
-    """Budget constraints for content length."""
-
-    stem_max_words: int = Field(35, ge=1, le=200)
-    vignette_max_words: int = Field(80, ge=1, le=500)
-    option_max_words: int = Field(12, ge=1, le=50)
 
 
 class Meta(BaseModel):
@@ -23,13 +15,10 @@ class Meta(BaseModel):
 
     lesson_id: str
     title: str
-    core_concept: str
-    user_level: str  # "beginner" | "intermediate" | "advanced" (keep free-form for now)
-    domain: str = "General"
+    learner_level: str  # "beginner" | "intermediate" | "advanced" (keep free-form for now)
     # Two versions on purpose: schema vs content
     package_schema_version: int = 1
     content_version: int = 1
-    length_budgets: LengthBudgets = LengthBudgets(stem_max_words=35, vignette_max_words=80, option_max_words=12)
 
 
 class Objective(BaseModel):
@@ -46,21 +35,7 @@ class GlossaryTerm(BaseModel):
     id: str
     term: str
     definition: str
-    relation_to_core: str | None = None
-    common_confusion: str | None = None
     micro_check: str | None = None
-
-
-class DidacticSnippet(BaseModel):
-    """Didactic content snippet for teaching."""
-
-    id: str
-    mini_vignette: str | None = None
-    plain_explanation: str
-    key_takeaways: list[str]
-    worked_example: str | None = None
-    near_miss_example: str | None = None
-    discriminator_hint: str | None = None
 
 
 class MCQOption(BaseModel):
@@ -122,8 +97,8 @@ class LessonPackage(BaseModel):
 
     meta: Meta
     objectives: list[Objective]
-    glossary: dict[str, list[GlossaryTerm]]  # {"terms": [...]}
-    didactic_snippet: DidacticSnippet  # Single lesson-wide explanation
+    glossary: dict[str, list[GlossaryTerm]]
+    mini_lesson: str  # Single lesson-wide explanation
     exercises: list[MCQExercise]  # For now, only MCQ exercises are supported
     misconceptions: list[dict[str, str]] = []  # keep loose; can tighten later
     confusables: list[dict[str, str]] = []

@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from unittest.mock import Mock
 
 from modules.content.models import LessonModel
-from modules.content.package_models import DidacticSnippet, GlossaryTerm, LessonPackage, MCQAnswerKey, MCQExercise, MCQOption, Meta, Objective
+from modules.content.package_models import GlossaryTerm, LessonPackage, MCQAnswerKey, MCQExercise, MCQOption, Meta, Objective
 from modules.content.repo import ContentRepo
 from modules.content.service import ContentService, LessonCreate
 
@@ -37,10 +37,10 @@ class TestContentService:
 
         # Create a sample package
         package = LessonPackage(
-            meta=Meta(lesson_id="test-id", title="Test Lesson", core_concept="Test Concept", user_level="beginner", domain="General"),
+            meta=Meta(lesson_id="test-id", title="Test Lesson", learner_level="beginner"),
             objectives=[Objective(id="lo_1", text="Learn X")],
             glossary={"terms": [GlossaryTerm(id="term_1", term="Test Term", definition="Test Definition")]},
-            didactic_snippet=DidacticSnippet(id="lesson_explanation", plain_explanation="Test explanation", key_takeaways=["Key point 1"]),
+            mini_lesson="Test explanation",
             exercises=[
                 MCQExercise(
                     id="mcq_1",
@@ -53,7 +53,7 @@ class TestContentService:
         )
 
         # Mock lesson with package
-        mock_lesson = LessonModel(id="test-id", title="Test Lesson", core_concept="Test Concept", user_level="beginner", package=package.model_dump(), package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC))
+        mock_lesson = LessonModel(id="test-id", title="Test Lesson", learner_level="beginner", package=package.model_dump(), package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC))
 
         repo.get_lesson_by_id.return_value = mock_lesson
         service = ContentService(repo)
@@ -80,17 +80,17 @@ class TestContentService:
 
         # Create a sample package
         package = LessonPackage(
-            meta=Meta(lesson_id="test-id", title="Test Lesson", core_concept="Test Concept", user_level="beginner", domain="General"),
+            meta=Meta(lesson_id="test-id", title="Test Lesson", learner_level="beginner"),
             objectives=[Objective(id="lo_1", text="Learn X")],
             glossary={"terms": []},
-            didactic_snippet=DidacticSnippet(id="lesson_explanation", plain_explanation="Test explanation", key_takeaways=[]),
+            mini_lesson="Test explanation",
             exercises=[],
         )
 
-        lesson_data = LessonCreate(id="test-id", title="Test Lesson", core_concept="Test Concept", user_level="beginner", package=package, package_version=1)
+        lesson_data = LessonCreate(id="test-id", title="Test Lesson", learner_level="beginner", package=package, package_version=1)
 
         # Mock the saved lesson
-        mock_saved_lesson = LessonModel(id="test-id", title="Test Lesson", core_concept="Test Concept", user_level="beginner", package=package.model_dump(), package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC))
+        mock_saved_lesson = LessonModel(id="test-id", title="Test Lesson", learner_level="beginner", package=package.model_dump(), package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC))
         repo.save_lesson.return_value = mock_saved_lesson
 
         # Act

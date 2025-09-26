@@ -16,236 +16,12 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from modules.content.package_models import DidacticSnippet, LessonPackage, Meta, Objective
+from modules.content.package_models import LessonPackage, Meta, Objective
 from modules.content.public import LessonRead
-from modules.content_creator.flows import LessonCreationFlow, UnitCreationFlow
+from modules.content_creator.flows import UnitCreationFlow
 from modules.content_creator.service import ContentCreatorService, CreateLessonRequest
-from modules.content_creator.steps import (
-    ConfusablePair,
-    DidacticSnippetOutputs,
-    DistractorCandidate,
-    ExtractLessonMetadataStep,
-    FastLessonMetadataStep,
-    GenerateDidacticSnippetStep,
-    GenerateGlossaryStep,
-    GenerateMCQStep,
-    GenerateMisconceptionBankStep,
-    GlossaryTerm,
-    KeyConcept,
-    LearningObjective,
-    LengthBudgets,
-    LOWithDistractors,
-    MCQAnswerKey,
-    MCQItem,
-    MCQOption,
-    MCQSetOutputs,
-    Misconception,
-    RefinedMaterial,
-)
-from modules.flow_engine.base_step import StepResult
 
-
-@pytest.mark.asyncio
-async def test_lesson_metadata_step_outputs_model_shape() -> None:
-    """Validate combined outputs model fields and nesting for the lesson metadata step."""
-    outputs = FastLessonMetadataStep.Outputs(
-        title="Lesson Title",
-        core_concept="Core Concept",
-        user_level="beginner",
-        domain="General",
-        learning_objectives=[
-            LearningObjective(lo_id="lo_1", text="Understand A", bloom_level="Remember"),
-            LearningObjective(lo_id="lo_2", text="Apply B", bloom_level="Apply"),
-        ],
-        key_concepts=[KeyConcept(term="Concept A", definition="Def A")],
-        misconceptions=[Misconception(mc_id="mc_1", concept="A", misbelief="Wrong A")],
-        confusables=[ConfusablePair(a="foo", b="bar", contrast="contrast")],
-        refined_material=RefinedMaterial(outline_bullets=["pt1", "pt2"], evidence_anchors=["ref1"]),
-        length_budgets=LengthBudgets(stem_max_words=35, vignette_max_words=80, option_max_words=12),
-        didactic_snippet=DidacticSnippetOutputs(
-            introduction="intro",
-            core_explanation="core",
-            key_points=["k1"],
-            practical_context="ctx",
-        ),
-        glossary=[GlossaryTerm(term="Term", definition="Def")],
-        by_lo=[
-            LOWithDistractors(
-                lo_id="lo_1",
-                distractors=[DistractorCandidate(text="d1", maps_to_mc_id="mc_1", source="misconception")],
-            )
-        ],
-    )
-
-    assert outputs.title == "Lesson Title"
-    assert outputs.didactic_snippet.core_explanation == "core"
-    assert len(outputs.learning_objectives) == 2
-    assert len(outputs.by_lo) == 1
-
-
-@pytest.mark.asyncio
-async def test_lesson_creation_flow_output_shape() -> None:
-    """Ensure the lesson flow returns expected top-level keys and counts.
-
-    We stub step/LLM calls to fixed outputs and call the flow logic directly.
-    """
-    # Shared test fixtures
-    learning_objectives = [
-        LearningObjective(lo_id="lo_1", text="Understand A", bloom_level="Remember"),
-        LearningObjective(lo_id="lo_2", text="Apply B", bloom_level="Apply"),
-    ]
-    key_concepts = [KeyConcept(term="Concept A", definition="Def A")]
-    misconceptions = [Misconception(mc_id="mc_1", concept="A", misbelief="Wrong A")]
-    confusables = [ConfusablePair(a="foo", b="bar", contrast="contrast")]
-    budgets = LengthBudgets(stem_max_words=35, vignette_max_words=80, option_max_words=12)
-    didactic = DidacticSnippetOutputs(
-        introduction="intro",
-        core_explanation="core",
-        key_points=["k1"],
-        practical_context="ctx",
-    )
-    glossary_terms = [GlossaryTerm(term="Term", definition="Def")]
-
-    # MCQ outputs
-    mcq_items = [
-        MCQItem(
-            lo_id="lo_1",
-            stem="What is A?",
-            options=[
-                MCQOption(label="A", text="opt A"),
-                MCQOption(label="B", text="opt B"),
-                MCQOption(label="C", text="opt C"),
-            ],
-            answer_key=MCQAnswerKey(label="A", rationale_right="because"),
-        ),
-        MCQItem(
-            lo_id="lo_2",
-            stem="What is B?",
-            options=[
-                MCQOption(label="A", text="opt A"),
-                MCQOption(label="B", text="opt B"),
-                MCQOption(label="C", text="opt C"),
-            ],
-            answer_key=MCQAnswerKey(label="B", rationale_right="because"),
-        ),
-    ]
-
-    # Patch steps used by both flows
-    with (
-        patch.object(
-            FastLessonMetadataStep,
-            "execute",
-            new=AsyncMock(
-                return_value=StepResult(
-                    step_name="fast_lesson_metadata",
-                    output_content=FastLessonMetadataStep.Outputs(
-                        title="T",
-                        core_concept="C",
-                        user_level="beginner",
-                        domain="General",
-                        learning_objectives=learning_objectives,
-                        key_concepts=key_concepts,
-                        misconceptions=misconceptions,
-                        confusables=confusables,
-                        refined_material=RefinedMaterial(outline_bullets=["a"], evidence_anchors=["b"]),
-                        length_budgets=budgets,
-                        didactic_snippet=didactic,
-                        glossary=glossary_terms,
-                        by_lo=[LOWithDistractors(lo_id="lo_1", distractors=[DistractorCandidate(text="d1", source="misconception")])],
-                    ),
-                    metadata={},
-                )
-            ),
-        ),
-        patch.object(
-            ExtractLessonMetadataStep,
-            "execute",
-            new=AsyncMock(
-                return_value=StepResult(
-                    step_name="extract_lesson_metadata",
-                    output_content=ExtractLessonMetadataStep.Outputs(
-                        title="T",
-                        core_concept="C",
-                        user_level="beginner",
-                        domain="General",
-                        learning_objectives=learning_objectives,
-                        key_concepts=key_concepts,
-                        misconceptions=misconceptions,
-                        confusables=confusables,
-                        refined_material=RefinedMaterial(outline_bullets=["a"], evidence_anchors=["b"]),
-                        length_budgets=budgets,
-                    ),
-                    metadata={},
-                )
-            ),
-        ),
-        patch.object(
-            GenerateMisconceptionBankStep,
-            "execute",
-            new=AsyncMock(
-                return_value=StepResult(
-                    step_name="generate_misconception_bank",
-                    output_content=GenerateMisconceptionBankStep.Outputs(by_lo=[LOWithDistractors(lo_id="lo_1", distractors=[DistractorCandidate(text="d1", source="misconception")])]),
-                    metadata={},
-                )
-            ),
-        ),
-        patch.object(
-            GenerateDidacticSnippetStep,
-            "execute",
-            new=AsyncMock(
-                return_value=StepResult(
-                    step_name="generate_didactic_snippet",
-                    output_content=didactic,
-                    metadata={},
-                )
-            ),
-        ),
-        patch.object(
-            GenerateGlossaryStep,
-            "execute",
-            new=AsyncMock(
-                return_value=StepResult(
-                    step_name="generate_glossary",
-                    output_content=GenerateGlossaryStep.Outputs(terms=glossary_terms),
-                    metadata={},
-                )
-            ),
-        ),
-        patch.object(
-            GenerateMCQStep,
-            "execute",
-            new=AsyncMock(
-                return_value=StepResult(
-                    step_name="generate_mcqs",
-                    output_content=MCQSetOutputs(mcqs=mcq_items),
-                    metadata={},
-                )
-            ),
-        ),
-    ):
-        flow = LessonCreationFlow()
-        result = await flow._execute_flow_logic({"title": "T", "core_concept": "C", "source_material": "M", "user_level": "beginner", "domain": "General"})
-
-        # Compare shapes and counts
-        for key in [
-            "learning_objectives",
-            "key_concepts",
-            "misconceptions",
-            "confusables",
-            "refined_material",
-            "length_budgets",
-            "glossary",
-            "didactic_snippet",
-            "exercises",
-        ]:
-            assert key in result
-
-        assert len(result["learning_objectives"]) == 2
-        assert len(result["exercises"]) == 2
-
-        # Ensure options have generated ids
-        assert all("id" in opt for ex in result["exercises"] for opt in ex["options"])
+# Deprecated test removed - used old step classes that no longer exist
 
 
 @pytest.mark.asyncio
@@ -276,11 +52,10 @@ async def test_unit_creation_flow_plan_and_chunks() -> None:
         flow = UnitCreationFlow()
         result = await flow.execute(
             {
-                "topic": None,
-                "source_material": "S",
+                "topic": "Test Topic",
+                "unit_source_material": None,
                 "target_lesson_count": 3,
-                "user_level": "beginner",
-                "domain": "General",
+                "learner_level": "beginner",
             }
         )
 
@@ -298,27 +73,32 @@ class TestServiceFlows:
 
         # Minimal flow return
         fake_flow_result = {
+            "topic": "T",
+            "learner_level": "beginner",
+            "voice": "Test voice",
             "learning_objectives": [
                 {"lo_id": "lo_1", "text": "A"},
             ],
-            "refined_material": {"outline_bullets": []},
-            "didactic_snippet": {"core_explanation": "x", "key_points": []},
-            "glossary": {"terms": []},
-            "exercises": [
-                {
-                    "id": "ex1",
-                    "exercise_type": "mcq",
-                    "lo_id": "lo_1",
-                    "stem": "?",
-                    "options": [
-                        {"id": "ex1_a", "label": "A", "text": "A"},
-                        {"id": "ex1_b", "label": "B", "text": "B"},
-                        {"id": "ex1_c", "label": "C", "text": "C"},
-                    ],
-                    "answer_key": {"label": "A"},
-                }
-            ],
-            "length_budgets": {"stem_max_words": 35, "vignette_max_words": 80, "option_max_words": 12},
+            "misconceptions": [],
+            "confusables": [],
+            "glossary": [],
+            "mini_lesson": "x",
+            "mcqs": {
+                "metadata": {"item_count": 1, "lo_coverage": ["lo_1"]},
+                "mcqs": [
+                    {
+                        "id": "ex1",
+                        "lo_id": "lo_1",
+                        "stem": "?",
+                        "options": [
+                            {"id": "ex1_a", "label": "A", "text": "A"},
+                            {"id": "ex1_b", "label": "B", "text": "B"},
+                            {"id": "ex1_c", "label": "C", "text": "C"},
+                        ],
+                        "answer_key": {"label": "A", "rationale_right": "Correct"},
+                    }
+                ],
+            },
         }
         mock_flow = AsyncMock()
         mock_flow.execute.return_value = fake_flow_result
@@ -326,15 +106,15 @@ class TestServiceFlows:
 
         # Mock content save
         mock_package = LessonPackage(
-            meta=Meta(lesson_id="id", title="T", core_concept="C", user_level="beginner", domain="General"),
+            meta=Meta(lesson_id="id", title="T", learner_level="beginner"),
             objectives=[Objective(id="lo_1", text="A")],
             glossary={"terms": []},
-            didactic_snippet=DidacticSnippet(id="lesson_explanation", plain_explanation="x", key_takeaways=[]),
+            mini_lesson="x",
             exercises=[],
         )
-        content.save_lesson.return_value = LessonRead(id="id", title="T", core_concept="C", user_level="beginner", package=mock_package, package_version=1, created_at=datetime(2024, 1, 1), updated_at=datetime(2024, 1, 1))
+        content.save_lesson.return_value = LessonRead(id="id", title="T", learner_level="beginner", package=mock_package, package_version=1, created_at=datetime(2024, 1, 1), updated_at=datetime(2024, 1, 1))
 
-        req = CreateLessonRequest(title="T", core_concept="C", source_material="S", user_level="beginner", domain="General")
+        req = CreateLessonRequest(topic="T", unit_source_material="S", learner_level="beginner", voice="Test voice", learning_objectives=["Learn A"], lesson_objective="Test objective")
 
         await svc.create_lesson_from_source_material(req)
         mock_flow_cls.return_value.execute.assert_awaited()
@@ -357,27 +137,33 @@ class TestServiceFlows:
             mock_ucf = AsyncMock()
             mock_ucf.execute.return_value = {
                 "unit_title": "Unit T",
-                "lesson_titles": ["L1"],
+                "learning_objectives": [{"lo_id": "u_lo_1", "text": "Understand the topic"}],
+                "lessons": [{"title": "L1", "learning_objectives": ["lo_1"], "lesson_objective": "Learn about L1"}],
                 "lesson_count": 1,
-                "target_lesson_count": 1,
-                "source_material": "S",
-                "summary": "sum",
-                "chunks": [{"index": 0, "title": "L1", "chunk_text": "t1"}],
+                "unit_source_material": "S",
             }
             mock_ucf_cls.return_value = mock_ucf
 
             mock_lcf = AsyncMock()
             mock_lcf.execute.return_value = {
-                "learning_objectives": [{"id": "lo_1", "text": "A"}],
-                "didactic_snippet": {"plain_explanation": "x", "key_takeaways": []},
-                "glossary": {"terms": []},
-                "exercises": [],
+                "topic": "L1",
+                "learner_level": "beginner",
+                "voice": "Plain",
+                "learning_objectives": ["Learn about A"],
+                "misconceptions": [],
+                "confusables": [],
+                "glossary": [],
+                "mini_lesson": "x",
+                "mcqs": {"metadata": {"total_mcqs": 0, "lo_coverage": 0}, "mcqs": []},
             }
             mock_lcf_cls.return_value = mock_lcf
 
             # Ensure save_lesson returns an object with a string id
             content.save_lesson.return_value = Mock(id="l1")
 
-            result = await svc.create_unit(topic="Topic", target_lesson_count=1, user_level="beginner", domain=None, background=False)
+            # Add the missing method to the mock
+            content.assign_lessons_to_unit = Mock()
+
+            result = await svc.create_unit(topic="Topic", target_lesson_count=1, learner_level="beginner", background=False)
             assert result.title == "Unit T"
             content.assign_lessons_to_unit.assert_called_once()

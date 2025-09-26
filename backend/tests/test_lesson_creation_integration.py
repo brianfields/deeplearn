@@ -246,8 +246,7 @@ class TestUnitCreationIntegration:
             source_material=None,
             background=False,
             target_lesson_count=10,
-            user_level="beginner",
-            domain="Machine Learning",
+            learner_level="beginner",
         )
 
         # Assert: Verify result structure
@@ -277,7 +276,7 @@ class TestUnitCreationIntegration:
         assert flow_run.status == "completed"
         assert flow_run.outputs is not None
         assert isinstance(flow_run.outputs, dict)
-        assert "lesson_titles" in flow_run.outputs
+        assert "lessons" in flow_run.outputs
 
         # Cleanup: Close the database session
         infrastructure_service.close_database_session(db_session)

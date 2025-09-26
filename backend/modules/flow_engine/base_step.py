@@ -2,9 +2,11 @@
 
 from abc import ABC, abstractmethod
 from enum import Enum
+import json
 import logging
 import os
 from pathlib import Path
+import re
 import time
 from typing import Any, TypeVar, cast
 import uuid
@@ -97,6 +99,28 @@ class BaseStep(ABC):
             config["verbosity"] = self.verbosity
 
         return config
+
+    @staticmethod
+    def _render_handlebars(template: str, variables: dict[str, Any]) -> str:
+        """Render a minimal Handlebars-style template using {{var}} placeholders.
+
+        - Replaces occurrences of {{ key }} with the corresponding value from variables
+        - If a value is not a string, it is JSON-serialized to preserve structure
+        - Leaves non-matching braces and plain JSON examples untouched
+        - Raises ValueError if a placeholder is present without a provided variable
+        """
+
+        def replace(match: re.Match[str]) -> str:
+            key = match.group(1)
+            if key not in variables:
+                raise ValueError(f"Prompt template missing required input: '{key}'")
+            value = variables[key]
+            if isinstance(value, str):
+                return value
+            return json.dumps(value, ensure_ascii=False)
+
+        pattern = re.compile(r"{{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*}}")
+        return pattern.sub(replace, template)
 
     async def execute(self, inputs: dict[str, Any]) -> StepResult:
         """
@@ -246,7 +270,7 @@ class UnstructuredStep(BaseStep):
         # Load prompt template
         prompt_content = self._load_prompt(self.prompt_file, context)
 
-        # Format prompt with inputs
+        # Format prompt using Handlebars-style rendering ({{var}})
         formatted_prompt = self._format_prompt(prompt_content, inputs.model_dump())
 
         # Generate response using LLM services
@@ -271,10 +295,8 @@ class UnstructuredStep(BaseStep):
     def _format_prompt(self, prompt: str, inputs: dict[str, Any]) -> str:
         """Format prompt template with input values."""
         # Simple string formatting - can be enhanced with Jinja2 later
-        try:
-            return prompt.format(**inputs)
-        except KeyError as e:
-            raise ValueError(f"Prompt template missing required input: {e}") from e
+        # Render with Handlebars-style placeholders
+        return BaseStep._render_handlebars(prompt, inputs)
 
 
 class StructuredStep(BaseStep):
@@ -292,7 +314,7 @@ class StructuredStep(BaseStep):
         if not self.outputs_model:
             raise ValueError(f"StructuredStep {self.step_name} must define Outputs class")
 
-        # Load and format prompt
+        # Load and format prompt using Handlebars-style rendering
         prompt_content = self._load_prompt(self.prompt_file, context)
         formatted_prompt = self._format_prompt(prompt_content, inputs.model_dump())
 
@@ -317,10 +339,8 @@ class StructuredStep(BaseStep):
 
     def _format_prompt(self, prompt: str, inputs: dict[str, Any]) -> str:
         """Format prompt template with input values."""
-        try:
-            return prompt.format(**inputs)
-        except KeyError as e:
-            raise ValueError(f"Prompt template missing required input: {e}") from e
+        # Render with Handlebars-style placeholders
+        return BaseStep._render_handlebars(prompt, inputs)
 
 
 class ImageStep(BaseStep):

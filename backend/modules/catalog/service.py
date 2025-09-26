@@ -19,15 +19,14 @@ class LessonSummary(BaseModel):
 
     id: str
     title: str
-    core_concept: str
-    user_level: str
+    learner_level: str
     learning_objectives: list[str]
     key_concepts: list[str]
     exercise_count: int
 
-    def matches_user_level(self, user_level: str) -> bool:
-        """Check if lesson matches specified user level."""
-        return self.user_level == user_level
+    def matches_learner_level(self, learner_level: str) -> bool:
+        """Check if lesson matches specified learner level."""
+        return self.learner_level == learner_level
 
 
 class LessonDetail(BaseModel):
@@ -35,11 +34,10 @@ class LessonDetail(BaseModel):
 
     id: str
     title: str
-    core_concept: str
-    user_level: str
+    learner_level: str
     learning_objectives: list[str]
     key_concepts: list[str]
-    didactic_snippet: dict[str, Any]
+    mini_lesson: str
     exercises: list[dict[str, Any]]
     glossary_terms: list[dict[str, Any]]
     created_at: str
@@ -69,7 +67,7 @@ class CatalogStatistics(BaseModel):
     """Catalog statistics DTO."""
 
     total_lessons: int
-    lessons_by_user_level: dict[str, int]
+    lessons_by_learner_level: dict[str, int]
     lessons_by_readiness: dict[str, int]
     average_duration: float
     duration_distribution: dict[str, int]
@@ -89,7 +87,7 @@ class UnitSummary(BaseModel):
     id: str
     title: str
     description: str | None = None
-    difficulty: str
+    learner_level: str
     lesson_count: int
     # New fields surfaced for admin list view
     target_lesson_count: int | None = None
@@ -108,7 +106,7 @@ class UnitDetail(BaseModel):
     id: str
     title: str
     description: str | None = None
-    difficulty: str
+    learner_level: str
     lesson_order: list[str]
     lessons: list["LessonSummary"]
     # New fields for admin details view
@@ -128,35 +126,32 @@ class CatalogService:
         self.content = content
         self.units = units
 
-    def browse_lessons(self, user_level: str | None = None, limit: int = 100) -> BrowseLessonsResponse:
+    def browse_lessons(self, learner_level: str | None = None, limit: int = 100) -> BrowseLessonsResponse:
         """
-        Browse lessons with optional user level filter.
+        Browse lessons with optional learner level filter.
 
         Args:
-            user_level: Optional filter by user level
+            learner_level: Optional filter by learner level
             limit: Maximum number of lessons to return
 
         Returns:
             Response with lesson summaries
         """
         # Get lessons from content module
-        lessons = self.content.search_lessons(user_level=user_level, limit=limit)
+        lessons = self.content.search_lessons(learner_level=learner_level, limit=limit)
 
         # Convert to summary DTOs (exercise-aligned)
         summaries = []
         for lesson in lessons:
             # Extract data from package
             objectives = [obj.text for obj in lesson.package.objectives]
-
-            # Calculate exercise count (exclude didactic and glossary)
             exercise_count = len(lesson.package.exercises)
 
             summaries.append(
                 LessonSummary(
                     id=lesson.id,
                     title=lesson.title,
-                    core_concept=lesson.core_concept,
-                    user_level=lesson.user_level,
+                    learner_level=lesson.learner_level,
                     learning_objectives=objectives,
                     key_concepts=[],  # Key concepts are now in glossary terms
                     exercise_count=exercise_count,
@@ -180,7 +175,7 @@ class CatalogService:
             return None
 
         # Package-aligned fields
-        didactic = lesson.package.didactic_snippet
+        mini_lesson = lesson.package.mini_lesson
         exercises = []
         for exercise in lesson.package.exercises:
             if exercise.exercise_type == "mcq":
@@ -201,34 +196,17 @@ class CatalogService:
                     }
                 )
 
-        glossary_terms = [
-            {
-                "id": term.id,
-                "term": term.term,
-                "definition": term.definition,
-                "relation_to_core": term.relation_to_core,
-            }
-            for term in lesson.package.glossary.get("terms", [])
-        ]
+        glossary_terms = [{"id": term.id, "term": term.term, "definition": term.definition} for term in lesson.package.glossary.get("terms", [])]
 
         objectives = [obj.text for obj in lesson.package.objectives]
 
         return LessonDetail(
             id=lesson.id,
             title=lesson.title,
-            core_concept=lesson.core_concept,
-            user_level=lesson.user_level,
+            learner_level=lesson.learner_level,
             learning_objectives=objectives,
             key_concepts=[],  # Key concepts are now in glossary terms
-            didactic_snippet={
-                "id": didactic.id,
-                "plain_explanation": didactic.plain_explanation,
-                "key_takeaways": didactic.key_takeaways,
-                "worked_example": didactic.worked_example,
-                "near_miss_example": didactic.near_miss_example,
-                "mini_vignette": didactic.mini_vignette,
-                "discriminator_hint": didactic.discriminator_hint,
-            },
+            mini_lesson=mini_lesson,
             exercises=exercises,
             glossary_terms=glossary_terms,
             created_at=str(lesson.created_at),
@@ -238,7 +216,7 @@ class CatalogService:
     def search_lessons(
         self,
         query: str | None = None,
-        user_level: str | None = None,
+        learner_level: str | None = None,
         min_duration: int | None = None,  # noqa: ARG002
         max_duration: int | None = None,  # noqa: ARG002
         ready_only: bool = False,
@@ -250,7 +228,7 @@ class CatalogService:
 
         Args:
             query: Search query string
-            user_level: Filter by user level
+            learner_level: Filter by learner level
             min_duration: Minimum duration filter (not implemented yet)
             max_duration: Maximum duration filter (not implemented yet)
             ready_only: Only return ready lessons
@@ -261,7 +239,7 @@ class CatalogService:
             Response with matching lesson summaries
         """
         # Get lessons from content module (using existing search)
-        lessons = self.content.search_lessons(user_level=user_level, limit=limit + offset)
+        lessons = self.content.search_lessons(learner_level=learner_level, limit=limit + offset)
 
         # Convert to summary DTOs (exercise-aligned)
         summaries = []
@@ -275,8 +253,7 @@ class CatalogService:
                 LessonSummary(
                     id=lesson.id,
                     title=lesson.title,
-                    core_concept=lesson.core_concept,
-                    user_level=lesson.user_level,
+                    learner_level=lesson.learner_level,
                     learning_objectives=objectives,
                     key_concepts=key_concepts,
                     exercise_count=exercise_count,
@@ -286,11 +263,7 @@ class CatalogService:
         # Apply client-side filtering
         if query:
             query_lower = query.lower()
-            summaries = [
-                lesson
-                for lesson in summaries
-                if (query_lower in lesson.title.lower() or query_lower in lesson.core_concept.lower() or any(query_lower in obj.lower() for obj in lesson.learning_objectives) or any(query_lower in concept.lower() for concept in lesson.key_concepts))
-            ]
+            summaries = [lesson for lesson in summaries if (query_lower in lesson.title.lower() or any(query_lower in obj.lower() for obj in lesson.learning_objectives) or any(query_lower in concept.lower() for concept in lesson.key_concepts))]
 
         if ready_only:
             summaries = [lesson for lesson in summaries if lesson.exercise_count > 0]
@@ -326,8 +299,7 @@ class CatalogService:
                 LessonSummary(
                     id=lesson.id,
                     title=lesson.title,
-                    core_concept=lesson.core_concept,
-                    user_level=lesson.user_level,
+                    learner_level=lesson.learner_level,
                     learning_objectives=objectives,
                     key_concepts=key_concepts,
                     exercise_count=exercise_count,
@@ -349,10 +321,10 @@ class CatalogService:
         total_lessons = len(all_lessons)
 
         # Group by user level
-        lessons_by_user_level: dict[str, int] = {}
+        lessons_by_learner_level: dict[str, int] = {}
         for lesson in all_lessons:
-            level = lesson.user_level
-            lessons_by_user_level[level] = lessons_by_user_level.get(level, 0) + 1
+            level = lesson.learner_level
+            lessons_by_learner_level[level] = lessons_by_learner_level.get(level, 0) + 1
 
         # Group by readiness
         lessons_by_readiness = {"ready": 0, "in_progress": 0, "draft": 0}
@@ -360,7 +332,6 @@ class CatalogService:
         duration_distribution = {"0-15": 0, "15-30": 0, "30-60": 0, "60+": 0}
 
         for lesson in all_lessons:
-            # Extract exercise count from package (exclude didactic and glossary)
             exercise_count = len(lesson.package.exercises)
 
             # Readiness
@@ -387,7 +358,7 @@ class CatalogService:
 
         return CatalogStatistics(
             total_lessons=total_lessons,
-            lessons_by_user_level=lessons_by_user_level,
+            lessons_by_learner_level=lessons_by_learner_level,
             lessons_by_readiness=lessons_by_readiness,
             average_duration=average_duration,
             duration_distribution=duration_distribution,
@@ -426,7 +397,7 @@ class CatalogService:
                     id=u.id,
                     title=u.title,
                     description=u.description,
-                    difficulty=u.difficulty,
+                    learner_level=u.learner_level if hasattr(u, "learner_level") else getattr(u, "learner_level", "beginner"),
                     lesson_count=lesson_count,
                     target_lesson_count=getattr(u, "target_lesson_count", None),
                     generated_from_topic=bool(getattr(u, "generated_from_topic", False)),
@@ -453,8 +424,7 @@ class CatalogService:
             lesson_summaries[lesson.id] = LessonSummary(
                 id=lesson.id,
                 title=lesson.title,
-                core_concept=lesson.core_concept,
-                user_level=lesson.user_level,
+                learner_level=lesson.learner_level,
                 learning_objectives=objectives,
                 key_concepts=[],
                 exercise_count=exercise_count,
@@ -503,7 +473,7 @@ class CatalogService:
             id=unit.id,
             title=unit.title,
             description=unit.description,
-            difficulty=unit.difficulty,
+            learner_level=unit.learner_level if hasattr(unit, "learner_level") else getattr(unit, "learner_level", "beginner"),
             lesson_order=ordered_ids,
             lessons=ordered_lessons,
             learning_objectives=los_list,
