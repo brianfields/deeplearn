@@ -53,6 +53,10 @@ class UnitModel(Base):
     # Ordered list of lesson IDs belonging to this unit
     lesson_order = Column(JSON, nullable=False, default=list)
 
+    # Ownership and sharing metadata
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    is_global = Column(Boolean, nullable=False, default=False)
+
     # New fields for unit-level generation and metadata
     # JSON structure: list of unit-level learning objectives or structured objects
     learning_objectives = Column(JSON, nullable=True)
