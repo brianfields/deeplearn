@@ -29,6 +29,7 @@ import {
 import type { Unit } from '../public';
 import type { LearningStackParamList } from '../../../types';
 import { uiSystemProvider, Text, useHaptics } from '../../ui_system/public';
+import { useAuth } from '../../user/public';
 
 type LessonListScreenNavigationProp = NativeStackNavigationProp<
   LearningStackParamList,
@@ -44,7 +45,8 @@ type UnitSection = {
 export function LessonListScreen() {
   const navigation = useNavigation<LessonListScreenNavigationProp>();
   const [searchQuery, setSearchQuery] = useState('');
-  const currentUserId = 1; // TODO: replace with authenticated user context
+  const { user } = useAuth();
+  const currentUserId = user?.id ?? 0;
   const {
     data: collections,
     isLoading,
@@ -102,6 +104,9 @@ export function LessonListScreen() {
 
   const handleRetryUnit = useCallback(
     (unitId: string) => {
+      if (!currentUserId) {
+        return;
+      }
       retryUnitMutation.mutate(
         { unitId, ownerUserId: currentUserId },
         { onSuccess: () => refetch() }
@@ -112,6 +117,9 @@ export function LessonListScreen() {
 
   const handleDismissUnit = useCallback(
     (unitId: string) => {
+      if (!currentUserId) {
+        return;
+      }
       dismissUnitMutation.mutate(
         { unitId, ownerUserId: currentUserId },
         { onSuccess: () => refetch() }

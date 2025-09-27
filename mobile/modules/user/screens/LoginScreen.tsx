@@ -9,18 +9,25 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Button, Text, uiSystemProvider } from '../../ui_system/public';
 import { useLogin } from '../queries';
 import type { Theme } from '../../ui_system/models';
+import { useAuth } from '../context';
+import type { RootStackParamList } from '../../../types';
 
-interface Props {
-  onLoginSuccess?: (userId: number) => void;
-}
+type LoginScreenNavigationProp = NativeStackNavigationProp<
+  RootStackParamList,
+  'Login'
+>;
 
-export default function LoginScreen({ onLoginSuccess }: Props) {
+export default function LoginScreen() {
   const uiSystem = uiSystemProvider();
   const theme = uiSystem.getCurrentTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
+  const navigation = useNavigation<LoginScreenNavigationProp>();
+  const auth = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -30,9 +37,7 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
   const handleSubmit = async () => {
     try {
       const user = await loginMutation.mutateAsync({ email, password });
-      if (onLoginSuccess) {
-        onLoginSuccess(user.id);
-      }
+      await auth.signIn(user);
     } catch (error: any) {
       const message = error?.message ?? 'Unable to login. Please try again.';
       Alert.alert('Login failed', message);
@@ -91,6 +96,18 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
             <Text style={styles.loadingText}>Authenticating…</Text>
           </View>
         )}
+
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>
+            Don&apos;t have an account?{' '}
+            <Text
+              style={[styles.footerText, styles.link]}
+              onPress={() => navigation.navigate('Register')}
+            >
+              Create one
+            </Text>
+          </Text>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -149,5 +166,17 @@ const createStyles = (theme: Theme) =>
     loadingText: {
       fontSize: 14,
       color: theme.colors.textSecondary,
+    },
+    footer: {
+      marginTop: 32,
+      alignItems: 'center',
+    },
+    footerText: {
+      fontSize: 14,
+      color: theme.colors.textSecondary,
+    },
+    link: {
+      color: theme.colors.primary,
+      fontWeight: '600',
     },
   });

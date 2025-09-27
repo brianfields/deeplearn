@@ -8,7 +8,8 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { QueryProvider } from '@/lib/query-client';
-import { Navigation } from '@/modules/admin/components/shared/Navigation';
+import { AdminAuthProvider } from '@/modules/admin/components/auth/AdminAuthProvider';
+import { AdminShell } from '@/modules/admin/components/shared/AdminShell';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -26,12 +27,9 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <QueryProvider>
-          <div className="min-h-screen bg-gray-50">
-            <Navigation />
-            <main className="container mx-auto px-4 py-8">
-              {children}
-            </main>
-          </div>
+          <AdminAuthProvider>
+            <AdminShell>{children}</AdminShell>
+          </AdminAuthProvider>
         </QueryProvider>
       </body>
     </html>
