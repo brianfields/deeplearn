@@ -12,6 +12,9 @@ import type { SessionResults } from './modules/learning_session/models';
 // ================================
 
 export type RootStackParamList = {
+  AuthLanding: undefined;
+  Login: undefined;
+  Register: undefined;
   Dashboard: undefined;
   Learning: { lessonId: string };
   LessonDetail: { lessonId: string; lesson: LessonDetail };

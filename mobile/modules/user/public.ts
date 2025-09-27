@@ -33,3 +33,4 @@ export function userProvider(): UserProvider {
 }
 
 export type { User, LoginRequest, RegisterRequest, UpdateProfileRequest } from './models';
+export { AuthProvider, useAuth } from './context';

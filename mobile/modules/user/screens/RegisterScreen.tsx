@@ -9,18 +9,23 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Button, Text, uiSystemProvider } from '../../ui_system/public';
 import type { Theme } from '../../ui_system/models';
 import { useRegister } from '../queries';
+import type { RootStackParamList } from '../../../types';
 
-interface Props {
-  onRegistered?: (userId: number) => void;
-}
+type RegisterScreenNavigationProp = NativeStackNavigationProp<
+  RootStackParamList,
+  'Register'
+>;
 
-export default function RegisterScreen({ onRegistered }: Props) {
+export default function RegisterScreen() {
   const uiSystem = uiSystemProvider();
   const theme = uiSystem.getCurrentTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
+  const navigation = useNavigation<RegisterScreenNavigationProp>();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -36,15 +41,21 @@ export default function RegisterScreen({ onRegistered }: Props) {
     }
 
     try {
-      const user = await registerMutation.mutateAsync({
+      await registerMutation.mutateAsync({
         email,
         password,
         name,
       });
-      if (onRegistered) {
-        onRegistered(user.id);
-      }
-      Alert.alert('Registration complete', 'You can now sign in.');
+      Alert.alert('Registration complete', 'You can now sign in.', [
+        {
+          text: 'Go to login',
+          onPress: () => navigation.navigate('Login'),
+        },
+      ]);
+      setName('');
+      setEmail('');
+      setPassword('');
+      setConfirmPassword('');
     } catch (error: any) {
       const message = error?.message ?? 'Unable to complete registration.';
       Alert.alert('Registration failed', message);
@@ -127,6 +138,18 @@ export default function RegisterScreen({ onRegistered }: Props) {
             disabled={registerMutation.isPending}
             loading={registerMutation.isPending}
           />
+
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>
+              Already have an account?{' '}
+              <Text
+                style={[styles.footerText, styles.link]}
+                onPress={() => navigation.navigate('Login')}
+              >
+                Sign in
+              </Text>
+            </Text>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -176,5 +199,17 @@ const createStyles = (theme: Theme) =>
       fontSize: 16,
       backgroundColor: theme.colors.surface,
       color: theme.colors.text,
+    },
+    footer: {
+      marginTop: 24,
+      alignItems: 'center',
+    },
+    footerText: {
+      fontSize: 14,
+      color: theme.colors.textSecondary,
+    },
+    link: {
+      color: theme.colors.primary,
+      fontWeight: '600',
     },
   });

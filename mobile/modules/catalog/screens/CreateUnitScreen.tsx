@@ -22,6 +22,7 @@ import { uiSystemProvider, useHaptics } from '../../ui_system/public';
 import { useNavigation } from '@react-navigation/native';
 import type { Difficulty } from '../models';
 import { useCreateUnit } from '../queries';
+import { useAuth } from '../../user/public';
 
 interface CreateUnitFormData {
   topic: string;
@@ -42,7 +43,8 @@ export function CreateUnitScreen() {
   const ui = uiSystemProvider();
   const theme = ui.getCurrentTheme();
   const haptics = useHaptics();
-  const currentUserId = 1; // TODO: replace with authenticated user context
+  const { user } = useAuth();
+  const currentUserId = user?.id;
 
   const [formData, setFormData] = useState<CreateUnitFormData>({
     topic: '',
@@ -82,6 +84,11 @@ export function CreateUnitScreen() {
 
   const handleSubmit = async () => {
     if (!validateForm()) {
+      return;
+    }
+
+    if (!currentUserId) {
+      Alert.alert('Sign in required', 'Please log in to create a unit.');
       return;
     }
 

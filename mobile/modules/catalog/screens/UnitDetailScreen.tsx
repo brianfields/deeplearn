@@ -28,6 +28,7 @@ import {
   uiSystemProvider,
   useHaptics,
 } from '../../ui_system/public';
+import { useAuth } from '../../user/public';
 
 type UnitDetailScreenNavigationProp = NativeStackNavigationProp<
   LearningStackParamList,
@@ -38,16 +39,16 @@ export function UnitDetailScreen() {
   const route = useRoute<RouteProp<LearningStackParamList, 'UnitDetail'>>();
   const unitId = route.params?.unitId as string | undefined;
   const navigation = useNavigation<UnitDetailScreenNavigationProp>();
-  const currentUserId = 1; // TODO: replace with authenticated user context
+  const { user } = useAuth();
+  const currentUserId = user?.id ?? null;
   const { data: unit } = useCatalogUnitDetail(unitId || '', {
-    currentUserId,
+    currentUserId: currentUserId ?? undefined,
   });
   const toggleSharing = useToggleUnitSharing();
   const ui = uiSystemProvider();
   const theme = ui.getCurrentTheme();
   const haptics = useHaptics();
-  // For now, use placeholder user until auth is wired up
-  const userKey = String(currentUserId || 'anonymous');
+  const userKey = currentUserId ? String(currentUserId) : 'anonymous';
   const { data: progressLS } = useUnitProgressLS(userKey, unit?.id || '', {
     enabled: !!unit?.id,
     staleTime: 60 * 1000,
@@ -75,7 +76,7 @@ export function UnitDetailScreen() {
     toggleSharing.mutate({
       unitId: unit.id,
       makeGlobal: nextValue,
-      actingUserId: currentUserId,
+      actingUserId: currentUserId ?? undefined,
     });
   };
 
