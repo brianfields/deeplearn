@@ -18,7 +18,6 @@ class UserRead(BaseModel):
     """DTO returned to callers when reading user information."""
 
     model_config = ConfigDict(from_attributes=True)
-
     id: int
     email: str
     name: str
@@ -26,6 +25,9 @@ class UserRead(BaseModel):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+
+    class Config:
+        from_attributes = True
 
 
 class UserRegister(BaseModel):

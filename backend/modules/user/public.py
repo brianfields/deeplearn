@@ -39,7 +39,6 @@ class UserProvider(Protocol):
         is_active: bool | None = None,
     ) -> UserRead: ...
 
-
 def user_provider(session: Session) -> "UserProvider":
     """Return a configured UserService bound to a database session."""
 
