@@ -41,12 +41,12 @@ class LearningSessionProvider(Protocol):
         ...
 
     @abstractmethod
-    async def get_session(self, session_id: str) -> LearningSession | None:
+    async def get_session(self, session_id: str, user_id: str | None = None) -> LearningSession | None:
         """Get session by ID"""
         ...
 
     @abstractmethod
-    async def pause_session(self, session_id: str) -> LearningSession | None:
+    async def pause_session(self, session_id: str, user_id: str | None = None) -> LearningSession | None:
         """Pause a session"""
         ...
 

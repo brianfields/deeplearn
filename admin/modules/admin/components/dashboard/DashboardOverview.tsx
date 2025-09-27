@@ -145,6 +145,14 @@ export function DashboardOverview() {
                         <span>Duration: {formatExecutionTime(flow.execution_time_ms)}</span>
                       )}
                       <span>Cost: {formatCost(flow.total_cost)}</span>
+                      {flow.user_id && (
+                        <Link
+                          href={`/users/${flow.user_id}`}
+                          className="text-blue-600 hover:text-blue-500"
+                        >
+                          User {flow.user_id}
+                        </Link>
+                      )}
                     </div>
                   </div>
                   <div className="flex-shrink-0">

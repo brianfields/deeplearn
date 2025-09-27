@@ -199,10 +199,21 @@ class LLMServicesAdminProvider(Protocol):
         """Get total count of LLM requests. FOR ADMIN USE ONLY."""
         ...
 
+    def get_request_count_by_user(self, user_id: uuid.UUID) -> int:
+        """Get total LLM request count for a user. FOR ADMIN USE ONLY."""
+        ...
 
-def llm_services_provider() -> LLMServicesProvider:
+    def get_user_requests(self, user_id: uuid.UUID, limit: int = 50, offset: int = 0) -> list[LLMRequest]:
+        """Get recent requests for a user. FOR ADMIN USE ONLY."""
+        ...
+
+
+def llm_services_provider(session: Session | None = None) -> LLMServicesProvider:
     """Dependency injection provider for LLM services."""
-    # Get session from infrastructure service
+
+    if session is not None:
+        return LLMService(LLMRequestRepo(session))
+
     infra = infrastructure_provider()
     infra.initialize()
     db_session = infra.get_database_session()

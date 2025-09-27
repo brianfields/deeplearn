@@ -6,12 +6,13 @@ import {
   FlatList,
   TouchableOpacity,
   Alert,
+  Switch,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import { useUnit } from '../queries';
+import { useCatalogUnitDetail, useToggleUnitSharing } from '../queries';
 import { UnitProgressView } from '../components/UnitProgress';
 import type { LearningStackParamList } from '../../../types';
 import {
@@ -37,22 +38,58 @@ export function UnitDetailScreen() {
   const route = useRoute<RouteProp<LearningStackParamList, 'UnitDetail'>>();
   const unitId = route.params?.unitId as string | undefined;
   const navigation = useNavigation<UnitDetailScreenNavigationProp>();
-  const { data: unit } = useUnit(unitId || '');
+  const currentUserId = 1; // TODO: replace with authenticated user context
+  const { data: unit } = useCatalogUnitDetail(unitId || '', {
+    currentUserId,
+  });
+  const toggleSharing = useToggleUnitSharing();
   const ui = uiSystemProvider();
   const theme = ui.getCurrentTheme();
   const haptics = useHaptics();
-  // For now, use anonymous user until auth is wired up
-  const userId = 'anonymous';
-  const { data: progressLS } = useUnitProgressLS(userId, unit?.id || '', {
+  // For now, use placeholder user until auth is wired up
+  const userKey = String(currentUserId || 'anonymous');
+  const { data: progressLS } = useUnitProgressLS(userKey, unit?.id || '', {
     enabled: !!unit?.id,
     staleTime: 60 * 1000,
   });
 
   // Determine next lesson to resume within this unit
-  const { data: nextLessonId } = useNextLessonToResume(userId, unit?.id || '', {
-    enabled: !!unit?.id,
-    staleTime: 60 * 1000,
-  });
+  const { data: nextLessonId } = useNextLessonToResume(
+    userKey,
+    unit?.id || '',
+    {
+      enabled: !!unit?.id,
+      staleTime: 60 * 1000,
+    }
+  );
+
+  const handleShareToggle = (nextValue: boolean): void => {
+    if (!unit || !unit.isOwnedByCurrentUser) {
+      Alert.alert(
+        'Sharing unavailable',
+        'Only the unit owner can change sharing settings.'
+      );
+      return;
+    }
+
+    toggleSharing.mutate({
+      unitId: unit.id,
+      makeGlobal: nextValue,
+      actingUserId: currentUserId,
+    });
+  };
+
+  const isTogglingShare = toggleSharing.isPending;
+
+  const ownershipDescription = unit
+    ? unit.isOwnedByCurrentUser
+      ? unit.isGlobal
+        ? 'This unit is shared with all learners.'
+        : 'Only you can access this unit right now.'
+      : unit.isGlobal
+        ? 'Shared by another learner for everyone to explore.'
+        : 'Owned by another learner.'
+    : null;
 
   // Map LS progress to Units progress view shape
   const overallProgress = useMemo(() => {
@@ -120,6 +157,9 @@ export function UnitDetailScreen() {
         <Text variant="h1" style={{ marginTop: 8, fontWeight: 'normal' }}>
           {unit.title}
         </Text>
+        <Text variant="secondary" color={theme.colors.textSecondary}>
+          {unit.ownershipLabel}
+        </Text>
       </Box>
 
       <Box px="lg">
@@ -158,6 +198,36 @@ export function UnitDetailScreen() {
           />
         </Card>
       </Box>
+
+      {unit.isOwnedByCurrentUser && (
+        <Box px="lg" mt="md">
+          <Card variant="outlined" style={{ margin: 0 }}>
+            <View style={styles.sharingRow}>
+              <Text variant="body" style={{ flex: 1 }}>
+                Share globally
+              </Text>
+              <Switch
+                value={unit.isGlobal}
+                onValueChange={handleShareToggle}
+                disabled={isTogglingShare}
+              />
+            </View>
+            <Text variant="caption" color={theme.colors.textSecondary}>
+              {unit.isGlobal
+                ? 'Learners across the platform can view this unit.'
+                : 'Toggle on to make this unit visible to everyone.'}
+            </Text>
+          </Card>
+        </Box>
+      )}
+
+      {ownershipDescription && !unit.isOwnedByCurrentUser && (
+        <Box px="lg" mt="md">
+          <Card variant="outlined" style={{ margin: 0 }}>
+            <Text variant="body">{ownershipDescription}</Text>
+          </Card>
+        </Box>
+      )}
 
       <Box px="lg" mt="lg">
         <Text variant="title" style={{ marginBottom: 8 }}>
@@ -215,5 +285,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  sharingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
 });

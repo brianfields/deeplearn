@@ -74,6 +74,28 @@ class ContentRepo:
         """List units with pagination, ordered by updated_at descending (newest first)."""
         return self.s.query(UnitModel).order_by(desc(UnitModel.updated_at)).offset(offset).limit(limit).all()
 
+    def list_units_for_user(self, user_id: int, limit: int = 100, offset: int = 0) -> list[UnitModel]:
+        """Return units owned by the specified user ordered by most recently updated."""
+        return (
+            self.s.query(UnitModel)
+            .filter(UnitModel.user_id == user_id)
+            .order_by(desc(UnitModel.updated_at))
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+
+    def list_global_units(self, limit: int = 100, offset: int = 0) -> list[UnitModel]:
+        """Return globally shared units ordered by most recently updated."""
+        return (
+            self.s.query(UnitModel)
+            .filter(UnitModel.is_global.is_(True))
+            .order_by(desc(UnitModel.updated_at))
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+
     def get_units_by_status(self, status: str, limit: int = 100, offset: int = 0) -> list[UnitModel]:
         """Get units by status, ordered by updated_at descending."""
         return self.s.query(UnitModel).filter(UnitModel.status == status).order_by(desc(UnitModel.updated_at)).offset(offset).limit(limit).all()
@@ -154,6 +176,39 @@ class ContentRepo:
         self.s.add(unit)
         self.s.flush()
         return unit
+
+    def set_unit_owner(self, unit_id: str, user_id: int | None) -> UnitModel | None:
+        """Update the owner of a unit, returning the updated model or None if not found."""
+        unit = self.get_unit_by_id(unit_id)
+        if not unit:
+            return None
+
+        unit.user_id = user_id  # type: ignore[assignment]
+        unit.updated_at = datetime.now(UTC)  # type: ignore[assignment]
+        self.s.add(unit)
+        self.s.flush()
+        return unit
+
+    def set_unit_sharing(self, unit_id: str, is_global: bool) -> UnitModel | None:
+        """Toggle whether a unit is globally shared."""
+        unit = self.get_unit_by_id(unit_id)
+        if not unit:
+            return None
+
+        unit.is_global = bool(is_global)  # type: ignore[assignment]
+        unit.updated_at = datetime.now(UTC)  # type: ignore[assignment]
+        self.s.add(unit)
+        self.s.flush()
+        return unit
+
+    def is_unit_owned_by_user(self, unit_id: str, user_id: int) -> bool:
+        """Return True when the given unit is owned by the provided user id."""
+        return (
+            self.s.query(UnitModel.id)
+            .filter(UnitModel.id == unit_id, UnitModel.user_id == user_id)
+            .first()
+            is not None
+        )
 
     # Unit session operations
     def get_unit_session(self, user_id: str, unit_id: str) -> Any | None:

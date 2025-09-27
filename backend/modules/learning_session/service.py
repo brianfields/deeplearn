@@ -119,7 +119,7 @@ class StartSessionRequest:
     """Request DTO for starting a session"""
 
     lesson_id: str
-    user_id: str | None = None
+    user_id: str
 
 
 @dataclass
@@ -132,6 +132,7 @@ class UpdateProgressRequest:
     user_answer: Any | None = None
     is_correct: bool | None = None
     time_spent_seconds: int = 0
+    user_id: str | None = None
 
 
 @dataclass
@@ -139,6 +140,7 @@ class CompleteSessionRequest:
     """Request DTO for completing a session"""
 
     session_id: str
+    user_id: str | None = None
 
 
 @dataclass
@@ -169,17 +171,20 @@ class LearningSessionService:
 
     async def start_session(self, request: StartSessionRequest) -> LearningSession:
         """Start a new learning session"""
+        if not request.user_id:
+            raise ValueError("User identifier is required to start a session")
+
         # Validate lesson exists
         lesson_detail = self.catalog.get_lesson_details(request.lesson_id)
         if not lesson_detail:
             raise ValueError(f"Lesson {request.lesson_id} not found")
 
         # Check for existing active session (if user provided)
-        if request.user_id:
-            existing_session = self.repo.get_active_session_for_user_and_lesson(request.user_id, request.lesson_id)
-            if existing_session:
-                # Return existing session instead of creating new one
-                return self._to_session_dto(existing_session)
+        existing_session = self.repo.get_active_session_for_user_and_lesson(request.user_id, request.lesson_id)
+        if existing_session:
+            # Ensure the session is bound to the requesting user (for legacy records)
+            existing_session = self._ensure_session_user(existing_session, request.user_id)
+            return self._to_session_dto(existing_session)
 
         # Get lesson content to determine exercise count
         lesson_content = self.content.get_lesson(request.lesson_id)
@@ -194,12 +199,11 @@ class LearningSessionService:
 
         # If user and unit context exist, ensure a unit session is created
         try:
-            if request.user_id:
-                # Determine unit for this lesson using the lesson_content we already fetched
-                unit_id = getattr(lesson_content, "unit_id", None) if lesson_content else None
-                if unit_id:
-                    # Ensure unit session exists
-                    self.content.get_or_create_unit_session(user_id=request.user_id, unit_id=unit_id)
+            # Determine unit for this lesson using the lesson_content we already fetched
+            unit_id = getattr(lesson_content, "unit_id", None) if lesson_content else None
+            if unit_id:
+                # Ensure unit session exists
+                self.content.get_or_create_unit_session(user_id=request.user_id, unit_id=unit_id)
         except Exception as e:
             logger.warning(f"Failed to create unit session: {e}")
             # Non-fatal; proceed even if unit session cannot be created
@@ -207,18 +211,20 @@ class LearningSessionService:
 
         return self._to_session_dto(session)
 
-    async def get_session(self, session_id: str) -> LearningSession | None:
+    async def get_session(self, session_id: str, user_id: str | None = None) -> LearningSession | None:
         """Get session by ID"""
         session = self.repo.get_session_by_id(session_id)
         if not session:
             return None
+        session = self._ensure_session_user(session, user_id)
         return self._to_session_dto(session)
 
-    async def pause_session(self, session_id: str) -> LearningSession | None:
+    async def pause_session(self, session_id: str, user_id: str | None = None) -> LearningSession | None:
         """Pause a session"""
         session = self.repo.update_session_status(session_id, SessionStatus.PAUSED)
         if not session:
             return None
+        session = self._ensure_session_user(session, user_id)
         return self._to_session_dto(session)
 
     async def update_progress(self, request: UpdateProgressRequest) -> SessionProgress:
@@ -227,6 +233,8 @@ class LearningSessionService:
         session = self.repo.get_session_by_id(request.session_id)
         if not session:
             raise ValueError(f"Session {request.session_id} not found")
+
+        session = self._ensure_session_user(session, request.user_id)
 
         if session.status not in [SessionStatus.ACTIVE.value, SessionStatus.PAUSED.value]:
             raise ValueError(f"Cannot update progress for {session.status} session")
@@ -307,6 +315,8 @@ class LearningSessionService:
         if not session:
             raise ValueError(f"Session {request.session_id} not found")
 
+        session = self._ensure_session_user(session, request.user_id)
+
         if session.status == SessionStatus.COMPLETED.value:
             # Already completed, return existing results
             return self._calculate_session_results(session)
@@ -320,6 +330,8 @@ class LearningSessionService:
 
         if not completed_session:
             raise ValueError("Failed to complete session")
+
+        completed_session = self._ensure_session_user(completed_session, request.user_id)
 
         results = self._calculate_session_results(completed_session)
 
@@ -467,7 +479,10 @@ class LearningSessionService:
             offset=offset,
         )
 
-        session_dtos = [self._to_session_dto(session) for session in sessions]
+        session_dtos = [
+            self._to_session_dto(self._ensure_session_user(session, user_id))
+            for session in sessions
+        ]
         return SessionListResponse(sessions=session_dtos, total=total)
 
     async def check_health(self) -> bool:
@@ -477,6 +492,24 @@ class LearningSessionService:
     # ================================
     # Private Helper Methods
     # ================================
+
+    def _ensure_session_user(
+        self, session: LearningSessionModel, user_id: str | None
+    ) -> LearningSessionModel:
+        """Validate or persist the session's user association."""
+
+        if user_id is None:
+            if session.user_id is None:
+                return session
+            raise PermissionError("User context is required for this learning session")
+
+        if session.user_id is None:
+            return self.repo.assign_session_user(session.id, user_id)
+
+        if session.user_id != user_id:
+            raise PermissionError("Learning session belongs to a different user")
+
+        return session
 
     def _to_session_dto(self, session: LearningSessionModel) -> LearningSession:
         """Convert session model to DTO"""

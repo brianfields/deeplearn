@@ -12,7 +12,9 @@ import uuid
 from modules.catalog.public import CatalogProvider
 from modules.content.public import ContentProvider
 from modules.flow_engine.public import FlowEngineAdminProvider
+from modules.learning_session.public import LearningSessionProvider
 from modules.llm_services.public import LLMServicesAdminProvider
+from modules.user.public import UserProvider, UserRead
 
 from .models import (
     FlowRunDetails,
@@ -25,6 +27,14 @@ from .models import (
     LLMRequestDetails,
     LLMRequestsListResponse,
     LLMRequestSummary,
+    UserAssociationSummary,
+    UserDetail,
+    UserListResponse,
+    UserLLMRequestSummary,
+    UserOwnedUnitSummary,
+    UserSessionSummary,
+    UserSummary,
+    UserUpdateRequest,
 )
 
 
@@ -37,12 +47,203 @@ class AdminService:
         llm_services_admin: LLMServicesAdminProvider,
         catalog: CatalogProvider,
         content: ContentProvider,
+        users: UserProvider,
+        learning_sessions: LearningSessionProvider | None = None,
     ) -> None:
         """Initialize admin service with required dependencies."""
         self.flow_engine_admin = flow_engine_admin
         self.llm_services_admin = llm_services_admin
         self.catalog = catalog
         self.content = content
+        self.users = users
+        self.learning_sessions = learning_sessions
+
+    # ---- User Management ----
+
+    async def get_users(
+        self,
+        *,
+        page: int = 1,
+        page_size: int = 50,
+        search: str | None = None,
+    ) -> UserListResponse:
+        """Return paginated user summaries with association counts."""
+
+        all_users = self.users.list_users(search=search)
+        total = len(all_users)
+        if page < 1:
+            page = 1
+        start = (page - 1) * page_size
+        end = start + page_size
+        visible = all_users[start:end]
+
+        summaries: list[UserSummary] = []
+        for user in visible:
+            associations = await self._build_user_associations(user)
+            summaries.append(
+                UserSummary(
+                    id=user.id,
+                    email=user.email,
+                    name=user.name,
+                    role=user.role,
+                    is_active=user.is_active,
+                    created_at=user.created_at,
+                    updated_at=user.updated_at,
+                    associations=associations,
+                )
+            )
+
+        has_next = end < total
+        return UserListResponse(
+            users=summaries,
+            total_count=total,
+            page=page,
+            page_size=page_size,
+            has_next=has_next,
+        )
+
+    async def get_user_detail(self, user_id: int) -> UserDetail | None:
+        """Return detailed user profile with associations for admin view."""
+
+        user = self.users.get_profile(user_id)
+        if not user:
+            return None
+
+        associations = await self._build_user_associations(user)
+
+        owned_units = [
+            UserOwnedUnitSummary(
+                id=unit.id,
+                title=unit.title,
+                is_global=bool(getattr(unit, "is_global", False)),
+                updated_at=unit.updated_at,
+            )
+            for unit in self.content.list_units_for_user(user.id, limit=100)
+        ]
+
+        recent_sessions = await self._get_recent_sessions(user)
+        recent_llm_requests = self._get_recent_llm_requests(user)
+
+        return UserDetail(
+            id=user.id,
+            email=user.email,
+            name=user.name,
+            role=user.role,
+            is_active=user.is_active,
+            created_at=user.created_at,
+            updated_at=user.updated_at,
+            associations=associations,
+            owned_units=owned_units,
+            recent_sessions=recent_sessions,
+            recent_llm_requests=recent_llm_requests,
+        )
+
+    async def update_user(self, user_id: int, payload: UserUpdateRequest) -> UserDetail | None:
+        """Apply admin-controlled updates and return refreshed detail."""
+
+        try:
+            self.users.update_user_admin(
+                user_id,
+                name=payload.name,
+                role=payload.role,
+                is_active=payload.is_active,
+            )
+        except ValueError:
+            return None
+
+        return await self.get_user_detail(user_id)
+
+    async def _build_user_associations(self, user: UserRead) -> UserAssociationSummary:
+        """Aggregate association counts for a user."""
+
+        owned_units = self.content.list_units_for_user(user.id, limit=100)
+        owned_global_unit_count = sum(1 for unit in owned_units if getattr(unit, "is_global", False))
+        learning_session_count = await self._get_learning_session_count(user)
+        llm_request_count = self._get_llm_request_count(user)
+        return UserAssociationSummary(
+            owned_unit_count=len(owned_units),
+            owned_global_unit_count=owned_global_unit_count,
+            learning_session_count=learning_session_count,
+            llm_request_count=llm_request_count,
+        )
+
+    async def _get_learning_session_count(self, user: UserRead) -> int:
+        if not self.learning_sessions:
+            return 0
+        try:
+            response = await self.learning_sessions.get_user_sessions(
+                user_id=str(user.id),
+                limit=1,
+                offset=0,
+            )
+        except Exception:
+            return 0
+        return response.total
+
+    async def _get_recent_sessions(self, user: UserRead, limit: int = 5) -> list[UserSessionSummary]:
+        if not self.learning_sessions:
+            return []
+        try:
+            response = await self.learning_sessions.get_user_sessions(
+                user_id=str(user.id),
+                limit=limit,
+                offset=0,
+            )
+        except Exception:
+            return []
+
+        summaries: list[UserSessionSummary] = []
+        for session in response.sessions:
+            summaries.append(
+                UserSessionSummary(
+                    id=session.id,
+                    lesson_id=session.lesson_id,
+                    status=session.status,
+                    started_at=session.started_at,
+                    completed_at=session.completed_at,
+                    progress_percentage=session.progress_percentage,
+                )
+            )
+        return summaries
+
+    def _get_llm_request_count(self, user: UserRead) -> int:
+        user_uuid = self._coerce_user_uuid(user)
+        if not user_uuid:
+            return 0
+        try:
+            return self.llm_services_admin.get_request_count_by_user(user_uuid)
+        except Exception:
+            return 0
+
+    def _get_recent_llm_requests(self, user: UserRead, limit: int = 5) -> list[UserLLMRequestSummary]:
+        user_uuid = self._coerce_user_uuid(user)
+        if not user_uuid:
+            return []
+        try:
+            requests = self.llm_services_admin.get_user_requests(user_uuid, limit=limit, offset=0)
+        except Exception:
+            return []
+
+        return [
+            UserLLMRequestSummary(
+                id=str(request.id),
+                model=request.model,
+                status=request.status,
+                created_at=request.created_at,
+                tokens_used=request.tokens_used,
+            )
+            for request in requests
+        ]
+
+    def _coerce_user_uuid(self, user: UserRead) -> uuid.UUID | None:
+        if isinstance(user.id, uuid.UUID):
+            return user.id
+        if isinstance(user.id, str):
+            try:
+                return uuid.UUID(user.id)
+            except ValueError:
+                return None
+        return None
 
     # ---- Flow Management ----
 

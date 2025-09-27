@@ -166,6 +166,138 @@ export interface LessonsListResponse {
   has_next: boolean;
 }
 
+// ---- User Management DTOs ----
+
+export interface ApiUserAssociationSummary {
+  owned_unit_count: number;
+  owned_global_unit_count: number;
+  learning_session_count: number;
+  llm_request_count: number;
+}
+
+export interface ApiUserOwnedUnitSummary {
+  id: string;
+  title: string;
+  is_global: boolean;
+  updated_at: string;
+}
+
+export interface ApiUserSessionSummary {
+  id: string;
+  lesson_id: string;
+  status: string;
+  started_at: string;
+  completed_at: string | null;
+  progress_percentage: number;
+}
+
+export interface ApiUserLLMRequestSummary {
+  id: string;
+  model: string;
+  status: string;
+  created_at: string;
+  tokens_used: number | null;
+}
+
+export interface ApiUserSummary {
+  id: number | string;
+  email: string;
+  name: string;
+  role: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  associations: ApiUserAssociationSummary;
+}
+
+export interface ApiUserDetail extends ApiUserSummary {
+  owned_units: ApiUserOwnedUnitSummary[];
+  recent_sessions: ApiUserSessionSummary[];
+  recent_llm_requests: ApiUserLLMRequestSummary[];
+}
+
+export interface ApiUserListResponse {
+  users: ApiUserSummary[];
+  total_count: number;
+  page: number;
+  page_size: number;
+  has_next: boolean;
+}
+
+export interface ApiUserUpdateRequest {
+  name?: string | null;
+  role?: string | null;
+  is_active?: boolean | null;
+}
+
+export interface UserAssociationSummary {
+  owned_unit_count: number;
+  owned_global_unit_count: number;
+  learning_session_count: number;
+  llm_request_count: number;
+}
+
+export interface UserOwnedUnitSummary {
+  id: string;
+  title: string;
+  is_global: boolean;
+  updated_at: Date;
+}
+
+export interface UserSessionSummary {
+  id: string;
+  lesson_id: string;
+  status: string;
+  started_at: Date;
+  completed_at: Date | null;
+  progress_percentage: number;
+}
+
+export interface UserLLMRequestSummary {
+  id: string;
+  model: string;
+  status: string;
+  created_at: Date;
+  tokens_used: number | null;
+}
+
+export interface UserSummary {
+  id: number | string;
+  email: string;
+  name: string;
+  role: string;
+  is_active: boolean;
+  created_at: Date;
+  updated_at: Date;
+  associations: UserAssociationSummary;
+}
+
+export interface UserDetail extends UserSummary {
+  owned_units: UserOwnedUnitSummary[];
+  recent_sessions: UserSessionSummary[];
+  recent_llm_requests: UserLLMRequestSummary[];
+}
+
+export interface UserListResponse {
+  users: UserSummary[];
+  total_count: number;
+  page: number;
+  page_size: number;
+  has_next: boolean;
+}
+
+export interface UserListQuery {
+  page?: number;
+  page_size?: number;
+  search?: string;
+}
+
+export interface UserUpdatePayload {
+  name?: string | null;
+  role?: string | null;
+  is_active?: boolean | null;
+}
+
 // ---- Lesson Package Types (from backend package_models.py) ----
 
 export interface Meta {
@@ -272,11 +404,15 @@ export interface ApiUnitSummary {
   title: string;
   description: string | null;
   learner_level: string;
+  lesson_order: string[];
   lesson_count: number;
-  // New fields from backend
+  user_id?: number | string | null;
+  is_global?: boolean;
   target_lesson_count?: number | null;
   generated_from_topic?: boolean;
   flow_type?: 'standard' | 'fast';
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface ApiUnitLessonSummary {
@@ -321,10 +457,13 @@ export interface UnitSummary {
   description: string | null;
   learner_level: string;
   lesson_count: number;
-  // New fields for admin list UI
   target_lesson_count: number | null;
   generated_from_topic: boolean;
   flow_type: 'standard' | 'fast';
+  user_id: number | string | null;
+  is_global: boolean;
+  created_at: Date | null;
+  updated_at: Date | null;
 }
 
 export interface UnitLessonSummary {

@@ -150,7 +150,7 @@ def kill_active_sessions(verbose: bool = False) -> None:
             if verbose and active_sessions:
                 print(f"   Found {len(active_sessions)} active sessions:")
                 for session_info in active_sessions:
-                    pid, usename, app_name, client_addr, state, query_start = session_info
+                    pid, usename, app_name, client_addr, state, _query_start = session_info
                     print(f"     PID {pid}: {usename}@{client_addr or 'local'} ({app_name}) - {state}")
 
             # Terminate all active sessions for the current database (excluding our own)

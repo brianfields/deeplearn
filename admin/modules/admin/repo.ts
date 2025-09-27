@@ -12,16 +12,22 @@ import type {
   ApiFlowStepDetails,
   ApiLLMRequest,
   ApiSystemMetrics,
+  ApiUnitBasic,
+  ApiUnitDetail,
+  ApiUnitSummary,
+  ApiUserDetail,
+  ApiUserListResponse,
+  ApiUserUpdateRequest,
+  DailyMetrics,
+  FlowMetrics,
+  FlowRunsListResponse,
   FlowRunsQuery,
   LLMRequestsQuery,
+  LessonsListResponse,
   LessonsQuery,
   MetricsQuery,
-  FlowRunsListResponse,
-  LessonsListResponse,
-  FlowMetrics,
-  DailyMetrics,
+  UserListQuery,
 } from './models';
-import type { ApiUnitBasic, ApiUnitDetail, ApiUnitSummary } from './models';
 
 const ADMIN_BASE = '/admin';
 
@@ -142,8 +148,12 @@ export const AdminRepo = {
 
   // ---- Units (via catalog and units modules) ----
   units: {
-    async list(): Promise<ApiUnitSummary[]> {
-      const { data } = await apiClient.get<ApiUnitSummary[]>(`/catalog/units`);
+    async list(params?: { limit?: number; offset?: number }): Promise<ApiUnitSummary[]> {
+      const query = new URLSearchParams();
+      if (params?.limit) query.append('limit', params.limit.toString());
+      if (params?.offset) query.append('offset', params.offset.toString());
+      const suffix = query.toString() ? `?${query.toString()}` : '';
+      const { data } = await apiClient.get<ApiUnitSummary[]>(`/content/units${suffix}`);
       return data;
     },
     async detail(unitId: string): Promise<ApiUnitDetail> {
@@ -152,6 +162,29 @@ export const AdminRepo = {
     },
     async basics(): Promise<ApiUnitBasic[]> {
       const { data } = await apiClient.get<ApiUnitBasic[]>(`/units`);
+      return data;
+    },
+  },
+
+  // ---- User Management ----
+  users: {
+    async list(params?: UserListQuery): Promise<ApiUserListResponse> {
+      const queryParams = new URLSearchParams();
+      if (params?.page) queryParams.append('page', params.page.toString());
+      if (params?.page_size) queryParams.append('page_size', params.page_size.toString());
+      if (params?.search) queryParams.append('search', params.search);
+      const suffix = queryParams.toString() ? `?${queryParams.toString()}` : '';
+      const { data } = await apiClient.get<ApiUserListResponse>(`${ADMIN_BASE}/users${suffix}`);
+      return data;
+    },
+
+    async detail(userId: number | string): Promise<ApiUserDetail> {
+      const { data } = await apiClient.get<ApiUserDetail>(`${ADMIN_BASE}/users/${userId}`);
+      return data;
+    },
+
+    async update(userId: number | string, payload: ApiUserUpdateRequest): Promise<ApiUserDetail> {
+      const { data } = await apiClient.put<ApiUserDetail>(`${ADMIN_BASE}/users/${userId}`, payload);
       return data;
     },
   },

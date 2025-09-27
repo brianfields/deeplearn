@@ -38,6 +38,7 @@ try:
     from modules.flow_engine.models import FlowRunModel, FlowStepRunModel  # noqa: F401
     from modules.learning_session.models import LearningSessionModel, UnitSessionModel  # noqa: F401
     from modules.llm_services.models import LLMRequestModel  # noqa: F401
+    from modules.user.models import UserModel  # noqa: F401
     from modules.shared_models import Base
 
     target_metadata = Base.metadata

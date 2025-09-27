@@ -6,7 +6,7 @@ Uses content module for data access.
 """
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Iterable
 
 from pydantic import BaseModel
 
@@ -116,6 +116,13 @@ class UnitDetail(BaseModel):
     generated_from_topic: bool = False
     # Flow type used to generate the unit
     flow_type: str = "standard"
+
+
+class UserUnitCollections(BaseModel):
+    """DTO containing personal and global unit sections for a user."""
+
+    personal_units: list["UnitSummary"]
+    global_units: list["UnitSummary"]
 
 
 class CatalogService:
@@ -388,26 +395,7 @@ class CatalogService:
     def browse_units(self, limit: int = 100, offset: int = 0) -> list[UnitSummary]:
         """Browse units with simple metadata and lesson counts."""
         units = self.units.list_units(limit=limit, offset=offset)
-        summaries: list[UnitSummary] = []
-        for u in units:
-            # Prefer configured order length; fallback to query count if empty
-            lesson_count = len(u.lesson_order) if getattr(u, "lesson_order", None) else len(self.content.get_lessons_by_unit(u.id))
-            summaries.append(
-                UnitSummary(
-                    id=u.id,
-                    title=u.title,
-                    description=u.description,
-                    learner_level=u.learner_level if hasattr(u, "learner_level") else getattr(u, "learner_level", "beginner"),
-                    lesson_count=lesson_count,
-                    target_lesson_count=getattr(u, "target_lesson_count", None),
-                    generated_from_topic=bool(getattr(u, "generated_from_topic", False)),
-                    flow_type=str(getattr(u, "flow_type", "standard") or "standard"),
-                    status=getattr(u, "status", "completed"),
-                    creation_progress=getattr(u, "creation_progress", None),
-                    error_message=getattr(u, "error_message", None),
-                )
-            )
-        return summaries
+        return self._map_units_to_summaries(units)
 
     def get_unit_details(self, unit_id: str) -> UnitDetail | None:
         """Get unit details with ordered aggregated lesson summaries."""
@@ -482,3 +470,54 @@ class CatalogService:
             generated_from_topic=bool(getattr(unit, "generated_from_topic", False)),
             flow_type=str(getattr(unit, "flow_type", "standard") or "standard"),
         )
+
+    def browse_units_for_user(
+        self,
+        user_id: int,
+        *,
+        include_global: bool = True,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> UserUnitCollections:
+        """Return separate personal and global unit lists for a user."""
+
+        personal_unit_models = self.units.list_units_for_user(user_id=user_id, limit=limit, offset=offset)
+        personal_units = self._map_units_to_summaries(personal_unit_models)
+
+        global_units: list[UnitSummary] = []
+        if include_global:
+            global_models = self.units.list_global_units(limit=limit, offset=offset)
+            personal_ids = {unit.id for unit in personal_unit_models}
+            filtered_global = [unit for unit in global_models if unit.id not in personal_ids]
+            global_units = self._map_units_to_summaries(filtered_global)
+
+        return UserUnitCollections(personal_units=personal_units, global_units=global_units)
+
+    def _map_units_to_summaries(self, units: Iterable[Any]) -> list[UnitSummary]:
+        """Convert unit read models into catalog unit summaries."""
+
+        summaries: list[UnitSummary] = []
+        for unit in units:
+            lesson_order = list(getattr(unit, "lesson_order", []) or [])
+            if lesson_order:
+                lesson_count = len(lesson_order)
+            else:
+                lessons = self.content.get_lessons_by_unit(unit.id)
+                lesson_count = len(lessons)
+
+            summaries.append(
+                UnitSummary(
+                    id=unit.id,
+                    title=unit.title,
+                    description=getattr(unit, "description", None),
+                    learner_level=getattr(unit, "learner_level", "beginner"),
+                    lesson_count=lesson_count,
+                    target_lesson_count=getattr(unit, "target_lesson_count", None),
+                    generated_from_topic=bool(getattr(unit, "generated_from_topic", False)),
+                    flow_type=str(getattr(unit, "flow_type", "standard") or "standard"),
+                    status=getattr(unit, "status", "completed"),
+                    creation_progress=getattr(unit, "creation_progress", None),
+                    error_message=getattr(unit, "error_message", None),
+                )
+            )
+        return summaries

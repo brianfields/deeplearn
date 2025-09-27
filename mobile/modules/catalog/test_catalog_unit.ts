@@ -36,6 +36,8 @@ describe('CatalogService', () => {
           generated_from_topic: undefined,
           creation_progress: null,
           error_message: null,
+          user_id: 42,
+          is_global: false,
         },
       ];
 
@@ -52,8 +54,15 @@ describe('CatalogService', () => {
         difficulty: 'beginner',
         status: 'completed',
         difficultyLabel: 'Beginner',
+        ownerUserId: 42,
+        isGlobal: false,
+        ownershipLabel: 'Personal',
+        isOwnedByCurrentUser: false,
       });
-      expect(mockRepo.listUnits).toHaveBeenCalledWith(undefined);
+      expect(mockRepo.listUnits).toHaveBeenCalledWith({
+        limit: undefined,
+        offset: undefined,
+      });
     });
 
     it('should pass through limit and offset params', async () => {
@@ -65,7 +74,10 @@ describe('CatalogService', () => {
       await service.browseUnits(params);
 
       // Assert
-      expect(mockRepo.listUnits).toHaveBeenCalledWith(params);
+      expect(mockRepo.listUnits).toHaveBeenCalledWith({
+        limit: params.limit,
+        offset: params.offset,
+      });
     });
 
     it('should handle repo errors gracefully', async () => {
@@ -280,6 +292,47 @@ describe('CatalogService', () => {
         code: 'CATALOG_SERVICE_ERROR',
       });
     });
+
+    it('should attempt to toggle sharing when requested', async () => {
+      // Arrange
+      const request: UnitCreationRequest = {
+        topic: 'Shared Topic',
+        difficulty: 'beginner',
+        shareGlobally: true,
+        ownerUserId: 12,
+      };
+
+      const expectedResponse: UnitCreationResponse = {
+        unitId: 'unit-share',
+        status: 'in_progress',
+        title: 'Shared Topic',
+      };
+
+      mockRepo.createUnit.mockResolvedValue(expectedResponse);
+      mockRepo.updateUnitSharing.mockResolvedValue({
+        id: expectedResponse.unitId,
+        title: expectedResponse.title,
+        description: null,
+        learner_level: 'beginner',
+        lesson_count: 0,
+        status: 'in_progress',
+        target_lesson_count: null,
+        generated_from_topic: true,
+        creation_progress: null,
+        error_message: null,
+        user_id: 12,
+        is_global: true,
+      } as any);
+
+      // Act
+      await service.createUnit(request);
+
+      // Assert
+      expect(mockRepo.updateUnitSharing).toHaveBeenCalledWith('unit-share', {
+        isGlobal: true,
+        actingUserId: 12,
+      });
+    });
   });
 
   describe('retryUnitCreation', () => {
@@ -366,6 +419,139 @@ describe('CatalogService', () => {
         message: 'Dismiss failed', // Original error message preserved
         code: 'CATALOG_SERVICE_ERROR',
       });
+    });
+  });
+
+  describe('getUserUnitCollections', () => {
+    it('returns separated personal and global units for valid user', async () => {
+      mockRepo.listPersonalUnits.mockResolvedValue([
+        {
+          id: 'unit-1',
+          title: 'Personal Unit',
+          description: null,
+          learner_level: 'beginner',
+          lesson_count: 2,
+          status: 'completed',
+          target_lesson_count: null,
+          generated_from_topic: false,
+          creation_progress: null,
+          error_message: null,
+          user_id: 42,
+          is_global: false,
+        },
+      ] as any);
+      mockRepo.listGlobalUnits.mockResolvedValue([
+        {
+          id: 'unit-1',
+          title: 'Personal Unit',
+          description: null,
+          learner_level: 'beginner',
+          lesson_count: 2,
+          status: 'completed',
+          target_lesson_count: null,
+          generated_from_topic: false,
+          creation_progress: null,
+          error_message: null,
+          user_id: 42,
+          is_global: true,
+        },
+        {
+          id: 'unit-2',
+          title: 'Global Unit',
+          description: null,
+          learner_level: 'intermediate',
+          lesson_count: 4,
+          status: 'completed',
+          target_lesson_count: null,
+          generated_from_topic: false,
+          creation_progress: null,
+          error_message: null,
+          user_id: 99,
+          is_global: true,
+        },
+      ] as any);
+
+      const result = await service.getUserUnitCollections(42);
+
+      expect(mockRepo.listPersonalUnits).toHaveBeenCalledWith(42, {
+        limit: undefined,
+        offset: undefined,
+      });
+      expect(mockRepo.listGlobalUnits).toHaveBeenCalledWith({
+        limit: undefined,
+        offset: undefined,
+      });
+      expect(result.personalUnits).toHaveLength(1);
+      expect(result.globalUnits).toHaveLength(1);
+      expect(result.personalUnits[0]).toMatchObject({
+        id: 'unit-1',
+        ownerUserId: 42,
+        isOwnedByCurrentUser: true,
+      });
+      expect(result.globalUnits[0].id).toBe('unit-2');
+    });
+
+    it('returns empty collections for invalid user id', async () => {
+      const result = await service.getUserUnitCollections(0);
+      expect(result).toEqual({ personalUnits: [], globalUnits: [] });
+      expect(mockRepo.listPersonalUnits).not.toHaveBeenCalled();
+    });
+
+    it('throws when repo fails', async () => {
+      mockRepo.listPersonalUnits.mockRejectedValue(new Error('boom'));
+      await expect(service.getUserUnitCollections(7)).rejects.toMatchObject({
+        message: 'boom',
+        code: 'CATALOG_SERVICE_ERROR',
+      });
+    });
+  });
+
+  describe('toggleUnitSharing', () => {
+    it('updates sharing state via repo', async () => {
+      mockRepo.updateUnitSharing.mockResolvedValue({
+        id: 'unit-3',
+        title: 'Shared Unit',
+        description: null,
+        learner_level: 'beginner',
+        lesson_count: 3,
+        status: 'completed',
+        target_lesson_count: null,
+        generated_from_topic: false,
+        creation_progress: null,
+        error_message: null,
+        user_id: 7,
+        is_global: true,
+      } as any);
+
+      const result = await service.toggleUnitSharing('unit-3', {
+        makeGlobal: true,
+        actingUserId: 7,
+      });
+
+      expect(mockRepo.updateUnitSharing).toHaveBeenCalledWith('unit-3', {
+        isGlobal: true,
+        actingUserId: 7,
+      });
+      expect(result).toMatchObject({
+        isGlobal: true,
+        ownerUserId: 7,
+        isOwnedByCurrentUser: true,
+      });
+    });
+
+    it('validates unit id is required', async () => {
+      await expect(
+        service.toggleUnitSharing('', { makeGlobal: true })
+      ).rejects.toMatchObject({
+        message: 'Unit ID is required',
+      });
+    });
+
+    it('throws when repo update fails', async () => {
+      mockRepo.updateUnitSharing.mockRejectedValue(new Error('nope'));
+      await expect(
+        service.toggleUnitSharing('unit-x', { makeGlobal: false })
+      ).rejects.toMatchObject({ message: 'nope' });
     });
   });
 
