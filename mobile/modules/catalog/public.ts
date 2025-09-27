@@ -14,10 +14,16 @@ import type {
   LessonFilters,
   CatalogStatistics,
   PaginationInfo,
+} from './models';
+import type {
+  Unit,
+  UnitDetail,
+  UserUnitCollections,
+} from '../content/public';
+import type {
   UnitCreationRequest,
   UnitCreationResponse,
-  UserUnitCollections,
-} from './models';
+} from '../content_creator/public';
 
 // Public interface protocol
 export interface CatalogProvider {
@@ -47,11 +53,11 @@ export interface CatalogProvider {
     limit?: number;
     offset?: number;
     currentUserId?: number | null;
-  }): Promise<import('./models').Unit[]>;
+  }): Promise<Unit[]>;
   getUnitDetail(
     unitId: string,
     currentUserId?: number | null
-  ): Promise<import('./models').UnitDetail | null>;
+  ): Promise<UnitDetail | null>;
   createUnit(request: UnitCreationRequest): Promise<UnitCreationResponse>;
   retryUnitCreation(unitId: string): Promise<UnitCreationResponse>;
   dismissUnit(unitId: string): Promise<void>;
@@ -62,7 +68,7 @@ export interface CatalogProvider {
   toggleUnitSharing(
     unitId: string,
     request: { makeGlobal: boolean; actingUserId?: number | null }
-  ): Promise<import('./models').Unit>;
+  ): Promise<Unit>;
 }
 
 // Service instance (singleton)
@@ -107,8 +113,6 @@ export type {
   LessonFilters,
   CatalogStatistics,
   PaginationInfo,
-  UnitCreationRequest,
-  UnitCreationResponse,
-  UserUnitCollections,
 } from './models';
-export type { Unit, UnitDetail, UnitStatus, Difficulty } from './models';
+export type { UnitCreationRequest, UnitCreationResponse } from '../content_creator/public';
+export type { Unit, UnitDetail, UnitStatus, Difficulty, UserUnitCollections } from '../content/public';

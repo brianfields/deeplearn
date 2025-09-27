@@ -9,8 +9,8 @@ import { catalogProvider } from './public';
 import type {
   LessonFilters,
   PaginationInfo,
-  UnitCreationRequest,
 } from './models';
+import type { UnitCreationRequest } from '../content_creator/public';
 
 // Get the lesson catalog service instance
 const catalog = catalogProvider();
