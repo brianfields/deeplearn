@@ -8,7 +8,7 @@ import re
 import secrets
 from datetime import UTC, datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from .models import UserModel
 from .repo import UserRepo
@@ -17,6 +17,7 @@ from .repo import UserRepo
 class UserRead(BaseModel):
     """DTO returned to callers when reading user information."""
 
+    model_config = ConfigDict(from_attributes=True)
     id: int
     email: str
     name: str
