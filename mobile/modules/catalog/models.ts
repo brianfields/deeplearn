@@ -307,6 +307,11 @@ export interface ApiUnitSummary {
   status: string;
   creation_progress?: { stage: string; message: string } | null;
   error_message?: string | null;
+  // Ownership metadata
+  user_id?: number | null;
+  is_global?: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface ApiUnitDetail {
@@ -328,6 +333,8 @@ export interface ApiUnitDetail {
   target_lesson_count?: number | null;
   source_material?: string | null;
   generated_from_topic?: boolean;
+  user_id?: number | null;
+  is_global?: boolean;
 }
 
 export type UnitId = string;
@@ -345,6 +352,8 @@ export interface UnitCreationRequest {
   readonly topic: string;
   readonly difficulty: Difficulty;
   readonly targetLessonCount?: number | null;
+  readonly shareGlobally?: boolean;
+  readonly ownerUserId?: number | null;
 }
 
 export interface UnitCreationResponse {
@@ -373,6 +382,10 @@ export interface Unit {
   readonly statusLabel: string;
   readonly isInteractive: boolean; // Can user open/interact with this unit
   readonly progressMessage: string; // User-friendly progress message
+  readonly ownerUserId: number | null;
+  readonly isGlobal: boolean;
+  readonly ownershipLabel: string;
+  readonly isOwnedByCurrentUser: boolean;
 }
 
 export interface UnitDetail {
@@ -387,6 +400,9 @@ export interface UnitDetail {
   readonly targetLessonCount?: number | null;
   readonly sourceMaterial?: string | null;
   readonly generatedFromTopic?: boolean;
+  readonly ownerUserId: number | null;
+  readonly isGlobal: boolean;
+  readonly isOwnedByCurrentUser: boolean;
 }
 
 export interface UnitProgress {
@@ -396,9 +412,22 @@ export interface UnitProgress {
   readonly progressPercentage: number; // 0-100
 }
 
-export function toUnitDTO(api: ApiUnitSummary): Unit {
+export interface UserUnitCollections {
+  readonly personalUnits: Unit[];
+  readonly globalUnits: Unit[];
+}
+
+export function toUnitDTO(
+  api: ApiUnitSummary,
+  currentUserId?: number | null
+): Unit {
   const difficulty = (api.learner_level as Difficulty) ?? 'beginner';
   const status = (api.status as UnitStatus) ?? 'completed';
+  const ownerUserId = api.user_id ?? null;
+  const isGlobal = Boolean(api.is_global);
+  const isOwnedByCurrentUser = Boolean(
+    ownerUserId && currentUserId && ownerUserId === currentUserId
+  );
 
   return {
     id: api.id,
@@ -419,11 +448,23 @@ export function toUnitDTO(api: ApiUnitSummary): Unit {
       api.creation_progress,
       api.error_message
     ),
+    ownerUserId,
+    isGlobal,
+    ownershipLabel: formatOwnershipLabel(isGlobal, isOwnedByCurrentUser),
+    isOwnedByCurrentUser,
   };
 }
 
-export function toUnitDetailDTO(api: ApiUnitDetail): UnitDetail {
+export function toUnitDetailDTO(
+  api: ApiUnitDetail,
+  currentUserId?: number | null
+): UnitDetail {
   const difficulty = (api.learner_level as Difficulty) ?? 'beginner';
+  const ownerUserId = api.user_id ?? null;
+  const isGlobal = Boolean(api.is_global);
+  const isOwnedByCurrentUser = Boolean(
+    ownerUserId && currentUserId && ownerUserId === currentUserId
+  );
   return {
     id: api.id,
     title: api.title,
@@ -444,5 +485,21 @@ export function toUnitDetailDTO(api: ApiUnitDetail): UnitDetail {
     targetLessonCount: api.target_lesson_count ?? null,
     sourceMaterial: api.source_material ?? null,
     generatedFromTopic: !!api.generated_from_topic,
+    ownerUserId,
+    isGlobal,
+    isOwnedByCurrentUser,
   };
+}
+
+function formatOwnershipLabel(
+  isGlobal: boolean,
+  isOwnedByCurrentUser: boolean
+): string {
+  if (isGlobal) {
+    return 'Shared Globally';
+  }
+  if (isOwnedByCurrentUser) {
+    return 'My Unit';
+  }
+  return 'Personal';
 }

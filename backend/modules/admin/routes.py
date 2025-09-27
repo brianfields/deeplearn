@@ -14,7 +14,9 @@ from modules.catalog.public import catalog_provider
 from modules.content.public import content_provider
 from modules.flow_engine.public import flow_engine_admin_provider
 from modules.infrastructure.public import infrastructure_provider
+from modules.learning_session.public import learning_session_provider
 from modules.llm_services.public import llm_services_admin_provider
+from modules.user.public import user_provider
 
 from .models import (
     FlowRunDetails,
@@ -24,6 +26,9 @@ from .models import (
     LessonsListResponse,
     LLMRequestDetails,
     LLMRequestsListResponse,
+    UserDetail,
+    UserListResponse,
+    UserUpdateRequest,
 )
 from .service import AdminService
 
@@ -60,13 +65,60 @@ def get_admin_service(session: Session = Depends(get_session)) -> AdminService:
     # Create placeholder providers for async services
     # In practice, these would be properly initialized with async context
 
+    users = user_provider(session)
+    learning_sessions = learning_session_provider(session, content, catalog)
+
     # Create admin service with all dependencies
     return AdminService(
         flow_engine_admin=flow_engine_admin,
         llm_services_admin=llm_services_admin,
         catalog=catalog,
         content=content,
+        users=users,
+        learning_sessions=learning_sessions,
     )
+
+
+# ---- User Management Routes ----
+
+
+@router.get("/users", response_model=UserListResponse)
+async def list_users(
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(50, ge=1, le=100, description="Items per page"),
+    search: str | None = Query(None, description="Filter by name or email"),
+    admin_service: AdminService = Depends(get_admin_service),
+) -> UserListResponse:
+    """List users with aggregated association counts."""
+
+    return await admin_service.get_users(page=page, page_size=page_size, search=search)
+
+
+@router.get("/users/{user_id}", response_model=UserDetail)
+async def get_user_detail(
+    user_id: int,
+    admin_service: AdminService = Depends(get_admin_service),
+) -> UserDetail:
+    """Fetch detailed information about a specific user."""
+
+    detail = await admin_service.get_user_detail(user_id)
+    if not detail:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"User {user_id} not found")
+    return detail
+
+
+@router.put("/users/{user_id}", response_model=UserDetail)
+async def update_user(
+    user_id: int,
+    payload: UserUpdateRequest,
+    admin_service: AdminService = Depends(get_admin_service),
+) -> UserDetail:
+    """Update basic account information for a user."""
+
+    updated = await admin_service.update_user(user_id, payload)
+    if not updated:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"User {user_id} not found")
+    return updated
 
 
 # ---- Flow Management Routes ----

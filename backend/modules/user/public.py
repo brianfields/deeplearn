@@ -7,7 +7,14 @@ from typing import Protocol
 from sqlalchemy.orm import Session
 
 from .repo import UserRepo
-from .service import AuthenticationResult, UserLogin, UserRead, UserRegister, UserService, UserUpdate
+from .service import (
+    AuthenticationResult,
+    UserLogin,
+    UserRead,
+    UserRegister,
+    UserService,
+    UserUpdate,
+)
 
 
 class UserProvider(Protocol):
@@ -21,6 +28,16 @@ class UserProvider(Protocol):
 
     def update_profile(self, user_id: int, payload: UserUpdate) -> UserRead: ...
 
+    def list_users(self, search: str | None = None) -> list[UserRead]: ...
+
+    def update_user_admin(
+        self,
+        user_id: int,
+        *,
+        name: str | None = None,
+        role: str | None = None,
+        is_active: bool | None = None,
+    ) -> UserRead: ...
 
 def user_provider(session: Session) -> "UserProvider":
     """Return a configured UserService bound to a database session."""

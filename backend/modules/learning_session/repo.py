@@ -143,6 +143,23 @@ class LearningSessionRepo:
             .first()
         )
 
+    def assign_session_user(self, session_id: str, user_id: str) -> LearningSessionModel:
+        """Persist the user association for a session if it has not been set."""
+
+        session = self.get_session_by_id(session_id)
+        if session is None:
+            raise ValueError(f"Learning session {session_id} does not exist")
+
+        if session.user_id is not None and session.user_id != user_id:
+            raise PermissionError("Learning session already belongs to a different user")
+
+        if session.user_id is None:
+            session.user_id = user_id
+            self.db.commit()
+            self.db.refresh(session)
+
+        return session
+
     def health_check(self) -> bool:
         """Health check - verify database connectivity"""
         try:

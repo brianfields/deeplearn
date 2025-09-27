@@ -9,7 +9,13 @@ import pytest
 
 from modules.user.models import UserModel
 from modules.user.repo import UserRepo
-from modules.user.service import AuthenticationResult, UserLogin, UserRegister, UserService, UserUpdate
+from modules.user.service import (
+    AuthenticationResult,
+    UserLogin,
+    UserRegister,
+    UserService,
+    UserUpdate,
+)
 
 
 class TestUserService:
@@ -106,3 +112,34 @@ class TestUserService:
         repo.save.assert_called_once_with(user)
         assert result.name == "New Name"
         assert user.password_hash != original_hash
+
+    def test_list_users_filters_by_query(self) -> None:
+        repo = Mock(spec=UserRepo)
+        service = UserService(repo)
+
+        users = [
+            self._build_user(id=1, email="alpha@example.com", name="Alpha"),
+            self._build_user(id=2, email="beta@example.com", name="Beta"),
+        ]
+        repo.list_all.return_value = users
+
+        result = service.list_users(search="alp")
+
+        repo.list_all.assert_called_once()
+        assert [u.id for u in result] == [1]
+
+    def test_update_user_admin_updates_role_and_status(self) -> None:
+        repo = Mock(spec=UserRepo)
+        service = UserService(repo)
+
+        user = self._build_user(role="learner", is_active=True)
+        repo.by_id.return_value = user
+        repo.save.return_value = user
+
+        result = service.update_user_admin(1, name="Admin", role="admin", is_active=False)
+
+        repo.by_id.assert_called_once_with(1)
+        repo.save.assert_called_once_with(user)
+        assert result.name == "Admin"
+        assert result.role == "admin"
+        assert result.is_active is False

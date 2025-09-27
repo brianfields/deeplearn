@@ -18,6 +18,7 @@ import type {
 // Backend API endpoints
 const LESSON_CATALOG_BASE = '/api/v1/catalog';
 const CONTENT_CREATOR_BASE = '/api/v1/content-creator';
+const CONTENT_BASE = '/api/v1/content';
 
 // API response types (private to repo)
 interface ApiBrowseLessonsResponse {
@@ -259,7 +260,7 @@ export class CatalogRepo {
   }): Promise<ApiUnitSummary[]> {
     const limit = params?.limit ?? 100;
     const offset = params?.offset ?? 0;
-    const url = `${LESSON_CATALOG_BASE}/units?limit=${encodeURIComponent(String(limit))}&offset=${encodeURIComponent(String(offset))}`;
+    const url = `${CONTENT_BASE}/units?limit=${encodeURIComponent(String(limit))}&offset=${encodeURIComponent(String(offset))}`;
     try {
       return await this.infrastructure.request<ApiUnitSummary[]>(url, {
         method: 'GET',
@@ -270,13 +271,73 @@ export class CatalogRepo {
   }
 
   async getUnitDetail(unitId: string): Promise<ApiUnitDetail> {
-    const url = `${LESSON_CATALOG_BASE}/units/${encodeURIComponent(unitId)}`;
+    const url = `${CONTENT_BASE}/units/${encodeURIComponent(unitId)}`;
     try {
       return await this.infrastructure.request<ApiUnitDetail>(url, {
         method: 'GET',
       });
     } catch (error) {
       throw this.handleError(error, `Failed to get unit ${unitId}`);
+    }
+  }
+
+  async listPersonalUnits(
+    userId: number,
+    params?: { limit?: number; offset?: number }
+  ): Promise<ApiUnitSummary[]> {
+    const limit = params?.limit ?? 100;
+    const offset = params?.offset ?? 0;
+    const search = new URLSearchParams();
+    search.append('user_id', String(userId));
+    search.append('limit', String(limit));
+    search.append('offset', String(offset));
+    const url = `${CONTENT_BASE}/units/personal?${search.toString()}`;
+    try {
+      return await this.infrastructure.request<ApiUnitSummary[]>(url, {
+        method: 'GET',
+      });
+    } catch (error) {
+      throw this.handleError(error, 'Failed to load personal units');
+    }
+  }
+
+  async listGlobalUnits(params?: {
+    limit?: number;
+    offset?: number;
+  }): Promise<ApiUnitSummary[]> {
+    const limit = params?.limit ?? 100;
+    const offset = params?.offset ?? 0;
+    const search = new URLSearchParams();
+    search.append('limit', String(limit));
+    search.append('offset', String(offset));
+    const url = `${CONTENT_BASE}/units/global?${search.toString()}`;
+    try {
+      return await this.infrastructure.request<ApiUnitSummary[]>(url, {
+        method: 'GET',
+      });
+    } catch (error) {
+      throw this.handleError(error, 'Failed to load global units');
+    }
+  }
+
+  async updateUnitSharing(
+    unitId: string,
+    request: { isGlobal: boolean; actingUserId?: number }
+  ): Promise<ApiUnitSummary> {
+    const url = `${CONTENT_BASE}/units/${encodeURIComponent(unitId)}/sharing`;
+    try {
+      return await this.infrastructure.request<ApiUnitSummary>(url, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          is_global: request.isGlobal,
+          acting_user_id: request.actingUserId,
+        }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    } catch (error) {
+      throw this.handleError(error, 'Failed to update unit sharing');
     }
   }
 

@@ -85,11 +85,21 @@ class TestLearningSessionService:
     async def test_start_session_lesson_not_found(self) -> None:
         """Test session start with non-existent lesson"""
         # Arrange
-        request = StartSessionRequest(lesson_id="nonexistent-lesson")
+        request = StartSessionRequest(lesson_id="nonexistent-lesson", user_id="user-1")
         self.mock_catalog_provider.get_lesson_details.return_value = None
 
         # Act & Assert
         with pytest.raises(ValueError, match="Lesson nonexistent-lesson not found"):
+            await self.service.start_session(request)
+
+    @pytest.mark.asyncio
+    async def test_start_session_requires_user(self) -> None:
+        """Ensure user context is required for starting a session."""
+
+        request = StartSessionRequest(lesson_id="lesson-1", user_id="")
+        self.mock_catalog_provider.get_lesson_details.return_value = Mock()
+
+        with pytest.raises(ValueError, match="User identifier is required"):
             await self.service.start_session(request)
 
     @pytest.mark.asyncio
@@ -112,7 +122,7 @@ class TestLearningSessionService:
         self.mock_repo.get_session_by_id.return_value = mock_session
 
         # Act
-        result = await self.service.get_session("session-123")
+        result = await self.service.get_session("session-123", user_id="test-user")
 
         # Assert
         assert result is not None
@@ -121,13 +131,35 @@ class TestLearningSessionService:
         assert result.progress_percentage == 33.3
 
     @pytest.mark.asyncio
+    async def test_get_session_rejects_mismatched_user(self) -> None:
+        """Session retrieval fails when user mismatch occurs."""
+
+        mock_session = LearningSessionModel(
+            id="session-123",
+            lesson_id="test-lesson",
+            user_id="owner-user",
+            status=SessionStatus.ACTIVE.value,
+            started_at=datetime.utcnow(),
+            current_exercise_index=0,
+            total_exercises=2,
+            exercises_completed=0,
+            exercises_correct=0,
+            progress_percentage=10.0,
+            session_data={},
+        )
+        self.mock_repo.get_session_by_id.return_value = mock_session
+
+        with pytest.raises(PermissionError):
+            await self.service.get_session("session-123", user_id="other-user")
+
+    @pytest.mark.asyncio
     async def test_get_session_not_found(self) -> None:
         """Test session retrieval with non-existent ID"""
         # Arrange
         self.mock_repo.get_session_by_id.return_value = None
 
         # Act
-        result = await self.service.get_session("nonexistent-session")
+        result = await self.service.get_session("nonexistent-session", user_id="test-user")
 
         # Assert
         assert result is None
@@ -142,11 +174,13 @@ class TestLearningSessionService:
             exercise_type="mcq",
             is_correct=True,
             time_spent_seconds=30,
+            user_id="test-user",
         )
 
         mock_session = LearningSessionModel(
             id="session-123",
             lesson_id="test-lesson",
+            user_id="test-user",
             status=SessionStatus.ACTIVE.value,
             current_exercise_index=0,
             total_exercises=2,
@@ -170,14 +204,45 @@ class TestLearningSessionService:
         self.mock_repo.update_session_progress.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_complete_session_success(self) -> None:
-        """Test successful session completion"""
-        # Arrange
-        request = CompleteSessionRequest(session_id="session-123")
+    async def test_update_progress_requires_user(self) -> None:
+        """Updating progress without user context raises an error when session is owned."""
+
+        request = UpdateProgressRequest(
+            session_id="session-123",
+            exercise_id="mcq_1",
+            exercise_type="mcq",
+            is_correct=True,
+            time_spent_seconds=10,
+            user_id=None,
+        )
 
         mock_session = LearningSessionModel(
             id="session-123",
             lesson_id="test-lesson",
+            user_id="owner-user",
+            status=SessionStatus.ACTIVE.value,
+            current_exercise_index=0,
+            total_exercises=2,
+            exercises_completed=0,
+            exercises_correct=0,
+            progress_percentage=0.0,
+            session_data={},
+        )
+        self.mock_repo.get_session_by_id.return_value = mock_session
+
+        with pytest.raises(PermissionError):
+            await self.service.update_progress(request)
+
+    @pytest.mark.asyncio
+    async def test_complete_session_success(self) -> None:
+        """Test successful session completion"""
+        # Arrange
+        request = CompleteSessionRequest(session_id="session-123", user_id="test-user")
+
+        mock_session = LearningSessionModel(
+            id="session-123",
+            lesson_id="test-lesson",
+            user_id="test-user",
             status=SessionStatus.ACTIVE.value,
             current_exercise_index=2,  # Completed 2 exercises
             total_exercises=2,

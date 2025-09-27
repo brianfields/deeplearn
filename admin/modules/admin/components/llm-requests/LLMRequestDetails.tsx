@@ -86,6 +86,14 @@ export function LLMRequestDetails({ requestId }: LLMRequestDetailsProps) {
                 Cached
               </span>
             )}
+            {request.user_id && (
+              <Link
+                href={`/users/${request.user_id}`}
+                className="text-sm text-blue-600 hover:text-blue-500"
+              >
+                User {request.user_id}
+              </Link>
+            )}
           </div>
         </div>
       </div>

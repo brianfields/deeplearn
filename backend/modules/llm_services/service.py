@@ -1,5 +1,6 @@
 """Service layer for LLM operations with DTOs."""
 
+import contextlib
 from datetime import datetime
 import logging
 from typing import Any, TypeVar
@@ -193,6 +194,15 @@ class LLMService:
             logger.warning(f"Failed to initialize LLM provider: {e}")
             self.provider = None
 
+    def _ensure_request_user(self, request_id: uuid.UUID, user_id: uuid.UUID | None) -> None:
+        """Persist the user association for the given LLM request when provided."""
+
+        if user_id is None:
+            return
+
+        with contextlib.suppress(Exception):
+            self.repo.assign_user(request_id, user_id)
+
     async def generate_response(
         self, messages: list[LLMMessage], user_id: uuid.UUID | None = None, model: str | None = None, temperature: float | None = None, max_output_tokens: int | None = None, **kwargs: LLMProviderKwargs
     ) -> tuple[LLMResponse, uuid.UUID]:
@@ -212,6 +222,7 @@ class LLMService:
 
         # Convert back to DTO
         response_dto = LLMResponse.from_llm_response(internal_response)
+        self._ensure_request_user(request_id, user_id)
         return response_dto, request_id
 
     async def generate_structured_response(
@@ -239,6 +250,7 @@ class LLMService:
             provider_kwargs["max_output_tokens"] = max_output_tokens
         structured_obj, request_id, usage_info = await self.provider.generate_structured_object(messages=internal_messages, response_model=response_model, user_id=user_id, **provider_kwargs, **kwargs)
 
+        self._ensure_request_user(request_id, user_id)
         return structured_obj, request_id, usage_info
 
     async def generate_image(self, prompt: str, user_id: uuid.UUID | None = None, size: str = "1024x1024", quality: str = "standard", style: str | None = None, **kwargs: LLMProviderKwargs) -> tuple[ImageResponse, uuid.UUID]:
@@ -260,6 +272,7 @@ class LLMService:
 
         # Convert to DTO
         response_dto = ImageResponse.from_image_response(internal_response)
+        self._ensure_request_user(request_id, user_id)
         return response_dto, request_id
 
     async def search_web(self, queries: list[str], user_id: uuid.UUID | None = None, max_results: int = 10, **kwargs: LLMProviderKwargs) -> tuple[WebSearchResponse, uuid.UUID]:
@@ -274,6 +287,7 @@ class LLMService:
 
         # Convert to DTO
         response_dto = WebSearchResponse.from_web_search_response(internal_response)
+        self._ensure_request_user(request_id, user_id)
         return response_dto, request_id
 
     def get_request(self, request_id: uuid.UUID) -> LLMRequest | None:

@@ -34,7 +34,7 @@ class StartSessionRequestModel(BaseModel):
     """Request model for starting a session"""
 
     lesson_id: str = Field(..., description="ID of the lesson to start learning")
-    user_id: str | None = Field(None, description="Optional user ID for tracking")
+    user_id: str = Field(..., min_length=1, description="Authenticated user ID for tracking")
 
 
 class UpdateProgressRequestModel(BaseModel):
@@ -45,6 +45,7 @@ class UpdateProgressRequestModel(BaseModel):
     user_answer: dict[str, Any] | None = Field(None, description="User's answer/response")
     is_correct: bool | None = Field(None, description="Whether the answer was correct")
     time_spent_seconds: int = Field(0, ge=0, description="Time spent on this exercise")
+    user_id: str = Field(..., min_length=1, description="Authenticated user identifier")
 
 
 class SessionResponseModel(BaseModel):
@@ -168,10 +169,11 @@ async def start_session(
 @router.get("/{session_id}", response_model=SessionResponseModel)
 async def get_session(
     session_id: str,
+    user_id: str = Query(..., description="Authenticated user identifier"),
     service: LearningSessionService = Depends(get_learning_session_service),
 ) -> SessionResponseModel:
     """Get session details by ID"""
-    session = await service.get_session(session_id)
+    session = await service.get_session(session_id, user_id=user_id)
 
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -204,6 +206,7 @@ async def update_session_progress(
         user_answer=request.user_answer,
         is_correct=request.is_correct,
         time_spent_seconds=request.time_spent_seconds,
+        user_id=request.user_id,
     )
 
     progress = await service.update_progress(progress_request)
@@ -224,10 +227,11 @@ async def update_session_progress(
 @router.post("/{session_id}/complete", response_model=SessionResultsResponseModel)
 async def complete_session(
     session_id: str,
+    user_id: str = Query(..., description="Authenticated user identifier"),
     service: LearningSessionService = Depends(get_learning_session_service),
 ) -> SessionResultsResponseModel:
     """Complete a learning session"""
-    complete_request = CompleteSessionRequest(session_id=session_id)
+    complete_request = CompleteSessionRequest(session_id=session_id, user_id=user_id)
     results = await service.complete_session(complete_request)
 
     return SessionResultsResponseModel(
@@ -246,10 +250,11 @@ async def complete_session(
 @router.post("/{session_id}/pause", response_model=SessionResponseModel)
 async def pause_session(
     session_id: str,
+    user_id: str = Query(..., description="Authenticated user identifier"),
     service: LearningSessionService = Depends(get_learning_session_service),
 ) -> SessionResponseModel:
     """Pause a learning session"""
-    session = await service.pause_session(session_id)
+    session = await service.pause_session(session_id, user_id=user_id)
 
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -270,7 +275,7 @@ async def pause_session(
 
 @router.get("/", response_model=SessionListResponseModel)
 async def get_user_sessions(
-    user_id: str | None = Query(None, description="Filter by user ID"),
+    user_id: str = Query(..., description="Filter by user ID"),
     status: str | None = Query(None, description="Filter by session status"),
     lesson_id: str | None = Query(None, description="Filter by lesson ID"),
     limit: int = Query(50, ge=1, le=100, description="Maximum number of sessions to return"),

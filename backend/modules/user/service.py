@@ -8,7 +8,7 @@ import re
 import secrets
 from datetime import UTC, datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from .models import UserModel
 from .repo import UserRepo
@@ -17,11 +17,14 @@ from .repo import UserRepo
 class UserRead(BaseModel):
     """DTO returned to callers when reading user information."""
 
+    model_config = ConfigDict(from_attributes=True)
     id: int
     email: str
     name: str
     role: str
     is_active: bool
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True
@@ -123,6 +126,44 @@ class UserService:
 
         if payload.password is not None:
             user.password_hash = self._hash_password(payload.password)
+
+        user.updated_at = datetime.now(UTC)
+        saved = self.repo.save(user)
+        return UserRead.model_validate(saved)
+
+    def list_users(self, search: str | None = None) -> list[UserRead]:
+        """Return users filtered by optional case-insensitive search."""
+
+        users = self.repo.list_all()
+        if search:
+            needle = search.lower()
+            users = [
+                u
+                for u in users
+                if needle in u.email.lower() or needle in u.name.lower()
+            ]
+        return [UserRead.model_validate(u) for u in users]
+
+    def update_user_admin(
+        self,
+        user_id: int,
+        *,
+        name: str | None = None,
+        role: str | None = None,
+        is_active: bool | None = None,
+    ) -> UserRead:
+        """Administrative update with role and activation controls."""
+
+        user = self.repo.by_id(user_id)
+        if not user:
+            raise ValueError("User not found")
+
+        if name is not None:
+            user.name = name
+        if role is not None:
+            user.role = role
+        if is_active is not None:
+            user.is_active = is_active
 
         user.updated_at = datetime.now(UTC)
         saved = self.repo.save(user)

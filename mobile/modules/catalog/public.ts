@@ -16,6 +16,7 @@ import type {
   PaginationInfo,
   UnitCreationRequest,
   UnitCreationResponse,
+  UserUnitCollections,
 } from './models';
 
 // Public interface protocol
@@ -45,11 +46,23 @@ export interface CatalogProvider {
   browseUnits(params?: {
     limit?: number;
     offset?: number;
+    currentUserId?: number | null;
   }): Promise<import('./models').Unit[]>;
-  getUnitDetail(unitId: string): Promise<import('./models').UnitDetail | null>;
+  getUnitDetail(
+    unitId: string,
+    currentUserId?: number | null
+  ): Promise<import('./models').UnitDetail | null>;
   createUnit(request: UnitCreationRequest): Promise<UnitCreationResponse>;
   retryUnitCreation(unitId: string): Promise<UnitCreationResponse>;
   dismissUnit(unitId: string): Promise<void>;
+  getUserUnitCollections(
+    userId: number,
+    options?: { includeGlobal?: boolean; limit?: number; offset?: number }
+  ): Promise<UserUnitCollections>;
+  toggleUnitSharing(
+    unitId: string,
+    request: { makeGlobal: boolean; actingUserId?: number | null }
+  ): Promise<import('./models').Unit>;
 }
 
 // Service instance (singleton)
@@ -81,6 +94,8 @@ export function catalogProvider(): CatalogProvider {
     createUnit: service.createUnit.bind(service),
     retryUnitCreation: service.retryUnitCreation.bind(service),
     dismissUnit: service.dismissUnit.bind(service),
+    getUserUnitCollections: service.getUserUnitCollections.bind(service),
+    toggleUnitSharing: service.toggleUnitSharing.bind(service),
   };
 }
 
@@ -94,5 +109,6 @@ export type {
   PaginationInfo,
   UnitCreationRequest,
   UnitCreationResponse,
+  UserUnitCollections,
 } from './models';
 export type { Unit, UnitDetail, UnitStatus, Difficulty } from './models';

@@ -12,7 +12,7 @@ Usage:
 """
 
 import argparse
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 import json
 import logging
 from pathlib import Path
@@ -31,7 +31,11 @@ from modules.content.models import (
 from modules.content.package_models import GlossaryTerm, LessonPackage, MCQAnswerKey, MCQExercise, MCQOption, Meta, Objective
 from modules.flow_engine.models import FlowRunModel, FlowStepRunModel
 from modules.infrastructure.public import infrastructure_provider
+from modules.learning_session.models import LearningSessionModel, SessionStatus, UnitSessionModel
 from modules.llm_services.models import LLMRequestModel
+from modules.user.models import UserModel
+from modules.user.repo import UserRepo
+from modules.user.service import UserService
 
 
 def create_sample_lesson_package(
@@ -219,7 +223,13 @@ def create_sample_lesson_data(
 # All content fields are embedded in the lesson package; no separate component list
 
 
-def create_sample_flow_run(flow_run_id: uuid.UUID, lesson_id: str, lesson_data: dict[str, Any]) -> dict[str, Any]:
+def create_sample_flow_run(
+    flow_run_id: uuid.UUID,
+    lesson_id: str,
+    lesson_data: dict[str, Any],
+    *,
+    user_id: uuid.UUID | None = None,
+) -> dict[str, Any]:
     """Create sample flow run data."""
     now = datetime.now(UTC)
 
@@ -228,7 +238,7 @@ def create_sample_flow_run(flow_run_id: uuid.UUID, lesson_id: str, lesson_data: 
 
     return {
         "id": flow_run_id,
-        "user_id": None,  # No user for seed data
+        "user_id": user_id,
         "flow_name": "lesson_creation",
         "status": "completed",
         "execution_mode": "sync",
@@ -426,7 +436,11 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, lesson_data: dict[str, Any])
     return step_runs
 
 
-def create_sample_llm_requests(step_runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def create_sample_llm_requests(
+    step_runs: list[dict[str, Any]],
+    *,
+    user_id: uuid.UUID | None = None,
+) -> list[dict[str, Any]]:
     """Create sample LLM request data for each step that uses LLM."""
     now = datetime.now(UTC)
     llm_requests = []
@@ -474,7 +488,7 @@ def create_sample_llm_requests(step_runs: list[dict[str, Any]]) -> list[dict[str
             llm_requests.append(
                 {
                     "id": step_run["llm_request_id"],
-                    "user_id": None,
+                    "user_id": user_id,
                     "api_variant": "responses",
                     "provider": "openai",
                     "model": "gpt-5-nano",
@@ -554,9 +568,6 @@ async def main() -> None:
         if args.verbose:
             print("📚 Creating lesson 1 data with package...")
         lesson_data_1 = create_sample_lesson_data(lesson_id_1, args.lesson, args.level, flow_run_id_1)
-        flow_run_data_1 = create_sample_flow_run(flow_run_id_1, lesson_id_1, lesson_data_1)
-        step_runs_1 = create_sample_step_runs(flow_run_data_1["id"], lesson_data_1)
-        llm_requests_1 = create_sample_llm_requests(step_runs_1)
 
         # Generate a second related lesson to demonstrate multi-lesson units
         lesson_id_2 = str(uuid.uuid4())
@@ -569,12 +580,75 @@ async def main() -> None:
             learner_level=args.level,
             flow_run_id=flow_run_id_2,
         )
-        flow_run_data_2 = create_sample_flow_run(flow_run_id_2, lesson_id_2, lesson_data_2)
-        step_runs_2 = create_sample_step_runs(flow_run_data_2["id"], lesson_data_2)
-        llm_requests_2 = create_sample_llm_requests(step_runs_2)
 
         # Save to database
         with infra.get_session_context() as db_session:
+            user_repo = UserRepo(db_session)
+            user_service = UserService(user_repo)
+
+            if args.verbose:
+                print("👥 Creating sample users...")
+
+            def _create_user(
+                key: str,
+                *,
+                email: str,
+                name: str,
+                password: str,
+                role: str = "learner",
+                is_active: bool = True,
+            ) -> UserModel:
+                password_hash = user_service._hash_password(password)
+                user = user_repo.create(
+                    email=email,
+                    password_hash=password_hash,
+                    name=name,
+                    role=role,
+                    is_active=is_active,
+                )
+                sample_users[key] = user
+                return user
+
+            sample_users: dict[str, UserModel] = {}
+            admin_user = _create_user(
+                "admin",
+                email="ada.admin@example.com",
+                name="Ada Admin",
+                password="AdminPass123!",
+                role="admin",
+            )
+            alice_user = _create_user(
+                "alice",
+                email="alice.learner@example.com",
+                name="Alice Learner",
+                password="Password123!",
+            )
+            bob_user = _create_user(
+                "bob",
+                email="bob.builder@example.com",
+                name="Bob Builder",
+                password="BuilderPass123!",
+            )
+
+            user_uuid_map = {key: uuid.UUID(int=user.id) for key, user in sample_users.items()}
+
+            flow_run_data_1 = create_sample_flow_run(
+                flow_run_id_1,
+                lesson_id_1,
+                lesson_data_1,
+                user_id=user_uuid_map["alice"],
+            )
+            flow_run_data_2 = create_sample_flow_run(
+                flow_run_id_2,
+                lesson_id_2,
+                lesson_data_2,
+                user_id=user_uuid_map["bob"],
+            )
+            step_runs_1 = create_sample_step_runs(flow_run_data_1["id"], lesson_data_1)
+            step_runs_2 = create_sample_step_runs(flow_run_data_2["id"], lesson_data_2)
+            llm_requests_1 = create_sample_llm_requests(step_runs_1, user_id=user_uuid_map["alice"])
+            llm_requests_2 = create_sample_llm_requests(step_runs_2, user_id=user_uuid_map["bob"])
+
             # Create flow run first (required for foreign key constraint)
             if args.verbose:
                 print("💾 Saving flow runs...")
@@ -604,6 +678,8 @@ async def main() -> None:
                 generated_from_topic=True,
                 flow_type="standard",
                 status="completed",  # Default completed unit
+                user_id=alice_user.id,
+                is_global=True,
             )
             db_session.add(unit)
 
@@ -630,6 +706,8 @@ async def main() -> None:
                 status="in_progress",
                 creation_progress={"stage": "generating_lessons", "message": "Creating lesson 3 of 8: Word Embeddings"},
                 error_message=None,
+                user_id=bob_user.id,
+                is_global=False,
             )
             db_session.add(in_progress_unit)
 
@@ -652,6 +730,8 @@ async def main() -> None:
                 status="failed",
                 creation_progress={"stage": "content_generation_failed", "message": "Failed to generate content"},
                 error_message="Unable to generate sufficient content for advanced quantum computing topics. Please try with more specific learning objectives or source material.",
+                user_id=admin_user.id,
+                is_global=False,
             )
             db_session.add(failed_unit)
 
@@ -674,6 +754,8 @@ async def main() -> None:
                 status="draft",
                 creation_progress=None,
                 error_message=None,
+                user_id=bob_user.id,
+                is_global=False,
             )
             db_session.add(draft_unit)
 
@@ -697,6 +779,8 @@ async def main() -> None:
                 status="completed",
                 creation_progress=None,
                 error_message=None,
+                user_id=admin_user.id,
+                is_global=True,
             )
             db_session.add(completed_unit_2)
 
@@ -708,6 +792,83 @@ async def main() -> None:
             lesson_2 = LessonModel(**{**lesson_data_2, "unit_id": unit_id})
             db_session.add(lesson_1)
             db_session.add(lesson_2)
+
+            if args.verbose:
+                print("🎓 Creating learning sessions and unit progress...")
+
+            timeline_now = datetime.now(UTC)
+            alice_session = LearningSessionModel(
+                id=str(uuid.uuid4()),
+                lesson_id=lesson_id_1,
+                unit_id=unit_id,
+                user_id=str(alice_user.id),
+                status=SessionStatus.COMPLETED.value,
+                started_at=timeline_now - timedelta(days=5),
+                completed_at=timeline_now - timedelta(days=4, hours=3),
+                current_exercise_index=5,
+                total_exercises=5,
+                exercises_completed=5,
+                exercises_correct=4,
+                progress_percentage=100.0,
+                session_data={
+                    "answers": [
+                        {"question": "mcq_1", "correct": True},
+                        {"question": "mcq_2", "correct": True},
+                        {"question": "mcq_3", "correct": False},
+                        {"question": "mcq_4", "correct": True},
+                        {"question": "mcq_5", "correct": True},
+                    ]
+                },
+            )
+
+            bob_session = LearningSessionModel(
+                id=str(uuid.uuid4()),
+                lesson_id=lesson_id_2,
+                unit_id=unit_id,
+                user_id=str(bob_user.id),
+                status=SessionStatus.ACTIVE.value,
+                started_at=timeline_now - timedelta(days=2, hours=6),
+                completed_at=None,
+                current_exercise_index=2,
+                total_exercises=5,
+                exercises_completed=2,
+                exercises_correct=2,
+                progress_percentage=40.0,
+                session_data={
+                    "answers": [
+                        {"question": "mcq_1", "correct": True},
+                        {"question": "mcq_2", "correct": True},
+                    ]
+                },
+            )
+
+            alice_unit_session = UnitSessionModel(
+                id=str(uuid.uuid4()),
+                unit_id=unit_id,
+                user_id=str(alice_user.id),
+                status=SessionStatus.COMPLETED.value,
+                started_at=timeline_now - timedelta(days=6),
+                completed_at=timeline_now - timedelta(days=4),
+                updated_at=timeline_now - timedelta(days=4),
+                progress_percentage=100.0,
+                last_lesson_id=lesson_id_2,
+                completed_lesson_ids=[lesson_id_1, lesson_id_2],
+            )
+
+            bob_unit_session = UnitSessionModel(
+                id=str(uuid.uuid4()),
+                unit_id=in_progress_unit_id,
+                user_id=str(bob_user.id),
+                status=SessionStatus.ACTIVE.value,
+                started_at=timeline_now - timedelta(days=1, hours=2),
+                completed_at=None,
+                updated_at=timeline_now - timedelta(hours=6),
+                progress_percentage=20.0,
+                last_lesson_id=None,
+                completed_lesson_ids=[],
+            )
+
+            db_session.add_all([alice_session, bob_session, alice_unit_session, bob_unit_session])
 
             # Create LLM requests first (required for step run foreign key constraint)
             if args.verbose:
@@ -750,6 +911,18 @@ async def main() -> None:
         print(f"   • Failed: {failed_unit_id} — Advanced Quantum Computing (with error message)")
         print(f"   • Draft: {draft_unit_id} — Introduction to Data Visualization")
         print(f"   • Completed: {completed_unit_2_id} — Statistics for Data Science")
+        print()
+        seeded_units = [unit, in_progress_unit, failed_unit, draft_unit, completed_unit_2]
+        global_units_count = sum(1 for seeded_unit in seeded_units if seeded_unit.is_global)
+        personal_units_count = len(seeded_units) - global_units_count
+        learning_sessions = [alice_session, bob_session]
+        unit_sessions_records = [alice_unit_session, bob_unit_session]
+
+        print("👥 Users & Ownership:")
+        print(f"   • Users created: {len(sample_users)} (admin: {admin_user.email}, learners: {alice_user.email}, {bob_user.email})")
+        print(f"   • Global units: {global_units_count} (shared); Personal units: {personal_units_count}")
+        print(f"   • Learning sessions: {len(learning_sessions)} (" + ", ".join(session.status for session in learning_sessions) + ")")
+        print(f"   • Unit sessions: {len(unit_sessions_records)} (" + ", ".join(session.status for session in unit_sessions_records) + ")")
         print()
         print("   • Flow runs: 2")
         print(f"   • Step runs: {len(step_runs_1) + len(step_runs_2)}")
