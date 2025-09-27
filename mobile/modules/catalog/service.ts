@@ -6,7 +6,7 @@
  */
 
 import { CatalogRepo } from './repo';
-import type { Unit, UnitDetail } from './models';
+import type { Unit, UnitDetail, UserUnitCollections } from './models';
 import type {
   LessonSummary,
   LessonDetail,
@@ -256,10 +256,14 @@ export class CatalogService {
   async browseUnits(params?: {
     limit?: number;
     offset?: number;
+    currentUserId?: number | null;
   }): Promise<Unit[]> {
     try {
-      const apiUnits = await this.repo.listUnits(params);
-      return apiUnits.map(toUnitDTO);
+      const limit = params?.limit;
+      const offset = params?.offset;
+      const currentUserId = params?.currentUserId;
+      const apiUnits = await this.repo.listUnits({ limit, offset });
+      return apiUnits.map(api => toUnitDTO(api, currentUserId));
     } catch (error) {
       throw this.handleServiceError(error, 'Failed to browse units');
     }
@@ -268,14 +272,74 @@ export class CatalogService {
   /**
    * Get unit details (delegates to units module)
    */
-  async getUnitDetail(unitId: string): Promise<UnitDetail | null> {
+  async getUnitDetail(
+    unitId: string,
+    currentUserId?: number | null
+  ): Promise<UnitDetail | null> {
     if (!unitId?.trim()) return null;
     try {
       const api = await this.repo.getUnitDetail(unitId);
-      return toUnitDetailDTO(api);
+      return toUnitDetailDTO(api, currentUserId);
     } catch (error: any) {
       if (error?.statusCode === 404) return null;
       throw this.handleServiceError(error, `Failed to get unit ${unitId}`);
+    }
+  }
+
+  async getUserUnitCollections(
+    userId: number,
+    options?: { includeGlobal?: boolean; limit?: number; offset?: number }
+  ): Promise<UserUnitCollections> {
+    if (!Number.isFinite(userId) || userId <= 0) {
+      return { personalUnits: [], globalUnits: [] };
+    }
+
+    const includeGlobal = options?.includeGlobal ?? true;
+    const paging = { limit: options?.limit, offset: options?.offset };
+
+    try {
+      const personalPromise = this.repo.listPersonalUnits(userId, paging);
+      const globalPromise = includeGlobal
+        ? this.repo.listGlobalUnits(paging)
+        : Promise.resolve([]);
+
+      const [personalApi, globalApi] = await Promise.all([
+        personalPromise,
+        globalPromise,
+      ]);
+
+      const personalUnits = personalApi.map(api => toUnitDTO(api, userId));
+
+      const personalIds = new Set(personalUnits.map(unit => unit.id));
+      const globalUnits = globalApi
+        .filter(api => !personalIds.has(api.id))
+        .map(api => toUnitDTO(api, userId));
+
+      return { personalUnits, globalUnits };
+    } catch (error) {
+      throw this.handleServiceError(error, 'Failed to load user units');
+    }
+  }
+
+  async toggleUnitSharing(
+    unitId: string,
+    request: { makeGlobal: boolean; actingUserId?: number | null }
+  ): Promise<Unit> {
+    if (!unitId?.trim()) {
+      throw this.handleServiceError(
+        new Error('Unit ID is required'),
+        'Unit ID is required'
+      );
+    }
+
+    try {
+      const updated = await this.repo.updateUnitSharing(unitId, {
+        isGlobal: request.makeGlobal,
+        actingUserId: request.actingUserId ?? undefined,
+      });
+      return toUnitDTO(updated, request.actingUserId ?? null);
+    } catch (error) {
+      throw this.handleServiceError(error, 'Failed to update unit sharing');
     }
   }
 
@@ -305,7 +369,23 @@ export class CatalogService {
         }
       }
 
-      return await this.repo.createUnit(request);
+      const response = await this.repo.createUnit(request);
+
+      if (request.shareGlobally && request.ownerUserId) {
+        try {
+          await this.repo.updateUnitSharing(response.unitId, {
+            isGlobal: true,
+            actingUserId: request.ownerUserId,
+          });
+        } catch (error) {
+          console.warn(
+            '[CatalogService] Failed to apply global sharing after creation',
+            error
+          );
+        }
+      }
+
+      return response;
     } catch (error) {
       throw this.handleServiceError(error, 'Failed to create unit');
     }

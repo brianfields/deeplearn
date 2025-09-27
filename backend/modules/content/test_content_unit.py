@@ -7,7 +7,9 @@ Tests for the content module service layer with package structure.
 from datetime import UTC, datetime
 from unittest.mock import Mock
 
-from modules.content.models import LessonModel
+import pytest
+
+from modules.content.models import LessonModel, UnitModel
 from modules.content.package_models import GlossaryTerm, LessonPackage, MCQAnswerKey, MCQExercise, MCQOption, Meta, Objective
 from modules.content.repo import ContentRepo
 from modules.content.service import ContentService, LessonCreate
@@ -158,3 +160,131 @@ class TestContentService:
         # Assert
         assert result is False
         repo.delete_unit.assert_called_once_with("nonexistent-unit")
+
+    def test_create_unit_assigns_owner_and_sharing_flags(self) -> None:
+        """Unit creation should persist ownership and sharing metadata."""
+
+        repo = Mock(spec=ContentRepo)
+        service = ContentService(repo)
+
+        now = datetime.now(UTC)
+
+        unit_model = UnitModel(
+            id="unit-1",
+            title="Test Unit",
+            description=None,
+            learner_level="beginner",
+            lesson_order=[],
+            user_id=7,
+            is_global=True,
+            status="completed",
+            generated_from_topic=False,
+            flow_type="standard",
+            created_at=now,
+            updated_at=now,
+        )
+
+        repo.add_unit.return_value = unit_model
+
+        payload = service.UnitCreate(
+            id="unit-1",
+            title="Test Unit",
+            learner_level="beginner",
+            user_id=7,
+            is_global=True,
+        )
+
+        created = service.create_unit(payload)
+
+        assert created.user_id == 7
+        assert created.is_global is True
+        repo.add_unit.assert_called_once()
+        stored_model = repo.add_unit.call_args.args[0]
+        assert stored_model.user_id == 7
+        assert stored_model.is_global is True
+
+    def test_list_units_for_user_uses_repo(self) -> None:
+        """Ensure user-specific listing delegates to repository."""
+
+        repo = Mock(spec=ContentRepo)
+        service = ContentService(repo)
+
+        repo.list_units_for_user.return_value = []
+
+        result = service.list_units_for_user(10)
+
+        assert result == []
+        repo.list_units_for_user.assert_called_once_with(user_id=10, limit=100, offset=0)
+
+    def test_list_global_units_uses_repo(self) -> None:
+        """Ensure global listing delegates to repository."""
+
+        repo = Mock(spec=ContentRepo)
+        service = ContentService(repo)
+
+        repo.list_global_units.return_value = []
+
+        assert service.list_global_units() == []
+        repo.list_global_units.assert_called_once_with(limit=100, offset=0)
+
+    def test_set_unit_sharing_requires_owner_match(self) -> None:
+        """Only the unit owner can toggle sharing when acting user is provided."""
+
+        repo = Mock(spec=ContentRepo)
+        service = ContentService(repo)
+
+        repo.is_unit_owned_by_user.return_value = False
+
+        with pytest.raises(PermissionError, match="User does not own this unit"):
+            service.set_unit_sharing("unit-1", is_global=True, acting_user_id=3)
+
+    def test_set_unit_sharing_updates_when_authorized(self) -> None:
+        """Authorized owner should toggle sharing successfully."""
+
+        repo = Mock(spec=ContentRepo)
+        service = ContentService(repo)
+
+        repo.is_unit_owned_by_user.return_value = True
+        repo.set_unit_sharing.return_value = UnitModel(
+            id="unit-1",
+            title="Unit",
+            learner_level="beginner",
+            lesson_order=[],
+            user_id=3,
+            is_global=True,
+            status="completed",
+            generated_from_topic=False,
+            flow_type="standard",
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
+
+        result = service.set_unit_sharing("unit-1", is_global=True, acting_user_id=3)
+
+        assert result.is_global is True
+        repo.set_unit_sharing.assert_called_once_with("unit-1", True)
+
+    def test_assign_unit_owner_updates_repo(self) -> None:
+        """Assign unit owner should call repository and return DTO."""
+
+        repo = Mock(spec=ContentRepo)
+        service = ContentService(repo)
+
+        repo.set_unit_owner.return_value = UnitModel(
+            id="unit-1",
+            title="Unit",
+            learner_level="beginner",
+            lesson_order=[],
+            user_id=42,
+            is_global=False,
+            status="completed",
+            generated_from_topic=False,
+            flow_type="standard",
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
+
+        result = service.assign_unit_owner("unit-1", owner_user_id=42)
+
+        assert result.user_id == 42
+        repo.set_unit_owner.assert_called_once_with("unit-1", 42)

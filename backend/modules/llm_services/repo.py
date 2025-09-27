@@ -1,5 +1,6 @@
 """Repository layer for LLM services."""
 
+import contextlib
 from datetime import datetime
 from typing import Any
 import uuid
@@ -104,3 +105,18 @@ class LLMRequestRepo:
     def count_all(self) -> int:
         """Get total count of LLM requests. FOR ADMIN USE ONLY."""
         return self.s.query(LLMRequestModel).count()
+
+    def assign_user(self, request_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        """Ensure an LLM request is associated with the provided user."""
+
+        request = self.by_id(request_id)
+        if request is None:
+            return
+
+        if request.user_id == user_id:
+            return
+
+        request.user_id = user_id
+        self.save(request)
+        with contextlib.suppress(Exception):
+            self.s.flush()

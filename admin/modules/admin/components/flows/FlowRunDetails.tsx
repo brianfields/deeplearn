@@ -81,9 +81,12 @@ export function FlowRunDetails({ flowId }: FlowRunDetailsProps) {
               {flow.execution_mode} execution
             </span>
             {flow.user_id && (
-              <span className="text-sm text-gray-500">
-                User: {flow.user_id}
-              </span>
+              <Link
+                href={`/users/${flow.user_id}`}
+                className="text-sm text-blue-600 hover:text-blue-500"
+              >
+                User {flow.user_id}
+              </Link>
             )}
           </div>
         </div>

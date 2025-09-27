@@ -6,15 +6,18 @@ Tests the minimal admin interface functionality with proper mocking.
 """
 
 from datetime import UTC, datetime
-from unittest.mock import Mock
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, Mock
 import uuid
 
 import pytest
 
-from modules.admin.models import FlowRunsListResponse, FlowRunSummary
+from modules.admin.models import FlowRunsListResponse, FlowRunSummary, UserUpdateRequest
 from modules.admin.service import AdminService
 from modules.flow_engine.models import FlowRunModel, FlowStepRunModel
 from modules.llm_services.service import LLMRequest
+from modules.learning_session.service import LearningSession, SessionListResponse
+from modules.user.service import UserRead
 
 
 class TestAdminService:
@@ -74,6 +77,8 @@ class TestAdminService:
         """Mock LLMServicesAdminProvider for testing."""
         mock = Mock()
         mock.get_request.return_value = None  # Simple mock for now
+        mock.get_request_count_by_user.return_value = 0
+        mock.get_user_requests.return_value = []
         return mock
 
     @pytest.fixture
@@ -84,12 +89,36 @@ class TestAdminService:
     @pytest.fixture
     def mock_learning_sessions_provider(self) -> Mock:
         """Mock LearningSessionProvider for testing."""
-        return Mock()
+        mock = Mock()
+        mock.get_user_sessions = AsyncMock(return_value=SessionListResponse(sessions=[], total=0))
+        return mock
 
     @pytest.fixture
     def mock_content_provider(self) -> Mock:
         """Mock ContentProvider for testing."""
-        return Mock()
+        mock = Mock()
+        mock.list_units_for_user.return_value = []
+        return mock
+
+    @pytest.fixture
+    def mock_user_provider(self) -> Mock:
+        """Mock UserProvider for testing."""
+
+        user = UserRead.model_construct(
+            id=str(uuid.uuid4()),
+            email="user@example.com",
+            name="Test User",
+            role="learner",
+            is_active=True,
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
+
+        mock = Mock()
+        mock.list_users.return_value = [user]
+        mock.get_profile.return_value = user
+        mock.update_user_admin.return_value = user
+        return mock
 
     @pytest.fixture
     def admin_service(
@@ -98,6 +127,8 @@ class TestAdminService:
         mock_llm_services_admin: Mock,
         mock_catalog_provider: Mock,
         mock_content_provider: Mock,
+        mock_user_provider: Mock,
+        mock_learning_sessions_provider: Mock,
     ) -> AdminService:
         """Create AdminService with mocked dependencies."""
         return AdminService(
@@ -105,6 +136,8 @@ class TestAdminService:
             llm_services_admin=mock_llm_services_admin,
             catalog=mock_catalog_provider,
             content=mock_content_provider,
+            users=mock_user_provider,
+            learning_sessions=mock_learning_sessions_provider,
         )
 
     @pytest.mark.asyncio
@@ -163,6 +196,135 @@ class TestAdminService:
         # Verify mock calls
         mock_flow_engine_admin.get_flow_run_by_id.assert_called_once()
         mock_flow_engine_admin.get_flow_steps_by_run_id.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_users_returns_associations(
+        self,
+        admin_service: AdminService,
+        mock_content_provider: Mock,
+        mock_learning_sessions_provider: Mock,
+        mock_llm_services_admin: Mock,
+    ) -> None:
+        """Ensure user listing aggregates association counts."""
+
+        mock_content_provider.list_units_for_user.return_value = [
+            SimpleNamespace(
+                id="unit-1",
+                title="Unit One",
+                is_global=True,
+                updated_at=datetime.now(UTC),
+            )
+        ]
+        mock_learning_sessions_provider.get_user_sessions.return_value = SessionListResponse(
+            sessions=[],
+            total=3,
+        )
+
+        user_uuid = uuid.uuid4()
+        mock_llm_services_admin.get_request_count_by_user.return_value = 5
+
+        # Ensure llm count is evaluated by returning uuid-compatible user id
+        admin_service.users.list_users.return_value = [
+            UserRead.model_construct(
+                id=str(user_uuid),
+                email="user@example.com",
+                name="Test User",
+                role="learner",
+                is_active=True,
+                created_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC),
+            )
+        ]
+        admin_service.users.get_profile.return_value = admin_service.users.list_users.return_value[0]
+
+        result = await admin_service.get_users()
+
+        assert result.total_count == 1
+        summary = result.users[0]
+        assert summary.associations.owned_unit_count == 1
+        assert summary.associations.owned_global_unit_count == 1
+        assert summary.associations.learning_session_count == 3
+
+        mock_llm_services_admin.get_request_count_by_user.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_user_detail_includes_recent_data(
+        self,
+        admin_service: AdminService,
+        mock_content_provider: Mock,
+        mock_learning_sessions_provider: Mock,
+        mock_llm_services_admin: Mock,
+    ) -> None:
+        """Detailed user view surfaces recent sessions and LLM requests."""
+
+        mock_content_provider.list_units_for_user.return_value = [
+            SimpleNamespace(
+                id="unit-1",
+                title="Unit One",
+                is_global=False,
+                updated_at=datetime.now(UTC),
+            )
+        ]
+
+        session = LearningSession(
+            id="session-1",
+            lesson_id="lesson-1",
+            user_id="user",
+            status="active",
+            started_at="2024-01-01T00:00:00Z",
+            completed_at=None,
+            current_exercise_index=0,
+            total_exercises=3,
+            progress_percentage=10.0,
+            session_data={},
+        )
+
+        mock_learning_sessions_provider.get_user_sessions.return_value = SessionListResponse(
+            sessions=[session],
+            total=1,
+        )
+
+        req = SimpleNamespace(
+            id=uuid.uuid4(),
+            model="gpt-test",
+            status="completed",
+            created_at=datetime.now(UTC),
+            tokens_used=123,
+        )
+        mock_llm_services_admin.get_request_count_by_user.return_value = 1
+        mock_llm_services_admin.get_user_requests.return_value = [req]
+
+        user_uuid = uuid.uuid4()
+        admin_service.users.get_profile.return_value = UserRead.model_construct(
+            id=str(user_uuid),
+            email="user@example.com",
+            name="Test User",
+            role="learner",
+            is_active=True,
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
+
+        detail = await admin_service.get_user_detail(42)
+
+        assert detail is not None
+        assert len(detail.owned_units) == 1
+        assert len(detail.recent_sessions) == 1
+        assert len(detail.recent_llm_requests) == 1
+        mock_llm_services_admin.get_user_requests.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_update_user_returns_none_when_missing(
+        self,
+        admin_service: AdminService,
+        mock_user_provider: Mock,
+    ) -> None:
+        """Admin update returns None when user lookup fails."""
+
+        mock_user_provider.update_user_admin.side_effect = ValueError("missing")
+
+        result = await admin_service.update_user(99, UserUpdateRequest())
+        assert result is None
 
     @pytest.mark.asyncio
     async def test_get_flow_run_details_not_found(self, admin_service: AdminService, mock_flow_engine_admin: Mock) -> None:

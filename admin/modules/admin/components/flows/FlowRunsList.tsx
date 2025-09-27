@@ -126,6 +126,9 @@ export function FlowRunsList() {
                     Flow Name
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    User
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -162,6 +165,15 @@ export function FlowRunsList() {
                           </div>
                         </div>
                       </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {flow.user_id ? (
+                        <Link href={`/users/${flow.user_id}`} className="text-blue-600 hover:text-blue-900">
+                          {flow.user_id}
+                        </Link>
+                      ) : (
+                        <span className="text-gray-500">—</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <StatusBadge status={flow.status} size="sm" />

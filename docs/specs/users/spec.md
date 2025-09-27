@@ -116,84 +116,84 @@
 ### Backend Tasks
 
 #### User Module Creation
-- [ ] Create `backend/modules/user/models.py` with UserModel
-- [ ] Create `backend/modules/user/repo.py` with user database operations
-- [ ] Create `backend/modules/user/service.py` with authentication and user management
-- [ ] Create `backend/modules/user/public.py` with UserProvider protocol
-- [ ] Create `backend/modules/user/routes.py` with registration and login endpoints
-- [ ] Create `backend/modules/user/test_user_unit.py` with comprehensive unit tests
+- [x] Create `backend/modules/user/models.py` with UserModel
+- [x] Create `backend/modules/user/repo.py` with user database operations
+- [x] Create `backend/modules/user/service.py` with authentication and user management
+- [x] Create `backend/modules/user/public.py` with UserProvider protocol
+- [x] Create `backend/modules/user/routes.py` with registration and login endpoints
+- [x] Create `backend/modules/user/test_user_unit.py` with comprehensive unit tests
 
 #### Content Module Updates
-- [ ] Update `backend/modules/content/models.py` to add user_id and is_global to UnitModel
-- [ ] Update `backend/modules/content/repo.py` with user-aware unit queries
-- [ ] Update `backend/modules/content/service.py` with user ownership and sharing logic
-- [ ] Update `backend/modules/content/public.py` to expose user-aware operations
-- [ ] Update `backend/modules/content/routes.py` with user context and sharing endpoints
+- [x] Update `backend/modules/content/models.py` to add user_id and is_global to UnitModel
+- [x] Update `backend/modules/content/repo.py` with user-aware unit queries
+- [x] Update `backend/modules/content/service.py` with user ownership and sharing logic
+- [x] Update `backend/modules/content/public.py` to expose user-aware operations
+- [x] Update `backend/modules/content/routes.py` with user context and sharing endpoints
 
 #### Admin Module Updates
-- [ ] Update `backend/modules/admin/models.py` with user management DTOs
-- [ ] Update `backend/modules/admin/service.py` with user management methods and user associations
-- [ ] Update `backend/modules/admin/routes.py` with user management endpoints
+- [x] Update `backend/modules/admin/models.py` with user management DTOs
+- [x] Update `backend/modules/admin/service.py` with user management methods and user associations
+- [x] Update `backend/modules/admin/routes.py` with user management endpoints
 
 #### Catalog Module Updates
-- [ ] Update `backend/modules/catalog/service.py` to handle user-specific vs global content
-- [ ] Update `backend/modules/catalog/public.py` with user-aware browsing methods
+- [x] Update `backend/modules/catalog/service.py` to handle user-specific vs global content
+- [x] Update `backend/modules/catalog/public.py` with user-aware browsing methods
 
 #### LLM Services Module Updates
-- [ ] Update `backend/modules/llm_services/service.py` to capture user context in requests
-- [ ] Update `backend/modules/llm_services/routes.py` to pass user context
+- [x] Update `backend/modules/llm_services/service.py` to capture user context in requests
+- [x] Update `backend/modules/llm_services/routes.py` to pass user context
 
-#### Learning Session Module Updates  
-- [ ] Update `backend/modules/learning_session/service.py` to ensure user association
-- [ ] Update `backend/modules/learning_session/routes.py` to pass user context
+#### Learning Session Module Updates
+- [x] Update `backend/modules/learning_session/service.py` to ensure user association
+- [x] Update `backend/modules/learning_session/routes.py` to pass user context
 
 #### Database and Infrastructure
-- [ ] Generate Alembic migration for UserModel creation
-- [ ] Generate Alembic migration for UnitModel user_id and is_global fields
-- [ ] Run database migrations
-- [ ] Add user router to `backend/server.py`
+- [x] Generate Alembic migration for UserModel creation
+- [x] Generate Alembic migration for UnitModel user_id and is_global fields
+- [x] Run database migrations
+- [x] Add user router to `backend/server.py`
 
 ### Frontend Tasks
 
 #### User Module Creation
-- [ ] Create `mobile/modules/user/models.ts` with user and auth DTOs
-- [ ] Create `mobile/modules/user/repo.ts` with user API calls (auth and profile)
-- [ ] Create `mobile/modules/user/service.ts` with user business logic
-- [ ] Create `mobile/modules/user/public.ts` with UserProvider
-- [ ] Create `mobile/modules/user/queries.ts` with user hooks (auth and profile)
-- [ ] Create `mobile/modules/user/screens/LoginScreen.tsx` with login form
-- [ ] Create `mobile/modules/user/screens/RegisterScreen.tsx` with registration form
-- [ ] Create `mobile/modules/user/test_user_unit.ts` with user module tests
+- [x] Create `mobile/modules/user/models.ts` with user and auth DTOs
+- [x] Create `mobile/modules/user/repo.ts` with user API calls (auth and profile)
+- [x] Create `mobile/modules/user/service.ts` with user business logic
+- [x] Create `mobile/modules/user/public.ts` with UserProvider
+- [x] Create `mobile/modules/user/queries.ts` with user hooks (auth and profile)
+- [x] Create `mobile/modules/user/screens/LoginScreen.tsx` with login form
+- [x] Create `mobile/modules/user/screens/RegisterScreen.tsx` with registration form
+- [x] Create `mobile/modules/user/test_user_unit.ts` with user module tests
 
 #### Catalog Module Updates
-- [ ] Update `mobile/modules/catalog/models.ts` with user ownership fields
-- [ ] Update `mobile/modules/catalog/service.ts` with user-aware unit operations
-- [ ] Update `mobile/modules/catalog/repo.ts` with user-specific endpoints
-- [ ] Update `mobile/modules/catalog/queries.ts` with user and global unit hooks
-- [ ] Update `mobile/modules/catalog/screens/UnitListScreen.tsx` with visual separation
-- [ ] Update `mobile/modules/catalog/screens/UnitDetailScreen.tsx` with sharing toggle
-- [ ] Update `mobile/modules/catalog/screens/CreateUnitScreen.tsx` with sharing option
+- [x] Update `mobile/modules/catalog/models.ts` with user ownership fields
+- [x] Update `mobile/modules/catalog/service.ts` with user-aware unit operations
+- [x] Update `mobile/modules/catalog/repo.ts` with user-specific endpoints
+- [x] Update `mobile/modules/catalog/queries.ts` with user and global unit hooks
+- [x] Update `mobile/modules/catalog/screens/UnitListScreen.tsx` with visual separation
+- [x] Update `mobile/modules/catalog/screens/UnitDetailScreen.tsx` with sharing toggle
+- [x] Update `mobile/modules/catalog/screens/CreateUnitScreen.tsx` with sharing option
 
 ### Admin Interface Tasks
-- [ ] Create `admin/app/users/page.tsx` with users list and management
-- [ ] Create `admin/app/users/[id]/page.tsx` with user detail and edit
-- [ ] Update `admin/app/units/page.tsx` to show user ownership
-- [ ] Update `admin/app/llm-requests/page.tsx` to show user associations
-- [ ] Update other admin pages to include user information where relevant
+- [x] Create `admin/app/users/page.tsx` with users list and management
+- [x] Create `admin/app/users/[id]/page.tsx` with user detail and edit
+- [x] Update `admin/app/units/page.tsx` to show user ownership
+- [x] Update `admin/app/llm-requests/page.tsx` to show user associations
+- [x] Update other admin pages to include user information where relevant
 
 ### Data and Seed Tasks
-- [ ] Update `backend/scripts/create_seed_data.py` to create sample users
-- [ ] Update seed data to create mix of personal and global units
-- [ ] Update seed data to associate learning sessions with users
-- [ ] Update seed data to associate LLM requests with users
+- [x] Update `backend/scripts/create_seed_data.py` to create sample users
+- [x] Update seed data to create mix of personal and global units
+- [x] Update seed data to associate learning sessions with users
+- [x] Update seed data to associate LLM requests with users
 
 ### Testing and Validation Tasks
-- [ ] Ensure lint passes, i.e. ./format_code.sh runs clean
-- [ ] Ensure unit tests pass, i.e. (in backend) scripts/run_unit.py and (in mobile) npm run test both run clean
-- [ ] Follow the instructions in codegen/prompts/trace.md to ensure the user story is implemented correctly
-- [ ] Fix any issues documented during the tracing of the user story in docs/specs/users/trace.md
-- [ ] Follow the instructions in codegen/prompts/modulecheck.md to ensure the new code is following the modular architecture correctly
-- [ ] Examine all new code that has been created and make sure all of it is being used; there is no dead code
+- [x] Ensure lint passes, i.e. ./format_code.sh runs clean
+- [x] Ensure unit tests pass, i.e. (in backend) scripts/run_unit.py and (in mobile) npm run test both run clean
+- [x] Follow the instructions in codegen/prompts/trace.md to ensure the user story is implemented correctly
+- [x] Fix any issues documented during the tracing of the user story in docs/specs/users/trace.md
+- [x] Follow the instructions in codegen/prompts/modulecheck.md to ensure the new code is following the modular architecture correctly
+- [x] Examine all new code that has been created and make sure all of it is being used; there is no dead code
 
 ## Notes
 
