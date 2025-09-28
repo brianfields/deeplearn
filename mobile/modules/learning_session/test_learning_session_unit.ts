@@ -231,7 +231,10 @@ describe('Learning Session Module', () => {
           attempts: 1,
         });
 
-        expect(mockRepo.updateProgress).toHaveBeenCalledWith(request);
+        expect(mockRepo.updateProgress).toHaveBeenCalledWith({
+          ...request,
+          userId: 'anonymous',
+        });
       });
     });
 
@@ -272,7 +275,10 @@ describe('Learning Session Module', () => {
           achievements: ['First Completion'],
         });
 
-        expect(mockRepo.completeSession).toHaveBeenCalledWith(request);
+        expect(mockRepo.completeSession).toHaveBeenCalledWith({
+          ...request,
+          userId: 'anonymous',
+        });
       });
     });
 

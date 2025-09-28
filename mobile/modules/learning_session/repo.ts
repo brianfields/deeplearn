@@ -106,9 +106,10 @@ export class LearningSessionRepo {
     try {
       const params = new URLSearchParams();
       params.append('user_id', userId);
-      const endpoint = params.size
-        ? `${LEARNING_SESSION_BASE}/${sessionId}?${params.toString()}`
-        : `${LEARNING_SESSION_BASE}/${sessionId}`;
+      const query = params.toString();
+      const endpoint = `${LEARNING_SESSION_BASE}/${sessionId}${
+        query ? `?${query}` : ''
+      }`;
 
       const response = await this.infrastructure.request<ApiLearningSession>(
         endpoint,
@@ -182,9 +183,10 @@ export class LearningSessionRepo {
       if (request.userId) {
         params.append('user_id', request.userId);
       }
-      const endpoint = params.size
-        ? `${LEARNING_SESSION_BASE}/${request.sessionId}/complete?${params.toString()}`
-        : `${LEARNING_SESSION_BASE}/${request.sessionId}/complete`;
+      const query = params.toString();
+      const endpoint = `${LEARNING_SESSION_BASE}/${request.sessionId}/complete${
+        query ? `?${query}` : ''
+      }`;
 
       const response = await this.infrastructure.request<ApiSessionResults>(
         endpoint,

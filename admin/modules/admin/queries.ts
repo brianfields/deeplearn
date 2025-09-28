@@ -16,6 +16,7 @@ import type {
   UserDetail,
   UserListQuery,
   UserUpdatePayload,
+  LLMRequestsListResponse,
 } from './models';
 
 const service = new AdminService();
@@ -84,7 +85,7 @@ export function useFlowStepDetails(flowId: string, stepId: string) {
 // ---- LLM Request Hooks ----
 
 export function useLLMRequests(params?: LLMRequestsQuery) {
-  return useQuery({
+  return useQuery<LLMRequestsListResponse>({
     queryKey: adminKeys.llmRequestsList(params),
     queryFn: () => service.getLLMRequests(params),
     staleTime: 30 * 1000, // 30 seconds

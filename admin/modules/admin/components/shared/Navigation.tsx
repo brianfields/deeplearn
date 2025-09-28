@@ -43,6 +43,11 @@ const navigationItems = [
     description: 'Browse lesson catalog and packages',
   },
   {
+    name: 'Users',
+    href: '/users',
+    description: 'Manage learners and administrators',
+  },
+  {
     name: 'Units',
     href: '/units',
     description: 'Browse units and their lessons',

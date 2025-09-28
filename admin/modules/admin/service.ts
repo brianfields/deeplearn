@@ -321,13 +321,50 @@ export class AdminService {
 
   // ---- LLM Request Management ----
 
-  async getLLMRequests(params?: LLMRequestsQuery): Promise<LLMRequestSummary[]> {
+  async getLLMRequests(
+    params?: LLMRequestsQuery
+  ): Promise<LLMRequestsListResponse> {
     try {
-      const apiRequests = await AdminRepo.llmRequests.list(params);
-      return apiRequests.map(llmRequestToDTO);
+      const apiResponse = await AdminRepo.llmRequests.list(params);
+
+      const rawRequests: ApiLLMRequest[] = Array.isArray(apiResponse)
+        ? apiResponse
+        : apiResponse.requests ?? [];
+
+      const totalCount = Array.isArray(apiResponse)
+        ? apiResponse.length
+        : apiResponse?.total_count ?? rawRequests.length;
+
+      const page = Array.isArray(apiResponse)
+        ? params?.page ?? 1
+        : apiResponse?.page ?? params?.page ?? 1;
+
+      const defaultPageSize = rawRequests.length || 10;
+
+      const pageSize = Array.isArray(apiResponse)
+        ? params?.page_size ?? defaultPageSize
+        : apiResponse?.page_size ?? params?.page_size ?? defaultPageSize;
+
+      const hasNext = Array.isArray(apiResponse)
+        ? false
+        : apiResponse?.has_next ?? false;
+
+      return {
+        requests: rawRequests.map(llmRequestToDTO),
+        total_count: totalCount,
+        page,
+        page_size: pageSize,
+        has_next: hasNext,
+      };
     } catch (error) {
       console.error('Failed to fetch LLM requests:', error);
-      return [];
+      return {
+        requests: [],
+        total_count: 0,
+        page: params?.page ?? 1,
+        page_size: params?.page_size ?? 10,
+        has_next: false,
+      };
     }
   }
 

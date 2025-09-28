@@ -606,6 +606,7 @@ export interface LLMRequestsQuery {
 export interface LessonsQuery {
   learner_level?: string;
   search?: string;
+  domain?: string;
   page?: number;
   page_size?: number;
 }

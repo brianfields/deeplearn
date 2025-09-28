@@ -35,6 +35,7 @@ interface AdminState {
   lessonFilters: {
     learner_level?: string;
     search?: string;
+    domain?: string;
     page?: number;
     page_size?: number;
   };
@@ -90,6 +91,7 @@ export const useAdminStore = create<AdminState & AdminActions>((set, get) => ({
   lessonFilters: {
     page: 1,
     page_size: 10,
+    domain: undefined,
   },
   selectedFlowId: null,
   selectedStepId: null,
@@ -147,6 +149,7 @@ export const useAdminStore = create<AdminState & AdminActions>((set, get) => ({
       lessonFilters: {
         page: 1,
         page_size: 10,
+        domain: undefined,
       },
     }),
 

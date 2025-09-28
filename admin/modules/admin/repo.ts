@@ -89,6 +89,7 @@ export const AdminRepo = {
 
       if (params?.learner_level) queryParams.append('learner_level', params.learner_level);
       if (params?.search) queryParams.append('search', params.search);
+      if (params?.domain) queryParams.append('domain', params.domain);
       if (params?.page) queryParams.append('page', params.page.toString());
       if (params?.page_size) queryParams.append('page_size', params.page_size.toString());
 

@@ -18,7 +18,7 @@ export function LLMRequestsList() {
   const filters = useLLMRequestFilters();
   const { setLLMRequestFilters } = useAdminStore();
 
-  const { data: requests, isLoading, error, refetch } = useLLMRequests(filters);
+  const { data, isLoading, error, refetch } = useLLMRequests(filters);
 
   const handlePageChange = (newPage: number) => {
     setLLMRequestFilters({ page: newPage });
@@ -41,11 +41,11 @@ export function LLMRequestsList() {
     );
   }
 
-  const requestsList = requests?.requests || [];
-  const totalCount = requests?.total_count || 0;
-  const currentPage = requests?.page || filters.page || 1;
-  const pageSize = requests?.page_size || filters.page_size || 10;
-  const hasNext = requests?.has_next || false;
+  const requestsList = data?.requests ?? [];
+  const totalCount = data?.total_count ?? 0;
+  const currentPage = data?.page ?? filters.page ?? 1;
+  const pageSize = data?.page_size ?? filters.page_size ?? 10;
+  const hasNext = data?.has_next ?? false;
 
   return (
     <div className="space-y-6">

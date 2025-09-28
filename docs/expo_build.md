@@ -28,6 +28,8 @@ Aliased modules:
 - `react-native/Libraries/Components/Clipboard/Clipboard`
 - `react-native/Libraries/Components/ProgressBarAndroid/ProgressBarAndroid`
 
+All aliases point at the no-op module (`mobile/shims/emptyModule.js`), which prevents Expo Go from loading missing native modules while avoiding bridge mutations that Hermes would reject.
+
 Tradeoffs of shimming:
 
 - Those features are disabled in Expo Go (no-ops). App won’t crash, but push notifications, clipboard, or Android progress bar behaviors won’t function in Expo Go.
