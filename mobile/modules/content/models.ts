@@ -20,6 +20,9 @@ export interface ApiUnitSummary {
   is_global?: boolean;
   created_at?: string;
   updated_at?: string;
+  has_podcast?: boolean;
+  podcast_voice?: string | null;
+  podcast_duration_seconds?: number | null;
 }
 
 export interface ApiUnitDetail {
@@ -42,6 +45,11 @@ export interface ApiUnitDetail {
   generated_from_topic?: boolean;
   user_id?: number | null;
   is_global?: boolean;
+  has_podcast?: boolean;
+  podcast_voice?: string | null;
+  podcast_duration_seconds?: number | null;
+  podcast_transcript?: string | null;
+  podcast_audio_url?: string | null;
 }
 
 export type UnitId = string;
@@ -86,6 +94,9 @@ export interface Unit {
   readonly isGlobal: boolean;
   readonly ownershipLabel: string;
   readonly isOwnedByCurrentUser: boolean;
+  readonly hasPodcast: boolean;
+  readonly podcastVoice: string | null;
+  readonly podcastDurationSeconds: number | null;
 }
 
 export interface UnitDetail {
@@ -103,6 +114,11 @@ export interface UnitDetail {
   readonly isGlobal: boolean;
   readonly ownershipLabel: string;
   readonly isOwnedByCurrentUser: boolean;
+  readonly hasPodcast: boolean;
+  readonly podcastVoice: string | null;
+  readonly podcastDurationSeconds: number | null;
+  readonly podcastTranscript: string | null;
+  readonly podcastAudioUrl: string | null;
 }
 
 export interface UnitProgress {
@@ -165,6 +181,9 @@ export function toUnitDTO(
     isGlobal,
     ownershipLabel: formatOwnershipLabel(isGlobal, isOwnedByCurrentUser),
     isOwnedByCurrentUser,
+    hasPodcast: Boolean(api.has_podcast),
+    podcastVoice: api.podcast_voice ?? null,
+    podcastDurationSeconds: api.podcast_duration_seconds ?? null,
   };
 }
 
@@ -200,6 +219,11 @@ export function toUnitDetailDTO(
     isGlobal,
     ownershipLabel: formatOwnershipLabel(isGlobal, isOwnedByCurrentUser),
     isOwnedByCurrentUser,
+    hasPodcast: Boolean(api.has_podcast),
+    podcastVoice: api.podcast_voice ?? null,
+    podcastDurationSeconds: api.podcast_duration_seconds ?? null,
+    podcastTranscript: api.podcast_transcript ?? null,
+    podcastAudioUrl: api.podcast_audio_url ?? null,
   };
 }
 

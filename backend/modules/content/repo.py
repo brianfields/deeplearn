@@ -163,6 +163,33 @@ class ContentRepo:
         self.s.flush()
         return unit
 
+    def set_unit_podcast(
+        self,
+        unit_id: str,
+        *,
+        transcript: str | None,
+        audio_bytes: bytes | None,
+        audio_mime_type: str | None,
+        voice: str | None,
+        duration_seconds: int | None,
+    ) -> UnitModel | None:
+        """Persist podcast transcript and audio payload for a unit."""
+
+        unit = self.get_unit_by_id(unit_id)
+        if not unit:
+            return None
+
+        unit.podcast_transcript = transcript  # type: ignore[assignment]
+        unit.podcast_audio = audio_bytes  # type: ignore[assignment]
+        unit.podcast_audio_mime_type = audio_mime_type  # type: ignore[assignment]
+        unit.podcast_voice = voice  # type: ignore[assignment]
+        unit.podcast_duration_seconds = duration_seconds  # type: ignore[assignment]
+        unit.podcast_generated_at = datetime.now(UTC) if audio_bytes else getattr(unit, "podcast_generated_at", None)  # type: ignore[assignment]
+        unit.updated_at = datetime.now(UTC)  # type: ignore[assignment]
+        self.s.add(unit)
+        self.s.flush()
+        return unit
+
     def set_unit_owner(self, unit_id: str, user_id: int | None) -> UnitModel | None:
         """Update the owner of a unit, returning the updated model or None if not found."""
         unit = self.get_unit_by_id(unit_id)

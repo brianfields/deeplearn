@@ -198,6 +198,8 @@ class TestContentService:
 
         assert created.user_id == 7
         assert created.is_global is True
+        assert created.has_podcast is False
+        assert created.podcast_voice is None
         repo.add_unit.assert_called_once()
         stored_model = repo.add_unit.call_args.args[0]
         assert stored_model.user_id == 7
@@ -257,11 +259,14 @@ class TestContentService:
             flow_type="standard",
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
+            podcast_voice="Narrator",
+            podcast_duration_seconds=150,
         )
 
         result = service.set_unit_sharing("unit-1", is_global=True, acting_user_id=3)
 
         assert result.is_global is True
+        assert result.podcast_voice == "Narrator"
         repo.set_unit_sharing.assert_called_once_with("unit-1", True)
 
     def test_assign_unit_owner_updates_repo(self) -> None:
@@ -288,3 +293,81 @@ class TestContentService:
 
         assert result.user_id == 42
         repo.set_unit_owner.assert_called_once_with("unit-1", 42)
+
+    def test_set_unit_podcast_updates_metadata(self) -> None:
+        """Persisting podcast metadata should surface on unit read models."""
+
+        repo = Mock(spec=ContentRepo)
+        service = ContentService(repo)
+
+        now = datetime.now(UTC)
+        unit_model = UnitModel(
+            id="unit-42",
+            title="Podcast Unit",
+            description=None,
+            learner_level="intermediate",
+            lesson_order=[],
+            user_id=None,
+            is_global=False,
+            status="completed",
+            generated_from_topic=False,
+            flow_type="standard",
+            podcast_transcript="Hello",
+            podcast_voice="Storyteller",
+            podcast_audio=b"bytes",
+            podcast_audio_mime_type="audio/mpeg",
+            podcast_duration_seconds=180,
+            podcast_generated_at=now,
+            created_at=now,
+            updated_at=now,
+        )
+
+        repo.set_unit_podcast.return_value = unit_model
+
+        result = service.set_unit_podcast(
+            "unit-42",
+            transcript="Hello",
+            audio_bytes=b"bytes",
+            audio_mime_type="audio/mpeg",
+            voice="Storyteller",
+            duration_seconds=180,
+        )
+
+        assert result is not None
+        assert result.has_podcast is True
+        assert result.podcast_voice == "Storyteller"
+        assert result.podcast_duration_seconds == 180
+        repo.set_unit_podcast.assert_called_once()
+
+    def test_get_unit_podcast_audio_returns_payload(self) -> None:
+        """Audio retrieval should unwrap stored blob and mime type."""
+
+        repo = Mock(spec=ContentRepo)
+        service = ContentService(repo)
+
+        now = datetime.now(UTC)
+        unit_model = UnitModel(
+            id="unit-99",
+            title="Audio Unit",
+            description=None,
+            learner_level="beginner",
+            lesson_order=[],
+            user_id=None,
+            is_global=False,
+            status="completed",
+            generated_from_topic=False,
+            flow_type="standard",
+            podcast_audio=b"audio-data",
+            podcast_audio_mime_type="audio/mpeg",
+            created_at=now,
+            updated_at=now,
+        )
+
+        repo.get_unit_by_id.return_value = unit_model
+
+        audio = service.get_unit_podcast_audio("unit-99")
+
+        assert audio is not None
+        assert audio.audio_bytes == b"audio-data"
+        assert audio.mime_type == "audio/mpeg"
+        repo.get_unit_by_id.assert_called_once_with("unit-99")

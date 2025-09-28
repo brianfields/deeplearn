@@ -256,6 +256,8 @@ class ContentService:
     # ======================
     # Unit operations (moved)
     # ======================
+    PODCAST_AUDIO_ROUTE_TEMPLATE = "/api/v1/content/units/{unit_id}/podcast/audio"
+
     class UnitRead(BaseModel):
         id: str
         title: str
@@ -274,6 +276,11 @@ class ContentService:
         status: str = "completed"
         creation_progress: dict[str, Any] | None = None
         error_message: str | None = None
+        # Podcast metadata surfaced in summaries
+        has_podcast: bool = False
+        podcast_voice: str | None = None
+        podcast_duration_seconds: int | None = None
+        podcast_generated_at: datetime | None = None
         created_at: datetime
         updated_at: datetime
 
@@ -290,6 +297,8 @@ class ContentService:
     class UnitDetailRead(UnitRead):
         learning_objectives: list[str] | None = None
         lessons: list[ContentService.UnitLessonSummary]
+        podcast_transcript: str | None = None
+        podcast_audio_url: str | None = None
 
         model_config = ConfigDict(from_attributes=True)
 
@@ -307,9 +316,35 @@ class ContentService:
         generated_from_topic: bool = False
         flow_type: str = "standard"
 
+    class UnitPodcastAudio(BaseModel):
+        unit_id: str
+        audio_bytes: bytes
+        mime_type: str
+
+    def _build_unit_read(self, unit: UnitModel) -> ContentService.UnitRead:
+        unit_read = self.UnitRead.model_validate(unit)
+        self._apply_podcast_metadata(unit_read, unit)
+        return unit_read
+
+    def _apply_podcast_metadata(
+        self,
+        unit_read: "ContentService.UnitRead",
+        unit: UnitModel,
+    ) -> None:
+        has_audio = bool(getattr(unit, "podcast_audio", None))
+        unit_read.has_podcast = has_audio
+        unit_read.podcast_voice = getattr(unit, "podcast_voice", None)
+        unit_read.podcast_duration_seconds = getattr(unit, "podcast_duration_seconds", None)
+        unit_read.podcast_generated_at = getattr(unit, "podcast_generated_at", None)
+
+    def _build_podcast_audio_url(self, unit: UnitModel) -> str | None:
+        if not getattr(unit, "podcast_audio", None):
+            return None
+        return self.PODCAST_AUDIO_ROUTE_TEMPLATE.format(unit_id=unit.id)
+
     def get_unit(self, unit_id: str) -> ContentService.UnitRead | None:
         u = self.repo.get_unit_by_id(unit_id)
-        return self.UnitRead.model_validate(u) if u else None
+        return self._build_unit_read(u) if u else None
 
     def get_unit_detail(self, unit_id: str) -> ContentService.UnitDetailRead | None:
         unit = self.repo.get_unit_by_id(unit_id)
@@ -365,37 +400,39 @@ class ContentService:
             if lid not in seen:
                 ordered_lessons.append(summary)
 
-        unit_summary = self.UnitRead.model_validate(unit)
+        unit_summary = self._build_unit_read(unit)
         detail_dict = unit_summary.model_dump()
         detail_dict["lesson_order"] = ordered_ids
         detail_dict["lessons"] = [lesson.model_dump() for lesson in ordered_lessons]
         detail_dict["learning_objectives"] = self._normalize_unit_learning_objectives(getattr(unit, "learning_objectives", None))
+        detail_dict["podcast_transcript"] = getattr(unit, "podcast_transcript", None)
+        detail_dict["podcast_audio_url"] = self._build_podcast_audio_url(unit)
 
         return self.UnitDetailRead.model_validate(detail_dict)
 
     def list_units(self, limit: int = 100, offset: int = 0) -> list[ContentService.UnitRead]:
         arr = self.repo.list_units(limit=limit, offset=offset)
-        return [self.UnitRead.model_validate(u) for u in arr]
+        return [self._build_unit_read(u) for u in arr]
 
     def list_units_for_user(self, user_id: int, *, limit: int = 100, offset: int = 0) -> list[ContentService.UnitRead]:
         """Return units owned by a specific user."""
         arr = self.repo.list_units_for_user(user_id=user_id, limit=limit, offset=offset)
-        return [self.UnitRead.model_validate(u) for u in arr]
+        return [self._build_unit_read(u) for u in arr]
 
     def list_global_units(self, limit: int = 100, offset: int = 0) -> list[ContentService.UnitRead]:
         """Return units that have been shared globally."""
         arr = self.repo.list_global_units(limit=limit, offset=offset)
-        return [self.UnitRead.model_validate(u) for u in arr]
+        return [self._build_unit_read(u) for u in arr]
 
     def get_units_by_status(self, status: str, limit: int = 100, offset: int = 0) -> list[ContentService.UnitRead]:
         """Get units filtered by status."""
         arr = self.repo.get_units_by_status(status=status, limit=limit, offset=offset)
-        return [self.UnitRead.model_validate(u) for u in arr]
+        return [self._build_unit_read(u) for u in arr]
 
     def update_unit_status(self, unit_id: str, status: str, error_message: str | None = None, creation_progress: dict[str, Any] | None = None) -> ContentService.UnitRead | None:
         """Update unit status and return the updated unit, or None if not found."""
         updated = self.repo.update_unit_status(unit_id=unit_id, status=status, error_message=error_message, creation_progress=creation_progress)
-        return self.UnitRead.model_validate(updated) if updated else None
+        return self._build_unit_read(updated) if updated else None
 
     def create_unit(self, data: ContentService.UnitCreate) -> ContentService.UnitRead:
         unit_id = data.id or str(uuid.uuid4())
@@ -416,20 +453,20 @@ class ContentService:
             updated_at=datetime.now(UTC),
         )
         created = self.repo.add_unit(model)
-        return self.UnitRead.model_validate(created)
+        return self._build_unit_read(created)
 
     def set_unit_lesson_order(self, unit_id: str, lesson_ids: list[str]) -> ContentService.UnitRead:
         updated = self.repo.update_unit_lesson_order(unit_id, lesson_ids)
         if not updated:
             raise ValueError("Unit not found")
-        return self.UnitRead.model_validate(updated)
+        return self._build_unit_read(updated)
 
     def assign_unit_owner(self, unit_id: str, *, owner_user_id: int | None) -> ContentService.UnitRead:
         """Assign or clear ownership of a unit."""
         updated = self.repo.set_unit_owner(unit_id, owner_user_id)
         if not updated:
             raise ValueError("Unit not found")
-        return self.UnitRead.model_validate(updated)
+        return self._build_unit_read(updated)
 
     @staticmethod
     def _normalize_unit_learning_objectives(raw: list[Any] | None) -> list[str] | None:
@@ -467,7 +504,7 @@ class ContentService:
         updated = self.repo.set_unit_sharing(unit_id, is_global)
         if not updated:
             raise ValueError("Unit not found")
-        return self.UnitRead.model_validate(updated)
+        return self._build_unit_read(updated)
 
     def assign_lessons_to_unit(self, unit_id: str, lesson_ids: list[str]) -> ContentService.UnitRead:
         """Assign lessons to a unit and set ordering in one operation.
@@ -478,7 +515,43 @@ class ContentService:
         updated = self.repo.associate_lessons_with_unit(unit_id, lesson_ids)
         if not updated:
             raise ValueError("Unit not found")
-        return self.UnitRead.model_validate(updated)
+        return self._build_unit_read(updated)
+
+    def set_unit_podcast(
+        self,
+        unit_id: str,
+        *,
+        transcript: str | None,
+        audio_bytes: bytes | None,
+        audio_mime_type: str | None = None,
+        voice: str | None = None,
+        duration_seconds: int | None = None,
+    ) -> ContentService.UnitRead | None:
+        """Persist podcast transcript and audio metadata for a unit."""
+
+        updated = self.repo.set_unit_podcast(
+            unit_id,
+            transcript=transcript,
+            audio_bytes=audio_bytes,
+            audio_mime_type=audio_mime_type,
+            voice=voice,
+            duration_seconds=duration_seconds,
+        )
+        return self._build_unit_read(updated) if updated else None
+
+    def get_unit_podcast_audio(self, unit_id: str) -> ContentService.UnitPodcastAudio | None:
+        """Retrieve the stored podcast audio payload for streaming."""
+
+        unit = self.repo.get_unit_by_id(unit_id)
+        if not unit:
+            return None
+
+        audio_blob = getattr(unit, "podcast_audio", None)
+        if not audio_blob:
+            return None
+
+        mime_type = getattr(unit, "podcast_audio_mime_type", None) or "audio/mpeg"
+        return self.UnitPodcastAudio(unit_id=unit_id, audio_bytes=bytes(audio_blob), mime_type=mime_type)
 
     def delete_unit(self, unit_id: str) -> bool:
         """Delete a unit by ID. Returns True if successful, False if not found."""

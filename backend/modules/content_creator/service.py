@@ -7,6 +7,7 @@ Uses LLM services to create educational content and stores it via content module
 
 import logging
 import uuid
+from typing import Any
 
 # FastAPI BackgroundTasks path was removed; keep import set minimal
 from pydantic import BaseModel
@@ -24,6 +25,7 @@ from modules.content.public import ContentProvider, LessonCreate, UnitCreate, Un
 from modules.task_queue.public import task_queue_provider
 
 from .flows import LessonCreationFlow, UnitCreationFlow
+from .podcast import PodcastLesson, UnitPodcastGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -64,9 +66,14 @@ class LessonCreationResult(BaseModel):
 class ContentCreatorService:
     """Service for AI-powered content creation."""
 
-    def __init__(self, content: ContentProvider) -> None:
+    def __init__(
+        self,
+        content: ContentProvider,
+        podcast_generator: UnitPodcastGenerator | None = None,
+    ) -> None:
         """Initialize with content storage only - flows handle LLM interactions."""
         self.content = content
+        self.podcast_generator = podcast_generator
 
     def _truncate_title(self, title: str, max_length: int = 255) -> str:
         """
@@ -338,6 +345,8 @@ class ContentCreatorService:
                 unit_los[lo.get("lo_id", "")] = lo.get("text", "")
 
         lesson_ids: list[str] = []
+        podcast_lessons: list[PodcastLesson] = []
+        podcast_voice_label: str | None = None
         unit_material: str = str(unit_plan.get("unit_source_material") or source_material or "")
         lessons_plan = unit_plan.get("lessons", []) or []
 
@@ -376,6 +385,9 @@ class ContentCreatorService:
 
             # Mini lesson text
             mini_lesson_text = str(md_res.get("mini_lesson") or "")
+            if podcast_voice_label is None:
+                podcast_voice_label = str(md_res.get("voice") or "Plain")
+            podcast_lessons.append(PodcastLesson(title=lesson_title, mini_lesson=mini_lesson_text))
 
             # MCQ exercises
             exercises: list[MCQExercise] = []
@@ -447,6 +459,30 @@ class ContentCreatorService:
         if lesson_ids:
             self.content.assign_lessons_to_unit(unit_id, lesson_ids)
 
+        if podcast_lessons:
+            generator = self.podcast_generator or UnitPodcastGenerator()
+            # Cache the generator for future use to avoid repeated initialization
+            self.podcast_generator = generator
+            try:
+                summary_text = self._summarize_unit_plan(unit_plan, lessons_plan)
+                podcast = await generator.create_podcast(
+                    unit_title=final_title,
+                    voice_label=podcast_voice_label or "Plain",
+                    unit_summary=summary_text,
+                    lessons=podcast_lessons,
+                )
+            except Exception as exc:  # pragma: no cover - podcast generation should not block unit creation
+                logger.warning("🎧 Failed to generate podcast for unit %s: %s", unit_id, exc, exc_info=True)
+            else:
+                self.content.set_unit_podcast(
+                    unit_id,
+                    transcript=podcast.transcript,
+                    audio_bytes=podcast.audio_bytes,
+                    audio_mime_type=podcast.mime_type,
+                    voice=podcast.voice,
+                    duration_seconds=podcast.duration_seconds,
+                )
+
         self.content.update_unit_status(unit_id, UnitStatus.COMPLETED.value, creation_progress={"stage": "completed", "message": "Unit creation completed"})
 
         return self.UnitCreationResult(
@@ -458,6 +494,43 @@ class ContentCreatorService:
             generated_from_topic=(source_material is None),
             lesson_ids=lesson_ids,
         )
+
+    def _summarize_unit_plan(self, unit_plan: dict[str, Any], lessons_plan: list[Any]) -> str:
+        """Create a concise textual summary of the unit plan for podcast prompting."""
+
+        summary_lines: list[str] = []
+        lesson_count = unit_plan.get("lesson_count") or len(lessons_plan)
+        summary_lines.append(f"Lesson count: {lesson_count}")
+
+        objective_texts: list[str] = []
+        for objective in unit_plan.get("learning_objectives", []) or []:
+            if isinstance(objective, dict):
+                text = objective.get("text") or objective.get("summary")
+                if text:
+                    objective_texts.append(str(text))
+            elif isinstance(objective, str):
+                objective_texts.append(objective)
+            else:
+                text_attr = getattr(objective, "text", None)
+                if text_attr:
+                    objective_texts.append(str(text_attr))
+
+        if objective_texts:
+            summary_lines.append("Learning objectives:")
+            summary_lines.extend(f"- {text}" for text in objective_texts)
+
+        for idx, lesson in enumerate(lessons_plan, start=1):
+            if isinstance(lesson, dict):
+                title = lesson.get("title") or f"Lesson {idx}"
+                objective = lesson.get("lesson_objective")
+                if objective:
+                    summary_lines.append(f"{idx}. {title} — {objective}")
+                else:
+                    summary_lines.append(f"{idx}. {title}")
+            else:
+                summary_lines.append(f"{idx}. Lesson {idx}")
+
+        return "\n".join(summary_lines)
 
     async def retry_unit_creation(self, unit_id: str) -> "ContentCreatorService.MobileUnitCreationResult | None":
         """

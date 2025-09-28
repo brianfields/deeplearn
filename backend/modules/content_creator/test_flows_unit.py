@@ -19,6 +19,7 @@ import pytest
 from modules.content.package_models import LessonPackage, Meta, Objective
 from modules.content.public import LessonRead
 from modules.content_creator.flows import UnitCreationFlow
+from modules.content_creator.podcast import UnitPodcast
 from modules.content_creator.service import ContentCreatorService, CreateLessonRequest
 
 # Deprecated test removed - used old step classes that no longer exist
@@ -69,7 +70,16 @@ class TestServiceFlows:
     @patch("modules.content_creator.service.LessonCreationFlow")
     async def test_create_lesson_invokes_flow(self, mock_flow_cls: Mock) -> None:
         content = Mock()
-        svc = ContentCreatorService(content)
+        podcast_generator = AsyncMock()
+        podcast_generator.create_podcast.return_value = UnitPodcast(
+            transcript="Narration",
+            audio_bytes=b"audio",
+            mime_type="audio/mpeg",
+            voice="Plain",
+            duration_seconds=90,
+        )
+        content.set_unit_podcast = Mock()
+        svc = ContentCreatorService(content, podcast_generator=podcast_generator)
 
         # Minimal flow return
         fake_flow_result = {
@@ -122,7 +132,16 @@ class TestServiceFlows:
     @pytest.mark.asyncio
     async def test_create_unit_precreates_and_completes(self) -> None:
         content = Mock()
-        svc = ContentCreatorService(content)
+        podcast_generator = AsyncMock()
+        podcast_generator.create_podcast.return_value = UnitPodcast(
+            transcript="Narration",
+            audio_bytes=b"audio",
+            mime_type="audio/mpeg",
+            voice="Plain",
+            duration_seconds=120,
+        )
+        content.set_unit_podcast = Mock()
+        svc = ContentCreatorService(content, podcast_generator=podcast_generator)
 
         # Unit plan will be provided by mocked UnitCreationFlow below
 
@@ -167,3 +186,5 @@ class TestServiceFlows:
             result = await svc.create_unit(topic="Topic", target_lesson_count=1, learner_level="beginner", background=False)
             assert result.title == "Unit T"
             content.assign_lessons_to_unit.assert_called_once()
+            podcast_generator.create_podcast.assert_awaited_once()
+            content.set_unit_podcast.assert_called_once()

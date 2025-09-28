@@ -75,6 +75,9 @@ describe('CatalogService', () => {
           isGlobal: false,
           ownershipLabel: 'Personal',
           isOwnedByCurrentUser: false,
+          hasPodcast: false,
+          podcastVoice: null,
+          podcastDurationSeconds: null,
         },
       ];
       mockContent.listUnits.mockResolvedValue(mockUnits);
@@ -123,6 +126,11 @@ describe('CatalogService', () => {
         isGlobal: false,
         ownershipLabel: 'My Unit',
         isOwnedByCurrentUser: true,
+        hasPodcast: false,
+        podcastVoice: null,
+        podcastDurationSeconds: null,
+        podcastTranscript: null,
+        podcastAudioUrl: null,
       };
       mockContent.getUnitDetail.mockResolvedValue(detail);
 

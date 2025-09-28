@@ -437,6 +437,11 @@ export interface ApiUnitDetail {
   source_material?: string | null;
   generated_from_topic?: boolean;
   flow_type?: 'standard' | 'fast';
+  has_podcast?: boolean;
+  podcast_voice?: string | null;
+  podcast_duration_seconds?: number | null;
+  podcast_transcript?: string | null;
+  podcast_audio_url?: string | null;
 }
 
 // Basic unit from /api/v1/units
@@ -464,6 +469,9 @@ export interface UnitSummary {
   is_global: boolean;
   created_at: Date | null;
   updated_at: Date | null;
+  has_podcast: boolean;
+  podcast_voice: string | null;
+  podcast_duration_seconds: number | null;
 }
 
 export interface UnitLessonSummary {
@@ -486,6 +494,11 @@ export interface UnitDetail {
   source_material: string | null;
   generated_from_topic: boolean;
   flow_type: 'standard' | 'fast';
+  has_podcast: boolean;
+  podcast_voice: string | null;
+  podcast_duration_seconds: number | null;
+  podcast_transcript: string | null;
+  podcast_audio_url: string | null;
 }
 
 export type LessonToUnitMap = Record<string, { unit_id: string; unit_title: string }>;
