@@ -58,15 +58,19 @@ export class ContentService {
         limit: options?.limit,
         offset: options?.offset,
       });
-      return apiUnits.map(api => toUnitDTO(api, options?.currentUserId ?? userId));
+      return apiUnits.map(api =>
+        toUnitDTO(api, options?.currentUserId ?? userId)
+      );
     } catch (error) {
       throw this.handleError(error, 'Failed to load personal units');
     }
   }
 
-  async listGlobalUnits(
-    options?: { limit?: number; offset?: number; currentUserId?: number | null }
-  ): Promise<Unit[]> {
+  async listGlobalUnits(options?: {
+    limit?: number;
+    offset?: number;
+    currentUserId?: number | null;
+  }): Promise<Unit[]> {
     try {
       const apiUnits = await this.repo.listGlobalUnits({
         limit: options?.limit,

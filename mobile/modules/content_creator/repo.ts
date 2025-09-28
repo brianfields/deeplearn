@@ -10,7 +10,9 @@ const CONTENT_CREATOR_BASE = '/api/v1/content-creator';
 export class ContentCreatorRepo {
   private infrastructure = infrastructureProvider();
 
-  async createUnit(request: UnitCreationRequest): Promise<UnitCreationResponse> {
+  async createUnit(
+    request: UnitCreationRequest
+  ): Promise<UnitCreationResponse> {
     try {
       const response = await this.infrastructure.request<{
         unit_id: string;

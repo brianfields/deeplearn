@@ -7,7 +7,6 @@ import type {
   LoginRequest,
   RegisterRequest,
   UpdateProfileRequest,
-  User,
 } from './models';
 import { UserService } from './service';
 

@@ -15,11 +15,7 @@ import type {
   CatalogStatistics,
   PaginationInfo,
 } from './models';
-import type {
-  Unit,
-  UnitDetail,
-  UserUnitCollections,
-} from '../content/public';
+import type { Unit, UnitDetail, UserUnitCollections } from '../content/public';
 import type {
   UnitCreationRequest,
   UnitCreationResponse,
@@ -114,5 +110,14 @@ export type {
   CatalogStatistics,
   PaginationInfo,
 } from './models';
-export type { UnitCreationRequest, UnitCreationResponse } from '../content_creator/public';
-export type { Unit, UnitDetail, UnitStatus, Difficulty, UserUnitCollections } from '../content/public';
+export type {
+  UnitCreationRequest,
+  UnitCreationResponse,
+} from '../content_creator/public';
+export type {
+  Unit,
+  UnitDetail,
+  UnitStatus,
+  Difficulty,
+  UserUnitCollections,
+} from '../content/public';

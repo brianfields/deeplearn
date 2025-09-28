@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import type { UnitProgress } from '../models';
+import type { UnitProgress } from '../../content/public';
 import { Progress, uiSystemProvider } from '../../ui_system/public';
 
 export function UnitProgressView({ progress }: { progress: UnitProgress }) {

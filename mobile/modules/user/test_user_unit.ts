@@ -82,7 +82,9 @@ describe('UserService', () => {
   it('validates password when updating profile', async () => {
     await expect(
       service.updateProfile(1, { password: 'short' })
-    ).rejects.toMatchObject({ message: 'Password must be at least 8 characters long' });
+    ).rejects.toMatchObject({
+      message: 'Password must be at least 8 characters long',
+    });
     expect(repo.updateProfile).not.toHaveBeenCalled();
   });
 
@@ -92,7 +94,9 @@ describe('UserService', () => {
 
     const result = await service.updateProfile(1, { name: 'Updated Name' });
 
-    expect(repo.updateProfile).toHaveBeenCalledWith(1, { name: 'Updated Name' });
+    expect(repo.updateProfile).toHaveBeenCalledWith(1, {
+      name: 'Updated Name',
+    });
     expect(result.name).toEqual('Updated Name');
   });
 });

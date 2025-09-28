@@ -493,7 +493,7 @@ async def main() -> None:
                 password="epsilon",
                 role="admin",
             )
-            eylem_admin = _create_user(
+            _eylem_admin = _create_user(
                 "eylem",
                 email="eylem.ozaslan@gmail.com",
                 name="Eylem Ozaslan",

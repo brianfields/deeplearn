@@ -101,6 +101,7 @@ export interface UnitDetail {
   readonly generatedFromTopic?: boolean;
   readonly ownerUserId: number | null;
   readonly isGlobal: boolean;
+  readonly ownershipLabel: string;
   readonly isOwnedByCurrentUser: boolean;
 }
 
@@ -191,11 +192,14 @@ export function toUnitDetailDTO(
     generatedFromTopic: !!api.generated_from_topic,
     ownerUserId,
     isGlobal,
+    ownershipLabel: formatOwnershipLabel(isGlobal, isOwnedByCurrentUser),
     isOwnedByCurrentUser,
   };
 }
 
-function toUnitLessonSummaryDTO(lesson: ApiUnitDetail['lessons'][number]): UnitLessonSummary {
+function toUnitLessonSummaryDTO(
+  lesson: ApiUnitDetail['lessons'][number]
+): UnitLessonSummary {
   const learnerLevel = (lesson.learner_level as Difficulty) ?? 'beginner';
   const componentCount = lesson.exercise_count;
   const isReadyForLearning = componentCount > 0;

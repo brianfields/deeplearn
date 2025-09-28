@@ -121,6 +121,7 @@ describe('CatalogService', () => {
         generatedFromTopic: false,
         ownerUserId: 1,
         isGlobal: false,
+        ownershipLabel: 'My Unit',
         isOwnedByCurrentUser: true,
       };
       mockContent.getUnitDetail.mockResolvedValue(detail);
@@ -226,7 +227,9 @@ describe('CatalogService', () => {
       const result = await service.retryUnitCreation('unit-4');
 
       expect(result).toBe(response);
-      expect(mockContentCreator.retryUnitCreation).toHaveBeenCalledWith('unit-4');
+      expect(mockContentCreator.retryUnitCreation).toHaveBeenCalledWith(
+        'unit-4'
+      );
     });
   });
 

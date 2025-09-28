@@ -479,10 +479,7 @@ class LearningSessionService:
             offset=offset,
         )
 
-        session_dtos = [
-            self._to_session_dto(self._ensure_session_user(session, user_id))
-            for session in sessions
-        ]
+        session_dtos = [self._to_session_dto(self._ensure_session_user(session, user_id)) for session in sessions]
         return SessionListResponse(sessions=session_dtos, total=total)
 
     async def check_health(self) -> bool:
@@ -493,9 +490,7 @@ class LearningSessionService:
     # Private Helper Methods
     # ================================
 
-    def _ensure_session_user(
-        self, session: LearningSessionModel, user_id: str | None
-    ) -> LearningSessionModel:
+    def _ensure_session_user(self, session: LearningSessionModel, user_id: str | None) -> LearningSessionModel:
         """Validate or persist the session's user association."""
 
         if user_id is None:

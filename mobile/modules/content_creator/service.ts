@@ -8,7 +8,9 @@ import type {
 export class ContentCreatorService {
   constructor(private repo: ContentCreatorRepo) {}
 
-  async createUnit(request: UnitCreationRequest): Promise<UnitCreationResponse> {
+  async createUnit(
+    request: UnitCreationRequest
+  ): Promise<UnitCreationResponse> {
     try {
       return await this.repo.createUnit(request);
     } catch (error) {
@@ -18,7 +20,10 @@ export class ContentCreatorService {
 
   async retryUnitCreation(unitId: string): Promise<UnitCreationResponse> {
     if (!unitId?.trim()) {
-      throw this.handleError(new Error('Unit ID is required'), 'Unit ID is required');
+      throw this.handleError(
+        new Error('Unit ID is required'),
+        'Unit ID is required'
+      );
     }
 
     try {
@@ -30,7 +35,10 @@ export class ContentCreatorService {
 
   async dismissUnit(unitId: string): Promise<void> {
     if (!unitId?.trim()) {
-      throw this.handleError(new Error('Unit ID is required'), 'Unit ID is required');
+      throw this.handleError(
+        new Error('Unit ID is required'),
+        'Unit ID is required'
+      );
     }
 
     try {

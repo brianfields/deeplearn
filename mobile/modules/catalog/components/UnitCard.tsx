@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import type { Unit } from '../models';
+import type { Unit } from '../../content/public';
 import { UnitProgressIndicator } from './UnitProgressIndicator';
 import {
   Card,

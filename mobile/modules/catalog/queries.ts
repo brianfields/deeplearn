@@ -6,10 +6,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { catalogProvider } from './public';
-import type {
-  LessonFilters,
-  PaginationInfo,
-} from './models';
+import type { LessonFilters, PaginationInfo } from './models';
 import type { UnitCreationRequest } from '../content_creator/public';
 
 // Get the lesson catalog service instance
@@ -18,8 +15,11 @@ const catalog = catalogProvider();
 // Query keys
 export const catalogKeys = {
   all: ['catalog'] as const,
-  units: (p?: { limit?: number; offset?: number; currentUserId?: number | null }) =>
-    ['catalog', 'units', p ?? {}] as const,
+  units: (p?: {
+    limit?: number;
+    offset?: number;
+    currentUserId?: number | null;
+  }) => ['catalog', 'units', p ?? {}] as const,
   userUnitCollections: (
     userId: number,
     options?: { includeGlobal?: boolean; limit?: number; offset?: number }

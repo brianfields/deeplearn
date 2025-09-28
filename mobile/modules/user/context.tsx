@@ -52,7 +52,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loadStoredUser().then(storedUser => {
       if (isMounted && storedUser) {
         setUser(storedUser);
-        queryClient.setQueryData(userQueryKeys.profile(storedUser.id), storedUser);
+        queryClient.setQueryData(
+          userQueryKeys.profile(storedUser.id),
+          storedUser
+        );
       }
       if (isMounted) {
         setIsHydrated(true);

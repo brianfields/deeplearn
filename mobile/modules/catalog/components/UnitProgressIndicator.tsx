@@ -7,7 +7,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { uiSystemProvider } from '../../ui_system/public';
-import type { UnitStatus, UnitCreationProgress } from '../models';
+import type { UnitStatus, UnitCreationProgress } from '../../content/public';
 
 interface UnitProgressIndicatorProps {
   status: UnitStatus;

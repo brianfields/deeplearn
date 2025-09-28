@@ -16,7 +16,11 @@ import type {
   CatalogError,
   PaginationInfo,
 } from './models';
-import { toLessonSummaryDTO, toLessonDetailDTO, toBrowseLessonsResponseDTO } from './models';
+import {
+  toLessonSummaryDTO,
+  toLessonDetailDTO,
+  toBrowseLessonsResponseDTO,
+} from './models';
 import {
   contentProvider,
   type ContentProvider,

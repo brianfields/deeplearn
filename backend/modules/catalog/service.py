@@ -5,8 +5,9 @@ Simple lesson browsing and discovery service.
 Uses content module for data access.
 """
 
+from collections.abc import Iterable
 from datetime import datetime
-from typing import Any, Iterable
+from typing import Any
 
 from pydantic import BaseModel
 

@@ -71,8 +71,7 @@ class AdminService:
 
         all_users = self.users.list_users(search=search)
         total = len(all_users)
-        if page < 1:
-            page = 1
+        page = max(page, 1)
         start = (page - 1) * page_size
         end = start + page_size
         visible = all_users[start:end]

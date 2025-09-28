@@ -1,14 +1,6 @@
 import { ContentService } from './service';
 import { ContentRepo } from './repo';
-import type {
-  Unit,
-  UnitDetail,
-  UnitStatus,
-  Difficulty,
-  UnitLessonSummary,
-  UserUnitCollections,
-  ContentError,
-} from './models';
+import type { Unit, UnitDetail, UserUnitCollections } from './models';
 import type { UpdateUnitSharingRequest } from './models';
 
 export interface ContentProvider {
@@ -25,9 +17,11 @@ export interface ContentProvider {
     userId: number,
     options?: { limit?: number; offset?: number; currentUserId?: number | null }
   ): Promise<Unit[]>;
-  listGlobalUnits(
-    options?: { limit?: number; offset?: number; currentUserId?: number | null }
-  ): Promise<Unit[]>;
+  listGlobalUnits(options?: {
+    limit?: number;
+    offset?: number;
+    currentUserId?: number | null;
+  }): Promise<Unit[]>;
   getUserUnitCollections(
     userId: number,
     options?: { includeGlobal?: boolean; limit?: number; offset?: number }
@@ -67,6 +61,8 @@ export type {
   UnitStatus,
   Difficulty,
   UnitLessonSummary,
+  UnitCreationProgress,
+  UnitProgress,
   UserUnitCollections,
   ContentError,
   UpdateUnitSharingRequest,

@@ -133,7 +133,10 @@ function RootNavigator(): React.ReactElement {
     >
       {user ? (
         <>
-          <RootStack.Screen name="Dashboard" component={LearningStackNavigator} />
+          <RootStack.Screen
+            name="Dashboard"
+            component={LearningStackNavigator}
+          />
           <RootStack.Screen
             name="LessonDetail"
             component={LearningFlowScreen as any}

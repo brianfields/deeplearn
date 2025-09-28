@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Generator, cast
+from collections.abc import Generator
+from typing import cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field

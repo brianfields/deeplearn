@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 import hashlib
 import hmac
 import re
 import secrets
-from datetime import UTC, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .models import UserModel
 from .repo import UserRepo
 
 
@@ -134,11 +133,7 @@ class UserService:
         users = self.repo.list_all()
         if search:
             needle = search.lower()
-            users = [
-                u
-                for u in users
-                if needle in u.email.lower() or needle in u.name.lower()
-            ]
+            users = [u for u in users if needle in u.email.lower() or needle in u.name.lower()]
         return [UserRead.model_validate(u) for u in users]
 
     def update_user_admin(

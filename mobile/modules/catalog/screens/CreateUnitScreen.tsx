@@ -20,7 +20,7 @@ import {
 } from 'react-native';
 import { uiSystemProvider, useHaptics } from '../../ui_system/public';
 import { useNavigation } from '@react-navigation/native';
-import type { Difficulty } from '../models';
+import type { Difficulty } from '../../content/public';
 import { useCreateUnit } from '../queries';
 import { useAuth } from '../../user/public';
 

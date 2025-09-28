@@ -301,9 +301,7 @@ class ContentService:
         arr = self.repo.list_units(limit=limit, offset=offset)
         return [self.UnitRead.model_validate(u) for u in arr]
 
-    def list_units_for_user(
-        self, user_id: int, *, limit: int = 100, offset: int = 0
-    ) -> list[ContentService.UnitRead]:
+    def list_units_for_user(self, user_id: int, *, limit: int = 100, offset: int = 0) -> list[ContentService.UnitRead]:
         """Return units owned by a specific user."""
         arr = self.repo.list_units_for_user(user_id=user_id, limit=limit, offset=offset)
         return [self.UnitRead.model_validate(u) for u in arr]

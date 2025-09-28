@@ -18,7 +18,9 @@ export default function AuthLandingScreen(): React.ReactElement {
   const navigation = useNavigation<AuthLandingNavigationProp>();
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}> 
+    <SafeAreaView
+      style={[styles.safeArea, { backgroundColor: theme.colors.background }]}
+    >
       <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.title}>DeepLearn</Text>

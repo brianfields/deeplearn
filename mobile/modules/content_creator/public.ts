@@ -1,10 +1,6 @@
 import { ContentCreatorService } from './service';
 import { ContentCreatorRepo } from './repo';
-import type {
-  UnitCreationRequest,
-  UnitCreationResponse,
-  ContentCreatorError,
-} from './models';
+import type { UnitCreationRequest, UnitCreationResponse } from './models';
 
 export interface ContentCreatorProvider {
   createUnit(request: UnitCreationRequest): Promise<UnitCreationResponse>;
