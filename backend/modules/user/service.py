@@ -26,9 +26,6 @@ class UserRead(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
-
 
 class UserRegister(BaseModel):
     """Payload for registering a new user."""

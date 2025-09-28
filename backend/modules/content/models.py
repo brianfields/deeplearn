@@ -11,6 +11,7 @@ from datetime import datetime
 from sqlalchemy import JSON, Boolean, CheckConstraint, Column, DateTime, ForeignKey, Integer, String, Text
 
 from modules.shared_models import Base, PostgresUUID
+from modules.user.models import UserModel  # noqa: F401  # Ensure users table registered for FK
 
 
 class LessonModel(Base):

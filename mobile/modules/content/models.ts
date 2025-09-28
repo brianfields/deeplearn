@@ -60,6 +60,8 @@ export interface UnitLessonSummary {
   readonly learningObjectives: string[];
   readonly keyConcepts: string[];
   readonly exerciseCount: number;
+  readonly componentCount: number;
+  readonly isReadyForLearning: boolean;
   readonly estimatedDuration: number;
   readonly learnerLevelLabel: string;
 }
@@ -195,14 +197,18 @@ export function toUnitDetailDTO(
 
 function toUnitLessonSummaryDTO(lesson: ApiUnitDetail['lessons'][number]): UnitLessonSummary {
   const learnerLevel = (lesson.learner_level as Difficulty) ?? 'beginner';
-  const estimatedDuration = Math.max(5, lesson.exercise_count * 3);
+  const componentCount = lesson.exercise_count;
+  const isReadyForLearning = componentCount > 0;
+  const estimatedDuration = Math.max(5, componentCount * 3);
   return {
     id: lesson.id,
     title: lesson.title,
     learnerLevel,
     learningObjectives: lesson.learning_objectives ?? [],
     keyConcepts: lesson.key_concepts ?? [],
-    exerciseCount: lesson.exercise_count,
+    exerciseCount: componentCount,
+    componentCount,
+    isReadyForLearning,
     estimatedDuration,
     learnerLevelLabel: formatLearnerLevel(learnerLevel),
   };

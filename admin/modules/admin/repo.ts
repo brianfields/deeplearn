@@ -216,12 +216,6 @@ export const AdminRepo = {
       return data;
     },
 
-    async status(): Promise<any[]> {
-      const { data } = await apiClient.get('/task-queue/status');
-      // Wrap single queue object in array for consistency with service expectations
-      return Array.isArray(data) ? data : [data];
-    },
-
     async health(): Promise<{ status: string; details: Record<string, any> }> {
       const { data } = await apiClient.get('/task-queue/health');
       return data;

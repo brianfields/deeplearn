@@ -1,0 +1,31 @@
+%% Module dependency graph
+%% Arrow direction: provider → consumer (consumer imports provider)
+%% Edge labels note access path: public (only public API), public + internal (mix), internal (non-public only)
+%% `shared_models` exposes SQLAlchemy base classes and has no dedicated public facade.
+
+graph LR
+    catalog -->|public| admin
+    catalog -->|public| learning_session
+    content -->|public| admin
+    content -->|public + internal| catalog
+    content -->|public + internal| content_creator
+    content -->|public| learning_session
+    flow_engine -->|public + internal| admin
+    flow_engine -->|public| content_creator
+    infrastructure -->|public| admin
+    infrastructure -->|public| catalog
+    infrastructure -->|public| content
+    infrastructure -->|public| content_creator
+    infrastructure -->|public| learning_session
+    infrastructure -->|public| llm_services
+    infrastructure -->|public| user
+    learning_session -->|public + internal| admin
+    llm_services -->|public + internal| admin
+    shared_models -->|internal| content
+    shared_models -->|internal| flow_engine
+    shared_models -->|internal| learning_session
+    shared_models -->|internal| llm_services
+    shared_models -->|internal| user
+    task_queue -->|public| content_creator
+    user -->|public + internal| admin
+    user -->|internal| content
