@@ -73,14 +73,14 @@ def list_global_units(
     return service.list_global_units(limit=limit, offset=offset)
 
 
-@router.get("/units/{unit_id}", response_model=ContentService.UnitRead)
-def get_unit(
+@router.get("/units/{unit_id}", response_model=ContentService.UnitDetailRead)
+def get_unit_detail(
     unit_id: str,
     service: ContentService = Depends(get_content_service),
-) -> ContentService.UnitRead:
-    """Retrieve a single unit by identifier."""
+) -> ContentService.UnitDetailRead:
+    """Retrieve a fully hydrated unit with ordered lesson summaries."""
 
-    unit = service.get_unit(unit_id)
+    unit = service.get_unit_detail(unit_id)
     if not unit:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unit not found")
     return unit

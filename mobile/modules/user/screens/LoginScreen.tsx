@@ -45,7 +45,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} testID="login-screen">
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.select({ ios: 'padding', android: undefined })}
@@ -67,6 +67,7 @@ export default function LoginScreen() {
             value={email}
             onChangeText={setEmail}
             editable={!loginMutation.isPending}
+            testID="login-email-input"
           />
         </View>
 
@@ -80,6 +81,7 @@ export default function LoginScreen() {
             value={password}
             onChangeText={setPassword}
             editable={!loginMutation.isPending}
+            testID="login-password-input"
           />
         </View>
 
@@ -88,6 +90,7 @@ export default function LoginScreen() {
           onPress={handleSubmit}
           disabled={loginMutation.isPending}
           loading={loginMutation.isPending}
+          testID="login-submit-button"
         />
 
         {loginMutation.isPending && (

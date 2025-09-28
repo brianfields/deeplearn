@@ -99,7 +99,6 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
         setError(null);
         const session = await startSessionMutation.mutateAsync({
           lessonId: lesson.id,
-          userId: 'anonymous', // TODO: Get from user context when available
         });
         setSessionId(session.id);
       } catch (err) {
@@ -167,7 +166,6 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
       try {
         const session = await startSessionMutation.mutateAsync({
           lessonId: lesson.id,
-          userId: 'anonymous',
         });
         setSessionId(session.id);
       } catch (err) {

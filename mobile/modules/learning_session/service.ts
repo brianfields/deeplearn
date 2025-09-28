@@ -8,6 +8,7 @@
 import { LearningSessionRepo } from './repo';
 import { catalogProvider } from '../catalog/public';
 import { infrastructureProvider } from '../infrastructure/public';
+import { userIdentityProvider } from '../user/public';
 import type {
   LearningSession,
   SessionProgress,
@@ -31,6 +32,7 @@ export class LearningSessionService {
   private repo: LearningSessionRepo;
   private catalog = catalogProvider();
   private infrastructure = infrastructureProvider();
+  private userIdentity = userIdentityProvider();
 
   constructor(repo: LearningSessionRepo) {
     this.repo = repo;
@@ -47,8 +49,13 @@ export class LearningSessionService {
         throw new Error(`Lesson ${request.lessonId} not found`);
       }
 
+      const userId = await this.resolveUserId(request.userId);
+
       // Start session via repository
-      const apiSession = await this.repo.startSession(request);
+      const apiSession = await this.repo.startSession({
+        ...request,
+        userId,
+      });
 
       // Convert to DTO with lesson title
       const session = toLearningSessionDTO(apiSession, lessonDetail.title);
@@ -70,8 +77,10 @@ export class LearningSessionService {
    */
   async getSession(sessionId: string): Promise<LearningSession | null> {
     try {
+      const requestedUserId = await this.resolveSessionUserId(sessionId);
+
       // Try to get from API first
-      const apiSession = await this.repo.getSession(sessionId);
+      const apiSession = await this.repo.getSession(sessionId, requestedUserId);
       if (apiSession) {
         // Get lesson title for display
         let lessonTitle: string | undefined;
@@ -84,7 +93,12 @@ export class LearningSessionService {
           console.warn('Failed to fetch lesson title:', error);
         }
 
-        return toLearningSessionDTO(apiSession, lessonTitle);
+        const session = toLearningSessionDTO(apiSession, lessonTitle);
+        await this.infrastructure.setStorageItem(
+          `learning_session_${sessionId}`,
+          JSON.stringify(session)
+        );
+        return session;
       }
 
       // Fallback to local storage for offline access
@@ -92,7 +106,12 @@ export class LearningSessionService {
         `learning_session_${sessionId}`
       );
       if (stored) {
-        return JSON.parse(stored) as LearningSession;
+        try {
+          const session = JSON.parse(stored) as LearningSession;
+          return session;
+        } catch (error) {
+          console.warn('Failed to parse cached learning session:', error);
+        }
       }
 
       return null;
@@ -111,8 +130,16 @@ export class LearningSessionService {
     request: UpdateProgressRequest
   ): Promise<SessionProgress> {
     try {
+      const userId = await this.resolveSessionUserId(
+        request.sessionId,
+        request.userId
+      );
+
       // Update progress via repository
-      const apiProgress = await this.repo.updateProgress(request);
+      const apiProgress = await this.repo.updateProgress({
+        ...request,
+        userId,
+      });
 
       // Convert to DTO
       const progress = toSessionProgressDTO(apiProgress);
@@ -133,8 +160,16 @@ export class LearningSessionService {
     request: CompleteSessionRequest
   ): Promise<SessionResults> {
     try {
+      const userId = await this.resolveSessionUserId(
+        request.sessionId,
+        request.userId
+      );
+
       // Complete session via repository
-      const apiResults = await this.repo.completeSession(request);
+      const apiResults = await this.repo.completeSession({
+        ...request,
+        userId,
+      });
 
       // Convert to DTO
       const results = toSessionResultsDTO(apiResults);
@@ -153,7 +188,8 @@ export class LearningSessionService {
    */
   async pauseSession(sessionId: string): Promise<LearningSession> {
     try {
-      const apiSession = await this.repo.pauseSession(sessionId);
+      const userId = await this.resolveSessionUserId(sessionId);
+      const apiSession = await this.repo.pauseSession(sessionId, userId);
 
       // Get lesson title for display
       let lessonTitle: string | undefined;
@@ -223,8 +259,10 @@ export class LearningSessionService {
     offset: number = 0
   ): Promise<{ sessions: LearningSession[]; total: number }> {
     try {
+      const resolvedUserId = await this.resolveUserId(userId);
+
       const apiResponse = await this.repo.getUserSessions(
-        userId,
+        resolvedUserId,
         filters,
         limit,
         offset
@@ -326,20 +364,18 @@ export class LearningSessionService {
         return false;
       }
 
-      // Check if user has an active session for this lesson
-      if (userId) {
-        const sessions = await this.getUserSessions(
-          userId,
-          {
-            status: 'active',
-            lessonId,
-          },
-          1
-        );
+      const resolvedUserId = await this.resolveUserId(userId);
+      const sessions = await this.getUserSessions(
+        resolvedUserId,
+        {
+          status: 'active',
+          lessonId,
+        },
+        1
+      );
 
-        if (sessions.sessions.length > 0) {
-          return false; // Already has active session
-        }
+      if (sessions.sessions.length > 0) {
+        return false; // Already has active session
       }
 
       return true;
@@ -363,8 +399,10 @@ export class LearningSessionService {
     currentStreak: number;
   }> {
     try {
+      const resolvedUserId = await this.resolveUserId(userId);
+
       // Get all user sessions
-      const allSessions = await this.getUserSessions(userId, {}, 1000);
+      const allSessions = await this.getUserSessions(resolvedUserId, {}, 1000);
 
       const completedSessions = allSessions.sessions.filter(
         s => s.status === 'completed'
@@ -404,6 +442,40 @@ export class LearningSessionService {
   // ================================
   // Private Helper Methods
   // ================================
+
+  private async resolveUserId(preferred?: string | null): Promise<string> {
+    if (preferred && preferred.trim()) {
+      return preferred.trim();
+    }
+    return this.userIdentity.getCurrentUserId();
+  }
+
+  private async resolveSessionUserId(
+    sessionId: string,
+    preferred?: string | null
+  ): Promise<string> {
+    if (preferred && preferred.trim()) {
+      return preferred.trim();
+    }
+
+    try {
+      const cached = await this.infrastructure.getStorageItem(
+        `learning_session_${sessionId}`
+      );
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        const candidate =
+          typeof parsed?.userId === 'string' ? parsed.userId.trim() : null;
+        if (candidate) {
+          return candidate;
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to resolve user id from cached session:', error);
+    }
+
+    return this.userIdentity.getCurrentUserId();
+  }
 
   private async updateLocalSessionProgress(
     sessionId: string,

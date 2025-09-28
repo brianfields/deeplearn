@@ -188,10 +188,12 @@ export interface UpdateProgressRequest {
   userAnswer?: any;
   isCorrect?: boolean;
   timeSpentSeconds: number;
+  userId?: string;
 }
 
 export interface CompleteSessionRequest {
   sessionId: string;
+  userId?: string;
 }
 
 // ================================

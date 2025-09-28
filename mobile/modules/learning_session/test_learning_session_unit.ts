@@ -9,6 +9,7 @@ import { jest } from '@jest/globals';
 // Mock dependencies
 jest.mock('../infrastructure/public');
 jest.mock('../catalog/public');
+jest.mock('../user/public');
 
 import { LearningSessionService } from './service';
 import { LearningSessionRepo } from './repo';
@@ -22,6 +23,8 @@ import type {
   UpdateProgressRequest,
   CompleteSessionRequest,
 } from './models';
+import type { UserIdentityProvider } from '../user/public';
+import type { User } from '../user/models';
 
 // Mock implementations
 const mockCatalogProvider = {
@@ -34,6 +37,24 @@ const mockInfrastructureProvider = {
   removeStorageItem: jest.fn() as jest.MockedFunction<any>,
 };
 
+const createIdentityMock = (): jest.Mocked<UserIdentityProvider> => {
+  const mock: Partial<jest.Mocked<UserIdentityProvider>> = {
+    getCurrentUser: jest.fn<() => Promise<User | null>>(),
+    setCurrentUser: jest.fn<(user: User | null) => Promise<void>>(),
+    getCurrentUserId: jest.fn<() => Promise<string>>(),
+    clear: jest.fn<() => Promise<void>>(),
+  };
+
+  mock.getCurrentUser!.mockResolvedValue(null);
+  mock.setCurrentUser!.mockResolvedValue();
+  mock.getCurrentUserId!.mockResolvedValue('anonymous');
+  mock.clear!.mockResolvedValue();
+
+  return mock as jest.Mocked<UserIdentityProvider>;
+};
+
+let mockIdentity: jest.Mocked<UserIdentityProvider>;
+
 // Mock the providers
 jest
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -43,6 +64,10 @@ jest
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   .mocked(require('../infrastructure/public').infrastructureProvider)
   .mockReturnValue(mockInfrastructureProvider);
+jest
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  .mocked(require('../user/public').userIdentityProvider)
+  .mockImplementation(() => mockIdentity);
 
 describe('Learning Session Module', () => {
   // Mock console methods to suppress output during tests
@@ -55,6 +80,7 @@ describe('Learning Session Module', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockIdentity = createIdentityMock();
   });
 
   afterAll(() => {

@@ -179,13 +179,19 @@ export function toUnitDetailDTO(
     ownerUserId && currentUserId && ownerUserId === currentUserId
   );
 
+  const lessons = Array.isArray(api.lessons) ? api.lessons : [];
+  const lessonOrder = Array.isArray(api.lesson_order) ? api.lesson_order : [];
+  const lessonIds = lessonOrder.length
+    ? [...lessonOrder]
+    : lessons.map(lesson => lesson.id);
+
   return {
     id: api.id,
     title: api.title,
     description: api.description,
     difficulty,
-    lessonIds: [...(api.lesson_order ?? [])],
-    lessons: api.lessons.map(toUnitLessonSummaryDTO),
+    lessonIds,
+    lessons: lessons.map(toUnitLessonSummaryDTO),
     learningObjectives: api.learning_objectives ?? null,
     targetLessonCount: api.target_lesson_count ?? null,
     sourceMaterial: api.source_material ?? null,

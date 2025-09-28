@@ -21,7 +21,7 @@
 ## 3) Networking (repo.ts)
 
 * [ ] `repo.ts` is the **only** file that performs HTTP (`axios`/`fetch`).
-* [ ] Base path is limited to **this module’s** routes (vertical slice), e.g., `const MODULE_BASE = '/api/v1/{name}'`.
+* [ ] Base path is limited to **this module’s** routes (vertical slice), e.g., `const MODULE_BASE = '/api/v1/{name}'`. NO CALLS TO ROUTES FROM MODULES THAT ARE NAMED DIFFERENTLY THAN THIS MODULE. A module is a vertical slice through both the backend and the frontend and all network calls from a module must be to that module's routes.
 * [ ] All request params/bodies are typed; no `any`.
 * [ ] Timeouts and headers are set; low-level errors are normalized (no raw Axios errors thrown).
 * [ ] Supports cancellation (AbortController or axios signal) for long/abortable calls.

@@ -1,5 +1,17 @@
 appId: host.exp.Exponent
 ---
+# Step 0: Sign in with seed user credentials
+- assertVisible:
+    id: 'login-screen'
+- tapOn:
+    id: 'login-email-input'
+- inputText: 'epsilon.cat@example.com'
+- tapOn:
+    id: 'login-password-input'
+- inputText: 'epsilon'
+- tapOn:
+    id: 'login-submit-button'
+
 # Wait for app to load and verify we're on the units screen
 - assertVisible:
     id: 'units-title'

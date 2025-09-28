@@ -74,6 +74,9 @@ export class LearningSessionRepo {
     request: StartSessionRequest
   ): Promise<ApiLearningSession> {
     try {
+      if (!request.userId) {
+        throw new Error('userId is required to start a learning session');
+      }
       const response = await this.infrastructure.request<ApiLearningSession>(
         `${LEARNING_SESSION_BASE}/`,
         {
@@ -96,10 +99,19 @@ export class LearningSessionRepo {
   /**
    * Get session by ID
    */
-  async getSession(sessionId: string): Promise<ApiLearningSession | null> {
+  async getSession(
+    sessionId: string,
+    userId: string
+  ): Promise<ApiLearningSession | null> {
     try {
+      const params = new URLSearchParams();
+      params.append('user_id', userId);
+      const endpoint = params.size
+        ? `${LEARNING_SESSION_BASE}/${sessionId}?${params.toString()}`
+        : `${LEARNING_SESSION_BASE}/${sessionId}`;
+
       const response = await this.infrastructure.request<ApiLearningSession>(
-        `${LEARNING_SESSION_BASE}/${sessionId}`,
+        endpoint,
         { method: 'GET' }
       );
       return response;
@@ -123,6 +135,11 @@ export class LearningSessionRepo {
     request: UpdateProgressRequest
   ): Promise<ApiSessionProgress> {
     try {
+      if (!request.userId) {
+        throw new Error(
+          'userId is required to update learning session progress'
+        );
+      }
       const response = await this.infrastructure.request<ApiSessionProgress>(
         `${LEARNING_SESSION_BASE}/${request.sessionId}/progress`,
         {
@@ -141,6 +158,7 @@ export class LearningSessionRepo {
                   : { value: request.userAnswer },
             is_correct: request.isCorrect,
             time_spent_seconds: request.timeSpentSeconds,
+            user_id: request.userId,
           }),
         }
       );
@@ -157,8 +175,19 @@ export class LearningSessionRepo {
     request: CompleteSessionRequest
   ): Promise<ApiSessionResults> {
     try {
+      if (!request.userId) {
+        throw new Error('userId is required to complete a learning session');
+      }
+      const params = new URLSearchParams();
+      if (request.userId) {
+        params.append('user_id', request.userId);
+      }
+      const endpoint = params.size
+        ? `${LEARNING_SESSION_BASE}/${request.sessionId}/complete?${params.toString()}`
+        : `${LEARNING_SESSION_BASE}/${request.sessionId}/complete`;
+
       const response = await this.infrastructure.request<ApiSessionResults>(
-        `${LEARNING_SESSION_BASE}/${request.sessionId}/complete`,
+        endpoint,
         {
           method: 'POST',
         }
@@ -173,14 +202,14 @@ export class LearningSessionRepo {
    * Get user's sessions with filters
    */
   async getUserSessions(
-    userId?: string,
+    userId: string,
     filters: SessionFilters = {},
     limit: number = 50,
     offset: number = 0
   ): Promise<ApiSessionListResponse> {
     try {
       const params = new URLSearchParams();
-      if (userId) params.append('user_id', userId);
+      params.append('user_id', userId);
       if (filters.status) params.append('status', filters.status);
       if (filters.lessonId) params.append('lesson_id', filters.lessonId);
       params.append('limit', limit.toString());
@@ -200,10 +229,19 @@ export class LearningSessionRepo {
   /**
    * Pause/resume session
    */
-  async pauseSession(sessionId: string): Promise<ApiLearningSession> {
+  async pauseSession(
+    sessionId: string,
+    userId: string
+  ): Promise<ApiLearningSession> {
     try {
+      if (!userId) {
+        throw new Error('userId is required to pause a learning session');
+      }
+      const params = new URLSearchParams();
+      params.append('user_id', userId);
+
       const response = await this.infrastructure.request<ApiLearningSession>(
-        `${LEARNING_SESSION_BASE}/${sessionId}/pause`,
+        `${LEARNING_SESSION_BASE}/${sessionId}/pause?${params.toString()}`,
         { method: 'POST' }
       );
       return response;

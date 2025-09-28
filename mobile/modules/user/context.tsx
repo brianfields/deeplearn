@@ -6,10 +6,10 @@ import React, {
   useMemo,
   useState,
 } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQueryClient } from '@tanstack/react-query';
 import type { User } from './models';
 import { userQueryKeys } from './queries';
+import { UserIdentityService } from './identity';
 
 interface AuthContextValue {
   user: User | null;
@@ -18,54 +18,40 @@ interface AuthContextValue {
   isHydrated: boolean;
 }
 
-const STORAGE_KEY = 'deeplearn/mobile/current-user';
-
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
-
-async function loadStoredUser(): Promise<User | null> {
-  try {
-    const value = await AsyncStorage.getItem(STORAGE_KEY);
-    if (!value) {
-      return null;
-    }
-
-    const parsed = JSON.parse(value) as User;
-    if (!parsed || typeof parsed !== 'object' || parsed.id === undefined) {
-      return null;
-    }
-
-    return parsed;
-  } catch (error) {
-    console.warn('[Auth] Failed to load stored user', error);
-    return null;
-  }
-}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
+  const identity = useMemo(() => new UserIdentityService(), []);
 
   useEffect(() => {
     let isMounted = true;
 
-    loadStoredUser().then(storedUser => {
-      if (isMounted && storedUser) {
-        setUser(storedUser);
-        queryClient.setQueryData(
-          userQueryKeys.profile(storedUser.id),
-          storedUser
-        );
+    (async () => {
+      try {
+        const storedUser = await identity.getCurrentUser();
+        if (isMounted && storedUser) {
+          setUser(storedUser);
+          queryClient.setQueryData(
+            userQueryKeys.profile(storedUser.id),
+            storedUser
+          );
+        }
+      } catch (error) {
+        console.warn('[Auth] Failed to load stored user', error);
+      } finally {
+        if (isMounted) {
+          setIsHydrated(true);
+        }
       }
-      if (isMounted) {
-        setIsHydrated(true);
-      }
-    });
+    })();
 
     return () => {
       isMounted = false;
     };
-  }, [queryClient]);
+  }, [identity, queryClient]);
 
   const signIn = useCallback(
     async (nextUser: User) => {
@@ -73,23 +59,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       queryClient.setQueryData(userQueryKeys.profile(nextUser.id), nextUser);
 
       try {
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser));
+        await identity.setCurrentUser(nextUser);
       } catch (error) {
         console.warn('[Auth] Failed to persist user', error);
       }
     },
-    [queryClient]
+    [identity, queryClient]
   );
 
   const signOut = useCallback(async () => {
     setUser(null);
     try {
-      await AsyncStorage.removeItem(STORAGE_KEY);
+      await identity.setCurrentUser(null);
     } catch (error) {
       console.warn('[Auth] Failed to clear stored user', error);
     }
     queryClient.removeQueries({ queryKey: ['user'] });
-  }, [queryClient]);
+  }, [identity, queryClient]);
 
   const value = useMemo<AuthContextValue>(
     () => ({ user, signIn, signOut, isHydrated }),

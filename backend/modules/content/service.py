@@ -279,6 +279,20 @@ class ContentService:
 
         model_config = ConfigDict(from_attributes=True)
 
+    class UnitLessonSummary(BaseModel):
+        id: str
+        title: str
+        learner_level: str
+        learning_objectives: list[str]
+        key_concepts: list[str]
+        exercise_count: int
+
+    class UnitDetailRead(UnitRead):
+        learning_objectives: list[str] | None = None
+        lessons: list[ContentService.UnitLessonSummary]
+
+        model_config = ConfigDict(from_attributes=True)
+
     class UnitCreate(BaseModel):
         id: str | None = None
         title: str
@@ -296,6 +310,68 @@ class ContentService:
     def get_unit(self, unit_id: str) -> ContentService.UnitRead | None:
         u = self.repo.get_unit_by_id(unit_id)
         return self.UnitRead.model_validate(u) if u else None
+
+    def get_unit_detail(self, unit_id: str) -> ContentService.UnitDetailRead | None:
+        unit = self.repo.get_unit_by_id(unit_id)
+        if not unit:
+            return None
+
+        lesson_models = self.repo.get_lessons_by_unit(unit_id=unit_id)
+        lesson_summaries: dict[str, ContentService.UnitLessonSummary] = {}
+
+        for lesson in lesson_models:
+            try:
+                package = LessonPackage.model_validate(lesson.package)
+            except Exception as exc:  # pragma: no cover - defensive guard
+                logger.warning(
+                    "⚠️ Skipping lesson %s while building detail for unit %s due to package validation error: %s",
+                    lesson.id,
+                    unit.id,
+                    exc,
+                )
+                continue
+
+            objectives = [obj.text for obj in package.objectives]
+            glossary_terms = package.glossary.get("terms", []) if package.glossary else []
+            key_concepts: list[str] = []
+            for term in glossary_terms:
+                if hasattr(term, "term"):
+                    key_concepts.append(str(term.term))
+                elif isinstance(term, dict):
+                    key_concepts.append(str(term.get("term") or term.get("label") or term))
+                else:
+                    key_concepts.append(str(term))
+
+            summary = self.UnitLessonSummary(
+                id=lesson.id,
+                title=lesson.title,
+                learner_level=lesson.learner_level,
+                learning_objectives=objectives,
+                key_concepts=key_concepts,
+                exercise_count=len(package.exercises),
+            )
+            lesson_summaries[lesson.id] = summary
+
+        ordered_ids = list(unit.lesson_order or [])
+        ordered_lessons: list[ContentService.UnitLessonSummary] = []
+        seen: set[str] = set()
+        for lid in ordered_ids:
+            summary = lesson_summaries.get(lid)
+            if summary:
+                ordered_lessons.append(summary)
+                seen.add(lid)
+
+        for lid, summary in lesson_summaries.items():
+            if lid not in seen:
+                ordered_lessons.append(summary)
+
+        unit_summary = self.UnitRead.model_validate(unit)
+        detail_dict = unit_summary.model_dump()
+        detail_dict["lesson_order"] = ordered_ids
+        detail_dict["lessons"] = [lesson.model_dump() for lesson in ordered_lessons]
+        detail_dict["learning_objectives"] = self._normalize_unit_learning_objectives(getattr(unit, "learning_objectives", None))
+
+        return self.UnitDetailRead.model_validate(detail_dict)
 
     def list_units(self, limit: int = 100, offset: int = 0) -> list[ContentService.UnitRead]:
         arr = self.repo.list_units(limit=limit, offset=offset)
@@ -354,6 +430,27 @@ class ContentService:
         if not updated:
             raise ValueError("Unit not found")
         return self.UnitRead.model_validate(updated)
+
+    @staticmethod
+    def _normalize_unit_learning_objectives(raw: list[Any] | None) -> list[str] | None:
+        if raw is None:
+            return None
+
+        normalized: list[str] = []
+        for item in list(raw):
+            try:
+                if isinstance(item, str):
+                    normalized.append(item)
+                elif isinstance(item, dict):
+                    text = item.get("text") or item.get("lo_text") or item.get("label")
+                    normalized.append(str(text) if text else str(item))
+                else:
+                    text_attr = getattr(item, "text", None)
+                    normalized.append(str(text_attr) if text_attr else str(item))
+            except Exception:  # pragma: no cover - fall back to string conversion
+                normalized.append(str(item))
+
+        return normalized
 
     def set_unit_sharing(
         self,

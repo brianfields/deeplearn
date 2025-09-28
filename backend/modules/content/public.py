@@ -31,6 +31,7 @@ class ContentProvider(Protocol):
     def get_lessons_by_unit(self, unit_id: str, limit: int = 100, offset: int = 0) -> list[LessonRead]: ...
     # Unit operations (consolidated)
     def get_unit(self, unit_id: str) -> ContentService.UnitRead | None: ...
+    def get_unit_detail(self, unit_id: str) -> ContentService.UnitDetailRead | None: ...
     def list_units(self, limit: int = 100, offset: int = 0) -> list[ContentService.UnitRead]: ...
     def list_units_for_user(self, user_id: int, limit: int = 100, offset: int = 0) -> list[ContentService.UnitRead]: ...
     def list_global_units(self, limit: int = 100, offset: int = 0) -> list[ContentService.UnitRead]: ...
@@ -73,6 +74,7 @@ def content_provider(session: Session) -> ContentProvider:
 # Create aliases for nested classes to maintain backward compatibility
 UnitCreate = ContentService.UnitCreate
 UnitRead = ContentService.UnitRead
+UnitDetailRead = ContentService.UnitDetailRead
 UnitSessionRead = ContentService.UnitSessionRead
 
 __all__ = [
@@ -80,6 +82,7 @@ __all__ = [
     "LessonCreate",
     "LessonRead",
     "UnitCreate",
+    "UnitDetailRead",
     "UnitRead",
     "UnitSessionRead",
     "UnitStatus",

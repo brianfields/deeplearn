@@ -7,6 +7,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { LearningSessionService } from './service';
 import { LearningSessionRepo } from './repo';
+import { DEFAULT_ANONYMOUS_USER_ID } from '../user/public';
 import type {
   StartSessionRequest,
   UpdateProgressRequest,
@@ -28,11 +29,21 @@ export const learningSessionKeys = {
   exercises: (sessionId: string) =>
     ['learning_session', 'exercises', sessionId] as const,
   userSessions: (userId?: string, filters?: SessionFilters) =>
-    ['learning_session', 'user_sessions', userId, filters] as const,
+    [
+      'learning_session',
+      'user_sessions',
+      userId ?? DEFAULT_ANONYMOUS_USER_ID,
+      filters,
+    ] as const,
   userStats: (userId: string) =>
     ['learning_session', 'user_stats', userId] as const,
   canStart: (lessonId: string, userId?: string) =>
-    ['learning_session', 'can_start', lessonId, userId] as const,
+    [
+      'learning_session',
+      'can_start',
+      lessonId,
+      userId ?? DEFAULT_ANONYMOUS_USER_ID,
+    ] as const,
   health: () => ['learning_session', 'health'] as const,
   unitProgress: (userId: string, unitId: string) =>
     ['learning_session', 'unit_progress', userId, unitId] as const,
@@ -151,6 +162,9 @@ export function useStartSession() {
     mutationFn: (request: StartSessionRequest) =>
       learningSession.startSession(request),
     onSuccess: (session: LearningSession, request) => {
+      const cacheUserId =
+        session.userId ?? request.userId ?? DEFAULT_ANONYMOUS_USER_ID;
+
       // Update session cache
       queryClient.setQueryData(
         learningSessionKeys.session(session.id),
@@ -159,15 +173,12 @@ export function useStartSession() {
 
       // Invalidate user sessions
       queryClient.invalidateQueries({
-        queryKey: learningSessionKeys.userSessions(request.userId),
+        queryKey: learningSessionKeys.userSessions(cacheUserId),
       });
 
       // Invalidate can start check
       queryClient.invalidateQueries({
-        queryKey: learningSessionKeys.canStart(
-          request.lessonId,
-          request.userId
-        ),
+        queryKey: learningSessionKeys.canStart(request.lessonId, cacheUserId),
       });
     },
   });
