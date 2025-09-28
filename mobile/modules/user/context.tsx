@@ -16,6 +16,7 @@ interface AuthContextValue {
   signIn(user: User): Promise<void>;
   signOut(): Promise<void>;
   isHydrated: boolean;
+  isAuthenticated: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -78,7 +79,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [identity, queryClient]);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, signIn, signOut, isHydrated }),
+    () => ({
+      user,
+      signIn,
+      signOut,
+      isHydrated,
+      isAuthenticated: !!user,
+    }),
     [user, signIn, signOut, isHydrated]
   );
 

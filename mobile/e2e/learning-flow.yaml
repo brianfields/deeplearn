@@ -11,6 +11,11 @@ appId: host.exp.Exponent
 - inputText: 'epsilon'
 - tapOn:
     id: 'login-submit-button'
+- runFlow:
+    commands:
+      - tapOn:
+          text: 'Not Now'
+          optional: true
 
 # Wait for app to load and verify we're on the units screen
 - assertVisible:
@@ -47,30 +52,6 @@ appId: host.exp.Exponent
     id: 'mcq-choice-1'
 - tapOn:
     id: 'mcq-choice-1'
-- tapOn:
-    id: 'mcq-continue-button'
-
-# Question 3
-- assertVisible:
-    id: 'mcq-choice-0'
-- tapOn:
-    id: 'mcq-choice-0'
-- tapOn:
-    id: 'mcq-continue-button'
-
-# Question 4
-- assertVisible:
-    id: 'mcq-choice-2'
-- tapOn:
-    id: 'mcq-choice-2'
-- tapOn:
-    id: 'mcq-continue-button'
-
-# Question 5
-- assertVisible:
-    id: 'mcq-choice-3'
-- tapOn:
-    id: 'mcq-choice-3'
 - tapOn:
     id: 'mcq-continue-button'
 

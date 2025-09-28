@@ -19,7 +19,6 @@ import { CreateUnitScreen } from './modules/catalog/screens/CreateUnitScreen';
 import LearningFlowScreen from './modules/learning_session/screens/LearningFlowScreen';
 import ResultsScreen from './modules/learning_session/screens/ResultsScreen';
 import { UnitDetailScreen } from './modules/catalog/screens/UnitDetailScreen';
-import AuthLandingScreen from './modules/user/screens/AuthLandingScreen';
 import LoginScreen from './modules/user/screens/LoginScreen';
 import RegisterScreen from './modules/user/screens/RegisterScreen';
 
@@ -129,9 +128,13 @@ function RootNavigator(): React.ReactElement {
         animationDuration: 220,
         contentStyle: { backgroundColor: theme.colors.background },
       }}
-      initialRouteName={user ? 'Dashboard' : 'AuthLanding'}
     >
-      {user ? (
+      {!user ? (
+        <>
+          <RootStack.Screen name="Login" component={LoginScreen} />
+          <RootStack.Screen name="Register" component={RegisterScreen} />
+        </>
+      ) : (
         <>
           <RootStack.Screen
             name="Dashboard"
@@ -140,16 +143,8 @@ function RootNavigator(): React.ReactElement {
           <RootStack.Screen
             name="LessonDetail"
             component={LearningFlowScreen as any}
-            options={{
-              gestureEnabled: false, // Prevent swipe back during learning
-            }}
+            options={{ gestureEnabled: false }}
           />
-        </>
-      ) : (
-        <>
-          <RootStack.Screen name="AuthLanding" component={AuthLandingScreen} />
-          <RootStack.Screen name="Login" component={LoginScreen} />
-          <RootStack.Screen name="Register" component={RegisterScreen} />
         </>
       )}
     </RootStack.Navigator>

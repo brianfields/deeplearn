@@ -29,7 +29,8 @@ import {
 import type { Unit } from '../public';
 import type { LearningStackParamList } from '../../../types';
 import { uiSystemProvider, Text, useHaptics } from '../../ui_system/public';
-import { useAuth } from '../../user/public';
+import { useAuth, userIdentityProvider } from '../../user/public';
+import { Button } from '../../ui_system/components/Button';
 
 type LessonListScreenNavigationProp = NativeStackNavigationProp<
   LearningStackParamList,
@@ -45,7 +46,8 @@ type UnitSection = {
 export function LessonListScreen() {
   const navigation = useNavigation<LessonListScreenNavigationProp>();
   const [searchQuery, setSearchQuery] = useState('');
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
+  const identity = userIdentityProvider();
   const currentUserId = user?.id ?? 0;
   const {
     data: collections,
@@ -133,17 +135,32 @@ export function LessonListScreen() {
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       {/* Header */}
-      <View style={styles.header}>
-        <Text
-          variant="h1"
-          testID="units-title"
-          style={{ fontWeight: 'normal' }}
-        >
-          Units
-        </Text>
-        <Text variant="secondary" color={theme.colors.textSecondary}>
-          {totalUnits} available
-        </Text>
+      <View
+        style={[styles.header, { flexDirection: 'row', alignItems: 'center' }]}
+      >
+        <View style={{ flex: 1 }}>
+          <Text
+            variant="h1"
+            testID="units-title"
+            style={{ fontWeight: 'normal' }}
+          >
+            Units
+          </Text>
+          <Text variant="secondary" color={theme.colors.textSecondary}>
+            {totalUnits} available
+          </Text>
+        </View>
+        <Button
+          title="Sign out"
+          variant="secondary"
+          size="small"
+          testID="unit-list-logout-button"
+          onPress={async () => {
+            haptics.trigger('light');
+            await identity.clear();
+            await signOut();
+          }}
+        />
       </View>
 
       {/* Search and Create Button */}
