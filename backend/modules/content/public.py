@@ -42,6 +42,17 @@ class ContentProvider(Protocol):
     def assign_lessons_to_unit(self, unit_id: str, lesson_ids: list[str]) -> ContentService.UnitRead: ...
     def assign_unit_owner(self, unit_id: str, owner_user_id: int | None) -> ContentService.UnitRead: ...
     def set_unit_sharing(self, unit_id: str, is_global: bool, acting_user_id: int | None = None) -> ContentService.UnitRead: ...
+    def set_unit_podcast(
+        self,
+        unit_id: str,
+        *,
+        transcript: str | None,
+        audio_bytes: bytes | None,
+        audio_mime_type: str | None = None,
+        voice: str | None = None,
+        duration_seconds: int | None = None,
+    ) -> ContentService.UnitRead | None: ...
+    def get_unit_podcast_audio(self, unit_id: str) -> ContentService.UnitPodcastAudio | None: ...
     def delete_unit(self, unit_id: str) -> bool: ...
     # Unit session operations
     def get_or_create_unit_session(self, user_id: str, unit_id: str) -> ContentService.UnitSessionRead: ...
@@ -75,6 +86,7 @@ def content_provider(session: Session) -> ContentProvider:
 UnitCreate = ContentService.UnitCreate
 UnitRead = ContentService.UnitRead
 UnitDetailRead = ContentService.UnitDetailRead
+UnitPodcastAudio = ContentService.UnitPodcastAudio
 UnitSessionRead = ContentService.UnitSessionRead
 
 __all__ = [
@@ -83,6 +95,7 @@ __all__ = [
     "LessonRead",
     "UnitCreate",
     "UnitDetailRead",
+    "UnitPodcastAudio",
     "UnitRead",
     "UnitSessionRead",
     "UnitStatus",

@@ -8,7 +8,18 @@ Uses single lessons table with JSON package field.
 
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, CheckConstraint, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    CheckConstraint,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    LargeBinary,
+    String,
+    Text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from modules.shared_models import Base, PostgresUUID
@@ -76,6 +87,14 @@ class UnitModel(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="completed")
     creation_progress: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Podcast fields - transcript + generated audio asset
+    podcast_transcript = Column(Text, nullable=True)
+    podcast_voice = Column(String(100), nullable=True)
+    podcast_audio = Column(LargeBinary, nullable=True)
+    podcast_audio_mime_type = Column(String(50), nullable=True)
+    podcast_duration_seconds = Column(Integer, nullable=True)
+    podcast_generated_at = Column(DateTime, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)

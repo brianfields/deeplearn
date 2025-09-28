@@ -101,6 +101,9 @@ class UnitSummary(BaseModel):
     status: str = "completed"
     creation_progress: dict[str, Any] | None = None
     error_message: str | None = None
+    has_podcast: bool = False
+    podcast_voice: str | None = None
+    podcast_duration_seconds: int | None = None
 
 
 class UnitDetail(BaseModel):
@@ -119,6 +122,7 @@ class UnitDetail(BaseModel):
     generated_from_topic: bool = False
     # Flow type used to generate the unit
     flow_type: str = "standard"
+<<<<<<< HEAD
     learning_objective_progress: list["LearningObjectiveProgress"] | None = None
 
 
@@ -129,6 +133,13 @@ class LearningObjectiveProgress(BaseModel):
     exercises_total: int
     exercises_correct: int
     progress_percentage: float
+=======
+    has_podcast: bool = False
+    podcast_voice: str | None = None
+    podcast_duration_seconds: int | None = None
+    podcast_transcript: str | None = None
+    podcast_audio_url: str | None = None
+>>>>>>> 847bbc2 (Add unit podcast generation and playback)
 
 
 class UserUnitCollections(BaseModel):
@@ -449,7 +460,15 @@ class CatalogService:
             source_material=detail.source_material,
             generated_from_topic=detail.generated_from_topic,
             flow_type=detail.flow_type,
+<<<<<<< HEAD
             learning_objective_progress=objective_progress,
+=======
+            has_podcast=detail.has_podcast,
+            podcast_voice=detail.podcast_voice,
+            podcast_duration_seconds=detail.podcast_duration_seconds,
+            podcast_transcript=detail.podcast_transcript,
+            podcast_audio_url=detail.podcast_audio_url,
+>>>>>>> 847bbc2 (Add unit podcast generation and playback)
         )
 
     def browse_units_for_user(
@@ -499,6 +518,9 @@ class CatalogService:
                     status=getattr(unit, "status", "completed"),
                     creation_progress=getattr(unit, "creation_progress", None),
                     error_message=getattr(unit, "error_message", None),
+                    has_podcast=bool(getattr(unit, "has_podcast", getattr(unit, "podcast_audio", None))),
+                    podcast_voice=getattr(unit, "podcast_voice", None),
+                    podcast_duration_seconds=getattr(unit, "podcast_duration_seconds", None),
                 )
             )
         return summaries
