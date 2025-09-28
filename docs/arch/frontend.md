@@ -21,7 +21,7 @@ mobile/modules/{name}/
 * **Queries** are **not special**: they call **this module’s service**; no business rules in hooks.
 * **Cross-module composition lives in `service.ts`**, importing **other modules’ `public`** only.
 * **Screens** may compose multiple modules’ hooks side-by-side for simple views.
-* **Repo** calls **only** this module’s backend routes (vertical slice).
+* **Repo** calls **only** this module’s backend routes (vertical slice). DO NOT CALL ROUTES FROM MODULES THAT ARE NAMED DIFFERENTLY THAN THIS MODULE. A module is a vertical slice through both the backend and the frontend.
 * **Cross-module imports:** only from `modules/{other}/public`.
 * Don’t add to the public API unless there’s a clear need.
 * Do not use 'public.ts' from within that module; 'public.ts' is only for other modules to import from. Use 'service.ts' instead (otherwise there is a circular dependency).

@@ -5,6 +5,7 @@ Simple lesson browsing and discovery service.
 Uses content module for data access.
 """
 
+from collections.abc import Iterable
 from datetime import datetime
 from typing import Any
 
@@ -116,6 +117,13 @@ class UnitDetail(BaseModel):
     generated_from_topic: bool = False
     # Flow type used to generate the unit
     flow_type: str = "standard"
+
+
+class UserUnitCollections(BaseModel):
+    """DTO containing personal and global unit sections for a user."""
+
+    personal_units: list["UnitSummary"]
+    global_units: list["UnitSummary"]
 
 
 class CatalogService:
@@ -388,97 +396,87 @@ class CatalogService:
     def browse_units(self, limit: int = 100, offset: int = 0) -> list[UnitSummary]:
         """Browse units with simple metadata and lesson counts."""
         units = self.units.list_units(limit=limit, offset=offset)
-        summaries: list[UnitSummary] = []
-        for u in units:
-            # Prefer configured order length; fallback to query count if empty
-            lesson_count = len(u.lesson_order) if getattr(u, "lesson_order", None) else len(self.content.get_lessons_by_unit(u.id))
-            summaries.append(
-                UnitSummary(
-                    id=u.id,
-                    title=u.title,
-                    description=u.description,
-                    learner_level=u.learner_level if hasattr(u, "learner_level") else getattr(u, "learner_level", "beginner"),
-                    lesson_count=lesson_count,
-                    target_lesson_count=getattr(u, "target_lesson_count", None),
-                    generated_from_topic=bool(getattr(u, "generated_from_topic", False)),
-                    flow_type=str(getattr(u, "flow_type", "standard") or "standard"),
-                    status=getattr(u, "status", "completed"),
-                    creation_progress=getattr(u, "creation_progress", None),
-                    error_message=getattr(u, "error_message", None),
-                )
-            )
-        return summaries
+        return self._map_units_to_summaries(units)
 
     def get_unit_details(self, unit_id: str) -> UnitDetail | None:
         """Get unit details with ordered aggregated lesson summaries."""
-        unit = self.units.get_unit(unit_id)
-        if not unit:
+        detail = self.units.get_unit_detail(unit_id)
+        if not detail:
             return None
 
-        # Fetch lessons for unit and convert to LessonSummary
-        lessons = self.content.get_lessons_by_unit(unit_id)
-        lesson_summaries: dict[str, LessonSummary] = {}
-        for lesson in lessons:
-            objectives = [obj.text for obj in lesson.package.objectives]
-            exercise_count = len(lesson.package.exercises)
-            lesson_summaries[lesson.id] = LessonSummary(
+        lessons = [
+            LessonSummary(
                 id=lesson.id,
                 title=lesson.title,
                 learner_level=lesson.learner_level,
-                learning_objectives=objectives,
-                key_concepts=[],
-                exercise_count=exercise_count,
+                learning_objectives=lesson.learning_objectives,
+                key_concepts=lesson.key_concepts,
+                exercise_count=lesson.exercise_count,
             )
-
-        # Order lessons according to unit.lesson_order; append any extras at the end
-        ordered_ids = list(unit.lesson_order or [])
-        ordered_lessons: list[LessonSummary] = []
-        seen: set[str] = set()
-        for lid in ordered_ids:
-            if lid in lesson_summaries:
-                ordered_lessons.append(lesson_summaries[lid])
-                seen.add(lid)
-
-        # Append lessons that are part of the unit but not in the order list
-        for lid, summary in lesson_summaries.items():
-            if lid not in seen:
-                ordered_lessons.append(summary)
-
-        # Normalize unit-level learning objectives to a list of strings for UI
-        raw_los = getattr(unit, "learning_objectives", None)
-        los_list: list[str] | None
-        if raw_los is None:
-            los_list = None
-        else:
-            los_list = []
-            for item in list(raw_los):
-                try:
-                    if isinstance(item, str):
-                        los_list.append(item)
-                    elif isinstance(item, dict):
-                        text = item.get("text") or item.get("lo_text") or item.get("label")
-                        if text:
-                            los_list.append(str(text))
-                        else:
-                            los_list.append(str(item))
-                    else:
-                        # Fallback for objects with 'text' attribute
-                        text_attr = getattr(item, "text", None)
-                        los_list.append(str(text_attr) if text_attr else str(item))
-                except Exception:
-                    # Be resilient to odd data
-                    los_list.append(str(item))
+            for lesson in detail.lessons
+        ]
 
         return UnitDetail(
-            id=unit.id,
-            title=unit.title,
-            description=unit.description,
-            learner_level=unit.learner_level if hasattr(unit, "learner_level") else getattr(unit, "learner_level", "beginner"),
-            lesson_order=ordered_ids,
-            lessons=ordered_lessons,
-            learning_objectives=los_list,
-            target_lesson_count=getattr(unit, "target_lesson_count", None),
-            source_material=getattr(unit, "source_material", None),
-            generated_from_topic=bool(getattr(unit, "generated_from_topic", False)),
-            flow_type=str(getattr(unit, "flow_type", "standard") or "standard"),
+            id=detail.id,
+            title=detail.title,
+            description=detail.description,
+            learner_level=detail.learner_level,
+            lesson_order=detail.lesson_order,
+            lessons=lessons,
+            learning_objectives=detail.learning_objectives,
+            target_lesson_count=detail.target_lesson_count,
+            source_material=detail.source_material,
+            generated_from_topic=detail.generated_from_topic,
+            flow_type=detail.flow_type,
         )
+
+    def browse_units_for_user(
+        self,
+        user_id: int,
+        *,
+        include_global: bool = True,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> UserUnitCollections:
+        """Return separate personal and global unit lists for a user."""
+
+        personal_unit_models = self.units.list_units_for_user(user_id=user_id, limit=limit, offset=offset)
+        personal_units = self._map_units_to_summaries(personal_unit_models)
+
+        global_units: list[UnitSummary] = []
+        if include_global:
+            global_models = self.units.list_global_units(limit=limit, offset=offset)
+            personal_ids = {unit.id for unit in personal_unit_models}
+            filtered_global = [unit for unit in global_models if unit.id not in personal_ids]
+            global_units = self._map_units_to_summaries(filtered_global)
+
+        return UserUnitCollections(personal_units=personal_units, global_units=global_units)
+
+    def _map_units_to_summaries(self, units: Iterable[Any]) -> list[UnitSummary]:
+        """Convert unit read models into catalog unit summaries."""
+
+        summaries: list[UnitSummary] = []
+        for unit in units:
+            lesson_order = list(getattr(unit, "lesson_order", []) or [])
+            if lesson_order:
+                lesson_count = len(lesson_order)
+            else:
+                lessons = self.content.get_lessons_by_unit(unit.id)
+                lesson_count = len(lessons)
+
+            summaries.append(
+                UnitSummary(
+                    id=unit.id,
+                    title=unit.title,
+                    description=getattr(unit, "description", None),
+                    learner_level=getattr(unit, "learner_level", "beginner"),
+                    lesson_count=lesson_count,
+                    target_lesson_count=getattr(unit, "target_lesson_count", None),
+                    generated_from_topic=bool(getattr(unit, "generated_from_topic", False)),
+                    flow_type=str(getattr(unit, "flow_type", "standard") or "standard"),
+                    status=getattr(unit, "status", "completed"),
+                    creation_progress=getattr(unit, "creation_progress", None),
+                    error_message=getattr(unit, "error_message", None),
+                )
+            )
+        return summaries

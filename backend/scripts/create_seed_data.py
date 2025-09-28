@@ -2,6 +2,17 @@
 """
 Seed Data Creation Script
 
+Summary of created artifacts:
+- 4 users seeded with hashed passwords (credentials for local login):
+  • Admin — Brian Fields (thecriticalpath@gmail.com) / password: epsilon
+  • Admin — Eylem Ozaslan (eylem.ozaslan@gmail.com) / password: epsilon
+  • Learner — Epsilon cat (epsilon.cat@example.com) / password: epsilon
+  • Learner — Nova cat (nova.cat@example.com) / password: epsilon
+- 1 completed global unit about “Cats in Istanbul” shared by Eylem and containing three fully packaged lessons.
+- 1 completed private unit about “Gradient Descent Mastery” owned by Brian with two packaged lessons.
+- Per-lesson flow runs, step runs, and LLM request records mirroring the lesson generation pipeline.
+- Learning sessions and unit sessions for the learners so UI dashboards have ready-made progress data.
+
 Creates sample unit and lesson data using the canonical package structure
 without making actual LLM calls.
 This creates realistic seed data for development and testing purposes.
@@ -12,13 +23,13 @@ Usage:
 """
 
 import argparse
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 import json
 import logging
 from pathlib import Path
 import sys
 import traceback
-from typing import Any
+from typing import Any, cast
 import uuid
 
 # Add the backend directory to the path so we can import modules
@@ -31,209 +42,154 @@ from modules.content.models import (
 from modules.content.package_models import GlossaryTerm, LessonPackage, MCQAnswerKey, MCQExercise, MCQOption, Meta, Objective
 from modules.flow_engine.models import FlowRunModel, FlowStepRunModel
 from modules.infrastructure.public import infrastructure_provider
+from modules.learning_session.models import LearningSessionModel, SessionStatus, UnitSessionModel
 from modules.llm_services.models import LLMRequestModel
+from modules.user.models import UserModel
+from modules.user.repo import UserRepo
+from modules.user.service import UserService
 
 
-def create_sample_lesson_package(
+def build_lesson_package(
     lesson_id: str,
-    title: str = "Cross-Entropy Loss in Deep Learning",
-    learner_level: str = "intermediate",
+    *,
+    title: str,
+    learner_level: str,
+    objectives: list[dict[str, str]],
+    glossary_terms: list[dict[str, str]],
+    mini_lesson: str,
+    mcqs: list[dict[str, Any]],
+    misconceptions: list[dict[str, str]] | None = None,
+    confusables: list[dict[str, str]] | None = None,
 ) -> LessonPackage:
-    """Create sample lesson package with all components."""
+    """Build a structured lesson package from declarative descriptors."""
 
-    # Create metadata
-    meta = Meta(lesson_id=lesson_id, title=title, learner_level=learner_level, package_schema_version=1, content_version=1)
+    meta = Meta(
+        lesson_id=lesson_id,
+        title=title,
+        learner_level=learner_level,
+        package_schema_version=1,
+        content_version=1,
+    )
 
-    # Create learning objectives
-    objectives = [
-        Objective(id="lo_1", text="Understand the mathematical definition of cross-entropy loss"),
-        Objective(id="lo_2", text="Explain why cross-entropy is suitable for classification tasks"),
-        Objective(id="lo_3", text="Implement cross-entropy loss in PyTorch"),
-        Objective(id="lo_4", text="Compare cross-entropy with other loss functions"),
-        Objective(id="lo_5", text="Apply cross-entropy loss to multi-class problems"),
+    objective_models = [
+        Objective(
+            id=f"{lesson_id}_lo_{idx}",
+            text=obj["text"],
+            bloom_level=obj.get("bloom_level"),
+        )
+        for idx, obj in enumerate(objectives, start=1)
     ]
 
-    # Create glossary terms
-    glossary_terms = [
-        GlossaryTerm(id="term_1", term="Cross-entropy loss", definition="A measure of difference between two probability distributions"),
-        GlossaryTerm(id="term_2", term="One-hot encoding", definition="A representation where only one element is 1 and others are 0"),
-        GlossaryTerm(id="term_3", term="Softmax", definition="A function that converts logits to probabilities"),
-        GlossaryTerm(id="term_4", term="Gradient descent", definition="An optimization algorithm that minimizes loss functions"),
-        GlossaryTerm(id="term_5", term="Convex function", definition="A function with a single global minimum"),
+    glossary_models = [
+        GlossaryTerm(
+            id=f"{lesson_id}_term_{idx}",
+            term=term["term"],
+            definition=term["definition"],
+            micro_check=term.get("micro_check"),
+        )
+        for idx, term in enumerate(glossary_terms, start=1)
     ]
 
-    # Create lesson-wide mini-lesson
-    mini_lesson = """Cross-entropy loss is a fundamental concept in machine learning that measures how different your model's predictions are from the actual answers.
+    exercises: list[MCQExercise] = []
+    for idx, mcq in enumerate(mcqs, start=1):
+        if objective_models:
+            lo_index = max(1, min(mcq.get("lo_index", 1), len(objective_models)))
+            lo_id = objective_models[lo_index - 1].id
+        else:
+            lo_id = f"{lesson_id}_lo_{idx}"
 
-Think of it like a scoring system for classification tasks. When your model is confident and correct, the loss is very low. When it's confident but wrong, the loss becomes very high, sending a strong signal to improve.
+        options: list[MCQOption] = []
+        correct_index = mcq.get("correct_index", 0)
+        for option_idx, option in enumerate(mcq["options"], start=0):
+            label = chr(ord("A") + option_idx)
+            option_id = f"{lesson_id}_mcq_{idx}_{label.lower()}"
+            rationale_wrong = option.get("rationale_wrong") if option_idx != correct_index else None
+            options.append(
+                MCQOption(
+                    id=option_id,
+                    label=label,
+                    text=option["text"],
+                    rationale_wrong=rationale_wrong,
+                )
+            )
 
-Cross-entropy works by comparing probability distributions. Your model outputs probabilities for each possible class, and cross-entropy measures how far these are from the true "one-hot" distribution where the correct class has probability 1.
+        correct_label = chr(ord("A") + correct_index)
+        correct_option_id = options[correct_index].id if options else None
 
-In practice, cross-entropy is the go-to loss function for classification because it provides strong learning signals and has nice mathematical properties that make optimization reliable."""
+        exercises.append(
+            MCQExercise(
+                id=f"{lesson_id}_mcq_{idx}",
+                lo_id=lo_id,
+                cognitive_level=mcq.get("cognitive_level"),
+                estimated_difficulty=mcq.get("difficulty", "Medium"),
+                misconceptions_used=mcq.get("misconceptions", []),
+                stem=mcq["stem"],
+                options=options,
+                answer_key=MCQAnswerKey(
+                    label=correct_label,
+                    option_id=correct_option_id,
+                    rationale_right=mcq.get("correct_rationale"),
+                ),
+            )
+        )
 
-    # Create exercises directly as proper MCQExercise objects
-    exercises = [
-        MCQExercise(
-            id="mcq_1",
-            lo_id="lo_1",
-            cognitive_level="Remember",
-            estimated_difficulty="Medium",
-            misconceptions_used=["mc_1", "mc_2"],
-            stem="What is the mathematical formula for cross-entropy loss for a single sample?",
-            options=[
-                MCQOption(id="mcq_1_a", label="A", text="L = ∑(y_i * log(ŷ_i))", rationale_wrong="Missing negative sign; this would give positive loss values"),
-                MCQOption(id="mcq_1_b", label="B", text="L = -∑(y_i * log(ŷ_i))", rationale_wrong=None),
-                MCQOption(id="mcq_1_c", label="C", text="L = ∑(y_i - ŷ_i)²", rationale_wrong="This is mean squared error, not cross-entropy loss"),
-                MCQOption(id="mcq_1_d", label="D", text="L = |y_i - ŷ_i|", rationale_wrong="This is mean absolute error, not cross-entropy loss"),
-            ],
-            answer_key=MCQAnswerKey(label="B", rationale_right="Cross-entropy loss requires the negative log-likelihood formulation"),
-        ),
-        MCQExercise(
-            id="mcq_2",
-            lo_id="lo_2",
-            cognitive_level="Understand",
-            estimated_difficulty="Medium",
-            misconceptions_used=["mc_3"],
-            stem="Why is cross-entropy loss particularly suitable for classification tasks?",
-            options=[
-                MCQOption(id="mcq_2_a", label="A", text="It's computationally efficient", rationale_wrong="Efficiency alone doesn't explain its suitability for classification"),
-                MCQOption(id="mcq_2_b", label="B", text="It provides probabilistic interpretation and strong gradients", rationale_wrong=None),
-                MCQOption(id="mcq_2_c", label="C", text="It works only with binary classification", rationale_wrong="Cross-entropy works for multi-class classification too"),
-                MCQOption(id="mcq_2_d", label="D", text="It doesn't require gradient computation", rationale_wrong="All neural network training requires gradients"),
-            ],
-            answer_key=MCQAnswerKey(label="B", rationale_right="Cross-entropy naturally outputs probabilities and provides strong learning signals"),
-        ),
-        MCQExercise(
-            id="mcq_3",
-            lo_id="lo_3",
-            cognitive_level="Apply",
-            estimated_difficulty="Easy",
-            misconceptions_used=["mc_4"],
-            stem="In PyTorch, which function implements cross-entropy loss?",
-            options=[
-                MCQOption(id="mcq_3_a", label="A", text="nn.MSELoss()", rationale_wrong="MSELoss is for regression, not classification"),
-                MCQOption(id="mcq_3_b", label="B", text="nn.CrossEntropyLoss()", rationale_wrong=None),
-                MCQOption(id="mcq_3_c", label="C", text="nn.BCELoss()", rationale_wrong="BCELoss is for binary classification only"),
-                MCQOption(id="mcq_3_d", label="D", text="nn.L1Loss()", rationale_wrong="L1Loss is for regression, not classification"),
-            ],
-            answer_key=MCQAnswerKey(label="B", rationale_right="nn.CrossEntropyLoss() combines softmax and cross-entropy in one function"),
-        ),
-        MCQExercise(
-            id="mcq_4",
-            lo_id="lo_4",
-            cognitive_level="Analyze",
-            estimated_difficulty="Hard",
-            misconceptions_used=["mc_5"],
-            stem="How does cross-entropy loss compare to mean squared error for classification?",
-            options=[
-                MCQOption(id="mcq_4_a", label="A", text="MSE is always better for classification", rationale_wrong="MSE provides weaker gradients and no probabilistic interpretation"),
-                MCQOption(id="mcq_4_b", label="B", text="Cross-entropy provides better gradients and probabilistic interpretation", rationale_wrong=None),
-                MCQOption(id="mcq_4_c", label="C", text="They are equivalent for classification tasks", rationale_wrong="Cross-entropy is specifically designed for classification"),
-                MCQOption(id="mcq_4_d", label="D", text="MSE is faster to compute", rationale_wrong="Computational speed isn't the main consideration for loss choice"),
-            ],
-            answer_key=MCQAnswerKey(label="B", rationale_right="Cross-entropy gives stronger gradients when confident but wrong, ideal for classification"),
-        ),
-        MCQExercise(
-            id="mcq_5",
-            lo_id="lo_5",
-            cognitive_level="Apply",
-            estimated_difficulty="Medium",
-            misconceptions_used=["mc_6"],
-            stem="What happens to cross-entropy loss when the model predicts the correct class with high confidence?",
-            options=[
-                MCQOption(id="mcq_5_a", label="A", text="Loss increases significantly", rationale_wrong="Correct predictions with high confidence should decrease loss"),
-                MCQOption(id="mcq_5_b", label="B", text="Loss approaches zero", rationale_wrong=None),
-                MCQOption(id="mcq_5_c", label="C", text="Loss becomes negative", rationale_wrong="Cross-entropy loss is always non-negative"),
-                MCQOption(id="mcq_5_d", label="D", text="Loss remains constant", rationale_wrong="Loss varies with prediction confidence"),
-            ],
-            answer_key=MCQAnswerKey(label="B", rationale_right="High confidence correct predictions minimize the negative log-likelihood"),
-        ),
-    ]
-
-    # Create misconceptions referenced in MCQs
-    misconceptions = [
-        {"mc_id": "mc_1", "concept": "Cross-entropy formula", "misbelief": "Cross-entropy should be positive like other loss functions"},
-        {"mc_id": "mc_2", "concept": "Loss function types", "misbelief": "All loss functions have the same mathematical form"},
-        {"mc_id": "mc_3", "concept": "Classification vs regression", "misbelief": "Any loss function can be used for any task"},
-        {"mc_id": "mc_4", "concept": "PyTorch loss functions", "misbelief": "BCELoss and CrossEntropyLoss are interchangeable"},
-        {"mc_id": "mc_5", "concept": "Loss function comparison", "misbelief": "MSE and cross-entropy are equivalent for classification"},
-        {"mc_id": "mc_6", "concept": "Loss behavior", "misbelief": "Loss functions can become negative"},
-    ]
-
-    # Create confusables (commonly confused concepts)
-    confusables = [
-        {"concept_a": "Cross-entropy loss", "concept_b": "Mean squared error", "distinction": "Cross-entropy for classification, MSE for regression"},
-        {"concept_b": "Binary cross-entropy", "concept_a": "Categorical cross-entropy", "distinction": "Binary for 2 classes, categorical for multiple classes"},
-        {"concept_a": "Log-likelihood", "concept_b": "Cross-entropy", "distinction": "Cross-entropy is negative log-likelihood"},
-    ]
-
-    # Create the complete lesson package with new structure
     return LessonPackage(
         meta=meta,
-        objectives=objectives,
-        glossary={"terms": glossary_terms},
+        objectives=objective_models,
+        glossary={"terms": glossary_models},
         mini_lesson=mini_lesson,
         exercises=exercises,
-        misconceptions=misconceptions,
-        confusables=confusables,
+        misconceptions=misconceptions or [],
+        confusables=confusables or [],
     )
 
 
-def create_sample_lesson_data(
+def create_lesson_data(
     lesson_id: str,
-    title: str = "Cross-Entropy Loss in Deep Learning",
-    learner_level: str = "intermediate",
+    *,
+    title: str,
+    learner_level: str,
+    source_material: str,
+    package: LessonPackage,
     flow_run_id: uuid.UUID | None = None,
 ) -> dict[str, Any]:
-    """Create sample lesson data structure with package."""
-
-    # Create the lesson package
-    package = create_sample_lesson_package(lesson_id, title, learner_level)
+    """Create an ORM-ready lesson dictionary from a package."""
 
     return {
         "id": lesson_id,
         "flow_run_id": flow_run_id,
         "title": title,
         "learner_level": learner_level,
-        "source_material": """
-        # Cross-Entropy Loss in Deep Learning
-
-        Cross-entropy loss is a fundamental loss function used in classification tasks,
-        particularly in neural networks. It measures the difference between the predicted
-        probability distribution and the true distribution.
-
-        ## Mathematical Definition
-
-        For a single sample, cross-entropy loss is defined as:
-        L = -∑(y_i * log(ŷ_i))
-
-        Where:
-        - y_i is the true label (one-hot encoded)
-        - ŷ_i is the predicted probability for class i
-        """,
+        "source_material": source_material,
         "package": package.model_dump(),
         "package_version": 1,
     }
 
 
-# All content fields are embedded in the lesson package; no separate component list
+def create_sample_flow_run(
+    flow_run_id: uuid.UUID,
+    lesson_id: str,
+    lesson_data: dict[str, Any],
+    *,
+    user_id: uuid.UUID | None = None,
+) -> dict[str, Any]:
+    """Create a completed flow run record for a lesson."""
 
-
-def create_sample_flow_run(flow_run_id: uuid.UUID, lesson_id: str, lesson_data: dict[str, Any]) -> dict[str, Any]:
-    """Create sample flow run data."""
     now = datetime.now(UTC)
-
-    # Extract package data for outputs
     package = lesson_data["package"]
+    objectives = [obj["text"] for obj in package.get("objectives", [])]
+    key_terms = [term["term"] for term in package.get("glossary", {}).get("terms", [])]
+    total_mcqs = len(package.get("exercises", []))
+    lo_coverage = len({exercise["lo_id"] for exercise in package.get("exercises", [])}) if total_mcqs else 0
 
     return {
         "id": flow_run_id,
-        "user_id": None,  # No user for seed data
+        "user_id": user_id,
         "flow_name": "lesson_creation",
         "status": "completed",
         "execution_mode": "sync",
         "current_step": None,
-        "step_progress": 5,
+        "step_progress": total_mcqs,
         "total_steps": 5,
         "progress_percentage": 100.0,
         "created_at": now,
@@ -241,566 +197,824 @@ def create_sample_flow_run(flow_run_id: uuid.UUID, lesson_id: str, lesson_data: 
         "started_at": now,
         "completed_at": now,
         "last_heartbeat": now,
-        "total_tokens": 15420,  # Realistic token count
-        "total_cost": 0.0771,  # Realistic cost estimate
-        "execution_time_ms": 45000,  # 45 seconds
+        "total_tokens": 15420,
+        "total_cost": 0.0771,
+        "execution_time_ms": 45000,
         "inputs": {
             "topic": lesson_data["title"],
             "unit_source_material": lesson_data["source_material"],
             "learner_level": lesson_data["learner_level"],
-            "voice": "professional",
-            "learning_objectives": [obj["text"] for obj in package["objectives"]],
-            "lesson_objective": "Understand cross-entropy loss and its applications",
+            "voice": "narrative",
+            "learning_objectives": objectives,
+            "lesson_objective": objectives[0] if objectives else "",
         },
         "outputs": {
             "topic": lesson_data["title"],
             "learner_level": lesson_data["learner_level"],
-            "voice": "professional",
-            "learning_objectives": [obj["text"] for obj in package["objectives"]],
-            "misconceptions": package["misconceptions"],
-            "confusables": package["confusables"],
-            "glossary": package["glossary"],
-            "mini_lesson": package["mini_lesson"],
-            "mcqs": {"metadata": {"total_mcqs": len(package["exercises"]), "lo_coverage": len({e["lo_id"] for e in package["exercises"]})}, "mcqs": package["exercises"]},
+            "voice": "narrative",
+            "learning_objectives": objectives,
+            "key_concepts": key_terms,
+            "misconceptions": package.get("misconceptions", []),
+            "confusables": package.get("confusables", []),
+            "glossary": package.get("glossary", {}),
+            "mini_lesson": package.get("mini_lesson"),
+            "mcqs": {
+                "metadata": {"total_mcqs": total_mcqs, "lo_coverage": lo_coverage},
+                "mcqs": package.get("exercises", []),
+            },
         },
-        "flow_metadata": {"lesson_id": lesson_id, "package_version": 1},
+        "flow_metadata": {"lesson_id": lesson_id, "package_version": lesson_data.get("package_version", 1)},
         "error_message": None,
     }
 
 
 def create_sample_step_runs(flow_run_id: uuid.UUID, lesson_data: dict[str, Any]) -> list[dict[str, Any]]:
-    """Create sample flow step run data."""
+    """Create representative step run records for a completed flow."""
+
     now = datetime.now(UTC)
-    step_runs = []
-
-    # Extract package data
     package = lesson_data["package"]
+    objectives = [obj["text"] for obj in package.get("objectives", [])]
+    key_terms = [term["term"] for term in package.get("glossary", {}).get("terms", [])]
+    exercises = package.get("exercises", [])
+    misconceptions = package.get("misconceptions", [])
+    confusables = package.get("confusables", [])
 
-    # We'll use the actual exercises from the package in the step outputs
-
-    # Step 1: Extract lesson metadata
-    step_runs.append(
+    step_definitions = [
         {
-            "id": uuid.uuid4(),
-            "flow_run_id": flow_run_id,
-            "llm_request_id": uuid.uuid4(),  # Will create corresponding LLM request
             "step_name": "extract_lesson_metadata",
             "step_order": 1,
-            "status": "completed",
             "inputs": {"title": lesson_data["title"]},
             "outputs": {
-                "learning_objectives": [obj["text"] for obj in package["objectives"]],
-                "key_concepts": [term["term"] for term in package["glossary"]["terms"][:3]],  # First 3 terms
+                "learning_objectives": objectives,
+                "key_concepts": key_terms[:3],
             },
+            "prompt_file": "extract_lesson_metadata.md",
             "tokens_used": 2100,
             "cost_estimate": 0.0105,
             "execution_time_ms": 3500,
-            "error_message": None,
-            "step_metadata": {"prompt_file": "extract_lesson_metadata.md"},
-            "created_at": now,
-            "updated_at": now,
-            "completed_at": now,
-        }
-    )
-
-    # Step 2: Generate misconception bank
-    step_runs.append(
+        },
         {
-            "id": uuid.uuid4(),
-            "flow_run_id": flow_run_id,
-            "llm_request_id": uuid.uuid4(),
             "step_name": "generate_misconception_bank",
             "step_order": 2,
-            "status": "completed",
             "inputs": {
-                "learning_objectives": [obj["text"] for obj in package["objectives"]],
-                "key_concepts": [term["term"] for term in package["glossary"]["terms"][:3]],
+                "learning_objectives": objectives,
+                "key_concepts": key_terms[:3],
             },
-            "outputs": {
-                "by_lo": [
-                    {
-                        "lo_id": f"lo_{i + 1}",
-                        "distractors": [
-                            {"text": f"Distractor {j + 1} for LO {i + 1}", "maps_to_mc_id": f"mc_{j + 1}"}
-                            for j in range(2)  # 2 distractors per LO
-                        ],
-                    }
-                    for i in range(len(package["objectives"]))
-                ]
-            },
+            "outputs": {"misconceptions": misconceptions},
+            "prompt_file": "generate_misconception_bank.md",
             "tokens_used": 2200,
             "cost_estimate": 0.011,
             "execution_time_ms": 5000,
-            "error_message": None,
-            "step_metadata": {"prompt_file": "generate_misconception_bank.md"},
-            "created_at": now,
-            "updated_at": now,
-            "completed_at": now,
-        }
-    )
-
-    # Step 3: Generate lesson-wide mini-lesson
-    mini_lesson_text = package["mini_lesson"]
-    step_runs.append(
+        },
         {
-            "id": uuid.uuid4(),
-            "flow_run_id": flow_run_id,
-            "llm_request_id": uuid.uuid4(),
-            "step_name": "extract_lesson_metadata",
+            "step_name": "generate_mini_lesson",
             "step_order": 3,
-            "status": "completed",
             "inputs": {
                 "topic": lesson_data["title"],
                 "learner_level": lesson_data["learner_level"],
-                "voice": "professional",
-                "learning_objectives": [obj["text"] for obj in package["objectives"]],
-                "lesson_objective": "Understand cross-entropy loss and its applications",
+                "voice": "narrative",
+                "learning_objectives": objectives,
                 "unit_source_material": lesson_data["source_material"],
             },
-            "outputs": {
-                "mini_lesson": mini_lesson_text,
-            },
+            "outputs": {"mini_lesson": package.get("mini_lesson")},
+            "prompt_file": "generate_mini_lesson.md",
             "tokens_used": 1800,
             "cost_estimate": 0.009,
             "execution_time_ms": 4200,
-            "error_message": None,
-            "step_metadata": {"prompt_file": "extract_lesson_metadata.md"},
-            "created_at": now,
-            "updated_at": now,
-            "completed_at": now,
-        }
-    )
-
-    # Step 4: Generate glossary
-    step_runs.append(
+        },
         {
-            "id": uuid.uuid4(),
-            "flow_run_id": flow_run_id,
-            "llm_request_id": uuid.uuid4(),
             "step_name": "generate_glossary",
             "step_order": 4,
-            "status": "completed",
-            "inputs": {"lesson_title": lesson_data["title"], "key_concepts": [term["term"] for term in package["glossary"]["terms"]]},
-            "outputs": {"terms": package["glossary"]["terms"]},
+            "inputs": {
+                "lesson_title": lesson_data["title"],
+                "key_concepts": key_terms,
+            },
+            "outputs": {"terms": package.get("glossary", {}).get("terms", [])},
+            "prompt_file": "generate_glossary.md",
             "tokens_used": 1600,
             "cost_estimate": 0.008,
             "execution_time_ms": 3800,
-            "error_message": None,
-            "step_metadata": {"prompt_file": "generate_glossary.md"},
-            "created_at": now,
-            "updated_at": now,
-            "completed_at": now,
-        }
-    )
-
-    # Step 4: Generate MCQs
-    step_runs.append(
+        },
         {
-            "id": uuid.uuid4(),
-            "flow_run_id": flow_run_id,
-            "llm_request_id": uuid.uuid4(),
             "step_name": "generate_mcqs",
-            "step_order": 4,
-            "status": "completed",
+            "step_order": 5,
             "inputs": {
                 "topic": lesson_data["title"],
                 "learner_level": lesson_data["learner_level"],
-                "voice": "professional",
-                "learning_objectives": [obj["text"] for obj in package["objectives"]],
-                "misconceptions": package["misconceptions"],
-                "confusables": package["confusables"],
-                "glossary": package["glossary"],
+                "voice": "narrative",
+                "learning_objectives": objectives,
+                "misconceptions": misconceptions,
+                "confusables": confusables,
+                "glossary": package.get("glossary", {}),
             },
-            "outputs": {"mcqs": {"metadata": {"total_mcqs": len(package["exercises"]), "lo_coverage": len({e["lo_id"] for e in package["exercises"]})}, "mcqs": package["exercises"]}},
+            "outputs": {
+                "mcqs": {
+                    "metadata": {
+                        "total_mcqs": len(exercises),
+                        "lo_coverage": len({exercise["lo_id"] for exercise in exercises}) if exercises else 0,
+                    },
+                    "mcqs": exercises,
+                }
+            },
+            "prompt_file": "generate_mcqs.md",
             "tokens_used": 3500,
             "cost_estimate": 0.0175,
             "execution_time_ms": 8000,
-            "error_message": None,
-            "step_metadata": {"prompt_file": "generate_mcqs.md"},
-            "created_at": now,
-            "updated_at": now,
-            "completed_at": now,
-        }
-    )
+        },
+    ]
+
+    step_runs: list[dict[str, Any]] = []
+    for definition in step_definitions:
+        step_runs.append(
+            {
+                "id": uuid.uuid4(),
+                "flow_run_id": flow_run_id,
+                "llm_request_id": uuid.uuid4(),
+                "step_name": definition["step_name"],
+                "step_order": definition["step_order"],
+                "status": "completed",
+                "inputs": definition["inputs"],
+                "outputs": definition["outputs"],
+                "tokens_used": definition["tokens_used"],
+                "cost_estimate": definition["cost_estimate"],
+                "execution_time_ms": definition["execution_time_ms"],
+                "error_message": None,
+                "step_metadata": {"prompt_file": definition["prompt_file"]},
+                "created_at": now,
+                "updated_at": now,
+                "completed_at": now,
+            }
+        )
 
     return step_runs
 
 
-def create_sample_llm_requests(step_runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Create sample LLM request data for each step that uses LLM."""
+def create_sample_llm_requests(
+    step_runs: list[dict[str, Any]],
+    *,
+    user_id: uuid.UUID | None = None,
+    lesson_title: str,
+) -> list[dict[str, Any]]:
+    """Create LLM request records that mirror the step runs."""
+
     now = datetime.now(UTC)
-    llm_requests = []
+    llm_requests: list[dict[str, Any]] = []
+
+    prompt_map = {
+        "extract_lesson_metadata": "Extract learning objectives and key concepts from the provided source material.",
+        "generate_misconception_bank": "Produce likely misconceptions learners might hold about this lesson.",
+        "generate_mini_lesson": "Write a cohesive mini-lesson covering the key ideas.",
+        "generate_glossary": "Assemble a concise glossary for the important terms.",
+        "generate_mcqs": "Create multiple-choice questions with rationales and metadata for each objective.",
+    }
 
     for step_run in step_runs:
-        if step_run["llm_request_id"]:
-            # Create realistic request data based on step type
-            if step_run["step_name"] == "extract_lesson_metadata":
-                messages = [
-                    {"role": "system", "content": "You are an expert educational content creator."},
-                    {"role": "user", "content": "Extract learning objectives and key concepts from this material about Cross-Entropy Loss..."},
-                ]
-                response_content = json.dumps(step_run["outputs"])
-            elif step_run["step_name"] == "generate_misconception_bank":
-                messages = [
-                    {"role": "system", "content": "You are an expert educational content creator."},
-                    {"role": "user", "content": "Generate misconceptions and distractors for Cross-Entropy Loss..."},
-                ]
-                response_content = json.dumps(step_run["outputs"])
-            elif step_run["step_name"] == "generate_mini_lesson":
-                messages = [
-                    {"role": "system", "content": "You are an expert educational content creator."},
-                    {"role": "user", "content": "Generate an educational explanation for Cross-Entropy Loss..."},
-                ]
-                response_content = json.dumps(step_run["outputs"])
-            elif step_run["step_name"] == "generate_glossary":
-                messages = [
-                    {"role": "system", "content": "You are an expert educational content creator."},
-                    {"role": "user", "content": "Generate a glossary of key terms for Cross-Entropy Loss..."},
-                ]
-                response_content = json.dumps(step_run["outputs"])
-            elif step_run["step_name"] == "generate_mcqs":  # Updated step name
-                messages = [
-                    {"role": "system", "content": "You are an expert educational content creator."},
-                    {"role": "user", "content": f"Generate multiple choice questions for all learning objectives in the lesson: {step_run['inputs'].get('lesson_title', 'Unknown')}"},
-                ]
-                response_content = json.dumps(step_run["outputs"])
-            else:  # fallback for any other steps
-                messages = [
-                    {"role": "system", "content": "You are an expert educational content creator."},
-                    {"role": "user", "content": f"Process step: {step_run['step_name']}"},
-                ]
-                response_content = json.dumps(step_run["outputs"])
+        llm_request_id = step_run["llm_request_id"]
+        if not llm_request_id:
+            continue
 
-            llm_requests.append(
-                {
-                    "id": step_run["llm_request_id"],
-                    "user_id": None,
-                    "api_variant": "responses",
-                    "provider": "openai",
+        step_name = step_run["step_name"]
+        description = prompt_map.get(step_name, f"Process step: {step_name}.")
+        user_message = f"Lesson title: {lesson_title}. {description} Use the latest inputs and maintain a helpful tone."
+
+        messages = [
+            {"role": "system", "content": "You are an expert educational content creator."},
+            {"role": "user", "content": user_message},
+        ]
+
+        llm_requests.append(
+            {
+                "id": llm_request_id,
+                "user_id": user_id,
+                "api_variant": "responses",
+                "provider": "openai",
+                "model": "gpt-5-nano",
+                "provider_response_id": f"chatcmpl-{uuid.uuid4().hex[:20]}",
+                "system_fingerprint": "fp_" + uuid.uuid4().hex[:10],
+                "temperature": 0.7,
+                "max_output_tokens": 2000,
+                "messages": messages,
+                "additional_params": {},
+                "request_payload": {
                     "model": "gpt-5-nano",
-                    "provider_response_id": f"chatcmpl-{uuid.uuid4().hex[:20]}",
-                    "system_fingerprint": "fp_" + uuid.uuid4().hex[:10],
-                    "temperature": 0.7,
-                    "max_output_tokens": 2000,
                     "messages": messages,
-                    "additional_params": {},
-                    "request_payload": {
-                        "model": "gpt-5-nano",
-                        "messages": messages,
-                        "temperature": 0.7,
-                        "max_tokens": 2000,
-                    },
-                    "response_content": response_content,
-                    "response_raw": {"choices": [{"message": {"content": response_content}}]},
-                    "response_output": step_run["outputs"],
-                    "tokens_used": step_run["tokens_used"],
-                    "input_tokens": int(step_run["tokens_used"] * 0.6),  # Approximate split
-                    "output_tokens": int(step_run["tokens_used"] * 0.4),
-                    "cost_estimate": step_run["cost_estimate"],
-                    "response_created_at": now,
-                    "status": "completed",
-                    "execution_time_ms": step_run["execution_time_ms"],
-                    "error_message": None,
-                    "error_type": None,
-                    "retry_attempt": 1,
-                    "cached": False,
-                    "created_at": now,
-                    "updated_at": now,
-                }
-            )
+                    "temperature": 0.7,
+                    "max_tokens": 2000,
+                },
+                "response_content": json.dumps(step_run["outputs"]),
+                "response_raw": step_run["outputs"],
+                "tokens_used": step_run.get("tokens_used", 0),
+                "input_tokens": None,
+                "output_tokens": None,
+                "cost_estimate": step_run.get("cost_estimate", 0.0),
+                "status": "completed",
+                "execution_time_ms": step_run.get("execution_time_ms", 0),
+                "error_message": None,
+                "error_type": None,
+                "retry_attempt": 1,
+                "cached": False,
+                "response_created_at": now,
+                "created_at": now,
+                "updated_at": now,
+            }
+        )
 
     return llm_requests
 
 
 async def main() -> None:
     """Main function to create seed data."""
+
     parser = argparse.ArgumentParser(description="Create seed data for development and testing")
-    parser.add_argument("--lesson", default="Cross-Entropy Loss in Deep Learning", help="Lesson title")
-    parser.add_argument("--concept", default="Cross-Entropy Loss Function", help="Core concept (deprecated)")
-    parser.add_argument("--level", default="intermediate", choices=["beginner", "intermediate", "advanced"], help="Learner level")
-    parser.add_argument("--verbose", action="store_true", help="Show detailed progress")
-    parser.add_argument("--output", help="Save summary to JSON file")
-    # Unit-related options
-    parser.add_argument("--unit-title", default="Introduction to Machine Learning", help="Unit title for grouping lessons")
-    parser.add_argument("--unit-description", default="Foundational concepts and probability tools", help="Unit description")
-    parser.add_argument("--unit-learner-level", default="beginner", choices=["beginner", "intermediate", "advanced"], help="Unit learner level")
+    parser.add_argument("--verbose", action="store_true", help="Show detailed progress logs")
+    parser.add_argument("--output", help="Save a JSON summary of created entities")
 
     args = parser.parse_args()
 
-    # Configure logging
     if args.verbose:
         logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
         print("🔧 Verbose mode enabled")
 
-    print(f"🌱 Creating seed data for lesson: {args.lesson}")
-    print(f"📊 Level: {args.level}")
+    print("🌱 Creating seed data: Cats in Istanbul (global) + Gradient Descent (private)")
     print()
 
+    sample_users: dict[str, UserModel] = {}
+    user_snapshots: dict[str, dict[str, Any]] = {}
+    units_output: list[dict[str, Any]] = []
+    users_created_count = 0
+    global_units_count = 0
+    personal_units_count = 0
+    learning_session_statuses: list[str] = []
+    unit_session_statuses: list[str] = []
+
     try:
-        # Initialize infrastructure
+        infra = infrastructure_provider()
         if args.verbose:
             print("🔄 Initializing infrastructure...")
-        infra = infrastructure_provider()
         infra.initialize()
 
-        # Create a unit to group lessons
-        unit_id = str(uuid.uuid4())
-        if args.verbose:
-            print(f"🧱 Creating unit: {args.unit_title} ({args.unit_learner_level})")
-
-        # Generate first lesson (from args)
-        lesson_id_1 = str(uuid.uuid4())
-        flow_run_id_1 = uuid.uuid4()
-        if args.verbose:
-            print("📚 Creating lesson 1 data with package...")
-        lesson_data_1 = create_sample_lesson_data(lesson_id_1, args.lesson, args.level, flow_run_id_1)
-        flow_run_data_1 = create_sample_flow_run(flow_run_id_1, lesson_id_1, lesson_data_1)
-        step_runs_1 = create_sample_step_runs(flow_run_data_1["id"], lesson_data_1)
-        llm_requests_1 = create_sample_llm_requests(step_runs_1)
-
-        # Generate a second related lesson to demonstrate multi-lesson units
-        lesson_id_2 = str(uuid.uuid4())
-        flow_run_id_2 = uuid.uuid4()
-        if args.verbose:
-            print("📚 Creating lesson 2 data with package...")
-        lesson_data_2 = create_sample_lesson_data(
-            lesson_id_2,
-            title="Softmax and Probabilities",
-            learner_level=args.level,
-            flow_run_id=flow_run_id_2,
-        )
-        flow_run_data_2 = create_sample_flow_run(flow_run_id_2, lesson_id_2, lesson_data_2)
-        step_runs_2 = create_sample_step_runs(flow_run_data_2["id"], lesson_data_2)
-        llm_requests_2 = create_sample_llm_requests(step_runs_2)
-
-        # Save to database
         with infra.get_session_context() as db_session:
-            # Create flow run first (required for foreign key constraint)
-            if args.verbose:
-                print("💾 Saving flow runs...")
-            flow_run_1 = FlowRunModel(**flow_run_data_1)
-            flow_run_2 = FlowRunModel(**flow_run_data_2)
-            db_session.add(flow_run_1)
-            db_session.add(flow_run_2)
-            db_session.flush()  # Ensure flow runs are persisted before creating lessons
+            user_repo = UserRepo(db_session)
+            user_service = UserService(user_repo)
 
             if args.verbose:
-                print("💾 Saving lessons with packages to database...")
+                print("👥 Creating sample users (admins + learners)...")
 
-            # Create main unit (populate new generation fields for admin/UI and tests)
-            unit = UnitModel(
-                id=unit_id,
-                title=args.unit_title,
-                description=args.unit_description,
-                learner_level=args.unit_learner_level,
-                lesson_order=[lesson_id_1, lesson_id_2],
-                learning_objectives=[
-                    {"lo_id": "u_lo_1", "text": "Explain cross-entropy and its role in classification", "bloom_level": "Understand"},
-                    {"lo_id": "u_lo_2", "text": "Relate softmax probabilities to cross-entropy loss", "bloom_level": "Analyze"},
-                    {"lo_id": "u_lo_3", "text": "Implement classification with softmax + cross-entropy in PyTorch", "bloom_level": "Apply"},
-                ],
-                target_lesson_count=10,
-                source_material=("This unit introduces cross-entropy loss and softmax probabilities for classification.\nIt covers the intuition, mathematical formulation, and practical implementation."),
-                generated_from_topic=True,
-                flow_type="standard",
-                status="completed",  # Default completed unit
+            def _create_user(
+                key: str,
+                *,
+                email: str,
+                name: str,
+                password: str,
+                role: str = "learner",
+                is_active: bool = True,
+            ) -> UserModel:
+                password_hash = user_service._hash_password(password)
+                user = user_repo.create(
+                    email=email,
+                    password_hash=password_hash,
+                    name=name,
+                    role=role,
+                    is_active=is_active,
+                )
+                sample_users[key] = user
+                user_snapshots[key] = {
+                    "id": cast(int, user.id),
+                    "name": user.name,
+                    "email": user.email,
+                    "role": user.role,
+                }
+                return user
+
+            brian_admin = _create_user(
+                "brian",
+                email="thecriticalpath@gmail.com",
+                name="Brian Fields",
+                password="epsilon",
+                role="admin",
             )
-            db_session.add(unit)
-
-            # Create additional test units with different statuses for UI testing
-            if args.verbose:
-                print("🧱 Creating additional test units with various statuses...")
-
-            # In-progress unit
-            in_progress_unit_id = str(uuid.uuid4())
-            in_progress_unit = UnitModel(
-                id=in_progress_unit_id,
-                title="Natural Language Processing Fundamentals",
-                description="Learn the basics of text processing and language models",
-                learner_level="intermediate",
-                lesson_order=[],  # No lessons yet since it's being generated
-                learning_objectives=[
-                    {"lo_id": "nlp_lo_1", "text": "Understand text tokenization and preprocessing", "bloom_level": "Understand"},
-                    {"lo_id": "nlp_lo_2", "text": "Implement word embeddings", "bloom_level": "Apply"},
-                ],
-                target_lesson_count=8,
-                source_material=None,
-                generated_from_topic=True,
-                flow_type="fast",
-                status="in_progress",
-                creation_progress={"stage": "generating_lessons", "message": "Creating lesson 3 of 8: Word Embeddings"},
-                error_message=None,
+            _eylem_admin = _create_user(
+                "eylem",
+                email="eylem.ozaslan@gmail.com",
+                name="Eylem Ozaslan",
+                password="epsilon",
+                role="admin",
             )
-            db_session.add(in_progress_unit)
-
-            # Failed unit with error message
-            failed_unit_id = str(uuid.uuid4())
-            failed_unit = UnitModel(
-                id=failed_unit_id,
-                title="Advanced Quantum Computing",
-                description="Deep dive into quantum algorithms and error correction",
-                learner_level="advanced",
-                lesson_order=[],
-                learning_objectives=[
-                    {"lo_id": "qc_lo_1", "text": "Implement Shor's algorithm", "bloom_level": "Apply"},
-                    {"lo_id": "qc_lo_2", "text": "Design quantum error correction codes", "bloom_level": "Create"},
-                ],
-                target_lesson_count=15,
-                source_material=None,
-                generated_from_topic=True,
-                flow_type="standard",
-                status="failed",
-                creation_progress={"stage": "content_generation_failed", "message": "Failed to generate content"},
-                error_message="Unable to generate sufficient content for advanced quantum computing topics. Please try with more specific learning objectives or source material.",
+            epsilon_learner = _create_user(
+                "epsilon",
+                email="epsilon.cat@example.com",
+                name="Epsilon cat",
+                password="epsilon",
             )
-            db_session.add(failed_unit)
-
-            # Draft unit (newly created, not started yet)
-            draft_unit_id = str(uuid.uuid4())
-            draft_unit = UnitModel(
-                id=draft_unit_id,
-                title="Introduction to Data Visualization",
-                description="Learn to create compelling visualizations with Python",
-                learner_level="beginner",
-                lesson_order=[],
-                learning_objectives=[
-                    {"lo_id": "viz_lo_1", "text": "Create basic plots with matplotlib", "bloom_level": "Apply"},
-                    {"lo_id": "viz_lo_2", "text": "Design interactive dashboards", "bloom_level": "Create"},
-                ],
-                target_lesson_count=6,
-                source_material=None,
-                generated_from_topic=True,
-                flow_type="fast",
-                status="draft",
-                creation_progress=None,
-                error_message=None,
+            nova_learner = _create_user(
+                "nova",
+                email="nova.cat@example.com",
+                name="Nova cat",
+                password="epsilon",
             )
-            db_session.add(draft_unit)
 
-            # Another completed unit for variety
-            completed_unit_2_id = str(uuid.uuid4())
-            completed_unit_2 = UnitModel(
-                id=completed_unit_2_id,
-                title="Statistics for Data Science",
-                description="Essential statistical concepts for data analysis",
-                learner_level="intermediate",
-                lesson_order=[],  # Would normally have lesson IDs
-                learning_objectives=[
-                    {"lo_id": "stats_lo_1", "text": "Calculate and interpret confidence intervals", "bloom_level": "Apply"},
-                    {"lo_id": "stats_lo_2", "text": "Perform hypothesis testing", "bloom_level": "Analyze"},
-                    {"lo_id": "stats_lo_3", "text": "Apply regression analysis", "bloom_level": "Apply"},
-                ],
-                target_lesson_count=12,
-                source_material="Comprehensive statistical methods for data science applications",
-                generated_from_topic=False,  # Created from source material
-                flow_type="standard",
-                status="completed",
-                creation_progress=None,
-                error_message=None,
-            )
-            db_session.add(completed_unit_2)
-
-            # Ensure all units exist before inserting lessons that reference them
-            db_session.flush()
-
-            # Create lessons with embedded packages and link to unit
-            lesson_1 = LessonModel(**{**lesson_data_1, "unit_id": unit_id})
-            lesson_2 = LessonModel(**{**lesson_data_2, "unit_id": unit_id})
-            db_session.add(lesson_1)
-            db_session.add(lesson_2)
-
-            # Create LLM requests first (required for step run foreign key constraint)
             if args.verbose:
-                print(f"💾 Saving {len(llm_requests_1) + len(llm_requests_2)} LLM requests...")
-            for llm_request_data in [*llm_requests_1, *llm_requests_2]:
-                llm_request = LLMRequestModel(**llm_request_data)
-                db_session.add(llm_request)
-            db_session.flush()  # Ensure LLM requests are persisted before creating step runs
+                print("📦 Building lesson packages and database records...")
 
-            # Create step runs (references LLM requests)
-            if args.verbose:
-                print(f"💾 Saving {len(step_runs_1) + len(step_runs_2)} step runs...")
-            for step_run_data in [*step_runs_1, *step_runs_2]:
-                step_run = FlowStepRunModel(**step_run_data)
-                db_session.add(step_run)
-
-            # Commit all changes
-            if args.verbose:
-                print("💾 Committing changes...")
-
-        # Report package content counts by type
-        package_1 = lesson_data_1["package"]
-        package_2 = lesson_data_2["package"]
-        exercises_count_1 = len(package_1["exercises"])
-        glossary_terms_count_1 = len(package_1["glossary"]["terms"])
-        exercises_count_2 = len(package_2["exercises"])
-        glossary_terms_count_2 = len(package_2["glossary"]["terms"])
-
-        print("✅ Seed data created successfully!")
-        print(f"   • Main Unit ID: {unit_id}")
-        print(f"   • Main Unit: {args.unit_title} — lessons: 2, status: completed")
-        print(f"   • Lesson 1 ID: {lesson_id_1} — {lesson_data_1['title']}")
-        print(f"     • Exercises: {exercises_count_1}; Glossary terms: {glossary_terms_count_1}")
-        print(f"   • Lesson 2 ID: {lesson_id_2} — {lesson_data_2['title']}")
-        print(f"     • Exercises: {exercises_count_2}; Glossary terms: {glossary_terms_count_2}")
-        print(f"   • Package versions: {lesson_data_1['package_version']}, {lesson_data_2['package_version']}")
-        print()
-        print("📋 Test Units for UI Testing:")
-        print(f"   • In Progress: {in_progress_unit_id} — Natural Language Processing Fundamentals")
-        print(f"   • Failed: {failed_unit_id} — Advanced Quantum Computing (with error message)")
-        print(f"   • Draft: {draft_unit_id} — Introduction to Data Visualization")
-        print(f"   • Completed: {completed_unit_2_id} — Statistics for Data Science")
-        print()
-        print("   • Flow runs: 2")
-        print(f"   • Step runs: {len(step_runs_1) + len(step_runs_2)}")
-        print(f"   • LLM requests: {len(llm_requests_1) + len(llm_requests_2)}")
-        print(f"   • Frontend URL (lesson 1): http://localhost:3000/learn/{lesson_id_1}?mode=learning")
-        print("   • Mobile Units URL: http://localhost:3000/units")
-
-        # Save summary if requested
-        if args.output:
-            summary = {
-                "unit": {
-                    "id": unit_id,
-                    "title": args.unit_title,
-                    "description": args.unit_description,
-                    "learner_level": args.unit_learner_level,
-                    "lesson_order": [lesson_id_1, lesson_id_2],
+            units_spec = [
+                {
+                    "id": str(uuid.uuid4()),
+                    "title": "Cats in Istanbul: City Companions",
+                    "description": "Discover how Istanbul's street cats thrive alongside the city's residents.",
+                    "learner_level": "beginner",
+                    "learning_objectives": [
+                        {"lo_id": "cat_unit_lo_1", "text": "Describe the cultural role of Istanbul's street cats", "bloom_level": "Understand"},
+                        {"lo_id": "cat_unit_lo_2", "text": "Identify best practices for caring for community cats", "bloom_level": "Apply"},
+                        {"lo_id": "cat_unit_lo_3", "text": "Explain how urban planning supports feline welfare", "bloom_level": "Analyze"},
+                    ],
+                    "target_lesson_count": 3,
+                    "source_material": "City reports on community cats, volunteer diaries, and Istanbul tourism guides.",
+                    "generated_from_topic": True,
+                    "is_global": True,
+                    "owner_key": "eylem",
+                    "lessons": [
+                        {
+                            "title": "Street Cat Legends of Kadıköy",
+                            "learner_level": "beginner",
+                            "source_material": "Community stories describing the famous fish market felines of Kadıköy.",
+                            "objectives": [
+                                {"text": "Summarize why Kadıköy is known for friendly street cats", "bloom_level": "Remember"},
+                                {"text": "List community habits that keep cat colonies healthy", "bloom_level": "Understand"},
+                            ],
+                            "glossary_terms": [
+                                {"term": "Kadıköy", "definition": "A vibrant district on Istanbul's Asian side known for its markets and resident cats."},
+                                {"term": "Colony Care", "definition": "Daily routines locals follow to feed and monitor a group of community cats."},
+                                {"term": "Sahiplenmek", "definition": "Turkish for adopting or taking responsibility for an animal."},
+                            ],
+                            "mini_lesson": "Kadıköy's fish market blends aromas of the sea with the patter of paws. Residents and vendors place bowls of anchovies beside their stalls, making the cats unofficial mascots. Volunteers organize feeding schedules, rotate water bowls, and ensure every cat has a sheltered nook away from traffic. As a result, locals view community cats as neighbors—protectors of the market and keepers of tradition.",
+                            "mcqs": [
+                                {
+                                    "stem": "Which daily practice keeps the Kadıköy cat colony thriving?",
+                                    "options": [
+                                        {"text": "Volunteers share feeding and water duties"},
+                                        {"text": "Cats are confined indoors during market hours", "rationale_wrong": "The cats roam freely; confinement would disrupt the tradition."},
+                                        {"text": "Vendors discourage tourists from interacting", "rationale_wrong": "Tourists are encouraged to meet the cats respectfully."},
+                                    ],
+                                    "correct_index": 0,
+                                    "cognitive_level": "Understand",
+                                    "difficulty": "Easy",
+                                    "misconceptions": ["cats_need_no_care"],
+                                    "correct_rationale": "Shared feeding schedules keep every cat healthy and visible to caretakers.",
+                                },
+                                {
+                                    "stem": "Why do locals say the cats are part of Kadıköy's identity?",
+                                    "options": [
+                                        {"text": "They guard the fish market at night"},
+                                        {"text": "They appear in city council meetings", "rationale_wrong": "Cats are beloved but do not attend council meetings."},
+                                        {"text": "They symbolize kindness between residents and animals"},
+                                    ],
+                                    "correct_index": 2,
+                                    "cognitive_level": "Analyze",
+                                    "difficulty": "Medium",
+                                    "misconceptions": ["cats_are_pests"],
+                                    "correct_rationale": "The cats reflect everyday compassion in Kadıköy's community life.",
+                                },
+                            ],
+                        },
+                        {
+                            "title": "Galata's Rooftop Guardians",
+                            "learner_level": "beginner",
+                            "source_material": "Travel journals describing sunset photography tours featuring Galata Tower cats.",
+                            "objectives": [
+                                {"text": "Explain how rooftop habitats keep cats safe", "bloom_level": "Understand"},
+                                {"text": "Identify respectful ways visitors interact with Galata cats", "bloom_level": "Apply"},
+                            ],
+                            "glossary_terms": [
+                                {"term": "Galata Tower", "definition": "Historic watchtower overlooking the Bosphorus, home to many friendly cats."},
+                                {"term": "Sunset Stewards", "definition": "Volunteers who provide water and shaded rest stops during evening tours."},
+                                {"term": "Rooftop Habitat", "definition": "Elevated resting spots built to keep cats away from narrow traffic lanes."},
+                            ],
+                            "mini_lesson": "As the sun dips behind the Bosphorus, photographers gather near Galata Tower. Locals quietly lay out cushions on rooftops, guiding the cats to safe perches away from crowded stairwells. Visitors learn that a slow blink and a gentle approach keep the cats calm. The tower's caretakers chart feeding stations on a shared map so every cat receives care, even during the busiest tourist season.",
+                            "mcqs": [
+                                {
+                                    "stem": "What is the main purpose of Galata's rooftop habitats?",
+                                    "options": [
+                                        {"text": "To provide elevated shelters away from traffic"},
+                                        {"text": "To display cats as part of a paid exhibit", "rationale_wrong": "Habitat spaces are free community efforts, not exhibits."},
+                                        {"text": "To keep cats from interacting with visitors", "rationale_wrong": "Visitors are encouraged to interact calmly with the cats."},
+                                    ],
+                                    "correct_index": 0,
+                                    "cognitive_level": "Apply",
+                                    "difficulty": "Easy",
+                                    "misconceptions": ["cats_prefer_ground"],
+                                    "correct_rationale": "Elevated shelters keep cats safe from sudden traffic and provide shade.",
+                                },
+                                {
+                                    "stem": "How should tourists greet the Galata cats during sunset tours?",
+                                    "options": [
+                                        {"text": "Approach slowly and offer a relaxed blink"},
+                                        {"text": "Pick them up immediately for photos", "rationale_wrong": "Picking up cats without consent can stress them."},
+                                        {"text": "Use flash photography to capture attention", "rationale_wrong": "Flash startles cats and is discouraged."},
+                                    ],
+                                    "correct_index": 0,
+                                    "cognitive_level": "Apply",
+                                    "difficulty": "Easy",
+                                    "misconceptions": ["cats_like_flash"],
+                                    "correct_rationale": "A calm greeting mirrors how volunteers interact with the rooftop guardians.",
+                                },
+                            ],
+                        },
+                        {
+                            "title": "Bosphorus Ferry Felines",
+                            "learner_level": "beginner",
+                            "source_material": "Transport authority memos and conductor notes on caring for ferry cats.",
+                            "objectives": [
+                                {"text": "Describe the ferry schedule that supports feeding routines", "bloom_level": "Understand"},
+                                {"text": "Recognize community partnerships that sponsor veterinary care", "bloom_level": "Remember"},
+                            ],
+                            "glossary_terms": [
+                                {"term": "Vapur", "definition": "Turkish word for traditional passenger ferries crossing the Bosphorus."},
+                                {"term": "Harbor Haven", "definition": "Designated corner of the ferry terminal reserved for cat shelters."},
+                                {"term": "Evening Clinic", "definition": "Weekly veterinary check run by volunteers after the last ferry."},
+                            ],
+                            "mini_lesson": "Ferry conductors know their feline passengers by name. Before the morning rush, they place kibble in sheltered crates near the gangway. The harbor authority funds weekly veterinary rounds, while commuters donate blankets during winter. The cats repay the kindness by greeting passengers and keeping warehouses free of rodents, making them cherished crew members.",
+                            "mcqs": [
+                                {
+                                    "stem": "Why do ferry conductors feed cats before the morning rush?",
+                                    "options": [
+                                        {"text": "To keep the gangway clear and cats satisfied"},
+                                        {"text": "To train cats to stay inside the ticket office", "rationale_wrong": "Cats are free to roam the docks."},
+                                        {"text": "To encourage cats to board ferries with commuters", "rationale_wrong": "Cats remain near the terminals rather than riding."},
+                                    ],
+                                    "correct_index": 0,
+                                    "cognitive_level": "Understand",
+                                    "difficulty": "Easy",
+                                    "misconceptions": ["cats_eat_anytime"],
+                                    "correct_rationale": "Feeding before rush hour keeps walkways tidy and cats content.",
+                                },
+                                {
+                                    "stem": "Who sponsors veterinary care for the ferry felines?",
+                                    "options": [
+                                        {"text": "A partnership between the harbor authority and volunteers"},
+                                        {"text": "Only private pet clinics", "rationale_wrong": "Public-private collaboration keeps care consistent."},
+                                        {"text": "Passengers paying a cat ticket", "rationale_wrong": "There is no separate cat ticket; donations are optional."},
+                                    ],
+                                    "correct_index": 0,
+                                    "cognitive_level": "Remember",
+                                    "difficulty": "Medium",
+                                    "misconceptions": ["care_is_unfunded"],
+                                    "correct_rationale": "Community partnerships ensure regular health checks.",
+                                },
+                            ],
+                        },
+                    ],
                 },
-                "lessons": [
-                    {
-                        "lesson_id": lesson_id_1,
-                        "title": lesson_data_1["title"],
-                        "learner_level": args.level,
-                        "package_version": lesson_data_1["package_version"],
-                        "objectives_count": len(package_1["objectives"]),
-                        "glossary_terms_count": len(package_1["glossary"]["terms"]),
-                        "exercises_count": len(package_1["exercises"]),
-                        "mini_lesson_present": bool(package_1.get("mini_lesson")),
-                    },
-                    {
-                        "lesson_id": lesson_id_2,
-                        "title": lesson_data_2["title"],
-                        "learner_level": args.level,
-                        "package_version": lesson_data_2["package_version"],
-                        "objectives_count": len(package_2["objectives"]),
-                        "glossary_terms_count": len(package_2["glossary"]["terms"]),
-                        "exercises_count": len(package_2["exercises"]),
-                        "mini_lesson_present": bool(package_2.get("mini_lesson")),
-                    },
-                ],
-                "created_with": "seed_data_script_package_model_units",
-            }
+                {
+                    "id": str(uuid.uuid4()),
+                    "title": "Gradient Descent Mastery",
+                    "description": "A focused look at optimization fundamentals for machine learning practitioners.",
+                    "learner_level": "intermediate",
+                    "learning_objectives": [
+                        {"lo_id": "grad_unit_lo_1", "text": "Explain how gradient descent updates parameters", "bloom_level": "Understand"},
+                        {"lo_id": "grad_unit_lo_2", "text": "Compare batch, stochastic, and mini-batch strategies", "bloom_level": "Analyze"},
+                    ],
+                    "target_lesson_count": 2,
+                    "source_material": "Lecture notes on convex optimization, annotated Python notebooks, and practical training logs.",
+                    "generated_from_topic": True,
+                    "is_global": False,
+                    "owner_key": "brian",
+                    "lessons": [
+                        {
+                            "title": "Gradient Descent Fundamentals",
+                            "learner_level": "intermediate",
+                            "source_material": "Walk-through of loss landscape intuition with quadratic examples and contour diagrams.",
+                            "objectives": [
+                                {"text": "State the gradient descent update rule", "bloom_level": "Remember"},
+                                {"text": "Interpret learning rate effects on convergence", "bloom_level": "Analyze"},
+                            ],
+                            "glossary_terms": [
+                                {"term": "Learning Rate", "definition": "Scalar that scales the gradient step during optimization."},
+                                {"term": "Loss Landscape", "definition": "Surface describing how the loss changes with model parameters."},
+                                {"term": "Convergence", "definition": "Process of iteratively approaching an optimum."},
+                            ],
+                            "mini_lesson": "Gradient descent walks downhill on a loss landscape by following the negative gradient. Choosing the learning rate balances progress with stability. Too small and updates crawl; too large and the algorithm overshoots the valley. Visualizing contour plots helps practitioners tune the step size and anticipate oscillations.",
+                            "mcqs": [
+                                {
+                                    "stem": "What happens when the learning rate is set too high?",
+                                    "options": [
+                                        {"text": "Updates overshoot and may diverge"},
+                                        {"text": "Optimization halts immediately", "rationale_wrong": "Stopping occurs only if gradients become zero or errors occur."},
+                                        {"text": "Gradients become zero regardless of the loss", "rationale_wrong": "Gradients depend on the loss surface, not the learning rate."},
+                                    ],
+                                    "correct_index": 0,
+                                    "cognitive_level": "Analyze",
+                                    "difficulty": "Medium",
+                                    "misconceptions": ["higher_rate_faster"],
+                                    "correct_rationale": "Large steps can bounce across the valley and fail to converge.",
+                                },
+                                {
+                                    "stem": "Which equation represents one gradient descent step?",
+                                    "options": [
+                                        {"text": "θ := θ - α ∇J(θ)"},
+                                        {"text": "θ := θ + α θ", "rationale_wrong": "This ignores the gradient information entirely."},
+                                        {"text": "θ := θ / α", "rationale_wrong": "Dividing by the learning rate is unrelated to descent."},
+                                    ],
+                                    "correct_index": 0,
+                                    "cognitive_level": "Remember",
+                                    "difficulty": "Easy",
+                                    "misconceptions": ["missing_gradient"],
+                                    "correct_rationale": "The gradient guides the step direction while α scales it.",
+                                },
+                            ],
+                        },
+                        {
+                            "title": "Mini-Batch Strategies",
+                            "learner_level": "intermediate",
+                            "source_material": "Case study comparing batch, stochastic, and mini-batch training on image classifiers.",
+                            "objectives": [
+                                {"text": "Differentiate stochastic and mini-batch gradient descent", "bloom_level": "Analyze"},
+                                {"text": "Select batch sizes to balance speed and noise", "bloom_level": "Apply"},
+                            ],
+                            "glossary_terms": [
+                                {"term": "Batch Gradient Descent", "definition": "Optimization that uses the full dataset each update."},
+                                {"term": "Stochastic Gradient Descent", "definition": "Optimization using one example per update."},
+                                {"term": "Mini-Batch", "definition": "Subset of examples used per update to balance variance and efficiency."},
+                            ],
+                            "mini_lesson": "Mini-batches blend the stability of batch training with the responsiveness of stochastic updates. Smaller batches introduce gradient noise that can escape shallow minima, while larger batches leverage hardware parallelism. Practitioners often start with powers of two (32, 64, 128) and adjust based on validation loss curves.",
+                            "mcqs": [
+                                {
+                                    "stem": "Why choose mini-batch gradient descent over pure stochastic descent?",
+                                    "options": [
+                                        {"text": "It smooths gradient noise while remaining efficient"},
+                                        {"text": "It eliminates the need for a learning rate", "rationale_wrong": "Learning rate tuning is still required."},
+                                        {"text": "It guarantees convergence in one epoch", "rationale_wrong": "Convergence still depends on many factors."},
+                                    ],
+                                    "correct_index": 0,
+                                    "cognitive_level": "Analyze",
+                                    "difficulty": "Medium",
+                                    "misconceptions": ["mini_batch_is_exact"],
+                                    "correct_rationale": "Mini-batches reduce variance while keeping computation tractable.",
+                                },
+                                {
+                                    "stem": "Which batch size balances speed and noise for many image tasks?",
+                                    "options": [
+                                        {"text": "A power of two such as 64"},
+                                        {"text": "Batch size of 1 to avoid memory use", "rationale_wrong": "Size 1 is pure stochastic descent."},
+                                        {"text": "Full dataset size each step", "rationale_wrong": "Full batches maximize stability but reduce responsiveness."},
+                                    ],
+                                    "correct_index": 0,
+                                    "cognitive_level": "Apply",
+                                    "difficulty": "Easy",
+                                    "misconceptions": ["bigger_always_better"],
+                                    "correct_rationale": "Powers of two align with hardware and offer a practical trade-off.",
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ]
 
-            with Path(args.output).open("w") as f:
-                json.dump(summary, f, indent=2, default=str)
-            print(f"📁 Summary saved to: {args.output}")
+            for unit_spec in units_spec:
+                owner_key = unit_spec["owner_key"]
+                unit_spec["owner_id"] = user_snapshots[owner_key]["id"]
+
+            for unit_spec in units_spec:
+                for lesson_spec in unit_spec["lessons"]:
+                    lesson_spec["id"] = str(uuid.uuid4())
+                    lesson_spec["flow_run_id"] = uuid.uuid4()
+
+                unit_entry = {
+                    "id": unit_spec["id"],
+                    "title": unit_spec["title"],
+                    "is_global": unit_spec["is_global"],
+                    "owner_key": unit_spec["owner_key"],
+                    "owner_id": unit_spec["owner_id"],
+                    "lessons": [],
+                }
+                units_output.append(unit_entry)
+
+                unit_model = UnitModel(
+                    id=unit_spec["id"],
+                    title=unit_spec["title"],
+                    description=unit_spec["description"],
+                    learner_level=unit_spec["learner_level"],
+                    lesson_order=[lesson["id"] for lesson in unit_spec["lessons"]],
+                    learning_objectives=unit_spec["learning_objectives"],
+                    target_lesson_count=unit_spec["target_lesson_count"],
+                    source_material=unit_spec["source_material"],
+                    generated_from_topic=unit_spec["generated_from_topic"],
+                    flow_type="standard",
+                    status="completed",
+                    creation_progress=None,
+                    error_message=None,
+                    user_id=unit_spec["owner_id"],
+                    is_global=unit_spec["is_global"],
+                )
+                db_session.add(unit_model)
+
+                for lesson_spec in unit_spec["lessons"]:
+                    package = build_lesson_package(
+                        lesson_spec["id"],
+                        title=lesson_spec["title"],
+                        learner_level=lesson_spec["learner_level"],
+                        objectives=lesson_spec["objectives"],
+                        glossary_terms=lesson_spec["glossary_terms"],
+                        mini_lesson=lesson_spec["mini_lesson"],
+                        mcqs=lesson_spec["mcqs"],
+                    )
+
+                    lesson_data = create_lesson_data(
+                        lesson_spec["id"],
+                        title=lesson_spec["title"],
+                        learner_level=lesson_spec["learner_level"],
+                        source_material=lesson_spec["source_material"],
+                        package=package,
+                        flow_run_id=lesson_spec["flow_run_id"],
+                    )
+
+                    lesson_dict = {**lesson_data, "unit_id": unit_spec["id"]}
+                    flow_run_data = create_sample_flow_run(
+                        lesson_spec["flow_run_id"],
+                        lesson_spec["id"],
+                        lesson_data,
+                        user_id=None,
+                    )
+                    step_runs = create_sample_step_runs(lesson_spec["flow_run_id"], lesson_data)
+                    llm_requests = create_sample_llm_requests(
+                        step_runs,
+                        user_id=None,
+                        lesson_title=lesson_spec["title"],
+                    )
+
+                    db_session.add(FlowRunModel(**flow_run_data))
+                    db_session.flush()
+                    for llm_data in llm_requests:
+                        db_session.add(LLMRequestModel(**llm_data))
+                    db_session.flush()
+                    for step_data in step_runs:
+                        db_session.add(FlowStepRunModel(**step_data))
+                    db_session.flush()
+
+                    db_session.add(LessonModel(**lesson_dict))
+
+                    unit_entry["lessons"].append(
+                        {
+                            "lesson_id": lesson_spec["id"],
+                            "title": lesson_spec["title"],
+                            "exercise_count": len(package.exercises),
+                            "glossary_count": len(package.glossary["terms"]),
+                        }
+                    )
+
+            if args.verbose:
+                print("📈 Creating learning sessions and unit sessions for sample progress...")
+
+            now = datetime.now(UTC)
+
+            cat_unit = units_spec[0]
+            grad_unit = units_spec[1]
+
+            epsilon_session = LearningSessionModel(
+                id=str(uuid.uuid4()),
+                lesson_id=cat_unit["lessons"][0]["id"],
+                unit_id=cat_unit["id"],
+                user_id=str(epsilon_learner.id),
+                status=SessionStatus.COMPLETED.value,
+                started_at=now - timedelta(days=3),
+                completed_at=now - timedelta(days=2, hours=5),
+                current_exercise_index=3,
+                total_exercises=6,
+                exercises_completed=6,
+                exercises_correct=5,
+                progress_percentage=100.0,
+                session_data={"notes": "Completed during community volunteer orientation."},
+            )
+
+            nova_session = LearningSessionModel(
+                id=str(uuid.uuid4()),
+                lesson_id=cat_unit["lessons"][1]["id"],
+                unit_id=cat_unit["id"],
+                user_id=str(nova_learner.id),
+                status=SessionStatus.ACTIVE.value,
+                started_at=now - timedelta(days=1, hours=4),
+                completed_at=None,
+                current_exercise_index=1,
+                total_exercises=6,
+                exercises_completed=2,
+                exercises_correct=2,
+                progress_percentage=35.0,
+                session_data={"active_lesson_segment": "Roof safety tips"},
+            )
+
+            brian_session = LearningSessionModel(
+                id=str(uuid.uuid4()),
+                lesson_id=grad_unit["lessons"][0]["id"],
+                unit_id=grad_unit["id"],
+                user_id=str(brian_admin.id),
+                status=SessionStatus.ACTIVE.value,
+                started_at=now - timedelta(days=5),
+                completed_at=None,
+                current_exercise_index=1,
+                total_exercises=4,
+                exercises_completed=2,
+                exercises_correct=2,
+                progress_percentage=55.0,
+                session_data={"current_topic": "Learning rate warm-up"},
+            )
+
+            db_session.add_all([epsilon_session, nova_session, brian_session])
+
+            epsilon_unit_session = UnitSessionModel(
+                id=str(uuid.uuid4()),
+                unit_id=cat_unit["id"],
+                user_id=str(epsilon_learner.id),
+                status=SessionStatus.COMPLETED.value,
+                started_at=now - timedelta(days=4),
+                completed_at=now - timedelta(days=2),
+                updated_at=now - timedelta(days=2),
+                progress_percentage=100.0,
+                last_lesson_id=cat_unit["lessons"][2]["id"],
+                completed_lesson_ids=[lesson["id"] for lesson in cat_unit["lessons"]],
+            )
+
+            brian_unit_session = UnitSessionModel(
+                id=str(uuid.uuid4()),
+                unit_id=grad_unit["id"],
+                user_id=str(brian_admin.id),
+                status=SessionStatus.ACTIVE.value,
+                started_at=now - timedelta(days=5),
+                completed_at=None,
+                updated_at=now - timedelta(hours=6),
+                progress_percentage=55.0,
+                last_lesson_id=grad_unit["lessons"][0]["id"],
+                completed_lesson_ids=[grad_unit["lessons"][0]["id"]],
+            )
+
+            db_session.add_all([epsilon_unit_session, brian_unit_session])
+
+            users_created_count = len(sample_users)
+            global_units_count = sum(1 for unit in units_spec if unit["is_global"])
+            personal_units_count = len(units_spec) - global_units_count
+            learning_session_statuses = [
+                epsilon_session.status,
+                nova_session.status,
+                brian_session.status,
+            ]
+            unit_session_statuses = [
+                epsilon_unit_session.status,
+                brian_unit_session.status,
+            ]
 
     except Exception as e:
         print(f"❌ Error: {e}")
         if args.verbose:
             traceback.print_exc()
         sys.exit(1)
+
+    ordered_user_keys = ["brian", "eylem", "epsilon", "nova"]
+
+    print("✅ Seed data created successfully!")
+    print(f"   • Users created: {users_created_count} (admins: 2, learners: 2)")
+    for key in ordered_user_keys:
+        snapshot = user_snapshots[key]
+        role_label = "Admin" if snapshot["role"] == "admin" else "Learner"
+        print(f"     - {role_label}: {snapshot['name']} <{snapshot['email']}>")
+
+    print()
+    for unit_entry in units_output:
+        owner_key = unit_entry["owner_key"]
+        owner_name = user_snapshots[owner_key]["name"]
+        visibility = "Global" if unit_entry["is_global"] else "Private"
+        print(f"   • {visibility} Unit {unit_entry['id']}: {unit_entry['title']} (owner: {owner_name})")
+        for lesson in unit_entry["lessons"]:
+            print(f"     • Lesson {lesson['lesson_id']}: {lesson['title']} — exercises: {lesson['exercise_count']}, glossary terms: {lesson['glossary_count']}")
+
+    print()
+    print(f"   • Global units: {global_units_count}; Private units: {personal_units_count}")
+    print(f"   • Learning sessions: {len(learning_session_statuses)} ({', '.join(learning_session_statuses)})")
+    print(f"   • Unit sessions: {len(unit_session_statuses)} ({', '.join(unit_session_statuses)})")
+
+    if args.output:
+        summary = {
+            "users": [
+                {
+                    "id": snapshot["id"],
+                    "name": snapshot["name"],
+                    "email": snapshot["email"],
+                    "role": snapshot["role"],
+                }
+                for key, snapshot in user_snapshots.items()
+            ],
+            "units": [
+                {
+                    "id": unit_entry["id"],
+                    "title": unit_entry["title"],
+                    "is_global": unit_entry["is_global"],
+                    "owner_name": user_snapshots[unit_entry["owner_key"]]["name"],
+                    "lessons": unit_entry["lessons"],
+                }
+                for unit_entry in units_output
+            ],
+        }
+
+        with Path(args.output).open("w") as f:
+            json.dump(summary, f, indent=2, default=str)
+        print(f"📁 Summary saved to: {args.output}")
 
 
 if __name__ == "__main__":

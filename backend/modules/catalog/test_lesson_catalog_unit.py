@@ -5,6 +5,7 @@ Tests for the lesson catalog service layer.
 """
 
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 from modules.catalog.service import CatalogService, LessonDetail, LessonSummary
@@ -129,6 +130,77 @@ class TestCatalogService:
         # Assert
         assert result is None
         content.get_lesson.assert_called_once_with("nonexistent")
+
+    def test_browse_units_for_user_splits_personal_and_global(self) -> None:
+        """Personal units should be separated from shared global units."""
+
+        content = Mock()
+        units = Mock()
+        service = CatalogService(content, units)
+
+        personal_unit = SimpleNamespace(
+            id="unit-1",
+            title="Personal Unit",
+            description="Personal",
+            learner_level="beginner",
+            lesson_order=["lesson-1"],
+            target_lesson_count=None,
+            generated_from_topic=False,
+            flow_type="standard",
+            status="completed",
+            creation_progress=None,
+            error_message=None,
+        )
+
+        duplicated_global = SimpleNamespace(
+            id="unit-1",
+            title="Shared Personal",
+            description="Duplicate",
+            learner_level="beginner",
+            lesson_order=[],
+            target_lesson_count=None,
+            generated_from_topic=True,
+            flow_type="standard",
+            status="completed",
+            creation_progress=None,
+            error_message=None,
+        )
+
+        other_global = SimpleNamespace(
+            id="unit-2",
+            title="Global Unit",
+            description="Shared",
+            learner_level="intermediate",
+            lesson_order=[],
+            target_lesson_count=None,
+            generated_from_topic=False,
+            flow_type="fast-track",
+            status="completed",
+            creation_progress=None,
+            error_message=None,
+        )
+
+        units.list_units_for_user.return_value = [personal_unit]
+        units.list_global_units.return_value = [duplicated_global, other_global]
+        content.get_lessons_by_unit.side_effect = [["lesson-a", "lesson-b"]]
+
+        result = service.browse_units_for_user(user_id=42)
+
+        assert [summary.id for summary in result.personal_units] == ["unit-1"]
+        assert result.personal_units[0].lesson_count == 1
+        assert [summary.id for summary in result.global_units] == ["unit-2"]
+        assert result.global_units[0].lesson_count == 2
+
+        content.get_lessons_by_unit.assert_called_once_with("unit-2")
+
+        # When global units are excluded, ensure the global provider is not queried
+        content.get_lessons_by_unit.reset_mock()
+        units.list_global_units.reset_mock()
+
+        second = service.browse_units_for_user(user_id=42, include_global=False)
+        assert second.global_units == []
+        units.list_global_units.assert_not_called()
+        content.get_lessons_by_unit.assert_not_called()
 
     def test_lesson_summary_matches_learner_level(self) -> None:
         """Test LessonSummary.matches_learner_level method."""

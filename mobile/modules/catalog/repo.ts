@@ -6,18 +6,14 @@
  */
 
 import { infrastructureProvider } from '../infrastructure/public';
-import type { ApiUnitSummary, ApiUnitDetail } from './models';
 import type {
   SearchLessonsRequest,
   CatalogStatistics,
   CatalogError,
-  UnitCreationRequest,
-  UnitCreationResponse,
 } from './models';
 
 // Backend API endpoints
 const LESSON_CATALOG_BASE = '/api/v1/catalog';
-const CONTENT_CREATOR_BASE = '/api/v1/content-creator';
 
 // API response types (private to repo)
 interface ApiBrowseLessonsResponse {
@@ -246,114 +242,6 @@ export class CatalogRepo {
     } catch (error) {
       console.warn('[CatalogRepo] Health check failed:', error);
       return false;
-    }
-  }
-
-  // ================================
-  // Units Endpoints
-  // ================================
-
-  async listUnits(params?: {
-    limit?: number;
-    offset?: number;
-  }): Promise<ApiUnitSummary[]> {
-    const limit = params?.limit ?? 100;
-    const offset = params?.offset ?? 0;
-    const url = `${LESSON_CATALOG_BASE}/units?limit=${encodeURIComponent(String(limit))}&offset=${encodeURIComponent(String(offset))}`;
-    try {
-      return await this.infrastructure.request<ApiUnitSummary[]>(url, {
-        method: 'GET',
-      });
-    } catch (error) {
-      throw this.handleError(error, 'Failed to list units');
-    }
-  }
-
-  async getUnitDetail(unitId: string): Promise<ApiUnitDetail> {
-    const url = `${LESSON_CATALOG_BASE}/units/${encodeURIComponent(unitId)}`;
-    try {
-      return await this.infrastructure.request<ApiUnitDetail>(url, {
-        method: 'GET',
-      });
-    } catch (error) {
-      throw this.handleError(error, `Failed to get unit ${unitId}`);
-    }
-  }
-
-  /**
-   * Create a new unit from mobile app
-   */
-  async createUnit(
-    request: UnitCreationRequest
-  ): Promise<UnitCreationResponse> {
-    try {
-      const endpoint = `${CONTENT_CREATOR_BASE}/units`;
-
-      const response = await this.infrastructure.request<{
-        unit_id: string;
-        status: string;
-        title: string;
-      }>(endpoint, {
-        method: 'POST',
-        body: JSON.stringify({
-          topic: request.topic,
-          difficulty: request.difficulty,
-          target_lesson_count: request.targetLessonCount,
-        }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      // Convert snake_case to camelCase
-      return {
-        unitId: response.unit_id,
-        status: response.status as any,
-        title: response.title,
-      };
-    } catch (error) {
-      throw this.handleError(error, 'Failed to create unit');
-    }
-  }
-
-  /**
-   * Retry failed unit creation
-   */
-  async retryUnitCreation(unitId: string): Promise<UnitCreationResponse> {
-    try {
-      const endpoint = `${CONTENT_CREATOR_BASE}/units/${encodeURIComponent(unitId)}/retry`;
-
-      const response = await this.infrastructure.request<{
-        unit_id: string;
-        status: string;
-        title: string;
-      }>(endpoint, {
-        method: 'POST',
-      });
-
-      // Convert snake_case to camelCase
-      return {
-        unitId: response.unit_id,
-        status: response.status as any,
-        title: response.title,
-      };
-    } catch (error) {
-      throw this.handleError(error, 'Failed to retry unit creation');
-    }
-  }
-
-  /**
-   * Dismiss (delete) a failed unit
-   */
-  async dismissUnit(unitId: string): Promise<void> {
-    try {
-      const endpoint = `${CONTENT_CREATOR_BASE}/units/${encodeURIComponent(unitId)}`;
-
-      await this.infrastructure.request<{ message: string }>(endpoint, {
-        method: 'DELETE',
-      });
-    } catch (error) {
-      throw this.handleError(error, 'Failed to dismiss unit');
     }
   }
 

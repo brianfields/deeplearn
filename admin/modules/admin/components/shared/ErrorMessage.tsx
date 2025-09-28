@@ -8,11 +8,17 @@ import { cn } from '@/lib/utils';
 
 interface ErrorMessageProps {
   message: string;
+  details?: string;
   className?: string;
   onRetry?: () => void;
 }
 
-export function ErrorMessage({ message, className, onRetry }: ErrorMessageProps) {
+export function ErrorMessage({
+  message,
+  details,
+  className,
+  onRetry,
+}: ErrorMessageProps) {
   return (
     <div className={cn('rounded-lg border border-red-200 bg-red-50 p-4', className)}>
       <div className="flex items-start">
@@ -33,6 +39,11 @@ export function ErrorMessage({ message, className, onRetry }: ErrorMessageProps)
         <div className="ml-3 flex-1">
           <h3 className="text-sm font-medium text-red-800">Error</h3>
           <p className="mt-1 text-sm text-red-700">{message}</p>
+          {details && (
+            <pre className="mt-2 whitespace-pre-wrap break-words text-xs text-red-600">
+              {details}
+            </pre>
+          )}
           {onRetry && (
             <div className="mt-3">
               <button

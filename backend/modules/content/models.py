@@ -11,6 +11,7 @@ from datetime import datetime
 from sqlalchemy import JSON, Boolean, CheckConstraint, Column, DateTime, ForeignKey, Integer, String, Text
 
 from modules.shared_models import Base, PostgresUUID
+from modules.user.models import UserModel  # noqa: F401  # Ensure users table registered for FK
 
 
 class LessonModel(Base):
@@ -30,7 +31,7 @@ class LessonModel(Base):
     # Reference to the flow run that generated this lesson
     flow_run_id = Column(PostgresUUID(), ForeignKey("flow_runs.id"), nullable=True, index=True)
 
-    # Association to unit (optional during transition; enforce later)
+    # Association to unit (every lesson belongs to a unit)
     unit_id = Column(String(36), ForeignKey("units.id"), nullable=True, index=True)
 
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
@@ -52,6 +53,10 @@ class UnitModel(Base):
 
     # Ordered list of lesson IDs belonging to this unit
     lesson_order = Column(JSON, nullable=False, default=list)
+
+    # Ownership and sharing metadata
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    is_global = Column(Boolean, nullable=False, default=False)
 
     # New fields for unit-level generation and metadata
     # JSON structure: list of unit-level learning objectives or structured objects

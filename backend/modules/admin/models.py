@@ -170,3 +170,68 @@ class LessonsListResponse(BaseModel):
     page: int
     page_size: int
     has_next: bool
+
+
+# ---- User Management DTOs ----
+
+
+class UserAssociationSummary(BaseModel):
+    owned_unit_count: int
+    owned_global_unit_count: int
+    learning_session_count: int
+    llm_request_count: int
+
+
+class UserOwnedUnitSummary(BaseModel):
+    id: str
+    title: str
+    is_global: bool
+    updated_at: datetime
+
+
+class UserSessionSummary(BaseModel):
+    id: str
+    lesson_id: str
+    status: str
+    started_at: str
+    completed_at: str | None
+    progress_percentage: float
+
+
+class UserLLMRequestSummary(BaseModel):
+    id: str
+    model: str
+    status: str
+    created_at: datetime
+    tokens_used: int | None
+
+
+class UserSummary(BaseModel):
+    id: int | str
+    email: str
+    name: str
+    role: str
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+    associations: UserAssociationSummary
+
+
+class UserDetail(UserSummary):
+    owned_units: list[UserOwnedUnitSummary]
+    recent_sessions: list[UserSessionSummary]
+    recent_llm_requests: list[UserLLMRequestSummary]
+
+
+class UserUpdateRequest(BaseModel):
+    name: str | None = None
+    role: str | None = None
+    is_active: bool | None = None
+
+
+class UserListResponse(BaseModel):
+    users: list[UserSummary]
+    total_count: int
+    page: int
+    page_size: int
+    has_next: bool

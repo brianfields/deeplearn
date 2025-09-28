@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from modules.admin.routes import router as admin_router
 from modules.catalog.routes import router as catalog_router
+from modules.content.routes import router as content_router
 from modules.content_creator.routes import router as content_creator_router
 from modules.infrastructure.debug_routes import router as debug_router
 from modules.infrastructure.exception_handlers import (
@@ -30,6 +31,7 @@ from modules.infrastructure.exception_handlers import (
 from modules.infrastructure.public import DatabaseSession, infrastructure_provider
 from modules.learning_session.routes import router as learning_session_router
 from modules.task_queue.routes import router as task_queue_router
+from modules.user.routes import router as user_router
 
 
 # Configure enhanced logging
@@ -135,6 +137,8 @@ setup_error_middleware(app)
 app.include_router(learning_session_router, tags=["Learning Sessions"])
 app.include_router(catalog_router, tags=["Catalog"])
 app.include_router(content_creator_router, tags=["Content Creator"])
+app.include_router(content_router, tags=["Content"])
+app.include_router(user_router, tags=["Users"])
 app.include_router(admin_router, tags=["Admin"])
 app.include_router(task_queue_router, tags=["Task Queue"])
 app.include_router(debug_router, tags=["Debug"])  # Only active in DEBUG mode

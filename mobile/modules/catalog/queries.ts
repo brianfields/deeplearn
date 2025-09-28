@@ -6,11 +6,8 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { catalogProvider } from './public';
-import type {
-  LessonFilters,
-  PaginationInfo,
-  UnitCreationRequest,
-} from './models';
+import type { LessonFilters, PaginationInfo } from './models';
+import type { UnitCreationRequest } from '../content_creator/public';
 
 // Get the lesson catalog service instance
 const catalog = catalogProvider();
@@ -18,8 +15,24 @@ const catalog = catalogProvider();
 // Query keys
 export const catalogKeys = {
   all: ['catalog'] as const,
-  units: (p?: { limit?: number; offset?: number }) =>
-    ['catalog', 'units', p ?? {}] as const,
+  units: (p?: {
+    limit?: number;
+    offset?: number;
+    currentUserId?: number | null;
+  }) => ['catalog', 'units', p ?? {}] as const,
+  userUnitCollections: (
+    userId: number,
+    options?: { includeGlobal?: boolean; limit?: number; offset?: number }
+  ) =>
+    [
+      'catalog',
+      'units',
+      'collections',
+      userId,
+      options?.includeGlobal ?? true,
+      options?.limit ?? null,
+      options?.offset ?? null,
+    ] as const,
   unitDetail: (id: string) => ['catalog', 'units', 'detail', id] as const,
   browse: (
     filters?: LessonFilters,
@@ -121,7 +134,11 @@ export function usePopularLessons(
 /**
  * Browse units via lesson catalog service (delegates to units module)
  */
-export function useCatalogUnits(params?: { limit?: number; offset?: number }) {
+export function useCatalogUnits(params?: {
+  limit?: number;
+  offset?: number;
+  currentUserId?: number | null;
+}) {
   return useQuery({
     queryKey: catalogKeys.units(params),
     queryFn: () => catalog.browseUnits(params),
@@ -136,10 +153,13 @@ export function useCatalogUnits(params?: { limit?: number; offset?: number }) {
   });
 }
 
-export function useCatalogUnitDetail(unitId: string) {
+export function useCatalogUnitDetail(
+  unitId: string,
+  options?: { currentUserId?: number | null }
+) {
   return useQuery({
     queryKey: catalogKeys.unitDetail(unitId),
-    queryFn: () => catalog.getUnitDetail(unitId),
+    queryFn: () => catalog.getUnitDetail(unitId, options?.currentUserId),
     enabled: !!unitId?.trim(),
     staleTime: 10 * 60 * 1000,
   });
@@ -190,11 +210,17 @@ export function useCreateUnit() {
 
   return useMutation({
     mutationFn: (request: UnitCreationRequest) => catalog.createUnit(request),
-    onSuccess: response => {
+    onSuccess: (response, variables) => {
       // Invalidate units list to show the new unit
       queryClient.invalidateQueries({
         queryKey: catalogKeys.units(),
       });
+
+      if (variables.ownerUserId) {
+        queryClient.invalidateQueries({
+          queryKey: catalogKeys.userUnitCollections(variables.ownerUserId),
+        });
+      }
 
       // Optimistically add the new unit to the cache with in_progress status
       // This will make it appear immediately in the units list
@@ -202,6 +228,8 @@ export function useCreateUnit() {
         if (!oldData) return oldData;
 
         // Create optimistic unit data
+        const ownerUserId = variables.ownerUserId ?? null;
+        const shareGlobally = Boolean(variables.shareGlobally);
         const optimisticUnit = {
           id: response.unitId,
           title: response.title,
@@ -217,6 +245,14 @@ export function useCreateUnit() {
           statusLabel: 'Creating...',
           isInteractive: false,
           progressMessage: 'Creating unit content...',
+          ownerUserId,
+          isGlobal: shareGlobally,
+          ownershipLabel: shareGlobally
+            ? 'Shared Globally'
+            : ownerUserId
+              ? 'My Unit'
+              : 'Personal',
+          isOwnedByCurrentUser: Boolean(ownerUserId),
         };
 
         // Add to the beginning of the array (newest first)
@@ -237,12 +273,19 @@ export function useRetryUnitCreation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (unitId: string) => catalog.retryUnitCreation(unitId),
-    onSuccess: response => {
+    mutationFn: (args: { unitId: string; ownerUserId?: number | null }) =>
+      catalog.retryUnitCreation(args.unitId),
+    onSuccess: (response, variables) => {
       // Invalidate units list to refresh status
       queryClient.invalidateQueries({
         queryKey: catalogKeys.units(),
       });
+
+      if (variables.ownerUserId) {
+        queryClient.invalidateQueries({
+          queryKey: catalogKeys.userUnitCollections(variables.ownerUserId),
+        });
+      }
 
       // Optimistically update the unit status in cache
       queryClient.setQueryData(catalogKeys.units(), (oldData: any) => {
@@ -279,22 +322,68 @@ export function useDismissUnit() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (unitId: string) => catalog.dismissUnit(unitId),
-    onSuccess: (_: any, unitId: string) => {
+    mutationFn: (args: { unitId: string; ownerUserId?: number | null }) =>
+      catalog.dismissUnit(args.unitId),
+    onSuccess: (_: any, variables) => {
       // Invalidate units list to refresh
       queryClient.invalidateQueries({
         queryKey: catalogKeys.units(),
       });
 
+      if (variables.ownerUserId) {
+        queryClient.invalidateQueries({
+          queryKey: catalogKeys.userUnitCollections(variables.ownerUserId),
+        });
+      }
+
       // Optimistically remove the unit from cache
       queryClient.setQueryData(catalogKeys.units(), (oldData: any) => {
         if (!oldData) return oldData;
 
-        return oldData.filter((unit: any) => unit.id !== unitId);
+        return oldData.filter((unit: any) => unit.id !== variables.unitId);
       });
     },
     onError: error => {
       console.error('Unit dismiss failed:', error);
+    },
+  });
+}
+
+export function useUserUnitCollections(
+  userId: number,
+  options?: { includeGlobal?: boolean; limit?: number; offset?: number }
+) {
+  return useQuery({
+    queryKey: catalogKeys.userUnitCollections(userId, options),
+    queryFn: () => catalog.getUserUnitCollections(userId, options),
+    enabled: Number.isFinite(userId) && userId > 0,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useToggleUnitSharing() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (args: {
+      unitId: string;
+      makeGlobal: boolean;
+      actingUserId?: number | null;
+    }) => catalog.toggleUnitSharing(args.unitId, args),
+    onSuccess: (_unit, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: catalogKeys.units(),
+      });
+
+      if (variables.actingUserId) {
+        queryClient.invalidateQueries({
+          queryKey: catalogKeys.userUnitCollections(variables.actingUserId),
+        });
+      }
+
+      queryClient.invalidateQueries({
+        queryKey: catalogKeys.unitDetail(variables.unitId),
+      });
     },
   });
 }

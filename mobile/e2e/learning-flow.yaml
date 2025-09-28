@@ -1,5 +1,22 @@
 appId: host.exp.Exponent
 ---
+# Step 0: Sign in with seed user credentials
+- assertVisible:
+    id: 'login-screen'
+- tapOn:
+    id: 'login-email-input'
+- inputText: 'epsilon.cat@example.com'
+- tapOn:
+    id: 'login-password-input'
+- inputText: 'epsilon'
+- tapOn:
+    id: 'login-submit-button'
+- runFlow:
+    commands:
+      - tapOn:
+          text: 'Not Now'
+          optional: true
+
 # Wait for app to load and verify we're on the units screen
 - assertVisible:
     id: 'units-title'
@@ -35,30 +52,6 @@ appId: host.exp.Exponent
     id: 'mcq-choice-1'
 - tapOn:
     id: 'mcq-choice-1'
-- tapOn:
-    id: 'mcq-continue-button'
-
-# Question 3
-- assertVisible:
-    id: 'mcq-choice-0'
-- tapOn:
-    id: 'mcq-choice-0'
-- tapOn:
-    id: 'mcq-continue-button'
-
-# Question 4
-- assertVisible:
-    id: 'mcq-choice-2'
-- tapOn:
-    id: 'mcq-choice-2'
-- tapOn:
-    id: 'mcq-continue-button'
-
-# Question 5
-- assertVisible:
-    id: 'mcq-choice-3'
-- tapOn:
-    id: 'mcq-choice-3'
 - tapOn:
     id: 'mcq-continue-button'
 

@@ -16,16 +16,19 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Switch,
 } from 'react-native';
 import { uiSystemProvider, useHaptics } from '../../ui_system/public';
 import { useNavigation } from '@react-navigation/native';
-import type { Difficulty } from '../models';
+import type { Difficulty } from '../../content/public';
 import { useCreateUnit } from '../queries';
+import { useAuth } from '../../user/public';
 
 interface CreateUnitFormData {
   topic: string;
   learner_level: Difficulty;
   targetLessonCount: number | null;
+  shareGlobally: boolean;
 }
 
 interface CreateUnitErrors {
@@ -40,11 +43,14 @@ export function CreateUnitScreen() {
   const ui = uiSystemProvider();
   const theme = ui.getCurrentTheme();
   const haptics = useHaptics();
+  const { user } = useAuth();
+  const currentUserId = user?.id;
 
   const [formData, setFormData] = useState<CreateUnitFormData>({
     topic: '',
     learner_level: 'beginner',
     targetLessonCount: null,
+    shareGlobally: false,
   });
 
   const [errors, setErrors] = useState<CreateUnitErrors>({});
@@ -81,6 +87,11 @@ export function CreateUnitScreen() {
       return;
     }
 
+    if (!currentUserId) {
+      Alert.alert('Sign in required', 'Please log in to create a unit.');
+      return;
+    }
+
     haptics.trigger('medium');
 
     console.log('Starting unit creation with data:', {
@@ -94,6 +105,8 @@ export function CreateUnitScreen() {
         topic: formData.topic.trim(),
         difficulty: formData.learner_level,
         targetLessonCount: formData.targetLessonCount,
+        shareGlobally: formData.shareGlobally,
+        ownerUserId: currentUserId,
       });
 
       console.log('Unit creation response:', response);
@@ -260,6 +273,31 @@ export function CreateUnitScreen() {
             </View>
           </View>
 
+          {/* Share globally toggle */}
+          <View style={styles.fieldContainer}>
+            <View style={styles.toggleRow}>
+              <Text
+                style={[
+                  styles.fieldLabel,
+                  { color: theme.colors.text, fontWeight: 'normal' },
+                ]}
+              >
+                Share globally
+              </Text>
+              <Switch
+                value={formData.shareGlobally}
+                onValueChange={value =>
+                  setFormData(prev => ({ ...prev, shareGlobally: value }))
+                }
+              />
+            </View>
+            <Text style={{ color: theme.colors.textSecondary }}>
+              {formData.shareGlobally
+                ? 'This unit will be visible to all learners once created.'
+                : 'Leave off to keep the unit personal to you.'}
+            </Text>
+          </View>
+
           {/* Target Lesson Count */}
           <View style={styles.fieldContainer}>
             <Text
@@ -401,6 +439,12 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 16,
     fontWeight: '600',
+    marginBottom: 8,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 8,
   },
   textInput: {

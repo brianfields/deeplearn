@@ -8,10 +8,10 @@ import React, { useState, useCallback } from 'react';
 import {
   View,
   StyleSheet,
-  FlatList,
   SafeAreaView,
   TextInput,
   TouchableOpacity,
+  SectionList,
 } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { reducedMotion } from '../../ui_system/utils/motion';
@@ -22,23 +22,38 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { UnitCard } from '../components/UnitCard';
 import {
-  useCatalogUnits,
+  useUserUnitCollections,
   useRetryUnitCreation,
   useDismissUnit,
 } from '../queries';
 import type { Unit } from '../public';
 import type { LearningStackParamList } from '../../../types';
 import { uiSystemProvider, Text, useHaptics } from '../../ui_system/public';
+import { useAuth, userIdentityProvider } from '../../user/public';
+import { Button } from '../../ui_system/components/Button';
 
 type LessonListScreenNavigationProp = NativeStackNavigationProp<
   LearningStackParamList,
   'LessonList'
 >;
 
+type UnitSection = {
+  title: string;
+  data: Unit[];
+  emptyMessage: string;
+};
+
 export function LessonListScreen() {
   const navigation = useNavigation<LessonListScreenNavigationProp>();
   const [searchQuery, setSearchQuery] = useState('');
-  const { data: units = [], isLoading, refetch } = useCatalogUnits();
+  const { user, signOut } = useAuth();
+  const identity = userIdentityProvider();
+  const currentUserId = user?.id ?? 0;
+  const {
+    data: collections,
+    isLoading,
+    refetch,
+  } = useUserUnitCollections(currentUserId, { includeGlobal: true });
   const retryUnitMutation = useRetryUnitCreation();
   const dismissUnitMutation = useDismissUnit();
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -46,11 +61,36 @@ export function LessonListScreen() {
   const theme = ui.getCurrentTheme();
   const haptics = useHaptics();
 
-  const filteredUnits = units.filter(
-    u =>
-      !searchQuery.trim() ||
-      u.title.toLowerCase().includes(searchQuery.trim().toLowerCase())
-  );
+  const personalUnits = collections?.personalUnits ?? [];
+  const globalUnits = collections?.globalUnits ?? [];
+  const totalUnits = personalUnits.length + globalUnits.length;
+
+  const matchesSearch = (unit: Unit) =>
+    !searchQuery.trim() ||
+    unit.title.toLowerCase().includes(searchQuery.trim().toLowerCase());
+
+  const filteredPersonalUnits = personalUnits.filter(matchesSearch);
+  const filteredGlobalUnits = globalUnits.filter(matchesSearch);
+
+  const sections: UnitSection[] = [
+    {
+      title: 'My Units',
+      data: filteredPersonalUnits,
+      emptyMessage: searchQuery
+        ? 'No personal units match your search.'
+        : 'Create a unit to see it here.',
+    },
+    {
+      title: 'Global Units',
+      data: filteredGlobalUnits,
+      emptyMessage: searchQuery
+        ? 'No shared units match your search.'
+        : 'Shared units from other learners appear here.',
+    },
+  ];
+
+  const hasResults =
+    filteredPersonalUnits.length > 0 || filteredGlobalUnits.length > 0;
 
   const handleUnitPress = useCallback(
     (unit: Unit) => {
@@ -66,16 +106,28 @@ export function LessonListScreen() {
 
   const handleRetryUnit = useCallback(
     (unitId: string) => {
-      retryUnitMutation.mutate(unitId);
+      if (!currentUserId) {
+        return;
+      }
+      retryUnitMutation.mutate(
+        { unitId, ownerUserId: currentUserId },
+        { onSuccess: () => refetch() }
+      );
     },
-    [retryUnitMutation]
+    [retryUnitMutation, currentUserId, refetch]
   );
 
   const handleDismissUnit = useCallback(
     (unitId: string) => {
-      dismissUnitMutation.mutate(unitId);
+      if (!currentUserId) {
+        return;
+      }
+      dismissUnitMutation.mutate(
+        { unitId, ownerUserId: currentUserId },
+        { onSuccess: () => refetch() }
+      );
     },
-    [dismissUnitMutation]
+    [dismissUnitMutation, currentUserId, refetch]
   );
 
   return (
@@ -83,17 +135,32 @@ export function LessonListScreen() {
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       {/* Header */}
-      <View style={styles.header}>
-        <Text
-          variant="h1"
-          testID="units-title"
-          style={{ fontWeight: 'normal' }}
-        >
-          Units
-        </Text>
-        <Text variant="secondary" color={theme.colors.textSecondary}>
-          {units.length} available
-        </Text>
+      <View
+        style={[styles.header, { flexDirection: 'row', alignItems: 'center' }]}
+      >
+        <View style={{ flex: 1 }}>
+          <Text
+            variant="h1"
+            testID="units-title"
+            style={{ fontWeight: 'normal' }}
+          >
+            Units
+          </Text>
+          <Text variant="secondary" color={theme.colors.textSecondary}>
+            {totalUnits} available
+          </Text>
+        </View>
+        <Button
+          title="Sign out"
+          variant="secondary"
+          size="small"
+          testID="unit-list-logout-button"
+          onPress={async () => {
+            haptics.trigger('light');
+            await identity.clear();
+            await signOut();
+          }}
+        />
       </View>
 
       {/* Search and Create Button */}
@@ -143,49 +210,74 @@ export function LessonListScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Unit List */}
-      <FlatList
-        data={filteredUnits}
-        renderItem={({ item, index }) => (
-          <Animated.View
-            entering={
-              reducedMotion.enabled
-                ? undefined
-                : FadeIn.duration(animationTimings.ui).delay(
-                    index * animationTimings.stagger
-                  )
-            }
-            style={styles.listItemContainer}
-          >
-            <UnitCard
-              unit={item}
-              onPress={handleUnitPress}
-              onRetry={handleRetryUnit}
-              onDismiss={handleDismissUnit}
-              index={index}
-            />
-          </Animated.View>
-        )}
+      {/* Unit Sections */}
+      <SectionList<Unit, UnitSection>
+        sections={sections}
         keyExtractor={item => item.id}
+        renderItem={({ item, index, section }) => {
+          const overallIndex =
+            section.title === 'Global Units'
+              ? filteredPersonalUnits.length + index
+              : index;
+          return (
+            <Animated.View
+              entering={
+                reducedMotion.enabled
+                  ? undefined
+                  : FadeIn.duration(animationTimings.ui).delay(
+                      overallIndex * animationTimings.stagger
+                    )
+              }
+              style={styles.listItemContainer}
+            >
+              <UnitCard
+                unit={item}
+                onPress={handleUnitPress}
+                onRetry={handleRetryUnit}
+                onDismiss={handleDismissUnit}
+                index={overallIndex}
+              />
+            </Animated.View>
+          );
+        }}
+        renderSectionHeader={({ section }) => (
+          <Text variant="title" style={styles.sectionHeader}>
+            {section.title}
+          </Text>
+        )}
+        renderSectionFooter={({ section }) =>
+          section.data.length === 0 ? (
+            <Text
+              variant="secondary"
+              color={theme.colors.textSecondary}
+              style={styles.sectionFooter}
+            >
+              {section.emptyMessage}
+            </Text>
+          ) : null
+        }
         contentContainerStyle={[
           styles.listContainer,
-          filteredUnits.length === 0 && styles.listContainerEmpty,
+          !hasResults && styles.listContainerEmpty,
         ]}
         refreshing={isLoading}
         onRefresh={() => refetch()}
-        ListEmptyComponent={() => (
-          <View style={styles.emptyState}>
-            <Search size={48} color={theme.colors.textSecondary} />
-            <Text variant="title" style={{ marginTop: 16 }}>
-              No Units Found
-            </Text>
-            <Text variant="body" color={theme.colors.textSecondary}>
-              {searchQuery
-                ? 'Try adjusting your search'
-                : 'Pull down to refresh'}
-            </Text>
-          </View>
-        )}
+        ListFooterComponent={() =>
+          hasResults ? null : (
+            <View style={styles.emptyState}>
+              <Search size={48} color={theme.colors.textSecondary} />
+              <Text variant="title" style={{ marginTop: 16 }}>
+                No Units Found
+              </Text>
+              <Text variant="body" color={theme.colors.textSecondary}>
+                {searchQuery
+                  ? 'Try adjusting your search'
+                  : 'Pull down to refresh'}
+              </Text>
+            </View>
+          )
+        }
+        stickySectionHeadersEnabled={false}
         showsVerticalScrollIndicator={false}
         removeClippedSubviews={true}
         maxToRenderPerBatch={10}
@@ -244,5 +336,12 @@ const styles = StyleSheet.create({
   emptyState: {
     alignItems: 'center',
     paddingVertical: 40,
+  },
+  sectionHeader: {
+    marginTop: 24,
+    marginBottom: 12,
+  },
+  sectionFooter: {
+    marginBottom: 16,
   },
 });

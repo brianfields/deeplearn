@@ -19,6 +19,7 @@ from .service import (
     SearchLessonsResponse,
     UnitDetail,
     UnitSummary,
+    UserUnitCollections,
 )
 
 
@@ -28,6 +29,14 @@ class CatalogProvider(Protocol):
     def browse_lessons(self, learner_level: str | None = None, limit: int = 100) -> BrowseLessonsResponse: ...
     def get_lesson_details(self, lesson_id: str) -> LessonDetail | None: ...
     def browse_units(self, limit: int = 100, offset: int = 0) -> list[UnitSummary]: ...
+    def browse_units_for_user(
+        self,
+        user_id: int,
+        *,
+        include_global: bool = True,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> UserUnitCollections: ...
     def get_unit_details(self, unit_id: str) -> UnitDetail | None: ...
     def search_lessons(
         self,
@@ -68,5 +77,6 @@ __all__ = [
     "SearchLessonsResponse",
     "UnitDetail",
     "UnitSummary",
+    "UserUnitCollections",
     "catalog_provider",
 ]

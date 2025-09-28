@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { useUnits } from '@/modules/admin/queries';
 import { LoadingSpinner } from '@/modules/admin/components/shared/LoadingSpinner';
 import { ErrorMessage } from '@/modules/admin/components/shared/ErrorMessage';
+import { formatDate } from '@/lib/utils';
 
 export default function UnitsPage() {
   const { data: units, isLoading, error, refetch } = useUnits();
@@ -62,6 +63,19 @@ export default function UnitsPage() {
                           Topic-generated
                         </span>
                       )}
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${u.is_global ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-700'}`}
+                      >
+                        {u.is_global ? 'Global' : 'Personal'}
+                      </span>
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                        Owner #{u.user_id ?? '—'}
+                      </span>
+                    </div>
+                    <div className="mt-2 text-xs text-gray-400">
+                      <span>Created {formatDate(u.created_at)}</span>
+                      <span className="mx-2">•</span>
+                      <span>Updated {formatDate(u.updated_at)}</span>
                     </div>
                   </div>
                 </div>

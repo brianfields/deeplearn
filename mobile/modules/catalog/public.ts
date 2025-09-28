@@ -14,9 +14,12 @@ import type {
   LessonFilters,
   CatalogStatistics,
   PaginationInfo,
+} from './models';
+import type { Unit, UnitDetail, UserUnitCollections } from '../content/public';
+import type {
   UnitCreationRequest,
   UnitCreationResponse,
-} from './models';
+} from '../content_creator/public';
 
 // Public interface protocol
 export interface CatalogProvider {
@@ -45,11 +48,23 @@ export interface CatalogProvider {
   browseUnits(params?: {
     limit?: number;
     offset?: number;
-  }): Promise<import('./models').Unit[]>;
-  getUnitDetail(unitId: string): Promise<import('./models').UnitDetail | null>;
+    currentUserId?: number | null;
+  }): Promise<Unit[]>;
+  getUnitDetail(
+    unitId: string,
+    currentUserId?: number | null
+  ): Promise<UnitDetail | null>;
   createUnit(request: UnitCreationRequest): Promise<UnitCreationResponse>;
   retryUnitCreation(unitId: string): Promise<UnitCreationResponse>;
   dismissUnit(unitId: string): Promise<void>;
+  getUserUnitCollections(
+    userId: number,
+    options?: { includeGlobal?: boolean; limit?: number; offset?: number }
+  ): Promise<UserUnitCollections>;
+  toggleUnitSharing(
+    unitId: string,
+    request: { makeGlobal: boolean; actingUserId?: number | null }
+  ): Promise<Unit>;
 }
 
 // Service instance (singleton)
@@ -81,6 +96,8 @@ export function catalogProvider(): CatalogProvider {
     createUnit: service.createUnit.bind(service),
     retryUnitCreation: service.retryUnitCreation.bind(service),
     dismissUnit: service.dismissUnit.bind(service),
+    getUserUnitCollections: service.getUserUnitCollections.bind(service),
+    toggleUnitSharing: service.toggleUnitSharing.bind(service),
   };
 }
 
@@ -92,7 +109,15 @@ export type {
   LessonFilters,
   CatalogStatistics,
   PaginationInfo,
+} from './models';
+export type {
   UnitCreationRequest,
   UnitCreationResponse,
-} from './models';
-export type { Unit, UnitDetail, UnitStatus, Difficulty } from './models';
+} from '../content_creator/public';
+export type {
+  Unit,
+  UnitDetail,
+  UnitStatus,
+  Difficulty,
+  UserUnitCollections,
+} from '../content/public';

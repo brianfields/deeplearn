@@ -18,7 +18,7 @@ export function LLMRequestsList() {
   const filters = useLLMRequestFilters();
   const { setLLMRequestFilters } = useAdminStore();
 
-  const { data: requests, isLoading, error, refetch } = useLLMRequests(filters);
+  const { data, isLoading, error, refetch } = useLLMRequests(filters);
 
   const handlePageChange = (newPage: number) => {
     setLLMRequestFilters({ page: newPage });
@@ -41,11 +41,11 @@ export function LLMRequestsList() {
     );
   }
 
-  const requestsList = requests?.requests || [];
-  const totalCount = requests?.total_count || 0;
-  const currentPage = requests?.page || filters.page || 1;
-  const pageSize = requests?.page_size || filters.page_size || 10;
-  const hasNext = requests?.has_next || false;
+  const requestsList = data?.requests ?? [];
+  const totalCount = data?.total_count ?? 0;
+  const currentPage = data?.page ?? filters.page ?? 1;
+  const pageSize = data?.page_size ?? filters.page_size ?? 10;
+  const hasNext = data?.has_next ?? false;
 
   return (
     <div className="space-y-6">
@@ -104,6 +104,9 @@ export function LLMRequestsList() {
                     Provider / Model
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    User
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -140,6 +143,18 @@ export function LLMRequestsList() {
                           </div>
                         </div>
                       </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {request.user_id ? (
+                        <Link
+                          href={`/users/${request.user_id}`}
+                          className="text-blue-600 hover:text-blue-900"
+                        >
+                          {request.user_id}
+                        </Link>
+                      ) : (
+                        <span className="text-gray-500">—</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <StatusBadge status={request.status} size="sm" />

@@ -5,15 +5,19 @@
  * Provides caching, error handling, and loading states.
  */
 
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AdminService } from './service';
 import type {
   FlowRunsQuery,
   LLMRequestsQuery,
   LessonsQuery,
   MetricsQuery,
+  UnitDetail,
+  UserDetail,
+  UserListQuery,
+  UserUpdatePayload,
+  LLMRequestsListResponse,
 } from './models';
-import type { UnitDetail } from './models';
 
 const service = new AdminService();
 
@@ -34,6 +38,9 @@ export const adminKeys = {
   units: () => [...adminKeys.all, 'units'] as const,
   unitsList: () => [...adminKeys.units(), 'list'] as const,
   unitDetail: (id: string) => [...adminKeys.units(), 'detail', id] as const,
+  users: () => [...adminKeys.all, 'users'] as const,
+  usersList: (params?: UserListQuery) => [...adminKeys.users(), 'list', params ?? {}] as const,
+  userDetail: (id: number | string) => [...adminKeys.users(), 'detail', id] as const,
   metrics: () => [...adminKeys.all, 'metrics'] as const,
   systemMetrics: (params?: MetricsQuery) => [...adminKeys.metrics(), 'system', params] as const,
   flowMetrics: (params?: MetricsQuery) => [...adminKeys.metrics(), 'flows', params] as const,
@@ -78,7 +85,7 @@ export function useFlowStepDetails(flowId: string, stepId: string) {
 // ---- LLM Request Hooks ----
 
 export function useLLMRequests(params?: LLMRequestsQuery) {
-  return useQuery({
+  return useQuery<LLMRequestsListResponse>({
     queryKey: adminKeys.llmRequestsList(params),
     queryFn: () => service.getLLMRequests(params),
     staleTime: 30 * 1000, // 30 seconds
@@ -167,6 +174,40 @@ export function useUnit(unitId: string) {
     queryFn: () => service.getUnitDetail(unitId),
     enabled: !!unitId,
     staleTime: 60 * 1000,
+  });
+}
+
+// ---- User Hooks ----
+
+export function useAdminUsers(params?: UserListQuery) {
+  return useQuery({
+    queryKey: adminKeys.usersList(params),
+    queryFn: () => service.getUsers(params),
+    staleTime: 30 * 1000,
+  });
+}
+
+export function useAdminUser(userId: number | string | null) {
+  return useQuery<UserDetail | null>({
+    queryKey: adminKeys.userDetail(userId ?? 'unknown'),
+    queryFn: () => (userId ? service.getUser(userId) : Promise.resolve(null)),
+    enabled: !!userId,
+    staleTime: 30 * 1000,
+  });
+}
+
+export function useUpdateAdminUser() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ userId, payload }: { userId: number | string; payload: UserUpdatePayload }) => {
+      return service.updateUser(userId, payload);
+    },
+    onSuccess: (data, variables) => {
+      if (data) {
+        queryClient.setQueryData(adminKeys.userDetail(variables.userId), data);
+      }
+      queryClient.invalidateQueries({ queryKey: adminKeys.users() });
+    },
   });
 }
 

@@ -11,6 +11,7 @@ import type { Theme as NavigationTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 // Screens (using new modular structure)
 import { LessonListScreen } from './modules/catalog/screens/UnitListScreen';
@@ -18,6 +19,8 @@ import { CreateUnitScreen } from './modules/catalog/screens/CreateUnitScreen';
 import LearningFlowScreen from './modules/learning_session/screens/LearningFlowScreen';
 import ResultsScreen from './modules/learning_session/screens/ResultsScreen';
 import { UnitDetailScreen } from './modules/catalog/screens/UnitDetailScreen';
+import LoginScreen from './modules/user/screens/LoginScreen';
+import RegisterScreen from './modules/user/screens/RegisterScreen';
 
 // Types
 import type { RootStackParamList, LearningStackParamList } from './types';
@@ -25,6 +28,7 @@ import type { RootStackParamList, LearningStackParamList } from './types';
 // Theme (using new modular structure)
 import { uiSystemProvider } from './modules/ui_system/public';
 import { reducedMotion } from './modules/ui_system/utils/motion';
+import { AuthProvider, useAuth } from './modules/user/public';
 
 // Create navigators
 const RootStack = createNativeStackNavigator<RootStackParamList>();
@@ -100,6 +104,21 @@ function LearningStackNavigator(): React.ReactElement {
 function RootNavigator(): React.ReactElement {
   const uiSystem = uiSystemProvider();
   const theme = uiSystem.getCurrentTheme();
+  const { user, isHydrated } = useAuth();
+
+  if (!isHydrated) {
+    return (
+      <View
+        style={[
+          styles.loadingContainer,
+          { backgroundColor: theme.colors.background },
+        ]}
+      >
+        <ActivityIndicator color={theme.colors.primary} size="large" />
+      </View>
+    );
+  }
+
   return (
     <RootStack.Navigator
       id={undefined}
@@ -110,14 +129,24 @@ function RootNavigator(): React.ReactElement {
         contentStyle: { backgroundColor: theme.colors.background },
       }}
     >
-      <RootStack.Screen name="Dashboard" component={LearningStackNavigator} />
-      <RootStack.Screen
-        name="LessonDetail"
-        component={LearningFlowScreen as any}
-        options={{
-          gestureEnabled: false, // Prevent swipe back during learning
-        }}
-      />
+      {!user ? (
+        <>
+          <RootStack.Screen name="Login" component={LoginScreen} />
+          <RootStack.Screen name="Register" component={RegisterScreen} />
+        </>
+      ) : (
+        <>
+          <RootStack.Screen
+            name="Dashboard"
+            component={LearningStackNavigator}
+          />
+          <RootStack.Screen
+            name="LessonDetail"
+            component={LearningFlowScreen as any}
+            options={{ gestureEnabled: false }}
+          />
+        </>
+      )}
     </RootStack.Navigator>
   );
 }
@@ -149,17 +178,27 @@ export default function App(): React.ReactElement {
     // eslint-disable-next-line react-native/no-inline-styles
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryClientProvider client={queryClient}>
-        <NavigationContainer theme={navigationTheme}>
-          <StatusBar
-            style={
-              uiSystem.isLightColor(theme.colors.surface) ? 'dark' : 'light'
-            }
-            backgroundColor={theme.colors.surface}
-            translucent={false}
-          />
-          <RootNavigator />
-        </NavigationContainer>
+        <AuthProvider>
+          <NavigationContainer theme={navigationTheme}>
+            <StatusBar
+              style={
+                uiSystem.isLightColor(theme.colors.surface) ? 'dark' : 'light'
+              }
+              backgroundColor={theme.colors.surface}
+              translucent={false}
+            />
+            <RootNavigator />
+          </NavigationContainer>
+        </AuthProvider>
       </QueryClientProvider>
     </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

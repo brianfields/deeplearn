@@ -6,7 +6,6 @@
  */
 
 import { CatalogRepo } from './repo';
-import type { Unit, UnitDetail } from './models';
 import type {
   LessonSummary,
   LessonDetail,
@@ -16,19 +15,43 @@ import type {
   CatalogStatistics,
   CatalogError,
   PaginationInfo,
-  UnitCreationRequest,
-  UnitCreationResponse,
 } from './models';
 import {
   toLessonSummaryDTO,
   toLessonDetailDTO,
   toBrowseLessonsResponseDTO,
-  toUnitDTO,
-  toUnitDetailDTO,
 } from './models';
+import {
+  contentProvider,
+  type ContentProvider,
+  type Unit,
+  type UnitDetail,
+  type UserUnitCollections,
+} from '../content/public';
+import {
+  contentCreatorProvider,
+  type ContentCreatorProvider,
+  type UnitCreationRequest,
+  type UnitCreationResponse,
+} from '../content_creator/public';
+
+interface CatalogServiceDeps {
+  readonly content: ContentProvider;
+  readonly contentCreator: ContentCreatorProvider;
+}
+
+function createDefaultDeps(): CatalogServiceDeps {
+  return {
+    content: contentProvider(),
+    contentCreator: contentCreatorProvider(),
+  };
+}
 
 export class CatalogService {
-  constructor(private repo: CatalogRepo) {}
+  constructor(
+    private repo: CatalogRepo,
+    private deps: CatalogServiceDeps = createDefaultDeps()
+  ) {}
 
   /**
    * Browse lessons with optional filters
@@ -235,16 +258,19 @@ export class CatalogService {
   private handleServiceError(error: any, defaultMessage: string): CatalogError {
     console.error('[CatalogService]', defaultMessage, error);
 
-    // If it's already a CatalogError, pass it through
-    if (error && error.code === 'TOPIC_CATALOG_ERROR') {
-      return error;
+    if (error && typeof error === 'object' && 'code' in error) {
+      const typed = error as CatalogError & { statusCode?: number };
+      return {
+        message: typed.message ?? defaultMessage,
+        code: typed.code ?? 'CATALOG_SERVICE_ERROR',
+        statusCode: typed.statusCode,
+        details: 'details' in typed ? typed.details : typed,
+      };
     }
 
-    // Transform other errors
     return {
-      message: error?.message || defaultMessage,
+      message: (error as Error)?.message || defaultMessage,
       code: 'CATALOG_SERVICE_ERROR',
-      statusCode: error?.statusCode,
       details: error,
     };
   }
@@ -256,10 +282,10 @@ export class CatalogService {
   async browseUnits(params?: {
     limit?: number;
     offset?: number;
+    currentUserId?: number | null;
   }): Promise<Unit[]> {
     try {
-      const apiUnits = await this.repo.listUnits(params);
-      return apiUnits.map(toUnitDTO);
+      return await this.deps.content.listUnits(params);
     } catch (error) {
       throw this.handleServiceError(error, 'Failed to browse units');
     }
@@ -268,14 +294,53 @@ export class CatalogService {
   /**
    * Get unit details (delegates to units module)
    */
-  async getUnitDetail(unitId: string): Promise<UnitDetail | null> {
+  async getUnitDetail(
+    unitId: string,
+    currentUserId?: number | null
+  ): Promise<UnitDetail | null> {
     if (!unitId?.trim()) return null;
     try {
-      const api = await this.repo.getUnitDetail(unitId);
-      return toUnitDetailDTO(api);
-    } catch (error: any) {
-      if (error?.statusCode === 404) return null;
+      return await this.deps.content.getUnitDetail(unitId, {
+        currentUserId: currentUserId ?? null,
+      });
+    } catch (error) {
       throw this.handleServiceError(error, `Failed to get unit ${unitId}`);
+    }
+  }
+
+  async getUserUnitCollections(
+    userId: number,
+    options?: { includeGlobal?: boolean; limit?: number; offset?: number }
+  ): Promise<UserUnitCollections> {
+    try {
+      return await this.deps.content.getUserUnitCollections(userId, options);
+    } catch (error) {
+      throw this.handleServiceError(error, 'Failed to load user units');
+    }
+  }
+
+  async toggleUnitSharing(
+    unitId: string,
+    request: { makeGlobal: boolean; actingUserId?: number | null }
+  ): Promise<Unit> {
+    if (!unitId?.trim()) {
+      throw this.handleServiceError(
+        new Error('Unit ID is required'),
+        'Unit ID is required'
+      );
+    }
+
+    try {
+      return await this.deps.content.updateUnitSharing(
+        unitId,
+        {
+          isGlobal: request.makeGlobal,
+          actingUserId: request.actingUserId ?? undefined,
+        },
+        request.actingUserId ?? null
+      );
+    } catch (error) {
+      throw this.handleServiceError(error, 'Failed to update unit sharing');
     }
   }
 
@@ -305,7 +370,27 @@ export class CatalogService {
         }
       }
 
-      return await this.repo.createUnit(request);
+      const response = await this.deps.contentCreator.createUnit(request);
+
+      if (request.shareGlobally && request.ownerUserId) {
+        try {
+          await this.deps.content.updateUnitSharing(
+            response.unitId,
+            {
+              isGlobal: true,
+              actingUserId: request.ownerUserId,
+            },
+            request.ownerUserId
+          );
+        } catch (error) {
+          console.warn(
+            '[CatalogService] Failed to apply global sharing after creation',
+            error
+          );
+        }
+      }
+
+      return response;
     } catch (error) {
       throw this.handleServiceError(error, 'Failed to create unit');
     }
@@ -320,7 +405,7 @@ export class CatalogService {
         throw new Error('Unit ID is required');
       }
 
-      return await this.repo.retryUnitCreation(unitId);
+      return await this.deps.contentCreator.retryUnitCreation(unitId);
     } catch (error) {
       throw this.handleServiceError(error, 'Failed to retry unit creation');
     }
@@ -335,27 +420,9 @@ export class CatalogService {
         throw new Error('Unit ID is required');
       }
 
-      await this.repo.dismissUnit(unitId);
+      await this.deps.contentCreator.dismissUnit(unitId);
     } catch (error) {
       throw this.handleServiceError(error, 'Failed to dismiss unit');
     }
-  }
-
-  private formatDifficulty(
-    d: 'beginner' | 'intermediate' | 'advanced' | string
-  ): string {
-    const map: Record<string, string> = {
-      beginner: 'Beginner',
-      intermediate: 'Intermediate',
-      advanced: 'Advanced',
-    };
-    return map[d] ?? 'Unknown';
-  }
-
-  private formatDuration(minutes: number): string {
-    if (minutes < 60) return `${minutes} min`;
-    const hours = Math.floor(minutes / 60);
-    const remaining = minutes % 60;
-    return remaining === 0 ? `${hours} hr` : `${hours} hr ${remaining} min`;
   }
 }

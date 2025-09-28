@@ -13,21 +13,34 @@ import type {
   ApiFlowStepDetails,
   ApiLLMRequest,
   ApiSystemMetrics,
+  ApiUnitSummary,
+  ApiUserDetail,
+  ApiUserListResponse,
+  ApiUserSummary,
+  ApiUserUpdateRequest,
 
   // DTO types
-  FlowRunSummary,
-  FlowRunDetails,
-  FlowStepDetails,
-  LLMRequestSummary,
-  LLMRequestDetails,
-  SystemMetrics,
-  FlowMetrics,
   DailyMetrics,
-  LessonSummary,
+  FlowMetrics,
+  FlowRunDetails,
+  FlowRunSummary,
+  FlowStepDetails,
+  LLMRequestDetails,
+  LLMRequestSummary,
   LessonDetails,
-  // Units DTOs
-  UnitSummary,
+  LessonSummary,
+  SystemMetrics,
   UnitDetail,
+  UnitSummary,
+  UserAssociationSummary,
+  UserDetail,
+  UserListQuery,
+  UserListResponse,
+  UserOwnedUnitSummary,
+  UserSessionSummary,
+  UserSummary,
+  UserUpdatePayload,
+  UserLLMRequestSummary,
 
   // Query types
   FlowRunsQuery,
@@ -41,12 +54,12 @@ import type {
   LessonsListResponse,
 
   // Task Queue types
-  TaskStatus,
-  WorkerHealth,
-  QueueStats,
-  QueueStatus,
   ApiTaskStatus,
   ApiWorkerHealth,
+  QueueStats,
+  QueueStatus,
+  TaskStatus,
+  WorkerHealth,
 } from './models';
 
 // ---- Data Transformation Functions ----
@@ -169,9 +182,109 @@ const systemMetricsToDTO = (apiMetrics: ApiSystemMetrics): SystemMetrics => ({
   active_sessions: apiMetrics.active_sessions,
 });
 
+const userAssociationsToDTO = (api: ApiUserSummary['associations']): UserAssociationSummary => ({
+  owned_unit_count: api.owned_unit_count,
+  owned_global_unit_count: api.owned_global_unit_count,
+  learning_session_count: api.learning_session_count,
+  llm_request_count: api.llm_request_count,
+});
+
+const userOwnedUnitToDTO = (unit: ApiUserDetail['owned_units'][number]): UserOwnedUnitSummary => ({
+  id: unit.id,
+  title: unit.title,
+  is_global: unit.is_global,
+  updated_at: new Date(unit.updated_at),
+});
+
+const userSessionToDTO = (session: ApiUserDetail['recent_sessions'][number]): UserSessionSummary => ({
+  id: session.id,
+  lesson_id: session.lesson_id,
+  status: session.status,
+  started_at: new Date(session.started_at),
+  completed_at: session.completed_at ? new Date(session.completed_at) : null,
+  progress_percentage: session.progress_percentage,
+});
+
+const userRequestToDTO = (request: ApiUserDetail['recent_llm_requests'][number]): UserLLMRequestSummary => ({
+  id: request.id,
+  model: request.model,
+  status: request.status,
+  created_at: new Date(request.created_at),
+  tokens_used: request.tokens_used,
+});
+
+const userSummaryToDTO = (user: ApiUserSummary): UserSummary => ({
+  id: user.id,
+  email: user.email,
+  name: user.name,
+  role: user.role,
+  is_active: user.is_active,
+  created_at: new Date(user.created_at),
+  updated_at: new Date(user.updated_at),
+  associations: userAssociationsToDTO(user.associations),
+});
+
+const userDetailToDTO = (user: ApiUserDetail): UserDetail => ({
+  ...userSummaryToDTO(user),
+  owned_units: user.owned_units.map(userOwnedUnitToDTO),
+  recent_sessions: user.recent_sessions.map(userSessionToDTO),
+  recent_llm_requests: user.recent_llm_requests.map(userRequestToDTO),
+});
+
 // ---- Service Implementation ----
 
 export class AdminService {
+  // ---- User Management ----
+
+  async getUsers(params?: UserListQuery): Promise<UserListResponse> {
+    try {
+      const response: ApiUserListResponse = await AdminRepo.users.list(params);
+      return {
+        users: response.users.map(userSummaryToDTO),
+        total_count: response.total_count,
+        page: response.page,
+        page_size: response.page_size,
+        has_next: response.has_next,
+      };
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+      const page = params?.page ?? 1;
+      const pageSize = params?.page_size ?? 50;
+      return {
+        users: [],
+        total_count: 0,
+        page,
+        page_size: pageSize,
+        has_next: false,
+      };
+    }
+  }
+
+  async getUser(userId: number | string): Promise<UserDetail | null> {
+    try {
+      const detail = await AdminRepo.users.detail(userId);
+      return userDetailToDTO(detail);
+    } catch (error) {
+      console.error('Failed to fetch user detail:', error);
+      return null;
+    }
+  }
+
+  async updateUser(userId: number | string, payload: UserUpdatePayload): Promise<UserDetail | null> {
+    try {
+      const updateRequest: ApiUserUpdateRequest = {};
+      if (payload.name !== undefined) updateRequest.name = payload.name;
+      if (payload.role !== undefined) updateRequest.role = payload.role;
+      if (payload.is_active !== undefined) updateRequest.is_active = payload.is_active;
+
+      const updated = await AdminRepo.users.update(userId, updateRequest);
+      return userDetailToDTO(updated);
+    } catch (error) {
+      console.error('Failed to update user:', error);
+      return null;
+    }
+  }
+
   // ---- Flow Management ----
 
   async getFlowRuns(params?: FlowRunsQuery): Promise<FlowRunsListResponse> {
@@ -208,13 +321,50 @@ export class AdminService {
 
   // ---- LLM Request Management ----
 
-  async getLLMRequests(params?: LLMRequestsQuery): Promise<LLMRequestSummary[]> {
+  async getLLMRequests(
+    params?: LLMRequestsQuery
+  ): Promise<LLMRequestsListResponse> {
     try {
-      const apiRequests = await AdminRepo.llmRequests.list(params);
-      return apiRequests.map(llmRequestToDTO);
+      const apiResponse = await AdminRepo.llmRequests.list(params);
+
+      const rawRequests: ApiLLMRequest[] = Array.isArray(apiResponse)
+        ? apiResponse
+        : apiResponse.requests ?? [];
+
+      const totalCount = Array.isArray(apiResponse)
+        ? apiResponse.length
+        : apiResponse?.total_count ?? rawRequests.length;
+
+      const page = Array.isArray(apiResponse)
+        ? params?.page ?? 1
+        : apiResponse?.page ?? params?.page ?? 1;
+
+      const defaultPageSize = rawRequests.length || 10;
+
+      const pageSize = Array.isArray(apiResponse)
+        ? params?.page_size ?? defaultPageSize
+        : apiResponse?.page_size ?? params?.page_size ?? defaultPageSize;
+
+      const hasNext = Array.isArray(apiResponse)
+        ? false
+        : apiResponse?.has_next ?? false;
+
+      return {
+        requests: rawRequests.map(llmRequestToDTO),
+        total_count: totalCount,
+        page,
+        page_size: pageSize,
+        has_next: hasNext,
+      };
     } catch (error) {
       console.error('Failed to fetch LLM requests:', error);
-      return [];
+      return {
+        requests: [],
+        total_count: 0,
+        page: params?.page ?? 1,
+        page_size: params?.page_size ?? 10,
+        has_next: false,
+      };
     }
   }
 
@@ -438,11 +588,15 @@ export class AdminService {
       title: u.title,
       description: u.description,
       learner_level: u.learner_level,
-      lesson_count: u.lesson_count,
+      lesson_count: u.lesson_count ?? (u.lesson_order ? u.lesson_order.length : 0),
       target_lesson_count: u.target_lesson_count ?? null,
       generated_from_topic: Boolean(u.generated_from_topic),
       flow_type: (u.flow_type as UnitSummary['flow_type']) ?? 'standard',
-    }));
+      user_id: u.user_id ?? null,
+      is_global: Boolean(u.is_global),
+      created_at: u.created_at ? new Date(u.created_at) : null,
+      updated_at: u.updated_at ? new Date(u.updated_at) : null,
+    } satisfies UnitSummary));
   }
 
   async getUnitDetail(unitId: string): Promise<UnitDetail | null> {
