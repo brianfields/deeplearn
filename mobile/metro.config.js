@@ -1,4 +1,5 @@
 const { getDefaultConfig } = require('expo/metro-config');
+const { resolve: metroResolve } = require('metro-resolver');
 const path = require('path');
 
 const config = getDefaultConfig(__dirname);
@@ -68,7 +69,6 @@ config.resolver.alias = {
 // Intercept React Native's internal relative requires from react-native/index.js
 // so references like './Libraries/PushNotificationIOS/PushNotificationIOS'
 // resolve to our no-op shims when running in Expo Go.
-const originalResolveRequest = config.resolver.resolveRequest;
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   try {
     const origin = context?.originModulePath || '';
@@ -109,9 +109,8 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
     }
   } catch {}
 
-  return originalResolveRequest
-    ? originalResolveRequest(context, moduleName, platform)
-    : undefined;
+  // Always fall back to Metro's default resolver
+  return metroResolve(context, moduleName, platform);
 };
 
 module.exports = config;
