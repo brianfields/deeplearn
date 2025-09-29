@@ -1,11 +1,14 @@
 """Core types and data structures for LLM and image generation."""
 
+import base64
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from typing import Any, Literal
 
 __all__ = [
+    "AudioGenerationRequest",
+    "AudioResponse",
     "ImageGenerationRequest",
     "ImageQuality",
     "ImageResponse",
@@ -117,6 +120,57 @@ class LLMResponse:
             "response_created_at": self.response_created_at.isoformat() if self.response_created_at else None,
             "finish_reason": self.finish_reason,
         }
+
+
+@dataclass
+class AudioGenerationRequest:
+    """Request payload for audio synthesis operations."""
+
+    text: str
+    voice: str
+    model: str
+    audio_format: str = "mp3"
+    speed: float | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert request to a serialisable dictionary."""
+        payload: dict[str, Any] = {
+            "text": self.text,
+            "voice": self.voice,
+            "model": self.model,
+            "audio_format": self.audio_format,
+        }
+        if self.speed is not None:
+            payload["speed"] = self.speed
+        return payload
+
+
+@dataclass
+class AudioResponse:
+    """Response payload for synthesized audio."""
+
+    audio_base64: str
+    mime_type: str
+    voice: str | None = None
+    model: str | None = None
+    cost_estimate: float | None = None
+    duration_seconds: float | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert response to a serialisable dictionary."""
+        return {
+            "audio_base64": self.audio_base64,
+            "mime_type": self.mime_type,
+            "voice": self.voice,
+            "model": self.model,
+            "cost_estimate": self.cost_estimate,
+            "duration_seconds": self.duration_seconds,
+        }
+
+    @property
+    def audio_bytes(self) -> bytes:
+        """Decode the base64 audio payload into raw bytes."""
+        return base64.b64decode(self.audio_base64)
 
 
 class ImageSize(str, Enum):
