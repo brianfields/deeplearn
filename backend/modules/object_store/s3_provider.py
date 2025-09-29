@@ -11,8 +11,12 @@ from pathlib import Path
 from typing import Any
 import uuid
 
-import boto3
-from botocore.exceptions import ClientError
+try:  # pragma: no cover - optional dependency
+    import boto3
+    from botocore.exceptions import ClientError
+except ImportError:  # pragma: no cover - optional dependency
+    boto3 = None  # type: ignore
+    ClientError = Exception  # type: ignore
 from fastapi import UploadFile
 
 # Configure logging
@@ -82,6 +86,7 @@ class FileMetadata:
 
     file_id: str
     s3_key: str
+    bucket_name: str
     filename: str
     content_type: str
     file_size: int
@@ -111,7 +116,13 @@ class S3Provider:
     def _get_client(self) -> Any:
         """Get S3 client, creating if needed."""
         if self._client is None:
-            session = boto3.Session(aws_access_key_id=self.config.access_key_id, aws_secret_access_key=self.config.secret_access_key, region_name=self.config.region)
+            if boto3 is None:
+                raise S3Error("boto3 is required for S3 operations. Install boto3 to enable object storage.")
+            session = boto3.Session(
+                aws_access_key_id=self.config.access_key_id,
+                aws_secret_access_key=self.config.secret_access_key,
+                region_name=self.config.region,
+            )
             self._client = session.client("s3", endpoint_url=self.config.endpoint_url)
         return self._client
 
@@ -131,7 +142,14 @@ class S3Provider:
         file_extension = Path(filename).suffix.lower()
         return f"users/{user_id}/{category}/{file_id}{file_extension}"
 
-    async def upload_file(self, user_id: str, file: UploadFile, category: str = "files", allowed_types: list[str] | None = None, max_size_mb: int = 10) -> FileMetadata:
+    async def upload_file(
+        self,
+        user_id: str,
+        file: UploadFile,
+        category: str = "files",
+        allowed_types: list[str] | None = None,
+        max_size_mb: int = 10,
+    ) -> FileMetadata:
         """
         Upload a file to S3.
 
@@ -148,38 +166,70 @@ class S3Provider:
         Raises:
             S3Error: If upload fails
         """
+        content = await file.read()
+        return await self.upload_content(
+            user_identifier=user_id,
+            filename=file.filename or "unnamed",
+            content=content,
+            content_type=file.content_type or "application/octet-stream",
+            category=category,
+            allowed_types=allowed_types,
+            max_size_bytes=max_size_mb * 1024 * 1024,
+        )
+
+    async def upload_content(
+        self,
+        *,
+        user_identifier: str,
+        filename: str,
+        content: bytes,
+        content_type: str,
+        category: str = "files",
+        allowed_types: list[str] | None = None,
+        max_size_bytes: int | None = None,
+    ) -> FileMetadata:
+        """Upload a raw bytes payload to S3."""
+
         try:
-            # Validate file type
-            if allowed_types and file.content_type not in allowed_types:
-                raise S3Error(f"File type {file.content_type} not allowed")
+            if allowed_types and content_type not in allowed_types:
+                raise S3Error(f"File type {content_type} not allowed")
 
-            # Read file content
-            content = await file.read()
             file_size = len(content)
-
-            # Validate file size
-            max_size_bytes = max_size_mb * 1024 * 1024
-            if file_size > max_size_bytes:
+            if max_size_bytes is not None and file_size > max_size_bytes:
                 raise S3Error(f"File size {file_size} exceeds limit of {max_size_bytes} bytes")
 
-            # Generate S3 key
-            s3_key = self._generate_file_key(user_id, file.filename or "unnamed", category)
+            s3_key = self._generate_file_key(user_identifier, filename, category)
 
-            # Upload to S3
             client = self._get_client()
-            await asyncio.get_event_loop().run_in_executor(None, lambda: client.put_object(Bucket=self.bucket_name, Key=s3_key, Body=content, ContentType=file.content_type or "application/octet-stream"))
+            await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: client.put_object(
+                    Bucket=self.bucket_name,
+                    Key=s3_key,
+                    Body=content,
+                    ContentType=content_type or "application/octet-stream",
+                ),
+            )
 
-            logger.info(f"Successfully uploaded file {s3_key} for user {user_id}")
+            logger.info("Successfully uploaded file %s for user %s", s3_key, user_identifier)
 
-            return FileMetadata(file_id=Path(s3_key).stem, s3_key=s3_key, filename=file.filename or "unnamed", content_type=file.content_type or "application/octet-stream", file_size=file_size, created_at=datetime.utcnow())
+            return FileMetadata(
+                file_id=Path(s3_key).stem,
+                s3_key=s3_key,
+                bucket_name=self.bucket_name,
+                filename=filename,
+                content_type=content_type,
+                file_size=file_size,
+                created_at=datetime.utcnow(),
+            )
 
         except ClientError as e:
             error_code = e.response["Error"]["Code"]
             if error_code == "NoCredentialsError":
                 raise S3AuthenticationError("Invalid AWS credentials") from e
             raise S3Error(f"S3 upload failed: {error_code}") from e
-        except Exception as e:
-            logger.error(f"Failed to upload file for user {user_id}: {e!s}")
+        except Exception as e:  # pragma: no cover - unexpected runtime failure
+            logger.error("Failed to upload file for user %s: %s", user_identifier, e)
             raise S3Error(f"Upload failed: {e!s}") from e
 
     async def get_presigned_url(self, s3_key: str, expires_in: int = 3600, method: str = "get_object") -> str:

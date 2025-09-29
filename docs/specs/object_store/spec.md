@@ -52,60 +52,60 @@
 ## Implementation Checklist
 
 ### Backend Models & Database
-- [ ] Update ImageModel: remove category field, make user_id nullable
-- [ ] Complete AudioModel with duration, bitrate, sample_rate, transcript fields
-- [ ] Fix import paths in models.py to use modules.shared_models
-- [ ] Ensure proper indexes on user_id and s3_key fields
-- [ ] Generate and run Alembic migration for model changes
+- [x] Update ImageModel: remove category field, make user_id nullable
+- [x] Complete AudioModel with duration, bitrate, sample_rate, transcript fields
+- [x] Fix import paths in models.py to use modules.shared_models
+- [x] Ensure proper indexes on user_id and s3_key fields
+- [x] Generate and run Alembic migration for model changes
 
 ### Backend Repository Layer
-- [ ] Create repo.py with async SQLAlchemy operations
-- [ ] Implement ImageRepo class with CRUD operations (create, by_id, by_user_id, list_by_user, delete, exists)
-- [ ] Implement AudioRepo class with equivalent CRUD operations
-- [ ] Ensure repos return ORM objects only (no DTOs)
-- [ ] Handle async session management without commits/rollbacks in repo
+- [x] Create repo.py with async SQLAlchemy operations
+- [x] Implement ImageRepo class with CRUD operations (create, by_id, by_user_id, list_by_user, delete, exists)
+- [x] Implement AudioRepo class with equivalent CRUD operations
+- [x] Ensure repos return ORM objects only (no DTOs)
+- [x] Handle async session management without commits/rollbacks in repo
 
 ### Backend Service Layer
-- [ ] Create service.py with DTOs: ImageRead, ImageCreate, AudioRead, AudioCreate, FileUploadResult
-- [ ] Implement ObjectStoreService class handling both images and audio
-- [ ] Integrate S3Provider for file upload/download/delete operations
-- [ ] Add image metadata extraction (width, height from file contents)
-- [ ] Add audio metadata extraction (duration, bitrate, sample_rate)
-- [ ] Implement async file validation (type checking, size limits)
-- [ ] Add presigned URL generation for secure file access
-- [ ] Ensure service returns DTOs only (never ORM objects)
-- [ ] Add proper error handling with domain exceptions
+- [x] Create service.py with DTOs: ImageRead, ImageCreate, AudioRead, AudioCreate, FileUploadResult
+- [x] Implement ObjectStoreService class handling both images and audio
+- [x] Integrate S3Provider for file upload/download/delete operations
+- [x] Add image metadata extraction (width, height from file contents)
+- [x] Add audio metadata extraction (duration, bitrate, sample_rate)
+- [x] Implement async file validation (type checking, size limits)
+- [x] Add presigned URL generation for secure file access
+- [x] Ensure service returns DTOs only (never ORM objects)
+- [x] Add proper error handling with domain exceptions
 
 ### Backend Public Interface
-- [ ] Create public.py with ObjectStoreProvider Protocol
-- [ ] Implement object_store_provider function returning service instance
-- [ ] Define narrow public interface exposing only essential methods
-- [ ] Export necessary DTOs and types in __all__
-- [ ] Ensure async consistency throughout public interface
+- [x] Create public.py with ObjectStoreProvider Protocol
+- [x] Implement object_store_provider function returning service instance
+- [x] Define narrow public interface exposing only essential methods
+- [x] Export necessary DTOs and types in __all__
+- [x] Ensure async consistency throughout public interface
 
 ### Backend S3 Integration
-- [ ] Update s3_provider.py for consistency with async patterns
-- [ ] Ensure S3Provider integrates cleanly with new service architecture
-- [ ] Handle S3 connection errors with proper exception mapping
-- [ ] Maintain existing file key generation and organization patterns
+- [x] Update s3_provider.py for consistency with async patterns
+- [x] Ensure S3Provider integrates cleanly with new service architecture
+- [x] Handle S3 connection errors with proper exception mapping
+- [x] Maintain existing file key generation and organization patterns
 
 ### Backend Testing
-- [ ] Create test_object_store_unit.py with unit tests for complex service behavior
-- [ ] Test file upload/download workflows
-- [ ] Test user ownership and authorization logic
-- [ ] Test error scenarios (file not found, invalid file types, S3 failures)
-- [ ] Test presigned URL generation
-- [ ] Mock S3Provider for isolated testing
+- [x] Create test_object_store_unit.py with unit tests for complex service behavior
+- [x] Test file upload/download workflows
+- [x] Test user ownership and authorization logic
+- [x] Test error scenarios (file not found, invalid file types, S3 failures)
+- [x] Test presigned URL generation
+- [x] Mock S3Provider for isolated testing
 
 ### Database Migration & Seed Data
-- [ ] Create Alembic migration for AudioModel table creation
-- [ ] Create migration for ImageModel changes (nullable user_id, remove category)
-- [ ] Update create_seed_data.py to create sample image and audio records if relevant
+- [x] Create Alembic migration for AudioModel table creation
+- [x] Create migration for ImageModel changes (nullable user_id, remove category)
+- [x] Update create_seed_data.py to create sample image and audio records if relevant
 
 ### Code Quality & Integration
 - [ ] Ensure lint passes, i.e. ./format_code.sh runs clean
-- [ ] Ensure unit tests pass, i.e. (in backend) scripts/run_unit.py runs clean
-- [ ] Follow the instructions in codegen/prompts/trace.md to ensure the user story is implemented correctly
+- [x] Ensure unit tests pass, i.e. (in backend) scripts/run_unit.py runs clean
+- [x] Follow the instructions in codegen/prompts/trace.md to ensure the user story is implemented correctly
 - [ ] Fix any issues documented during the tracing of the user story in docs/specs/object_store/trace.md
-- [ ] Follow the instructions in codegen/prompts/modulecheck.md to ensure the new code is following the modular architecture correctly
-- [ ] Examine all new code that has been created and make sure all of it is being used; there is no dead code
+- [x] Follow the instructions in codegen/prompts/modulecheck.md to ensure the new code is following the modular architecture correctly
+- [x] Examine all new code that has been created and make sure all of it is being used; there is no dead code
