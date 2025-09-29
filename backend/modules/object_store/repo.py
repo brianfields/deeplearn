@@ -56,24 +56,12 @@ class ImageRepo:
         return list(result.scalars().all())
 
     async def list_by_user(self, user_id: int | None, *, limit: int, offset: int) -> list[ImageModel]:
-        stmt = (
-            select(ImageModel)
-            .where(ImageModel.user_id == user_id)
-            .order_by(ImageModel.created_at.desc())
-            .offset(offset)
-            .limit(limit)
-        )
+        stmt = select(ImageModel).where(ImageModel.user_id == user_id).order_by(ImageModel.created_at.desc()).offset(offset).limit(limit)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
     async def list_global(self, *, limit: int, offset: int) -> list[ImageModel]:
-        stmt = (
-            select(ImageModel)
-            .where(ImageModel.user_id.is_(None))
-            .order_by(ImageModel.created_at.desc())
-            .offset(offset)
-            .limit(limit)
-        )
+        stmt = select(ImageModel).where(ImageModel.user_id.is_(None)).order_by(ImageModel.created_at.desc()).offset(offset).limit(limit)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
@@ -138,24 +126,12 @@ class AudioRepo:
         return list(result.scalars().all())
 
     async def list_by_user(self, user_id: int | None, *, limit: int, offset: int) -> list[AudioModel]:
-        stmt = (
-            select(AudioModel)
-            .where(AudioModel.user_id == user_id)
-            .order_by(AudioModel.created_at.desc())
-            .offset(offset)
-            .limit(limit)
-        )
+        stmt = select(AudioModel).where(AudioModel.user_id == user_id).order_by(AudioModel.created_at.desc()).offset(offset).limit(limit)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
     async def list_global(self, *, limit: int, offset: int) -> list[AudioModel]:
-        stmt = (
-            select(AudioModel)
-            .where(AudioModel.user_id.is_(None))
-            .order_by(AudioModel.created_at.desc())
-            .offset(offset)
-            .limit(limit)
-        )
+        stmt = select(AudioModel).where(AudioModel.user_id.is_(None)).order_by(AudioModel.created_at.desc()).offset(offset).limit(limit)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 

@@ -102,11 +102,11 @@ def object_store_provider(
 
 
 __all__ = [
-    "ObjectStoreProvider",
-    "object_store_provider",
     "AudioCreate",
     "AudioRead",
     "FileUploadResult",
     "ImageCreate",
     "ImageRead",
+    "ObjectStoreProvider",
+    "object_store_provider",
 ]

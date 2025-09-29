@@ -12,6 +12,8 @@ websockets>=12.0
 instructor>=1.0.0
 arq>=0.25.0
 redis>=4.5.0
+boto3==1.40.40
+botocore==1.40.40
 
 # Testing dependencies
 pytest>=7.0.0

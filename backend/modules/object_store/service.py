@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from io import BytesIO
+import logging
 import struct
 import uuid
 import wave
@@ -22,6 +23,8 @@ from pydantic import BaseModel, Field
 
 from .repo import AudioRepo, ImageRepo
 from .s3_provider import FileMetadata, S3Error, S3FileNotFoundError, S3Provider
+
+logger = logging.getLogger(__name__)
 
 MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024
 IMAGE_CONTENT_TYPES: frozenset[str] = frozenset(
@@ -189,11 +192,7 @@ class ObjectStoreService:
             alt_text=data.alt_text,
             description=data.description,
         )
-        url = (
-            await self._s3.get_presigned_url(image.s3_key, expires_in=presigned_ttl_seconds)
-            if generate_presigned_url
-            else None
-        )
+        url = await self._s3.get_presigned_url(image.s3_key, expires_in=presigned_ttl_seconds) if generate_presigned_url else None
         dto = ImageRead.model_validate(image)
         if url is not None:
             dto = dto.model_copy(update={"presigned_url": url})
@@ -227,11 +226,7 @@ class ObjectStoreService:
             sample_rate_hz=metadata.sample_rate_hz,
             transcript=data.transcript,
         )
-        url = (
-            await self._s3.get_presigned_url(audio.s3_key, expires_in=presigned_ttl_seconds)
-            if generate_presigned_url
-            else None
-        )
+        url = await self._s3.get_presigned_url(audio.s3_key, expires_in=presigned_ttl_seconds) if generate_presigned_url else None
         dto = AudioRead.model_validate(audio)
         if url is not None:
             dto = dto.model_copy(update={"presigned_url": url})
@@ -249,11 +244,7 @@ class ObjectStoreService:
         if not image:
             raise StoredFileNotFoundError(f"Image {image_id} not found")
         self._ensure_authorized(image.user_id, requesting_user_id)
-        url = (
-            await self._s3.get_presigned_url(image.s3_key, expires_in=presigned_ttl_seconds)
-            if include_presigned_url
-            else None
-        )
+        url = await self._s3.get_presigned_url(image.s3_key, expires_in=presigned_ttl_seconds) if include_presigned_url else None
         dto = ImageRead.model_validate(image)
         if url is not None:
             dto = dto.model_copy(update={"presigned_url": url})
@@ -271,11 +262,7 @@ class ObjectStoreService:
         if not audio:
             raise StoredFileNotFoundError(f"Audio {audio_id} not found")
         self._ensure_authorized(audio.user_id, requesting_user_id)
-        url = (
-            await self._s3.get_presigned_url(audio.s3_key, expires_in=presigned_ttl_seconds)
-            if include_presigned_url
-            else None
-        )
+        url = await self._s3.get_presigned_url(audio.s3_key, expires_in=presigned_ttl_seconds) if include_presigned_url else None
         dto = AudioRead.model_validate(audio)
         if url is not None:
             dto = dto.model_copy(update={"presigned_url": url})
@@ -300,9 +287,7 @@ class ObjectStoreService:
         url_map: dict[str, str | None] = {}
         if include_presigned_url:
             for record in records:
-                url_map[record.s3_key] = await self._s3.get_presigned_url(
-                    record.s3_key, expires_in=presigned_ttl_seconds
-                )
+                url_map[record.s3_key] = await self._s3.get_presigned_url(record.s3_key, expires_in=presigned_ttl_seconds)
         dtos: list[ImageRead] = []
         for img in records:
             dto = ImageRead.model_validate(img)
@@ -331,9 +316,7 @@ class ObjectStoreService:
         url_map: dict[str, str | None] = {}
         if include_presigned_url:
             for record in records:
-                url_map[record.s3_key] = await self._s3.get_presigned_url(
-                    record.s3_key, expires_in=presigned_ttl_seconds
-                )
+                url_map[record.s3_key] = await self._s3.get_presigned_url(record.s3_key, expires_in=presigned_ttl_seconds)
         dtos: list[AudioRead] = []
         for aud in records:
             dto = AudioRead.model_validate(aud)
@@ -418,6 +401,7 @@ class ObjectStoreService:
                     width, height = img.size
                     return _ImageMetadata(width=int(width), height=int(height))
             except Exception:  # pragma: no cover - fallback when metadata fails
+                logger.error("Failed to extract image metadata", exc_info=True)
                 pass
 
         if content.startswith(b"\x89PNG\r\n\x1a\n") and len(content) >= 24:

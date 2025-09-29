@@ -3,20 +3,18 @@
 from __future__ import annotations
 
 import base64
+from collections.abc import Iterable
 from datetime import datetime
 from io import BytesIO
+from typing import Any
 import uuid
 import wave
-from typing import Any, Iterable
 
 import pytest
 import pytest_asyncio
+from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy import create_engine
-
-from modules.shared_models import Base
-from modules.user.models import UserModel
 
 from modules.object_store.repo import AudioRepo, ImageRepo
 from modules.object_store.s3_provider import FileMetadata, S3Error
@@ -26,11 +24,12 @@ from modules.object_store.service import (
     AuthorizationError,
     FileUploadResult,
     FileValidationError,
-    StorageProviderError,
     ImageCreate,
     ImageRead,
     ObjectStoreService,
+    StorageProviderError,
 )
+from modules.shared_models import Base
 
 
 class _AsyncSessionStub(AsyncSession):
@@ -98,7 +97,7 @@ class _FakeS3Provider:
             created_at=datetime.utcnow(),
         )
 
-    async def get_presigned_url(self, s3_key: str, expires_in: int = 3600, method: str = "get_object") -> str:
+    async def get_presigned_url(self, s3_key: str, expires_in: int = 3600, _method: str = "get_object") -> str:
         if s3_key not in self._files:
             raise S3Error("missing")
         return f"https://example.com/{s3_key}?expires={expires_in}"
@@ -128,9 +127,7 @@ async def service(session: AsyncSession) -> ObjectStoreService:
 
 def _make_png() -> bytes:
     # 1x1 red pixel PNG encoded in base64
-    encoded = (
-        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8Xw8AArEB5nSxd3sAAAAASUVORK5CYII="
-    )
+    encoded = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8Xw8AArEB5nSxd3sAAAAASUVORK5CYII="
     return base64.b64decode(encoded)
 
 
@@ -191,9 +188,7 @@ async def test_upload_audio_extracts_duration(service: ObjectStoreService, sessi
 
 @pytest.mark.asyncio
 async def test_get_image_enforces_authorization(service: ObjectStoreService) -> None:
-    upload = await service.upload_image(
-        ImageCreate(user_id=1, filename="example.png", content_type="image/png", content=_make_png())
-    )
+    upload = await service.upload_image(ImageCreate(user_id=1, filename="example.png", content_type="image/png", content=_make_png()))
 
     with pytest.raises(AuthorizationError):
         await service.get_image(upload.file.id, requesting_user_id=2)
@@ -205,9 +200,7 @@ async def test_get_image_enforces_authorization(service: ObjectStoreService) -> 
 @pytest.mark.asyncio
 async def test_upload_image_rejects_invalid_type(service: ObjectStoreService) -> None:
     with pytest.raises(FileValidationError):
-        await service.upload_image(
-            ImageCreate(user_id=2, filename="bad.txt", content_type="text/plain", content=b"123")
-        )
+        await service.upload_image(ImageCreate(user_id=2, filename="bad.txt", content_type="text/plain", content=b"123"))
 
 
 @pytest.mark.asyncio
@@ -223,9 +216,7 @@ async def test_list_images_includes_totals(service: ObjectStoreService) -> None:
 
 @pytest.mark.asyncio
 async def test_delete_audio_removes_record(service: ObjectStoreService, session: AsyncSession) -> None:
-    upload = await service.upload_audio(
-        AudioCreate(user_id=9, filename="sound.wav", content_type="audio/wav", content=_make_wav())
-    )
+    upload = await service.upload_audio(AudioCreate(user_id=9, filename="sound.wav", content_type="audio/wav", content=_make_wav()))
     audio_id = upload.file.id
     await service.delete_audio(audio_id, requesting_user_id=9)
 
@@ -239,15 +230,11 @@ async def test_upload_audio_wraps_s3_errors(session: AsyncSession) -> None:
     failing_provider.raise_on_upload = True
     failing_service = ObjectStoreService(ImageRepo(session), AudioRepo(session), failing_provider)
     with pytest.raises(StorageProviderError):
-        await failing_service.upload_audio(
-            AudioCreate(user_id=1, filename="sound.wav", content_type="audio/wav", content=_make_wav())
-        )
+        await failing_service.upload_audio(AudioCreate(user_id=1, filename="sound.wav", content_type="audio/wav", content=_make_wav()))
 
 
 @pytest.mark.asyncio
 async def test_file_size_validation(service: ObjectStoreService, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("modules.object_store.service.MAX_FILE_SIZE_BYTES", 10)
     with pytest.raises(FileValidationError):
-        await service.upload_image(
-            ImageCreate(user_id=1, filename="big.png", content_type="image/png", content=b"12345678901")
-        )
+        await service.upload_image(ImageCreate(user_id=1, filename="big.png", content_type="image/png", content=b"12345678901"))
