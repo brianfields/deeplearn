@@ -26,6 +26,7 @@ import argparse
 from datetime import UTC, datetime, timedelta
 import json
 import logging
+import os
 from pathlib import Path
 import sys
 import traceback
@@ -44,6 +45,7 @@ from modules.flow_engine.models import FlowRunModel, FlowStepRunModel
 from modules.infrastructure.public import infrastructure_provider
 from modules.learning_session.models import LearningSessionModel, SessionStatus, UnitSessionModel
 from modules.llm_services.models import LLMRequestModel
+from modules.object_store.models import AudioModel, ImageModel
 from modules.user.models import UserModel
 from modules.user.repo import UserRepo
 from modules.user.service import UserService
@@ -946,6 +948,63 @@ async def main() -> None:
             )
 
             db_session.add_all([epsilon_unit_session, brian_unit_session])
+
+            bucket_name = os.getenv("OBJECT_STORE_BUCKET", "digital-innie")
+            sample_images = [
+                ImageModel(
+                    user_id=cast(int, brian_admin.id),
+                    s3_key="seed/brian/cats/kadikoy-plaza.png",
+                    s3_bucket=bucket_name,
+                    filename="kadikoy-plaza.png",
+                    content_type="image/png",
+                    file_size=48_512,
+                    width=1280,
+                    height=720,
+                    alt_text="Street cats sunbathing near the Kadıköy fish market",
+                    description="Sample image demonstrating the Istanbul cat content used throughout the seed data.",
+                ),
+                ImageModel(
+                    user_id=None,
+                    s3_key="seed/system/gradient-descent/contours.png",
+                    s3_bucket=bucket_name,
+                    filename="gradient-descent-contours.png",
+                    content_type="image/png",
+                    file_size=32_768,
+                    width=1024,
+                    height=768,
+                    alt_text="Contour plot illustrating gradient descent steps",
+                    description="System-wide reference image for optimization lessons.",
+                ),
+            ]
+
+            sample_audio = [
+                AudioModel(
+                    user_id=cast(int, brian_admin.id),
+                    s3_key="seed/brian/audio/gradient-intro.mp3",
+                    s3_bucket=bucket_name,
+                    filename="gradient-intro.mp3",
+                    content_type="audio/mpeg",
+                    file_size=2_621_440,
+                    duration_seconds=95.0,
+                    bitrate_kbps=192,
+                    sample_rate_hz=44_100,
+                    transcript="Welcome to Gradient Descent Mastery. In this lesson we explore step sizes and convergence.",
+                ),
+                AudioModel(
+                    user_id=None,
+                    s3_key="seed/system/audio/istanbul-walking-tour.m4a",
+                    s3_bucket=bucket_name,
+                    filename="istanbul-walking-tour.m4a",
+                    content_type="audio/mp4",
+                    file_size=1_572_864,
+                    duration_seconds=62.0,
+                    bitrate_kbps=128,
+                    sample_rate_hz=44_100,
+                    transcript="Join us on a walking tour describing how Istanbul residents care for community cats.",
+                ),
+            ]
+
+            db_session.add_all([*sample_images, *sample_audio])
 
             users_created_count = len(sample_users)
             global_units_count = sum(1 for unit in units_spec if unit["is_global"])
