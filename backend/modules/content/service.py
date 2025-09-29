@@ -8,12 +8,13 @@ Handles content operations and data transformation.
 """
 
 import asyncio
+
+# Import inside methods when needed to avoid circular imports with public/providers
+from collections.abc import Awaitable, Coroutine
 from datetime import UTC, datetime
 from enum import Enum
 import logging
-
-# Import inside methods when needed to avoid circular imports with public/providers
-from typing import TYPE_CHECKING, Any, Awaitable
+from typing import TYPE_CHECKING, Any
 import uuid
 
 from pydantic import BaseModel, ConfigDict
@@ -23,8 +24,9 @@ from .package_models import LessonPackage
 from .repo import ContentRepo
 
 if TYPE_CHECKING:  # pragma: no cover - type checking only
-    from ..learning_session.models import UnitSessionModel  # noqa: F401
     from modules.object_store.public import ObjectStoreProvider
+
+    from ..learning_session.models import UnitSessionModel  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +81,7 @@ class LessonCreate(BaseModel):
 class ContentService:
     """Service for content operations."""
 
-    def __init__(self, repo: ContentRepo, object_store: "ObjectStoreProvider | None" = None) -> None:
+    def __init__(self, repo: ContentRepo, object_store: ObjectStoreProvider | None = None) -> None:
         """Initialize service with repository."""
         self.repo = repo
         self._object_store = object_store
@@ -338,7 +340,7 @@ class ContentService:
 
     def _apply_podcast_metadata(
         self,
-        unit_read: "ContentService.UnitRead",
+        unit_read: ContentService.UnitRead,
         unit: UnitModel,
         *,
         audio_meta: Any | None = None,
@@ -356,11 +358,13 @@ class ContentService:
             )
 
         duration_value: Any | None = None if resolved_meta is None else getattr(resolved_meta, "duration_seconds", None)
-        if isinstance(duration_value, (int, float)):
-            unit_read.podcast_duration_seconds = int(round(duration_value))
+        if isinstance(duration_value, int):
+            unit_read.podcast_duration_seconds = duration_value
+        elif isinstance(duration_value, float):
+            unit_read.podcast_duration_seconds = round(duration_value)
         else:
             try:
-                unit_read.podcast_duration_seconds = int(round(float(duration_value))) if duration_value is not None else None
+                unit_read.podcast_duration_seconds = round(float(duration_value)) if duration_value is not None else None
             except (TypeError, ValueError):
                 unit_read.podcast_duration_seconds = None
 
@@ -671,13 +675,18 @@ class ContentService:
     def _run_async(coro: Awaitable[Any]) -> Any:
         """Run an async coroutine from sync context, creating a new loop when necessary."""
 
+        async def _to_coroutine(a: Awaitable[Any]) -> Any:
+            return await a
+
+        coroutine: Coroutine[Any, Any, Any] = coro if asyncio.iscoroutine(coro) else _to_coroutine(coro)
+
         try:
-            return asyncio.run(coro)
+            return asyncio.run(coroutine)
         except RuntimeError:
             loop = asyncio.new_event_loop()
             try:
                 asyncio.set_event_loop(loop)
-                return loop.run_until_complete(coro)
+                return loop.run_until_complete(coroutine)
             finally:
                 asyncio.set_event_loop(None)
                 loop.close()

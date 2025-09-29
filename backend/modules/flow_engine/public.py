@@ -319,9 +319,9 @@ def flow_engine_worker_provider(session: Session, llm_services: LLMServicesProvi
 
 
 __all__ = [
+    "AudioStep",
     "BaseFlow",
     "BaseStep",
-    "AudioStep",
     "FlowContext",
     "FlowEngineAdminProvider",  # For admin module only
     "FlowEngineWorkerProvider",  # For task_queue worker only

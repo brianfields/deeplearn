@@ -7,14 +7,12 @@ Provides endpoints for creating units from mobile app.
 
 from collections.abc import Generator
 import logging
-from typing import cast
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from modules.content.public import content_provider
-from modules.content.service import ContentService, UnitStatus
+from modules.content.public import UnitStatus, content_provider
 from modules.infrastructure.public import infrastructure_provider
 
 from .service import ContentCreatorService
@@ -34,9 +32,8 @@ def get_session() -> Generator[Session, None, None]:
 
 def get_content_creator_service(s: Session = Depends(get_session)) -> ContentCreatorService:
     """Build ContentCreatorService for this request."""
-    content = cast(ContentService, content_provider(s))
-    object_store = getattr(content, "_object_store", None)
-    return ContentCreatorService(content, object_store=object_store)
+    content = content_provider(s)
+    return ContentCreatorService(content)
 
 
 # DTOs for mobile unit creation

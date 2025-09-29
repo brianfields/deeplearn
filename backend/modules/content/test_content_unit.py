@@ -5,8 +5,8 @@ Tests for the content module service layer with package structure.
 """
 
 from datetime import UTC, datetime
-import uuid
 from unittest.mock import AsyncMock, Mock
+import uuid
 
 import pytest
 

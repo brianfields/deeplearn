@@ -139,7 +139,10 @@ export function UnitDetailScreen() {
 
   const handleTogglePodcast = useCallback(async () => {
     if (!unit?.hasPodcast || !unit.podcastAudioUrl) {
-      Alert.alert('Podcast unavailable', 'This unit does not have a podcast yet.');
+      Alert.alert(
+        'Podcast unavailable',
+        'This unit does not have a podcast yet.'
+      );
       return;
     }
     if (isLoadingPodcast) {
@@ -288,7 +291,11 @@ export function UnitDetailScreen() {
               Unit Podcast
             </Text>
             {unit.podcastVoice && (
-              <Text variant="secondary" color={theme.colors.textSecondary} style={{ marginBottom: 12 }}>
+              <Text
+                variant="secondary"
+                color={theme.colors.textSecondary}
+                style={{ marginBottom: 12 }}
+              >
                 Narrated in {unit.podcastVoice}
               </Text>
             )}
@@ -310,7 +317,11 @@ export function UnitDetailScreen() {
               </View>
             )}
             {podcastDurationLabel && (
-              <Text variant="caption" color={theme.colors.textSecondary} style={{ marginTop: 12 }}>
+              <Text
+                variant="caption"
+                color={theme.colors.textSecondary}
+                style={{ marginTop: 12 }}
+              >
                 Duration: {podcastDurationLabel}
               </Text>
             )}

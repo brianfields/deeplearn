@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from dataclasses import dataclass
 import logging
 import math
 import re
-from dataclasses import dataclass
-from typing import Sequence
 
 from modules.llm_services.public import AudioResponse
 
@@ -98,7 +98,7 @@ class UnitPodcastGenerator:
             if parsed_audio.voice:
                 playback_voice = parsed_audio.voice
             if parsed_audio.duration_seconds is not None:
-                duration_seconds = int(math.ceil(parsed_audio.duration_seconds))
+                duration_seconds = math.ceil(parsed_audio.duration_seconds)
 
         if duration_seconds is None:
             duration_seconds = self._estimate_duration_seconds(transcript_text)
@@ -117,4 +117,4 @@ class UnitPodcastGenerator:
             return 0
 
         estimated_minutes = len(words) / 165  # ~165 spoken words per minute
-        return max(1, int(math.ceil(estimated_minutes * 60)))
+        return max(1, math.ceil(estimated_minutes * 60))

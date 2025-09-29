@@ -101,13 +101,15 @@ class OpenAIProvider(LLMProvider):
             if not _OPENAI_AVAILABLE or (AsyncOpenAI is None and AsyncAzureOpenAI is None):
                 raise LLMAuthenticationError("OpenAI SDK is not installed. Please install 'openai' package to use this provider.")
             if self.config.provider.value == "azure_openai":
-                self.client = AsyncAzureOpenAI(
+                assert AsyncAzureOpenAI is not None
+                self.client = cast(Any, AsyncAzureOpenAI)(
                     api_key=self.config.api_key,
                     base_url=self.config.base_url,
                     timeout=self.config.timeout,
                 )
             else:
-                self.client = AsyncOpenAI(
+                assert AsyncOpenAI is not None
+                self.client = cast(Any, AsyncOpenAI)(
                     api_key=self.config.api_key,
                     base_url=self.config.base_url,
                     timeout=self.config.timeout,
@@ -301,7 +303,11 @@ class OpenAIProvider(LLMProvider):
 
             # Make API call with retry logic
             logger.info("⏳ Making GPT-5 API call...")
-            response = await self._make_api_call_with_retry(lambda: self.client.responses.create(**request_params))
+            responses_client = getattr(self.client, "responses", None)
+            create_method = getattr(responses_client, "create", None)
+            if not callable(create_method):
+                raise LLMError("OpenAI Responses API is not available in this environment")
+            response = await self._make_api_call_with_retry(lambda: create_method(**request_params))
             logger.info("✅ GPT-5 API call completed")
 
             # Parse GPT-5 response
@@ -504,12 +510,14 @@ class OpenAIProvider(LLMProvider):
             logger.info("🤖 Starting structured GPT-5 request using native Structured Outputs")
 
             # Try using responses.parse if available (newer SDK versions)
-            if hasattr(self.client, "responses") and hasattr(self.client.responses, "parse"):
+            responses_client = getattr(self.client, "responses", None)
+            parse_method = getattr(responses_client, "parse", None)
+            if callable(parse_method):
                 # Use the native SDK parsing method
                 # For responses.parse(), we use text_format instead of text.format
                 parse_params = request_params.copy()
                 parse_params.pop("text", None)  # Remove text.format for responses.parse()
-                response = await self.client.responses.parse(**parse_params, text_format=response_model)
+                response = await cast(Any, parse_method)(**parse_params, text_format=response_model)
 
                 # Extract the parsed object directly
                 if hasattr(response, "output_parsed") and response.output_parsed is not None:
@@ -724,27 +732,26 @@ class OpenAIProvider(LLMProvider):
             }
             request_kwargs.update({k: v for k, v in kwargs.items() if v is not None})
             if request.speed is not None:
-                request_kwargs["speed"] = request.speed
+                request_kwargs["speed"] = str(request.speed)
 
             audio_bytes: bytes
             create_method = getattr(speech_client, "create", None)
             if not callable(create_method):
                 raise LLMError("OpenAI audio synthesis API does not expose a create() method")
 
-            response = await create_method(**request_kwargs)
+            response = await cast(Any, create_method)(**request_kwargs)
 
             audio_payload = getattr(response, "content", None)
-            if isinstance(audio_payload, (bytes, bytearray)):
+            if isinstance(audio_payload, bytes | bytearray):
                 audio_bytes = bytes(audio_payload)
             else:
                 audio_payload = getattr(response, "audio", audio_payload)
-                if isinstance(audio_payload, (bytes, bytearray)):
+                if isinstance(audio_payload, bytes | bytearray):
                     audio_bytes = bytes(audio_payload)
+                elif isinstance(audio_payload, str):
+                    audio_bytes = base64.b64decode(audio_payload)
                 else:
-                    if isinstance(audio_payload, str):
-                        audio_bytes = base64.b64decode(audio_payload)
-                    else:
-                        raise LLMError("Unsupported audio response format from OpenAI")
+                    raise LLMError("Unsupported audio response format from OpenAI")
 
             audio_base64 = base64.b64encode(audio_bytes).decode("ascii")
             mime_type = "audio/mpeg" if request.audio_format == "mp3" else f"audio/{request.audio_format}"
@@ -863,7 +870,7 @@ class OpenAIProvider(LLMProvider):
             return 0
 
         estimated_minutes = len(words) / 165  # Approximate spoken words per minute
-        return max(1, int(math.ceil(estimated_minutes * 60)))
+        return max(1, math.ceil(estimated_minutes * 60))
 
     async def _make_api_call_with_retry(self, api_call_func: Any) -> Any:
         """Make API call with retry logic for rate limits and transient errors."""

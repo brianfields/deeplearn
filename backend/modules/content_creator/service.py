@@ -6,8 +6,8 @@ Uses LLM services to create educational content and stores it via content module
 """
 
 import logging
-import uuid
 from typing import Any
+import uuid
 
 # FastAPI BackgroundTasks path was removed; keep import set minimal
 from pydantic import BaseModel

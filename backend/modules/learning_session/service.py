@@ -11,7 +11,6 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from modules.catalog.public import CatalogProvider
     from modules.content.public import ContentProvider
 from .models import LearningSessionModel, SessionStatus
 from .repo import LearningSessionRepo
@@ -165,11 +164,10 @@ class LearningSessionService:
         self,
         repo: LearningSessionRepo,
         content_provider: "ContentProvider",
-        catalog_provider: "CatalogProvider",
     ) -> None:
         self.repo = repo
         self.content = content_provider
-        self.catalog = catalog_provider
+        self.catalog = None
 
     async def start_session(self, request: StartSessionRequest) -> LearningSession:
         """Start a new learning session"""
@@ -177,8 +175,8 @@ class LearningSessionService:
             raise ValueError("User identifier is required to start a session")
 
         # Validate lesson exists
-        lesson_detail = self.catalog.get_lesson_details(request.lesson_id)
-        if not lesson_detail:
+        lesson_content = self.content.get_lesson(request.lesson_id)
+        if not lesson_content:
             raise ValueError(f"Lesson {request.lesson_id} not found")
 
         # Check for existing active session (if user provided)
@@ -188,8 +186,6 @@ class LearningSessionService:
             existing_session = self._ensure_session_user(existing_session, request.user_id)
             return self._to_session_dto(existing_session)
 
-        # Get lesson content to determine exercise count
-        lesson_content = self.content.get_lesson(request.lesson_id)
         total_exercises = len(lesson_content.package.exercises) if lesson_content else 0
 
         # Create new session
@@ -457,7 +453,7 @@ class LearningSessionService:
 
     async def get_next_lesson_to_resume(self, user_id: str, unit_id: str) -> str | None:
         """Return next incomplete lesson id within a unit for resuming learning."""
-        unit_detail = self.catalog.get_unit_details(unit_id)
+        unit_detail = self.content.get_unit_detail(unit_id)
         if not unit_detail:
             return None
         try:
@@ -475,14 +471,6 @@ class LearningSessionService:
             if lesson.id not in completed:
                 return lesson.id
         return None
-
-    async def get_units_progress_overview(self, user_id: str, limit: int = 100, offset: int = 0) -> list[UnitProgress]:
-        """Get progress overview for multiple units using the catalog's unit browsing."""
-        units = self.catalog.browse_units(limit=limit, offset=offset)
-        results: list[UnitProgress] = []
-        for u in units:
-            results.append(await self.get_unit_progress(user_id=user_id, unit_id=u.id))
-        return results
 
     async def get_user_sessions(
         self,

@@ -15,11 +15,13 @@ from .providers.factory import create_llm_provider
 from .repo import LLMRequestRepo
 from .types import (
     AudioGenerationRequest,
-    AudioResponse as AudioResponseInternal,
     ImageGenerationRequest,
     ImageQuality,
     ImageSize,
     MessageRole,
+)
+from .types import (
+    AudioResponse as AudioResponseInternal,
 )
 from .types import (
     ImageResponse as ImageResponseInternal,

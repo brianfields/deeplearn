@@ -5,11 +5,12 @@ Protocol definition and dependency injection provider.
 This is the only interface other modules should import from.
 """
 
-from typing import Any, Iterable, Protocol
+from collections.abc import Iterable
+from typing import Any, Protocol
 import uuid
 
-from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from modules.object_store.public import object_store_provider
 
@@ -83,7 +84,7 @@ def content_provider(session: Session) -> ContentProvider:
     """
     async_session = _SyncSessionAsyncAdapter(session)
     object_store = object_store_provider(async_session)
-    return ContentService(ContentRepo(session), object_store=object_store)
+    return ContentService(ContentRepo(session), object_store=object_store)  # pyright: ignore[reportReturnType]
 
 
 # Create aliases for nested classes to maintain backward compatibility

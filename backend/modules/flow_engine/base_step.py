@@ -22,8 +22,8 @@ logger = logging.getLogger(__name__)
 InputT = TypeVar("InputT", bound=BaseModel)
 
 __all__ = [
-    "BaseStep",
     "AudioStep",
+    "BaseStep",
     "ImageStep",
     "StepResult",
     "StepType",

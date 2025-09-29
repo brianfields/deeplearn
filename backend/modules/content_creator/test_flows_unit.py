@@ -11,9 +11,9 @@ Covers:
 from __future__ import annotations
 
 from datetime import datetime
-import uuid
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
+import uuid
 
 import pytest
 
@@ -217,9 +217,7 @@ class TestServiceFlows:
 
         svc = ContentCreatorService(content, podcast_generator=podcast_generator, object_store=object_store)
 
-        with patch("modules.content_creator.service.UnitCreationFlow") as mock_ucf_cls, patch(
-            "modules.content_creator.service.LessonCreationFlow"
-        ) as mock_lcf_cls:
+        with patch("modules.content_creator.service.UnitCreationFlow") as mock_ucf_cls, patch("modules.content_creator.service.LessonCreationFlow") as mock_lcf_cls:
             mock_ucf = AsyncMock()
             mock_ucf.execute.return_value = {
                 "unit_title": "Unit B",
