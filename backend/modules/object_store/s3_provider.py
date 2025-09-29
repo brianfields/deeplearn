@@ -224,7 +224,7 @@ class S3Provider:
             )
 
         except ClientError as e:
-            error_code = e.response["Error"]["Code"]
+            error_code = getattr(e, "response", {}).get("Error", {}).get("Code", "Unknown")
             if error_code == "NoCredentialsError":
                 raise S3AuthenticationError("Invalid AWS credentials") from e
             raise S3Error(f"S3 upload failed: {error_code}") from e
@@ -255,7 +255,7 @@ class S3Provider:
             return url
 
         except ClientError as e:
-            error_code = e.response["Error"]["Code"]
+            error_code = getattr(e, "response", {}).get("Error", {}).get("Code", "Unknown")
             raise S3Error(f"Failed to generate presigned URL: {error_code}") from e
         except Exception as e:
             logger.error(f"Failed to generate presigned URL for {s3_key}: {e!s}")
@@ -282,7 +282,7 @@ class S3Provider:
             return True
 
         except ClientError as e:
-            error_code = e.response["Error"]["Code"]
+            error_code = getattr(e, "response", {}).get("Error", {}).get("Code", "Unknown")
             if error_code == "NoSuchKey":
                 logger.warning(f"File {s3_key} not found for deletion")
                 return False
@@ -307,7 +307,7 @@ class S3Provider:
             return True
 
         except ClientError as e:
-            error_code = e.response["Error"]["Code"]
+            error_code = getattr(e, "response", {}).get("Error", {}).get("Code", "Unknown")
             if error_code in ["NoSuchKey", "404"]:
                 return False
             raise S3Error(f"Failed to check file existence: {error_code}") from e
@@ -336,7 +336,7 @@ class S3Provider:
             return {"content_type": response.get("ContentType"), "content_length": response.get("ContentLength"), "last_modified": response.get("LastModified"), "etag": response.get("ETag")}
 
         except ClientError as e:
-            error_code = e.response["Error"]["Code"]
+            error_code = getattr(e, "response", {}).get("Error", {}).get("Code", "Unknown")
             if error_code in ["NoSuchKey", "404"]:
                 raise S3FileNotFoundError(f"File {s3_key} not found") from e
             raise S3Error(f"Failed to get file metadata: {error_code}") from e

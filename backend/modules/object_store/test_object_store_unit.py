@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import base64
-from collections.abc import Iterable
+from collections.abc import AsyncGenerator, Iterable
 from datetime import datetime
 from io import BytesIO
 from typing import Any
@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session, sessionmaker
 
 from modules.object_store.repo import AudioRepo, ImageRepo
-from modules.object_store.s3_provider import FileMetadata, S3Error
+from modules.object_store.s3_provider import FileMetadata, S3Error, S3Provider
 from modules.object_store.service import (
     AudioCreate,
     AudioRead,
@@ -60,7 +60,7 @@ class _AsyncSessionStub(AsyncSession):
         self._sync.delete(instance)
 
 
-class _FakeS3Provider:
+class _FakeS3Provider(S3Provider):
     """In-memory fake provider for unit tests."""
 
     def __init__(self) -> None:
@@ -97,7 +97,7 @@ class _FakeS3Provider:
             created_at=datetime.utcnow(),
         )
 
-    async def get_presigned_url(self, s3_key: str, expires_in: int = 3600, _method: str = "get_object") -> str:
+    async def get_presigned_url(self, s3_key: str, expires_in: int = 3600, method: str = "get_object") -> str:  # type: ignore[override]
         if s3_key not in self._files:
             raise S3Error("missing")
         return f"https://example.com/{s3_key}?expires={expires_in}"
@@ -108,7 +108,7 @@ class _FakeS3Provider:
 
 
 @pytest_asyncio.fixture
-async def session() -> AsyncSession:
+async def session() -> AsyncGenerator[AsyncSession, None]:
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
     sync_session = sessionmaker(bind=engine)()

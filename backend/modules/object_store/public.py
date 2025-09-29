@@ -24,6 +24,7 @@ class ObjectStoreProvider(Protocol):
         presigned_ttl_seconds: int = 3600,
     ) -> FileUploadResult:
         """Upload an image and store metadata."""
+        ...
 
     async def upload_audio(
         self,
@@ -33,6 +34,7 @@ class ObjectStoreProvider(Protocol):
         presigned_ttl_seconds: int = 3600,
     ) -> FileUploadResult:
         """Upload an audio file and store metadata."""
+        ...
 
     async def get_image(
         self,
@@ -43,6 +45,7 @@ class ObjectStoreProvider(Protocol):
         presigned_ttl_seconds: int = 3600,
     ) -> ImageRead:
         """Retrieve a single image by id."""
+        ...
 
     async def get_audio(
         self,
@@ -53,6 +56,7 @@ class ObjectStoreProvider(Protocol):
         presigned_ttl_seconds: int = 3600,
     ) -> AudioRead:
         """Retrieve a single audio file by id."""
+        ...
 
     async def list_images(
         self,
@@ -65,6 +69,7 @@ class ObjectStoreProvider(Protocol):
         include_system: bool = False,
     ) -> tuple[list[ImageRead], int]:
         """List images for a given user with pagination."""
+        ...
 
     async def list_audio(
         self,
@@ -77,15 +82,19 @@ class ObjectStoreProvider(Protocol):
         include_system: bool = False,
     ) -> tuple[list[AudioRead], int]:
         """List audio files for a given user with pagination."""
+        ...
 
     async def delete_image(self, image_id: uuid.UUID, *, requesting_user_id: int | None) -> None:
         """Delete an image by id."""
+        ...
 
     async def delete_audio(self, audio_id: uuid.UUID, *, requesting_user_id: int | None) -> None:
         """Delete an audio file by id."""
+        ...
 
     async def generate_presigned_url(self, s3_key: str, *, expires_in: int = 3600) -> str:
         """Generate a presigned URL for a stored file."""
+        ...
 
 
 def object_store_provider(
