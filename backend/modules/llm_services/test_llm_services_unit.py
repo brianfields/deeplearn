@@ -69,6 +69,9 @@ class _RecordingProvider(LLMProvider):
     async def generate_image(self, *args: Any, **kwargs: Any) -> tuple[Any, uuid.UUID]:  # pragma: no cover - unused in tests
         raise NotImplementedError
 
+    async def generate_audio(self, *args: Any, **kwargs: Any) -> tuple[Any, uuid.UUID]:  # pragma: no cover - unused in tests
+        raise NotImplementedError
+
     async def search_recent_news(self, *args: Any, **kwargs: Any) -> tuple[Any, uuid.UUID]:  # pragma: no cover - unused in tests
         raise NotImplementedError
 
