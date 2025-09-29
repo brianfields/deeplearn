@@ -8,11 +8,11 @@ This is a migration, not new feature development.
 from dataclasses import dataclass
 from datetime import datetime
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from modules.catalog.public import CatalogProvider
-
-from ..content.public import ContentProvider
+if TYPE_CHECKING:
+    from modules.catalog.public import CatalogProvider
+    from modules.content.public import ContentProvider
 from .models import LearningSessionModel, SessionStatus
 from .repo import LearningSessionRepo
 
@@ -164,8 +164,8 @@ class LearningSessionService:
     def __init__(
         self,
         repo: LearningSessionRepo,
-        content_provider: ContentProvider,
-        catalog_provider: CatalogProvider,
+        content_provider: "ContentProvider",
+        catalog_provider: "CatalogProvider",
     ) -> None:
         self.repo = repo
         self.content = content_provider

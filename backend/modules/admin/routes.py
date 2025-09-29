@@ -14,7 +14,10 @@ from modules.catalog.public import catalog_provider
 from modules.content.public import content_provider
 from modules.flow_engine.public import flow_engine_admin_provider
 from modules.infrastructure.public import infrastructure_provider
-from modules.learning_session.public import learning_session_provider
+from modules.learning_session.public import (
+    learning_session_analytics_provider,
+    learning_session_provider,
+)
 from modules.llm_services.public import llm_services_admin_provider
 from modules.user.public import user_provider
 
@@ -60,7 +63,8 @@ def get_admin_service(session: Session = Depends(get_session)) -> AdminService:
     # Get other module providers (using same session for consistency)
     content = content_provider(session)
     # Units are consolidated under content provider
-    catalog = catalog_provider(content, content)
+    learning_session_analytics = learning_session_analytics_provider(session)
+    catalog = catalog_provider(content, content, learning_session_analytics)
 
     # Create placeholder providers for async services
     # In practice, these would be properly initialized with async context

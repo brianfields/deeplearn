@@ -13,7 +13,7 @@ from typing import Any
 from pydantic import BaseModel
 
 from modules.content.public import ContentProvider
-from modules.learning_session.repo import LearningSessionRepo
+from modules.learning_session.public import LearningSessionAnalyticsProvider
 
 
 # DTOs
@@ -145,7 +145,7 @@ class CatalogService:
         self,
         content: ContentProvider,
         units: ContentProvider,
-        learning_sessions: LearningSessionRepo | None = None,
+        learning_sessions: LearningSessionAnalyticsProvider | None = None,
     ) -> None:
         """Initialize with content, units, and optional learning session data providers."""
 
@@ -540,20 +540,15 @@ class CatalogService:
             return None
 
         try:
-            sessions = self.learning_sessions.get_sessions_for_lessons([lesson.id for lesson in lessons])
+            correctness = self.learning_sessions.get_exercise_correctness([lesson.id for lesson in lessons])
         except Exception:
-            sessions = []
+            correctness = []
 
-        correct_exercises: set[str] = set()
-        for session in sessions:
-            session_data = getattr(session, "session_data", {}) or {}
-            answers = session_data.get("exercise_answers", {}) or {}
-            for exercise_id, answer in answers.items():
-                if exercise_id not in exercise_to_objective:
-                    continue
-                answer_correct = bool(answer.get("has_been_answered_correctly")) or bool(answer.get("is_correct"))
-                if answer_correct:
-                    correct_exercises.add(exercise_id)
+        correct_exercises: set[str] = {
+            record.exercise_id
+            for record in correctness
+            if record.exercise_id in exercise_to_objective and record.has_been_answered_correctly
+        }
 
         objective_texts = list(getattr(detail, "learning_objectives", []) or [])
         progress_results: list[LearningObjectiveProgress] = []

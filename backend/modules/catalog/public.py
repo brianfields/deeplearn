@@ -8,7 +8,7 @@ This is the only interface other modules should import from.
 from typing import Protocol
 
 from modules.content.public import ContentProvider
-from modules.learning_session.repo import LearningSessionRepo
+from modules.learning_session.public import LearningSessionAnalyticsProvider
 
 from .service import (
     BrowseLessonsResponse,
@@ -57,7 +57,7 @@ class CatalogProvider(Protocol):
 def catalog_provider(
     content: ContentProvider,
     units: ContentProvider,
-    learning_sessions: LearningSessionRepo | None = None,
+    learning_sessions: LearningSessionAnalyticsProvider | None = None,
 ) -> CatalogProvider:
     """
     Dependency injection provider for lesson catalog services.

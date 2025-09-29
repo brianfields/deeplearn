@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 from modules.catalog.service import CatalogService, LessonDetail, LessonSummary
+from modules.learning_session.public import ExerciseCorrectness
 from modules.content.package_models import (
     GlossaryTerm,
     LessonPackage,
@@ -194,15 +195,11 @@ class TestCatalogService:
 
         content.get_lessons_by_unit.return_value = [lesson_read]
 
-        learning_sessions.get_sessions_for_lessons.return_value = [
-            SimpleNamespace(
-                session_data={
-                    "exercise_answers": {
-                        "ex-1": {
-                            "has_been_answered_correctly": True,
-                        }
-                    }
-                }
+        learning_sessions.get_exercise_correctness.return_value = [
+            ExerciseCorrectness(
+                lesson_id="lesson-1",
+                exercise_id="ex-1",
+                has_been_answered_correctly=True,
             )
         ]
 
