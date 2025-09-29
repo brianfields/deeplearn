@@ -4,8 +4,8 @@ Provides read-only aggregation helpers that expose DTOs for other modules
 through the public provider without leaking repository internals.
 """
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 
 from .repo import LearningSessionRepo
 
@@ -25,9 +25,7 @@ class LearningSessionAnalyticsService:
     def __init__(self, repo: LearningSessionRepo) -> None:
         self._repo = repo
 
-    def get_exercise_correctness(
-        self, lesson_ids: Iterable[str]
-    ) -> list[ExerciseCorrectness]:
+    def get_exercise_correctness(self, lesson_ids: Iterable[str]) -> list[ExerciseCorrectness]:
         """Return the aggregated correctness per exercise for the lessons provided."""
 
         aggregated: dict[tuple[str, str], bool] = {}
@@ -36,10 +34,7 @@ class LearningSessionAnalyticsService:
             answers = (session.session_data or {}).get("exercise_answers", {}) or {}
             for exercise_id, answer_data in answers.items():
                 key = (session.lesson_id, exercise_id)
-                is_correct = bool(
-                    answer_data.get("has_been_answered_correctly")
-                    or answer_data.get("is_correct")
-                )
+                is_correct = bool(answer_data.get("has_been_answered_correctly") or answer_data.get("is_correct"))
                 aggregated[key] = aggregated.get(key, False) or is_correct
 
         return [
@@ -50,4 +45,3 @@ class LearningSessionAnalyticsService:
             )
             for (lesson_id, exercise_id), is_correct in aggregated.items()
         ]
-

@@ -41,6 +41,8 @@ appId: host.exp.Exponent
 # Step 4: Answer MCQ questions
 # Question 1
 - assertVisible:
+    text: "Volunteers share feeding and water duties"
+- assertVisible:
     id: 'mcq-choice-0'
 - tapOn:
     id: 'mcq-choice-0'
@@ -48,6 +50,8 @@ appId: host.exp.Exponent
     id: 'mcq-continue-button'
 
 # Question 2
+- assertVisible:
+    text: "They guard the fish market at night"
 - assertVisible:
     id: 'mcq-choice-1'
 - tapOn:

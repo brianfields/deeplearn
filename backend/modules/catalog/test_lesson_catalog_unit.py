@@ -9,7 +9,6 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 from modules.catalog.service import CatalogService, LessonDetail, LessonSummary
-from modules.learning_session.public import ExerciseCorrectness
 from modules.content.package_models import (
     GlossaryTerm,
     LessonPackage,
@@ -20,6 +19,7 @@ from modules.content.package_models import (
     Objective,
 )
 from modules.content.public import LessonRead
+from modules.learning_session.public import ExerciseCorrectness
 
 
 class TestCatalogService:

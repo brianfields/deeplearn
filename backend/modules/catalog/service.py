@@ -544,11 +544,7 @@ class CatalogService:
         except Exception:
             correctness = []
 
-        correct_exercises: set[str] = {
-            record.exercise_id
-            for record in correctness
-            if record.exercise_id in exercise_to_objective and record.has_been_answered_correctly
-        }
+        correct_exercises: set[str] = {record.exercise_id for record in correctness if record.exercise_id in exercise_to_objective and record.has_been_answered_correctly}
 
         objective_texts = list(getattr(detail, "learning_objectives", []) or [])
         progress_results: list[LearningObjectiveProgress] = []
@@ -556,11 +552,7 @@ class CatalogService:
 
         def build_entry(objective_text: str) -> LearningObjectiveProgress:
             total = totals.get(objective_text, 0)
-            correct = sum(
-                1
-                for exercise_id, lo_text in exercise_to_objective.items()
-                if lo_text == objective_text and exercise_id in correct_exercises
-            )
+            correct = sum(1 for exercise_id, lo_text in exercise_to_objective.items() if lo_text == objective_text and exercise_id in correct_exercises)
             percentage = (correct / total * 100.0) if total else 0.0
             return LearningObjectiveProgress(
                 objective=objective_text,
@@ -573,7 +565,7 @@ class CatalogService:
             progress_results.append(build_entry(objective_text))
             seen.add(objective_text)
 
-        for remaining_objective in totals.keys():
+        for remaining_objective in totals:
             if remaining_objective in seen:
                 continue
             progress_results.append(build_entry(remaining_objective))

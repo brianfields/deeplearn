@@ -5,8 +5,9 @@ Minimal database access layer to support existing frontend functionality.
 This is a migration, not new feature development.
 """
 
+from collections.abc import Iterable
 from datetime import datetime
-from typing import Any, Iterable
+from typing import Any
 import uuid
 
 from sqlalchemy import and_, desc, text
@@ -150,11 +151,7 @@ class LearningSessionRepo:
         if not lesson_ids:
             return []
 
-        return (
-            self.db.query(LearningSessionModel)
-            .filter(LearningSessionModel.lesson_id.in_(lesson_ids))
-            .all()
-        )
+        return self.db.query(LearningSessionModel).filter(LearningSessionModel.lesson_id.in_(lesson_ids)).all()
 
     def assign_session_user(self, session_id: str, user_id: str) -> LearningSessionModel:
         """Persist the user association for a session if it has not been set."""

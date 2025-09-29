@@ -6,7 +6,8 @@ This is a migration, not new feature development.
 """
 
 from abc import abstractmethod
-from typing import Iterable, Protocol, TYPE_CHECKING
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, Protocol
 
 from sqlalchemy.orm import Session
 
@@ -130,7 +131,9 @@ def learning_session_analytics_provider(session: Session) -> LearningSessionAnal
 # Export DTOs that other modules might need
 __all__ = [
     "CompleteSessionRequest",
+    "ExerciseCorrectness",
     "LearningSession",
+    "LearningSessionAnalyticsProvider",
     "LearningSessionProvider",
     "LearningSessionService",
     "SessionListResponse",
@@ -140,8 +143,6 @@ __all__ = [
     "UnitLessonProgress",
     "UnitProgress",
     "UpdateProgressRequest",
-    "learning_session_provider",
-    "LearningSessionAnalyticsProvider",
-    "ExerciseCorrectness",
     "learning_session_analytics_provider",
+    "learning_session_provider",
 ]
