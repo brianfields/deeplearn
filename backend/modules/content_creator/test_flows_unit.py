@@ -11,6 +11,7 @@ Covers:
 from __future__ import annotations
 
 from datetime import datetime
+import uuid
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -184,7 +185,68 @@ class TestServiceFlows:
             content.assign_lessons_to_unit = Mock()
 
             result = await svc.create_unit(topic="Topic", target_lesson_count=1, learner_level="beginner", background=False)
-            assert result.title == "Unit T"
-            content.assign_lessons_to_unit.assert_called_once()
-            podcast_generator.create_podcast.assert_awaited_once()
-            content.set_unit_podcast.assert_called_once()
+        assert result.title == "Unit T"
+        content.assign_lessons_to_unit.assert_called_once()
+        podcast_generator.create_podcast.assert_awaited_once()
+        content.set_unit_podcast.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_podcast_audio_uploads_to_object_store(self) -> None:
+        content = Mock()
+        podcast_generator = AsyncMock()
+        podcast_generator.create_podcast.return_value = UnitPodcast(
+            transcript="Narration",
+            audio_bytes=b"audio",
+            mime_type="audio/mpeg",
+            voice="Plain",
+            duration_seconds=120,
+        )
+
+        object_store = AsyncMock()
+        stored_id = uuid.uuid4()
+        object_store.upload_audio.return_value = Mock(file=Mock(id=stored_id, content_type="audio/mpeg"))
+
+        content.set_unit_podcast = Mock()
+        created_unit_obj = Mock()
+        created_unit_obj.id = "u2"
+        created_unit_obj.title = "Unit B"
+        content.create_unit.return_value = created_unit_obj
+        content.get_unit.return_value = Mock(user_id=42)
+        content.save_lesson.return_value = Mock(id="lesson-1")
+        content.assign_lessons_to_unit = Mock()
+
+        svc = ContentCreatorService(content, podcast_generator=podcast_generator, object_store=object_store)
+
+        with patch("modules.content_creator.service.UnitCreationFlow") as mock_ucf_cls, patch(
+            "modules.content_creator.service.LessonCreationFlow"
+        ) as mock_lcf_cls:
+            mock_ucf = AsyncMock()
+            mock_ucf.execute.return_value = {
+                "unit_title": "Unit B",
+                "learning_objectives": [{"lo_id": "u_lo_1", "text": "Understand the topic"}],
+                "lessons": [{"title": "L1", "learning_objectives": ["lo_1"], "lesson_objective": "Learn about L1"}],
+            }
+            mock_ucf_cls.return_value = mock_ucf
+
+            mock_lcf = AsyncMock()
+            mock_lcf.execute.return_value = {
+                "topic": "L1",
+                "learner_level": "beginner",
+                "voice": "Plain",
+                "learning_objectives": ["Learn about A"],
+                "misconceptions": [],
+                "confusables": [],
+                "glossary": [],
+                "mini_lesson": "x",
+                "mcqs": {"metadata": {"total_mcqs": 0, "lo_coverage": 0}, "mcqs": []},
+            }
+            mock_lcf_cls.return_value = mock_lcf
+
+            await svc.create_unit(topic="Topic", target_lesson_count=1, learner_level="beginner", background=False)
+
+            object_store.upload_audio.assert_awaited_once()
+            content.set_unit_podcast.assert_called()
+            _, kwargs = content.set_unit_podcast.call_args
+            assert kwargs.get("audio_object_id") == stored_id
+            assert kwargs.get("transcript") == "Narration"
+            assert kwargs.get("voice") == "Plain"

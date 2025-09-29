@@ -16,7 +16,6 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
-    LargeBinary,
     String,
     Text,
 )
@@ -91,9 +90,7 @@ class UnitModel(Base):
     # Podcast fields - transcript + generated audio asset
     podcast_transcript = Column(Text, nullable=True)
     podcast_voice = Column(String(100), nullable=True)
-    podcast_audio = Column(LargeBinary, nullable=True)
-    podcast_audio_mime_type = Column(String(50), nullable=True)
-    podcast_duration_seconds = Column(Integer, nullable=True)
+    podcast_audio_object_id = Column(PostgresUUID(), nullable=True)
     podcast_generated_at = Column(DateTime, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
