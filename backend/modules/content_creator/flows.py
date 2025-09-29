@@ -13,7 +13,15 @@ from pydantic import BaseModel
 
 from modules.flow_engine.public import BaseFlow
 
-from .steps import ExtractLessonMetadataStep, ExtractUnitMetadataStep, GenerateMCQStep, GenerateUnitSourceMaterialStep
+from .steps import (
+    ExtractLessonMetadataStep,
+    ExtractUnitMetadataStep,
+    GenerateMCQStep,
+    GenerateUnitPodcastTranscriptStep,
+    GenerateUnitSourceMaterialStep,
+    PodcastLessonInput,
+    SynthesizePodcastAudioStep,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -145,4 +153,48 @@ class UnitCreationFlow(BaseFlow):
             "lessons": [ls.model_dump() for ls in unit_md.lessons],
             "lesson_count": int(unit_md.lesson_count),
             "unit_source_material": material,
+        }
+
+
+class UnitPodcastFlow(BaseFlow):
+    """Generate a narrated podcast by orchestrating transcript and audio steps."""
+
+    flow_name = "unit_podcast"
+
+    class Inputs(BaseModel):
+        unit_title: str
+        voice: str
+        unit_summary: str
+        lessons: list[PodcastLessonInput]
+        audio_model: str = "gpt-4o-mini-tts"
+        audio_format: str = "mp3"
+        audio_speed: float | None = None
+
+    async def _execute_flow_logic(self, inputs: dict[str, Any]) -> dict[str, Any]:
+        logger.info(f"🎙️ Unit Podcast Flow - {inputs.get('unit_title', 'Unknown')}")
+
+        transcript_result = await GenerateUnitPodcastTranscriptStep().execute(
+            {
+                "unit_title": inputs["unit_title"],
+                "voice": inputs["voice"],
+                "unit_summary": inputs["unit_summary"],
+                "lessons": inputs["lessons"],
+            }
+        )
+        transcript_text = str(transcript_result.output_content or "").strip()
+        if not transcript_text:
+            raise RuntimeError("Podcast transcript generation returned empty content")
+
+        audio_inputs = {
+            "text": transcript_text,
+            "voice": inputs["voice"],
+            "model": inputs.get("audio_model", "gpt-4o-mini-tts"),
+            "format": inputs.get("audio_format", "mp3"),
+            "speed": inputs.get("audio_speed"),
+        }
+        audio_result = await SynthesizePodcastAudioStep().execute(audio_inputs)
+
+        return {
+            "transcript": transcript_text,
+            "audio": audio_result.output_content,
         }

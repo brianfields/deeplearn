@@ -1,5 +1,6 @@
 """Service layer for LLM operations with DTOs."""
 
+import base64
 import contextlib
 from datetime import datetime
 import logging
@@ -13,6 +14,8 @@ from .providers.base import LLMProvider, LLMProviderKwargs
 from .providers.factory import create_llm_provider
 from .repo import LLMRequestRepo
 from .types import (
+    AudioGenerationRequest,
+    AudioResponse as AudioResponseInternal,
     ImageGenerationRequest,
     ImageQuality,
     ImageSize,
@@ -37,7 +40,17 @@ from .types import (
 # Type variable for structured responses
 T = TypeVar("T", bound=BaseModel)
 
-__all__ = ["ImageRequest", "ImageResponse", "LLMMessage", "LLMRequest", "LLMResponse", "LLMService", "SearchResult", "WebSearchResponse"]
+__all__ = [
+    "AudioResponse",
+    "ImageRequest",
+    "ImageResponse",
+    "LLMMessage",
+    "LLMRequest",
+    "LLMResponse",
+    "LLMService",
+    "SearchResult",
+    "WebSearchResponse",
+]
 
 
 # DTOs for external interface
@@ -124,6 +137,35 @@ class LLMRequest(BaseModel):
     updated_at: datetime = Field(..., description="Last update timestamp")
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class AudioResponse(BaseModel):
+    """DTO for audio synthesis responses."""
+
+    audio_base64: str = Field(..., description="Base64-encoded audio payload")
+    mime_type: str = Field(..., description="MIME type of the synthesized audio")
+    voice: str | None = Field(None, description="Voice used for narration")
+    model: str | None = Field(None, description="Model that produced the audio")
+    cost_estimate: float | None = Field(None, description="Estimated cost in USD")
+    duration_seconds: float | None = Field(None, description="Estimated duration in seconds")
+
+    def audio_bytes(self) -> bytes:
+        """Decode the base64 payload into raw audio bytes."""
+
+        return base64.b64decode(self.audio_base64)
+
+    @classmethod
+    def from_audio_response(cls, response: AudioResponseInternal) -> "AudioResponse":
+        """Create DTO from internal audio response."""
+
+        return cls(
+            audio_base64=response.audio_base64,
+            mime_type=response.mime_type,
+            voice=response.voice,
+            model=response.model,
+            cost_estimate=response.cost_estimate,
+            duration_seconds=response.duration_seconds,
+        )
 
 
 class ImageRequest(BaseModel):
@@ -252,6 +294,41 @@ class LLMService:
 
         self._ensure_request_user(request_id, user_id)
         return structured_obj, request_id, usage_info
+
+    async def generate_audio(
+        self,
+        text: str,
+        voice: str,
+        user_id: uuid.UUID | None = None,
+        model: str | None = None,
+        audio_format: str = "mp3",
+        speed: float | None = None,
+        **kwargs: LLMProviderKwargs,
+    ) -> tuple[AudioResponse, uuid.UUID]:
+        """Synthesize narrated audio from text."""
+
+        if not self.provider:
+            raise RuntimeError("LLM provider not initialized")
+
+        resolved_model = model or getattr(self.provider.config, "audio_model", None) or self.provider.config.model
+
+        request = AudioGenerationRequest(
+            text=text,
+            voice=voice,
+            model=resolved_model,
+            audio_format=audio_format,
+            speed=speed,
+        )
+
+        internal_response, request_id = await self.provider.generate_audio(
+            request=request,
+            user_id=user_id,
+            **kwargs,
+        )
+
+        response_dto = AudioResponse.from_audio_response(internal_response)
+        self._ensure_request_user(request_id, user_id)
+        return response_dto, request_id
 
     async def generate_image(self, prompt: str, user_id: uuid.UUID | None = None, size: str = "1024x1024", quality: str = "standard", style: str | None = None, **kwargs: LLMProviderKwargs) -> tuple[ImageResponse, uuid.UUID]:
         """
