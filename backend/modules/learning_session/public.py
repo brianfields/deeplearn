@@ -119,6 +119,7 @@ class LearningSessionAnalyticsProvider(Protocol):
 
     def get_exercise_correctness(self, lesson_ids: Iterable[str]) -> list[ExerciseCorrectness]:
         """Aggregate the correctness state for exercises within the provided lessons."""
+        ...
 
 
 def learning_session_analytics_provider(session: Session) -> LearningSessionAnalyticsProvider:
