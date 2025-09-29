@@ -122,6 +122,7 @@ class TestServiceFlows:
     @pytest.mark.asyncio
     async def test_create_unit_precreates_and_completes(self) -> None:
         content = Mock()
+        content.create_unit = AsyncMock()
         svc = ContentCreatorService(content)
 
         # Unit plan will be provided by mocked UnitCreationFlow below

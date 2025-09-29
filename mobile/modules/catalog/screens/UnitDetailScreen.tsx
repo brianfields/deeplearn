@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Alert,
   Switch,
+  Image,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
@@ -163,6 +164,31 @@ export function UnitDetailScreen() {
         </Text>
       </Box>
 
+      {unit.coverImageUrl && (
+        <Box px="lg" mb="md">
+          <Card variant="default" style={styles.heroCard}>
+            <Image
+              source={{ uri: unit.coverImageUrl }}
+              style={styles.heroImage}
+              resizeMode="cover"
+              accessibilityRole="image"
+              accessibilityLabel={`Cover art for ${unit.title}`}
+            />
+            {unit.coverImagePrompt && (
+              <View style={styles.heroCaption}>
+                <Text
+                  variant="caption"
+                  color={theme.colors.textSecondary}
+                  numberOfLines={2}
+                >
+                  {unit.coverImagePrompt}
+                </Text>
+              </View>
+            )}
+          </Card>
+        </Box>
+      )}
+
       <Box px="lg">
         <Card variant="default" style={{ margin: 0 }}>
           {nextLessonTitle && (
@@ -292,5 +318,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 8,
+  },
+  heroCard: {
+    margin: 0,
+    padding: 0,
+    overflow: 'hidden',
+  },
+  heroImage: {
+    width: '100%',
+    height: 240,
+  },
+  heroCaption: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.04)',
   },
 });

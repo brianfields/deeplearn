@@ -260,7 +260,7 @@ class ContentCreatorService:
         """
         # Pre-create the shell unit for both paths
         provisional_title = f"Learning Unit: {topic}"
-        unit = self.content.create_unit(
+        unit = await self.content.create_unit(
             UnitCreate(
                 title=provisional_title,
                 description=f"A learning unit about {topic}",

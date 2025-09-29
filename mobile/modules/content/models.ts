@@ -20,6 +20,9 @@ export interface ApiUnitSummary {
   is_global?: boolean;
   created_at?: string;
   updated_at?: string;
+  cover_image_url?: string | null;
+  cover_image_prompt?: string | null;
+  cover_image_request_id?: string | null;
 }
 
 export interface ApiUnitDetail {
@@ -42,6 +45,9 @@ export interface ApiUnitDetail {
   generated_from_topic?: boolean;
   user_id?: number | null;
   is_global?: boolean;
+  cover_image_url?: string | null;
+  cover_image_prompt?: string | null;
+  cover_image_request_id?: string | null;
 }
 
 export type UnitId = string;
@@ -86,6 +92,9 @@ export interface Unit {
   readonly isGlobal: boolean;
   readonly ownershipLabel: string;
   readonly isOwnedByCurrentUser: boolean;
+  readonly coverImageUrl: string | null;
+  readonly coverImagePrompt: string | null;
+  readonly coverImageRequestId: string | null;
 }
 
 export interface UnitDetail {
@@ -103,6 +112,9 @@ export interface UnitDetail {
   readonly isGlobal: boolean;
   readonly ownershipLabel: string;
   readonly isOwnedByCurrentUser: boolean;
+  readonly coverImageUrl: string | null;
+  readonly coverImagePrompt: string | null;
+  readonly coverImageRequestId: string | null;
 }
 
 export interface UnitProgress {
@@ -165,6 +177,9 @@ export function toUnitDTO(
     isGlobal,
     ownershipLabel: formatOwnershipLabel(isGlobal, isOwnedByCurrentUser),
     isOwnedByCurrentUser,
+    coverImageUrl: api.cover_image_url ?? null,
+    coverImagePrompt: api.cover_image_prompt ?? null,
+    coverImageRequestId: api.cover_image_request_id ?? null,
   };
 }
 
@@ -200,6 +215,9 @@ export function toUnitDetailDTO(
     isGlobal,
     ownershipLabel: formatOwnershipLabel(isGlobal, isOwnedByCurrentUser),
     isOwnedByCurrentUser,
+    coverImageUrl: api.cover_image_url ?? null,
+    coverImagePrompt: api.cover_image_prompt ?? null,
+    coverImageRequestId: api.cover_image_request_id ?? null,
   };
 }
 

@@ -87,13 +87,13 @@ def get_unit_detail(
 
 
 @router.post("/units", response_model=ContentService.UnitRead, status_code=status.HTTP_201_CREATED)
-def create_unit(
+async def create_unit(
     payload: ContentService.UnitCreate,
     service: ContentService = Depends(get_content_service),
 ) -> ContentService.UnitRead:
     """Create a new unit with optional ownership and sharing metadata."""
 
-    return service.create_unit(payload)
+    return await service.create_unit(payload)
 
 
 @router.patch("/units/{unit_id}/sharing", response_model=ContentService.UnitRead)

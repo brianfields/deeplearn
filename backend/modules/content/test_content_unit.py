@@ -5,7 +5,8 @@ Tests for the content module service layer with package structure.
 """
 
 from datetime import UTC, datetime
-from unittest.mock import Mock
+import uuid
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -161,7 +162,8 @@ class TestContentService:
         assert result is False
         repo.delete_unit.assert_called_once_with("nonexistent-unit")
 
-    def test_create_unit_assigns_owner_and_sharing_flags(self) -> None:
+    @pytest.mark.asyncio
+    async def test_create_unit_assigns_owner_and_sharing_flags(self) -> None:
         """Unit creation should persist ownership and sharing metadata."""
 
         repo = Mock(spec=ContentRepo)
@@ -194,7 +196,7 @@ class TestContentService:
             is_global=True,
         )
 
-        created = service.create_unit(payload)
+        created = await service.create_unit(payload)
 
         assert created.user_id == 7
         assert created.is_global is True
@@ -202,6 +204,40 @@ class TestContentService:
         stored_model = repo.add_unit.call_args.args[0]
         assert stored_model.user_id == 7
         assert stored_model.is_global is True
+
+    @pytest.mark.asyncio
+    async def test_create_unit_generates_cover_image_when_available(self) -> None:
+        """LLM-backed image generation should populate cover metadata."""
+
+        repo = Mock(spec=ContentRepo)
+        repo.add_unit.side_effect = lambda model: model
+
+        image_response = Mock()
+        image_response.image_url = "https://images.example/weimar-edge.png"
+        image_response.revised_prompt = "Refined prompt"
+        image_response.size = "1024x1024"
+        image_response.cost_estimate = 0.25
+
+        llm = Mock()
+        llm.generate_image = AsyncMock(return_value=(image_response, uuid.uuid4()))
+
+        service = ContentService(repo, llm)
+
+        payload = service.UnitCreate(
+            title="Quantum Harmonics",
+            learner_level="advanced",
+            description="Exploring vibrational modes in quantum systems",
+            learning_objectives=["Interpret energy spectra", "Model harmonic oscillators"],
+        )
+
+        created = await service.create_unit(payload)
+
+        llm.generate_image.assert_awaited_once()
+        assert created.cover_image_url == image_response.image_url
+        assert created.cover_image_prompt == image_response.revised_prompt
+        stored_model = repo.add_unit.call_args.args[0]
+        assert stored_model.cover_image_url == image_response.image_url
+        assert stored_model.cover_image_prompt == image_response.revised_prompt
 
     def test_list_units_for_user_uses_repo(self) -> None:
         """Ensure user-specific listing delegates to repository."""

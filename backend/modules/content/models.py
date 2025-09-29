@@ -76,6 +76,11 @@ class UnitModel(Base):
     creation_progress = Column(JSON, nullable=True)
     error_message = Column(Text, nullable=True)
 
+    # AI-generated cover imagery metadata
+    cover_image_url = Column(Text, nullable=True)
+    cover_image_prompt = Column(Text, nullable=True)
+    cover_image_request_id = Column(PostgresUUID(as_uuid=True), nullable=True)
+
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 

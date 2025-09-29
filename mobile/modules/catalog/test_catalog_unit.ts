@@ -75,6 +75,9 @@ describe('CatalogService', () => {
           isGlobal: false,
           ownershipLabel: 'Personal',
           isOwnedByCurrentUser: false,
+          coverImageUrl: null,
+          coverImagePrompt: null,
+          coverImageRequestId: null,
         },
       ];
       mockContent.listUnits.mockResolvedValue(mockUnits);
@@ -123,6 +126,9 @@ describe('CatalogService', () => {
         isGlobal: false,
         ownershipLabel: 'My Unit',
         isOwnedByCurrentUser: true,
+        coverImageUrl: null,
+        coverImagePrompt: null,
+        coverImageRequestId: null,
       };
       mockContent.getUnitDetail.mockResolvedValue(detail);
 

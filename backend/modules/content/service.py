@@ -21,6 +21,8 @@ from .models import LessonModel, UnitModel
 from .package_models import LessonPackage
 from .repo import ContentRepo
 
+from ..llm_services.public import LLMServicesProvider
+
 if TYPE_CHECKING:  # pragma: no cover - type checking only
     from ..learning_session.models import UnitSessionModel  # noqa: F401
 
@@ -77,9 +79,11 @@ class LessonCreate(BaseModel):
 class ContentService:
     """Service for content operations."""
 
-    def __init__(self, repo: ContentRepo) -> None:
-        """Initialize service with repository."""
+    def __init__(self, repo: ContentRepo, llm_services: LLMServicesProvider | None = None) -> None:
+        """Initialize service with repository and optional LLM services."""
+
         self.repo = repo
+        self.llm_services = llm_services
 
     # Lesson operations
     def get_lesson(self, lesson_id: str) -> LessonRead | None:
@@ -270,6 +274,9 @@ class ContentService:
         source_material: str | None = None
         generated_from_topic: bool = False
         flow_type: str = "standard"
+        cover_image_url: str | None = None
+        cover_image_prompt: str | None = None
+        cover_image_request_id: uuid.UUID | None = None
         # Status tracking fields
         status: str = "completed"
         creation_progress: dict[str, Any] | None = None
@@ -306,6 +313,9 @@ class ContentService:
         source_material: str | None = None
         generated_from_topic: bool = False
         flow_type: str = "standard"
+        cover_image_url: str | None = None
+        cover_image_prompt: str | None = None
+        cover_image_request_id: uuid.UUID | None = None
 
     def get_unit(self, unit_id: str) -> ContentService.UnitRead | None:
         u = self.repo.get_unit_by_id(unit_id)
@@ -397,8 +407,36 @@ class ContentService:
         updated = self.repo.update_unit_status(unit_id=unit_id, status=status, error_message=error_message, creation_progress=creation_progress)
         return self.UnitRead.model_validate(updated) if updated else None
 
-    def create_unit(self, data: ContentService.UnitCreate) -> ContentService.UnitRead:
+    async def create_unit(self, data: ContentService.UnitCreate) -> ContentService.UnitRead:
         unit_id = data.id or str(uuid.uuid4())
+
+        cover_image_url = data.cover_image_url
+        cover_image_prompt = data.cover_image_prompt
+        cover_image_request_id = data.cover_image_request_id
+
+        if self.llm_services and not cover_image_url:
+            prompt = cover_image_prompt or self._build_unit_cover_prompt(data)
+            try:
+                image_response, request_id = await self.llm_services.generate_image(
+                    prompt=prompt,
+                    size="1024x1024",
+                    quality="hd",
+                    style="weimar-edge",
+                )
+                cover_image_url = image_response.image_url
+                cover_image_request_id = request_id
+                cover_image_prompt = image_response.revised_prompt or prompt
+                logger.info("🖼️ Generated cover image for unit %s", unit_id)
+            except Exception as exc:  # pragma: no cover - defensive logging
+                cover_image_prompt = prompt
+                logger.warning(
+                    "⚠️ Failed to generate cover image for unit %s (%s): %s",
+                    unit_id,
+                    data.title,
+                    exc,
+                )
+
+        now = datetime.now(UTC)
         model = UnitModel(
             id=unit_id,
             title=data.title,
@@ -412,11 +450,48 @@ class ContentService:
             source_material=data.source_material,
             generated_from_topic=bool(data.generated_from_topic),
             flow_type=str(getattr(data, "flow_type", "standard") or "standard"),
-            created_at=datetime.now(UTC),
-            updated_at=datetime.now(UTC),
+            status=UnitStatus.COMPLETED.value,
+            created_at=now,
+            updated_at=now,
+            cover_image_url=cover_image_url,
+            cover_image_prompt=cover_image_prompt,
+            cover_image_request_id=cover_image_request_id,
         )
         created = self.repo.add_unit(model)
         return self.UnitRead.model_validate(created)
+
+    @staticmethod
+    def _build_unit_cover_prompt(data: "ContentService.UnitCreate") -> str:
+        """Craft a deterministic prompt for Weimar Edge inspired unit art."""
+
+        descriptor = (
+            "Weimar Edge aesthetic, angular Bauhaus geometry, tungsten highlights, "
+            "soft fogged gradients, razor-thin sans serif typography, cinematic lighting"
+        )
+
+        summary_bits: list[str] = []
+        if data.description:
+            summary_bits.append(data.description.strip())
+
+        if data.learning_objectives:
+            objectives = [str(obj) for obj in list(data.learning_objectives)[:2]]
+            if objectives:
+                summary_bits.append(f"focus on {', '.join(objectives)}")
+
+        if data.generated_from_topic:
+            summary_bits.append("born from learner curiosity")
+
+        summary = " • ".join(bit for bit in summary_bits if bit)
+        if summary and len(summary) > 240:
+            summary = summary[:240].rstrip() + "…"
+
+        return (
+            f"Design an editorial illustration for a learning unit titled \"{data.title}\". "
+            f"Express {data.learner_level} mastery through {descriptor}. "
+            f"Embrace generous negative space, tactile textures, and crisp chromatic accents. "
+            f"{summary if summary else ''}"
+            "No text, no logos, aspect ratio 4:5."
+        ).strip()
 
     def set_unit_lesson_order(self, unit_id: str, lesson_ids: list[str]) -> ContentService.UnitRead:
         updated = self.repo.update_unit_lesson_order(unit_id, lesson_ids)
