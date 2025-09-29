@@ -8,7 +8,8 @@ Uses single lessons table with JSON package field.
 
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, CheckConstraint, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, CheckConstraint, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy.orm import Mapped, mapped_column
 
 from modules.shared_models import Base, PostgresUUID
 from modules.user.models import UserModel  # noqa: F401  # Ensure users table registered for FK
@@ -19,23 +20,23 @@ class LessonModel(Base):
 
     __tablename__ = "lessons"
 
-    id = Column(String(36), primary_key=True)
-    title = Column(String(255), nullable=False)
-    learner_level = Column(String(50), nullable=False)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    learner_level: Mapped[str] = mapped_column(String(50), nullable=False)
 
-    source_material = Column(Text)
+    source_material: Mapped[str | None] = mapped_column(Text)
 
-    package = Column(JSON, nullable=False)  # Defined in @package_models.py
-    package_version = Column(Integer, nullable=False, default=1)
+    package: Mapped[dict] = mapped_column(JSON, nullable=False)  # Defined in @package_models.py
+    package_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
     # Reference to the flow run that generated this lesson
-    flow_run_id = Column(PostgresUUID(), ForeignKey("flow_runs.id"), nullable=True, index=True)
+    flow_run_id: Mapped[str | None] = mapped_column(PostgresUUID(), ForeignKey("flow_runs.id"), nullable=True, index=True)
 
     # Association to unit (every lesson belongs to a unit)
-    unit_id = Column(String(36), ForeignKey("units.id"), nullable=True, index=True)
+    unit_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("units.id"), nullable=True, index=True)
 
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
 
 
 class UnitModel(Base):
@@ -46,38 +47,38 @@ class UnitModel(Base):
 
     __tablename__ = "units"
 
-    id = Column(String(36), primary_key=True)
-    title = Column(String(255), nullable=False)
-    description = Column(Text, nullable=True)
-    learner_level = Column(String(50), nullable=False, default="beginner")
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    learner_level: Mapped[str] = mapped_column(String(50), nullable=False, default="beginner")
 
     # Ordered list of lesson IDs belonging to this unit
-    lesson_order = Column(JSON, nullable=False, default=list)
+    lesson_order: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
 
     # Ownership and sharing metadata
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
-    is_global = Column(Boolean, nullable=False, default=False)
+    user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    is_global: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     # New fields for unit-level generation and metadata
     # JSON structure: list of unit-level learning objectives or structured objects
-    learning_objectives = Column(JSON, nullable=True)
+    learning_objectives: Mapped[list | None] = mapped_column(JSON, nullable=True)
     # Target number of lessons for the unit (e.g., 5, 10, 20)
-    target_lesson_count = Column(Integer, nullable=True)
+    target_lesson_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # Full source material used to generate the unit (if any)
-    source_material = Column(Text, nullable=True)
+    source_material: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Whether this unit was generated from topic-only input
-    generated_from_topic = Column(Boolean, nullable=False, default=False)
+    generated_from_topic: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     # Track which content creation flow was used: "standard" | "fast"
-    flow_type = Column(String(20), nullable=False, default="standard")
+    flow_type: Mapped[str] = mapped_column(String(20), nullable=False, default="standard")
 
     # Status tracking fields for mobile unit creation
-    status = Column(String(20), nullable=False, default="completed")
-    creation_progress = Column(JSON, nullable=True)
-    error_message = Column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="completed")
+    creation_progress: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
 
     # Add constraint for status enum
     __table_args__ = (CheckConstraint("status IN ('draft', 'in_progress', 'completed', 'failed')", name="check_unit_status"),)
