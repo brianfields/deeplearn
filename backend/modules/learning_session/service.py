@@ -74,6 +74,8 @@ class SessionProgress:
     completed_at: str | None
     is_correct: bool | None
     user_answer: Any | None
+    attempt_history: list[dict[str, Any]]
+    has_been_answered_correctly: bool
 
 
 @dataclass
@@ -245,14 +247,29 @@ class LearningSessionService:
 
         # Store this exercise's result
         existing = exercise_answers.get(request.exercise_id, {})
+        attempt_timestamp = datetime.utcnow().isoformat()
+        history: list[dict[str, Any]] = list(existing.get("attempt_history", []))
+        attempt_record = {
+            "attempt_number": len(history) + 1,
+            "is_correct": request.is_correct,
+            "user_answer": request.user_answer,
+            "time_spent_seconds": request.time_spent_seconds,
+            "submitted_at": attempt_timestamp,
+        }
+        history.append(attempt_record)
+
+        has_been_answered_correctly = bool(existing.get("has_been_answered_correctly")) or bool(request.is_correct)
+        started_at = existing.get("started_at") or attempt_timestamp
         exercise_answers[request.exercise_id] = {
             "exercise_type": request.exercise_type,
             "is_correct": request.is_correct,
             "user_answer": request.user_answer,
             "time_spent_seconds": request.time_spent_seconds,
-            "completed_at": datetime.utcnow().isoformat(),
-            "attempts": existing.get("attempts", 0) + 1,
-            "started_at": existing.get("started_at", datetime.utcnow().isoformat()),
+            "completed_at": attempt_timestamp,
+            "attempts": len(history),
+            "started_at": started_at,
+            "attempt_history": history,
+            "has_been_answered_correctly": has_been_answered_correctly,
         }
 
         session_data["exercise_answers"] = exercise_answers
@@ -267,11 +284,14 @@ class LearningSessionService:
         updates: dict[str, Any] = {}
         if request.exercise_type in valid_exercise_types:
             # Update exercise progress
-            exercise_not_completed = request.exercise_id not in [k for k, v in exercise_answers.items() if v.get("completed_at") and k != request.exercise_id]
-            if exercise_not_completed:
+            previously_completed = bool(existing.get("completed_at"))
+            if not previously_completed:
                 updates["exercises_completed"] = (session.exercises_completed or 0) + 1
-                if request.is_correct:
-                    updates["exercises_correct"] = (session.exercises_correct or 0) + 1
+
+            previously_correct = bool(existing.get("has_been_answered_correctly") or existing.get("is_correct"))
+            now_correct = bool(request.is_correct)
+            if now_correct and not previously_correct:
+                updates["exercises_correct"] = (session.exercises_correct or 0) + 1
 
             # Move to next exercise (advance from current position)
             current_index = session.current_exercise_index or 0
@@ -307,6 +327,8 @@ class LearningSessionService:
             completed_at=exercise_answers[request.exercise_id]["completed_at"],
             is_correct=request.is_correct,
             user_answer=request.user_answer,
+            attempt_history=exercise_answers[request.exercise_id]["attempt_history"],
+            has_been_answered_correctly=exercise_answers[request.exercise_id]["has_been_answered_correctly"],
         )
 
     async def complete_session(self, request: CompleteSessionRequest) -> SessionResults:

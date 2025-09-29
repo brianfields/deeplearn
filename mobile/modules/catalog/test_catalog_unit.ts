@@ -123,6 +123,14 @@ describe('CatalogService', () => {
         isGlobal: false,
         ownershipLabel: 'My Unit',
         isOwnedByCurrentUser: true,
+        learningObjectiveProgress: [
+          {
+            objective: 'Understand A',
+            exercisesTotal: 2,
+            exercisesCorrect: 1,
+            progressPercentage: 50,
+          },
+        ],
       };
       mockContent.getUnitDetail.mockResolvedValue(detail);
 

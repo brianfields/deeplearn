@@ -5,6 +5,7 @@ Simple lesson browsing and discovery service.
 Uses content module for data access.
 """
 
+from collections import defaultdict
 from collections.abc import Iterable
 from datetime import datetime
 from typing import Any
@@ -12,6 +13,7 @@ from typing import Any
 from pydantic import BaseModel
 
 from modules.content.public import ContentProvider
+from modules.learning_session.repo import LearningSessionRepo
 
 
 # DTOs
@@ -117,6 +119,16 @@ class UnitDetail(BaseModel):
     generated_from_topic: bool = False
     # Flow type used to generate the unit
     flow_type: str = "standard"
+    learning_objective_progress: list["LearningObjectiveProgress"] | None = None
+
+
+class LearningObjectiveProgress(BaseModel):
+    """Progress for a specific learning objective aggregated across exercises."""
+
+    objective: str
+    exercises_total: int
+    exercises_correct: int
+    progress_percentage: float
 
 
 class UserUnitCollections(BaseModel):
@@ -129,10 +141,17 @@ class UserUnitCollections(BaseModel):
 class CatalogService:
     """Service for lesson catalog operations."""
 
-    def __init__(self, content: ContentProvider, units: ContentProvider) -> None:
-        """Initialize with content and units providers."""
+    def __init__(
+        self,
+        content: ContentProvider,
+        units: ContentProvider,
+        learning_sessions: LearningSessionRepo | None = None,
+    ) -> None:
+        """Initialize with content, units, and optional learning session data providers."""
+
         self.content = content
         self.units = units
+        self.learning_sessions = learning_sessions
 
     def browse_lessons(self, learner_level: str | None = None, limit: int = 100) -> BrowseLessonsResponse:
         """
@@ -416,6 +435,8 @@ class CatalogService:
             for lesson in detail.lessons
         ]
 
+        objective_progress = self._build_learning_objective_progress(unit_id, detail)
+
         return UnitDetail(
             id=detail.id,
             title=detail.title,
@@ -428,6 +449,7 @@ class CatalogService:
             source_material=detail.source_material,
             generated_from_topic=detail.generated_from_topic,
             flow_type=detail.flow_type,
+            learning_objective_progress=objective_progress,
         )
 
     def browse_units_for_user(
@@ -480,3 +502,85 @@ class CatalogService:
                 )
             )
         return summaries
+
+    def _build_learning_objective_progress(
+        self,
+        unit_id: str,
+        detail: Any,
+    ) -> list[LearningObjectiveProgress] | None:
+        """Aggregate progress metrics for each learning objective in a unit."""
+
+        if not self.learning_sessions:
+            return None
+
+        try:
+            lessons = self.content.get_lessons_by_unit(unit_id)
+        except Exception:
+            return None
+
+        if not lessons:
+            return None
+
+        exercise_to_objective: dict[str, str] = {}
+        totals = defaultdict(int)
+
+        for lesson in lessons:
+            package = getattr(lesson, "package", None)
+            if not package:
+                continue
+
+            objective_lookup = {obj.id: obj.text for obj in getattr(package, "objectives", [])}
+
+            for exercise in getattr(package, "exercises", []) or []:
+                objective_text = objective_lookup.get(exercise.lo_id) or exercise.lo_id
+                exercise_to_objective[exercise.id] = objective_text
+                totals[objective_text] += 1
+
+        if not exercise_to_objective:
+            return None
+
+        try:
+            sessions = self.learning_sessions.get_sessions_for_lessons([lesson.id for lesson in lessons])
+        except Exception:
+            sessions = []
+
+        correct_exercises: set[str] = set()
+        for session in sessions:
+            session_data = getattr(session, "session_data", {}) or {}
+            answers = session_data.get("exercise_answers", {}) or {}
+            for exercise_id, answer in answers.items():
+                if exercise_id not in exercise_to_objective:
+                    continue
+                answer_correct = bool(answer.get("has_been_answered_correctly")) or bool(answer.get("is_correct"))
+                if answer_correct:
+                    correct_exercises.add(exercise_id)
+
+        objective_texts = list(getattr(detail, "learning_objectives", []) or [])
+        progress_results: list[LearningObjectiveProgress] = []
+        seen: set[str] = set()
+
+        def build_entry(objective_text: str) -> LearningObjectiveProgress:
+            total = totals.get(objective_text, 0)
+            correct = sum(
+                1
+                for exercise_id, lo_text in exercise_to_objective.items()
+                if lo_text == objective_text and exercise_id in correct_exercises
+            )
+            percentage = (correct / total * 100.0) if total else 0.0
+            return LearningObjectiveProgress(
+                objective=objective_text,
+                exercises_total=total,
+                exercises_correct=correct,
+                progress_percentage=round(percentage, 2),
+            )
+
+        for objective_text in objective_texts:
+            progress_results.append(build_entry(objective_text))
+            seen.add(objective_text)
+
+        for remaining_objective in totals.keys():
+            if remaining_objective in seen:
+                continue
+            progress_results.append(build_entry(remaining_objective))
+
+        return progress_results

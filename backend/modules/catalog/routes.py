@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from modules.content.public import content_provider
 from modules.infrastructure.public import infrastructure_provider
+from modules.learning_session.repo import LearningSessionRepo
 
 from .service import (
     BrowseLessonsResponse,
@@ -39,7 +40,8 @@ def get_catalog_service(s: Session = Depends(get_session)) -> CatalogService:
     """Build CatalogService for this request."""
     content_service = content_provider(s)
     units_via_content = content_service  # Units are consolidated in content provider
-    return CatalogService(content_service, units_via_content)
+    learning_sessions = LearningSessionRepo(s)
+    return CatalogService(content_service, units_via_content, learning_sessions)
 
 
 @router.get("/", response_model=BrowseLessonsResponse)

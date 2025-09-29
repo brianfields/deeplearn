@@ -131,6 +131,91 @@ class TestCatalogService:
         assert result is None
         content.get_lesson.assert_called_once_with("nonexistent")
 
+    def test_get_unit_details_includes_learning_objective_progress(self) -> None:
+        """Unit detail should include aggregated learning objective progress."""
+
+        content = Mock()
+        units = Mock()
+        learning_sessions = Mock()
+        service = CatalogService(content, units, learning_sessions)
+
+        detail_lesson = SimpleNamespace(
+            id="lesson-1",
+            title="Lesson 1",
+            learner_level="beginner",
+            learning_objectives=["Understand A"],
+            key_concepts=[],
+            exercise_count=1,
+        )
+
+        units.get_unit_detail.return_value = SimpleNamespace(
+            id="unit-1",
+            title="Unit 1",
+            description=None,
+            learner_level="beginner",
+            lesson_order=["lesson-1"],
+            lessons=[detail_lesson],
+            learning_objectives=["Understand A"],
+            target_lesson_count=None,
+            source_material=None,
+            generated_from_topic=False,
+            flow_type="standard",
+        )
+
+        package = LessonPackage(
+            meta=Meta(lesson_id="lesson-1", title="Lesson 1", learner_level="beginner"),
+            objectives=[Objective(id="lo_1", text="Understand A")],
+            glossary={"terms": []},
+            mini_lesson="",
+            exercises=[
+                MCQExercise(
+                    id="ex-1",
+                    lo_id="lo_1",
+                    stem="What is A?",
+                    options=[
+                        MCQOption(id="opt1", label="A", text="Answer A"),
+                        MCQOption(id="opt2", label="B", text="Answer B"),
+                        MCQOption(id="opt3", label="C", text="Answer C"),
+                    ],
+                    answer_key=MCQAnswerKey(label="A"),
+                )
+            ],
+        )
+
+        lesson_read = LessonRead(
+            id="lesson-1",
+            title="Lesson 1",
+            learner_level="beginner",
+            package=package,
+            package_version=1,
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
+
+        content.get_lessons_by_unit.return_value = [lesson_read]
+
+        learning_sessions.get_sessions_for_lessons.return_value = [
+            SimpleNamespace(
+                session_data={
+                    "exercise_answers": {
+                        "ex-1": {
+                            "has_been_answered_correctly": True,
+                        }
+                    }
+                }
+            )
+        ]
+
+        result = service.get_unit_details("unit-1")
+
+        assert result is not None
+        assert result.learning_objective_progress is not None
+        assert len(result.learning_objective_progress) == 1
+        progress = result.learning_objective_progress[0]
+        assert progress.exercises_total == 1
+        assert progress.exercises_correct == 1
+        assert progress.progress_percentage == 100.0
+
     def test_browse_units_for_user_splits_personal_and_global(self) -> None:
         """Personal units should be separated from shared global units."""
 

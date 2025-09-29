@@ -8,6 +8,7 @@ This is the only interface other modules should import from.
 from typing import Protocol
 
 from modules.content.public import ContentProvider
+from modules.learning_session.repo import LearningSessionRepo
 
 from .service import (
     BrowseLessonsResponse,
@@ -53,7 +54,11 @@ class CatalogProvider(Protocol):
     def refresh_catalog(self) -> RefreshCatalogResponse: ...
 
 
-def catalog_provider(content: ContentProvider, units: ContentProvider) -> CatalogProvider:
+def catalog_provider(
+    content: ContentProvider,
+    units: ContentProvider,
+    learning_sessions: LearningSessionRepo | None = None,
+) -> CatalogProvider:
     """
     Dependency injection provider for lesson catalog services.
 
@@ -64,7 +69,7 @@ def catalog_provider(content: ContentProvider, units: ContentProvider) -> Catalo
     Returns:
         CatalogService instance that implements the CatalogProvider protocol.
     """
-    return CatalogService(content, units)
+    return CatalogService(content, units, learning_sessions)
 
 
 __all__ = [

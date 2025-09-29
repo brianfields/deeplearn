@@ -200,8 +200,78 @@ class TestLearningSessionService:
         assert result.exercise_type == "mcq"
         assert result.is_correct is True
         assert result.time_spent_seconds == 30
+        assert result.has_been_answered_correctly is True
+        assert len(result.attempt_history) == 1
+        assert result.attempt_history[0]["attempt_number"] == 1
+        assert result.attempt_history[0]["user_answer"] == request.user_answer
 
         self.mock_repo.update_session_progress.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_update_progress_second_attempt_updates_correct_counts(self) -> None:
+        """Subsequent attempts should append history and avoid double-counting completions."""
+
+        existing_history = [
+            {
+                "attempt_number": 1,
+                "is_correct": False,
+                "user_answer": {"value": "B"},
+                "time_spent_seconds": 25,
+                "submitted_at": "2024-01-01T00:00:20Z",
+            }
+        ]
+
+        session = LearningSessionModel(
+            id="session-abc",
+            lesson_id="lesson-1",
+            user_id="test-user",
+            status=SessionStatus.ACTIVE.value,
+            started_at=datetime.utcnow(),
+            current_exercise_index=1,
+            total_exercises=3,
+            exercises_completed=1,
+            exercises_correct=0,
+            progress_percentage=33.0,
+            session_data={
+                "exercise_answers": {
+                    "mcq_1": {
+                        "exercise_type": "mcq",
+                        "is_correct": False,
+                        "user_answer": {"value": "B"},
+                        "time_spent_seconds": 25,
+                        "completed_at": "2024-01-01T00:00:20Z",
+                        "attempts": 1,
+                        "started_at": "2024-01-01T00:00:00Z",
+                        "attempt_history": existing_history,
+                        "has_been_answered_correctly": False,
+                    }
+                }
+            },
+        )
+
+        request = UpdateProgressRequest(
+            session_id="session-abc",
+            exercise_id="mcq_1",
+            exercise_type="mcq",
+            is_correct=True,
+            time_spent_seconds=15,
+            user_answer={"value": "A"},
+            user_id="test-user",
+        )
+
+        self.mock_repo.get_session_by_id.return_value = session
+
+        result = await self.service.update_progress(request)
+
+        kwargs = self.mock_repo.update_session_progress.call_args.kwargs
+        assert "exercises_completed" not in kwargs
+        assert kwargs["exercises_correct"] == 1
+        answer_record = kwargs["session_data"]["exercise_answers"]["mcq_1"]
+        assert answer_record["attempts"] == 2
+        assert answer_record["has_been_answered_correctly"] is True
+        assert len(answer_record["attempt_history"]) == 2
+        assert result.has_been_answered_correctly is True
+        assert len(result.attempt_history) == 2
 
     @pytest.mark.asyncio
     async def test_update_progress_requires_user(self) -> None:

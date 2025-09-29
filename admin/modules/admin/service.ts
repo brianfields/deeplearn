@@ -614,6 +614,7 @@ export class AdminService {
         source_material: d.source_material ?? null,
         generated_from_topic: Boolean(d.generated_from_topic),
         flow_type: (d.flow_type as UnitDetail['flow_type']) ?? 'standard',
+        learning_objective_progress: d.learning_objective_progress ?? null,
       };
     } catch {
       return null;

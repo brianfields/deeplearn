@@ -42,6 +42,12 @@ export interface ApiUnitDetail {
   generated_from_topic?: boolean;
   user_id?: number | null;
   is_global?: boolean;
+  learning_objective_progress?: Array<{
+    objective: string;
+    exercises_total: number;
+    exercises_correct: number;
+    progress_percentage: number;
+  }> | null;
 }
 
 export type UnitId = string;
@@ -103,6 +109,14 @@ export interface UnitDetail {
   readonly isGlobal: boolean;
   readonly ownershipLabel: string;
   readonly isOwnedByCurrentUser: boolean;
+  readonly learningObjectiveProgress?: LearningObjectiveProgress[] | null;
+}
+
+export interface LearningObjectiveProgress {
+  readonly objective: string;
+  readonly exercisesTotal: number;
+  readonly exercisesCorrect: number;
+  readonly progressPercentage: number;
 }
 
 export interface UnitProgress {
@@ -200,6 +214,14 @@ export function toUnitDetailDTO(
     isGlobal,
     ownershipLabel: formatOwnershipLabel(isGlobal, isOwnedByCurrentUser),
     isOwnedByCurrentUser,
+    learningObjectiveProgress: api.learning_objective_progress
+      ? api.learning_objective_progress.map(progress => ({
+          objective: progress.objective,
+          exercisesTotal: progress.exercises_total,
+          exercisesCorrect: progress.exercises_correct,
+          progressPercentage: progress.progress_percentage,
+        }))
+      : null,
   };
 }
 
