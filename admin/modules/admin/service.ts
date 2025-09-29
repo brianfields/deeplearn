@@ -596,7 +596,7 @@ export class AdminService {
       is_global: Boolean(u.is_global),
       created_at: u.created_at ? new Date(u.created_at) : null,
       updated_at: u.updated_at ? new Date(u.updated_at) : null,
-      has_podcast: Boolean((u as any).has_podcast ?? u.podcast_audio ?? false),
+      has_podcast: Boolean((u as any).has_podcast ?? false),
       podcast_voice: u.podcast_voice ?? null,
       podcast_duration_seconds: u.podcast_duration_seconds ?? null,
     } satisfies UnitSummary));

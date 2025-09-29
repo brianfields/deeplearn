@@ -490,7 +490,7 @@ class CatalogService:
                     status=getattr(unit, "status", "completed"),
                     creation_progress=getattr(unit, "creation_progress", None),
                     error_message=getattr(unit, "error_message", None),
-                    has_podcast=bool(getattr(unit, "has_podcast", getattr(unit, "podcast_audio", None))),
+                    has_podcast=bool(getattr(unit, "has_podcast", False)),
                     podcast_voice=getattr(unit, "podcast_voice", None),
                     podcast_duration_seconds=getattr(unit, "podcast_duration_seconds", None),
                 )

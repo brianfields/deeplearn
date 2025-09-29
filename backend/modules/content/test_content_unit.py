@@ -5,7 +5,8 @@ Tests for the content module service layer with package structure.
 """
 
 from datetime import UTC, datetime
-from unittest.mock import Mock
+import uuid
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -260,13 +261,13 @@ class TestContentService:
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
             podcast_voice="Narrator",
-            podcast_duration_seconds=150,
         )
 
         result = service.set_unit_sharing("unit-1", is_global=True, acting_user_id=3)
 
         assert result.is_global is True
         assert result.podcast_voice == "Narrator"
+        assert result.podcast_duration_seconds is None
         repo.set_unit_sharing.assert_called_once_with("unit-1", True)
 
     def test_assign_unit_owner_updates_repo(self) -> None:
@@ -301,6 +302,7 @@ class TestContentService:
         service = ContentService(repo)
 
         now = datetime.now(UTC)
+        audio_id = uuid.uuid4()
         unit_model = UnitModel(
             id="unit-42",
             title="Podcast Unit",
@@ -314,9 +316,7 @@ class TestContentService:
             flow_type="standard",
             podcast_transcript="Hello",
             podcast_voice="Storyteller",
-            podcast_audio=b"bytes",
-            podcast_audio_mime_type="audio/mpeg",
-            podcast_duration_seconds=180,
+            podcast_audio_object_id=audio_id,
             podcast_generated_at=now,
             created_at=now,
             updated_at=now,
@@ -327,25 +327,70 @@ class TestContentService:
         result = service.set_unit_podcast(
             "unit-42",
             transcript="Hello",
-            audio_bytes=b"bytes",
-            audio_mime_type="audio/mpeg",
+            audio_object_id=audio_id,
             voice="Storyteller",
-            duration_seconds=180,
         )
 
         assert result is not None
         assert result.has_podcast is True
         assert result.podcast_voice == "Storyteller"
-        assert result.podcast_duration_seconds == 180
+        assert result.podcast_duration_seconds is None
         repo.set_unit_podcast.assert_called_once()
+        _, kwargs = repo.set_unit_podcast.call_args
+        assert kwargs.get("audio_object_id") == audio_id
 
-    def test_get_unit_podcast_audio_returns_payload(self) -> None:
-        """Audio retrieval should unwrap stored blob and mime type."""
+    def test_set_unit_podcast_uses_object_store_metadata_when_available(self) -> None:
+        """Duration should be populated from object store metadata when available."""
+
+        repo = Mock(spec=ContentRepo)
+        object_store = Mock()
+        object_store.get_audio = AsyncMock()
+        object_store.get_audio.return_value = Mock(duration_seconds=181.6, content_type="audio/mpeg")
+
+        service = ContentService(repo, object_store=object_store)
+
+        now = datetime.now(UTC)
+        audio_id = uuid.uuid4()
+        unit_model = UnitModel(
+            id="unit-50",
+            title="Podcast Unit",
+            description=None,
+            learner_level="intermediate",
+            lesson_order=[],
+            user_id=12,
+            is_global=False,
+            status="completed",
+            generated_from_topic=False,
+            flow_type="standard",
+            podcast_transcript="Hello",
+            podcast_voice="Storyteller",
+            podcast_audio_object_id=audio_id,
+            podcast_generated_at=now,
+            created_at=now,
+            updated_at=now,
+        )
+
+        repo.set_unit_podcast.return_value = unit_model
+
+        result = service.set_unit_podcast(
+            "unit-50",
+            transcript="Hello",
+            audio_object_id=audio_id,
+            voice="Storyteller",
+        )
+
+        assert result is not None
+        assert result.podcast_duration_seconds == 182
+        object_store.get_audio.assert_awaited_once()
+
+    def test_get_unit_podcast_audio_returns_none_without_object_store(self) -> None:
+        """Audio retrieval should return None when no object store client is configured."""
 
         repo = Mock(spec=ContentRepo)
         service = ContentService(repo)
 
         now = datetime.now(UTC)
+        audio_id = uuid.uuid4()
         unit_model = UnitModel(
             id="unit-99",
             title="Audio Unit",
@@ -357,8 +402,7 @@ class TestContentService:
             status="completed",
             generated_from_topic=False,
             flow_type="standard",
-            podcast_audio=b"audio-data",
-            podcast_audio_mime_type="audio/mpeg",
+            podcast_audio_object_id=audio_id,
             created_at=now,
             updated_at=now,
         )
@@ -367,7 +411,48 @@ class TestContentService:
 
         audio = service.get_unit_podcast_audio("unit-99")
 
-        assert audio is not None
-        assert audio.audio_bytes == b"audio-data"
-        assert audio.mime_type == "audio/mpeg"
+        assert audio is None
         repo.get_unit_by_id.assert_called_once_with("unit-99")
+
+    def test_get_unit_podcast_audio_uses_object_store_when_available(self) -> None:
+        """When an object store reference exists it should be resolved via presigned URL."""
+
+        repo = Mock(spec=ContentRepo)
+        object_store = Mock()
+        object_store.get_audio = AsyncMock()
+        object_store.get_audio.return_value = Mock(
+            content_type="audio/mpeg",
+            presigned_url="https://example.com/audio.mp3",
+        )
+
+        service = ContentService(repo, object_store=object_store)
+
+        now = datetime.now(UTC)
+        audio_id = uuid.uuid4()
+        unit_model = UnitModel(
+            id="unit-100",
+            title="Audio Unit",
+            description=None,
+            learner_level="beginner",
+            lesson_order=[],
+            user_id=None,
+            is_global=False,
+            status="completed",
+            generated_from_topic=False,
+            flow_type="standard",
+            podcast_audio_object_id=audio_id,
+            created_at=now,
+            updated_at=now,
+        )
+
+        repo.get_unit_by_id.return_value = unit_model
+
+        audio = service.get_unit_podcast_audio("unit-100")
+
+        assert audio is not None
+        assert audio.presigned_url == "https://example.com/audio.mp3"
+        assert audio.audio_bytes is None
+        assert audio.mime_type == "audio/mpeg"
+        object_store.get_audio.assert_awaited_once()
+        _, kwargs = object_store.get_audio.call_args
+        assert kwargs.get("include_presigned_url") is True

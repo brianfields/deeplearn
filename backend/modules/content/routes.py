@@ -5,10 +5,8 @@ from __future__ import annotations
 from collections.abc import Generator
 from typing import cast
 
-import io
-
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -100,11 +98,10 @@ def stream_unit_podcast_audio(
     if not audio:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Podcast audio not found")
 
-    return StreamingResponse(
-        io.BytesIO(audio.audio_bytes),
-        media_type=audio.mime_type,
-        headers={"Content-Length": str(len(audio.audio_bytes))},
-    )
+    if audio.presigned_url:
+        return RedirectResponse(audio.presigned_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Podcast audio not found")
 
 
 @router.post("/units", response_model=ContentService.UnitRead, status_code=status.HTTP_201_CREATED)

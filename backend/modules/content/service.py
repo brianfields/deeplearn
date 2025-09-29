@@ -7,12 +7,13 @@ Business logic layer that returns DTOs (Pydantic models).
 Handles content operations and data transformation.
 """
 
+import asyncio
 from datetime import UTC, datetime
 from enum import Enum
 import logging
 
 # Import inside methods when needed to avoid circular imports with public/providers
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Awaitable
 import uuid
 
 from pydantic import BaseModel, ConfigDict
@@ -23,6 +24,7 @@ from .repo import ContentRepo
 
 if TYPE_CHECKING:  # pragma: no cover - type checking only
     from ..learning_session.models import UnitSessionModel  # noqa: F401
+    from modules.object_store.public import ObjectStoreProvider
 
 logger = logging.getLogger(__name__)
 
@@ -77,9 +79,11 @@ class LessonCreate(BaseModel):
 class ContentService:
     """Service for content operations."""
 
-    def __init__(self, repo: ContentRepo) -> None:
+    def __init__(self, repo: ContentRepo, object_store: "ObjectStoreProvider | None" = None) -> None:
         """Initialize service with repository."""
         self.repo = repo
+        self._object_store = object_store
+        self._audio_metadata_cache: dict[uuid.UUID, Any | None] = {}
 
     # Lesson operations
     def get_lesson(self, lesson_id: str) -> LessonRead | None:
@@ -318,27 +322,93 @@ class ContentService:
 
     class UnitPodcastAudio(BaseModel):
         unit_id: str
-        audio_bytes: bytes
         mime_type: str
+        audio_bytes: bytes | None = None
+        presigned_url: str | None = None
 
-    def _build_unit_read(self, unit: UnitModel) -> ContentService.UnitRead:
+    def _build_unit_read(
+        self,
+        unit: UnitModel,
+        *,
+        audio_meta: Any | None = None,
+    ) -> ContentService.UnitRead:
         unit_read = self.UnitRead.model_validate(unit)
-        self._apply_podcast_metadata(unit_read, unit)
+        self._apply_podcast_metadata(unit_read, unit, audio_meta=audio_meta)
         return unit_read
 
     def _apply_podcast_metadata(
         self,
         unit_read: "ContentService.UnitRead",
         unit: UnitModel,
+        *,
+        audio_meta: Any | None = None,
     ) -> None:
-        has_audio = bool(getattr(unit, "podcast_audio", None))
-        unit_read.has_podcast = has_audio
+        audio_object_id = getattr(unit, "podcast_audio_object_id", None)
+        unit_read.has_podcast = bool(audio_object_id)
         unit_read.podcast_voice = getattr(unit, "podcast_voice", None)
-        unit_read.podcast_duration_seconds = getattr(unit, "podcast_duration_seconds", None)
         unit_read.podcast_generated_at = getattr(unit, "podcast_generated_at", None)
 
+        resolved_meta = audio_meta
+        if resolved_meta is None and audio_object_id and self._object_store is not None:
+            resolved_meta = self._fetch_audio_metadata(
+                audio_object_id,
+                requesting_user_id=getattr(unit, "user_id", None),
+            )
+
+        duration_value: Any | None = None if resolved_meta is None else getattr(resolved_meta, "duration_seconds", None)
+        if isinstance(duration_value, (int, float)):
+            unit_read.podcast_duration_seconds = int(round(duration_value))
+        else:
+            try:
+                unit_read.podcast_duration_seconds = int(round(float(duration_value))) if duration_value is not None else None
+            except (TypeError, ValueError):
+                unit_read.podcast_duration_seconds = None
+
+    def _fetch_audio_metadata(
+        self,
+        audio_object_id: uuid.UUID | str | None,
+        *,
+        requesting_user_id: int | None,
+        include_presigned_url: bool = False,
+    ) -> Any | None:
+        """Resolve audio metadata from the object store, caching non-URL lookups."""
+
+        if not audio_object_id or self._object_store is None:
+            return None
+
+        try:
+            audio_uuid = audio_object_id if isinstance(audio_object_id, uuid.UUID) else uuid.UUID(str(audio_object_id))
+        except (TypeError, ValueError):  # pragma: no cover - defensive guard
+            logger.warning("🎧 Invalid podcast audio id encountered: %s", audio_object_id)
+            return None
+
+        if not include_presigned_url and audio_uuid in self._audio_metadata_cache:
+            return self._audio_metadata_cache[audio_uuid]
+
+        try:
+            metadata = self._run_async(
+                self._object_store.get_audio(
+                    audio_uuid,
+                    requesting_user_id=requesting_user_id,
+                    include_presigned_url=include_presigned_url,
+                )
+            )
+        except Exception as exc:  # pragma: no cover - network/object store issues
+            logger.warning(
+                "🎧 Failed to retrieve podcast audio metadata %s: %s",
+                audio_uuid,
+                exc,
+                exc_info=True,
+            )
+            metadata = None
+
+        if not include_presigned_url:
+            self._audio_metadata_cache[audio_uuid] = metadata
+
+        return metadata
+
     def _build_podcast_audio_url(self, unit: UnitModel) -> str | None:
-        if not getattr(unit, "podcast_audio", None):
+        if not getattr(unit, "podcast_audio_object_id", None):
             return None
         return self.PODCAST_AUDIO_ROUTE_TEMPLATE.format(unit_id=unit.id)
 
@@ -400,12 +470,23 @@ class ContentService:
             if lid not in seen:
                 ordered_lessons.append(summary)
 
-        unit_summary = self._build_unit_read(unit)
+        audio_meta: Any | None = None
+        audio_object_id = getattr(unit, "podcast_audio_object_id", None)
+        if audio_object_id:
+            audio_meta = self._fetch_audio_metadata(
+                audio_object_id,
+                requesting_user_id=getattr(unit, "user_id", None),
+            )
+
+        unit_summary = self._build_unit_read(unit, audio_meta=audio_meta)
         detail_dict = unit_summary.model_dump()
         detail_dict["lesson_order"] = ordered_ids
         detail_dict["lessons"] = [lesson.model_dump() for lesson in ordered_lessons]
         detail_dict["learning_objectives"] = self._normalize_unit_learning_objectives(getattr(unit, "learning_objectives", None))
-        detail_dict["podcast_transcript"] = getattr(unit, "podcast_transcript", None)
+        transcript = getattr(unit, "podcast_transcript", None)
+        if not transcript and audio_meta is not None:
+            transcript = getattr(audio_meta, "transcript", None)
+        detail_dict["podcast_transcript"] = transcript
         detail_dict["podcast_audio_url"] = self._build_podcast_audio_url(unit)
 
         return self.UnitDetailRead.model_validate(detail_dict)
@@ -522,22 +603,29 @@ class ContentService:
         unit_id: str,
         *,
         transcript: str | None,
-        audio_bytes: bytes | None,
-        audio_mime_type: str | None = None,
+        audio_object_id: uuid.UUID | None,
         voice: str | None = None,
-        duration_seconds: int | None = None,
     ) -> ContentService.UnitRead | None:
-        """Persist podcast transcript and audio metadata for a unit."""
+        """Persist podcast transcript and object store reference for a unit."""
 
+        self._audio_metadata_cache.clear()
         updated = self.repo.set_unit_podcast(
             unit_id,
             transcript=transcript,
-            audio_bytes=audio_bytes,
-            audio_mime_type=audio_mime_type,
+            audio_object_id=audio_object_id,
             voice=voice,
-            duration_seconds=duration_seconds,
         )
-        return self._build_unit_read(updated) if updated else None
+        if not updated:
+            return None
+
+        audio_meta: Any | None = None
+        if audio_object_id is not None:
+            audio_meta = self._fetch_audio_metadata(
+                audio_object_id,
+                requesting_user_id=getattr(updated, "user_id", None),
+            )
+
+        return self._build_unit_read(updated, audio_meta=audio_meta)
 
     def get_unit_podcast_audio(self, unit_id: str) -> ContentService.UnitPodcastAudio | None:
         """Retrieve the stored podcast audio payload for streaming."""
@@ -546,12 +634,53 @@ class ContentService:
         if not unit:
             return None
 
-        audio_blob = getattr(unit, "podcast_audio", None)
-        if not audio_blob:
+        audio_meta = self._fetch_audio_metadata(
+            getattr(unit, "podcast_audio_object_id", None),
+            requesting_user_id=getattr(unit, "user_id", None),
+            include_presigned_url=True,
+        )
+        if not audio_meta:
             return None
 
-        mime_type = getattr(unit, "podcast_audio_mime_type", None) or "audio/mpeg"
-        return self.UnitPodcastAudio(unit_id=unit_id, audio_bytes=bytes(audio_blob), mime_type=mime_type)
+        mime_type = getattr(audio_meta, "content_type", None) or "audio/mpeg"
+        presigned = getattr(audio_meta, "presigned_url", None)
+
+        if presigned is None and self._object_store is not None:
+            s3_key = getattr(audio_meta, "s3_key", None)
+            if s3_key:
+                try:
+                    presigned = self._run_async(self._object_store.generate_presigned_url(s3_key))
+                except Exception as exc:  # pragma: no cover - network/object store issues
+                    logger.warning(
+                        "🎧 Failed to generate presigned podcast URL for unit %s: %s",
+                        unit_id,
+                        exc,
+                        exc_info=True,
+                    )
+
+        if presigned is None:
+            return None
+
+        return self.UnitPodcastAudio(
+            unit_id=unit_id,
+            mime_type=mime_type,
+            presigned_url=presigned,
+        )
+
+    @staticmethod
+    def _run_async(coro: Awaitable[Any]) -> Any:
+        """Run an async coroutine from sync context, creating a new loop when necessary."""
+
+        try:
+            return asyncio.run(coro)
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            try:
+                asyncio.set_event_loop(loop)
+                return loop.run_until_complete(coro)
+            finally:
+                asyncio.set_event_loop(None)
+                loop.close()
 
     def delete_unit(self, unit_id: str) -> bool:
         """Delete a unit by ID. Returns True if successful, False if not found."""
