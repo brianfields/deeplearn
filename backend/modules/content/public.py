@@ -5,9 +5,13 @@ Protocol definition and dependency injection provider.
 This is the only interface other modules should import from.
 """
 
-from typing import Any, Protocol
+from typing import Any, Iterable, Protocol
+import uuid
 
 from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from modules.object_store.public import object_store_provider
 
 from .repo import ContentRepo
 from .service import (
@@ -47,10 +51,8 @@ class ContentProvider(Protocol):
         unit_id: str,
         *,
         transcript: str | None,
-        audio_bytes: bytes | None,
-        audio_mime_type: str | None = None,
+        audio_object_id: uuid.UUID | None,
         voice: str | None = None,
-        duration_seconds: int | None = None,
     ) -> ContentService.UnitRead | None: ...
     def get_unit_podcast_audio(self, unit_id: str) -> ContentService.UnitPodcastAudio | None: ...
     def delete_unit(self, unit_id: str) -> bool: ...
@@ -79,7 +81,9 @@ def content_provider(session: Session) -> ContentProvider:
     Returns:
         ContentService instance that implements the ContentProvider protocol.
     """
-    return ContentService(ContentRepo(session))
+    async_session = _SyncSessionAsyncAdapter(session)
+    object_store = object_store_provider(async_session)
+    return ContentService(ContentRepo(session), object_store=object_store)
 
 
 # Create aliases for nested classes to maintain backward compatibility
@@ -101,3 +105,31 @@ __all__ = [
     "UnitStatus",
     "content_provider",
 ]
+
+
+class _SyncSessionAsyncAdapter(AsyncSession):
+    """Minimal async wrapper around a synchronous Session for object store usage."""
+
+    def __init__(self, sync_session: Session) -> None:  # type: ignore[override]
+        self._sync = sync_session
+
+    async def get(self, *args: Any, **kwargs: Any) -> Any:  # type: ignore[override]
+        return self._sync.get(*args, **kwargs)
+
+    async def execute(self, *args: Any, **kwargs: Any) -> Any:  # type: ignore[override]
+        return self._sync.execute(*args, **kwargs)
+
+    def add(self, instance: Any, _warn: bool = True) -> None:  # type: ignore[override]
+        self._sync.add(instance)
+
+    def add_all(self, instances: Iterable[Any]) -> None:  # type: ignore[override]
+        self._sync.add_all(list(instances))
+
+    async def flush(self) -> None:  # type: ignore[override]
+        self._sync.flush()
+
+    async def refresh(self, instance: Any) -> None:  # type: ignore[override]
+        self._sync.refresh(instance)
+
+    async def delete(self, instance: Any) -> None:  # type: ignore[override]
+        self._sync.delete(instance)
