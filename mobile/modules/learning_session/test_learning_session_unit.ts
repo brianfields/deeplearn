@@ -200,6 +200,16 @@ describe('Learning Session Module', () => {
           user_answer: 'A',
           time_spent_seconds: 30,
           attempts: 1,
+          attempt_history: [
+            {
+              attempt_number: 1,
+              is_correct: true,
+              user_answer: 'A',
+              time_spent_seconds: 30,
+              submitted_at: '2024-01-01T00:00:30Z',
+            },
+          ],
+          has_been_answered_correctly: true,
         };
 
         const mockSession = {
@@ -229,7 +239,9 @@ describe('Learning Session Module', () => {
           userAnswer: 'A',
           timeSpentSeconds: 30,
           attempts: 1,
+          hasBeenAnsweredCorrectly: true,
         });
+        expect(result.attemptHistory).toHaveLength(1);
 
         expect(mockRepo.updateProgress).toHaveBeenCalledWith({
           ...request,

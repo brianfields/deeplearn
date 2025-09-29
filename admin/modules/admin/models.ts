@@ -437,6 +437,7 @@ export interface ApiUnitDetail {
   source_material?: string | null;
   generated_from_topic?: boolean;
   flow_type?: 'standard' | 'fast';
+  learning_objective_progress?: LearningObjectiveProgress[] | null;
 }
 
 // Basic unit from /api/v1/units
@@ -473,6 +474,13 @@ export interface UnitLessonSummary {
   exercise_count: number;
 }
 
+export interface LearningObjectiveProgress {
+  objective: string;
+  exercises_total: number;
+  exercises_correct: number;
+  progress_percentage: number;
+}
+
 export interface UnitDetail {
   id: string;
   title: string;
@@ -486,6 +494,7 @@ export interface UnitDetail {
   source_material: string | null;
   generated_from_topic: boolean;
   flow_type: 'standard' | 'fast';
+  learning_objective_progress: LearningObjectiveProgress[] | null;
 }
 
 export type LessonToUnitMap = Record<string, { unit_id: string; unit_title: string }>;

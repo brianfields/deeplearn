@@ -75,6 +75,8 @@ class ProgressResponseModel(BaseModel):
     user_answer: dict[str, Any] | None
     time_spent_seconds: int
     attempts: int
+    attempt_history: list[dict[str, Any]]
+    has_been_answered_correctly: bool
 
 
 class SessionResultsResponseModel(BaseModel):
@@ -221,6 +223,8 @@ async def update_session_progress(
         user_answer=progress.user_answer,
         time_spent_seconds=progress.time_spent_seconds,
         attempts=progress.attempts,
+        attempt_history=progress.attempt_history,
+        has_been_answered_correctly=progress.has_been_answered_correctly,
     )
 
 

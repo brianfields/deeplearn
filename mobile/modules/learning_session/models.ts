@@ -32,6 +32,14 @@ interface ApiSessionProgress {
   user_answer?: any;
   time_spent_seconds: number;
   attempts: number;
+  attempt_history?: Array<{
+    attempt_number: number;
+    is_correct?: boolean;
+    user_answer?: any;
+    time_spent_seconds: number;
+    submitted_at: string;
+  }>;
+  has_been_answered_correctly?: boolean;
 }
 
 interface ApiSessionResults {
@@ -79,6 +87,14 @@ export interface SessionProgress {
   readonly attempts: number;
   readonly isCompleted: boolean; // Calculated
   readonly accuracy: number; // Calculated (0-1)
+  readonly attemptHistory?: Array<{
+    attemptNumber: number;
+    isCorrect?: boolean;
+    userAnswer?: any;
+    timeSpentSeconds: number;
+    submittedAt: string;
+  }>;
+  readonly hasBeenAnsweredCorrectly?: boolean;
 }
 
 export interface SessionResults {
@@ -286,6 +302,16 @@ export function toSessionProgressDTO(api: ApiSessionProgress): SessionProgress {
     attempts: api.attempts,
     isCompleted,
     accuracy,
+    attemptHistory: api.attempt_history
+      ? api.attempt_history.map(attempt => ({
+          attemptNumber: attempt.attempt_number,
+          isCorrect: attempt.is_correct,
+          userAnswer: attempt.user_answer,
+          timeSpentSeconds: attempt.time_spent_seconds,
+          submittedAt: attempt.submitted_at,
+        }))
+      : undefined,
+    hasBeenAnsweredCorrectly: api.has_been_answered_correctly,
   };
 }
 

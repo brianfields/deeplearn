@@ -6,13 +6,14 @@ This is a migration, not new feature development.
 """
 
 from abc import abstractmethod
-from typing import Protocol
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, Protocol
 
 from sqlalchemy.orm import Session
 
-from modules.catalog.public import CatalogProvider
 from modules.content.public import ContentProvider
 
+from .analytics import ExerciseCorrectness, LearningSessionAnalyticsService
 from .repo import LearningSessionRepo
 from .service import (
     CompleteSessionRequest,
@@ -89,10 +90,14 @@ class LearningSessionProvider(Protocol):
         ...
 
 
+if TYPE_CHECKING:
+    from modules.catalog.public import CatalogProvider
+
+
 def learning_session_provider(
     session: Session,
     content: ContentProvider,
-    catalog: CatalogProvider,
+    catalog: "CatalogProvider",
 ) -> LearningSessionProvider:
     """
     Dependency injection provider for learning session services.
@@ -109,10 +114,26 @@ def learning_session_provider(
     return LearningSessionService(repo, content, catalog)
 
 
+class LearningSessionAnalyticsProvider(Protocol):
+    """Protocol for read-only analytics helpers."""
+
+    def get_exercise_correctness(self, lesson_ids: Iterable[str]) -> list[ExerciseCorrectness]:
+        """Aggregate the correctness state for exercises within the provided lessons."""
+
+
+def learning_session_analytics_provider(session: Session) -> LearningSessionAnalyticsProvider:
+    """Return analytics helper service scoped to the provided session."""
+
+    repo = LearningSessionRepo(session)
+    return LearningSessionAnalyticsService(repo)
+
+
 # Export DTOs that other modules might need
 __all__ = [
     "CompleteSessionRequest",
+    "ExerciseCorrectness",
     "LearningSession",
+    "LearningSessionAnalyticsProvider",
     "LearningSessionProvider",
     "LearningSessionService",
     "SessionListResponse",
@@ -122,5 +143,6 @@ __all__ = [
     "UnitLessonProgress",
     "UnitProgress",
     "UpdateProgressRequest",
+    "learning_session_analytics_provider",
     "learning_session_provider",
 ]

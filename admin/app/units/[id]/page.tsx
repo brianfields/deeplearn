@@ -91,6 +91,40 @@ export default function UnitDetailsPage({ params }: UnitDetailsPageProps) {
         </div>
       )}
 
+      {unit.learning_objective_progress && unit.learning_objective_progress.length > 0 && (
+        <div className="bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-lg font-medium text-gray-900">Learning Objective Progress</h2>
+            <p className="text-sm text-gray-600">Based on recorded exercise attempts across this unit.</p>
+          </div>
+          <div className="px-6 py-4 space-y-4">
+            {unit.learning_objective_progress.map((lo, idx) => {
+              const percent = Math.min(Math.max(lo.progress_percentage ?? 0, 0), 100);
+              return (
+                <div key={`${lo.objective}-${idx}`} className="space-y-2">
+                  <div className="flex items-center justify-between text-sm font-medium text-gray-700">
+                    <span>{lo.objective}</span>
+                    <span>
+                      {lo.exercises_correct}/{lo.exercises_total} correct
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-2">
+                    <div
+                      className="h-2 rounded-full bg-green-500"
+                      style={{ width: `${percent}%` }}
+                      aria-hidden="true"
+                    />
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {Math.round(percent)}% complete
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-medium text-gray-900">Lessons</h2>

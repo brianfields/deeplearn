@@ -5,6 +5,7 @@ Minimal database access layer to support existing frontend functionality.
 This is a migration, not new feature development.
 """
 
+from collections.abc import Iterable
 from datetime import datetime
 from typing import Any
 import uuid
@@ -142,6 +143,15 @@ class LearningSessionRepo:
             )
             .first()
         )
+
+    def get_sessions_for_lessons(self, lesson_ids: Iterable[str]) -> list[LearningSessionModel]:
+        """Return all sessions associated with the provided lesson identifiers."""
+
+        lesson_ids = list(lesson_ids)
+        if not lesson_ids:
+            return []
+
+        return self.db.query(LearningSessionModel).filter(LearningSessionModel.lesson_id.in_(lesson_ids)).all()
 
     def assign_session_user(self, session_id: str, user_id: str) -> LearningSessionModel:
         """Persist the user association for a session if it has not been set."""
