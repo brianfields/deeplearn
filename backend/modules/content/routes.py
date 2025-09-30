@@ -81,7 +81,7 @@ async def get_unit_detail(
 ) -> ContentService.UnitDetailRead:
     """Retrieve a fully hydrated unit with ordered lesson summaries."""
 
-    unit = await service.get_unit_detail(unit_id)
+    unit = await service.get_unit_detail(unit_id, include_art_presigned_url=True)
     if unit is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unit not found")
     return unit

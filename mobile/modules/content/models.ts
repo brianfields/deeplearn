@@ -23,6 +23,8 @@ export interface ApiUnitSummary {
   has_podcast?: boolean;
   podcast_voice?: string | null;
   podcast_duration_seconds?: number | null;
+  art_image_url?: string | null;
+  art_image_description?: string | null;
 }
 
 export interface ApiUnitDetail {
@@ -56,6 +58,8 @@ export interface ApiUnitDetail {
   podcast_duration_seconds?: number | null;
   podcast_transcript?: string | null;
   podcast_audio_url?: string | null;
+  art_image_url?: string | null;
+  art_image_description?: string | null;
 }
 
 export type UnitId = string;
@@ -103,6 +107,8 @@ export interface Unit {
   readonly hasPodcast: boolean;
   readonly podcastVoice: string | null;
   readonly podcastDurationSeconds: number | null;
+  readonly artImageUrl: string | null;
+  readonly artImageDescription: string | null;
 }
 
 export interface UnitDetail {
@@ -126,6 +132,8 @@ export interface UnitDetail {
   readonly podcastDurationSeconds: number | null;
   readonly podcastTranscript: string | null;
   readonly podcastAudioUrl: string | null;
+  readonly artImageUrl: string | null;
+  readonly artImageDescription: string | null;
 }
 
 export interface LearningObjectiveProgress {
@@ -198,6 +206,8 @@ export function toUnitDTO(
     hasPodcast: Boolean(api.has_podcast),
     podcastVoice: api.podcast_voice ?? null,
     podcastDurationSeconds: api.podcast_duration_seconds ?? null,
+    artImageUrl: api.art_image_url ?? null,
+    artImageDescription: api.art_image_description ?? null,
   };
 }
 
@@ -246,6 +256,8 @@ export function toUnitDetailDTO(
     podcastDurationSeconds: api.podcast_duration_seconds ?? null,
     podcastTranscript: api.podcast_transcript ?? null,
     podcastAudioUrl: api.podcast_audio_url ?? null,
+    artImageUrl: api.art_image_url ?? null,
+    artImageDescription: api.art_image_description ?? null,
   };
 }
 

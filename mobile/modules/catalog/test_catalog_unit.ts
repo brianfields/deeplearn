@@ -78,6 +78,8 @@ describe('CatalogService', () => {
           hasPodcast: false,
           podcastVoice: null,
           podcastDurationSeconds: null,
+          artImageUrl: 'https://cdn.example.com/unit-1.png',
+          artImageDescription: 'Art Deco skyline at dawn',
         },
       ];
       mockContent.listUnits.mockResolvedValue(mockUnits);
@@ -85,6 +87,8 @@ describe('CatalogService', () => {
       const result = await service.browseUnits({ limit: 5, currentUserId: 10 });
 
       expect(result).toEqual(mockUnits);
+      expect(result[0].artImageUrl).toBe('https://cdn.example.com/unit-1.png');
+      expect(result[0].artImageDescription).toBe('Art Deco skyline at dawn');
       expect(mockContent.listUnits).toHaveBeenCalledWith({
         limit: 5,
         currentUserId: 10,
@@ -139,12 +143,15 @@ describe('CatalogService', () => {
         podcastDurationSeconds: null,
         podcastTranscript: null,
         podcastAudioUrl: null,
+        artImageUrl: 'https://cdn.example.com/unit-2.png',
+        artImageDescription: 'Heroic Bauhaus silhouette',
       };
       mockContent.getUnitDetail.mockResolvedValue(detail);
 
       const result = await service.getUnitDetail('unit-2', 1);
 
       expect(result).toEqual(detail);
+      expect(result?.artImageUrl).toBe('https://cdn.example.com/unit-2.png');
       expect(mockContent.getUnitDetail).toHaveBeenCalledWith('unit-2', {
         currentUserId: 1,
       });

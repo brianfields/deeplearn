@@ -10,6 +10,9 @@ from typing import Any
 import uuid
 
 # FastAPI BackgroundTasks path was removed; keep import set minimal
+import httpx
+
+# FastAPI BackgroundTasks path was removed; keep import set minimal
 from pydantic import BaseModel
 
 from modules.content.package_models import (
@@ -24,7 +27,7 @@ from modules.content.package_models import (
 from modules.content.public import ContentProvider, LessonCreate, UnitCreate, UnitStatus
 from modules.task_queue.public import task_queue_provider
 
-from .flows import LessonCreationFlow, UnitCreationFlow
+from .flows import LessonCreationFlow, UnitArtCreationFlow, UnitCreationFlow
 from .podcast import PodcastLesson, UnitPodcastGenerator
 
 logger = logging.getLogger(__name__)
@@ -248,6 +251,58 @@ class ContentCreatorService:
         unit_id: str
         title: str
         status: str
+
+    async def create_unit_art(self, unit_id: str) -> "ContentService.UnitRead":
+        """Generate and persist Weimar Edge artwork for the specified unit."""
+
+        unit_detail = await self.content.get_unit_detail(unit_id, include_art_presigned_url=False)
+        if unit_detail is None:
+            raise ValueError("Unit not found")
+
+        learning_objectives = list(getattr(unit_detail, "learning_objectives", []) or [])
+        key_concepts = self._extract_key_concepts(unit_detail)
+
+        flow_inputs = {
+            "unit_title": unit_detail.title,
+            "unit_description": unit_detail.description or "",
+            "learning_objectives": learning_objectives,
+            "key_concepts": key_concepts,
+        }
+
+        flow = UnitArtCreationFlow()
+        attempts = 0
+        art_payload: dict[str, Any] | None = None
+        last_exc: Exception | None = None
+
+        while attempts < 2:
+            try:
+                art_payload = await flow.execute(flow_inputs)
+                break
+            except Exception as exc:  # pragma: no cover - LLM/network issues
+                attempts += 1
+                last_exc = exc
+                logger.warning("🖼️ Unit art attempt %s failed for unit %s: %s", attempts, unit_id, exc, exc_info=True)
+        if art_payload is None:
+            raise RuntimeError("Unit art generation failed") from last_exc
+
+        description_info = art_payload.get("art_description") or {}
+        prompt_text = str(description_info.get("prompt", "")).strip()
+        alt_text = str(description_info.get("alt_text", "")).strip()
+
+        image_info = art_payload.get("image") or {}
+        image_url = image_info.get("image_url")
+        if not image_url:
+            raise RuntimeError("Image generation returned no URL")
+
+        image_bytes, content_type = await self._download_image(image_url)
+
+        return await self.content.save_unit_art_from_bytes(
+            unit_id,
+            image_bytes=image_bytes,
+            content_type=content_type or "image/png",
+            description=prompt_text or None,
+            alt_text=alt_text or None,
+        )
 
     async def create_unit(
         self,
@@ -495,6 +550,16 @@ class ContentCreatorService:
                             exc_info=True,
                         )
 
+        try:
+            await self.content.update_unit_status(
+                unit_id,
+                UnitStatus.IN_PROGRESS.value,
+                creation_progress={"stage": "artwork", "message": "Rendering hero artwork..."},
+            )
+            await self.create_unit_art(unit_id)
+        except Exception as exc:  # pragma: no cover - art generation should not block unit creation
+            logger.warning("🖼️ Failed to generate unit art for %s: %s", unit_id, exc, exc_info=True)
+
         await self.content.update_unit_status(unit_id, UnitStatus.COMPLETED.value, creation_progress={"stage": "completed", "message": "Unit creation completed"})
 
         return self.UnitCreationResult(
@@ -560,6 +625,31 @@ class ContentCreatorService:
         }
         suffix = extension_map.get((mime_type or "").lower(), ".bin")
         return f"unit-{unit_id}{suffix}"
+
+    def _extract_key_concepts(self, unit_detail: Any) -> list[str]:
+        """Aggregate distinct key concepts across lessons for artwork prompting."""
+
+        concepts: list[str] = []
+        lessons = getattr(unit_detail, "lessons", []) or []
+        for lesson in lessons:
+            lesson_concepts = getattr(lesson, "key_concepts", []) or []
+            for concept in lesson_concepts:
+                normalized = str(concept)
+                if normalized and normalized not in concepts:
+                    concepts.append(normalized)
+                if len(concepts) >= 8:
+                    break
+            if len(concepts) >= 8:
+                break
+        return concepts
+
+    async def _download_image(self, url: str) -> tuple[bytes, str | None]:
+        """Fetch binary image data from the generated image URL."""
+
+        async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
+            response = await client.get(url)
+            response.raise_for_status()
+            return response.content, response.headers.get("content-type")
 
     async def retry_unit_creation(self, unit_id: str) -> "ContentCreatorService.MobileUnitCreationResult | None":
         """

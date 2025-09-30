@@ -3,7 +3,7 @@
 
 from pydantic import BaseModel
 
-from modules.flow_engine.public import AudioStep, StructuredStep, UnstructuredStep
+from modules.flow_engine.public import AudioStep, ImageStep, StructuredStep, UnstructuredStep
 
 
 # ---------- Shared simple models used by current prompts ----------
@@ -198,3 +198,37 @@ class SynthesizePodcastAudioStep(AudioStep):
         model: str = "tts-1-hd"
         format: str = "mp3"
         speed: float | None = None
+
+
+# ---------- 6) Generate Unit Art ----------
+class GenerateUnitArtDescriptionStep(StructuredStep):
+    """Produce a Weimar Edge styled art prompt for a learning unit."""
+
+    step_name = "generate_unit_art_description"
+    prompt_file = "unit_art_description.md"
+    reasoning_effort = "medium"
+    model = "gpt-5-mini"
+    verbosity = "low"
+
+    class Inputs(BaseModel):
+        unit_title: str
+        unit_description: str | None = None
+        learning_objectives: list[str] = []
+        key_concepts: list[str] = []
+
+    class Outputs(BaseModel):
+        prompt: str
+        alt_text: str
+        palette: list[str]
+
+
+class GenerateUnitArtImageStep(ImageStep):
+    """Generate a hero image for the unit using the crafted prompt."""
+
+    step_name = "generate_unit_art_image"
+
+    class Inputs(BaseModel):
+        prompt: str
+        size: str = "1024x1024"
+        quality: str = "standard"
+        style: str | None = "natural"

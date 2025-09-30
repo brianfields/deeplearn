@@ -93,6 +93,15 @@ class UnitModel(Base):
     podcast_audio_object_id = Column(PostgresUUID(), nullable=True)
     podcast_generated_at = Column(DateTime, nullable=True)
 
+    # Artwork metadata - generated unit art asset reference
+    art_image_id = Column(
+        PostgresUUID(),
+        ForeignKey("images.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    art_image_description: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
 
