@@ -42,6 +42,7 @@ Phased approach (interactive):
      - At the end of the checklist, add the following checklist items to check the implementation:
        - [ ] Ensure lint passes, i.e. ./format_code.sh runs clean.
        - [ ] Ensure unit tests pass, i.e. (in backend) scripts/run_unit.py and (in mobile) npm run test both run clean.
+       - [ ] Ensure integration tests pass, i.e. (in backend) scripts/run_integration.py runs clean.
        - [ ] Follow the instructions in codegen/prompts/trace.md to ensure the user story is implemented correctly.
        - [ ] Fix any issues documented during the tracing of the user story in {TRACE}.
        - [ ] Follow the instructions in codegen/prompts/modulecheck.md to ensure the new code is following the modular architecture correctly.
