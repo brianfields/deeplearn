@@ -140,7 +140,7 @@ class TestServiceFlows:
             voice="Plain",
             duration_seconds=120,
         )
-        content.set_unit_podcast = Mock()
+        content.save_unit_podcast_from_bytes_async = AsyncMock()
         svc = ContentCreatorService(content, podcast_generator=podcast_generator)
 
         # Unit plan will be provided by mocked UnitCreationFlow below

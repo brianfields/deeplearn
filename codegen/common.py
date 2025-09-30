@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Literal, Optional
 
 # ---------- Model defaults ----------
-DEFAULT_MODEL_CLAUDE: str = os.getenv("CURSOR_MODEL_CLAUDE_SONNET", "claude-4-sonnet")
+DEFAULT_MODEL_CLAUDE: str = os.getenv("CURSOR_MODEL_CLAUDE_SONNET", "claude-4.5-sonnet")
 DEFAULT_MODEL_GPT5: str = os.getenv("CURSOR_MODEL_GPT_5", "gpt-5")
 DEFAULT_MODEL_GPTHIGH: str = os.getenv("CURSOR_MODEL_GPT_HIGH", "gpt-5-high")
 DEFAULT_MODEL_GROK: str = os.getenv("CURSOR_MODEL_GROK_FAST", "grok-code-fast-1")
