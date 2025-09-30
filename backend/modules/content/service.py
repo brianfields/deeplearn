@@ -386,22 +386,35 @@ class ContentService:
         if not include_presigned_url and audio_uuid in self._audio_metadata_cache:
             return self._audio_metadata_cache[audio_uuid]
 
-        try:
-            metadata = self._run_async(
-                self._object_store.get_audio(
-                    audio_uuid,
-                    requesting_user_id=requesting_user_id,
-                    include_presigned_url=include_presigned_url,
-                )
-            )
-        except Exception as exc:  # pragma: no cover - network/object store issues
-            logger.warning(
-                "🎧 Failed to retrieve podcast audio metadata %s: %s",
-                audio_uuid,
-                exc,
-                exc_info=True,
-            )
+        # If we're already inside a running event loop, we cannot synchronously await.
+        # In that case, skip metadata fetch to avoid nested loop errors.
+        loop_running = False
+        try:  # Detect if an event loop is already running in this thread
+            asyncio.get_running_loop()
+            loop_running = True
+        except RuntimeError:
+            loop_running = False
+
+        if loop_running:
+            logger.debug("🎧 Skipping async audio metadata fetch while event loop is running")
             metadata = None
+        else:
+            try:
+                metadata = self._run_async(
+                    self._object_store.get_audio(
+                        audio_uuid,
+                        requesting_user_id=requesting_user_id,
+                        include_presigned_url=include_presigned_url,
+                    )
+                )
+            except Exception as exc:  # pragma: no cover - network/object store issues
+                logger.warning(
+                    "🎧 Failed to retrieve podcast audio metadata %s: %s",
+                    audio_uuid,
+                    exc,
+                    exc_info=True,
+                )
+                metadata = None
 
         if not include_presigned_url:
             self._audio_metadata_cache[audio_uuid] = metadata
@@ -512,15 +525,18 @@ class ContentService:
 
         audio_object_id = upload.file.id
 
-        updated = self.set_unit_podcast(
+        # Persist references directly via repo to avoid calling sync methods from async context
+        updated_model = self.repo.set_unit_podcast(
             unit_id,
             transcript=transcript,
             audio_object_id=audio_object_id,
             voice=voice,
         )
-        if updated is None:
+        if updated_model is None:
             raise ValueError("Failed to persist unit podcast metadata")
-        return updated
+
+        # Build UnitRead using the freshly available audio metadata from upload to avoid additional async calls
+        return self._build_unit_read(updated_model, audio_meta=upload.file)
 
     def get_unit(self, unit_id: str) -> ContentService.UnitRead | None:
         u = self.repo.get_unit_by_id(unit_id)
