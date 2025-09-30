@@ -150,7 +150,6 @@ def run_unit_tests(module_name: str | None = None, verbose: bool = False) -> int
 def main() -> int:
     """Main entry point"""
 
-
     doc_epilog = __doc__.split("Usage:")[1] if __doc__ and "Usage:" in __doc__ else ""
     parser = argparse.ArgumentParser(description="Run unit tests across backend modules", formatter_class=argparse.RawDescriptionHelpFormatter, epilog=doc_epilog)
 
