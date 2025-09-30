@@ -413,6 +413,11 @@ export interface ApiUnitSummary {
   flow_type?: 'standard' | 'fast';
   created_at?: string;
   updated_at?: string;
+  has_podcast?: boolean;
+  podcast_voice?: string | null;
+  podcast_duration_seconds?: number | null;
+  podcast_transcript?: string | null;
+  podcast_audio_url?: string | null;
 }
 
 export interface ApiUnitLessonSummary {

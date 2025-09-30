@@ -13,7 +13,6 @@ import type {
   ApiFlowStepDetails,
   ApiLLMRequest,
   ApiSystemMetrics,
-  ApiUnitSummary,
   ApiUserDetail,
   ApiUserListResponse,
   ApiUserSummary,
