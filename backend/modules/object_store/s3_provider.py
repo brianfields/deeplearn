@@ -232,7 +232,7 @@ class S3Provider:
             logger.error("Failed to upload file for user %s: %s", user_identifier, e)
             raise S3Error(f"Upload failed: {e!s}") from e
 
-    async def get_presigned_url(self, s3_key: str, expires_in: int = 3600, method: str = "get_object") -> str:
+    async def get_presigned_url(self, s3_key: str, expires_in: int = 86400, method: str = "get_object") -> str:
         """
         Generate a presigned URL for file access.
 

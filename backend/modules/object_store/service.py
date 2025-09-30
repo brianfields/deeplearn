@@ -169,7 +169,7 @@ class ObjectStoreService:
         data: ImageCreate,
         *,
         generate_presigned_url: bool = False,
-        presigned_ttl_seconds: int = 3600,
+        presigned_ttl_seconds: int = 86400,
     ) -> FileUploadResult:
         self._validate_file(data.content, data.content_type, IMAGE_CONTENT_TYPES)
         metadata = self._extract_image_metadata(data.content)
@@ -203,7 +203,7 @@ class ObjectStoreService:
         data: AudioCreate,
         *,
         generate_presigned_url: bool = False,
-        presigned_ttl_seconds: int = 3600,
+        presigned_ttl_seconds: int = 86400,
     ) -> FileUploadResult:
         self._validate_file(data.content, data.content_type, AUDIO_CONTENT_TYPES)
         metadata = self._extract_audio_metadata(data.content)
@@ -238,7 +238,7 @@ class ObjectStoreService:
         *,
         requesting_user_id: int | None,
         include_presigned_url: bool = False,
-        presigned_ttl_seconds: int = 3600,
+        presigned_ttl_seconds: int = 86400,
     ) -> ImageRead:
         image = await self._images.by_id(image_id)
         if not image:
@@ -256,7 +256,7 @@ class ObjectStoreService:
         *,
         requesting_user_id: int | None,
         include_presigned_url: bool = False,
-        presigned_ttl_seconds: int = 3600,
+        presigned_ttl_seconds: int = 86400,
     ) -> AudioRead:
         audio = await self._audio.by_id(audio_id)
         if not audio:
@@ -275,7 +275,7 @@ class ObjectStoreService:
         limit: int = 50,
         offset: int = 0,
         include_presigned_url: bool = False,
-        presigned_ttl_seconds: int = 3600,
+        presigned_ttl_seconds: int = 86400,
         include_system: bool = False,
     ) -> tuple[list[ImageRead], int]:
         records = await self._images.list_by_user(user_id, limit=limit, offset=offset)
@@ -304,7 +304,7 @@ class ObjectStoreService:
         limit: int = 50,
         offset: int = 0,
         include_presigned_url: bool = False,
-        presigned_ttl_seconds: int = 3600,
+        presigned_ttl_seconds: int = 86400,
         include_system: bool = False,
     ) -> tuple[list[AudioRead], int]:
         records = await self._audio.list_by_user(user_id, limit=limit, offset=offset)
@@ -342,7 +342,7 @@ class ObjectStoreService:
         await self._delete_from_s3(audio.s3_key)
         await self._audio.delete(audio)
 
-    async def generate_presigned_url(self, s3_key: str, *, expires_in: int = 3600) -> str:
+    async def generate_presigned_url(self, s3_key: str, *, expires_in: int = 86400) -> str:
         try:
             return await self._s3.get_presigned_url(s3_key, expires_in=expires_in)
         except S3FileNotFoundError as exc:  # pragma: no cover - defensive, S3 returns not-found
