@@ -161,7 +161,11 @@ class CatalogService:
         self.units = units
         self.learning_sessions = learning_sessions
 
-    def browse_lessons(self, learner_level: str | None = None, limit: int = 100) -> BrowseLessonsResponse:
+    async def browse_lessons(
+        self,
+        learner_level: str | None = None,
+        limit: int = 100,
+    ) -> BrowseLessonsResponse:
         """
         Browse lessons with optional learner level filter.
 
@@ -173,7 +177,7 @@ class CatalogService:
             Response with lesson summaries
         """
         # Get lessons from content module
-        lessons = self.content.search_lessons(learner_level=learner_level, limit=limit)
+        lessons = await self.content.search_lessons(learner_level=learner_level, limit=limit)
 
         # Convert to summary DTOs (exercise-aligned)
         summaries = []
@@ -195,7 +199,7 @@ class CatalogService:
 
         return BrowseLessonsResponse(lessons=summaries, total=len(summaries))
 
-    def get_lesson_details(self, lesson_id: str) -> LessonDetail | None:
+    async def get_lesson_details(self, lesson_id: str) -> LessonDetail | None:
         """
         Get detailed lesson information by ID.
 
@@ -205,7 +209,7 @@ class CatalogService:
         Returns:
             Lesson details or None if not found
         """
-        lesson = self.content.get_lesson(lesson_id)
+        lesson = await self.content.get_lesson(lesson_id)
         if not lesson:
             return None
 
@@ -248,7 +252,7 @@ class CatalogService:
             exercise_count=len(exercises),
         )
 
-    def search_lessons(
+    async def search_lessons(
         self,
         query: str | None = None,
         learner_level: str | None = None,
@@ -274,7 +278,7 @@ class CatalogService:
             Response with matching lesson summaries
         """
         # Get lessons from content module (using existing search)
-        lessons = self.content.search_lessons(learner_level=learner_level, limit=limit + offset)
+        lessons = await self.content.search_lessons(learner_level=learner_level, limit=limit + offset)
 
         # Convert to summary DTOs (exercise-aligned)
         summaries = []
@@ -309,7 +313,7 @@ class CatalogService:
 
         return SearchLessonsResponse(lessons=summaries, total=total, query=query)
 
-    def get_popular_lessons(self, limit: int = 10) -> list[LessonSummary]:
+    async def get_popular_lessons(self, limit: int = 10) -> list[LessonSummary]:
         """
         Get popular lessons (for now, just return first N lessons).
 
@@ -321,7 +325,7 @@ class CatalogService:
         """
         # For now, just return the first N lessons
         # In a real implementation, this would be based on usage metrics
-        lessons = self.content.search_lessons(limit=limit)
+        lessons = await self.content.search_lessons(limit=limit)
 
         summaries = []
         for lesson in lessons:
@@ -342,7 +346,7 @@ class CatalogService:
             )
         return summaries
 
-    def get_catalog_statistics(self) -> CatalogStatistics:
+    async def get_catalog_statistics(self) -> CatalogStatistics:
         """
         Get catalog statistics.
 
@@ -350,7 +354,7 @@ class CatalogService:
             Statistics about the lesson catalog
         """
         # Get all lessons for statistics
-        all_lessons = self.content.search_lessons(limit=1000)  # Large limit to get all
+        all_lessons = await self.content.search_lessons(limit=1000)  # Large limit to get all
 
         # Calculate statistics
         total_lessons = len(all_lessons)
@@ -399,7 +403,7 @@ class CatalogService:
             duration_distribution=duration_distribution,
         )
 
-    def refresh_catalog(self) -> RefreshCatalogResponse:
+    async def refresh_catalog(self) -> RefreshCatalogResponse:
         """
         Refresh the catalog (placeholder implementation).
 
@@ -408,7 +412,7 @@ class CatalogService:
         """
         # In a real implementation, this would refresh data from external sources
         # For now, just return current statistics
-        all_lessons = self.content.search_lessons(limit=1000)
+        all_lessons = await self.content.search_lessons(limit=1000)
 
         return RefreshCatalogResponse(
             refreshed_lessons=len(all_lessons),
@@ -420,14 +424,14 @@ class CatalogService:
     # Unit browsing & aggregation
     # ================================
 
-    def browse_units(self, limit: int = 100, offset: int = 0) -> list[UnitSummary]:
+    async def browse_units(self, limit: int = 100, offset: int = 0) -> list[UnitSummary]:
         """Browse units with simple metadata and lesson counts."""
-        units = self.units.list_units(limit=limit, offset=offset)
-        return self._map_units_to_summaries(units)
+        units = await self.units.list_units(limit=limit, offset=offset)
+        return await self._map_units_to_summaries(units)
 
-    def get_unit_details(self, unit_id: str) -> UnitDetail | None:
+    async def get_unit_details(self, unit_id: str) -> UnitDetail | None:
         """Get unit details with ordered aggregated lesson summaries."""
-        detail = self.units.get_unit_detail(unit_id)
+        detail = await self.units.get_unit_detail(unit_id)
         if not detail:
             return None
 
@@ -443,7 +447,7 @@ class CatalogService:
             for lesson in detail.lessons
         ]
 
-        objective_progress = self._build_learning_objective_progress(unit_id, detail)
+        objective_progress = await self._build_learning_objective_progress(unit_id, detail)
 
         return UnitDetail(
             id=detail.id,
@@ -465,7 +469,7 @@ class CatalogService:
             podcast_audio_url=getattr(detail, "podcast_audio_url", None),
         )
 
-    def browse_units_for_user(
+    async def browse_units_for_user(
         self,
         user_id: int,
         *,
@@ -475,19 +479,19 @@ class CatalogService:
     ) -> UserUnitCollections:
         """Return separate personal and global unit lists for a user."""
 
-        personal_unit_models = self.units.list_units_for_user(user_id=user_id, limit=limit, offset=offset)
-        personal_units = self._map_units_to_summaries(personal_unit_models)
+        personal_unit_models = await self.units.list_units_for_user(user_id=user_id, limit=limit, offset=offset)
+        personal_units = await self._map_units_to_summaries(personal_unit_models)
 
         global_units: list[UnitSummary] = []
         if include_global:
-            global_models = self.units.list_global_units(limit=limit, offset=offset)
+            global_models = await self.units.list_global_units(limit=limit, offset=offset)
             personal_ids = {unit.id for unit in personal_unit_models}
             filtered_global = [unit for unit in global_models if unit.id not in personal_ids]
-            global_units = self._map_units_to_summaries(filtered_global)
+            global_units = await self._map_units_to_summaries(filtered_global)
 
         return UserUnitCollections(personal_units=personal_units, global_units=global_units)
 
-    def _map_units_to_summaries(self, units: Iterable[Any]) -> list[UnitSummary]:
+    async def _map_units_to_summaries(self, units: Iterable[Any]) -> list[UnitSummary]:
         """Convert unit read models into catalog unit summaries."""
 
         summaries: list[UnitSummary] = []
@@ -496,7 +500,7 @@ class CatalogService:
             if lesson_order:
                 lesson_count = len(lesson_order)
             else:
-                lessons = self.content.get_lessons_by_unit(unit.id)
+                lessons = await self.content.get_lessons_by_unit(unit.id)
                 lesson_count = len(lessons)
 
             summaries.append(
@@ -519,7 +523,7 @@ class CatalogService:
             )
         return summaries
 
-    def _build_learning_objective_progress(
+    async def _build_learning_objective_progress(
         self,
         unit_id: str,
         detail: Any,
@@ -530,7 +534,7 @@ class CatalogService:
             return None
 
         try:
-            lessons = self.content.get_lessons_by_unit(unit_id)
+            lessons = await self.content.get_lessons_by_unit(unit_id)
         except Exception:
             return None
 
@@ -556,7 +560,7 @@ class CatalogService:
             return None
 
         try:
-            correctness = self.learning_sessions.get_exercise_correctness([lesson.id for lesson in lessons])
+            correctness = await self.learning_sessions.get_exercise_correctness([lesson.id for lesson in lessons])
         except Exception:
             correctness = []
 

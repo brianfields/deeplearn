@@ -84,7 +84,9 @@ class TestAdminService:
     @pytest.fixture
     def mock_catalog_provider(self) -> Mock:
         """Mock CatalogProvider for testing."""
-        return Mock()
+        mock = Mock()
+        mock.search_lessons = AsyncMock(return_value=SimpleNamespace(lessons=[], total=0))
+        return mock
 
     @pytest.fixture
     def mock_learning_sessions_provider(self) -> Mock:
@@ -97,7 +99,8 @@ class TestAdminService:
     def mock_content_provider(self) -> Mock:
         """Mock ContentProvider for testing."""
         mock = Mock()
-        mock.list_units_for_user.return_value = []
+        mock.list_units_for_user = AsyncMock(return_value=[])
+        mock.get_lesson = AsyncMock(return_value=None)
         return mock
 
     @pytest.fixture

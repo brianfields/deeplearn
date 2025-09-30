@@ -25,12 +25,13 @@ class LearningSessionAnalyticsService:
     def __init__(self, repo: LearningSessionRepo) -> None:
         self._repo = repo
 
-    def get_exercise_correctness(self, lesson_ids: Iterable[str]) -> list[ExerciseCorrectness]:
+    async def get_exercise_correctness(self, lesson_ids: Iterable[str]) -> list[ExerciseCorrectness]:
         """Return the aggregated correctness per exercise for the lessons provided."""
 
         aggregated: dict[tuple[str, str], bool] = {}
 
-        for session in self._repo.get_sessions_for_lessons(lesson_ids):
+        sessions = await self._repo.get_sessions_for_lessons(lesson_ids)
+        for session in sessions:
             answers = (session.session_data or {}).get("exercise_answers", {}) or {}
             for exercise_id, answer_data in answers.items():
                 key = (session.lesson_id, exercise_id)

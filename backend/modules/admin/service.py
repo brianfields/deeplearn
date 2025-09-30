@@ -110,6 +110,7 @@ class AdminService:
 
         associations = await self._build_user_associations(user)
 
+        owned_units_data = await self.content.list_units_for_user(user.id, limit=100)
         owned_units = [
             UserOwnedUnitSummary(
                 id=unit.id,
@@ -117,7 +118,7 @@ class AdminService:
                 is_global=bool(getattr(unit, "is_global", False)),
                 updated_at=unit.updated_at,
             )
-            for unit in self.content.list_units_for_user(user.id, limit=100)
+            for unit in owned_units_data
         ]
 
         recent_sessions = await self._get_recent_sessions(user)
@@ -155,7 +156,7 @@ class AdminService:
     async def _build_user_associations(self, user: UserRead) -> UserAssociationSummary:
         """Aggregate association counts for a user."""
 
-        owned_units = self.content.list_units_for_user(user.id, limit=100)
+        owned_units = await self.content.list_units_for_user(user.id, limit=100)
         owned_global_unit_count = sum(1 for unit in owned_units if getattr(unit, "is_global", False))
         learning_session_count = await self._get_learning_session_count(user)
         llm_request_count = self._get_llm_request_count(user)
@@ -537,7 +538,7 @@ class AdminService:
         """Get paginated list of lessons with optional filtering."""
         try:
             # Use search_lessons to get lessons with filtering
-            search_response = self.catalog.search_lessons(
+            search_response = await self.catalog.search_lessons(
                 query=search,
                 learner_level=learner_level,
                 limit=page_size,
@@ -548,7 +549,7 @@ class AdminService:
             lesson_summaries = []
             for lesson in search_response.lessons:
                 # Get the full lesson data from content module to access package_version, created_at, etc.
-                full_lesson = self.content.get_lesson(lesson.id)
+                full_lesson = await self.content.get_lesson(lesson.id)
                 if full_lesson:
                     lesson_summaries.append(
                         LessonSummary(
@@ -587,7 +588,7 @@ class AdminService:
 
         try:
             # Get lesson from content provider directly to get full package structure
-            lesson = self.content.get_lesson(lesson_id)
+            lesson = await self.content.get_lesson(lesson_id)
             if not lesson:
                 return None
 

@@ -5,13 +5,13 @@ Minimal FastAPI routes to support existing frontend functionality.
 This is a migration, not new feature development.
 """
 
-from collections.abc import Generator
+from collections.abc import AsyncGenerator
 from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from modules.content.public import content_provider
 from modules.infrastructure.public import infrastructure_provider
@@ -118,15 +118,15 @@ router = APIRouter(prefix="/api/v1/learning_session")
 # ================================
 
 
-def get_db_session() -> Generator[Session, None, None]:
+async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     """Request-scoped database session with auto-commit."""
     infra = infrastructure_provider()
     infra.initialize()
-    with infra.get_session_context() as s:
+    async with infra.get_async_session_context() as s:
         yield s
 
 
-def get_learning_session_service(s: Session = Depends(get_db_session)) -> LearningSessionService:
+def get_learning_session_service(s: AsyncSession = Depends(get_db_session)) -> LearningSessionService:
     """Build LearningSessionService with all dependencies sharing the same session."""
     # Build all services with the same session for transactional consistency
     content_service = content_provider(s)

@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Generator
+from collections.abc import AsyncGenerator
 from typing import cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from modules.infrastructure.public import infrastructure_provider
 
@@ -18,16 +18,16 @@ from .service import ContentService
 router = APIRouter(prefix="/api/v1/content", tags=["Content"])
 
 
-def get_session() -> Generator[Session, None, None]:
-    """Yield a request-scoped SQLAlchemy session."""
+async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
+    """Yield a request-scoped async SQLAlchemy session."""
 
     infra = infrastructure_provider()
     infra.initialize()
-    with infra.get_session_context() as session:
+    async with infra.get_async_session_context() as session:
         yield session
 
 
-def get_content_service(session: Session = Depends(get_session)) -> ContentService:
+async def get_content_service(session: AsyncSession = Depends(get_async_session)) -> ContentService:
     """Build the content service from the provider."""
 
     return cast(ContentService, content_provider(session))
@@ -41,18 +41,18 @@ class UnitShareUpdate(BaseModel):
 
 
 @router.get("/units", response_model=list[ContentService.UnitRead])
-def list_units(
+async def list_units(
     limit: int = Query(100, ge=1, le=500, description="Maximum number of units to return"),
     offset: int = Query(0, ge=0, description="Pagination offset for unit listing"),
     service: ContentService = Depends(get_content_service),
 ) -> list[ContentService.UnitRead]:
     """Return all units ordered by most recent update."""
 
-    return service.list_units(limit=limit, offset=offset)
+    return await service.list_units(limit=limit, offset=offset)
 
 
 @router.get("/units/personal", response_model=list[ContentService.UnitRead])
-def list_personal_units(
+async def list_personal_units(
     user_id: int = Query(..., ge=1, description="Identifier for the unit owner"),
     limit: int = Query(100, ge=1, le=500, description="Maximum number of units to return"),
     offset: int = Query(0, ge=0, description="Pagination offset for unit listing"),
@@ -60,62 +60,59 @@ def list_personal_units(
 ) -> list[ContentService.UnitRead]:
     """Return units owned by the provided user."""
 
-    return service.list_units_for_user(user_id=user_id, limit=limit, offset=offset)
+    return await service.list_units_for_user(user_id=user_id, limit=limit, offset=offset)
 
 
 @router.get("/units/global", response_model=list[ContentService.UnitRead])
-def list_global_units(
+async def list_global_units(
     limit: int = Query(100, ge=1, le=500, description="Maximum number of units to return"),
     offset: int = Query(0, ge=0, description="Pagination offset for unit listing"),
     service: ContentService = Depends(get_content_service),
 ) -> list[ContentService.UnitRead]:
     """Return units that have been shared globally."""
 
-    return service.list_global_units(limit=limit, offset=offset)
+    return await service.list_global_units(limit=limit, offset=offset)
 
 
 @router.get("/units/{unit_id}", response_model=ContentService.UnitDetailRead)
-def get_unit_detail(
+async def get_unit_detail(
     unit_id: str,
     service: ContentService = Depends(get_content_service),
 ) -> ContentService.UnitDetailRead:
     """Retrieve a fully hydrated unit with ordered lesson summaries."""
 
-    unit = service.get_unit_detail(unit_id)
-    if not unit:
+    unit = await service.get_unit_detail(unit_id)
+    if unit is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unit not found")
     return unit
 
 
 @router.get("/units/{unit_id}/podcast/audio", response_model=None)
-def stream_unit_podcast_audio(
+async def stream_unit_podcast_audio(
     unit_id: str,
     service: ContentService = Depends(get_content_service),
 ) -> RedirectResponse:
     """Stream the generated podcast audio for a unit."""
 
-    audio = service.get_unit_podcast_audio(unit_id)
-    if not audio:
+    audio = await service.get_unit_podcast_audio(unit_id)
+    if not audio or not audio.presigned_url:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Podcast audio not found")
 
-    if audio.presigned_url:
-        return RedirectResponse(audio.presigned_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
-
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Podcast audio not found")
+    return RedirectResponse(audio.presigned_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
 
 @router.post("/units", response_model=ContentService.UnitRead, status_code=status.HTTP_201_CREATED)
-def create_unit(
+async def create_unit(
     payload: ContentService.UnitCreate,
     service: ContentService = Depends(get_content_service),
 ) -> ContentService.UnitRead:
     """Create a new unit with optional ownership and sharing metadata."""
 
-    return service.create_unit(payload)
+    return await service.create_unit(payload)
 
 
 @router.patch("/units/{unit_id}/sharing", response_model=ContentService.UnitRead)
-def update_unit_sharing(
+async def update_unit_sharing(
     unit_id: str,
     payload: UnitShareUpdate,
     service: ContentService = Depends(get_content_service),
@@ -123,7 +120,7 @@ def update_unit_sharing(
     """Toggle a unit's global sharing state, enforcing ownership when provided."""
 
     try:
-        return service.set_unit_sharing(
+        return await service.set_unit_sharing(
             unit_id,
             is_global=payload.is_global,
             acting_user_id=payload.acting_user_id,

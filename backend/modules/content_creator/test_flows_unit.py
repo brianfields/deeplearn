@@ -69,7 +69,7 @@ class TestServiceFlows:
     @pytest.mark.asyncio
     @patch("modules.content_creator.service.LessonCreationFlow")
     async def test_create_lesson_invokes_flow(self, mock_flow_cls: Mock) -> None:
-        content = Mock()
+        content = AsyncMock()
         podcast_generator = AsyncMock()
         podcast_generator.create_podcast.return_value = UnitPodcast(
             transcript="Narration",
@@ -78,7 +78,7 @@ class TestServiceFlows:
             voice="Plain",
             duration_seconds=90,
         )
-        content.save_unit_podcast_from_bytes_async = AsyncMock()
+        content.save_unit_podcast_from_bytes = AsyncMock()
         svc = ContentCreatorService(content, podcast_generator=podcast_generator)
 
         # Minimal flow return
@@ -131,7 +131,7 @@ class TestServiceFlows:
 
     @pytest.mark.asyncio
     async def test_create_unit_precreates_and_completes(self) -> None:
-        content = Mock()
+        content = AsyncMock()
         podcast_generator = AsyncMock()
         podcast_generator.create_podcast.return_value = UnitPodcast(
             transcript="Narration",
@@ -181,17 +181,18 @@ class TestServiceFlows:
             content.save_lesson.return_value = Mock(id="l1")
 
             # Add the missing method to the mock
-            content.assign_lessons_to_unit = Mock()
+            content.assign_lessons_to_unit = AsyncMock()
 
             result = await svc.create_unit(topic="Topic", target_lesson_count=1, learner_level="beginner", background=False)
         assert result.title == "Unit T"
-        content.assign_lessons_to_unit.assert_called_once()
+        content.save_lesson.assert_awaited()
+        content.assign_lessons_to_unit.assert_awaited_once()
         podcast_generator.create_podcast.assert_awaited_once()
-        content.save_unit_podcast_from_bytes_async.assert_awaited_once()
+        content.save_unit_podcast_from_bytes.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_podcast_audio_uploads_to_object_store(self) -> None:
-        content = Mock()
+        content = AsyncMock()
         podcast_generator = AsyncMock()
         podcast_generator.create_podcast.return_value = UnitPodcast(
             transcript="Narration",
@@ -201,14 +202,14 @@ class TestServiceFlows:
             duration_seconds=120,
         )
 
-        content.save_unit_podcast_from_bytes_async = AsyncMock()
+        content.save_unit_podcast_from_bytes = AsyncMock()
         created_unit_obj = Mock()
         created_unit_obj.id = "u2"
         created_unit_obj.title = "Unit B"
         content.create_unit.return_value = created_unit_obj
         content.get_unit.return_value = Mock(user_id=42)
         content.save_lesson.return_value = Mock(id="lesson-1")
-        content.assign_lessons_to_unit = Mock()
+        content.assign_lessons_to_unit = AsyncMock()
 
         svc = ContentCreatorService(content, podcast_generator=podcast_generator)
 
@@ -237,4 +238,6 @@ class TestServiceFlows:
 
             await svc.create_unit(topic="Topic", target_lesson_count=1, learner_level="beginner", background=False)
 
-            content.save_unit_podcast_from_bytes_async.assert_awaited_once()
+            content.save_lesson.assert_awaited()
+            content.assign_lessons_to_unit.assert_awaited()
+            content.save_unit_podcast_from_bytes.assert_awaited_once()
