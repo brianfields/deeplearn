@@ -9,8 +9,8 @@ from datetime import UTC, datetime
 from typing import Any
 import uuid
 
-from sqlalchemy import and_, desc
-from sqlalchemy.orm import Session
+from sqlalchemy import and_, desc, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .models import LessonModel, UnitModel
 
@@ -18,89 +18,134 @@ from .models import LessonModel, UnitModel
 class ContentRepo:
     """Repository for content data access operations."""
 
-    def __init__(self, session: Session) -> None:
-        """Initialize repository with raw SQLAlchemy session."""
+    def __init__(self, session: AsyncSession) -> None:
+        """Initialize repository with async SQLAlchemy session."""
         self.s = session
 
     # Lesson operations
-    def get_lesson_by_id(self, lesson_id: str) -> LessonModel | None:
+    async def get_lesson_by_id(self, lesson_id: str) -> LessonModel | None:
         """Get lesson by ID."""
-        return self.s.get(LessonModel, lesson_id)
+        return await self.s.get(LessonModel, lesson_id)
 
-    def get_all_lessons(self, limit: int = 100, offset: int = 0) -> list[LessonModel]:
+    async def get_all_lessons(self, limit: int = 100, offset: int = 0) -> list[LessonModel]:
         """Get all lessons with pagination."""
-        return self.s.query(LessonModel).offset(offset).limit(limit).all()
+        stmt = select(LessonModel).offset(offset).limit(limit)
+        result = await self.s.execute(stmt)
+        return list(result.scalars().all())
 
-    def search_lessons(self, query: str | None = None, learner_level: str | None = None, limit: int = 100, offset: int = 0) -> list[LessonModel]:
+    async def search_lessons(
+        self,
+        query: str | None = None,
+        learner_level: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[LessonModel]:
         """Search lessons with optional filters."""
-        q = self.s.query(LessonModel)
+        stmt = select(LessonModel)
 
         if query:
-            q = q.filter(LessonModel.title.contains(query))
+            stmt = stmt.filter(LessonModel.title.contains(query))
         if learner_level:
-            q = q.filter(LessonModel.learner_level == learner_level)
+            stmt = stmt.filter(LessonModel.learner_level == learner_level)
 
-        return q.offset(offset).limit(limit).all()
+        stmt = stmt.offset(offset).limit(limit)
+        result = await self.s.execute(stmt)
+        return list(result.scalars().all())
 
-    # New: filter by unit
-    def get_lessons_by_unit(self, unit_id: str, limit: int = 100, offset: int = 0) -> list[LessonModel]:
+    async def get_lessons_by_unit(self, unit_id: str, limit: int = 100, offset: int = 0) -> list[LessonModel]:
         """Get lessons for a specific unit."""
-        q = self.s.query(LessonModel).filter(LessonModel.unit_id == unit_id)
-        return q.offset(offset).limit(limit).all()
+        stmt = select(LessonModel).filter(LessonModel.unit_id == unit_id).offset(offset).limit(limit)
+        result = await self.s.execute(stmt)
+        return list(result.scalars().all())
 
-    def save_lesson(self, lesson: LessonModel) -> LessonModel:
+    async def save_lesson(self, lesson: LessonModel) -> LessonModel:
         """Save lesson to database."""
         self.s.add(lesson)
-        self.s.flush()
+        await self.s.flush()
         return lesson
 
-    def delete_lesson(self, lesson_id: str) -> bool:
+    async def delete_lesson(self, lesson_id: str) -> bool:
         """Delete lesson by ID."""
-        lesson = self.get_lesson_by_id(lesson_id)
-        if lesson:
-            self.s.delete(lesson)
-            return True
-        return False
+        lesson = await self.get_lesson_by_id(lesson_id)
+        if lesson is None:
+            return False
+        await self.s.delete(lesson)
+        await self.s.flush()
+        return True
 
-    def lesson_exists(self, lesson_id: str) -> bool:
+    async def lesson_exists(self, lesson_id: str) -> bool:
         """Check if lesson exists."""
-        return self.s.query(LessonModel.id).filter(LessonModel.id == lesson_id).first() is not None
+        stmt = select(LessonModel.id).filter(LessonModel.id == lesson_id)
+        result = await self.s.execute(stmt)
+        return result.scalar_one_or_none() is not None
 
     # Unit operations (moved from modules.units.repo)
-    def get_unit_by_id(self, unit_id: str) -> UnitModel | None:
+    async def get_unit_by_id(self, unit_id: str) -> UnitModel | None:
         """Get unit by ID."""
-        return self.s.get(UnitModel, unit_id)
+        return await self.s.get(UnitModel, unit_id)
 
-    def list_units(self, limit: int = 100, offset: int = 0) -> list[UnitModel]:
+    async def list_units(self, limit: int = 100, offset: int = 0) -> list[UnitModel]:
         """List units with pagination, ordered by updated_at descending (newest first)."""
-        return self.s.query(UnitModel).order_by(desc(UnitModel.updated_at)).offset(offset).limit(limit).all()
+        stmt = select(UnitModel).order_by(desc(UnitModel.updated_at)).offset(offset).limit(limit)
+        result = await self.s.execute(stmt)
+        return list(result.scalars().all())
 
-    def list_units_for_user(self, user_id: int, limit: int = 100, offset: int = 0) -> list[UnitModel]:
+    async def list_units_for_user(self, user_id: int, limit: int = 100, offset: int = 0) -> list[UnitModel]:
         """Return units owned by the specified user ordered by most recently updated."""
-        return self.s.query(UnitModel).filter(UnitModel.user_id == user_id).order_by(desc(UnitModel.updated_at)).offset(offset).limit(limit).all()
+        stmt = (
+            select(UnitModel)
+            .filter(UnitModel.user_id == user_id)
+            .order_by(desc(UnitModel.updated_at))
+            .offset(offset)
+            .limit(limit)
+        )
+        result = await self.s.execute(stmt)
+        return list(result.scalars().all())
 
-    def list_global_units(self, limit: int = 100, offset: int = 0) -> list[UnitModel]:
+    async def list_global_units(self, limit: int = 100, offset: int = 0) -> list[UnitModel]:
         """Return globally shared units ordered by most recently updated."""
-        return self.s.query(UnitModel).filter(UnitModel.is_global.is_(True)).order_by(desc(UnitModel.updated_at)).offset(offset).limit(limit).all()
+        stmt = (
+            select(UnitModel)
+            .filter(UnitModel.is_global.is_(True))
+            .order_by(desc(UnitModel.updated_at))
+            .offset(offset)
+            .limit(limit)
+        )
+        result = await self.s.execute(stmt)
+        return list(result.scalars().all())
 
-    def get_units_by_status(self, status: str, limit: int = 100, offset: int = 0) -> list[UnitModel]:
+    async def get_units_by_status(self, status: str, limit: int = 100, offset: int = 0) -> list[UnitModel]:
         """Get units by status, ordered by updated_at descending."""
-        return self.s.query(UnitModel).filter(UnitModel.status == status).order_by(desc(UnitModel.updated_at)).offset(offset).limit(limit).all()
+        stmt = (
+            select(UnitModel)
+            .filter(UnitModel.status == status)
+            .order_by(desc(UnitModel.updated_at))
+            .offset(offset)
+            .limit(limit)
+        )
+        result = await self.s.execute(stmt)
+        return list(result.scalars().all())
 
-    def add_unit(self, unit: UnitModel) -> UnitModel:
+    async def add_unit(self, unit: UnitModel) -> UnitModel:
         """Add a new unit to the database and flush to obtain ID."""
         self.s.add(unit)
-        self.s.flush()
+        await self.s.flush()
         return unit
 
-    def save_unit(self, unit: UnitModel) -> None:
+    async def save_unit(self, unit: UnitModel) -> None:
         """Persist changes to a unit."""
         self.s.add(unit)
 
-    def update_unit_status(self, unit_id: str, status: str, error_message: str | None = None, creation_progress: dict[str, Any] | None = None) -> UnitModel | None:
+    async def update_unit_status(
+        self,
+        unit_id: str,
+        status: str,
+        error_message: str | None = None,
+        creation_progress: dict[str, Any] | None = None,
+    ) -> UnitModel | None:
         """Update unit status and related fields, returning the updated model or None if not found."""
-        unit = self.get_unit_by_id(unit_id)
-        if not unit:
+        unit = await self.get_unit_by_id(unit_id)
+        if unit is None:
             return None
 
         unit.status = status  # type: ignore[assignment]
@@ -109,24 +154,23 @@ class ContentRepo:
         if creation_progress is not None:
             unit.creation_progress = creation_progress  # type: ignore[assignment]
 
-        # Update timestamp
         unit.updated_at = datetime.now(UTC)  # type: ignore[assignment]
 
         self.s.add(unit)
-        self.s.flush()
+        await self.s.flush()
         return unit
 
-    def update_unit_lesson_order(self, unit_id: str, lesson_ids: list[str]) -> UnitModel | None:
+    async def update_unit_lesson_order(self, unit_id: str, lesson_ids: list[str]) -> UnitModel | None:
         """Update lesson order for the given unit and return the updated model, or None if not found."""
-        unit = self.get_unit_by_id(unit_id)
-        if not unit:
+        unit = await self.get_unit_by_id(unit_id)
+        if unit is None:
             return None
         unit.lesson_order = list(lesson_ids)  # type: ignore[assignment]
         self.s.add(unit)
-        self.s.flush()
+        await self.s.flush()
         return unit
 
-    def associate_lessons_with_unit(self, unit_id: str, lesson_ids: list[str]) -> UnitModel | None:
+    async def associate_lessons_with_unit(self, unit_id: str, lesson_ids: list[str]) -> UnitModel | None:
         """Associate the specified lessons with the unit and set the unit's lesson order.
 
         This method:
@@ -136,12 +180,13 @@ class ContentRepo:
 
         Returns None if the unit is not found.
         """
-        unit = self.get_unit_by_id(unit_id)
-        if not unit:
+        unit = await self.get_unit_by_id(unit_id)
+        if unit is None:
             return None
 
         # Detach lessons no longer associated
-        existing_in_unit: list[LessonModel] = self.s.query(LessonModel).filter(LessonModel.unit_id == unit_id).all()
+        existing_result = await self.s.execute(select(LessonModel).filter(LessonModel.unit_id == unit_id))
+        existing_in_unit: list[LessonModel] = list(existing_result.scalars().all())
         provided_ids = set(lesson_ids)
         for lesson in existing_in_unit:
             if lesson.id not in provided_ids:
@@ -151,8 +196,8 @@ class ContentRepo:
         # Attach provided lessons (preserve provided order; skip missing IDs)
         ordered_existing_ids: list[str] = []
         for lid in lesson_ids:
-            lesson_obj: LessonModel | None = self.get_lesson_by_id(lid)
-            if not lesson_obj:
+            lesson_obj = await self.get_lesson_by_id(lid)
+            if lesson_obj is None:
                 continue
             lesson_obj.unit_id = unit_id  # type: ignore[assignment]
             self.s.add(lesson_obj)
@@ -161,10 +206,10 @@ class ContentRepo:
         # Update unit order to reflect attached lessons only
         unit.lesson_order = ordered_existing_ids  # type: ignore[assignment]
         self.s.add(unit)
-        self.s.flush()
+        await self.s.flush()
         return unit
 
-    def set_unit_podcast(
+    async def set_unit_podcast(
         self,
         unit_id: str,
         *,
@@ -174,8 +219,8 @@ class ContentRepo:
     ) -> UnitModel | None:
         """Persist podcast transcript and object store reference for a unit."""
 
-        unit = self.get_unit_by_id(unit_id)
-        if not unit:
+        unit = await self.get_unit_by_id(unit_id)
+        if unit is None:
             return None
 
         unit.podcast_transcript = transcript  # type: ignore[assignment]
@@ -188,67 +233,77 @@ class ContentRepo:
             unit.podcast_generated_at = None  # type: ignore[assignment]
         unit.updated_at = datetime.now(UTC)  # type: ignore[assignment]
         self.s.add(unit)
-        self.s.flush()
+        await self.s.flush()
         return unit
 
-    def set_unit_owner(self, unit_id: str, user_id: int | None) -> UnitModel | None:
+    async def set_unit_owner(self, unit_id: str, user_id: int | None) -> UnitModel | None:
         """Update the owner of a unit, returning the updated model or None if not found."""
-        unit = self.get_unit_by_id(unit_id)
-        if not unit:
+        unit = await self.get_unit_by_id(unit_id)
+        if unit is None:
             return None
 
         unit.user_id = user_id  # type: ignore[assignment]
         unit.updated_at = datetime.now(UTC)  # type: ignore[assignment]
         self.s.add(unit)
-        self.s.flush()
+        await self.s.flush()
         return unit
 
-    def set_unit_sharing(self, unit_id: str, is_global: bool) -> UnitModel | None:
+    async def set_unit_sharing(self, unit_id: str, is_global: bool) -> UnitModel | None:
         """Toggle whether a unit is globally shared."""
-        unit = self.get_unit_by_id(unit_id)
-        if not unit:
+        unit = await self.get_unit_by_id(unit_id)
+        if unit is None:
             return None
 
         unit.is_global = bool(is_global)  # type: ignore[assignment]
         unit.updated_at = datetime.now(UTC)  # type: ignore[assignment]
         self.s.add(unit)
-        self.s.flush()
+        await self.s.flush()
         return unit
 
-    def is_unit_owned_by_user(self, unit_id: str, user_id: int) -> bool:
+    async def is_unit_owned_by_user(self, unit_id: str, user_id: int) -> bool:
         """Return True when the given unit is owned by the provided user id."""
-        return self.s.query(UnitModel.id).filter(UnitModel.id == unit_id, UnitModel.user_id == user_id).first() is not None
+        stmt = select(UnitModel.id).filter(UnitModel.id == unit_id, UnitModel.user_id == user_id)
+        result = await self.s.execute(stmt)
+        return result.scalar_one_or_none() is not None
 
     # Unit session operations
-    def get_unit_session(self, user_id: str, unit_id: str) -> Any | None:
+    async def get_unit_session(self, user_id: str, unit_id: str) -> Any | None:
         """Get the latest unit session for a user and unit."""
         from ..learning_session.models import UnitSessionModel  # Local import to avoid circular deps # noqa: PLC0415
 
-        return self.s.query(UnitSessionModel).filter(and_(UnitSessionModel.user_id == user_id, UnitSessionModel.unit_id == unit_id)).order_by(desc(UnitSessionModel.updated_at)).first()
+        stmt = (
+            select(UnitSessionModel)
+            .filter(and_(UnitSessionModel.user_id == user_id, UnitSessionModel.unit_id == unit_id))
+            .order_by(desc(UnitSessionModel.updated_at))
+            .limit(1)
+        )
+        result = await self.s.execute(stmt)
+        return result.scalars().first()
 
-    def add_unit_session(self, unit_session: Any) -> Any:
+    async def add_unit_session(self, unit_session: Any) -> Any:
         """Add a new unit session and flush to obtain ID."""
         self.s.add(unit_session)
-        self.s.flush()
+        await self.s.flush()
         return unit_session
 
-    def save_unit_session(self, unit_session: Any) -> None:
+    async def save_unit_session(self, unit_session: Any) -> None:
         """Persist changes to a unit session (no flush)."""
         self.s.add(unit_session)
 
-    def delete_unit(self, unit_id: str) -> bool:
+    async def delete_unit(self, unit_id: str) -> bool:
         """Delete a unit by ID. Returns True if successful, False if not found."""
-        unit = self.get_unit_by_id(unit_id)
-        if not unit:
+        unit = await self.get_unit_by_id(unit_id)
+        if unit is None:
             return False
 
         # First, unlink any lessons from this unit
-        lessons = self.s.query(LessonModel).filter(LessonModel.unit_id == unit_id).all()
+        lesson_result = await self.s.execute(select(LessonModel).filter(LessonModel.unit_id == unit_id))
+        lessons = list(lesson_result.scalars().all())
         for lesson in lessons:
             lesson.unit_id = None  # type: ignore[assignment]
             self.s.add(lesson)
 
         # Delete the unit
-        self.s.delete(unit)
-        self.s.flush()
+        await self.s.delete(unit)
+        await self.s.flush()
         return True

@@ -138,154 +138,154 @@ No database schema changes required. This is purely a code refactoring.
 ## Implementation Checklist
 
 ### Phase 1: Infrastructure Async Session Support
-- [ ] Add async engine and session factory to `infrastructure/service.py`
-- [ ] Add `get_async_session_context()` method to `InfrastructureService`
-- [ ] Add async session methods to `InfrastructureProvider` protocol in `infrastructure/public.py`
-- [ ] Update infrastructure unit tests to cover async session creation
+- [x] Add async engine and session factory to `infrastructure/service.py`
+- [x] Add `get_async_session_context()` method to `InfrastructureService`
+- [x] Add async session methods to `InfrastructureProvider` protocol in `infrastructure/public.py`
+- [x] Update infrastructure unit tests to cover async session creation
 
 ### Phase 2: Content Module Core Conversion
-- [ ] Convert `content/repo.py` to async:
-  - [ ] Replace `Session` with `AsyncSession` in constructor
-  - [ ] Add `async` to all method signatures
-  - [ ] Update all `self.s.query()` calls to use `await self.s.execute(select(...))`
-  - [ ] Update `self.s.get()` to `await self.s.get()`
-  - [ ] Update `self.s.flush()` to `await self.s.flush()`
-  - [ ] Update all delete operations to use await
-- [ ] Convert `content/service.py` to async:
-  - [ ] Add `async` to all method signatures
-  - [ ] Add `await` to all repo method calls
-  - [ ] Remove `_run_async()` static method entirely
-  - [ ] Remove `_SyncSessionAsyncAdapter` class entirely
-  - [ ] Update `_fetch_audio_metadata()` to directly await object store calls
-  - [ ] Remove sync `save_unit_podcast_from_bytes()` method (keep only async version)
-  - [ ] Rename `save_unit_podcast_from_bytes_async()` to `save_unit_podcast_from_bytes()`
-  - [ ] Update all object store interactions to use await
-- [ ] Convert `content/public.py` to async:
-  - [ ] Add `async` to all `ContentProvider` protocol method signatures
-  - [ ] Update `content_provider()` to accept `AsyncSession` instead of `Session`
-  - [ ] Remove `_SyncSessionAsyncAdapter` instantiation
-  - [ ] Pass `AsyncSession` directly to object store provider
-  - [ ] Return async service instance
-- [ ] Convert `content/routes.py` to async:
-  - [ ] Update `get_session()` to `get_async_session()` returning `AsyncSession`
-  - [ ] Add `async` to all route handler functions
-  - [ ] Add `await` to all service method calls
-  - [ ] Update `get_content_service()` dependency
-- [ ] Update `content/test_content_unit.py`:
-  - [ ] Add `@pytest.mark.asyncio` to all test methods
-  - [ ] Convert test methods to `async def`
-  - [ ] Use `AsyncMock` for repo mocks
-  - [ ] Add `await` to all service calls
-  - [ ] Update fixture creation to async patterns
+- [x] Convert `content/repo.py` to async:
+  - [x] Replace `Session` with `AsyncSession` in constructor
+  - [x] Add `async` to all method signatures
+  - [x] Update all `self.s.query()` calls to use `await self.s.execute(select(...))`
+  - [x] Update `self.s.get()` to `await self.s.get()`
+  - [x] Update `self.s.flush()` to `await self.s.flush()`
+  - [x] Update all delete operations to use await
+- [x] Convert `content/service.py` to async:
+  - [x] Add `async` to all method signatures
+  - [x] Add `await` to all repo method calls
+  - [x] Remove `_run_async()` static method entirely
+  - [x] Remove `_SyncSessionAsyncAdapter` class entirely
+  - [x] Update `_fetch_audio_metadata()` to directly await object store calls
+  - [x] Remove sync `save_unit_podcast_from_bytes()` method (keep only async version)
+  - [x] Rename `save_unit_podcast_from_bytes_async()` to `save_unit_podcast_from_bytes()`
+  - [x] Update all object store interactions to use await
+- [x] Convert `content/public.py` to async:
+  - [x] Add `async` to all `ContentProvider` protocol method signatures
+  - [x] Update `content_provider()` to accept `AsyncSession` instead of `Session`
+  - [x] Remove `_SyncSessionAsyncAdapter` instantiation
+  - [x] Pass `AsyncSession` directly to object store provider
+  - [x] Return async service instance
+- [x] Convert `content/routes.py` to async:
+  - [x] Update `get_session()` to `get_async_session()` returning `AsyncSession`
+  - [x] Add `async` to all route handler functions
+  - [x] Add `await` to all service method calls
+  - [x] Update `get_content_service()` dependency
+- [x] Update `content/test_content_unit.py`:
+  - [x] Add `@pytest.mark.asyncio` to all test methods
+  - [x] Convert test methods to `async def`
+  - [x] Use `AsyncMock` for repo mocks
+  - [x] Add `await` to all service calls
+  - [x] Update fixture creation to async patterns
 
 ### Phase 3: Content Creator Module Update
-- [ ] Update `content_creator/service.py`:
-  - [ ] Add `await` to all `self.content.*` method calls
-  - [ ] Verify all methods are already async (they should be)
-  - [ ] Update any synchronous content provider usage
-- [ ] Update `content_creator/routes.py`:
-  - [ ] Update session dependency to use async sessions
-  - [ ] Verify all routes are already async
-  - [ ] Update content provider instantiation
-- [ ] Update `content_creator/public.py`:
-  - [ ] Update provider function to accept `AsyncSession`
-  - [ ] Update service instantiation with async session
-- [ ] Update `content_creator/test_service_unit.py`:
-  - [ ] Add `@pytest.mark.asyncio` to test methods
-  - [ ] Update content provider mocks to be async
-  - [ ] Add `await` to service calls
-- [ ] Update `content_creator/test_flows_unit.py`:
-  - [ ] Update content provider mocks to async
-  - [ ] Add `await` where needed
+- [x] Update `content_creator/service.py`:
+  - [x] Add `await` to all `self.content.*` method calls
+  - [x] Verify all methods are already async (they should be)
+  - [x] Update any synchronous content provider usage
+- [x] Update `content_creator/routes.py`:
+  - [x] Update session dependency to use async sessions
+  - [x] Verify all routes are already async
+  - [x] Update content provider instantiation
+- [x] Update `content_creator/public.py`:
+  - [x] Update provider function to accept `AsyncSession`
+  - [x] Update service instantiation with async session
+- [x] Update `content_creator/test_service_unit.py`:
+  - [x] Add `@pytest.mark.asyncio` to test methods
+  - [x] Update content provider mocks to be async
+  - [x] Add `await` to service calls
+- [x] Update `content_creator/test_flows_unit.py`:
+  - [x] Update content provider mocks to async
+  - [x] Add `await` where needed
 
 ### Phase 4: Learning Session Module Update
-- [ ] Convert `learning_session/repo.py` to async:
-  - [ ] Replace `Session` with `AsyncSession`
-  - [ ] Add `async` to all methods
-  - [ ] Update all database operations to use await
-- [ ] Convert `learning_session/service.py` to async:
-  - [ ] Add `async` to all method signatures
-  - [ ] Add `await` to all repo calls
-  - [ ] Add `await` to all content provider calls
-  - [ ] Update type hints for async
-- [ ] Convert `learning_session/routes.py` to async:
-  - [ ] Update session dependency to async
-  - [ ] Add `async` to route handlers (if not already)
-  - [ ] Add `await` to service calls
-- [ ] Convert `learning_session/public.py` to async:
-  - [ ] Update all protocol signatures to async
-  - [ ] Update provider functions to accept `AsyncSession`
-  - [ ] Update service instantiation
-- [ ] Update `learning_session/test_learning_session_unit.py`:
-  - [ ] Add `@pytest.mark.asyncio` to tests
-  - [ ] Convert to async test methods
-  - [ ] Use `AsyncMock` for dependencies
-  - [ ] Add `await` to service calls
+- [x] Convert `learning_session/repo.py` to async:
+  - [x] Replace `Session` with `AsyncSession`
+  - [x] Add `async` to all methods
+  - [x] Update all database operations to use await
+- [x] Convert `learning_session/service.py` to async:
+  - [x] Add `async` to all method signatures
+  - [x] Add `await` to all repo calls
+  - [x] Add `await` to all content provider calls
+  - [x] Update type hints for async
+- [x] Convert `learning_session/routes.py` to async:
+  - [x] Update session dependency to async
+  - [x] Add `async` to route handlers (if not already)
+  - [x] Add `await` to service calls
+- [x] Convert `learning_session/public.py` to async:
+  - [x] Update all protocol signatures to async
+  - [x] Update provider functions to accept `AsyncSession`
+  - [x] Update service instantiation
+- [x] Update `learning_session/test_learning_session_unit.py`:
+  - [x] Add `@pytest.mark.asyncio` to tests
+  - [x] Convert to async test methods
+  - [x] Use `AsyncMock` for dependencies
+  - [x] Add `await` to service calls
 
 ### Phase 5: Catalog Module Update
-- [ ] Convert `catalog/service.py` to async:
-  - [ ] Add `async` to all method signatures
-  - [ ] Add `await` to all content provider calls
-  - [ ] Update any learning session provider calls to await
-- [ ] Update `catalog/routes.py`:
-  - [ ] Update session dependency to async
-  - [ ] Add `async` to route handlers (if not already)
-  - [ ] Add `await` to service calls
-- [ ] Update `catalog/public.py`:
-  - [ ] Update protocol signatures to async
-  - [ ] Update provider function parameters
-- [ ] Update `catalog/test_lesson_catalog_unit.py`:
-  - [ ] Add `@pytest.mark.asyncio` to tests
-  - [ ] Convert to async methods
-  - [ ] Use `AsyncMock` for content provider
-  - [ ] Add `await` to service calls
+- [x] Convert `catalog/service.py` to async:
+  - [x] Add `async` to all method signatures
+  - [x] Add `await` to all content provider calls
+  - [x] Update any learning session provider calls to await
+- [x] Update `catalog/routes.py`:
+  - [x] Update session dependency to async
+  - [x] Add `async` to route handlers (if not already)
+  - [x] Add `await` to service calls
+- [x] Update `catalog/public.py`:
+  - [x] Update protocol signatures to async
+  - [x] Update provider function parameters
+- [x] Update `catalog/test_lesson_catalog_unit.py`:
+  - [x] Add `@pytest.mark.asyncio` to tests
+  - [x] Convert to async methods
+  - [x] Use `AsyncMock` for content provider
+  - [x] Add `await` to service calls
 
 ### Phase 6: Admin Module Update
-- [ ] Convert `admin/service.py` to async:
-  - [ ] Add `async` to all method signatures
-  - [ ] Add `await` to all provider calls (content, catalog, learning_session, etc.)
-  - [ ] Update internal logic to handle async
-- [ ] Update `admin/routes.py`:
-  - [ ] Update session dependency to async
-  - [ ] Ensure all route handlers are async
-  - [ ] Add `await` to service calls
-- [ ] Update `admin/test_admin_unit.py`:
-  - [ ] Add `@pytest.mark.asyncio` to tests
-  - [ ] Convert to async methods
-  - [ ] Use `AsyncMock` for all provider dependencies
-  - [ ] Add `await` to service calls
+- [x] Convert `admin/service.py` to async:
+  - [x] Add `async` to all method signatures
+  - [x] Add `await` to all provider calls (content, catalog, learning_session, etc.)
+  - [x] Update internal logic to handle async
+- [x] Update `admin/routes.py`:
+  - [x] Update session dependency to async
+  - [x] Ensure all route handlers are async
+  - [x] Add `await` to service calls
+- [x] Update `admin/test_admin_unit.py`:
+  - [x] Add `@pytest.mark.asyncio` to tests
+  - [x] Convert to async methods
+  - [x] Use `AsyncMock` for all provider dependencies
+  - [x] Add `await` to service calls
 
 ### Phase 7: Integration Tests and Scripts
-- [ ] Update `backend/tests/test_lesson_creation_integration.py`:
-  - [ ] Add `@pytest.mark.asyncio` to test methods
-  - [ ] Convert test methods to async
-  - [ ] Update session fixtures to use async sessions
-  - [ ] Update all provider calls to use await
-  - [ ] Update service instantiation to async patterns
-- [ ] Update `backend/scripts/create_seed_data.py`:
-  - [ ] Convert main function to async
-  - [ ] Use async session context
-  - [ ] Add `await` to all provider calls
-  - [ ] Use `asyncio.run()` at entry point
-- [ ] Update `backend/scripts/create_unit.py`:
-  - [ ] Convert to async
-  - [ ] Use async session context
-  - [ ] Add `await` to provider calls
-  - [ ] Use `asyncio.run()` at entry point
+- [x] Update `backend/tests/test_lesson_creation_integration.py`:
+  - [x] Add `@pytest.mark.asyncio` to test methods
+  - [x] Convert test methods to async
+  - [x] Update session fixtures to use async sessions
+  - [x] Update all provider calls to use await
+  - [x] Update service instantiation to async patterns
+- [x] Update `backend/scripts/create_seed_data.py`:
+  - [x] Convert main function to async
+  - [x] Use async session context
+  - [x] Add `await` to all provider calls
+  - [x] Use `asyncio.run()` at entry point
+- [x] Update `backend/scripts/create_unit.py`:
+  - [x] Convert to async
+  - [x] Use async session context
+  - [x] Add `await` to provider calls
+  - [x] Use `asyncio.run()` at entry point
 
 ### Phase 8: Cleanup and Verification
-- [ ] Search for and remove all references to `_run_async` helper
-- [ ] Search for and remove all references to `_SyncSessionAsyncAdapter`
-- [ ] Search for and remove the sync version of `save_unit_podcast_from_bytes` (non-async)
-- [ ] Ensure no `Session` (sync) imports remain in content module or its consumers
-- [ ] Verify all `from sqlalchemy.orm import Session` are replaced with `from sqlalchemy.ext.asyncio import AsyncSession`
-- [ ] Update `create_seed_data.py` to use async patterns for new content features
+- [x] Search for and remove all references to `_run_async` helper
+- [x] Search for and remove all references to `_SyncSessionAsyncAdapter`
+- [x] Search for and remove the sync version of `save_unit_podcast_from_bytes` (non-async)
+- [x] Ensure no `Session` (sync) imports remain in content module or its consumers
+- [x] Verify all `from sqlalchemy.orm import Session` are replaced with `from sqlalchemy.ext.asyncio import AsyncSession`
+- [x] Update `create_seed_data.py` to use async patterns for new content features
 - [ ] Ensure lint passes, i.e. ./format_code.sh runs clean
 - [ ] Ensure unit tests pass, i.e. (in backend) scripts/run_unit.py runs clean
-- [ ] Follow the instructions in codegen/prompts/trace.md to ensure the user story is implemented correctly
-- [ ] Fix any issues documented during the tracing of the user story in docs/specs/content-async/trace.md
+- [x] Follow the instructions in codegen/prompts/trace.md to ensure the user story is implemented correctly
+- [x] Fix any issues documented during the tracing of the user story in docs/specs/content-async/trace.md
 - [ ] Follow the instructions in codegen/prompts/modulecheck.md to ensure the new code is following the modular architecture correctly
-- [ ] Examine all new code that has been created and make sure all of it is being used; there is no dead code
+- [x] Examine all new code that has been created and make sure all of it is being used; there is no dead code
 
 ## Key Technical Details
 

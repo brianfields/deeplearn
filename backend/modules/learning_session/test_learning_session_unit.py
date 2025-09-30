@@ -5,7 +5,7 @@ Basic unit tests for the learning session module.
 """
 
 from datetime import datetime
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -19,8 +19,8 @@ class TestLearningSessionService:
 
     def setup_method(self) -> None:
         """Set up test fixtures"""
-        self.mock_repo = Mock(spec=LearningSessionRepo)
-        self.mock_content_provider = Mock()
+        self.mock_repo = AsyncMock(spec=LearningSessionRepo)
+        self.mock_content_provider = AsyncMock()
         self.service = LearningSessionService(
             self.mock_repo,
             self.mock_content_provider,
@@ -69,8 +69,8 @@ class TestLearningSessionService:
         assert result.status == SessionStatus.ACTIVE.value
         assert result.total_exercises == 2
 
-        self.mock_content_provider.get_lesson.assert_called_once_with("test-lesson")
-        self.mock_repo.create_session.assert_called_once()
+        self.mock_content_provider.get_lesson.assert_awaited_once_with("test-lesson")
+        self.mock_repo.create_session.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_start_session_lesson_not_found(self) -> None:
@@ -198,7 +198,7 @@ class TestLearningSessionService:
         assert result.attempt_history[0]["attempt_number"] == 1
         assert result.attempt_history[0]["user_answer"] == request.user_answer
 
-        self.mock_repo.update_session_progress.assert_called_once()
+        self.mock_repo.update_session_progress.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_update_progress_second_attempt_updates_correct_counts(self) -> None:
@@ -256,7 +256,7 @@ class TestLearningSessionService:
 
         result = await self.service.update_progress(request)
 
-        kwargs = self.mock_repo.update_session_progress.call_args.kwargs
+        kwargs = self.mock_repo.update_session_progress.await_args.kwargs
         assert "exercises_completed" not in kwargs
         assert kwargs["exercises_correct"] == 1
         answer_record = kwargs["session_data"]["exercise_answers"]["mcq_1"]
@@ -325,7 +325,7 @@ class TestLearningSessionService:
         assert result.completion_percentage == 100.0
         assert result.achievements == ["Session Complete", "Perfect Score"]
 
-        self.mock_repo.update_session_status.assert_called_once()
+        self.mock_repo.update_session_status.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_check_health(self) -> None:
@@ -338,4 +338,4 @@ class TestLearningSessionService:
 
         # Assert
         assert result is True
-        self.mock_repo.health_check.assert_called_once()
+        self.mock_repo.health_check.assert_awaited_once()

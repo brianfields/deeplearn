@@ -5,10 +5,11 @@ Admin Module - API Routes
 Minimal FastAPI routes for admin dashboard functionality.
 """
 
-from collections.abc import Generator
+from collections.abc import AsyncGenerator, Generator
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from modules.catalog.public import catalog_provider
 from modules.content.public import content_provider
@@ -39,8 +40,8 @@ from .service import AdminService
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
 
-def get_session() -> Generator[Session, None, None]:
-    """Request-scoped database session with auto-commit."""
+def get_sync_session() -> Generator[Any, None, None]:
+    """Request-scoped synchronous database session with auto-commit."""
     infra = infrastructure_provider()
     infra.initialize()
 
@@ -48,7 +49,19 @@ def get_session() -> Generator[Session, None, None]:
         yield s
 
 
-def get_admin_service(session: Session = Depends(get_session)) -> AdminService:
+async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
+    """Request-scoped async database session."""
+    infra = infrastructure_provider()
+    infra.initialize()
+
+    async with infra.get_async_session_context() as session:
+        yield session
+
+
+async def get_admin_service(
+    async_session: AsyncSession = Depends(get_async_session),
+    sync_session: Any = Depends(get_sync_session),
+) -> AdminService:
     """
     Build AdminService for this request.
 
@@ -57,20 +70,22 @@ def get_admin_service(session: Session = Depends(get_session)) -> AdminService:
     """
 
     # Get minimal admin providers through proper public interfaces
-    flow_engine_admin = flow_engine_admin_provider(session)
-    llm_services_admin = llm_services_admin_provider(session)
+    flow_engine_admin = flow_engine_admin_provider(sync_session)
+    llm_services_admin = llm_services_admin_provider(sync_session)
 
     # Get other module providers (using same session for consistency)
-    content = content_provider(session)
+    content = content_provider(async_session)
     # Units are consolidated under content provider
-    learning_session_analytics = learning_session_analytics_provider(session)
-    catalog = catalog_provider(content, content, learning_session_analytics)
+    learning_session_analytics = learning_session_analytics_provider(async_session)
+    catalog = catalog_provider(
+        async_session,
+        content=content,
+        units=content,
+        learning_sessions=learning_session_analytics,
+    )
 
-    # Create placeholder providers for async services
-    # In practice, these would be properly initialized with async context
-
-    users = user_provider(session)
-    learning_sessions = learning_session_provider(session, content)
+    users = user_provider(sync_session)
+    learning_sessions = learning_session_provider(async_session, content)
 
     # Create admin service with all dependencies
     return AdminService(

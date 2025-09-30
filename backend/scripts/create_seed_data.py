@@ -46,7 +46,6 @@ from modules.infrastructure.public import infrastructure_provider
 from modules.learning_session.models import LearningSessionModel, SessionStatus, UnitSessionModel
 from modules.llm_services.models import LLMRequestModel
 from modules.object_store.models import AudioModel, ImageModel
-from modules.user.models import UserModel
 from modules.user.repo import UserRepo
 from modules.user.service import UserService
 
@@ -440,7 +439,7 @@ async def main() -> None:
     print("🌱 Creating seed data: Cats in Istanbul (global) + Gradient Descent (private)")
     print()
 
-    sample_users: dict[str, UserModel] = {}
+    sample_user_ids: dict[str, int] = {}
     user_snapshots: dict[str, dict[str, Any]] = {}
     units_output: list[dict[str, Any]] = []
     users_created_count = 0
@@ -455,8 +454,8 @@ async def main() -> None:
             print("🔄 Initializing infrastructure...")
         infra.initialize()
 
-        with infra.get_session_context() as db_session:
-            user_repo = UserRepo(db_session)
+        with infra.get_session_context() as sync_session:
+            user_repo = UserRepo(sync_session)
             user_service = UserService(user_repo)
 
             if args.verbose:
@@ -470,7 +469,7 @@ async def main() -> None:
                 password: str,
                 role: str = "learner",
                 is_active: bool = True,
-            ) -> UserModel:
+            ) -> int:
                 password_hash = user_service._hash_password(password)
                 user = user_repo.create(
                     email=email,
@@ -479,16 +478,17 @@ async def main() -> None:
                     role=role,
                     is_active=is_active,
                 )
-                sample_users[key] = user
+                user_id = cast(int, user.id)
+                sample_user_ids[key] = user_id
                 user_snapshots[key] = {
-                    "id": cast(int, user.id),
+                    "id": user_id,
                     "name": user.name,
                     "email": user.email,
                     "role": user.role,
                 }
-                return user
+                return user_id
 
-            brian_admin = _create_user(
+            brian_admin_id = _create_user(
                 "brian",
                 email="thecriticalpath@gmail.com",
                 name="Brian Fields",
@@ -502,22 +502,23 @@ async def main() -> None:
                 password="epsilon",
                 role="admin",
             )
-            epsilon_learner = _create_user(
+            epsilon_learner_id = _create_user(
                 "epsilon",
                 email="epsilon.cat@example.com",
                 name="Epsilon cat",
                 password="epsilon",
             )
-            nova_learner = _create_user(
+            nova_learner_id = _create_user(
                 "nova",
                 email="nova.cat@example.com",
                 name="Nova cat",
                 password="epsilon",
             )
 
-            if args.verbose:
-                print("📦 Building lesson packages and database records...")
+        if args.verbose:
+            print("📦 Building lesson packages and database records...")
 
+        async with infra.get_async_session_context() as db_session:
             units_spec = [
                 {
                     "id": str(uuid.uuid4()),
@@ -844,13 +845,13 @@ async def main() -> None:
                     )
 
                     db_session.add(FlowRunModel(**flow_run_data))
-                    db_session.flush()
+                    await db_session.flush()
                     for llm_data in llm_requests:
                         db_session.add(LLMRequestModel(**llm_data))
-                    db_session.flush()
+                    await db_session.flush()
                     for step_data in step_runs:
                         db_session.add(FlowStepRunModel(**step_data))
-                    db_session.flush()
+                    await db_session.flush()
 
                     db_session.add(LessonModel(**lesson_dict))
 
@@ -875,7 +876,7 @@ async def main() -> None:
                 id=str(uuid.uuid4()),
                 lesson_id=cat_unit["lessons"][0]["id"],
                 unit_id=cat_unit["id"],
-                user_id=str(epsilon_learner.id),
+                user_id=str(epsilon_learner_id),
                 status=SessionStatus.COMPLETED.value,
                 started_at=now - timedelta(days=3),
                 completed_at=now - timedelta(days=2, hours=5),
@@ -891,7 +892,7 @@ async def main() -> None:
                 id=str(uuid.uuid4()),
                 lesson_id=cat_unit["lessons"][1]["id"],
                 unit_id=cat_unit["id"],
-                user_id=str(nova_learner.id),
+                user_id=str(nova_learner_id),
                 status=SessionStatus.ACTIVE.value,
                 started_at=now - timedelta(days=1, hours=4),
                 completed_at=None,
@@ -907,7 +908,7 @@ async def main() -> None:
                 id=str(uuid.uuid4()),
                 lesson_id=grad_unit["lessons"][0]["id"],
                 unit_id=grad_unit["id"],
-                user_id=str(brian_admin.id),
+                user_id=str(brian_admin_id),
                 status=SessionStatus.ACTIVE.value,
                 started_at=now - timedelta(days=5),
                 completed_at=None,
@@ -920,11 +921,12 @@ async def main() -> None:
             )
 
             db_session.add_all([epsilon_session, nova_session, brian_session])
+            await db_session.flush()
 
             epsilon_unit_session = UnitSessionModel(
                 id=str(uuid.uuid4()),
                 unit_id=cat_unit["id"],
-                user_id=str(epsilon_learner.id),
+                user_id=str(epsilon_learner_id),
                 status=SessionStatus.COMPLETED.value,
                 started_at=now - timedelta(days=4),
                 completed_at=now - timedelta(days=2),
@@ -937,7 +939,7 @@ async def main() -> None:
             brian_unit_session = UnitSessionModel(
                 id=str(uuid.uuid4()),
                 unit_id=grad_unit["id"],
-                user_id=str(brian_admin.id),
+                user_id=str(brian_admin_id),
                 status=SessionStatus.ACTIVE.value,
                 started_at=now - timedelta(days=5),
                 completed_at=None,
@@ -948,11 +950,12 @@ async def main() -> None:
             )
 
             db_session.add_all([epsilon_unit_session, brian_unit_session])
+            await db_session.flush()
 
             bucket_name = os.getenv("OBJECT_STORE_BUCKET", "digital-innie")
             sample_images = [
                 ImageModel(
-                    user_id=cast(int, brian_admin.id),
+                    user_id=brian_admin_id,
                     s3_key="seed/brian/cats/kadikoy-plaza.png",
                     s3_bucket=bucket_name,
                     filename="kadikoy-plaza.png",
@@ -979,7 +982,7 @@ async def main() -> None:
 
             sample_audio = [
                 AudioModel(
-                    user_id=cast(int, brian_admin.id),
+                    user_id=brian_admin_id,
                     s3_key="seed/brian/audio/gradient-intro.mp3",
                     s3_bucket=bucket_name,
                     filename="gradient-intro.mp3",
@@ -1005,8 +1008,9 @@ async def main() -> None:
             ]
 
             db_session.add_all([*sample_images, *sample_audio])
+            await db_session.flush()
 
-            users_created_count = len(sample_users)
+            users_created_count = len(sample_user_ids)
             global_units_count = sum(1 for unit in units_spec if unit["is_global"])
             personal_units_count = len(units_spec) - global_units_count
             learning_session_statuses = [

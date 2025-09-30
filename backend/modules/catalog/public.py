@@ -7,7 +7,9 @@ This is the only interface other modules should import from.
 
 from typing import Protocol
 
-from modules.content.public import ContentProvider
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from modules.content.public import ContentProvider, content_provider
 from modules.learning_session.public import LearningSessionAnalyticsProvider
 
 from .service import (
@@ -27,10 +29,10 @@ from .service import (
 class CatalogProvider(Protocol):
     """Protocol defining the lesson catalog module's public interface."""
 
-    def browse_lessons(self, learner_level: str | None = None, limit: int = 100) -> BrowseLessonsResponse: ...
-    def get_lesson_details(self, lesson_id: str) -> LessonDetail | None: ...
-    def browse_units(self, limit: int = 100, offset: int = 0) -> list[UnitSummary]: ...
-    def browse_units_for_user(
+    async def browse_lessons(self, learner_level: str | None = None, limit: int = 100) -> BrowseLessonsResponse: ...
+    async def get_lesson_details(self, lesson_id: str) -> LessonDetail | None: ...
+    async def browse_units(self, limit: int = 100, offset: int = 0) -> list[UnitSummary]: ...
+    async def browse_units_for_user(
         self,
         user_id: int,
         *,
@@ -38,8 +40,8 @@ class CatalogProvider(Protocol):
         limit: int = 100,
         offset: int = 0,
     ) -> UserUnitCollections: ...
-    def get_unit_details(self, unit_id: str) -> UnitDetail | None: ...
-    def search_lessons(
+    async def get_unit_details(self, unit_id: str) -> UnitDetail | None: ...
+    async def search_lessons(
         self,
         query: str | None = None,
         learner_level: str | None = None,
@@ -49,27 +51,33 @@ class CatalogProvider(Protocol):
         limit: int = 100,
         offset: int = 0,
     ) -> SearchLessonsResponse: ...
-    def get_popular_lessons(self, limit: int = 10) -> list[LessonSummary]: ...
-    def get_catalog_statistics(self) -> CatalogStatistics: ...
-    def refresh_catalog(self) -> RefreshCatalogResponse: ...
+    async def get_popular_lessons(self, limit: int = 10) -> list[LessonSummary]: ...
+    async def get_catalog_statistics(self) -> CatalogStatistics: ...
+    async def refresh_catalog(self) -> RefreshCatalogResponse: ...
 
 
 def catalog_provider(
-    content: ContentProvider,
-    units: ContentProvider,
+    session: AsyncSession,
+    *,
+    content: ContentProvider | None = None,
+    units: ContentProvider | None = None,
     learning_sessions: LearningSessionAnalyticsProvider | None = None,
 ) -> CatalogProvider:
     """
     Dependency injection provider for lesson catalog services.
 
     Args:
-        content: Content service instance (built with same session as caller).
-        units: Units service instance (built with same session as caller).
+        session: Database session shared across module providers.
+        content: Optional content service instance. When not provided, a new
+            instance is created using the supplied session.
+        units: Optional units service instance. Defaults to the content service.
 
     Returns:
         CatalogService instance that implements the CatalogProvider protocol.
     """
-    return CatalogService(content, units, learning_sessions)
+    content_service = content or content_provider(session)
+    units_service = units or content_service
+    return CatalogService(content_service, units_service, learning_sessions)
 
 
 __all__ = [

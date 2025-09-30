@@ -22,7 +22,7 @@ class TestContentCreatorService:
     async def test_create_lesson_from_source_material(self, mock_flow_class: Mock) -> None:
         """Test creating a lesson using flow engine."""
         # Arrange
-        content = Mock()
+        content = AsyncMock()
         service = ContentCreatorService(content)
 
         request = CreateLessonRequest(topic="Test Lesson", unit_source_material="Test material content", learner_level="beginner", voice="Test voice", learning_objectives=["Learn X"], lesson_objective="Test objective")
@@ -82,7 +82,7 @@ class TestContentCreatorService:
         assert result.package_version == 1
         assert result.objectives_count > 0
         assert result.mcqs_count > 0
-        content.save_lesson.assert_called_once()
+        content.save_lesson.assert_awaited_once()
         # No more component calls - everything is in the package now
 
         # Verify flow was called with correct inputs
@@ -92,7 +92,7 @@ class TestContentCreatorService:
     async def test_retry_unit_creation_success(self) -> None:
         """Test successfully retrying a failed unit."""
         # Arrange
-        content = Mock()
+        content = AsyncMock()
         service = ContentCreatorService(content)
 
         # Mock a failed unit that can be retried
@@ -124,13 +124,13 @@ class TestContentCreatorService:
         assert result.status == "in_progress"
 
         # Verify status was updated to in_progress
-        content.update_unit_status.assert_called_once_with(unit_id=valid_unit_id, status="in_progress", error_message=None, creation_progress={"stage": "retrying", "message": "Retrying unit creation..."})
+        content.update_unit_status.assert_awaited_once_with(unit_id=valid_unit_id, status="in_progress", error_message=None, creation_progress={"stage": "retrying", "message": "Retrying unit creation..."})
 
     @pytest.mark.asyncio
     async def test_retry_unit_creation_unit_not_found(self) -> None:
         """Test retrying a non-existent unit returns None."""
         # Arrange
-        content = Mock()
+        content = AsyncMock()
         service = ContentCreatorService(content)
         content.get_unit.return_value = None
 
@@ -139,13 +139,13 @@ class TestContentCreatorService:
 
         # Assert
         assert result is None
-        content.get_unit.assert_called_once_with("nonexistent-unit")
+        content.get_unit.assert_awaited_once_with("nonexistent-unit")
 
     @pytest.mark.asyncio
     async def test_retry_unit_creation_not_failed_raises_error(self) -> None:
         """Test retrying a unit that's not failed raises ValueError."""
         # Arrange
-        content = Mock()
+        content = AsyncMock()
         service = ContentCreatorService(content)
 
         mock_unit = Mock()
@@ -156,10 +156,11 @@ class TestContentCreatorService:
         with pytest.raises(ValueError, match="not in failed state"):
             await service.retry_unit_creation("unit-123")
 
-    def test_dismiss_unit_success(self) -> None:
+    @pytest.mark.asyncio
+    async def test_dismiss_unit_success(self) -> None:
         """Test successfully dismissing a unit."""
         # Arrange
-        content = Mock()
+        content = AsyncMock()
         service = ContentCreatorService(content)
 
         mock_unit = Mock()
@@ -168,23 +169,24 @@ class TestContentCreatorService:
         content.delete_unit.return_value = True
 
         # Act
-        result = service.dismiss_unit("unit-123")
+        result = await service.dismiss_unit("unit-123")
 
         # Assert
         assert result is True
-        content.get_unit.assert_called_once_with("unit-123")
-        content.delete_unit.assert_called_once_with("unit-123")
+        content.get_unit.assert_awaited_once_with("unit-123")
+        content.delete_unit.assert_awaited_once_with("unit-123")
 
-    def test_dismiss_unit_not_found(self) -> None:
+    @pytest.mark.asyncio
+    async def test_dismiss_unit_not_found(self) -> None:
         """Test dismissing a non-existent unit returns False."""
         # Arrange
-        content = Mock()
+        content = AsyncMock()
         service = ContentCreatorService(content)
         content.get_unit.return_value = None
 
         # Act
-        result = service.dismiss_unit("nonexistent-unit")
+        result = await service.dismiss_unit("nonexistent-unit")
 
         # Assert
         assert result is False
-        content.get_unit.assert_called_once_with("nonexistent-unit")
+        content.get_unit.assert_awaited_once_with("nonexistent-unit")

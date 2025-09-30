@@ -18,6 +18,7 @@ from .models import RedisConfig
 from .service import (
     APIConfig,
     AppConfig,
+    AsyncDatabaseSessionContext,
     DatabaseConfig,
     DatabaseSession,
     DatabaseSessionContext,
@@ -44,6 +45,10 @@ class InfrastructureProvider(Protocol):
 
     def get_session_context(self) -> DatabaseSessionContext:
         """Get a database session context manager."""
+        ...
+
+    def get_async_session_context(self) -> AsyncDatabaseSessionContext:
+        """Get an async database session context manager."""
         ...
 
     def get_config(self) -> AppConfig:
@@ -108,6 +113,7 @@ __all__ = [
     "DatabaseConfig",
     "DatabaseSession",
     "DatabaseSessionContext",
+    "AsyncDatabaseSessionContext",
     "EnvironmentStatus",
     "InfrastructureProvider",
     "LoggingConfig",
