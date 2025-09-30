@@ -5,7 +5,7 @@ from typing import Protocol
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from modules.content.public import ContentProvider, content_provider
+from modules.content.public import ContentProvider, UnitRead, content_provider
 from modules.infrastructure.public import infrastructure_provider
 from modules.task_queue.public import register_task_handler
 
@@ -24,6 +24,7 @@ class ContentCreatorProvider(Protocol):
         target_lesson_count: int | None = None,
         learner_level: str = "beginner",
     ) -> ContentCreatorService.UnitCreationResult | ContentCreatorService.MobileUnitCreationResult: ...
+    async def create_unit_art(self, unit_id: str) -> UnitRead: ...
 
 
 def content_creator_provider(session: AsyncSession) -> ContentCreatorProvider:

@@ -193,6 +193,8 @@ const userOwnedUnitToDTO = (unit: ApiUserDetail['owned_units'][number]): UserOwn
   title: unit.title,
   is_global: unit.is_global,
   updated_at: new Date(unit.updated_at),
+  art_image_url: unit.art_image_url ?? null,
+  art_image_description: unit.art_image_description ?? null,
 });
 
 const userSessionToDTO = (session: ApiUserDetail['recent_sessions'][number]): UserSessionSummary => ({
@@ -598,6 +600,8 @@ export class AdminService {
       has_podcast: Boolean((u as any).has_podcast ?? false),
       podcast_voice: u.podcast_voice ?? null,
       podcast_duration_seconds: u.podcast_duration_seconds ?? null,
+      art_image_url: u.art_image_url ?? null,
+      art_image_description: u.art_image_description ?? null,
     } satisfies UnitSummary));
   }
 
@@ -622,6 +626,8 @@ export class AdminService {
         podcast_duration_seconds: d.podcast_duration_seconds ?? null,
         podcast_transcript: d.podcast_transcript ?? null,
         podcast_audio_url: d.podcast_audio_url ?? null,
+        art_image_url: d.art_image_url ?? null,
+        art_image_description: d.art_image_description ?? null,
       };
     } catch {
       return null;

@@ -21,6 +21,7 @@ import {
 } from '../../learning_session/queries';
 import { catalogProvider } from '../public';
 import {
+  ArtworkImage,
   Box,
   Card,
   Text,
@@ -227,6 +228,25 @@ export function UnitDetailScreen() {
         <Text variant="secondary" color={theme.colors.textSecondary}>
           {unit.ownershipLabel}
         </Text>
+      </Box>
+
+      <Box px="lg" mb="lg">
+        <ArtworkImage
+          title={unit.title}
+          imageUrl={unit.artImageUrl ?? undefined}
+          description={unit.artImageDescription ?? undefined}
+          variant="hero"
+          testID="unit-hero-art"
+        />
+        {unit.artImageDescription ? (
+          <Text
+            variant="secondary"
+            color={theme.colors.textSecondary}
+            style={{ marginTop: ui.getSpacing('sm') }}
+          >
+            {unit.artImageDescription}
+          </Text>
+        ) : null}
       </Box>
 
       <Box px="lg">

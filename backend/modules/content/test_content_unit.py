@@ -164,6 +164,66 @@ class TestContentService:
         assert result is False
         repo.delete_unit.assert_awaited_once_with("nonexistent-unit")
 
+    async def test_save_unit_art_from_bytes_uploads_and_sets_fields(self) -> None:
+        """Persisting artwork should upload image and update unit metadata."""
+
+        repo = AsyncMock(spec=ContentRepo)
+        object_store = AsyncMock()
+        service = ContentService(repo, object_store=object_store)
+
+        unit_id = "unit-200"
+        owner_id = 5
+        now = datetime.now(UTC)
+        repo.get_unit_by_id.return_value = UnitModel(
+            id=unit_id,
+            title="Artful Unit",
+            learner_level="beginner",
+            lesson_order=[],
+            user_id=owner_id,
+            is_global=False,
+            status="completed",
+            generated_from_topic=False,
+            flow_type="standard",
+            created_at=now,
+            updated_at=now,
+        )
+
+        image_uuid = uuid.uuid4()
+        repo.set_unit_art.return_value = UnitModel(
+            id=unit_id,
+            title="Artful Unit",
+            learner_level="beginner",
+            lesson_order=[],
+            user_id=owner_id,
+            is_global=False,
+            status="completed",
+            generated_from_topic=False,
+            flow_type="standard",
+            art_image_id=image_uuid,
+            art_image_description="Petrol blue skyline",
+            created_at=now,
+            updated_at=now,
+        )
+
+        object_store.upload_image.return_value = Mock(file=Mock(id=image_uuid))
+        object_store.get_image.return_value = Mock(presigned_url="https://cdn/unit-art.png")
+
+        result = await service.save_unit_art_from_bytes(
+            unit_id,
+            image_bytes=b"binary",
+            content_type="image/png",
+            description="Petrol blue skyline",
+            alt_text="Skyline alt",
+        )
+
+        object_store.upload_image.assert_awaited_once()
+        repo.set_unit_art.assert_awaited_once_with(unit_id, image_object_id=image_uuid, description="Petrol blue skyline")
+        object_store.get_image.assert_awaited_once_with(image_uuid, requesting_user_id=owner_id, include_presigned_url=True)
+
+        assert result.art_image_id == image_uuid
+        assert result.art_image_description == "Petrol blue skyline"
+        assert result.art_image_url == "https://cdn/unit-art.png"
+
     async def test_create_unit_assigns_owner_and_sharing_flags(self) -> None:
         """Unit creation should persist ownership and sharing metadata."""
 

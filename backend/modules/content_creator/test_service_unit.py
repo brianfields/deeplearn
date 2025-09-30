@@ -9,6 +9,8 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
+from types import SimpleNamespace
+
 from modules.content.package_models import LessonPackage, Meta, Objective
 from modules.content.public import LessonRead
 from modules.content_creator.service import ContentCreatorService, CreateLessonRequest
@@ -190,3 +192,101 @@ class TestContentCreatorService:
         # Assert
         assert result is False
         content.get_unit.assert_awaited_once_with("nonexistent-unit")
+
+    @pytest.mark.asyncio
+    @patch("modules.content_creator.service.UnitArtCreationFlow")
+    async def test_create_unit_art_uploads_generated_image(self, mock_flow_class: Mock) -> None:
+        """Art generation flow output should be downloaded and saved via content service."""
+
+        content = AsyncMock()
+        service = ContentCreatorService(content)
+
+        unit_detail = SimpleNamespace(
+            title="Quantum Jazz",
+            description="Explore improvisation through qubits",
+            learning_objectives=["Understand qubits"],
+            lessons=[SimpleNamespace(key_concepts=["Qubit", "Superposition"])],
+        )
+        content.get_unit_detail.return_value = unit_detail
+
+        mock_flow = AsyncMock()
+        mock_flow.execute.return_value = {
+            "art_description": {"prompt": "Petrol blue jazz club with qubits", "alt_text": "Art Deco jazz trio"},
+            "image": {"image_url": "https://example.com/art.png"},
+        }
+        mock_flow_class.return_value = mock_flow
+
+        download_mock = AsyncMock(return_value=(b"image-bytes", "image/png"))
+        content.save_unit_art_from_bytes.return_value = SimpleNamespace(id="unit-1")
+
+        with patch.object(service, "_download_image", download_mock):
+            result = await service.create_unit_art("unit-1")
+
+        content.get_unit_detail.assert_awaited_once_with("unit-1", include_art_presigned_url=False)
+        mock_flow.execute.assert_awaited_once()
+        download_mock.assert_awaited_once_with("https://example.com/art.png")
+        content.save_unit_art_from_bytes.assert_awaited_once_with(
+            "unit-1",
+            image_bytes=b"image-bytes",
+            content_type="image/png",
+            description="Petrol blue jazz club with qubits",
+            alt_text="Art Deco jazz trio",
+        )
+        assert result == content.save_unit_art_from_bytes.return_value
+
+    @pytest.mark.asyncio
+    @patch("modules.content_creator.service.UnitArtCreationFlow")
+    async def test_create_unit_art_retries_on_failure(self, mock_flow_class: Mock) -> None:
+        """The service should retry the art flow once before raising."""
+
+        content = AsyncMock()
+        service = ContentCreatorService(content)
+
+        unit_detail = SimpleNamespace(
+            title="Cyber History",
+            description=None,
+            learning_objectives=[],
+            lessons=[],
+        )
+        content.get_unit_detail.return_value = unit_detail
+
+        mock_flow = AsyncMock()
+        mock_flow.execute.side_effect = [RuntimeError("boom"), {
+            "art_description": {"prompt": "Prompt", "alt_text": "Alt"},
+            "image": {"image_url": "https://example.com/art.png"},
+        }]
+        mock_flow_class.return_value = mock_flow
+
+        download_mock = AsyncMock(return_value=(b"img", "image/png"))
+        content.save_unit_art_from_bytes.return_value = SimpleNamespace(id="unit-2")
+
+        with patch.object(service, "_download_image", download_mock):
+            result = await service.create_unit_art("unit-2")
+
+        assert mock_flow.execute.await_count == 2
+        download_mock.assert_awaited_once()
+        assert result == content.save_unit_art_from_bytes.return_value
+
+    @pytest.mark.asyncio
+    @patch("modules.content_creator.service.UnitArtCreationFlow")
+    async def test_create_unit_art_raises_after_retries(self, mock_flow_class: Mock) -> None:
+        """Two consecutive flow failures should bubble up as a runtime error."""
+
+        content = AsyncMock()
+        service = ContentCreatorService(content)
+
+        content.get_unit_detail.return_value = SimpleNamespace(
+            title="Unit",
+            description=None,
+            learning_objectives=[],
+            lessons=[],
+        )
+
+        mock_flow = AsyncMock()
+        mock_flow.execute.side_effect = RuntimeError("nope")
+        mock_flow_class.return_value = mock_flow
+
+        with pytest.raises(RuntimeError):
+            await service.create_unit_art("unit-3")
+
+        assert mock_flow.execute.await_count == 2

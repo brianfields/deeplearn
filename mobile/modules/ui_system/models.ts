@@ -108,6 +108,15 @@ export interface ProgressProps {
   style?: any;
 }
 
+export interface ArtworkImageProps {
+  title: string;
+  imageUrl?: string | null;
+  description?: string | null;
+  variant?: 'thumbnail' | 'hero';
+  style?: any;
+  testID?: string;
+}
+
 // ================================
 // Responsive Types
 // ================================

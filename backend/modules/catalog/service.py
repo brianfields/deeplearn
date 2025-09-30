@@ -104,6 +104,8 @@ class UnitSummary(BaseModel):
     has_podcast: bool = False
     podcast_voice: str | None = None
     podcast_duration_seconds: int | None = None
+    art_image_url: str | None = None
+    art_image_description: str | None = None
 
 
 class UnitDetail(BaseModel):
@@ -128,6 +130,8 @@ class UnitDetail(BaseModel):
     podcast_duration_seconds: int | None = None
     podcast_transcript: str | None = None
     podcast_audio_url: str | None = None
+    art_image_url: str | None = None
+    art_image_description: str | None = None
 
 
 class LearningObjectiveProgress(BaseModel):
@@ -467,6 +471,8 @@ class CatalogService:
             podcast_duration_seconds=getattr(detail, "podcast_duration_seconds", None),
             podcast_transcript=getattr(detail, "podcast_transcript", None),
             podcast_audio_url=getattr(detail, "podcast_audio_url", None),
+            art_image_url=getattr(detail, "art_image_url", None),
+            art_image_description=getattr(detail, "art_image_description", None),
         )
 
     async def browse_units_for_user(
@@ -519,6 +525,8 @@ class CatalogService:
                     has_podcast=bool(getattr(unit, "has_podcast", False)),
                     podcast_voice=getattr(unit, "podcast_voice", None),
                     podcast_duration_seconds=getattr(unit, "podcast_duration_seconds", None),
+                    art_image_url=getattr(unit, "art_image_url", None),
+                    art_image_description=getattr(unit, "art_image_description", None),
                 )
             )
         return summaries
