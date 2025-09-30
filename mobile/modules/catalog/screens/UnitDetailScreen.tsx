@@ -31,6 +31,7 @@ import {
   useHaptics,
 } from '../../ui_system/public';
 import { useAuth } from '../../user/public';
+import { infrastructureProvider } from '../../infrastructure/public';
 
 type UnitDetailScreenNavigationProp = NativeStackNavigationProp<
   LearningStackParamList,
@@ -114,6 +115,24 @@ export function UnitDetailScreen() {
   const [isLoadingPodcast, setIsLoadingPodcast] = useState(false);
   const [isPodcastPlaying, setIsPodcastPlaying] = useState(false);
 
+  // Resolve absolute podcast URL against API base if backend returned a relative path
+  const infra = infrastructureProvider();
+  const apiBase = useMemo(() => {
+    // Prefer getApiBaseUrl if available; fallback to getBaseUrl
+    // Ensure no trailing slash
+    const base =
+      (infra as any).getApiBaseUrl?.() || (infra as any).getBaseUrl?.() || '';
+    return typeof base === 'string' ? base.replace(/\/$/, '') : '';
+  }, [infra]);
+
+  const podcastAudioUrl = useMemo(() => {
+    const url = unit?.podcastAudioUrl || null;
+    if (!url) return null;
+    if (/^https?:\/\//i.test(url)) return url;
+    const path = url.startsWith('/') ? url : `/${url}`;
+    return `${apiBase}${path}`;
+  }, [unit?.podcastAudioUrl, apiBase]);
+
   useEffect(() => {
     return () => {
       if (podcastSound) {
@@ -138,7 +157,7 @@ export function UnitDetailScreen() {
   }, [unit?.podcastDurationSeconds]);
 
   const handleTogglePodcast = useCallback(async () => {
-    if (!unit?.hasPodcast || !unit.podcastAudioUrl) {
+    if (!unit?.hasPodcast || !podcastAudioUrl) {
       Alert.alert(
         'Podcast unavailable',
         'This unit does not have a podcast yet.'
@@ -152,7 +171,7 @@ export function UnitDetailScreen() {
       if (!podcastSound) {
         setIsLoadingPodcast(true);
         const { sound } = await Audio.Sound.createAsync(
-          { uri: unit.podcastAudioUrl },
+          { uri: podcastAudioUrl },
           { shouldPlay: true }
         );
         sound.setOnPlaybackStatusUpdate(status => {
@@ -188,9 +207,9 @@ export function UnitDetailScreen() {
     } finally {
       setIsLoadingPodcast(false);
     }
-  }, [podcastSound, unit, isLoadingPodcast]);
+  }, [podcastSound, unit, podcastAudioUrl, isLoadingPodcast]);
 
-  const hasPodcast = Boolean(unit?.hasPodcast && unit.podcastAudioUrl);
+  const hasPodcast = Boolean(unit?.hasPodcast && podcastAudioUrl);
 
   const handleLessonPress = async (lessonId: string): Promise<void> => {
     try {

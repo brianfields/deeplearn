@@ -1,8 +1,8 @@
 """initial_schema
 
-Revision ID: 212208445a72
+Revision ID: df47171ac6ed
 Revises: 
-Create Date: 2025-09-25 16:09:15.515024
+Create Date: 2025-09-29 11:35:19.957870
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '212208445a72'
+revision: str = 'df47171ac6ed'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -105,25 +105,37 @@ def upgrade() -> None:
     op.create_index(op.f('ix_llm_requests_provider_response_id'), 'llm_requests', ['provider_response_id'], unique=False)
     op.create_index(op.f('ix_llm_requests_status'), 'llm_requests', ['status'], unique=False)
     op.create_index(op.f('ix_llm_requests_user_id'), 'llm_requests', ['user_id'], unique=False)
-    op.create_table('units',
-    sa.Column('id', sa.String(length=36), nullable=False),
-    sa.Column('title', sa.String(length=255), nullable=False),
-    sa.Column('description', sa.Text(), nullable=True),
-    sa.Column('learner_level', sa.String(length=50), nullable=False),
-    sa.Column('lesson_order', sa.JSON(), nullable=False),
-    sa.Column('learning_objectives', sa.JSON(), nullable=True),
-    sa.Column('target_lesson_count', sa.Integer(), nullable=True),
-    sa.Column('source_material', sa.Text(), nullable=True),
-    sa.Column('generated_from_topic', sa.Boolean(), nullable=False),
-    sa.Column('flow_type', sa.String(length=20), nullable=False),
-    sa.Column('status', sa.String(length=20), nullable=False),
-    sa.Column('creation_progress', sa.JSON(), nullable=True),
-    sa.Column('error_message', sa.Text(), nullable=True),
+    op.create_table('users',
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('email', sa.String(length=255), nullable=False),
+    sa.Column('password_hash', sa.String(length=512), nullable=False),
+    sa.Column('name', sa.String(length=255), nullable=False),
+    sa.Column('role', sa.String(length=50), nullable=False),
+    sa.Column('is_active', sa.Boolean(), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=False),
-    sa.CheckConstraint("status IN ('draft', 'in_progress', 'completed', 'failed')", name='check_unit_status'),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_index(op.f('ix_users_email'), 'users', ['email'], unique=True)
+    op.create_table('audios',
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('user_id', sa.Integer(), nullable=True),
+    sa.Column('s3_key', sa.String(length=512), nullable=False),
+    sa.Column('s3_bucket', sa.String(length=255), nullable=False),
+    sa.Column('filename', sa.String(length=255), nullable=False),
+    sa.Column('content_type', sa.String(length=100), nullable=False),
+    sa.Column('file_size', sa.Integer(), nullable=False),
+    sa.Column('duration_seconds', sa.Float(), nullable=True),
+    sa.Column('bitrate_kbps', sa.Integer(), nullable=True),
+    sa.Column('sample_rate_hz', sa.Integer(), nullable=True),
+    sa.Column('transcript', sa.Text(), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index('ix_audios_s3_key', 'audios', ['s3_key'], unique=True)
+    op.create_index('ix_audios_user_id', 'audios', ['user_id'], unique=False)
     op.create_table('flow_step_runs',
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('flow_run_id', sa.UUID(), nullable=False),
@@ -149,6 +161,52 @@ def upgrade() -> None:
     op.create_index(op.f('ix_flow_step_runs_llm_request_id'), 'flow_step_runs', ['llm_request_id'], unique=False)
     op.create_index(op.f('ix_flow_step_runs_status'), 'flow_step_runs', ['status'], unique=False)
     op.create_index(op.f('ix_flow_step_runs_step_name'), 'flow_step_runs', ['step_name'], unique=False)
+    op.create_table('images',
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('user_id', sa.Integer(), nullable=True),
+    sa.Column('s3_key', sa.String(length=512), nullable=False),
+    sa.Column('s3_bucket', sa.String(length=255), nullable=False),
+    sa.Column('filename', sa.String(length=255), nullable=False),
+    sa.Column('content_type', sa.String(length=100), nullable=False),
+    sa.Column('file_size', sa.Integer(), nullable=False),
+    sa.Column('width', sa.Integer(), nullable=True),
+    sa.Column('height', sa.Integer(), nullable=True),
+    sa.Column('alt_text', sa.Text(), nullable=True),
+    sa.Column('description', sa.Text(), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index('ix_images_s3_key', 'images', ['s3_key'], unique=True)
+    op.create_index('ix_images_user_id', 'images', ['user_id'], unique=False)
+    op.create_table('units',
+    sa.Column('id', sa.String(length=36), nullable=False),
+    sa.Column('title', sa.String(length=255), nullable=False),
+    sa.Column('description', sa.Text(), nullable=True),
+    sa.Column('learner_level', sa.String(length=50), nullable=False),
+    sa.Column('lesson_order', sa.JSON(), nullable=False),
+    sa.Column('user_id', sa.Integer(), nullable=True),
+    sa.Column('is_global', sa.Boolean(), nullable=False),
+    sa.Column('learning_objectives', sa.JSON(), nullable=True),
+    sa.Column('target_lesson_count', sa.Integer(), nullable=True),
+    sa.Column('source_material', sa.Text(), nullable=True),
+    sa.Column('generated_from_topic', sa.Boolean(), nullable=False),
+    sa.Column('flow_type', sa.String(length=20), nullable=False),
+    sa.Column('status', sa.String(length=20), nullable=False),
+    sa.Column('creation_progress', sa.JSON(), nullable=True),
+    sa.Column('error_message', sa.Text(), nullable=True),
+    sa.Column('podcast_transcript', sa.Text(), nullable=True),
+    sa.Column('podcast_voice', sa.String(length=100), nullable=True),
+    sa.Column('podcast_audio_object_id', sa.UUID(), nullable=True),
+    sa.Column('podcast_generated_at', sa.DateTime(), nullable=True),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.CheckConstraint("status IN ('draft', 'in_progress', 'completed', 'failed')", name='check_unit_status'),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_units_user_id'), 'units', ['user_id'], unique=False)
     op.create_table('lessons',
     sa.Column('id', sa.String(length=36), nullable=False),
     sa.Column('title', sa.String(length=255), nullable=False),
@@ -195,12 +253,21 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_lessons_unit_id'), table_name='lessons')
     op.drop_index(op.f('ix_lessons_flow_run_id'), table_name='lessons')
     op.drop_table('lessons')
+    op.drop_index(op.f('ix_units_user_id'), table_name='units')
+    op.drop_table('units')
+    op.drop_index('ix_images_user_id', table_name='images')
+    op.drop_index('ix_images_s3_key', table_name='images')
+    op.drop_table('images')
     op.drop_index(op.f('ix_flow_step_runs_step_name'), table_name='flow_step_runs')
     op.drop_index(op.f('ix_flow_step_runs_status'), table_name='flow_step_runs')
     op.drop_index(op.f('ix_flow_step_runs_llm_request_id'), table_name='flow_step_runs')
     op.drop_index(op.f('ix_flow_step_runs_flow_run_id'), table_name='flow_step_runs')
     op.drop_table('flow_step_runs')
-    op.drop_table('units')
+    op.drop_index('ix_audios_user_id', table_name='audios')
+    op.drop_index('ix_audios_s3_key', table_name='audios')
+    op.drop_table('audios')
+    op.drop_index(op.f('ix_users_email'), table_name='users')
+    op.drop_table('users')
     op.drop_index(op.f('ix_llm_requests_user_id'), table_name='llm_requests')
     op.drop_index(op.f('ix_llm_requests_status'), table_name='llm_requests')
     op.drop_index(op.f('ix_llm_requests_provider_response_id'), table_name='llm_requests')

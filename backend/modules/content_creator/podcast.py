@@ -11,7 +11,6 @@ import re
 from modules.llm_services.public import AudioResponse
 
 from .flows import UnitPodcastFlow
-from .steps import PodcastLessonInput
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +40,8 @@ class UnitPodcastGenerator:
     def __init__(
         self,
         *,
-        audio_model: str = "gpt-4o-mini-tts",
-        default_voice_id: str = "alloy",
+        audio_model: str = "tts-1-hd",
+        default_voice_id: str = "fable",
         audio_format: str = "mp3",
         audio_speed: float | None = None,
         podcast_flow: UnitPodcastFlow | None = None,
@@ -67,7 +66,8 @@ class UnitPodcastGenerator:
             raise ValueError("At least one lesson is required to build a podcast")
 
         resolved_voice = voice_label or self.default_voice_id
-        lesson_inputs = [PodcastLessonInput(title=lesson.title, mini_lesson=lesson.mini_lesson) for lesson in lessons]
+        # Build plain-JSON lesson inputs to avoid Pydantic instances leaking into DB JSON columns
+        lesson_inputs = [{"title": lesson.title, "mini_lesson": lesson.mini_lesson} for lesson in lessons]
         flow_inputs = {
             "unit_title": unit_title,
             "voice": resolved_voice,

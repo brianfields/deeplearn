@@ -6,7 +6,7 @@ from collections.abc import Generator
 from typing import cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.responses import RedirectResponse, StreamingResponse
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -87,11 +87,11 @@ def get_unit_detail(
     return unit
 
 
-@router.get("/units/{unit_id}/podcast/audio")
+@router.get("/units/{unit_id}/podcast/audio", response_model=None)
 def stream_unit_podcast_audio(
     unit_id: str,
     service: ContentService = Depends(get_content_service),
-) -> StreamingResponse | RedirectResponse:
+) -> RedirectResponse:
     """Stream the generated podcast audio for a unit."""
 
     audio = service.get_unit_podcast_audio(unit_id)

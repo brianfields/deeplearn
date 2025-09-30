@@ -42,6 +42,30 @@ def flow_execution(func: Callable[..., Any]) -> Callable[..., Any]:
 
             # Create flow run record
             inputs = args[0] if args else {}
+            # Strict validation (match step behavior): validate then dump, or log and raise
+            inputs_model = getattr(self, "inputs_model", None)
+            if inputs_model and isinstance(inputs, dict):
+                try:
+                    validated_inputs = inputs_model(**inputs)  # type: ignore[misc]
+                    inputs = validated_inputs.model_dump()
+                except Exception as e:
+                    errors_detail = None
+                    errors_attr = getattr(e, "errors", None)
+                    if callable(errors_attr):
+                        try:
+                            errors_detail = errors_attr()
+                        except Exception:
+                            errors_detail = None
+                    logger.error(
+                        "Flow input validation failed; refusing to create run",
+                        extra={
+                            "flow_name": self.flow_name,
+                            "error": repr(e),
+                            "input_keys": list(inputs.keys()) if isinstance(inputs, dict) else None,
+                            "errors": errors_detail,
+                        },
+                    )
+                    raise
             user_id = cast(uuid.UUID | None, kwargs.get("user_id"))
 
             logger.info(f"🚀 Starting flow: {self.flow_name}")

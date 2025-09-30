@@ -14,19 +14,16 @@ from collections.abc import Awaitable, Coroutine
 from datetime import UTC, datetime
 from enum import Enum
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import Any
 import uuid
 
 from pydantic import BaseModel, ConfigDict
 
+from modules.object_store.public import AudioCreate, ObjectStoreProvider
+
 from .models import LessonModel, UnitModel
 from .package_models import LessonPackage
 from .repo import ContentRepo
-
-if TYPE_CHECKING:  # pragma: no cover - type checking only
-    from modules.object_store.public import ObjectStoreProvider
-
-    from ..learning_session.models import UnitSessionModel  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -416,6 +413,115 @@ class ContentService:
             return None
         return self.PODCAST_AUDIO_ROUTE_TEMPLATE.format(unit_id=unit.id)
 
+    def _build_podcast_filename(self, unit_id: str, mime_type: str | None) -> str:
+        """Construct a filename for uploaded podcast audio for a unit."""
+        extension_map = {
+            "audio/mpeg": ".mp3",
+            "audio/mp3": ".mp3",
+            "audio/wav": ".wav",
+            "audio/x-wav": ".wav",
+            "audio/flac": ".flac",
+            "audio/x-flac": ".flac",
+            "audio/mp4": ".mp4",
+            "audio/m4a": ".m4a",
+        }
+        suffix = extension_map.get((mime_type or "").lower(), ".bin")
+        return f"unit-{unit_id}{suffix}"
+
+    def save_unit_podcast_from_bytes(
+        self,
+        unit_id: str,
+        *,
+        transcript: str,
+        audio_bytes: bytes,
+        mime_type: str | None,
+        voice: str | None,
+    ) -> ContentService.UnitRead:
+        """Upload podcast audio and persist metadata for a unit in one call.
+
+        Raises RuntimeError if object store is not configured.
+        """
+        if self._object_store is None:
+            raise RuntimeError("Object store is not configured; cannot persist generated podcast audio.")
+
+        unit_info = self.repo.get_unit_by_id(unit_id)
+        if unit_info is None:
+            raise ValueError("Unit not found")
+
+        owner_id = getattr(unit_info, "user_id", None)
+        filename = self._build_podcast_filename(unit_id, mime_type)
+
+        # Upload audio
+        upload = self._run_async(
+            self._object_store.upload_audio(
+                AudioCreate(
+                    user_id=owner_id,
+                    filename=filename,
+                    content_type=(mime_type or "audio/mpeg"),
+                    content=audio_bytes,
+                    transcript=transcript,
+                )
+            )
+        )
+
+        audio_object_id = upload.file.id
+
+        # Persist references and return updated unit read (with duration metadata if available)
+        updated = self.set_unit_podcast(
+            unit_id,
+            transcript=transcript,
+            audio_object_id=audio_object_id,
+            voice=voice,
+        )
+        if updated is None:
+            raise ValueError("Failed to persist unit podcast metadata")
+        return updated
+
+    async def save_unit_podcast_from_bytes_async(
+        self,
+        unit_id: str,
+        *,
+        transcript: str,
+        audio_bytes: bytes,
+        mime_type: str | None,
+        voice: str | None,
+    ) -> ContentService.UnitRead:
+        """Async version: upload podcast audio and persist metadata for a unit.
+
+        Intended for callers already running in an event loop.
+        """
+        if self._object_store is None:
+            raise RuntimeError("Object store is not configured; cannot persist generated podcast audio.")
+
+        unit_info = self.repo.get_unit_by_id(unit_id)
+        if unit_info is None:
+            raise ValueError("Unit not found")
+
+        owner_id = getattr(unit_info, "user_id", None)
+        filename = self._build_podcast_filename(unit_id, mime_type)
+
+        upload = await self._object_store.upload_audio(  # type: ignore[func-returns-value]
+            AudioCreate(
+                user_id=owner_id,
+                filename=filename,
+                content_type=(mime_type or "audio/mpeg"),
+                content=audio_bytes,
+                transcript=transcript,
+            )
+        )
+
+        audio_object_id = upload.file.id
+
+        updated = self.set_unit_podcast(
+            unit_id,
+            transcript=transcript,
+            audio_object_id=audio_object_id,
+            voice=voice,
+        )
+        if updated is None:
+            raise ValueError("Failed to persist unit podcast metadata")
+        return updated
+
     def get_unit(self, unit_id: str) -> ContentService.UnitRead | None:
         u = self.repo.get_unit_by_id(unit_id)
         return self._build_unit_read(u) if u else None
@@ -477,9 +583,11 @@ class ContentService:
         audio_meta: Any | None = None
         audio_object_id = getattr(unit, "podcast_audio_object_id", None)
         if audio_object_id:
+            # Fetch with presigned URL so clients can stream directly without hitting our redirect route
             audio_meta = self._fetch_audio_metadata(
                 audio_object_id,
                 requesting_user_id=getattr(unit, "user_id", None),
+                include_presigned_url=True,
             )
 
         unit_summary = self._build_unit_read(unit, audio_meta=audio_meta)
@@ -491,7 +599,9 @@ class ContentService:
         if not transcript and audio_meta is not None:
             transcript = getattr(audio_meta, "transcript", None)
         detail_dict["podcast_transcript"] = transcript
-        detail_dict["podcast_audio_url"] = self._build_podcast_audio_url(unit)
+        # Prefer direct presigned URL if available, fallback to backend route
+        presigned_url = getattr(audio_meta, "presigned_url", None) if audio_meta is not None else None
+        detail_dict["podcast_audio_url"] = presigned_url or self._build_podcast_audio_url(unit)
 
         return self.UnitDetailRead.model_validate(detail_dict)
 

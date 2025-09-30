@@ -458,11 +458,11 @@ class CatalogService:
             generated_from_topic=detail.generated_from_topic,
             flow_type=detail.flow_type,
             learning_objective_progress=objective_progress,
-            has_podcast=detail.has_podcast,
-            podcast_voice=detail.podcast_voice,
-            podcast_duration_seconds=detail.podcast_duration_seconds,
-            podcast_transcript=detail.podcast_transcript,
-            podcast_audio_url=detail.podcast_audio_url,
+            has_podcast=bool(getattr(detail, "has_podcast", False)),
+            podcast_voice=getattr(detail, "podcast_voice", None),
+            podcast_duration_seconds=getattr(detail, "podcast_duration_seconds", None),
+            podcast_transcript=getattr(detail, "podcast_transcript", None),
+            podcast_audio_url=getattr(detail, "podcast_audio_url", None),
         )
 
     def browse_units_for_user(

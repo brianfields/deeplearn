@@ -117,6 +117,43 @@ class OpenAIProvider(LLMProvider):
         except Exception as e:
             raise LLMAuthenticationError(f"Failed to setup OpenAI client: {e}") from e
 
+    @staticmethod
+    def _normalize_voice(voice: str) -> str:
+        """Normalize friendly voice labels to OpenAI-supported voice values.
+
+        Falls back to a default if the provided voice is not recognized.
+        """
+        supported = {
+            "alloy",
+            "echo",
+            "fable",
+            "onyx",
+            "nova",
+            "shimmer",
+            "coral",
+            "verse",
+            "ballad",
+            "ash",
+            "sage",
+            "marin",
+            "cedar",
+        }
+        aliases = {
+            "plain": "fable",
+            "neutral": "fable",
+            "default": "fable",
+        }
+
+        v = (voice or "").strip()
+        v_lower = v.lower()
+        if v_lower in supported:
+            return v_lower
+        if v_lower in aliases:
+            return aliases[v_lower]
+
+        logger.warning("Unsupported voice '%s'. Falling back to 'alloy'", voice)
+        return "alloy"
+
     def _to_jsonable(self, obj: Any) -> Any:
         """Convert SDK/Pydantic objects to JSON-serializable structures recursively."""
         # Primitive types
@@ -724,11 +761,19 @@ class OpenAIProvider(LLMProvider):
             if speech_client is None:
                 raise LLMError("OpenAI audio synthesis API is not available in this environment")
 
+            normalized_voice = self._normalize_voice(request.voice)
+
+            # Use new TTS model default if caller passes gpt-4o-mini-tts
+            resolved_model = request.model
+            if resolved_model == "gpt-4o-mini-tts":
+                resolved_model = "tts-1-hd"
+
             request_kwargs = {
-                "model": request.model,
-                "voice": request.voice,
+                "model": resolved_model,
+                "voice": normalized_voice,
                 "input": request.text,
-                "format": request.audio_format,
+                # OpenAI SDK expects 'response_format' for TTS output format
+                "response_format": request.audio_format,
             }
             request_kwargs.update({k: v for k, v in kwargs.items() if v is not None})
             if request.speed is not None:

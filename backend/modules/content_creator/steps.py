@@ -195,6 +195,6 @@ class SynthesizePodcastAudioStep(AudioStep):
     class Inputs(BaseModel):
         text: str
         voice: str
-        model: str = "gpt-4o-mini-tts"
+        model: str = "tts-1-hd"
         format: str = "mp3"
         speed: float | None = None

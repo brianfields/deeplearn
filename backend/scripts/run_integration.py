@@ -128,8 +128,10 @@ def check_environment() -> list[str]:
 
     # Check LLM services requirements
     llm_services_dir = modules_dir / "llm_services"
-    if llm_services_dir.exists() and not os.getenv("OPENAI_API_KEY"):
-        issues.append("OPENAI_API_KEY environment variable not set (required for LLM services)")
+    # Only require OPENAI_API_KEY when running with real LLMs
+    use_real_llm = os.getenv("REAL_LLM", "false").lower() == "true"
+    if llm_services_dir.exists() and use_real_llm and not os.getenv("OPENAI_API_KEY"):
+        issues.append("OPENAI_API_KEY environment variable not set (REAL_LLM=true)")
 
     # Add checks for other modules as they're created
 
@@ -297,6 +299,7 @@ def main() -> int:
     parser.add_argument("--model", help="Override LLM model for tests (default: gpt-5-mini)", default="gpt-5-mini")
 
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
+    parser.add_argument("--real-llm", action="store_true", help="Use real LLM API calls (default: mocked)")
     parser.add_argument("--no-cache", action="store_true", help="Disable LLM cache during tests (sets LLM_CACHE_ENABLED=false)")
 
     parser.add_argument("--cost-check", "-c", action="store_true", help="Check environment and estimate costs without running tests")
@@ -335,6 +338,10 @@ def main() -> int:
     # Pass model override to subprocess via env
     if args.model:
         os.environ["OPENAI_MODEL"] = args.model
+
+    # Propagate REAL_LLM flag to subprocess
+    if args.real_llm:
+        os.environ["REAL_LLM"] = "true"
 
     # Run tests
     return run_integration_tests(args.module, args.verbose)

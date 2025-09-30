@@ -22,7 +22,6 @@ from modules.content.package_models import (
     Objective,
 )
 from modules.content.public import ContentProvider, LessonCreate, UnitCreate, UnitStatus
-from modules.object_store.public import AudioCreate, ObjectStoreProvider
 from modules.task_queue.public import task_queue_provider
 
 from .flows import LessonCreationFlow, UnitCreationFlow
@@ -71,12 +70,12 @@ class ContentCreatorService:
         self,
         content: ContentProvider,
         podcast_generator: UnitPodcastGenerator | None = None,
-        object_store: ObjectStoreProvider | None = None,
     ) -> None:
         """Initialize with content storage only - flows handle LLM interactions."""
         self.content = content
         self.podcast_generator = podcast_generator
-        self._object_store = object_store
+        # Object store is no longer used here; persistence is delegated to content service
+        self._object_store = None
 
     def _truncate_title(self, title: str, max_length: int = 255) -> str:
         """
@@ -258,6 +257,7 @@ class ContentCreatorService:
         background: bool = False,
         target_lesson_count: int | None = None,
         learner_level: str = "beginner",
+        user_id: int | None = None,
     ) -> "ContentCreatorService.UnitCreationResult | ContentCreatorService.MobileUnitCreationResult":
         """Create a learning unit (foreground or background).
 
@@ -276,6 +276,7 @@ class ContentCreatorService:
                 description=f"A learning unit about {topic}",
                 learner_level=learner_level,
                 lesson_order=[],
+                user_id=user_id,
                 learning_objectives=None,
                 target_lesson_count=target_lesson_count,
                 source_material=source_material,
@@ -477,44 +478,22 @@ class ContentCreatorService:
             except Exception as exc:  # pragma: no cover - podcast generation should not block unit creation
                 logger.warning("🎧 Failed to generate podcast for unit %s: %s", unit_id, exc, exc_info=True)
             else:
-                audio_object_id = None
-                if podcast.audio_bytes and self._object_store is not None:
+                if podcast.audio_bytes:
                     try:
-                        owner_id = None
-                        unit_info = self.content.get_unit(unit_id)
-                        if unit_info is not None:
-                            owner_id = getattr(unit_info, "user_id", None)
-                        filename = self._build_podcast_filename(unit_id, podcast.mime_type)
-                        upload = await self._object_store.upload_audio(
-                            AudioCreate(
-                                user_id=owner_id,
-                                filename=filename,
-                                content_type=podcast.mime_type,
-                                content=podcast.audio_bytes,
-                                transcript=podcast.transcript,
-                            )
+                        await self.content.save_unit_podcast_from_bytes_async(
+                            unit_id,
+                            transcript=podcast.transcript,
+                            audio_bytes=podcast.audio_bytes,
+                            mime_type=podcast.mime_type,
+                            voice=podcast.voice,
                         )
                     except Exception as exc:  # pragma: no cover - network/object store issues
                         logger.warning(
-                            "🎧 Failed to upload podcast audio for unit %s: %s",
+                            "🎧 Failed to persist podcast audio for unit %s: %s",
                             unit_id,
                             exc,
                             exc_info=True,
                         )
-                    else:
-                        audio_object_id = upload.file.id
-                elif podcast.audio_bytes and self._object_store is None:
-                    logger.warning(
-                        "🎧 Generated podcast audio for unit %s but no object store is configured; audio will not be persisted.",
-                        unit_id,
-                    )
-
-                self.content.set_unit_podcast(
-                    unit_id,
-                    transcript=podcast.transcript,
-                    audio_object_id=audio_object_id,
-                    voice=podcast.voice,
-                )
 
         self.content.update_unit_status(unit_id, UnitStatus.COMPLETED.value, creation_progress={"stage": "completed", "message": "Unit creation completed"})
 

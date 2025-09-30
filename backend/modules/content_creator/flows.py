@@ -166,7 +166,7 @@ class UnitPodcastFlow(BaseFlow):
         voice: str
         unit_summary: str
         lessons: list[PodcastLessonInput]
-        audio_model: str = "gpt-4o-mini-tts"
+        audio_model: str = "tts-1-hd"
         audio_format: str = "mp3"
         audio_speed: float | None = None
 
