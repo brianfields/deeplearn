@@ -13,7 +13,6 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
-import uuid
 
 import pytest
 
@@ -79,7 +78,7 @@ class TestServiceFlows:
             voice="Plain",
             duration_seconds=90,
         )
-        content.set_unit_podcast = Mock()
+        content.save_unit_podcast_from_bytes_async = AsyncMock()
         svc = ContentCreatorService(content, podcast_generator=podcast_generator)
 
         # Minimal flow return
@@ -188,7 +187,7 @@ class TestServiceFlows:
         assert result.title == "Unit T"
         content.assign_lessons_to_unit.assert_called_once()
         podcast_generator.create_podcast.assert_awaited_once()
-        content.set_unit_podcast.assert_called_once()
+        content.save_unit_podcast_from_bytes_async.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_podcast_audio_uploads_to_object_store(self) -> None:
@@ -202,11 +201,7 @@ class TestServiceFlows:
             duration_seconds=120,
         )
 
-        object_store = AsyncMock()
-        stored_id = uuid.uuid4()
-        object_store.upload_audio.return_value = Mock(file=Mock(id=stored_id, content_type="audio/mpeg"))
-
-        content.set_unit_podcast = Mock()
+        content.save_unit_podcast_from_bytes_async = AsyncMock()
         created_unit_obj = Mock()
         created_unit_obj.id = "u2"
         created_unit_obj.title = "Unit B"
@@ -215,7 +210,7 @@ class TestServiceFlows:
         content.save_lesson.return_value = Mock(id="lesson-1")
         content.assign_lessons_to_unit = Mock()
 
-        svc = ContentCreatorService(content, podcast_generator=podcast_generator, object_store=object_store)
+        svc = ContentCreatorService(content, podcast_generator=podcast_generator)
 
         with patch("modules.content_creator.service.UnitCreationFlow") as mock_ucf_cls, patch("modules.content_creator.service.LessonCreationFlow") as mock_lcf_cls:
             mock_ucf = AsyncMock()
@@ -242,9 +237,4 @@ class TestServiceFlows:
 
             await svc.create_unit(topic="Topic", target_lesson_count=1, learner_level="beginner", background=False)
 
-            object_store.upload_audio.assert_awaited_once()
-            content.set_unit_podcast.assert_called()
-            _, kwargs = content.set_unit_podcast.call_args
-            assert kwargs.get("audio_object_id") == stored_id
-            assert kwargs.get("transcript") == "Narration"
-            assert kwargs.get("voice") == "Plain"
+            content.save_unit_podcast_from_bytes_async.assert_awaited_once()
