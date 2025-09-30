@@ -14,6 +14,7 @@ from modules.content.models import LessonModel, UnitModel
 from modules.content.package_models import GlossaryTerm, LessonPackage, MCQAnswerKey, MCQExercise, MCQOption, Meta, Objective
 from modules.content.repo import ContentRepo
 from modules.content.service import ContentService, LessonCreate
+from modules.object_store.public import FileUploadResult, ImageRead
 
 
 class TestContentService:
@@ -221,7 +222,29 @@ class TestContentService:
         llm = Mock()
         llm.generate_image = AsyncMock(return_value=(image_response, uuid.uuid4()))
 
-        service = ContentService(repo, llm)
+        stored_image = ImageRead(
+            id=uuid.uuid4(),
+            user_id=None,
+            s3_key="images/unit-cover-test.png",
+            s3_bucket="bucket",
+            filename="unit-cover-test.png",
+            content_type="image/png",
+            file_size=1024,
+            width=1024,
+            height=1024,
+            alt_text=None,
+            description="desc",
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
+        object_store = Mock()
+        object_store.upload_image = AsyncMock(
+            return_value=FileUploadResult(file=stored_image, presigned_url="https://cdn.example/unit-cover.png")
+        )
+        object_store.generate_presigned_url = AsyncMock()
+
+        service = ContentService(repo, llm, object_store)
+        service._download_image_content = AsyncMock(return_value=(b"fake-bytes", "image/png"))
 
         payload = service.UnitCreate(
             title="Quantum Harmonics",
@@ -233,11 +256,39 @@ class TestContentService:
         created = await service.create_unit(payload)
 
         llm.generate_image.assert_awaited_once()
-        assert created.cover_image_url == image_response.image_url
+        object_store.upload_image.assert_awaited_once()
+        assert created.cover_image_url == "https://cdn.example/unit-cover.png"
         assert created.cover_image_prompt == image_response.revised_prompt
+        assert created.cover_image_object_id == stored_image.id
         stored_model = repo.add_unit.call_args.args[0]
-        assert stored_model.cover_image_url == image_response.image_url
+        assert stored_model.cover_image_url == "https://cdn.example/unit-cover.png"
         assert stored_model.cover_image_prompt == image_response.revised_prompt
+        assert stored_model.cover_image_object_id == stored_image.id
+
+    @pytest.mark.asyncio
+    async def test_create_unit_uses_provider_url_when_object_store_missing(self) -> None:
+        """If object store is unavailable, fallback to provider URL."""
+
+        repo = Mock(spec=ContentRepo)
+        repo.add_unit.side_effect = lambda model: model
+
+        image_response = Mock()
+        image_response.image_url = "https://images.example/weimar-edge.png"
+        image_response.revised_prompt = None
+        image_response.size = "1024x1024"
+        image_response.cost_estimate = 0.1
+
+        llm = Mock()
+        llm.generate_image = AsyncMock(return_value=(image_response, uuid.uuid4()))
+
+        service = ContentService(repo, llm, None)
+
+        payload = service.UnitCreate(title="Fallback", learner_level="beginner")
+
+        created = await service.create_unit(payload)
+
+        assert created.cover_image_url == image_response.image_url
+        assert created.cover_image_object_id is None
 
     def test_list_units_for_user_uses_repo(self) -> None:
         """Ensure user-specific listing delegates to repository."""

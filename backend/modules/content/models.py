@@ -80,6 +80,7 @@ class UnitModel(Base):
     cover_image_url = Column(Text, nullable=True)
     cover_image_prompt = Column(Text, nullable=True)
     cover_image_request_id = Column(PostgresUUID(as_uuid=True), nullable=True)
+    cover_image_object_id = Column(PostgresUUID(as_uuid=True), nullable=True)
 
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
