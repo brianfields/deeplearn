@@ -7,7 +7,7 @@ This is a migration, not new feature development.
 
 from abc import abstractmethod
 from collections.abc import Iterable
-from typing import TYPE_CHECKING, Protocol
+from typing import Protocol
 
 from sqlalchemy.orm import Session
 
@@ -84,20 +84,10 @@ class LearningSessionProvider(Protocol):
         """Get aggregated progress for a user across all lessons in a unit"""
         ...
 
-    @abstractmethod
-    async def get_units_progress_overview(self, user_id: str, limit: int = 100, offset: int = 0) -> list[UnitProgress]:
-        """Get progress overview across multiple units for a user"""
-        ...
-
-
-if TYPE_CHECKING:
-    from modules.catalog.public import CatalogProvider
-
 
 def learning_session_provider(
     session: Session,
     content: ContentProvider,
-    catalog: "CatalogProvider",
 ) -> LearningSessionProvider:
     """
     Dependency injection provider for learning session services.
@@ -105,13 +95,12 @@ def learning_session_provider(
     Args:
         session: Database session managed at the route level for proper commits.
         content: Content service instance (built with same session).
-        catalog: Lesson catalog service instance (built with same session).
 
     Returns:
         LearningSessionService instance that implements the LearningSessionProvider protocol.
     """
     repo = LearningSessionRepo(session)
-    return LearningSessionService(repo, content, catalog)
+    return LearningSessionService(repo, content)
 
 
 class LearningSessionAnalyticsProvider(Protocol):

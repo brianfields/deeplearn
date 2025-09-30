@@ -21,12 +21,9 @@ class TestLearningSessionService:
         """Set up test fixtures"""
         self.mock_repo = Mock(spec=LearningSessionRepo)
         self.mock_content_provider = Mock()
-        self.mock_catalog_provider = Mock()
-
         self.service = LearningSessionService(
             self.mock_repo,
             self.mock_content_provider,
-            self.mock_catalog_provider,
         )
 
     @pytest.mark.asyncio
@@ -35,12 +32,7 @@ class TestLearningSessionService:
         # Arrange
         request = StartSessionRequest(lesson_id="test-lesson", user_id="test-user")
 
-        # Mock lesson exists
-        mock_lesson = Mock()
-        mock_lesson.id = "test-lesson"
-        self.mock_catalog_provider.get_lesson_details.return_value = mock_lesson
-
-        # Mock content with package structure
+        # Mock content with package structure (lesson exists)
         mock_content = Mock()
         mock_package = Mock()
         mock_package.exercises = [1, 2]  # 2 exercises
@@ -77,7 +69,6 @@ class TestLearningSessionService:
         assert result.status == SessionStatus.ACTIVE.value
         assert result.total_exercises == 2
 
-        self.mock_catalog_provider.get_lesson_details.assert_called_once_with("test-lesson")
         self.mock_content_provider.get_lesson.assert_called_once_with("test-lesson")
         self.mock_repo.create_session.assert_called_once()
 
@@ -86,7 +77,8 @@ class TestLearningSessionService:
         """Test session start with non-existent lesson"""
         # Arrange
         request = StartSessionRequest(lesson_id="nonexistent-lesson", user_id="user-1")
-        self.mock_catalog_provider.get_lesson_details.return_value = None
+        # Content returns no lesson
+        self.mock_content_provider.get_lesson.return_value = None
 
         # Act & Assert
         with pytest.raises(ValueError, match="Lesson nonexistent-lesson not found"):
@@ -97,7 +89,8 @@ class TestLearningSessionService:
         """Ensure user context is required for starting a session."""
 
         request = StartSessionRequest(lesson_id="lesson-1", user_id="")
-        self.mock_catalog_provider.get_lesson_details.return_value = Mock()
+        # Content returns some lesson object
+        self.mock_content_provider.get_lesson.return_value = Mock(package=Mock(exercises=[]))
 
         with pytest.raises(ValueError, match="User identifier is required"):
             await self.service.start_session(request)

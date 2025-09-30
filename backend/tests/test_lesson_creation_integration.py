@@ -7,19 +7,25 @@ to test the complete lesson creation workflow from source material to stored con
 The test uses gpt-5 model to test the new GPT-5 Responses API functionality.
 """
 
+import base64
 from collections.abc import Generator
 import logging
 import os
 from typing import Any, cast
+from unittest.mock import patch
+import uuid
 
 import pytest
 from sqlalchemy import desc as _desc
 
+from modules.content.public import ContentProvider
 from modules.content.repo import ContentRepo
 from modules.content.service import ContentService
 from modules.content_creator.service import ContentCreatorService
+from modules.content_creator.steps import ExtractLessonMetadataStep, ExtractUnitMetadataStep, GenerateMCQStep
 from modules.flow_engine.models import FlowRunModel
 from modules.infrastructure.public import infrastructure_provider
+from modules.llm_services.public import AudioResponse, LLMResponse
 
 
 class TestLessonCreationIntegration:
@@ -30,10 +36,11 @@ class TestLessonCreationIntegration:
         """Set up test environment and validate required variables."""
         print("🔧 Setting up test environment...")
 
-        # Ensure we have required environment variables
-        if not os.environ.get("OPENAI_API_KEY"):
-            print("❌ OPENAI_API_KEY not set - skipping integration test")
-            pytest.skip("OPENAI_API_KEY not set - skipping integration test")
+        # Allow running without OPENAI_API_KEY when using mocked LLMs
+        use_real = os.environ.get("REAL_LLM", "false").lower() == "true"
+        if use_real and not os.environ.get("OPENAI_API_KEY"):
+            print("❌ OPENAI_API_KEY not set and REAL_LLM=true - skipping integration test")
+            pytest.skip("OPENAI_API_KEY not set - skipping integration test with real LLMs")
 
         if not os.environ.get("DATABASE_URL"):
             print("❌ DATABASE_URL not set - skipping integration test")
@@ -144,6 +151,123 @@ class TestLessonCreationIntegration:
         - Image classification tasks
         """
 
+
+# ------------------------------------------------------------
+# LLM mocking: default to mocked responses unless REAL_LLM=true
+# ------------------------------------------------------------
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _maybe_mock_llm() -> Generator[None, None, None]:
+    """Mock LLM services for all flows/steps by default.
+
+    Set REAL_LLM=true to use real providers.
+    """
+
+    use_real = os.environ.get("REAL_LLM", "false").lower() == "true"
+    if use_real:
+        print("🤖 Using REAL LLM services for integration tests (REAL_LLM=true)")
+        yield
+        return
+
+    print("🧪 Using MOCKED LLM services for integration tests (set REAL_LLM=true to use real)")
+
+    class _FakeLLMService:
+        async def generate_response(self, messages: list[Any], user_id: Any | None = None, model: str | None = None, temperature: float | None = None, max_output_tokens: int | None = None, **kwargs: Any) -> tuple[LLMResponse, uuid.UUID | None]:  # noqa: ARG002
+            content = "This is mocked unstructured content."
+            for m in messages:
+                msg_content = str(getattr(m, "content", ""))
+                low = msg_content.lower()
+                if "podcast" in low:
+                    content = "Mocked podcast transcript of the unit."
+                    break
+                if "source material" in low:
+                    content = "Mocked unit source material with headings and examples."
+            response = LLMResponse(
+                content=content,
+                provider="mock",
+                model=model or "mock-model",
+                tokens_used=0,
+                input_tokens=0,
+                output_tokens=0,
+                cost_estimate=0.0,
+                response_time_ms=5,
+                cached=False,
+                provider_response_id=None,
+                system_fingerprint=None,
+                response_output=None,
+                response_created_at=None,
+            )
+            return response, None
+
+        async def generate_structured_response(
+            self, _messages: list[Any], response_model: type[Any], _user_id: Any | None = None, _model: str | None = None, _temperature: float | None = None, _max_output_tokens: int | None = None, **_kwargs: Any
+        ) -> tuple[Any, uuid.UUID | None, dict[str, Any]]:
+            usage = {"tokens_used": 0, "cost_estimate": 0.0}
+
+            if response_model is ExtractUnitMetadataStep.Outputs:
+                payload = {
+                    "unit_title": "Learning Unit: Mocked",
+                    "learning_objectives": [
+                        {"lo_id": "lo_1", "text": "Understand concept A", "bloom_level": "Understand"},
+                        {"lo_id": "lo_2", "text": "Apply concept B", "bloom_level": "Apply"},
+                    ],
+                    "lessons": [
+                        {"title": "Lesson 1", "lesson_objective": "Intro to A", "learning_objectives": ["Understand concept A"]},
+                        {"title": "Lesson 2", "lesson_objective": "Intro to B", "learning_objectives": ["Apply concept B"]},
+                    ],
+                    "lesson_count": 2,
+                }
+                return response_model.model_validate(payload), None, usage
+
+            if response_model is ExtractLessonMetadataStep.Outputs:
+                payload = {
+                    "topic": "Mocked Topic",
+                    "learner_level": "beginner",
+                    "voice": "Plain",
+                    "learning_objectives": ["Understand concept A"],
+                    "misconceptions": [{"id": "m1", "misbelief": "A is always B", "why_plausible": "Overgeneralization", "correction": "A can be C too"}],
+                    "confusables": [{"id": "c1", "a": "term1", "b": "term2", "contrast": "Different contexts"}],
+                    "glossary": [{"term": "Entropy", "definition": "Measure of uncertainty", "micro_check": None}],
+                    "mini_lesson": "This is a concise mocked mini-lesson.",
+                }
+                return response_model.model_validate(payload), None, usage
+
+            if response_model is GenerateMCQStep.Outputs:
+                payload = {
+                    "metadata": {"lesson_title": "Mocked Lesson", "lesson_objective": "Learn A", "learner_level": "beginner", "voice": "Plain"},
+                    "mcqs": [
+                        {
+                            "stem": "What is A?",
+                            "options": [
+                                {"label": "A", "text": "Option A"},
+                                {"label": "B", "text": "Option B"},
+                                {"label": "C", "text": "Option C"},
+                                {"label": "D", "text": "Option D"},
+                            ],
+                            "answer_key": {"label": "A", "rationale_right": "Because it's correct"},
+                            "learning_objectives_covered": ["Understand concept A"],
+                            "misconceptions_used": [],
+                            "confusables_used": [],
+                            "glossary_terms_used": [],
+                        }
+                    ],
+                }
+                return response_model.model_validate(payload), None, usage
+
+            try:
+                return response_model.model_validate({}), None, usage
+            except Exception as exc:
+                raise RuntimeError(f"Mock LLM cannot synthesize response for model: {response_model}: {exc}") from None
+
+        async def generate_audio(self, _text: str, voice: str, _user_id: Any | None = None, model: str | None = None, _audio_format: str = "mp3", _speed: float | None = None, **_kwargs: Any) -> tuple[AudioResponse, uuid.UUID | None]:
+            audio_base64 = base64.b64encode(b"FAKEAUDIO").decode()
+            dto = AudioResponse(audio_base64=audio_base64, mime_type="audio/mpeg", voice=voice, model=model or "mock-tts", cost_estimate=0.0, duration_seconds=8.5)
+            return dto, None
+
+    with patch("modules.flow_engine.base_flow.llm_services_provider", new=lambda: _FakeLLMService()):
+        yield
+
     # Removed lesson creation integration test to minimize costly runs
 
     # Removed additional fast-default lesson test to keep integration suite minimal
@@ -157,10 +281,11 @@ class TestUnitCreationIntegration:
         """Set up test environment and validate required variables."""
         print("🔧 Setting up test environment for unit creation...")
 
-        # Ensure we have required environment variables
-        if not os.environ.get("OPENAI_API_KEY"):
-            print("❌ OPENAI_API_KEY not set - skipping integration test")
-            pytest.skip("OPENAI_API_KEY not set - skipping integration test")
+        # Allow running without OPENAI_API_KEY when using mocked LLMs
+        use_real = os.environ.get("REAL_LLM", "false").lower() == "true"
+        if use_real and not os.environ.get("OPENAI_API_KEY"):
+            print("❌ OPENAI_API_KEY not set and REAL_LLM=true - skipping integration test")
+            pytest.skip("OPENAI_API_KEY not set - skipping integration test with real LLMs")
 
         if not os.environ.get("DATABASE_URL"):
             print("❌ DATABASE_URL not set - skipping integration test")
@@ -221,7 +346,7 @@ class TestUnitCreationIntegration:
 
     @pytest.mark.asyncio
     async def test_unit_creation_from_topic(self, infrastructure_service) -> None:
-        """Create a unit from a topic (no source material) targeting 10 minutes."""
+        """Create a unit from a topic (no source material) targeting 2 lessons."""
         print("🚀 Starting unit creation workflow test (topic-only)...")
 
         # Arrange: Ensure model is set before creating services
@@ -235,7 +360,7 @@ class TestUnitCreationIntegration:
         print("📚 Creating content service...")
         content_service = ContentService(ContentRepo(db_session.session))
         print("🤖 Creating content creator service...")
-        creator_service = ContentCreatorService(content_service)
+        creator_service = ContentCreatorService(cast(ContentProvider, content_service))
         print("✅ Services created successfully")
 
         topic = "Introduction to Gradient Descent"
@@ -245,7 +370,7 @@ class TestUnitCreationIntegration:
             topic=topic,
             source_material=None,
             background=False,
-            target_lesson_count=10,
+            target_lesson_count=2,
             learner_level="beginner",
         )
 
@@ -257,14 +382,14 @@ class TestUnitCreationIntegration:
         assert isinstance(unit_result.title, str) and len(unit_result.title) > 0
         assert unit_result.lesson_count >= 1
         assert isinstance(unit_result.lesson_titles, list) and len(unit_result.lesson_titles) >= 1
-        assert unit_result.target_lesson_count == 10
+        assert unit_result.target_lesson_count == 2
         assert unit_result.generated_from_topic is True
 
         # Verify unit was saved to database
         saved_unit = content_service.get_unit(unit_result.unit_id)
         assert saved_unit is not None
         assert saved_unit.generated_from_topic is True
-        assert saved_unit.target_lesson_count == 10
+        assert saved_unit.target_lesson_count == 2
         assert saved_unit.learning_objectives is None or isinstance(saved_unit.learning_objectives, list)
         # flow_type should default to 'standard'
         assert getattr(saved_unit, "flow_type", "standard") == "standard"

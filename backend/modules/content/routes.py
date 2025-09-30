@@ -6,6 +6,7 @@ from collections.abc import Generator
 from typing import cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -84,6 +85,23 @@ def get_unit_detail(
     if not unit:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unit not found")
     return unit
+
+
+@router.get("/units/{unit_id}/podcast/audio", response_model=None)
+def stream_unit_podcast_audio(
+    unit_id: str,
+    service: ContentService = Depends(get_content_service),
+) -> RedirectResponse:
+    """Stream the generated podcast audio for a unit."""
+
+    audio = service.get_unit_podcast_audio(unit_id)
+    if not audio:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Podcast audio not found")
+
+    if audio.presigned_url:
+        return RedirectResponse(audio.presigned_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Podcast audio not found")
 
 
 @router.post("/units", response_model=ContentService.UnitRead, status_code=status.HTTP_201_CREATED)

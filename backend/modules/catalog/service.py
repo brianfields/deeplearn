@@ -101,6 +101,9 @@ class UnitSummary(BaseModel):
     status: str = "completed"
     creation_progress: dict[str, Any] | None = None
     error_message: str | None = None
+    has_podcast: bool = False
+    podcast_voice: str | None = None
+    podcast_duration_seconds: int | None = None
 
 
 class UnitDetail(BaseModel):
@@ -120,6 +123,11 @@ class UnitDetail(BaseModel):
     # Flow type used to generate the unit
     flow_type: str = "standard"
     learning_objective_progress: list["LearningObjectiveProgress"] | None = None
+    has_podcast: bool = False
+    podcast_voice: str | None = None
+    podcast_duration_seconds: int | None = None
+    podcast_transcript: str | None = None
+    podcast_audio_url: str | None = None
 
 
 class LearningObjectiveProgress(BaseModel):
@@ -450,6 +458,11 @@ class CatalogService:
             generated_from_topic=detail.generated_from_topic,
             flow_type=detail.flow_type,
             learning_objective_progress=objective_progress,
+            has_podcast=bool(getattr(detail, "has_podcast", False)),
+            podcast_voice=getattr(detail, "podcast_voice", None),
+            podcast_duration_seconds=getattr(detail, "podcast_duration_seconds", None),
+            podcast_transcript=getattr(detail, "podcast_transcript", None),
+            podcast_audio_url=getattr(detail, "podcast_audio_url", None),
         )
 
     def browse_units_for_user(
@@ -499,6 +512,9 @@ class CatalogService:
                     status=getattr(unit, "status", "completed"),
                     creation_progress=getattr(unit, "creation_progress", None),
                     error_message=getattr(unit, "error_message", None),
+                    has_podcast=bool(getattr(unit, "has_podcast", False)),
+                    podcast_voice=getattr(unit, "podcast_voice", None),
+                    podcast_duration_seconds=getattr(unit, "podcast_duration_seconds", None),
                 )
             )
         return summaries

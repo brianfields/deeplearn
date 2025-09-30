@@ -596,6 +596,9 @@ export class AdminService {
       is_global: Boolean(u.is_global),
       created_at: u.created_at ? new Date(u.created_at) : null,
       updated_at: u.updated_at ? new Date(u.updated_at) : null,
+      has_podcast: Boolean((u as any).has_podcast ?? false),
+      podcast_voice: u.podcast_voice ?? null,
+      podcast_duration_seconds: u.podcast_duration_seconds ?? null,
     } satisfies UnitSummary));
   }
 
@@ -615,6 +618,11 @@ export class AdminService {
         generated_from_topic: Boolean(d.generated_from_topic),
         flow_type: (d.flow_type as UnitDetail['flow_type']) ?? 'standard',
         learning_objective_progress: d.learning_objective_progress ?? null,
+        has_podcast: Boolean(d.has_podcast),
+        podcast_voice: d.podcast_voice ?? null,
+        podcast_duration_seconds: d.podcast_duration_seconds ?? null,
+        podcast_transcript: d.podcast_transcript ?? null,
+        podcast_audio_url: d.podcast_audio_url ?? null,
       };
     } catch {
       return null;

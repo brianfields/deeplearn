@@ -5,9 +5,14 @@ Protocol definition and dependency injection provider.
 This is the only interface other modules should import from.
 """
 
+from collections.abc import Iterable
 from typing import Any, Protocol
+import uuid
 
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
+
+from modules.object_store.public import object_store_provider
 
 from .repo import ContentRepo
 from .service import (
@@ -42,6 +47,17 @@ class ContentProvider(Protocol):
     def assign_lessons_to_unit(self, unit_id: str, lesson_ids: list[str]) -> ContentService.UnitRead: ...
     def assign_unit_owner(self, unit_id: str, owner_user_id: int | None) -> ContentService.UnitRead: ...
     def set_unit_sharing(self, unit_id: str, is_global: bool, acting_user_id: int | None = None) -> ContentService.UnitRead: ...
+    def set_unit_podcast(
+        self,
+        unit_id: str,
+        *,
+        transcript: str | None,
+        audio_object_id: uuid.UUID | None,
+        voice: str | None = None,
+    ) -> ContentService.UnitRead | None: ...
+    def get_unit_podcast_audio(self, unit_id: str) -> ContentService.UnitPodcastAudio | None: ...
+    def save_unit_podcast_from_bytes(self, unit_id: str, *, transcript: str, audio_bytes: bytes, mime_type: str | None, voice: str | None) -> ContentService.UnitRead: ...
+    async def save_unit_podcast_from_bytes_async(self, unit_id: str, *, transcript: str, audio_bytes: bytes, mime_type: str | None, voice: str | None) -> ContentService.UnitRead: ...
     def delete_unit(self, unit_id: str) -> bool: ...
     # Unit session operations
     def get_or_create_unit_session(self, user_id: str, unit_id: str) -> ContentService.UnitSessionRead: ...
@@ -68,13 +84,16 @@ def content_provider(session: Session) -> ContentProvider:
     Returns:
         ContentService instance that implements the ContentProvider protocol.
     """
-    return ContentService(ContentRepo(session))
+    async_session = _SyncSessionAsyncAdapter(session)
+    object_store = object_store_provider(async_session)
+    return ContentService(ContentRepo(session), object_store=object_store)  # pyright: ignore[reportReturnType]
 
 
 # Create aliases for nested classes to maintain backward compatibility
 UnitCreate = ContentService.UnitCreate
 UnitRead = ContentService.UnitRead
 UnitDetailRead = ContentService.UnitDetailRead
+UnitPodcastAudio = ContentService.UnitPodcastAudio
 UnitSessionRead = ContentService.UnitSessionRead
 
 __all__ = [
@@ -83,8 +102,37 @@ __all__ = [
     "LessonRead",
     "UnitCreate",
     "UnitDetailRead",
+    "UnitPodcastAudio",
     "UnitRead",
     "UnitSessionRead",
     "UnitStatus",
     "content_provider",
 ]
+
+
+class _SyncSessionAsyncAdapter(AsyncSession):
+    """Minimal async wrapper around a synchronous Session for object store usage."""
+
+    def __init__(self, sync_session: Session) -> None:  # type: ignore[override]
+        self._sync = sync_session
+
+    async def get(self, *args: Any, **kwargs: Any) -> Any:  # type: ignore[override]
+        return self._sync.get(*args, **kwargs)
+
+    async def execute(self, *args: Any, **kwargs: Any) -> Any:  # type: ignore[override]
+        return self._sync.execute(*args, **kwargs)
+
+    def add(self, instance: Any, _warn: bool = True) -> None:  # type: ignore[override]
+        self._sync.add(instance)
+
+    def add_all(self, instances: Iterable[Any]) -> None:  # type: ignore[override]
+        self._sync.add_all(list(instances))
+
+    async def flush(self) -> None:  # type: ignore[override]
+        self._sync.flush()
+
+    async def refresh(self, instance: Any) -> None:  # type: ignore[override]
+        self._sync.refresh(instance)
+
+    async def delete(self, instance: Any) -> None:  # type: ignore[override]
+        self._sync.delete(instance)

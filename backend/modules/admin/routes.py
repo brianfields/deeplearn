@@ -70,7 +70,7 @@ def get_admin_service(session: Session = Depends(get_session)) -> AdminService:
     # In practice, these would be properly initialized with async context
 
     users = user_provider(session)
-    learning_sessions = learning_session_provider(session, content, catalog)
+    learning_sessions = learning_session_provider(session, content)
 
     # Create admin service with all dependencies
     return AdminService(

@@ -3,7 +3,7 @@
 
 from pydantic import BaseModel
 
-from modules.flow_engine.public import StructuredStep, UnstructuredStep
+from modules.flow_engine.public import AudioStep, StructuredStep, UnstructuredStep
 
 
 # ---------- Shared simple models used by current prompts ----------
@@ -163,3 +163,38 @@ class GenerateMCQStep(StructuredStep):
     class Outputs(BaseModel):
         metadata: MCQsMetadata
         mcqs: list[MCQItem]
+
+
+# ---------- 5) Generate Unit Podcast Transcript ----------
+class PodcastLessonInput(BaseModel):
+    title: str
+    mini_lesson: str
+
+
+class GenerateUnitPodcastTranscriptStep(UnstructuredStep):
+    """Generate a single-voice podcast transcript summarizing the full unit."""
+
+    step_name = "generate_unit_podcast_transcript"
+    prompt_file = "generate_unit_podcast_transcript.md"
+    reasoning_effort = "medium"
+    verbosity = "low"
+    model = "gpt-5-mini"
+
+    class Inputs(BaseModel):
+        unit_title: str
+        voice: str
+        unit_summary: str
+        lessons: list[PodcastLessonInput]
+
+
+class SynthesizePodcastAudioStep(AudioStep):
+    """Synthesize narrated audio for the generated podcast transcript."""
+
+    step_name = "synthesize_unit_podcast_audio"
+
+    class Inputs(BaseModel):
+        text: str
+        voice: str
+        model: str = "tts-1-hd"
+        format: str = "mp3"
+        speed: float | None = None

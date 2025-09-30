@@ -1,11 +1,14 @@
 """OpenAI provider implementation."""
 
 import asyncio
+import base64
 import contextlib
 from datetime import UTC, datetime
 import importlib
 import json
 import logging
+import math
+import re
 from typing import Any, TypeVar, cast
 import uuid
 
@@ -45,6 +48,8 @@ from ..exceptions import (
     LLMValidationError,
 )
 from ..types import (
+    AudioGenerationRequest,
+    AudioResponse,
     ImageGenerationRequest,
     ImageResponse,
     LLMMessage,
@@ -96,19 +101,58 @@ class OpenAIProvider(LLMProvider):
             if not _OPENAI_AVAILABLE or (AsyncOpenAI is None and AsyncAzureOpenAI is None):
                 raise LLMAuthenticationError("OpenAI SDK is not installed. Please install 'openai' package to use this provider.")
             if self.config.provider.value == "azure_openai":
-                self.client = AsyncAzureOpenAI(
+                assert AsyncAzureOpenAI is not None
+                self.client = cast(Any, AsyncAzureOpenAI)(
                     api_key=self.config.api_key,
                     base_url=self.config.base_url,
                     timeout=self.config.timeout,
                 )
             else:
-                self.client = AsyncOpenAI(
+                assert AsyncOpenAI is not None
+                self.client = cast(Any, AsyncOpenAI)(
                     api_key=self.config.api_key,
                     base_url=self.config.base_url,
                     timeout=self.config.timeout,
                 )
         except Exception as e:
             raise LLMAuthenticationError(f"Failed to setup OpenAI client: {e}") from e
+
+    @staticmethod
+    def _normalize_voice(voice: str) -> str:
+        """Normalize friendly voice labels to OpenAI-supported voice values.
+
+        Falls back to a default if the provided voice is not recognized.
+        """
+        supported = {
+            "alloy",
+            "echo",
+            "fable",
+            "onyx",
+            "nova",
+            "shimmer",
+            "coral",
+            "verse",
+            "ballad",
+            "ash",
+            "sage",
+            "marin",
+            "cedar",
+        }
+        aliases = {
+            "plain": "fable",
+            "neutral": "fable",
+            "default": "fable",
+        }
+
+        v = (voice or "").strip()
+        v_lower = v.lower()
+        if v_lower in supported:
+            return v_lower
+        if v_lower in aliases:
+            return aliases[v_lower]
+
+        logger.warning("Unsupported voice '%s'. Falling back to 'alloy'", voice)
+        return "alloy"
 
     def _to_jsonable(self, obj: Any) -> Any:
         """Convert SDK/Pydantic objects to JSON-serializable structures recursively."""
@@ -296,7 +340,11 @@ class OpenAIProvider(LLMProvider):
 
             # Make API call with retry logic
             logger.info("⏳ Making GPT-5 API call...")
-            response = await self._make_api_call_with_retry(lambda: self.client.responses.create(**request_params))
+            responses_client = getattr(self.client, "responses", None)
+            create_method = getattr(responses_client, "create", None)
+            if not callable(create_method):
+                raise LLMError("OpenAI Responses API is not available in this environment")
+            response = await self._make_api_call_with_retry(lambda: create_method(**request_params))
             logger.info("✅ GPT-5 API call completed")
 
             # Parse GPT-5 response
@@ -499,12 +547,14 @@ class OpenAIProvider(LLMProvider):
             logger.info("🤖 Starting structured GPT-5 request using native Structured Outputs")
 
             # Try using responses.parse if available (newer SDK versions)
-            if hasattr(self.client, "responses") and hasattr(self.client.responses, "parse"):
+            responses_client = getattr(self.client, "responses", None)
+            parse_method = getattr(responses_client, "parse", None)
+            if callable(parse_method):
                 # Use the native SDK parsing method
                 # For responses.parse(), we use text_format instead of text.format
                 parse_params = request_params.copy()
                 parse_params.pop("text", None)  # Remove text.format for responses.parse()
-                response = await self.client.responses.parse(**parse_params, text_format=response_model)
+                response = await cast(Any, parse_method)(**parse_params, text_format=response_model)
 
                 # Extract the parsed object directly
                 if hasattr(response, "output_parsed") and response.output_parsed is not None:
@@ -684,6 +734,115 @@ class OpenAIProvider(LLMProvider):
 
             raise self._convert_exception(e) from e
 
+    async def generate_audio(
+        self,
+        request: AudioGenerationRequest,
+        user_id: uuid.UUID | None = None,
+        **kwargs: Any,
+    ) -> tuple[AudioResponse, uuid.UUID]:
+        """Synthesize narrated audio using the OpenAI Text-to-Speech API."""
+
+        start_time = datetime.now(UTC)
+
+        try:
+            messages = [LLMMessage(role=MessageRole.USER, content=request.text)]
+            llm_request = self._create_llm_request(
+                messages=messages,
+                user_id=user_id,
+                model=request.model,
+                temperature=0.0,
+            )
+
+            if llm_request.id is None:
+                raise LLMError("Failed to create LLM request record")
+            request_id: uuid.UUID = llm_request.id
+
+            speech_client = getattr(getattr(self.client, "audio", None), "speech", None)
+            if speech_client is None:
+                raise LLMError("OpenAI audio synthesis API is not available in this environment")
+
+            normalized_voice = self._normalize_voice(request.voice)
+
+            # Use new TTS model default if caller passes gpt-4o-mini-tts
+            resolved_model = request.model
+            if resolved_model == "gpt-4o-mini-tts":
+                resolved_model = "tts-1-hd"
+
+            request_kwargs = {
+                "model": resolved_model,
+                "voice": normalized_voice,
+                "input": request.text,
+                # OpenAI SDK expects 'response_format' for TTS output format
+                "response_format": request.audio_format,
+            }
+            request_kwargs.update({k: v for k, v in kwargs.items() if v is not None})
+            if request.speed is not None:
+                request_kwargs["speed"] = str(request.speed)
+
+            audio_bytes: bytes
+            create_method = getattr(speech_client, "create", None)
+            if not callable(create_method):
+                raise LLMError("OpenAI audio synthesis API does not expose a create() method")
+
+            response = await cast(Any, create_method)(**request_kwargs)
+
+            audio_payload = getattr(response, "content", None)
+            if isinstance(audio_payload, bytes | bytearray):
+                audio_bytes = bytes(audio_payload)
+            else:
+                audio_payload = getattr(response, "audio", audio_payload)
+                if isinstance(audio_payload, bytes | bytearray):
+                    audio_bytes = bytes(audio_payload)
+                elif isinstance(audio_payload, str):
+                    audio_bytes = base64.b64decode(audio_payload)
+                else:
+                    raise LLMError("Unsupported audio response format from OpenAI")
+
+            audio_base64 = base64.b64encode(audio_bytes).decode("ascii")
+            mime_type = "audio/mpeg" if request.audio_format == "mp3" else f"audio/{request.audio_format}"
+            duration_seconds = self._estimate_audio_duration_seconds(request.text)
+
+            audio_response = AudioResponse(
+                audio_base64=audio_base64,
+                mime_type=mime_type,
+                voice=request.voice,
+                model=request.model,
+                cost_estimate=None,
+                duration_seconds=duration_seconds,
+            )
+
+            execution_time_ms = int((datetime.now(UTC) - start_time).total_seconds() * 1000)
+
+            with contextlib.suppress(Exception):
+                llm_request.request_payload = request_kwargs
+                llm_request.additional_params = {
+                    "audio_format": request.audio_format,
+                    "speed": request.speed,
+                }
+
+            self._update_audio_request_success(
+                llm_request,
+                audio_response,
+                execution_time_ms,
+                {"mime_type": mime_type, "voice": request.voice},
+            )
+
+            logger.info(
+                "Generated audio narration - Model: %s Voice: %s Duration: %ss",
+                request.model,
+                request.voice,
+                duration_seconds,
+            )
+            return audio_response, request_id
+
+        except Exception as e:
+            execution_time_ms = int((datetime.now(UTC) - start_time).total_seconds() * 1000)
+
+            if "llm_request" in locals():
+                self._update_llm_request_error(llm_request, e, execution_time_ms)
+
+            raise self._convert_exception(e) from e
+
     async def search_recent_news(
         self,
         search_queries: list[str],
@@ -747,6 +906,16 @@ class OpenAIProvider(LLMProvider):
             return 0.040  # Standard
         else:
             return 0.080  # Standard + large size
+
+    def _estimate_audio_duration_seconds(self, transcript: str) -> int:
+        """Estimate narration duration based on transcript length."""
+
+        words = re.findall(r"[\w']+", transcript)
+        if not words:
+            return 0
+
+        estimated_minutes = len(words) / 165  # Approximate spoken words per minute
+        return max(1, math.ceil(estimated_minutes * 60))
 
     async def _make_api_call_with_retry(self, api_call_func: Any) -> Any:
         """Make API call with retry logic for rate limits and transient errors."""

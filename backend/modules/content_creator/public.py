@@ -43,6 +43,7 @@ def content_creator_provider(content: ContentProvider) -> ContentCreatorProvider
     Returns:
         ContentCreatorService instance that implements the ContentCreatorProvider protocol.
     """
+    # Content service manages object store; no object store injected here
     return ContentCreatorService(content)
 
 

@@ -12,6 +12,8 @@ from sqlalchemy.orm import Session
 from ..config import LLMConfig
 from ..models import LLMRequestModel
 from ..types import (
+    AudioGenerationRequest,
+    AudioResponse,
     ImageGenerationRequest,
     ImageResponse,
     LLMMessage,
@@ -169,6 +171,23 @@ class LLMProvider(ABC):
 
         self.db_session.commit()
 
+    def _update_audio_request_success(
+        self,
+        llm_request: "LLMRequestModel",
+        response: AudioResponse,
+        execution_time_ms: int,
+        response_raw: dict[str, Any] | None = None,
+    ) -> None:
+        """Update LLMRequest record with synthesized audio data."""
+
+        llm_request.response_content = None
+        llm_request.response_raw = response_raw or response.to_dict()
+        llm_request.cost_estimate = response.cost_estimate
+        llm_request.execution_time_ms = execution_time_ms
+        llm_request.status = "completed"
+
+        self.db_session.commit()
+
     @abstractmethod
     async def generate_response(
         self,
@@ -197,6 +216,16 @@ class LLMProvider(ABC):
         **kwargs: LLMProviderKwargs,
     ) -> tuple[ImageResponse, uuid.UUID]:
         """Generate an image from the provider."""
+        raise NotImplementedError
+
+    @abstractmethod
+    async def generate_audio(
+        self,
+        request: AudioGenerationRequest,
+        user_id: uuid.UUID | None = None,
+        **kwargs: LLMProviderKwargs,
+    ) -> tuple[AudioResponse, uuid.UUID]:
+        """Synthesize narrated audio from the provider."""
         raise NotImplementedError
 
     @abstractmethod

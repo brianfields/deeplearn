@@ -14,11 +14,20 @@ export class ContentCreatorRepo {
     request: UnitCreationRequest
   ): Promise<UnitCreationResponse> {
     try {
+      // Build URL with optional user_id query param to associate unit ownership
+      let url = `${CONTENT_CREATOR_BASE}/units`;
+      if (request.ownerUserId != null) {
+        const qs = new URLSearchParams({
+          user_id: String(request.ownerUserId),
+        });
+        url = `${url}?${qs.toString()}`;
+      }
+
       const response = await this.infrastructure.request<{
         unit_id: string;
         status: string;
         title: string;
-      }>(`${CONTENT_CREATOR_BASE}/units`, {
+      }>(url, {
         method: 'POST',
         body: JSON.stringify({
           topic: request.topic,

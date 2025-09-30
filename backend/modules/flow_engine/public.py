@@ -225,7 +225,7 @@ from sqlalchemy.orm import Session
 
 from ..llm_services.public import LLMServicesProvider
 from .base_flow import BaseFlow
-from .base_step import BaseStep, ImageStep, StepResult, StepType, StructuredStep, UnstructuredStep
+from .base_step import AudioStep, BaseStep, ImageStep, StepResult, StepType, StructuredStep, UnstructuredStep
 from .context import FlowContext
 from .repo import FlowRunRepo, FlowStepRunRepo
 from .service import FlowRunDetailsDTO, FlowRunQueryService, FlowRunSummaryDTO, FlowStepDetailsDTO
@@ -319,6 +319,7 @@ def flow_engine_worker_provider(session: Session, llm_services: LLMServicesProvi
 
 
 __all__ = [
+    "AudioStep",
     "BaseFlow",
     "BaseStep",
     "FlowContext",

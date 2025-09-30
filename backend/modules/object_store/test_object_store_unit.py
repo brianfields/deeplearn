@@ -97,7 +97,7 @@ class _FakeS3Provider(S3Provider):
             created_at=datetime.utcnow(),
         )
 
-    async def get_presigned_url(self, s3_key: str, expires_in: int = 3600, method: str = "get_object") -> str:  # type: ignore[override]
+    async def get_presigned_url(self, s3_key: str, expires_in: int = 3600, _method: str = "get_object") -> str:  # type: ignore[override]
         if s3_key not in self._files:
             raise S3Error("missing")
         return f"https://example.com/{s3_key}?expires={expires_in}"

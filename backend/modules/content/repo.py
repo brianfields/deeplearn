@@ -7,6 +7,7 @@ Handles all CRUD operations for lessons with embedded package content.
 
 from datetime import UTC, datetime
 from typing import Any
+import uuid
 
 from sqlalchemy import and_, desc
 from sqlalchemy.orm import Session
@@ -159,6 +160,33 @@ class ContentRepo:
 
         # Update unit order to reflect attached lessons only
         unit.lesson_order = ordered_existing_ids  # type: ignore[assignment]
+        self.s.add(unit)
+        self.s.flush()
+        return unit
+
+    def set_unit_podcast(
+        self,
+        unit_id: str,
+        *,
+        transcript: str | None,
+        audio_object_id: uuid.UUID | None,
+        voice: str | None,
+    ) -> UnitModel | None:
+        """Persist podcast transcript and object store reference for a unit."""
+
+        unit = self.get_unit_by_id(unit_id)
+        if not unit:
+            return None
+
+        unit.podcast_transcript = transcript  # type: ignore[assignment]
+        unit.podcast_audio_object_id = audio_object_id  # type: ignore[assignment]
+        unit.podcast_voice = voice  # type: ignore[assignment]
+        has_audio_reference = audio_object_id is not None
+        if transcript or has_audio_reference:
+            unit.podcast_generated_at = datetime.now(UTC)  # type: ignore[assignment]
+        else:
+            unit.podcast_generated_at = None  # type: ignore[assignment]
+        unit.updated_at = datetime.now(UTC)  # type: ignore[assignment]
         self.s.add(unit)
         self.s.flush()
         return unit

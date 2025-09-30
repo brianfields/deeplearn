@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 InputT = TypeVar("InputT", bound=BaseModel)
 
 __all__ = [
+    "AudioStep",
     "BaseStep",
     "ImageStep",
     "StepResult",
@@ -37,6 +38,7 @@ class StepType(Enum):
     UNSTRUCTURED_LLM = "unstructured_llm"  # Returns raw text content
     STRUCTURED_LLM = "structured_llm"  # Returns typed Pydantic object
     IMAGE_GENERATION = "image_generation"  # Generates images
+    AUDIO_SYNTHESIS = "audio_synthesis"  # Generates narrated audio
     NEWS_GATHERING = "news_gathering"  # Fetches web data
 
 
@@ -371,3 +373,41 @@ class ImageStep(BaseStep):
         context.last_cost_estimate = image_response.cost_estimate or 0.0
 
         return image_response.model_dump(), request_id
+
+
+class AudioStep(BaseStep):
+    """Base class for steps that synthesize narrated audio."""
+
+    @property
+    def step_type(self) -> StepType:
+        return StepType.AUDIO_SYNTHESIS
+
+    async def _execute_step_logic(self, inputs: BaseModel, context: "FlowContext") -> tuple[dict[str, Any], uuid.UUID | None]:
+        """Execute audio synthesis using the configured LLM provider."""
+
+        inputs_dict = inputs.model_dump()
+        text = inputs_dict.get("text") or inputs_dict.get("transcript")
+        voice = inputs_dict.get("voice")
+        model = inputs_dict.get("model")
+        audio_format = inputs_dict.get("format", "mp3")
+        speed = inputs_dict.get("speed")
+
+        if not text:
+            raise ValueError("AudioStep requires a 'text' input to synthesize")
+        if not voice:
+            raise ValueError("AudioStep requires a 'voice' input to synthesize")
+
+        llm_services = context.service.get_llm_services()
+        audio_response, request_id = await llm_services.generate_audio(
+            text=text,
+            voice=voice,
+            model=model,
+            audio_format=audio_format,
+            speed=speed,
+            user_id=context.user_id,
+        )
+
+        context.last_tokens_used = 0  # Audio synthesis does not report tokens
+        context.last_cost_estimate = audio_response.cost_estimate or 0.0
+
+        return audio_response.model_dump(), request_id

@@ -9,12 +9,23 @@ from sqlalchemy.orm import Session
 from ..infrastructure.public import infrastructure_provider
 from .providers.base import LLMProviderKwargs
 from .repo import LLMRequestRepo
-from .service import ImageResponse, LLMMessage, LLMRequest, LLMResponse, LLMService, WebSearchResponse
+from .service import AudioResponse, ImageResponse, LLMMessage, LLMRequest, LLMResponse, LLMService, WebSearchResponse
 
 # Type variable for structured responses
 T = TypeVar("T", bound=BaseModel)
 
-__all__ = ["ImageResponse", "LLMMessage", "LLMRequest", "LLMResponse", "LLMServicesAdminProvider", "LLMServicesProvider", "WebSearchResponse", "llm_services_admin_provider", "llm_services_provider"]
+__all__ = [
+    "AudioResponse",
+    "ImageResponse",
+    "LLMMessage",
+    "LLMRequest",
+    "LLMResponse",
+    "LLMServicesAdminProvider",
+    "LLMServicesProvider",
+    "WebSearchResponse",
+    "llm_services_admin_provider",
+    "llm_services_provider",
+]
 
 
 class LLMServicesProvider(Protocol):
@@ -93,6 +104,19 @@ class LLMServicesProvider(Protocol):
         Raises:
             LLMError: If the request fails
         """
+        ...
+
+    async def generate_audio(
+        self,
+        text: str,
+        voice: str,
+        user_id: uuid.UUID | None = None,
+        model: str | None = None,
+        audio_format: str = "mp3",
+        speed: float | None = None,
+        **kwargs: LLMProviderKwargs,
+    ) -> tuple[AudioResponse, uuid.UUID]:
+        """Synthesize narrated audio from text content."""
         ...
 
     async def search_web(self, queries: list[str], user_id: uuid.UUID | None = None, max_results: int = 10, **kwargs: LLMProviderKwargs) -> tuple[WebSearchResponse, uuid.UUID]:
