@@ -28,7 +28,6 @@ import asyncio
 import logging
 from pathlib import Path
 
-from modules.content.public import content_provider
 from modules.content_creator.public import content_creator_provider
 from modules.infrastructure.public import infrastructure_provider
 
@@ -59,7 +58,7 @@ def setup_logging(verbose: bool) -> None:
         logging.basicConfig(level=logging.WARNING)
 
 
-async def _run_async() -> int:
+async def main() -> int:
     args = parse_args()
 
     setup_logging(args.verbose)
@@ -84,9 +83,8 @@ async def _run_async() -> int:
         if args.verbose:
             print(f"✅ Loaded {len(source_material)} characters from source file")
 
-    with infra.get_session_context() as s:
-        content = content_provider(s)
-        creator = content_creator_provider(content)
+    async with infra.get_async_session_context() as session:
+        creator = content_creator_provider(session)
 
         if args.verbose:
             print("🏗️ Creating complete unit with lessons...")
@@ -143,7 +141,7 @@ async def _run_async() -> int:
 
 if __name__ == "__main__":
     try:
-        exit_code = asyncio.run(_run_async())
+        exit_code = asyncio.run(main())
     except KeyboardInterrupt:
         exit_code = 130
     raise SystemExit(exit_code)

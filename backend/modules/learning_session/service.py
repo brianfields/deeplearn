@@ -175,21 +175,23 @@ class LearningSessionService:
             raise ValueError("User identifier is required to start a session")
 
         # Validate lesson exists
-        lesson_content = self.content.get_lesson(request.lesson_id)
+        lesson_content = await self.content.get_lesson(request.lesson_id)
         if not lesson_content:
             raise ValueError(f"Lesson {request.lesson_id} not found")
 
         # Check for existing active session (if user provided)
-        existing_session = self.repo.get_active_session_for_user_and_lesson(request.user_id, request.lesson_id)
+        existing_session = await self.repo.get_active_session_for_user_and_lesson(
+            request.user_id, request.lesson_id
+        )
         if existing_session:
             # Ensure the session is bound to the requesting user (for legacy records)
-            existing_session = self._ensure_session_user(existing_session, request.user_id)
+            existing_session = await self._ensure_session_user(existing_session, request.user_id)
             return self._to_session_dto(existing_session)
 
         total_exercises = len(lesson_content.package.exercises) if lesson_content else 0
 
         # Create new session
-        session = self.repo.create_session(
+        session = await self.repo.create_session(
             lesson_id=request.lesson_id,
             user_id=request.user_id,
             total_exercises=total_exercises,
@@ -201,7 +203,7 @@ class LearningSessionService:
             unit_id = getattr(lesson_content, "unit_id", None) if lesson_content else None
             if unit_id:
                 # Ensure unit session exists
-                self.content.get_or_create_unit_session(user_id=request.user_id, unit_id=unit_id)
+                await self.content.get_or_create_unit_session(user_id=request.user_id, unit_id=unit_id)
         except Exception as e:
             logger.warning(f"Failed to create unit session: {e}")
             # Non-fatal; proceed even if unit session cannot be created
@@ -211,28 +213,28 @@ class LearningSessionService:
 
     async def get_session(self, session_id: str, user_id: str | None = None) -> LearningSession | None:
         """Get session by ID"""
-        session = self.repo.get_session_by_id(session_id)
+        session = await self.repo.get_session_by_id(session_id)
         if not session:
             return None
-        session = self._ensure_session_user(session, user_id)
+        session = await self._ensure_session_user(session, user_id)
         return self._to_session_dto(session)
 
     async def pause_session(self, session_id: str, user_id: str | None = None) -> LearningSession | None:
         """Pause a session"""
-        session = self.repo.update_session_status(session_id, SessionStatus.PAUSED)
+        session = await self.repo.update_session_status(session_id, SessionStatus.PAUSED)
         if not session:
             return None
-        session = self._ensure_session_user(session, user_id)
+        session = await self._ensure_session_user(session, user_id)
         return self._to_session_dto(session)
 
     async def update_progress(self, request: UpdateProgressRequest) -> SessionProgress:
         """Update session progress and store exercise results"""
         # Get session to validate it exists and is active
-        session = self.repo.get_session_by_id(request.session_id)
+        session = await self.repo.get_session_by_id(request.session_id)
         if not session:
             raise ValueError(f"Session {request.session_id} not found")
 
-        session = self._ensure_session_user(session, request.user_id)
+        session = await self._ensure_session_user(session, request.user_id)
 
         if session.status not in [SessionStatus.ACTIVE.value, SessionStatus.PAUSED.value]:
             raise ValueError(f"Cannot update progress for {session.status} session")
@@ -303,7 +305,7 @@ class LearningSessionService:
         updates["session_data"] = session_data
 
         # Update session in database
-        self.repo.update_session_progress(session_id=request.session_id, **updates)
+        await self.repo.update_session_progress(session_id=request.session_id, **updates)
 
         # Return session progress response
         return SessionProgress(
@@ -329,18 +331,18 @@ class LearningSessionService:
 
     async def complete_session(self, request: CompleteSessionRequest) -> SessionResults:
         """Complete a session and calculate results"""
-        session = self.repo.get_session_by_id(request.session_id)
+        session = await self.repo.get_session_by_id(request.session_id)
         if not session:
             raise ValueError(f"Session {request.session_id} not found")
 
-        session = self._ensure_session_user(session, request.user_id)
+        session = await self._ensure_session_user(session, request.user_id)
 
         if session.status == SessionStatus.COMPLETED.value:
             # Already completed, return existing results
             return self._calculate_session_results(session)
 
         # Mark session as completed
-        completed_session = self.repo.update_session_status(
+        completed_session = await self.repo.update_session_status(
             request.session_id,
             SessionStatus.COMPLETED,
             completed_at=datetime.utcnow(),
@@ -349,7 +351,7 @@ class LearningSessionService:
         if not completed_session:
             raise ValueError("Failed to complete session")
 
-        completed_session = self._ensure_session_user(completed_session, request.user_id)
+        completed_session = await self._ensure_session_user(completed_session, request.user_id)
 
         results = self._calculate_session_results(completed_session)
 
@@ -357,21 +359,23 @@ class LearningSessionService:
         try:
             if completed_session.user_id:
                 # Fetch lesson and unit to update unit session state
-                lesson = self.content.get_lesson(completed_session.lesson_id)
+                lesson = await self.content.get_lesson(completed_session.lesson_id)
                 unit_id = getattr(lesson, "unit_id", None) if lesson else None
                 if unit_id:
                     # Determine total lessons in unit for percentage calculation
-                    lessons_in_unit = self.content.get_lessons_by_unit(unit_id)
+                    lessons_in_unit = await self.content.get_lessons_by_unit(unit_id)
                     total_lessons = len(lessons_in_unit)
                     # Compute if completing this lesson finishes the unit
                     try:
-                        us = self.content.get_or_create_unit_session(user_id=completed_session.user_id, unit_id=unit_id)
+                        us = await self.content.get_or_create_unit_session(
+                            user_id=completed_session.user_id, unit_id=unit_id
+                        )
                         already_completed = set(us.completed_lesson_ids or [])
                     except Exception:
                         already_completed = set()
                     will_be_completed = len(already_completed | {completed_session.lesson_id}) >= total_lessons > 0
 
-                    self.content.update_unit_session_progress(
+                    await self.content.update_unit_session_progress(
                         user_id=completed_session.user_id,
                         unit_id=unit_id,
                         completed_lesson_id=completed_session.lesson_id,
@@ -388,7 +392,7 @@ class LearningSessionService:
     async def get_unit_progress(self, user_id: str, unit_id: str) -> UnitProgress:
         """Get unit progress primarily from persistent unit session, fallback to aggregation."""
         # Try persistent unit session
-        lessons = self.content.get_lessons_by_unit(unit_id)
+        lessons = await self.content.get_lessons_by_unit(unit_id)
         total_lessons = len(lessons)
 
         # Fallback aggregation list for lesson-level stats
@@ -397,7 +401,9 @@ class LearningSessionService:
 
         # Build lesson-level details from latest sessions
         for lesson in lessons:
-            sessions, _ = self.repo.get_user_sessions(user_id=user_id, lesson_id=lesson.id, limit=1, offset=0)
+            sessions, _ = await self.repo.get_user_sessions(
+                user_id=user_id, lesson_id=lesson.id, limit=1, offset=0
+            )
             if sessions:
                 s = sessions[0]
                 total_exercises = len(lesson.package.exercises)
@@ -430,8 +436,14 @@ class LearningSessionService:
 
         # Try persistent session
         try:
-            us = self.content.get_or_create_unit_session(user_id=user_id, unit_id=unit_id)
-            avg_progress = us.progress_percentage if us else sum(lp.progress_percentage for lp in lesson_progress_list) / total_lessons if total_lessons > 0 else 0.0
+            us = await self.content.get_or_create_unit_session(user_id=user_id, unit_id=unit_id)
+            avg_progress = (
+                us.progress_percentage
+                if us
+                else sum(lp.progress_percentage for lp in lesson_progress_list) / total_lessons
+                if total_lessons > 0
+                else 0.0
+            )
         except Exception:
             avg_progress = sum(lp.progress_percentage for lp in lesson_progress_list) / total_lessons if total_lessons > 0 else 0.0
 
@@ -443,21 +455,21 @@ class LearningSessionService:
             lessons=lesson_progress_list,
         )
 
-    def _unit_all_lessons_completed(self, user_id: str, unit_id: str, total_lessons: int) -> bool:
+    async def _unit_all_lessons_completed(self, user_id: str, unit_id: str, total_lessons: int) -> bool:
         """Check if all lessons in a unit are completed for a user based on unit session."""
         try:
-            us = self.content.get_or_create_unit_session(user_id=user_id, unit_id=unit_id)
+            us = await self.content.get_or_create_unit_session(user_id=user_id, unit_id=unit_id)
             return len(us.completed_lesson_ids or []) >= total_lessons > 0
         except Exception:
             return False
 
     async def get_next_lesson_to_resume(self, user_id: str, unit_id: str) -> str | None:
         """Return next incomplete lesson id within a unit for resuming learning."""
-        unit_detail = self.content.get_unit_detail(unit_id)
+        unit_detail = await self.content.get_unit_detail(unit_id)
         if not unit_detail:
             return None
         try:
-            us = self.content.get_or_create_unit_session(user_id=user_id, unit_id=unit_id)
+            us = await self.content.get_or_create_unit_session(user_id=user_id, unit_id=unit_id)
             completed = set(us.completed_lesson_ids or [])
         except Exception:
             completed = set()
@@ -481,7 +493,7 @@ class LearningSessionService:
         offset: int = 0,
     ) -> SessionListResponse:
         """Get user sessions with filtering"""
-        sessions, total = self.repo.get_user_sessions(
+        sessions, total = await self.repo.get_user_sessions(
             user_id=user_id,
             status=status,
             lesson_id=lesson_id,
@@ -489,18 +501,23 @@ class LearningSessionService:
             offset=offset,
         )
 
-        session_dtos = [self._to_session_dto(self._ensure_session_user(session, user_id)) for session in sessions]
+        session_dtos: list[LearningSession] = []
+        for session in sessions:
+            ensured_session = await self._ensure_session_user(session, user_id)
+            session_dtos.append(self._to_session_dto(ensured_session))
         return SessionListResponse(sessions=session_dtos, total=total)
 
     async def check_health(self) -> bool:
         """Health check for the learning session service"""
-        return self.repo.health_check()
+        return await self.repo.health_check()
 
     # ================================
     # Private Helper Methods
     # ================================
 
-    def _ensure_session_user(self, session: LearningSessionModel, user_id: str | None) -> LearningSessionModel:
+    async def _ensure_session_user(
+        self, session: LearningSessionModel, user_id: str | None
+    ) -> LearningSessionModel:
         """Validate or persist the session's user association."""
 
         if user_id is None:
@@ -509,7 +526,7 @@ class LearningSessionService:
             raise PermissionError("User context is required for this learning session")
 
         if session.user_id is None:
-            return self.repo.assign_session_user(session.id, user_id)
+            return await self.repo.assign_session_user(session.id, user_id)
 
         if session.user_id != user_id:
             raise PermissionError("Learning session belongs to a different user")

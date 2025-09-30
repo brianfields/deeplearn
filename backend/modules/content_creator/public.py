@@ -1,14 +1,11 @@
-"""
-Content Creator Module - Public Interface
-
-Protocol definition and dependency injection provider.
-This is the only interface other modules should import from.
-"""
+"""Protocol definition and dependency injection provider."""
 
 import logging
 from typing import Protocol
 
-from modules.content.public import ContentProvider
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from modules.content.public import ContentProvider, content_provider
 from modules.infrastructure.public import infrastructure_provider
 from modules.task_queue.public import register_task_handler
 
@@ -16,9 +13,8 @@ from .service import ContentCreatorService, CreateLessonRequest, LessonCreationR
 
 
 class ContentCreatorProvider(Protocol):
-    """Protocol defining the content creator module's public interface."""
+    """Protocol defining the content creator module's public async interface."""
 
-    # Unified unit creation API
     async def create_unit(
         self,
         *,
@@ -27,23 +23,14 @@ class ContentCreatorProvider(Protocol):
         background: bool = False,
         target_lesson_count: int | None = None,
         learner_level: str = "beginner",
-    ) -> ContentCreatorService.UnitCreationResult | ContentCreatorService.MobileUnitCreationResult: ...
+    ) -> ContentCreatorService.UnitCreationResult | ContentCreatorService.MobileUnitCreationResult:
+        ...
 
-    # generate_component method removed - it was unused
 
+def content_creator_provider(session: AsyncSession) -> ContentCreatorProvider:
+    """Build the content creator service for the given async session."""
 
-def content_creator_provider(content: ContentProvider) -> ContentCreatorProvider:
-    """
-    Dependency injection provider for content creator services.
-    No longer needs LLM services - flows handle LLM interactions internally.
-
-    Args:
-        content: Content service instance (built with same session as caller).
-
-    Returns:
-        ContentCreatorService instance that implements the ContentCreatorProvider protocol.
-    """
-    # Content service manages object store; no object store injected here
+    content: ContentProvider = content_provider(session)
     return ContentCreatorService(content)
 
 
@@ -55,10 +42,8 @@ logger = logging.getLogger(__name__)
 
 
 async def _handle_unit_creation(payload: dict) -> None:
-    """ARQ handler: execute unit creation end-to-end in content_creator.
+    """ARQ handler: execute unit creation end-to-end in content_creator."""
 
-    Expects payload to include: unit_id, topic, (optional) source_material, learner_level, target_lesson_count.
-    """
     infra = infrastructure_provider()
     infra.initialize()
     inputs = payload.get("inputs") or {}
@@ -66,18 +51,16 @@ async def _handle_unit_creation(payload: dict) -> None:
     topic = str(payload.get("topic") or inputs.get("topic") or "")
     source_material = inputs.get("source_material")
     learner_level = str(payload.get("learner_level") or inputs.get("learner_level") or "beginner")
-    target = payload.get("target_lesson_count") if payload.get("target_lesson_count") is not None else inputs.get("target_lesson_count")
-
-    from modules.content.public import content_provider  # noqa: PLC0415
-
-    from .service import ContentCreatorService  # local import  # noqa: PLC0415
+    target = (
+        payload.get("target_lesson_count")
+        if payload.get("target_lesson_count") is not None
+        else inputs.get("target_lesson_count")
+    )
 
     # Use a fresh DB session for the whole operation
-    with infra.get_session_context() as s:
-        content = content_provider(s)
-        svc = ContentCreatorService(content)
-        # Run the unified pipeline in the background with provided unit_id
-        await svc._execute_unit_creation_pipeline(
+    async with infra.get_async_session_context() as session:
+        svc = content_creator_provider(session)
+        await svc._execute_unit_creation_pipeline(  # type: ignore[attr-defined]
             unit_id=unit_id,
             topic=topic,
             source_material=source_material,
@@ -99,5 +82,4 @@ __all__ = [
     "CreateLessonRequest",
     "LessonCreationResult",
     "content_creator_provider",
-    # registry side-effects are internal; no need to export handler
 ]

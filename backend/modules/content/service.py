@@ -7,10 +7,7 @@ Business logic layer that returns DTOs (Pydantic models).
 Handles content operations and data transformation.
 """
 
-import asyncio
-
 # Import inside methods when needed to avoid circular imports with public/providers
-from collections.abc import Awaitable, Coroutine
 from datetime import UTC, datetime
 from enum import Enum
 import logging
@@ -85,9 +82,9 @@ class ContentService:
         self._audio_metadata_cache: dict[uuid.UUID, Any | None] = {}
 
     # Lesson operations
-    def get_lesson(self, lesson_id: str) -> LessonRead | None:
+    async def get_lesson(self, lesson_id: str) -> LessonRead | None:
         """Get lesson with package by ID."""
-        lesson = self.repo.get_lesson_by_id(lesson_id)
+        lesson = await self.repo.get_lesson_by_id(lesson_id)
         if not lesson:
             return None
 
@@ -115,9 +112,9 @@ class ContentService:
             logger.error(f"❌ Failed to validate lesson {lesson.id} ({lesson.title}): {e}")
             raise
 
-    def get_all_lessons(self, limit: int = 100, offset: int = 0) -> list[LessonRead]:
+    async def get_all_lessons(self, limit: int = 100, offset: int = 0) -> list[LessonRead]:
         """Get all lessons with packages."""
-        lessons = self.repo.get_all_lessons(limit, offset)
+        lessons = await self.repo.get_all_lessons(limit, offset)
         result = []
 
         for lesson in lessons:
@@ -147,9 +144,15 @@ class ContentService:
 
         return result
 
-    def search_lessons(self, query: str | None = None, learner_level: str | None = None, limit: int = 100, offset: int = 0) -> list[LessonRead]:
+    async def search_lessons(
+        self,
+        query: str | None = None,
+        learner_level: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[LessonRead]:
         """Search lessons with optional filters."""
-        lessons = self.repo.search_lessons(query, learner_level, limit, offset)
+        lessons = await self.repo.search_lessons(query, learner_level, limit, offset)
         result = []
 
         for lesson in lessons:
@@ -180,9 +183,9 @@ class ContentService:
         return result
 
     # New: Lessons by unit
-    def get_lessons_by_unit(self, unit_id: str, limit: int = 100, offset: int = 0) -> list[LessonRead]:
+    async def get_lessons_by_unit(self, unit_id: str, limit: int = 100, offset: int = 0) -> list[LessonRead]:
         """Return lessons that belong to the given unit."""
-        lessons = self.repo.get_lessons_by_unit(unit_id=unit_id, limit=limit, offset=offset)
+        lessons = await self.repo.get_lessons_by_unit(unit_id=unit_id, limit=limit, offset=offset)
         result: list[LessonRead] = []
         for lesson in lessons:
             try:
@@ -207,7 +210,7 @@ class ContentService:
                 continue
         return result
 
-    def save_lesson(self, lesson_data: LessonCreate) -> LessonRead:
+    async def save_lesson(self, lesson_data: LessonCreate) -> LessonRead:
         """Create new lesson with package."""
         package_dict = lesson_data.package.model_dump()
 
@@ -223,7 +226,7 @@ class ContentService:
             updated_at=datetime.now(UTC),
         )
 
-        saved_lesson = self.repo.save_lesson(lesson_model)
+        saved_lesson = await self.repo.save_lesson(lesson_model)
 
         # Return as DTO
         lesson_dict = {
@@ -248,13 +251,13 @@ class ContentService:
             logger.error(f"❌ Failed to validate saved lesson {saved_lesson.id} ({saved_lesson.title}): {e}")
             raise
 
-    def delete_lesson(self, lesson_id: str) -> bool:
+    async def delete_lesson(self, lesson_id: str) -> bool:
         """Delete lesson by ID."""
-        return self.repo.delete_lesson(lesson_id)
+        return await self.repo.delete_lesson(lesson_id)
 
-    def lesson_exists(self, lesson_id: str) -> bool:
+    async def lesson_exists(self, lesson_id: str) -> bool:
         """Check if lesson exists."""
-        return self.repo.lesson_exists(lesson_id)
+        return await self.repo.lesson_exists(lesson_id)
 
     # ======================
     # Unit operations (moved)
@@ -325,17 +328,17 @@ class ContentService:
         audio_bytes: bytes | None = None
         presigned_url: str | None = None
 
-    def _build_unit_read(
+    async def _build_unit_read(
         self,
         unit: UnitModel,
         *,
         audio_meta: Any | None = None,
     ) -> ContentService.UnitRead:
         unit_read = self.UnitRead.model_validate(unit)
-        self._apply_podcast_metadata(unit_read, unit, audio_meta=audio_meta)
+        await self._apply_podcast_metadata(unit_read, unit, audio_meta=audio_meta)
         return unit_read
 
-    def _apply_podcast_metadata(
+    async def _apply_podcast_metadata(
         self,
         unit_read: ContentService.UnitRead,
         unit: UnitModel,
@@ -349,7 +352,7 @@ class ContentService:
 
         resolved_meta = audio_meta
         if resolved_meta is None and audio_object_id and self._object_store is not None:
-            resolved_meta = self._fetch_audio_metadata(
+            resolved_meta = await self._fetch_audio_metadata(
                 audio_object_id,
                 requesting_user_id=getattr(unit, "user_id", None),
             )
@@ -365,7 +368,7 @@ class ContentService:
             except (TypeError, ValueError):
                 unit_read.podcast_duration_seconds = None
 
-    def _fetch_audio_metadata(
+    async def _fetch_audio_metadata(
         self,
         audio_object_id: uuid.UUID | str | None,
         *,
@@ -386,35 +389,20 @@ class ContentService:
         if not include_presigned_url and audio_uuid in self._audio_metadata_cache:
             return self._audio_metadata_cache[audio_uuid]
 
-        # If we're already inside a running event loop, we cannot synchronously await.
-        # In that case, skip metadata fetch to avoid nested loop errors.
-        loop_running = False
-        try:  # Detect if an event loop is already running in this thread
-            asyncio.get_running_loop()
-            loop_running = True
-        except RuntimeError:
-            loop_running = False
-
-        if loop_running:
-            logger.debug("🎧 Skipping async audio metadata fetch while event loop is running")
+        try:
+            metadata = await self._object_store.get_audio(  # type: ignore[func-returns-value]
+                audio_uuid,
+                requesting_user_id=requesting_user_id,
+                include_presigned_url=include_presigned_url,
+            )
+        except Exception as exc:  # pragma: no cover - network/object store issues
+            logger.warning(
+                "🎧 Failed to retrieve podcast audio metadata %s: %s",
+                audio_uuid,
+                exc,
+                exc_info=True,
+            )
             metadata = None
-        else:
-            try:
-                metadata = self._run_async(
-                    self._object_store.get_audio(
-                        audio_uuid,
-                        requesting_user_id=requesting_user_id,
-                        include_presigned_url=include_presigned_url,
-                    )
-                )
-            except Exception as exc:  # pragma: no cover - network/object store issues
-                logger.warning(
-                    "🎧 Failed to retrieve podcast audio metadata %s: %s",
-                    audio_uuid,
-                    exc,
-                    exc_info=True,
-                )
-                metadata = None
 
         if not include_presigned_url:
             self._audio_metadata_cache[audio_uuid] = metadata
@@ -441,7 +429,7 @@ class ContentService:
         suffix = extension_map.get((mime_type or "").lower(), ".bin")
         return f"unit-{unit_id}{suffix}"
 
-    def save_unit_podcast_from_bytes(
+    async def save_unit_podcast_from_bytes(
         self,
         unit_id: str,
         *,
@@ -450,63 +438,11 @@ class ContentService:
         mime_type: str | None,
         voice: str | None,
     ) -> ContentService.UnitRead:
-        """Upload podcast audio and persist metadata for a unit in one call.
-
-        Raises RuntimeError if object store is not configured.
-        """
+        """Upload podcast audio and persist metadata for a unit."""
         if self._object_store is None:
             raise RuntimeError("Object store is not configured; cannot persist generated podcast audio.")
 
-        unit_info = self.repo.get_unit_by_id(unit_id)
-        if unit_info is None:
-            raise ValueError("Unit not found")
-
-        owner_id = getattr(unit_info, "user_id", None)
-        filename = self._build_podcast_filename(unit_id, mime_type)
-
-        # Upload audio
-        upload = self._run_async(
-            self._object_store.upload_audio(
-                AudioCreate(
-                    user_id=owner_id,
-                    filename=filename,
-                    content_type=(mime_type or "audio/mpeg"),
-                    content=audio_bytes,
-                    transcript=transcript,
-                )
-            )
-        )
-
-        audio_object_id = upload.file.id
-
-        # Persist references and return updated unit read (with duration metadata if available)
-        updated = self.set_unit_podcast(
-            unit_id,
-            transcript=transcript,
-            audio_object_id=audio_object_id,
-            voice=voice,
-        )
-        if updated is None:
-            raise ValueError("Failed to persist unit podcast metadata")
-        return updated
-
-    async def save_unit_podcast_from_bytes_async(
-        self,
-        unit_id: str,
-        *,
-        transcript: str,
-        audio_bytes: bytes,
-        mime_type: str | None,
-        voice: str | None,
-    ) -> ContentService.UnitRead:
-        """Async version: upload podcast audio and persist metadata for a unit.
-
-        Intended for callers already running in an event loop.
-        """
-        if self._object_store is None:
-            raise RuntimeError("Object store is not configured; cannot persist generated podcast audio.")
-
-        unit_info = self.repo.get_unit_by_id(unit_id)
+        unit_info = await self.repo.get_unit_by_id(unit_id)
         if unit_info is None:
             raise ValueError("Unit not found")
 
@@ -525,8 +461,7 @@ class ContentService:
 
         audio_object_id = upload.file.id
 
-        # Persist references directly via repo to avoid calling sync methods from async context
-        updated_model = self.repo.set_unit_podcast(
+        updated_model = await self.repo.set_unit_podcast(
             unit_id,
             transcript=transcript,
             audio_object_id=audio_object_id,
@@ -535,19 +470,20 @@ class ContentService:
         if updated_model is None:
             raise ValueError("Failed to persist unit podcast metadata")
 
-        # Build UnitRead using the freshly available audio metadata from upload to avoid additional async calls
-        return self._build_unit_read(updated_model, audio_meta=upload.file)
+        return await self._build_unit_read(updated_model, audio_meta=upload.file)
 
-    def get_unit(self, unit_id: str) -> ContentService.UnitRead | None:
-        u = self.repo.get_unit_by_id(unit_id)
-        return self._build_unit_read(u) if u else None
+    async def get_unit(self, unit_id: str) -> ContentService.UnitRead | None:
+        u = await self.repo.get_unit_by_id(unit_id)
+        if u is None:
+            return None
+        return await self._build_unit_read(u)
 
-    def get_unit_detail(self, unit_id: str) -> ContentService.UnitDetailRead | None:
-        unit = self.repo.get_unit_by_id(unit_id)
-        if not unit:
+    async def get_unit_detail(self, unit_id: str) -> ContentService.UnitDetailRead | None:
+        unit = await self.repo.get_unit_by_id(unit_id)
+        if unit is None:
             return None
 
-        lesson_models = self.repo.get_lessons_by_unit(unit_id=unit_id)
+        lesson_models = await self.repo.get_lessons_by_unit(unit_id=unit_id)
         lesson_summaries: dict[str, ContentService.UnitLessonSummary] = {}
 
         for lesson in lesson_models:
@@ -599,14 +535,13 @@ class ContentService:
         audio_meta: Any | None = None
         audio_object_id = getattr(unit, "podcast_audio_object_id", None)
         if audio_object_id:
-            # Fetch with presigned URL so clients can stream directly without hitting our redirect route
-            audio_meta = self._fetch_audio_metadata(
+            audio_meta = await self._fetch_audio_metadata(
                 audio_object_id,
                 requesting_user_id=getattr(unit, "user_id", None),
                 include_presigned_url=True,
             )
 
-        unit_summary = self._build_unit_read(unit, audio_meta=audio_meta)
+        unit_summary = await self._build_unit_read(unit, audio_meta=audio_meta)
         detail_dict = unit_summary.model_dump()
         detail_dict["lesson_order"] = ordered_ids
         detail_dict["lessons"] = [lesson.model_dump() for lesson in ordered_lessons]
@@ -621,31 +556,56 @@ class ContentService:
 
         return self.UnitDetailRead.model_validate(detail_dict)
 
-    def list_units(self, limit: int = 100, offset: int = 0) -> list[ContentService.UnitRead]:
-        arr = self.repo.list_units(limit=limit, offset=offset)
-        return [self._build_unit_read(u) for u in arr]
+    async def list_units(self, limit: int = 100, offset: int = 0) -> list[ContentService.UnitRead]:
+        arr = await self.repo.list_units(limit=limit, offset=offset)
+        results: list[ContentService.UnitRead] = []
+        for unit in arr:
+            results.append(await self._build_unit_read(unit))
+        return results
 
-    def list_units_for_user(self, user_id: int, *, limit: int = 100, offset: int = 0) -> list[ContentService.UnitRead]:
+    async def list_units_for_user(self, user_id: int, *, limit: int = 100, offset: int = 0) -> list[ContentService.UnitRead]:
         """Return units owned by a specific user."""
-        arr = self.repo.list_units_for_user(user_id=user_id, limit=limit, offset=offset)
-        return [self._build_unit_read(u) for u in arr]
+        arr = await self.repo.list_units_for_user(user_id=user_id, limit=limit, offset=offset)
+        results: list[ContentService.UnitRead] = []
+        for unit in arr:
+            results.append(await self._build_unit_read(unit))
+        return results
 
-    def list_global_units(self, limit: int = 100, offset: int = 0) -> list[ContentService.UnitRead]:
+    async def list_global_units(self, limit: int = 100, offset: int = 0) -> list[ContentService.UnitRead]:
         """Return units that have been shared globally."""
-        arr = self.repo.list_global_units(limit=limit, offset=offset)
-        return [self._build_unit_read(u) for u in arr]
+        arr = await self.repo.list_global_units(limit=limit, offset=offset)
+        results: list[ContentService.UnitRead] = []
+        for unit in arr:
+            results.append(await self._build_unit_read(unit))
+        return results
 
-    def get_units_by_status(self, status: str, limit: int = 100, offset: int = 0) -> list[ContentService.UnitRead]:
+    async def get_units_by_status(self, status: str, limit: int = 100, offset: int = 0) -> list[ContentService.UnitRead]:
         """Get units filtered by status."""
-        arr = self.repo.get_units_by_status(status=status, limit=limit, offset=offset)
-        return [self._build_unit_read(u) for u in arr]
+        arr = await self.repo.get_units_by_status(status=status, limit=limit, offset=offset)
+        results: list[ContentService.UnitRead] = []
+        for unit in arr:
+            results.append(await self._build_unit_read(unit))
+        return results
 
-    def update_unit_status(self, unit_id: str, status: str, error_message: str | None = None, creation_progress: dict[str, Any] | None = None) -> ContentService.UnitRead | None:
+    async def update_unit_status(
+        self,
+        unit_id: str,
+        status: str,
+        error_message: str | None = None,
+        creation_progress: dict[str, Any] | None = None,
+    ) -> ContentService.UnitRead | None:
         """Update unit status and return the updated unit, or None if not found."""
-        updated = self.repo.update_unit_status(unit_id=unit_id, status=status, error_message=error_message, creation_progress=creation_progress)
-        return self._build_unit_read(updated) if updated else None
+        updated = await self.repo.update_unit_status(
+            unit_id=unit_id,
+            status=status,
+            error_message=error_message,
+            creation_progress=creation_progress,
+        )
+        if updated is None:
+            return None
+        return await self._build_unit_read(updated)
 
-    def create_unit(self, data: ContentService.UnitCreate) -> ContentService.UnitRead:
+    async def create_unit(self, data: ContentService.UnitCreate) -> ContentService.UnitRead:
         unit_id = data.id or str(uuid.uuid4())
         model = UnitModel(
             id=unit_id,
@@ -663,21 +623,21 @@ class ContentService:
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
         )
-        created = self.repo.add_unit(model)
-        return self._build_unit_read(created)
+        created = await self.repo.add_unit(model)
+        return await self._build_unit_read(created)
 
-    def set_unit_lesson_order(self, unit_id: str, lesson_ids: list[str]) -> ContentService.UnitRead:
-        updated = self.repo.update_unit_lesson_order(unit_id, lesson_ids)
-        if not updated:
+    async def set_unit_lesson_order(self, unit_id: str, lesson_ids: list[str]) -> ContentService.UnitRead:
+        updated = await self.repo.update_unit_lesson_order(unit_id, lesson_ids)
+        if updated is None:
             raise ValueError("Unit not found")
-        return self._build_unit_read(updated)
+        return await self._build_unit_read(updated)
 
-    def assign_unit_owner(self, unit_id: str, *, owner_user_id: int | None) -> ContentService.UnitRead:
+    async def assign_unit_owner(self, unit_id: str, *, owner_user_id: int | None) -> ContentService.UnitRead:
         """Assign or clear ownership of a unit."""
-        updated = self.repo.set_unit_owner(unit_id, owner_user_id)
-        if not updated:
+        updated = await self.repo.set_unit_owner(unit_id, owner_user_id)
+        if updated is None:
             raise ValueError("Unit not found")
-        return self._build_unit_read(updated)
+        return await self._build_unit_read(updated)
 
     @staticmethod
     def _normalize_unit_learning_objectives(raw: list[Any] | None) -> list[str] | None:
@@ -700,7 +660,7 @@ class ContentService:
 
         return normalized
 
-    def set_unit_sharing(
+    async def set_unit_sharing(
         self,
         unit_id: str,
         *,
@@ -709,26 +669,26 @@ class ContentService:
     ) -> ContentService.UnitRead:
         """Update whether a unit is shared globally, optionally enforcing ownership."""
 
-        if acting_user_id is not None and not self.repo.is_unit_owned_by_user(unit_id, acting_user_id):
+        if acting_user_id is not None and not await self.repo.is_unit_owned_by_user(unit_id, acting_user_id):
             raise PermissionError("User does not own this unit")
 
-        updated = self.repo.set_unit_sharing(unit_id, is_global)
-        if not updated:
+        updated = await self.repo.set_unit_sharing(unit_id, is_global)
+        if updated is None:
             raise ValueError("Unit not found")
-        return self._build_unit_read(updated)
+        return await self._build_unit_read(updated)
 
-    def assign_lessons_to_unit(self, unit_id: str, lesson_ids: list[str]) -> ContentService.UnitRead:
+    async def assign_lessons_to_unit(self, unit_id: str, lesson_ids: list[str]) -> ContentService.UnitRead:
         """Assign lessons to a unit and set ordering in one operation.
 
         Skips lesson IDs that don't exist. Removes lessons previously in the unit
         if they are not in the provided list.
         """
-        updated = self.repo.associate_lessons_with_unit(unit_id, lesson_ids)
-        if not updated:
+        updated = await self.repo.associate_lessons_with_unit(unit_id, lesson_ids)
+        if updated is None:
             raise ValueError("Unit not found")
-        return self._build_unit_read(updated)
+        return await self._build_unit_read(updated)
 
-    def set_unit_podcast(
+    async def set_unit_podcast(
         self,
         unit_id: str,
         *,
@@ -739,32 +699,32 @@ class ContentService:
         """Persist podcast transcript and object store reference for a unit."""
 
         self._audio_metadata_cache.clear()
-        updated = self.repo.set_unit_podcast(
+        updated = await self.repo.set_unit_podcast(
             unit_id,
             transcript=transcript,
             audio_object_id=audio_object_id,
             voice=voice,
         )
-        if not updated:
+        if updated is None:
             return None
 
         audio_meta: Any | None = None
         if audio_object_id is not None:
-            audio_meta = self._fetch_audio_metadata(
+            audio_meta = await self._fetch_audio_metadata(
                 audio_object_id,
                 requesting_user_id=getattr(updated, "user_id", None),
             )
 
-        return self._build_unit_read(updated, audio_meta=audio_meta)
+        return await self._build_unit_read(updated, audio_meta=audio_meta)
 
-    def get_unit_podcast_audio(self, unit_id: str) -> ContentService.UnitPodcastAudio | None:
+    async def get_unit_podcast_audio(self, unit_id: str) -> ContentService.UnitPodcastAudio | None:
         """Retrieve the stored podcast audio payload for streaming."""
 
-        unit = self.repo.get_unit_by_id(unit_id)
-        if not unit:
+        unit = await self.repo.get_unit_by_id(unit_id)
+        if unit is None:
             return None
 
-        audio_meta = self._fetch_audio_metadata(
+        audio_meta = await self._fetch_audio_metadata(
             getattr(unit, "podcast_audio_object_id", None),
             requesting_user_id=getattr(unit, "user_id", None),
             include_presigned_url=True,
@@ -779,7 +739,7 @@ class ContentService:
             s3_key = getattr(audio_meta, "s3_key", None)
             if s3_key:
                 try:
-                    presigned = self._run_async(self._object_store.generate_presigned_url(s3_key))
+                    presigned = await self._object_store.generate_presigned_url(s3_key)
                 except Exception as exc:  # pragma: no cover - network/object store issues
                     logger.warning(
                         "🎧 Failed to generate presigned podcast URL for unit %s: %s",
@@ -797,29 +757,9 @@ class ContentService:
             presigned_url=presigned,
         )
 
-    @staticmethod
-    def _run_async(coro: Awaitable[Any]) -> Any:
-        """Run an async coroutine from sync context, creating a new loop when necessary."""
-
-        async def _to_coroutine(a: Awaitable[Any]) -> Any:
-            return await a
-
-        coroutine: Coroutine[Any, Any, Any] = coro if asyncio.iscoroutine(coro) else _to_coroutine(coro)
-
-        try:
-            return asyncio.run(coroutine)
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            try:
-                asyncio.set_event_loop(loop)
-                return loop.run_until_complete(coroutine)
-            finally:
-                asyncio.set_event_loop(None)
-                loop.close()
-
-    def delete_unit(self, unit_id: str) -> bool:
+    async def delete_unit(self, unit_id: str) -> bool:
         """Delete a unit by ID. Returns True if successful, False if not found."""
-        return self.repo.delete_unit(unit_id)
+        return await self.repo.delete_unit(unit_id)
 
     # ======================
     # Unit session operations
@@ -838,9 +778,9 @@ class ContentService:
 
         model_config = ConfigDict(from_attributes=True)
 
-    def get_or_create_unit_session(self, user_id: str, unit_id: str) -> ContentService.UnitSessionRead:
+    async def get_or_create_unit_session(self, user_id: str, unit_id: str) -> ContentService.UnitSessionRead:
         """Get existing unit session or create a new active one."""
-        existing = self.repo.get_unit_session(user_id=user_id, unit_id=unit_id)
+        existing = await self.repo.get_unit_session(user_id=user_id, unit_id=unit_id)
         if existing:
             return self.UnitSessionRead.model_validate(existing)
 
@@ -857,10 +797,10 @@ class ContentService:
             started_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
         )
-        created = self.repo.add_unit_session(model)
+        created = await self.repo.add_unit_session(model)
         return self.UnitSessionRead.model_validate(created)
 
-    def update_unit_session_progress(
+    async def update_unit_session_progress(
         self,
         user_id: str,
         unit_id: str,
@@ -872,7 +812,7 @@ class ContentService:
         progress_percentage: float | None = None,
     ) -> ContentService.UnitSessionRead:
         """Update progress for a unit session, creating one if needed."""
-        model = self.repo.get_unit_session(user_id=user_id, unit_id=unit_id)
+        model = await self.repo.get_unit_session(user_id=user_id, unit_id=unit_id)
         if not model:
             from ..learning_session.models import UnitSessionModel  # noqa: PLC0415
 
@@ -887,7 +827,7 @@ class ContentService:
                 started_at=datetime.now(UTC),
                 updated_at=datetime.now(UTC),
             )
-            self.repo.add_unit_session(model)
+            await self.repo.add_unit_session(model)
 
         # Update fields
         if last_lesson_id:
@@ -911,5 +851,5 @@ class ContentService:
             model.completed_at = datetime.now(UTC)
 
         model.updated_at = datetime.now(UTC)
-        self.repo.save_unit_session(model)
+        await self.repo.save_unit_session(model)
         return self.UnitSessionRead.model_validate(model)

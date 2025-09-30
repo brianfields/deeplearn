@@ -9,6 +9,7 @@ import os
 from unittest.mock import patch
 
 import pytest
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from modules.infrastructure.service import InfrastructureService
 
@@ -69,6 +70,15 @@ class TestInfrastructureService:
         with self.service.get_session_context() as session:
             assert session is not None
             # Session should be automatically cleaned up
+
+    @patch.dict(os.environ, {"DATABASE_URL": "sqlite:///:memory:"})
+    @pytest.mark.asyncio
+    async def test_async_session_context_manager(self) -> None:
+        """Test async database session context manager."""
+        self.service.initialize()
+
+        async with self.service.get_async_session_context() as session:
+            assert isinstance(session, AsyncSession)
 
     @patch.dict(os.environ, {"DATABASE_URL": "sqlite:///:memory:", "DEBUG": "true"})
     def test_debug_mode_detection(self) -> None:

@@ -10,8 +10,8 @@ from datetime import datetime
 from typing import Any
 import uuid
 
-from sqlalchemy import and_, desc, text
-from sqlalchemy.orm import Session
+from sqlalchemy import and_, desc, func, select, text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .models import LearningSessionModel, SessionStatus
 
@@ -19,10 +19,10 @@ from .models import LearningSessionModel, SessionStatus
 class LearningSessionRepo:
     """Repository for learning session database operations"""
 
-    def __init__(self, db: Session) -> None:
+    def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
-    def create_session(
+    async def create_session(
         self,
         lesson_id: str,
         user_id: str | None = None,
@@ -42,22 +42,22 @@ class LearningSessionRepo:
         )
 
         self.db.add(session)
-        self.db.commit()
-        self.db.refresh(session)
+        await self.db.commit()
+        await self.db.refresh(session)
         return session
 
-    def get_session_by_id(self, session_id: str) -> LearningSessionModel | None:
+    async def get_session_by_id(self, session_id: str) -> LearningSessionModel | None:
         """Get session by ID"""
-        return self.db.query(LearningSessionModel).filter(LearningSessionModel.id == session_id).first()
+        return await self.db.get(LearningSessionModel, session_id)
 
-    def update_session_status(
+    async def update_session_status(
         self,
         session_id: str,
         status: SessionStatus,
         completed_at: datetime | None = None,
     ) -> LearningSessionModel | None:
         """Update session status"""
-        session = self.get_session_by_id(session_id)
+        session = await self.get_session_by_id(session_id)
         if not session:
             return None
 
@@ -65,11 +65,11 @@ class LearningSessionRepo:
         if completed_at:
             session.completed_at = completed_at
 
-        self.db.commit()
-        self.db.refresh(session)
+        await self.db.commit()
+        await self.db.refresh(session)
         return session
 
-    def update_session_progress(
+    async def update_session_progress(
         self,
         session_id: str,
         current_exercise_index: int | None = None,
@@ -79,7 +79,7 @@ class LearningSessionRepo:
         session_data: dict[str, Any] | None = None,
     ) -> LearningSessionModel | None:
         """Update session progress"""
-        session = self.get_session_by_id(session_id)
+        session = await self.get_session_by_id(session_id)
         if not session:
             return None
 
@@ -99,11 +99,11 @@ class LearningSessionRepo:
             current_data.update(session_data)
             session.session_data = current_data
 
-        self.db.commit()
-        self.db.refresh(session)
+        await self.db.commit()
+        await self.db.refresh(session)
         return session
 
-    def get_user_sessions(
+    async def get_user_sessions(
         self,
         user_id: str | None = None,
         status: str | None = None,
@@ -112,51 +112,67 @@ class LearningSessionRepo:
         offset: int = 0,
     ) -> tuple[list[LearningSessionModel], int]:
         """Get user sessions with filtering and pagination"""
-        query = self.db.query(LearningSessionModel)
-
-        # Apply filters
+        filters = []
         if user_id:
-            query = query.filter(LearningSessionModel.user_id == user_id)
+            filters.append(LearningSessionModel.user_id == user_id)
         if status:
-            query = query.filter(LearningSessionModel.status == status)
+            filters.append(LearningSessionModel.status == status)
         if lesson_id:
-            query = query.filter(LearningSessionModel.lesson_id == lesson_id)
+            filters.append(LearningSessionModel.lesson_id == lesson_id)
 
-        # Get total count before pagination
-        total = query.count()
+        base_stmt = select(LearningSessionModel)
+        if filters:
+            base_stmt = base_stmt.where(*filters)
 
-        # Apply pagination and ordering
-        sessions = query.order_by(desc(LearningSessionModel.started_at)).offset(offset).limit(limit).all()
+        total_stmt = select(func.count(LearningSessionModel.id))
+        if filters:
+            total_stmt = total_stmt.where(*filters)
+
+        ordered_stmt = (
+            base_stmt.order_by(desc(LearningSessionModel.started_at)).offset(offset).limit(limit)
+        )
+
+        result = await self.db.execute(ordered_stmt)
+        sessions = list(result.scalars().all())
+
+        total_result = await self.db.execute(total_stmt)
+        total = int(total_result.scalar() or 0)
 
         return sessions, total
 
-    def get_active_session_for_user_and_lesson(self, user_id: str, lesson_id: str) -> LearningSessionModel | None:
+    async def get_active_session_for_user_and_lesson(
+        self, user_id: str, lesson_id: str
+    ) -> LearningSessionModel | None:
         """Get active session for user and lesson (if any)"""
-        return (
-            self.db.query(LearningSessionModel)
-            .filter(
+        stmt = (
+            select(LearningSessionModel)
+            .where(
                 and_(
                     LearningSessionModel.user_id == user_id,
                     LearningSessionModel.lesson_id == lesson_id,
                     LearningSessionModel.status == SessionStatus.ACTIVE.value,
                 )
             )
-            .first()
+            .limit(1)
         )
+        result = await self.db.execute(stmt)
+        return result.scalars().first()
 
-    def get_sessions_for_lessons(self, lesson_ids: Iterable[str]) -> list[LearningSessionModel]:
+    async def get_sessions_for_lessons(self, lesson_ids: Iterable[str]) -> list[LearningSessionModel]:
         """Return all sessions associated with the provided lesson identifiers."""
 
         lesson_ids = list(lesson_ids)
         if not lesson_ids:
             return []
 
-        return self.db.query(LearningSessionModel).filter(LearningSessionModel.lesson_id.in_(lesson_ids)).all()
+        stmt = select(LearningSessionModel).where(LearningSessionModel.lesson_id.in_(lesson_ids))
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
 
-    def assign_session_user(self, session_id: str, user_id: str) -> LearningSessionModel:
+    async def assign_session_user(self, session_id: str, user_id: str) -> LearningSessionModel:
         """Persist the user association for a session if it has not been set."""
 
-        session = self.get_session_by_id(session_id)
+        session = await self.get_session_by_id(session_id)
         if session is None:
             raise ValueError(f"Learning session {session_id} does not exist")
 
@@ -165,16 +181,16 @@ class LearningSessionRepo:
 
         if session.user_id is None:
             session.user_id = user_id
-            self.db.commit()
-            self.db.refresh(session)
+            await self.db.commit()
+            await self.db.refresh(session)
 
         return session
 
-    def health_check(self) -> bool:
+    async def health_check(self) -> bool:
         """Health check - verify database connectivity"""
         try:
             # Simple query to test database connection
-            self.db.execute(text("SELECT 1"))
+            await self.db.execute(text("SELECT 1"))
             return True
         except Exception:
             return False

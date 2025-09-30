@@ -229,7 +229,7 @@ class ContentCreatorService:
         )
 
         logger.info("💾 Saving lesson with package to database...")
-        self.content.save_lesson(lesson_data)
+        await self.content.save_lesson(lesson_data)
 
         logger.info(f"🎉 Lesson creation completed! Package contains {len(objectives)} objectives, {len(glossary_terms)} terms, {len(exercises)} exercises")
         return LessonCreationResult(lesson_id=lesson_id, title=request.topic, package_version=1, objectives_count=len(objectives), glossary_terms_count=len(glossary_terms), mcqs_count=len(exercises))
@@ -270,7 +270,7 @@ class ContentCreatorService:
         """
         # Pre-create the shell unit for both paths
         provisional_title = f"Learning Unit: {topic}"
-        unit = self.content.create_unit(
+        unit = await self.content.create_unit(
             UnitCreate(
                 title=provisional_title,
                 description=f"A learning unit about {topic}",
@@ -284,7 +284,7 @@ class ContentCreatorService:
                 flow_type="standard",
             )
         )
-        self.content.update_unit_status(
+        await self.content.update_unit_status(
             unit_id=unit.id,
             status=UnitStatus.IN_PROGRESS.value,
             creation_progress={"stage": "starting", "message": "Initialization"},
@@ -326,7 +326,7 @@ class ContentCreatorService:
     ) -> "ContentCreatorService.UnitCreationResult":
         """Execute the end-to-end unit creation using the active prompt-aligned flows."""
         logger.info(f"🧱 Executing unit creation pipeline for unit {unit_id}")
-        self.content.update_unit_status(unit_id, UnitStatus.IN_PROGRESS.value, creation_progress={"stage": "planning", "message": "Planning unit structure..."})
+        await self.content.update_unit_status(unit_id, UnitStatus.IN_PROGRESS.value, creation_progress={"stage": "planning", "message": "Planning unit structure..."})
 
         flow = UnitCreationFlow()
         unit_plan = await flow.execute(
@@ -340,7 +340,7 @@ class ContentCreatorService:
 
         # Update unit metadata from plan
         final_title = str(unit_plan.get("unit_title") or f"Learning Unit: {topic}")
-        self.content.update_unit_status(unit_id, UnitStatus.IN_PROGRESS.value, creation_progress={"stage": "generating", "message": "Generating lessons..."})
+        await self.content.update_unit_status(unit_id, UnitStatus.IN_PROGRESS.value, creation_progress={"stage": "generating", "message": "Generating lessons..."})
 
         # Prepare look-up of unit-level LO texts by id
         unit_los: dict[str, str] = {}
@@ -449,7 +449,7 @@ class ContentCreatorService:
                 confusables=md_res.get("confusables", []),
             )
 
-            created_lesson = self.content.save_lesson(
+            created_lesson = await self.content.save_lesson(
                 LessonCreate(
                     id=db_lesson_id,
                     title=lesson_title,
@@ -461,7 +461,7 @@ class ContentCreatorService:
 
         # Associate lessons and complete
         if lesson_ids:
-            self.content.assign_lessons_to_unit(unit_id, lesson_ids)
+            await self.content.assign_lessons_to_unit(unit_id, lesson_ids)
 
         if podcast_lessons:
             generator = self.podcast_generator or UnitPodcastGenerator()
@@ -480,7 +480,7 @@ class ContentCreatorService:
             else:
                 if podcast.audio_bytes:
                     try:
-                        await self.content.save_unit_podcast_from_bytes_async(
+                        await self.content.save_unit_podcast_from_bytes(
                             unit_id,
                             transcript=podcast.transcript,
                             audio_bytes=podcast.audio_bytes,
@@ -495,7 +495,7 @@ class ContentCreatorService:
                             exc_info=True,
                         )
 
-        self.content.update_unit_status(unit_id, UnitStatus.COMPLETED.value, creation_progress={"stage": "completed", "message": "Unit creation completed"})
+        await self.content.update_unit_status(unit_id, UnitStatus.COMPLETED.value, creation_progress={"stage": "completed", "message": "Unit creation completed"})
 
         return self.UnitCreationResult(
             unit_id=unit_id,
@@ -569,7 +569,7 @@ class ContentCreatorService:
         using the original parameters.
         """
         # Get the existing unit
-        unit = self.content.get_unit(unit_id)
+        unit = await self.content.get_unit(unit_id)
         if not unit:
             return None
 
@@ -582,7 +582,7 @@ class ContentCreatorService:
             raise ValueError(f"Unit {unit_id} was not generated from a topic and cannot be retried")
 
         # Reset the unit status to in_progress
-        self.content.update_unit_status(unit_id=unit_id, status=UnitStatus.IN_PROGRESS.value, error_message=None, creation_progress={"stage": "retrying", "message": "Retrying unit creation..."})
+        await self.content.update_unit_status(unit_id=unit_id, status=UnitStatus.IN_PROGRESS.value, error_message=None, creation_progress={"stage": "retrying", "message": "Retrying unit creation..."})
 
         # Extract original parameters - we need to infer the topic from the unit description or title
         # Since we stored the description as "A learning unit about {topic}", we can extract it
@@ -608,7 +608,7 @@ class ContentCreatorService:
 
         return self.MobileUnitCreationResult(unit_id=unit_id, title=unit.title, status=UnitStatus.IN_PROGRESS.value)
 
-    def dismiss_unit(self, unit_id: str) -> bool:
+    async def dismiss_unit(self, unit_id: str) -> bool:
         """
         Dismiss (delete) a unit.
 
@@ -616,7 +616,7 @@ class ContentCreatorService:
         Returns True if successful, False if unit not found.
         """
         # Check if unit exists
-        unit = self.content.get_unit(unit_id)
+        unit = await self.content.get_unit(unit_id)
         if not unit:
             return False
 
@@ -625,11 +625,11 @@ class ContentCreatorService:
         # For now we'll update the status to indicate dismissal
         try:
             # Try to delete via repo if available
-            success = self.content.delete_unit(unit_id)
+            success = await self.content.delete_unit(unit_id)
             logger.info(f"✅ Unit dismissed: unit_id={unit_id}")
             return success
         except AttributeError:
             # Fallback: mark as dismissed in status if delete method doesn't exist yet
             logger.warning(f"Delete method not available, marking unit as dismissed: unit_id={unit_id}")
-            result = self.content.update_unit_status(unit_id=unit_id, status="dismissed", error_message=None, creation_progress={"stage": "dismissed", "message": "Unit dismissed by user"})
+            result = await self.content.update_unit_status(unit_id=unit_id, status="dismissed", error_message=None, creation_progress={"stage": "dismissed", "message": "Unit dismissed by user"})
             return result is not None

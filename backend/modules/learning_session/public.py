@@ -9,7 +9,7 @@ from abc import abstractmethod
 from collections.abc import Iterable
 from typing import Protocol
 
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from modules.content.public import ContentProvider
 
@@ -86,7 +86,7 @@ class LearningSessionProvider(Protocol):
 
 
 def learning_session_provider(
-    session: Session,
+    session: AsyncSession,
     content: ContentProvider,
 ) -> LearningSessionProvider:
     """
@@ -106,12 +106,12 @@ def learning_session_provider(
 class LearningSessionAnalyticsProvider(Protocol):
     """Protocol for read-only analytics helpers."""
 
-    def get_exercise_correctness(self, lesson_ids: Iterable[str]) -> list[ExerciseCorrectness]:
+    async def get_exercise_correctness(self, lesson_ids: Iterable[str]) -> list[ExerciseCorrectness]:
         """Aggregate the correctness state for exercises within the provided lessons."""
         ...
 
 
-def learning_session_analytics_provider(session: Session) -> LearningSessionAnalyticsProvider:
+def learning_session_analytics_provider(session: AsyncSession) -> LearningSessionAnalyticsProvider:
     """Return analytics helper service scoped to the provided session."""
 
     repo = LearningSessionRepo(session)

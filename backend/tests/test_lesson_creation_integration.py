@@ -1,5 +1,6 @@
-"""
-Integration test for complete lesson creation flow.
+# -*- coding: utf-8 -*-
+
+"""Integration test for complete lesson creation flow.
 
 This test uses the real PostgreSQL database and makes actual LLM API calls
 to test the complete lesson creation workflow from source material to stored content.
@@ -16,11 +17,10 @@ from unittest.mock import patch
 import uuid
 
 import pytest
-from sqlalchemy import desc as _desc
+from sqlalchemy import desc as _desc, select
 
-from modules.content.public import ContentProvider
-from modules.content.repo import ContentRepo
-from modules.content.service import ContentService
+from modules.content.public import content_provider
+from modules.content_creator.public import content_creator_provider
 from modules.content_creator.service import ContentCreatorService
 from modules.content_creator.steps import ExtractLessonMetadataStep, ExtractUnitMetadataStep, GenerateMCQStep
 from modules.flow_engine.models import FlowRunModel
@@ -115,15 +115,15 @@ class TestLessonCreationIntegration:
         ## Mathematical Definition
 
         For a single sample, cross-entropy loss is defined as:
-        L = -∑(y_i * log(ŷ_i))
+        L = -sum(y_i * log(y_hat_i))
 
         Where:
         - y_i is the true label (one-hot encoded)
-        - ŷ_i is the predicted probability for class i
+        - y_hat_i is the predicted probability for class i
 
         ## Key Properties
 
-        1. **Non-negative**: Cross-entropy loss is always ≥ 0
+        1. **Non-negative**: Cross-entropy loss is always >= 0
         2. **Convex**: Has a single global minimum
         3. **Differentiable**: Enables gradient-based optimization
         4. **Probabilistic interpretation**: Based on maximum likelihood estimation
@@ -355,56 +355,58 @@ class TestUnitCreationIntegration:
         print(f"📝 Using model: {os.environ['OPENAI_MODEL']}")
 
         # Create services using the initialized infrastructure service
-        print("🗄️ Getting database session...")
-        db_session = infrastructure_service.get_database_session()
-        print("📚 Creating content service...")
-        content_service = ContentService(ContentRepo(db_session.session))
-        print("🤖 Creating content creator service...")
-        creator_service = ContentCreatorService(cast(ContentProvider, content_service))
-        print("✅ Services created successfully")
+        print("🗄️ Getting async database session...")
+        async with infrastructure_service.get_async_session_context() as session:
+            print("📚 Creating content service...")
+            content_service = content_provider(session)
+            print("🤖 Creating content creator service...")
+            creator_service = content_creator_provider(session)
+            print("✅ Services created successfully")
 
-        topic = "Introduction to Gradient Descent"
+            topic = "Introduction to Gradient Descent"
 
-        # Act: Create the unit via unified API (foreground)
-        result = await creator_service.create_unit(
-            topic=topic,
-            source_material=None,
-            background=False,
-            target_lesson_count=2,
-            learner_level="beginner",
-        )
+            # Act: Create the unit via unified API (foreground)
+            result = await creator_service.create_unit(
+                topic=topic,
+                source_material=None,
+                background=False,
+                target_lesson_count=2,
+                learner_level="beginner",
+            )
 
-        # Assert: Verify result structure
-        assert result is not None
-        # Narrow type for static analysis
-        unit_result = cast(ContentCreatorService.UnitCreationResult, result)
-        assert isinstance(unit_result.unit_id, str) and len(unit_result.unit_id) > 0
-        assert isinstance(unit_result.title, str) and len(unit_result.title) > 0
-        assert unit_result.lesson_count >= 1
-        assert isinstance(unit_result.lesson_titles, list) and len(unit_result.lesson_titles) >= 1
-        assert unit_result.target_lesson_count == 2
-        assert unit_result.generated_from_topic is True
+            # Assert: Verify result structure
+            assert result is not None
+            # Narrow type for static analysis
+            unit_result = cast(ContentCreatorService.UnitCreationResult, result)
+            assert isinstance(unit_result.unit_id, str) and len(unit_result.unit_id) > 0
+            assert isinstance(unit_result.title, str) and len(unit_result.title) > 0
+            assert unit_result.lesson_count >= 1
+            assert isinstance(unit_result.lesson_titles, list) and len(unit_result.lesson_titles) >= 1
+            assert unit_result.target_lesson_count == 2
+            assert unit_result.generated_from_topic is True
 
-        # Verify unit was saved to database
-        saved_unit = content_service.get_unit(unit_result.unit_id)
-        assert saved_unit is not None
-        assert saved_unit.generated_from_topic is True
-        assert saved_unit.target_lesson_count == 2
-        assert saved_unit.learning_objectives is None or isinstance(saved_unit.learning_objectives, list)
-        # flow_type should default to 'standard'
-        assert getattr(saved_unit, "flow_type", "standard") == "standard"
+            # Verify unit was saved to database
+            saved_unit = await content_service.get_unit(unit_result.unit_id)
+            assert saved_unit is not None
+            assert saved_unit.generated_from_topic is True
+            assert saved_unit.target_lesson_count == 2
+            assert saved_unit.learning_objectives is None or isinstance(saved_unit.learning_objectives, list)
+            # flow_type should default to 'standard'
+            assert getattr(saved_unit, "flow_type", "standard") == "standard"
 
-        # Verify flow run record for unit_creation
-        flow_run = db_session.session.query(FlowRunModel).filter(FlowRunModel.flow_name == "unit_creation").order_by(_desc(FlowRunModel.created_at)).first()
+            # Verify flow run record for unit_creation
+            stmt = (
+                select(FlowRunModel)
+                .where(FlowRunModel.flow_name == "unit_creation")
+                .order_by(_desc(FlowRunModel.created_at))
+            )
+            result_row = await session.execute(stmt)
+            flow_run = result_row.scalars().first()
 
-        assert flow_run is not None
-        assert flow_run.status == "completed"
-        assert flow_run.outputs is not None
-        assert isinstance(flow_run.outputs, dict)
-        assert "lessons" in flow_run.outputs
-
-        # Cleanup: Close the database session
-        infrastructure_service.close_database_session(db_session)
-        print("🧹 Database session cleanup complete")
+            assert flow_run is not None
+            assert flow_run.status == "completed"
+            assert flow_run.outputs is not None
+            assert isinstance(flow_run.outputs, dict)
+            assert "lessons" in flow_run.outputs
 
     # Removed second unit creation test to keep integration suite minimal

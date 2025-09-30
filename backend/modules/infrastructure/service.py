@@ -15,6 +15,12 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
 try:
     import redis.asyncio as redis_async
@@ -133,6 +139,8 @@ class InfrastructureService:
     def __init__(self) -> None:
         self.engine: Engine | None = None
         self.session_factory: sessionmaker[Session] | None = None
+        self.async_engine: AsyncEngine | None = None
+        self.async_session_factory: async_sessionmaker[AsyncSession] | None = None
         self.redis_connection: redis_async.Redis | None = None
         self.database_config = DatabaseConfig()
         self.redis_config = RedisConfig()
@@ -288,8 +296,26 @@ class InfrastructureService:
             self.engine = create_engine(database_url, **engine_kwargs)
             self.session_factory = sessionmaker(bind=self.engine, class_=Session, autoflush=False, autocommit=False)
 
+            async_database_url = self._get_async_database_url(database_url)
+            self.async_engine = create_async_engine(async_database_url, echo=self.database_config.echo)
+            self.async_session_factory = async_sessionmaker(bind=self.async_engine, expire_on_commit=False)
+
         except SQLAlchemyError as e:
             raise DatabaseConnectionError(f"Failed to connect to database: {e}") from e
+
+    def _get_async_database_url(self, database_url: str) -> str:
+        """Return an async-compatible database URL for SQLAlchemy."""
+        if "+async" in database_url:
+            return database_url
+        if database_url.startswith("postgresql+psycopg2://"):
+            return database_url.replace("postgresql+psycopg2://", "postgresql+asyncpg://", 1)
+        if database_url.startswith("postgresql://"):
+            return database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        if database_url.startswith("sqlite+aiosqlite://"):
+            return database_url
+        if database_url.startswith("sqlite://"):
+            return database_url.replace("sqlite://", "sqlite+aiosqlite://", 1)
+        return database_url
 
     def _setup_redis_connection(self) -> None:
         """Set up Redis connection."""
@@ -419,6 +445,16 @@ class InfrastructureService:
             raise DatabaseConnectionError("Database not connected. No database URL configured.")
 
         return DatabaseSessionContext(self.session_factory)
+
+    def get_async_session_context(self) -> "AsyncDatabaseSessionContext":
+        """Get an async database session context manager."""
+        if not self._initialized:
+            raise RuntimeError("Infrastructure service not initialized. Call initialize() first.")
+
+        if self.async_session_factory is None:
+            raise DatabaseConnectionError("Database not connected. No database URL configured.")
+
+        return AsyncDatabaseSessionContext(self.async_session_factory)
 
     def get_config(self) -> AppConfig:
         """
@@ -627,6 +663,11 @@ class InfrastructureService:
             self.engine = None
             self.session_factory = None
 
+        if self.async_engine:
+            await self.async_engine.dispose()
+            self.async_engine = None
+            self.async_session_factory = None
+
         if self.redis_connection:
             await self.redis_connection.aclose()
             self.redis_connection = None
@@ -682,3 +723,38 @@ class DatabaseSessionContext:
             finally:
                 # Always close session
                 self.session.close()
+
+
+class AsyncDatabaseSessionContext:
+    """Async context manager for database sessions."""
+
+    def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
+        """Initialize async session context."""
+        self.session_factory = session_factory
+        self.session: AsyncSession | None = None
+
+    async def __aenter__(self) -> AsyncSession:
+        """Enter the async session context."""
+        self.session = self.session_factory()
+        return self.session
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        """Exit the async session context with proper cleanup."""
+        if self.session is None:
+            return
+
+        try:
+            if exc_type is not None:
+                await self.session.rollback()
+            else:
+                await self.session.commit()
+        except SQLAlchemyError:
+            await self.session.rollback()
+            raise
+        finally:
+            await self.session.close()

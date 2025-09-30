@@ -16,27 +16,30 @@ from modules.content.repo import ContentRepo
 from modules.content.service import ContentService, LessonCreate
 
 
+pytestmark = pytest.mark.asyncio
+
+
 class TestContentService:
     """Unit tests for ContentService."""
 
-    def test_get_lesson_returns_none_when_not_found(self) -> None:
+    async def test_get_lesson_returns_none_when_not_found(self) -> None:
         """Test that get_lesson returns None when lesson doesn't exist."""
         # Arrange
-        repo = Mock(spec=ContentRepo)
+        repo = AsyncMock(spec=ContentRepo)
         repo.get_lesson_by_id.return_value = None
         service = ContentService(repo)
 
         # Act
-        result = service.get_lesson("nonexistent")
+        result = await service.get_lesson("nonexistent")
 
         # Assert
         assert result is None
-        repo.get_lesson_by_id.assert_called_once_with("nonexistent")
+        repo.get_lesson_by_id.assert_awaited_once_with("nonexistent")
 
-    def test_get_lesson_returns_lesson_with_package(self) -> None:
+    async def test_get_lesson_returns_lesson_with_package(self) -> None:
         """Test that get_lesson returns lesson with package when found."""
         # Arrange
-        repo = Mock(spec=ContentRepo)
+        repo = AsyncMock(spec=ContentRepo)
 
         # Create a sample package
         package = LessonPackage(
@@ -62,7 +65,7 @@ class TestContentService:
         service = ContentService(repo)
 
         # Act
-        result = service.get_lesson("test-id")
+        result = await service.get_lesson("test-id")
 
         # Assert
         assert result is not None
@@ -73,12 +76,12 @@ class TestContentService:
         assert len(result.package.exercises) == 1
         assert result.package.objectives[0].text == "Learn X"
 
-        repo.get_lesson_by_id.assert_called_once_with("test-id")
+        repo.get_lesson_by_id.assert_awaited_once_with("test-id")
 
-    def test_save_lesson_creates_new_lesson_with_package(self) -> None:
+    async def test_save_lesson_creates_new_lesson_with_package(self) -> None:
         """Test that save_lesson creates a new lesson with package."""
         # Arrange
-        repo = Mock(spec=ContentRepo)
+        repo = AsyncMock(spec=ContentRepo)
         service = ContentService(repo)
 
         # Create a sample package
@@ -97,75 +100,75 @@ class TestContentService:
         repo.save_lesson.return_value = mock_saved_lesson
 
         # Act
-        result = service.save_lesson(lesson_data)
+        result = await service.save_lesson(lesson_data)
 
         # Assert
         assert result.id == "test-id"
         assert result.title == "Test Lesson"
         assert result.package_version == 1
         assert len(result.package.objectives) == 1
-        repo.save_lesson.assert_called_once()
+        repo.save_lesson.assert_awaited_once()
 
-    def test_lesson_exists_returns_true_when_exists(self) -> None:
+    async def test_lesson_exists_returns_true_when_exists(self) -> None:
         """Test that lesson_exists returns True when lesson exists."""
         # Arrange
-        repo = Mock(spec=ContentRepo)
+        repo = AsyncMock(spec=ContentRepo)
         repo.lesson_exists.return_value = True
         service = ContentService(repo)
 
         # Act
-        result = service.lesson_exists("test-id")
+        result = await service.lesson_exists("test-id")
 
         # Assert
         assert result is True
-        repo.lesson_exists.assert_called_once_with("test-id")
+        repo.lesson_exists.assert_awaited_once_with("test-id")
 
-    def test_delete_lesson_returns_true_when_deleted(self) -> None:
+    async def test_delete_lesson_returns_true_when_deleted(self) -> None:
         """Test that delete_lesson returns True when lesson is deleted."""
         # Arrange
-        repo = Mock(spec=ContentRepo)
+        repo = AsyncMock(spec=ContentRepo)
         repo.delete_lesson.return_value = True
         service = ContentService(repo)
 
         # Act
-        result = service.delete_lesson("test-id")
+        result = await service.delete_lesson("test-id")
 
         # Assert
         assert result is True
-        repo.delete_lesson.assert_called_once_with("test-id")
+        repo.delete_lesson.assert_awaited_once_with("test-id")
 
-    def test_delete_unit_returns_true_when_deleted(self) -> None:
+    async def test_delete_unit_returns_true_when_deleted(self) -> None:
         """Test deleting an existing unit returns True."""
         # Arrange
-        repo = Mock(spec=ContentRepo)
+        repo = AsyncMock(spec=ContentRepo)
         service = ContentService(repo)
         repo.delete_unit.return_value = True
 
         # Act
-        result = service.delete_unit("unit-1")
+        result = await service.delete_unit("unit-1")
 
         # Assert
         assert result is True
-        repo.delete_unit.assert_called_once_with("unit-1")
+        repo.delete_unit.assert_awaited_once_with("unit-1")
 
-    def test_delete_unit_returns_false_when_not_found(self) -> None:
+    async def test_delete_unit_returns_false_when_not_found(self) -> None:
         """Test deleting a non-existent unit returns False."""
         # Arrange
-        repo = Mock(spec=ContentRepo)
+        repo = AsyncMock(spec=ContentRepo)
         service = ContentService(repo)
         repo.delete_unit.return_value = False
 
         # Act
-        result = service.delete_unit("nonexistent-unit")
+        result = await service.delete_unit("nonexistent-unit")
 
         # Assert
         assert result is False
-        repo.delete_unit.assert_called_once_with("nonexistent-unit")
+        repo.delete_unit.assert_awaited_once_with("nonexistent-unit")
 
-    def test_create_unit_assigns_owner_and_sharing_flags(self) -> None:
+    async def test_create_unit_assigns_owner_and_sharing_flags(self) -> None:
         """Unit creation should persist ownership and sharing metadata."""
 
-        repo = Mock(spec=ContentRepo)
+        repo = AsyncMock(spec=ContentRepo)
         service = ContentService(repo)
 
         now = datetime.now(UTC)
@@ -195,56 +198,57 @@ class TestContentService:
             is_global=True,
         )
 
-        created = service.create_unit(payload)
+        created = await service.create_unit(payload)
 
         assert created.user_id == 7
         assert created.is_global is True
         assert created.has_podcast is False
         assert created.podcast_voice is None
-        repo.add_unit.assert_called_once()
-        stored_model = repo.add_unit.call_args.args[0]
+        repo.add_unit.assert_awaited_once()
+        stored_model = repo.add_unit.await_args.args[0]
         assert stored_model.user_id == 7
         assert stored_model.is_global is True
 
-    def test_list_units_for_user_uses_repo(self) -> None:
+    async def test_list_units_for_user_uses_repo(self) -> None:
         """Ensure user-specific listing delegates to repository."""
 
-        repo = Mock(spec=ContentRepo)
+        repo = AsyncMock(spec=ContentRepo)
         service = ContentService(repo)
 
         repo.list_units_for_user.return_value = []
 
-        result = service.list_units_for_user(10)
+        result = await service.list_units_for_user(10)
 
         assert result == []
-        repo.list_units_for_user.assert_called_once_with(user_id=10, limit=100, offset=0)
+        repo.list_units_for_user.assert_awaited_once_with(user_id=10, limit=100, offset=0)
 
-    def test_list_global_units_uses_repo(self) -> None:
+    async def test_list_global_units_uses_repo(self) -> None:
         """Ensure global listing delegates to repository."""
 
-        repo = Mock(spec=ContentRepo)
+        repo = AsyncMock(spec=ContentRepo)
         service = ContentService(repo)
 
         repo.list_global_units.return_value = []
 
-        assert service.list_global_units() == []
-        repo.list_global_units.assert_called_once_with(limit=100, offset=0)
+        assert await service.list_global_units() == []
+        repo.list_global_units.assert_awaited_once_with(limit=100, offset=0)
 
-    def test_set_unit_sharing_requires_owner_match(self) -> None:
+    async def test_set_unit_sharing_requires_owner_match(self) -> None:
         """Only the unit owner can toggle sharing when acting user is provided."""
 
-        repo = Mock(spec=ContentRepo)
+        repo = AsyncMock(spec=ContentRepo)
         service = ContentService(repo)
 
         repo.is_unit_owned_by_user.return_value = False
 
         with pytest.raises(PermissionError, match="User does not own this unit"):
-            service.set_unit_sharing("unit-1", is_global=True, acting_user_id=3)
+            await service.set_unit_sharing("unit-1", is_global=True, acting_user_id=3)
+        repo.is_unit_owned_by_user.assert_awaited_once_with("unit-1", 3)
 
-    def test_set_unit_sharing_updates_when_authorized(self) -> None:
+    async def test_set_unit_sharing_updates_when_authorized(self) -> None:
         """Authorized owner should toggle sharing successfully."""
 
-        repo = Mock(spec=ContentRepo)
+        repo = AsyncMock(spec=ContentRepo)
         service = ContentService(repo)
 
         repo.is_unit_owned_by_user.return_value = True
@@ -263,17 +267,18 @@ class TestContentService:
             podcast_voice="Narrator",
         )
 
-        result = service.set_unit_sharing("unit-1", is_global=True, acting_user_id=3)
+        result = await service.set_unit_sharing("unit-1", is_global=True, acting_user_id=3)
 
         assert result.is_global is True
         assert result.podcast_voice == "Narrator"
         assert result.podcast_duration_seconds is None
-        repo.set_unit_sharing.assert_called_once_with("unit-1", True)
+        repo.is_unit_owned_by_user.assert_awaited_once_with("unit-1", 3)
+        repo.set_unit_sharing.assert_awaited_once_with("unit-1", True)
 
-    def test_assign_unit_owner_updates_repo(self) -> None:
+    async def test_assign_unit_owner_updates_repo(self) -> None:
         """Assign unit owner should call repository and return DTO."""
 
-        repo = Mock(spec=ContentRepo)
+        repo = AsyncMock(spec=ContentRepo)
         service = ContentService(repo)
 
         repo.set_unit_owner.return_value = UnitModel(
@@ -290,15 +295,15 @@ class TestContentService:
             updated_at=datetime.now(UTC),
         )
 
-        result = service.assign_unit_owner("unit-1", owner_user_id=42)
+        result = await service.assign_unit_owner("unit-1", owner_user_id=42)
 
         assert result.user_id == 42
-        repo.set_unit_owner.assert_called_once_with("unit-1", 42)
+        repo.set_unit_owner.assert_awaited_once_with("unit-1", 42)
 
-    def test_set_unit_podcast_updates_metadata(self) -> None:
+    async def test_set_unit_podcast_updates_metadata(self) -> None:
         """Persisting podcast metadata should surface on unit read models."""
 
-        repo = Mock(spec=ContentRepo)
+        repo = AsyncMock(spec=ContentRepo)
         service = ContentService(repo)
 
         now = datetime.now(UTC)
@@ -324,7 +329,7 @@ class TestContentService:
 
         repo.set_unit_podcast.return_value = unit_model
 
-        result = service.set_unit_podcast(
+        result = await service.set_unit_podcast(
             "unit-42",
             transcript="Hello",
             audio_object_id=audio_id,
@@ -335,15 +340,15 @@ class TestContentService:
         assert result.has_podcast is True
         assert result.podcast_voice == "Storyteller"
         assert result.podcast_duration_seconds is None
-        repo.set_unit_podcast.assert_called_once()
-        _, kwargs = repo.set_unit_podcast.call_args
+        repo.set_unit_podcast.assert_awaited_once()
+        _, kwargs = repo.set_unit_podcast.await_args
         assert kwargs.get("audio_object_id") == audio_id
 
-    def test_set_unit_podcast_uses_object_store_metadata_when_available(self) -> None:
+    async def test_set_unit_podcast_uses_object_store_metadata_when_available(self) -> None:
         """Duration should be populated from object store metadata when available."""
 
-        repo = Mock(spec=ContentRepo)
-        object_store = Mock()
+        repo = AsyncMock(spec=ContentRepo)
+        object_store = AsyncMock()
         object_store.get_audio = AsyncMock()
         object_store.get_audio.return_value = Mock(duration_seconds=181.6, content_type="audio/mpeg")
 
@@ -372,7 +377,7 @@ class TestContentService:
 
         repo.set_unit_podcast.return_value = unit_model
 
-        result = service.set_unit_podcast(
+        result = await service.set_unit_podcast(
             "unit-50",
             transcript="Hello",
             audio_object_id=audio_id,
@@ -383,10 +388,10 @@ class TestContentService:
         assert result.podcast_duration_seconds == 182
         object_store.get_audio.assert_awaited_once()
 
-    def test_get_unit_podcast_audio_returns_none_without_object_store(self) -> None:
+    async def test_get_unit_podcast_audio_returns_none_without_object_store(self) -> None:
         """Audio retrieval should return None when no object store client is configured."""
 
-        repo = Mock(spec=ContentRepo)
+        repo = AsyncMock(spec=ContentRepo)
         service = ContentService(repo)
 
         now = datetime.now(UTC)
@@ -409,16 +414,16 @@ class TestContentService:
 
         repo.get_unit_by_id.return_value = unit_model
 
-        audio = service.get_unit_podcast_audio("unit-99")
+        audio = await service.get_unit_podcast_audio("unit-99")
 
         assert audio is None
-        repo.get_unit_by_id.assert_called_once_with("unit-99")
+        repo.get_unit_by_id.assert_awaited_once_with("unit-99")
 
-    def test_get_unit_podcast_audio_uses_object_store_when_available(self) -> None:
+    async def test_get_unit_podcast_audio_uses_object_store_when_available(self) -> None:
         """When an object store reference exists it should be resolved via presigned URL."""
 
-        repo = Mock(spec=ContentRepo)
-        object_store = Mock()
+        repo = AsyncMock(spec=ContentRepo)
+        object_store = AsyncMock()
         object_store.get_audio = AsyncMock()
         object_store.get_audio.return_value = Mock(
             content_type="audio/mpeg",
@@ -447,12 +452,12 @@ class TestContentService:
 
         repo.get_unit_by_id.return_value = unit_model
 
-        audio = service.get_unit_podcast_audio("unit-100")
+        audio = await service.get_unit_podcast_audio("unit-100")
 
         assert audio is not None
         assert audio.presigned_url == "https://example.com/audio.mp3"
         assert audio.audio_bytes is None
         assert audio.mime_type == "audio/mpeg"
         object_store.get_audio.assert_awaited_once()
-        _, kwargs = object_store.get_audio.call_args
+        _, kwargs = object_store.get_audio.await_args
         assert kwargs.get("include_presigned_url") is True

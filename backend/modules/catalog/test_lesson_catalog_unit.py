@@ -6,7 +6,9 @@ Tests for the lesson catalog service layer.
 
 from datetime import UTC, datetime
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
+
+import pytest
 
 from modules.catalog.service import CatalogService, LessonDetail, LessonSummary
 from modules.content.package_models import (
@@ -25,7 +27,8 @@ from modules.learning_session.public import ExerciseCorrectness
 class TestCatalogService:
     """Unit tests for CatalogService."""
 
-    def test_browse_lessons_returns_summaries(self) -> None:
+    @pytest.mark.asyncio
+    async def test_browse_lessons_returns_summaries(self) -> None:
         """Test that browse_lessons returns lesson summaries."""
         # Arrange
         content = Mock()
@@ -61,12 +64,12 @@ class TestCatalogService:
             LessonRead(id="lesson-2", title="Lesson 2", learner_level="intermediate", package=package2, package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC)),
         ]
 
-        content.search_lessons.return_value = mock_lessons
+        content.search_lessons = AsyncMock(return_value=mock_lessons)
         units = Mock()
         service = CatalogService(content, units)
 
         # Act
-        result = service.browse_lessons(learner_level="beginner", limit=10)
+        result = await service.browse_lessons(learner_level="beginner", limit=10)
 
         # Assert
         assert len(result.lessons) == 2
@@ -75,9 +78,10 @@ class TestCatalogService:
         assert result.lessons[0].exercise_count == 1  # exercises only
         assert result.lessons[1].exercise_count == 0  # no exercises
 
-        content.search_lessons.assert_called_once_with(learner_level="beginner", limit=10)
+        content.search_lessons.assert_awaited_once_with(learner_level="beginner", limit=10)
 
-    def test_get_lesson_details_returns_details(self) -> None:
+    @pytest.mark.asyncio
+    async def test_get_lesson_details_returns_details(self) -> None:
         """Test that get_lesson_details returns lesson details."""
         # Arrange
         content = Mock()
@@ -101,12 +105,12 @@ class TestCatalogService:
 
         mock_lesson = LessonRead(id="lesson-1", title="Lesson 1", learner_level="beginner", package=package, package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC))
 
-        content.get_lesson.return_value = mock_lesson
+        content.get_lesson = AsyncMock(return_value=mock_lesson)
         units = Mock()
         service = CatalogService(content, units)
 
         # Act
-        result = service.get_lesson_details("lesson-1")
+        result = await service.get_lesson_details("lesson-1")
 
         # Assert
         assert result is not None
@@ -115,24 +119,26 @@ class TestCatalogService:
         assert result.exercise_count == 1  # exercises only
         assert len(result.exercises) == 1
 
-        content.get_lesson.assert_called_once_with("lesson-1")
+        content.get_lesson.assert_awaited_once_with("lesson-1")
 
-    def test_get_lesson_details_returns_none_when_not_found(self) -> None:
+    @pytest.mark.asyncio
+    async def test_get_lesson_details_returns_none_when_not_found(self) -> None:
         """Test that get_lesson_details returns None when lesson doesn't exist."""
         # Arrange
         content = Mock()
-        content.get_lesson.return_value = None
+        content.get_lesson = AsyncMock(return_value=None)
         units = Mock()
         service = CatalogService(content, units)
 
         # Act
-        result = service.get_lesson_details("nonexistent")
+        result = await service.get_lesson_details("nonexistent")
 
         # Assert
         assert result is None
-        content.get_lesson.assert_called_once_with("nonexistent")
+        content.get_lesson.assert_awaited_once_with("nonexistent")
 
-    def test_get_unit_details_includes_learning_objective_progress(self) -> None:
+    @pytest.mark.asyncio
+    async def test_get_unit_details_includes_learning_objective_progress(self) -> None:
         """Unit detail should include aggregated learning objective progress."""
 
         content = Mock()
@@ -149,18 +155,20 @@ class TestCatalogService:
             exercise_count=1,
         )
 
-        units.get_unit_detail.return_value = SimpleNamespace(
-            id="unit-1",
-            title="Unit 1",
-            description=None,
-            learner_level="beginner",
-            lesson_order=["lesson-1"],
-            lessons=[detail_lesson],
-            learning_objectives=["Understand A"],
-            target_lesson_count=None,
-            source_material=None,
-            generated_from_topic=False,
-            flow_type="standard",
+        units.get_unit_detail = AsyncMock(
+            return_value=SimpleNamespace(
+                id="unit-1",
+                title="Unit 1",
+                description=None,
+                learner_level="beginner",
+                lesson_order=["lesson-1"],
+                lessons=[detail_lesson],
+                learning_objectives=["Understand A"],
+                target_lesson_count=None,
+                source_material=None,
+                generated_from_topic=False,
+                flow_type="standard",
+            )
         )
 
         package = LessonPackage(
@@ -193,17 +201,19 @@ class TestCatalogService:
             updated_at=datetime.now(UTC),
         )
 
-        content.get_lessons_by_unit.return_value = [lesson_read]
+        content.get_lessons_by_unit = AsyncMock(return_value=[lesson_read])
 
-        learning_sessions.get_exercise_correctness.return_value = [
-            ExerciseCorrectness(
-                lesson_id="lesson-1",
-                exercise_id="ex-1",
-                has_been_answered_correctly=True,
-            )
-        ]
+        learning_sessions.get_exercise_correctness = AsyncMock(
+            return_value=[
+                ExerciseCorrectness(
+                    lesson_id="lesson-1",
+                    exercise_id="ex-1",
+                    has_been_answered_correctly=True,
+                )
+            ]
+        )
 
-        result = service.get_unit_details("unit-1")
+        result = await service.get_unit_details("unit-1")
 
         assert result is not None
         assert result.learning_objective_progress is not None
@@ -213,7 +223,8 @@ class TestCatalogService:
         assert progress.exercises_correct == 1
         assert progress.progress_percentage == 100.0
 
-    def test_browse_units_for_user_splits_personal_and_global(self) -> None:
+    @pytest.mark.asyncio
+    async def test_browse_units_for_user_splits_personal_and_global(self) -> None:
         """Personal units should be separated from shared global units."""
 
         content = Mock()
@@ -262,24 +273,24 @@ class TestCatalogService:
             error_message=None,
         )
 
-        units.list_units_for_user.return_value = [personal_unit]
-        units.list_global_units.return_value = [duplicated_global, other_global]
-        content.get_lessons_by_unit.side_effect = [["lesson-a", "lesson-b"]]
+        units.list_units_for_user = AsyncMock(return_value=[personal_unit])
+        units.list_global_units = AsyncMock(return_value=[duplicated_global, other_global])
+        content.get_lessons_by_unit = AsyncMock(return_value=["lesson-a", "lesson-b"])
 
-        result = service.browse_units_for_user(user_id=42)
+        result = await service.browse_units_for_user(user_id=42)
 
         assert [summary.id for summary in result.personal_units] == ["unit-1"]
         assert result.personal_units[0].lesson_count == 1
         assert [summary.id for summary in result.global_units] == ["unit-2"]
         assert result.global_units[0].lesson_count == 2
 
-        content.get_lessons_by_unit.assert_called_once_with("unit-2")
+        content.get_lessons_by_unit.assert_awaited_once_with("unit-2")
 
         # When global units are excluded, ensure the global provider is not queried
         content.get_lessons_by_unit.reset_mock()
         units.list_global_units.reset_mock()
 
-        second = service.browse_units_for_user(user_id=42, include_global=False)
+        second = await service.browse_units_for_user(user_id=42, include_global=False)
         assert second.global_units == []
         units.list_global_units.assert_not_called()
         content.get_lessons_by_unit.assert_not_called()
@@ -328,7 +339,8 @@ class TestCatalogService:
         assert detail_with_exercises.is_ready_for_learning() is True
         assert detail_without_exercises.is_ready_for_learning() is False
 
-    def test_search_lessons_with_query(self) -> None:
+    @pytest.mark.asyncio
+    async def test_search_lessons_with_query(self) -> None:
         """Test that search_lessons filters by query."""
         # Arrange
         content = Mock()
@@ -363,19 +375,20 @@ class TestCatalogService:
             LessonRead(id="lesson-2", title="Python Basics", learner_level="beginner", package=package2, package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC)),
         ]
 
-        content.search_lessons.return_value = mock_lessons
+        content.search_lessons = AsyncMock(return_value=mock_lessons)
         units = Mock()
         service = CatalogService(content, units)
 
         # Act
-        result = service.search_lessons(query="react", limit=10)
+        result = await service.search_lessons(query="react", limit=10)
 
         # Assert
         assert len(result.lessons) == 1
         assert result.lessons[0].title == "React Basics"
         assert result.query == "react"
 
-    def test_get_catalog_statistics(self) -> None:
+    @pytest.mark.asyncio
+    async def test_get_catalog_statistics(self) -> None:
         """Test that get_catalog_statistics returns statistics."""
         # Arrange
         content = Mock()
@@ -410,12 +423,12 @@ class TestCatalogService:
             LessonRead(id="lesson-2", title="Lesson 2", learner_level="intermediate", package=package2, package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC)),
         ]
 
-        content.search_lessons.return_value = mock_lessons
+        content.search_lessons = AsyncMock(return_value=mock_lessons)
         units = Mock()
         service = CatalogService(content, units)
 
         # Act
-        result = service.get_catalog_statistics()
+        result = await service.get_catalog_statistics()
 
         # Assert
         assert result.total_lessons == 2
