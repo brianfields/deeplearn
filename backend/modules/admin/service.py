@@ -117,6 +117,8 @@ class AdminService:
                 title=unit.title,
                 is_global=bool(getattr(unit, "is_global", False)),
                 updated_at=unit.updated_at,
+                art_image_url=getattr(unit, "art_image_url", None),
+                art_image_description=getattr(unit, "art_image_description", None),
             )
             for unit in owned_units_data
         ]

@@ -16,7 +16,7 @@ import uuid
 
 from pydantic import BaseModel, ConfigDict
 
-from modules.object_store.public import AudioCreate, ObjectStoreProvider
+from modules.object_store.public import AudioCreate, ImageCreate, ObjectStoreProvider
 
 from .models import LessonModel, UnitModel
 from .package_models import LessonPackage
@@ -80,6 +80,7 @@ class ContentService:
         self.repo = repo
         self._object_store = object_store
         self._audio_metadata_cache: dict[uuid.UUID, Any | None] = {}
+        self._art_metadata_cache: dict[uuid.UUID, Any | None] = {}
 
     # Lesson operations
     async def get_lesson(self, lesson_id: str) -> LessonRead | None:
@@ -287,6 +288,9 @@ class ContentService:
         podcast_voice: str | None = None
         podcast_duration_seconds: int | None = None
         podcast_generated_at: datetime | None = None
+        art_image_id: uuid.UUID | None = None
+        art_image_description: str | None = None
+        art_image_url: str | None = None
         created_at: datetime
         updated_at: datetime
 
@@ -333,9 +337,15 @@ class ContentService:
         unit: UnitModel,
         *,
         audio_meta: Any | None = None,
+        include_art_presigned_url: bool = True,
     ) -> ContentService.UnitRead:
         unit_read = self.UnitRead.model_validate(unit)
         await self._apply_podcast_metadata(unit_read, unit, audio_meta=audio_meta)
+        await self._apply_artwork_metadata(
+            unit_read,
+            unit,
+            include_presigned_url=include_art_presigned_url,
+        )
         return unit_read
 
     async def _apply_podcast_metadata(
@@ -367,6 +377,46 @@ class ContentService:
                 unit_read.podcast_duration_seconds = round(float(duration_value)) if duration_value is not None else None
             except (TypeError, ValueError):
                 unit_read.podcast_duration_seconds = None
+
+    async def _apply_artwork_metadata(
+        self,
+        unit_read: ContentService.UnitRead,
+        unit: UnitModel,
+        *,
+        include_presigned_url: bool = True,
+    ) -> None:
+        unit_read.art_image_description = getattr(unit, "art_image_description", None)
+
+        art_identifier = getattr(unit, "art_image_id", None)
+        if not art_identifier:
+            unit_read.art_image_id = None
+            unit_read.art_image_url = None
+            return
+
+        try:
+            art_uuid = art_identifier if isinstance(art_identifier, uuid.UUID) else uuid.UUID(str(art_identifier))
+        except (TypeError, ValueError):  # pragma: no cover - defensive guard
+            logger.warning("🖼️ Invalid unit artwork id encountered: %s", art_identifier)
+            unit_read.art_image_id = None
+            unit_read.art_image_url = None
+            return
+
+        unit_read.art_image_id = art_uuid
+        if self._object_store is None:
+            unit_read.art_image_url = None
+            return
+
+        metadata = await self._fetch_image_metadata(
+            art_uuid,
+            requesting_user_id=getattr(unit, "user_id", None),
+            include_presigned_url=include_presigned_url,
+        )
+
+        if metadata is None:
+            unit_read.art_image_url = None
+            return
+
+        unit_read.art_image_url = getattr(metadata, "presigned_url", None)
 
     async def _fetch_audio_metadata(
         self,
@@ -409,6 +459,45 @@ class ContentService:
 
         return metadata
 
+    async def _fetch_image_metadata(
+        self,
+        image_id: uuid.UUID,
+        *,
+        requesting_user_id: int | None,
+        include_presigned_url: bool,
+    ) -> Any | None:
+        if self._object_store is None:
+            return None
+
+        cached = self._art_metadata_cache.get(image_id)
+        if cached is not None:
+            if include_presigned_url:
+                cached_url = getattr(cached, "presigned_url", None)
+                if cached_url:
+                    return cached
+            else:
+                return cached
+
+        try:
+            metadata = await self._object_store.get_image(  # type: ignore[func-returns-value]
+                image_id,
+                requesting_user_id=requesting_user_id,
+                include_presigned_url=include_presigned_url,
+            )
+        except Exception as exc:  # pragma: no cover - network/object store issues
+            logger.warning(
+                "🖼️ Failed to retrieve unit artwork metadata %s: %s",
+                image_id,
+                exc,
+                exc_info=True,
+            )
+            metadata = None
+
+        if metadata is not None:
+            self._art_metadata_cache[image_id] = metadata
+
+        return metadata
+
     def _build_podcast_audio_url(self, unit: UnitModel) -> str | None:
         if not getattr(unit, "podcast_audio_object_id", None):
             return None
@@ -428,6 +517,63 @@ class ContentService:
         }
         suffix = extension_map.get((mime_type or "").lower(), ".bin")
         return f"unit-{unit_id}{suffix}"
+
+    def _build_unit_art_filename(self, unit_id: str, content_type: str | None) -> str:
+        """Construct a deterministic filename for generated unit artwork."""
+
+        extension_map = {
+            "image/png": ".png",
+            "image/jpeg": ".jpg",
+            "image/jpg": ".jpg",
+            "image/webp": ".webp",
+        }
+        suffix = extension_map.get((content_type or "").lower(), ".png")
+        return f"unit-art-{unit_id}{suffix}"
+
+    async def save_unit_art_from_bytes(
+        self,
+        unit_id: str,
+        *,
+        image_bytes: bytes,
+        content_type: str,
+        description: str | None,
+        alt_text: str | None = None,
+    ) -> ContentService.UnitRead:
+        """Upload generated art to the object store and persist metadata."""
+
+        if self._object_store is None:
+            raise RuntimeError("Object store is not configured; cannot persist generated unit art.")
+
+        unit_info = await self.repo.get_unit_by_id(unit_id)
+        if unit_info is None:
+            raise ValueError("Unit not found")
+
+        owner_id = getattr(unit_info, "user_id", None)
+        filename = self._build_unit_art_filename(unit_id, content_type)
+        resolved_content_type = content_type or "image/png"
+
+        upload = await self._object_store.upload_image(  # type: ignore[func-returns-value]
+            ImageCreate(
+                user_id=owner_id,
+                filename=filename,
+                content_type=resolved_content_type,
+                content=image_bytes,
+                description=description,
+                alt_text=alt_text,
+            ),
+            generate_presigned_url=True,
+        )
+
+        updated = await self.repo.set_unit_art(
+            unit_id,
+            image_object_id=upload.file.id,
+            description=description,
+        )
+        if updated is None:
+            raise ValueError("Failed to persist unit art metadata")
+
+        self._art_metadata_cache.clear()
+        return await self._build_unit_read(updated, include_art_presigned_url=True)
 
     async def save_unit_podcast_from_bytes(
         self,
@@ -478,7 +624,12 @@ class ContentService:
             return None
         return await self._build_unit_read(u)
 
-    async def get_unit_detail(self, unit_id: str) -> ContentService.UnitDetailRead | None:
+    async def get_unit_detail(
+        self,
+        unit_id: str,
+        *,
+        include_art_presigned_url: bool = True,
+    ) -> ContentService.UnitDetailRead | None:
         unit = await self.repo.get_unit_by_id(unit_id)
         if unit is None:
             return None
@@ -541,7 +692,11 @@ class ContentService:
                 include_presigned_url=True,
             )
 
-        unit_summary = await self._build_unit_read(unit, audio_meta=audio_meta)
+        unit_summary = await self._build_unit_read(
+            unit,
+            audio_meta=audio_meta,
+            include_art_presigned_url=include_art_presigned_url,
+        )
         detail_dict = unit_summary.model_dump()
         detail_dict["lesson_order"] = ordered_ids
         detail_dict["lessons"] = [lesson.model_dump() for lesson in ordered_lessons]

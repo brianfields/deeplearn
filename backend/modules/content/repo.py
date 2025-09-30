@@ -218,6 +218,26 @@ class ContentRepo:
         await self.s.flush()
         return unit
 
+    async def set_unit_art(
+        self,
+        unit_id: str,
+        *,
+        image_object_id: uuid.UUID | None,
+        description: str | None,
+    ) -> UnitModel | None:
+        """Persist unit artwork metadata and return the updated model."""
+
+        unit = await self.get_unit_by_id(unit_id)
+        if unit is None:
+            return None
+
+        unit.art_image_id = image_object_id  # type: ignore[assignment]
+        unit.art_image_description = description  # type: ignore[assignment]
+        unit.updated_at = datetime.utcnow()  # type: ignore[assignment]
+        self.s.add(unit)
+        await self.s.flush()
+        return unit
+
     async def set_unit_owner(self, unit_id: str, user_id: int | None) -> UnitModel | None:
         """Update the owner of a unit, returning the updated model or None if not found."""
         unit = await self.get_unit_by_id(unit_id)

@@ -180,6 +180,8 @@ export interface ApiUserOwnedUnitSummary {
   title: string;
   is_global: boolean;
   updated_at: string;
+  art_image_url?: string | null;
+  art_image_description?: string | null;
 }
 
 export interface ApiUserSessionSummary {
@@ -242,6 +244,8 @@ export interface UserOwnedUnitSummary {
   title: string;
   is_global: boolean;
   updated_at: Date;
+  art_image_url: string | null;
+  art_image_description: string | null;
 }
 
 export interface UserSessionSummary {
@@ -418,6 +422,8 @@ export interface ApiUnitSummary {
   podcast_duration_seconds?: number | null;
   podcast_transcript?: string | null;
   podcast_audio_url?: string | null;
+  art_image_url?: string | null;
+  art_image_description?: string | null;
 }
 
 export interface ApiUnitLessonSummary {
@@ -448,6 +454,8 @@ export interface ApiUnitDetail {
   podcast_duration_seconds?: number | null;
   podcast_transcript?: string | null;
   podcast_audio_url?: string | null;
+  art_image_url?: string | null;
+  art_image_description?: string | null;
 }
 
 // Basic unit from /api/v1/units
@@ -478,6 +486,8 @@ export interface UnitSummary {
   has_podcast: boolean;
   podcast_voice: string | null;
   podcast_duration_seconds: number | null;
+  art_image_url: string | null;
+  art_image_description: string | null;
 }
 
 export interface UnitLessonSummary {
@@ -513,6 +523,8 @@ export interface UnitDetail {
   podcast_duration_seconds: number | null;
   podcast_transcript: string | null;
   podcast_audio_url: string | null;
+  art_image_url: string | null;
+  art_image_description: string | null;
 }
 
 export type LessonToUnitMap = Record<string, { unit_id: string; unit_title: string }>;
