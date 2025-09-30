@@ -10,6 +10,7 @@ Handles content operations and data transformation.
 from datetime import UTC, datetime
 from enum import Enum
 import logging
+import mimetypes
 
 # Import inside methods when needed to avoid circular imports with public/providers
 from typing import TYPE_CHECKING, Any
@@ -22,6 +23,12 @@ from .package_models import LessonPackage
 from .repo import ContentRepo
 
 from ..llm_services.public import LLMServicesProvider
+from ..object_store.public import ImageCreate, ObjectStoreProvider
+
+try:
+    import httpx
+except ImportError:  # pragma: no cover - httpx is an optional dependency at runtime
+    httpx = None  # type: ignore[assignment]
 
 if TYPE_CHECKING:  # pragma: no cover - type checking only
     from ..learning_session.models import UnitSessionModel  # noqa: F401
@@ -79,11 +86,17 @@ class LessonCreate(BaseModel):
 class ContentService:
     """Service for content operations."""
 
-    def __init__(self, repo: ContentRepo, llm_services: LLMServicesProvider | None = None) -> None:
-        """Initialize service with repository and optional LLM services."""
+    def __init__(
+        self,
+        repo: ContentRepo,
+        llm_services: LLMServicesProvider | None = None,
+        object_store: ObjectStoreProvider | None = None,
+    ) -> None:
+        """Initialize service with repository and optional dependencies."""
 
         self.repo = repo
         self.llm_services = llm_services
+        self.object_store = object_store
 
     # Lesson operations
     def get_lesson(self, lesson_id: str) -> LessonRead | None:
@@ -277,6 +290,7 @@ class ContentService:
         cover_image_url: str | None = None
         cover_image_prompt: str | None = None
         cover_image_request_id: uuid.UUID | None = None
+        cover_image_object_id: uuid.UUID | None = None
         # Status tracking fields
         status: str = "completed"
         creation_progress: dict[str, Any] | None = None
@@ -316,6 +330,7 @@ class ContentService:
         cover_image_url: str | None = None
         cover_image_prompt: str | None = None
         cover_image_request_id: uuid.UUID | None = None
+        cover_image_object_id: uuid.UUID | None = None
 
     def get_unit(self, unit_id: str) -> ContentService.UnitRead | None:
         u = self.repo.get_unit_by_id(unit_id)
@@ -413,6 +428,7 @@ class ContentService:
         cover_image_url = data.cover_image_url
         cover_image_prompt = data.cover_image_prompt
         cover_image_request_id = data.cover_image_request_id
+        cover_image_object_id: uuid.UUID | None = None
 
         if self.llm_services and not cover_image_url:
             prompt = cover_image_prompt or self._build_unit_cover_prompt(data)
@@ -427,6 +443,24 @@ class ContentService:
                 cover_image_request_id = request_id
                 cover_image_prompt = image_response.revised_prompt or prompt
                 logger.info("🖼️ Generated cover image for unit %s", unit_id)
+
+                if self.object_store:
+                    try:
+                        (
+                            cover_image_url,
+                            cover_image_object_id,
+                        ) = await self._store_generated_image(
+                            image_url=cover_image_url,
+                            prompt=cover_image_prompt,
+                            user_id=data.user_id,
+                        )
+                    except Exception as storage_exc:  # pragma: no cover - defensive logging
+                        logger.warning(
+                            "⚠️ Failed to persist cover image for unit %s (%s): %s",
+                            unit_id,
+                            data.title,
+                            storage_exc,
+                        )
             except Exception as exc:  # pragma: no cover - defensive logging
                 cover_image_prompt = prompt
                 logger.warning(
@@ -456,9 +490,60 @@ class ContentService:
             cover_image_url=cover_image_url,
             cover_image_prompt=cover_image_prompt,
             cover_image_request_id=cover_image_request_id,
+            cover_image_object_id=cover_image_object_id,
         )
         created = self.repo.add_unit(model)
         return self.UnitRead.model_validate(created)
+
+    async def _store_generated_image(
+        self,
+        *,
+        image_url: str,
+        prompt: str | None,
+        user_id: int | None,
+    ) -> tuple[str, uuid.UUID | None]:
+        if not self.object_store:
+            return image_url, None
+        if httpx is None:  # pragma: no cover - runtime dependency guard
+            raise RuntimeError("httpx is required to persist generated images")
+
+        content, content_type = await self._download_image_content(image_url)
+        filename = self._build_cover_image_filename(content_type)
+        description = f"AI generated unit cover image. Prompt: {prompt}" if prompt else "AI generated unit cover image."
+
+        upload = await self.object_store.upload_image(
+            ImageCreate(
+                user_id=user_id,
+                filename=filename,
+                content_type=content_type,
+                content=content,
+                description=description,
+            ),
+            generate_presigned_url=True,
+            presigned_ttl_seconds=604800,
+        )
+
+        url = upload.presigned_url
+        if not url:
+            url = await self.object_store.generate_presigned_url(upload.file.s3_key, expires_in=604800)
+        return url, upload.file.id
+
+    async def _download_image_content(self, url: str) -> tuple[bytes, str]:
+        if httpx is None:  # pragma: no cover - runtime dependency guard
+            raise RuntimeError("httpx is required to download generated images")
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(url)
+        response.raise_for_status()
+        content_type = response.headers.get("content-type", "application/octet-stream")
+        normalized_content_type = content_type.split(";")[0].strip().lower()
+        return response.content, normalized_content_type
+
+    @staticmethod
+    def _build_cover_image_filename(content_type: str) -> str:
+        extension = mimetypes.guess_extension(content_type) or ".png"
+        sanitized_extension = extension if extension.startswith(".") else f".{extension}"
+        return f"unit-cover-{uuid.uuid4().hex}{sanitized_extension}"
 
     @staticmethod
     def _build_unit_cover_prompt(data: "ContentService.UnitCreate") -> str:
