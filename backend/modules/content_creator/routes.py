@@ -7,10 +7,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from modules.content.public import UnitStatus
+from modules.content.public import ContentProvider, UnitStatus, content_provider
 from modules.infrastructure.public import infrastructure_provider
 
-from .public import content_creator_provider
 from .service import ContentCreatorService
 
 logger = logging.getLogger(__name__)
@@ -28,7 +27,8 @@ async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
 
 async def get_content_creator_service(session: AsyncSession = Depends(get_async_session)) -> ContentCreatorService:
     """Build ContentCreatorService for this request."""
-    return content_creator_provider(session)
+    content: ContentProvider = content_provider(session)
+    return ContentCreatorService(content)
 
 
 # DTOs for mobile unit creation

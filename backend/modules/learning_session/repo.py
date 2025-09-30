@@ -128,9 +128,7 @@ class LearningSessionRepo:
         if filters:
             total_stmt = total_stmt.where(*filters)
 
-        ordered_stmt = (
-            base_stmt.order_by(desc(LearningSessionModel.started_at)).offset(offset).limit(limit)
-        )
+        ordered_stmt = base_stmt.order_by(desc(LearningSessionModel.started_at)).offset(offset).limit(limit)
 
         result = await self.db.execute(ordered_stmt)
         sessions = list(result.scalars().all())
@@ -140,9 +138,7 @@ class LearningSessionRepo:
 
         return sessions, total
 
-    async def get_active_session_for_user_and_lesson(
-        self, user_id: str, lesson_id: str
-    ) -> LearningSessionModel | None:
+    async def get_active_session_for_user_and_lesson(self, user_id: str, lesson_id: str) -> LearningSessionModel | None:
         """Get active session for user and lesson (if any)"""
         stmt = (
             select(LearningSessionModel)

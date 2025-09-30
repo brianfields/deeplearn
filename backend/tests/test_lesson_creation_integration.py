@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """Integration test for complete lesson creation flow.
 
 This test uses the real PostgreSQL database and makes actual LLM API calls
@@ -17,7 +15,8 @@ from unittest.mock import patch
 import uuid
 
 import pytest
-from sqlalchemy import desc as _desc, select
+from sqlalchemy import desc as _desc
+from sqlalchemy import select
 
 from modules.content.public import content_provider
 from modules.content_creator.public import content_creator_provider
@@ -395,11 +394,7 @@ class TestUnitCreationIntegration:
             assert getattr(saved_unit, "flow_type", "standard") == "standard"
 
             # Verify flow run record for unit_creation
-            stmt = (
-                select(FlowRunModel)
-                .where(FlowRunModel.flow_name == "unit_creation")
-                .order_by(_desc(FlowRunModel.created_at))
-            )
+            stmt = select(FlowRunModel).where(FlowRunModel.flow_name == "unit_creation").order_by(_desc(FlowRunModel.created_at))
             result_row = await session.execute(stmt)
             flow_run = result_row.scalars().first()
 

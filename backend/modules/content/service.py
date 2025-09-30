@@ -8,7 +8,7 @@ Handles content operations and data transformation.
 """
 
 # Import inside methods when needed to avoid circular imports with public/providers
-from datetime import UTC, datetime
+from datetime import datetime
 from enum import Enum
 import logging
 from typing import Any
@@ -222,8 +222,8 @@ class ContentService:
             package=package_dict,
             package_version=lesson_data.package_version,
             flow_run_id=lesson_data.flow_run_id,
-            created_at=datetime.now(UTC),
-            updated_at=datetime.now(UTC),
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
         )
 
         saved_lesson = await self.repo.save_lesson(lesson_model)
@@ -620,8 +620,8 @@ class ContentService:
             source_material=data.source_material,
             generated_from_topic=bool(data.generated_from_topic),
             flow_type=str(getattr(data, "flow_type", "standard") or "standard"),
-            created_at=datetime.now(UTC),
-            updated_at=datetime.now(UTC),
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
         )
         created = await self.repo.add_unit(model)
         return await self._build_unit_read(created)
@@ -794,8 +794,8 @@ class ContentService:
             progress_percentage=0.0,
             completed_lesson_ids=[],
             last_lesson_id=None,
-            started_at=datetime.now(UTC),
-            updated_at=datetime.now(UTC),
+            started_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
         )
         created = await self.repo.add_unit_session(model)
         return self.UnitSessionRead.model_validate(created)
@@ -824,8 +824,8 @@ class ContentService:
                 progress_percentage=0.0,
                 completed_lesson_ids=[],
                 last_lesson_id=None,
-                started_at=datetime.now(UTC),
-                updated_at=datetime.now(UTC),
+                started_at=datetime.utcnow(),
+                updated_at=datetime.utcnow(),
             )
             await self.repo.add_unit_session(model)
 
@@ -848,8 +848,8 @@ class ContentService:
 
         if mark_completed:
             model.status = "completed"
-            model.completed_at = datetime.now(UTC)
+            model.completed_at = datetime.utcnow()
 
-        model.updated_at = datetime.now(UTC)
+        model.updated_at = datetime.utcnow()
         await self.repo.save_unit_session(model)
         return self.UnitSessionRead.model_validate(model)

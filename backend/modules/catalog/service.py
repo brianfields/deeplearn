@@ -560,9 +560,7 @@ class CatalogService:
             return None
 
         try:
-            correctness = await self.learning_sessions.get_exercise_correctness(
-                [lesson.id for lesson in lessons]
-            )
+            correctness = await self.learning_sessions.get_exercise_correctness([lesson.id for lesson in lessons])
         except Exception:
             correctness = []
 

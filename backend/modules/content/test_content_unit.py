@@ -15,7 +15,6 @@ from modules.content.package_models import GlossaryTerm, LessonPackage, MCQAnswe
 from modules.content.repo import ContentRepo
 from modules.content.service import ContentService, LessonCreate
 
-
 pytestmark = pytest.mark.asyncio
 
 

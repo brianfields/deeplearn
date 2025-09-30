@@ -23,8 +23,7 @@ class ContentCreatorProvider(Protocol):
         background: bool = False,
         target_lesson_count: int | None = None,
         learner_level: str = "beginner",
-    ) -> ContentCreatorService.UnitCreationResult | ContentCreatorService.MobileUnitCreationResult:
-        ...
+    ) -> ContentCreatorService.UnitCreationResult | ContentCreatorService.MobileUnitCreationResult: ...
 
 
 def content_creator_provider(session: AsyncSession) -> ContentCreatorProvider:
@@ -51,11 +50,7 @@ async def _handle_unit_creation(payload: dict) -> None:
     topic = str(payload.get("topic") or inputs.get("topic") or "")
     source_material = inputs.get("source_material")
     learner_level = str(payload.get("learner_level") or inputs.get("learner_level") or "beginner")
-    target = (
-        payload.get("target_lesson_count")
-        if payload.get("target_lesson_count") is not None
-        else inputs.get("target_lesson_count")
-    )
+    target = payload.get("target_lesson_count") if payload.get("target_lesson_count") is not None else inputs.get("target_lesson_count")
 
     # Use a fresh DB session for the whole operation
     async with infra.get_async_session_context() as session:

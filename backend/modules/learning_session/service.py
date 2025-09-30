@@ -180,9 +180,7 @@ class LearningSessionService:
             raise ValueError(f"Lesson {request.lesson_id} not found")
 
         # Check for existing active session (if user provided)
-        existing_session = await self.repo.get_active_session_for_user_and_lesson(
-            request.user_id, request.lesson_id
-        )
+        existing_session = await self.repo.get_active_session_for_user_and_lesson(request.user_id, request.lesson_id)
         if existing_session:
             # Ensure the session is bound to the requesting user (for legacy records)
             existing_session = await self._ensure_session_user(existing_session, request.user_id)
@@ -367,9 +365,7 @@ class LearningSessionService:
                     total_lessons = len(lessons_in_unit)
                     # Compute if completing this lesson finishes the unit
                     try:
-                        us = await self.content.get_or_create_unit_session(
-                            user_id=completed_session.user_id, unit_id=unit_id
-                        )
+                        us = await self.content.get_or_create_unit_session(user_id=completed_session.user_id, unit_id=unit_id)
                         already_completed = set(us.completed_lesson_ids or [])
                     except Exception:
                         already_completed = set()
@@ -401,9 +397,7 @@ class LearningSessionService:
 
         # Build lesson-level details from latest sessions
         for lesson in lessons:
-            sessions, _ = await self.repo.get_user_sessions(
-                user_id=user_id, lesson_id=lesson.id, limit=1, offset=0
-            )
+            sessions, _ = await self.repo.get_user_sessions(user_id=user_id, lesson_id=lesson.id, limit=1, offset=0)
             if sessions:
                 s = sessions[0]
                 total_exercises = len(lesson.package.exercises)
@@ -437,13 +431,7 @@ class LearningSessionService:
         # Try persistent session
         try:
             us = await self.content.get_or_create_unit_session(user_id=user_id, unit_id=unit_id)
-            avg_progress = (
-                us.progress_percentage
-                if us
-                else sum(lp.progress_percentage for lp in lesson_progress_list) / total_lessons
-                if total_lessons > 0
-                else 0.0
-            )
+            avg_progress = us.progress_percentage if us else sum(lp.progress_percentage for lp in lesson_progress_list) / total_lessons if total_lessons > 0 else 0.0
         except Exception:
             avg_progress = sum(lp.progress_percentage for lp in lesson_progress_list) / total_lessons if total_lessons > 0 else 0.0
 
@@ -515,9 +503,7 @@ class LearningSessionService:
     # Private Helper Methods
     # ================================
 
-    async def _ensure_session_user(
-        self, session: LearningSessionModel, user_id: str | None
-    ) -> LearningSessionModel:
+    async def _ensure_session_user(self, session: LearningSessionModel, user_id: str | None) -> LearningSessionModel:
         """Validate or persist the session's user association."""
 
         if user_id is None:

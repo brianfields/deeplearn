@@ -5,7 +5,7 @@ Database access layer that returns ORM objects.
 Handles all CRUD operations for lessons with embedded package content.
 """
 
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
 import uuid
 
@@ -92,37 +92,19 @@ class ContentRepo:
 
     async def list_units_for_user(self, user_id: int, limit: int = 100, offset: int = 0) -> list[UnitModel]:
         """Return units owned by the specified user ordered by most recently updated."""
-        stmt = (
-            select(UnitModel)
-            .filter(UnitModel.user_id == user_id)
-            .order_by(desc(UnitModel.updated_at))
-            .offset(offset)
-            .limit(limit)
-        )
+        stmt = select(UnitModel).filter(UnitModel.user_id == user_id).order_by(desc(UnitModel.updated_at)).offset(offset).limit(limit)
         result = await self.s.execute(stmt)
         return list(result.scalars().all())
 
     async def list_global_units(self, limit: int = 100, offset: int = 0) -> list[UnitModel]:
         """Return globally shared units ordered by most recently updated."""
-        stmt = (
-            select(UnitModel)
-            .filter(UnitModel.is_global.is_(True))
-            .order_by(desc(UnitModel.updated_at))
-            .offset(offset)
-            .limit(limit)
-        )
+        stmt = select(UnitModel).filter(UnitModel.is_global.is_(True)).order_by(desc(UnitModel.updated_at)).offset(offset).limit(limit)
         result = await self.s.execute(stmt)
         return list(result.scalars().all())
 
     async def get_units_by_status(self, status: str, limit: int = 100, offset: int = 0) -> list[UnitModel]:
         """Get units by status, ordered by updated_at descending."""
-        stmt = (
-            select(UnitModel)
-            .filter(UnitModel.status == status)
-            .order_by(desc(UnitModel.updated_at))
-            .offset(offset)
-            .limit(limit)
-        )
+        stmt = select(UnitModel).filter(UnitModel.status == status).order_by(desc(UnitModel.updated_at)).offset(offset).limit(limit)
         result = await self.s.execute(stmt)
         return list(result.scalars().all())
 
@@ -154,7 +136,7 @@ class ContentRepo:
         if creation_progress is not None:
             unit.creation_progress = creation_progress  # type: ignore[assignment]
 
-        unit.updated_at = datetime.now(UTC)  # type: ignore[assignment]
+        unit.updated_at = datetime.utcnow()  # type: ignore[assignment]
 
         self.s.add(unit)
         await self.s.flush()
@@ -228,10 +210,10 @@ class ContentRepo:
         unit.podcast_voice = voice  # type: ignore[assignment]
         has_audio_reference = audio_object_id is not None
         if transcript or has_audio_reference:
-            unit.podcast_generated_at = datetime.now(UTC)  # type: ignore[assignment]
+            unit.podcast_generated_at = datetime.utcnow()  # type: ignore[assignment]
         else:
             unit.podcast_generated_at = None  # type: ignore[assignment]
-        unit.updated_at = datetime.now(UTC)  # type: ignore[assignment]
+        unit.updated_at = datetime.utcnow()  # type: ignore[assignment]
         self.s.add(unit)
         await self.s.flush()
         return unit
@@ -243,7 +225,7 @@ class ContentRepo:
             return None
 
         unit.user_id = user_id  # type: ignore[assignment]
-        unit.updated_at = datetime.now(UTC)  # type: ignore[assignment]
+        unit.updated_at = datetime.utcnow()  # type: ignore[assignment]
         self.s.add(unit)
         await self.s.flush()
         return unit
@@ -255,7 +237,7 @@ class ContentRepo:
             return None
 
         unit.is_global = bool(is_global)  # type: ignore[assignment]
-        unit.updated_at = datetime.now(UTC)  # type: ignore[assignment]
+        unit.updated_at = datetime.utcnow()  # type: ignore[assignment]
         self.s.add(unit)
         await self.s.flush()
         return unit
@@ -271,12 +253,7 @@ class ContentRepo:
         """Get the latest unit session for a user and unit."""
         from ..learning_session.models import UnitSessionModel  # Local import to avoid circular deps # noqa: PLC0415
 
-        stmt = (
-            select(UnitSessionModel)
-            .filter(and_(UnitSessionModel.user_id == user_id, UnitSessionModel.unit_id == unit_id))
-            .order_by(desc(UnitSessionModel.updated_at))
-            .limit(1)
-        )
+        stmt = select(UnitSessionModel).filter(and_(UnitSessionModel.user_id == user_id, UnitSessionModel.unit_id == unit_id)).order_by(desc(UnitSessionModel.updated_at)).limit(1)
         result = await self.s.execute(stmt)
         return result.scalars().first()
 
