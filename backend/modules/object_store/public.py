@@ -21,7 +21,7 @@ class ObjectStoreProvider(Protocol):
         data: ImageCreate,
         *,
         generate_presigned_url: bool = False,
-        presigned_ttl_seconds: int = 3600,
+        presigned_ttl_seconds: int = 86400,
     ) -> FileUploadResult:
         """Upload an image and store metadata."""
         ...
@@ -31,7 +31,7 @@ class ObjectStoreProvider(Protocol):
         data: AudioCreate,
         *,
         generate_presigned_url: bool = False,
-        presigned_ttl_seconds: int = 3600,
+        presigned_ttl_seconds: int = 86400,
     ) -> FileUploadResult:
         """Upload an audio file and store metadata."""
         ...
@@ -42,7 +42,7 @@ class ObjectStoreProvider(Protocol):
         *,
         requesting_user_id: int | None,
         include_presigned_url: bool = False,
-        presigned_ttl_seconds: int = 3600,
+        presigned_ttl_seconds: int = 86400,
     ) -> ImageRead:
         """Retrieve a single image by id."""
         ...
@@ -53,7 +53,7 @@ class ObjectStoreProvider(Protocol):
         *,
         requesting_user_id: int | None,
         include_presigned_url: bool = False,
-        presigned_ttl_seconds: int = 3600,
+        presigned_ttl_seconds: int = 86400,
     ) -> AudioRead:
         """Retrieve a single audio file by id."""
         ...
@@ -65,7 +65,7 @@ class ObjectStoreProvider(Protocol):
         limit: int = 50,
         offset: int = 0,
         include_presigned_url: bool = False,
-        presigned_ttl_seconds: int = 3600,
+        presigned_ttl_seconds: int = 86400,
         include_system: bool = False,
     ) -> tuple[list[ImageRead], int]:
         """List images for a given user with pagination."""
@@ -78,7 +78,7 @@ class ObjectStoreProvider(Protocol):
         limit: int = 50,
         offset: int = 0,
         include_presigned_url: bool = False,
-        presigned_ttl_seconds: int = 3600,
+        presigned_ttl_seconds: int = 86400,
         include_system: bool = False,
     ) -> tuple[list[AudioRead], int]:
         """List audio files for a given user with pagination."""
@@ -92,7 +92,7 @@ class ObjectStoreProvider(Protocol):
         """Delete an audio file by id."""
         ...
 
-    async def generate_presigned_url(self, s3_key: str, *, expires_in: int = 3600) -> str:
+    async def generate_presigned_url(self, s3_key: str, *, expires_in: int = 86400) -> str:
         """Generate a presigned URL for a stored file."""
         ...
 

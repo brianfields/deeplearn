@@ -4,8 +4,10 @@
  * Tests theme management, component utilities, and design system functionality.
  */
 
+import renderer, { act } from 'react-test-renderer';
+import type { ReactTestInstance } from 'react-test-renderer';
 import { UISystemService } from './service';
-import { uiSystemProvider } from './public';
+import { uiSystemProvider, ArtworkImage } from './public';
 import { theme, colors, spacing, typography } from './theme/theme';
 
 describe('UI System Module', () => {
@@ -81,6 +83,70 @@ describe('UI System Module', () => {
       expect(heading1).toHaveProperty('fontWeight');
       expect(heading1).toHaveProperty('lineHeight');
       expect(heading1.fontSize).toBe(28);
+    });
+  });
+
+  describe('ArtworkImage component', () => {
+    it('renders remote artwork when imageUrl is provided', () => {
+      let tree: any;
+      act(() => {
+        tree = renderer.create(
+          <ArtworkImage
+            title="Galactic Algebra"
+            imageUrl="https://cdn.example.com/galactic.png"
+            description="Deco nebula geometry"
+          />
+        );
+      });
+
+      const imageNodes = tree.root.findAllByType('Image');
+      expect(imageNodes).toHaveLength(1);
+      expect(imageNodes[0].props.source).toEqual({
+        uri: 'https://cdn.example.com/galactic.png',
+      });
+      expect(imageNodes[0].props.accessibilityLabel).toBe(
+        'Deco nebula geometry'
+      );
+    });
+
+    it('falls back to initials badge when no image is available', () => {
+      let tree: any;
+      act(() => {
+        tree = renderer.create(<ArtworkImage title="Quantum Mechanics" />);
+      });
+
+      const imageNodes = tree.root.findAllByType('Image');
+      expect(imageNodes).toHaveLength(0);
+
+      const textNodes = tree.root.findAllByType('Text');
+      expect(textNodes[0].props.children).toBe('QM');
+    });
+
+    it('shows fallback badge when the image fails to load', () => {
+      let tree: any;
+      act(() => {
+        tree = renderer.create(
+          <ArtworkImage
+            title="Sonic Boom"
+            imageUrl="https://cdn.example.com/sonic.png"
+          />
+        );
+      });
+
+      const imageNode = tree.root.findByType('Image');
+      act(() => {
+        imageNode.props.onError?.();
+      });
+
+      const updatedImageNodes = tree.root.findAllByType('Image');
+      expect(updatedImageNodes).toHaveLength(0);
+
+      const textNodes = tree.root.findAllByType('Text');
+      expect(
+        textNodes.some(
+          (node: ReactTestInstance) => node.props.children === 'SB'
+        )
+      ).toBe(true);
     });
   });
 

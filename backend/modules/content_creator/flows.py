@@ -17,6 +17,8 @@ from .steps import (
     ExtractLessonMetadataStep,
     ExtractUnitMetadataStep,
     GenerateMCQStep,
+    GenerateUnitArtDescriptionStep,
+    GenerateUnitArtImageStep,
     GenerateUnitPodcastTranscriptStep,
     GenerateUnitSourceMaterialStep,
     PodcastLessonInput,
@@ -197,4 +199,60 @@ class UnitPodcastFlow(BaseFlow):
         return {
             "transcript": transcript_text,
             "audio": audio_result.output_content,
+        }
+
+
+class UnitArtCreationFlow(BaseFlow):
+    """Generate Weimar Edge artwork prompt and image for a unit."""
+
+    flow_name = "unit_art_creation"
+
+    class Inputs(BaseModel):
+        unit_title: str
+        unit_description: str | None = None
+        learning_objectives: list[str] = []
+        key_concepts: list[str] = []
+        style_hint: str | None = None
+
+    async def _execute_flow_logic(self, inputs: dict[str, Any]) -> dict[str, Any]:
+        logger.info("🖼️ Unit Art Flow - %s", inputs.get("unit_title", "Unknown"))
+
+        # Format lists as bullet-point strings for the prompt template
+        learning_objectives = inputs.get("learning_objectives") or []
+        key_concepts = inputs.get("key_concepts") or []
+
+        learning_objectives_str = "\n".join(f"- {obj}" for obj in learning_objectives) if learning_objectives else "- (None specified)"
+        key_concepts_str = "\n".join(f"- {concept}" for concept in key_concepts) if key_concepts else "- (None specified)"
+
+        description_inputs = {
+            "unit_title": inputs.get("unit_title", ""),
+            "unit_description": inputs.get("unit_description"),
+            "learning_objectives": learning_objectives_str,
+            "key_concepts": key_concepts_str,
+        }
+
+        description_result = await GenerateUnitArtDescriptionStep().execute(description_inputs)
+        description_content = description_result.output_content
+        prompt_text = str(getattr(description_content, "prompt", "")).strip()
+        if not prompt_text:
+            raise RuntimeError("Unit art description step returned an empty prompt")
+
+        image_inputs = {
+            "prompt": prompt_text,
+            "size": "1024x1024",
+            "quality": "standard",
+        }
+        style_hint = inputs.get("style_hint")
+        if isinstance(style_hint, str) and style_hint:
+            image_inputs["style"] = style_hint
+
+        image_result = await GenerateUnitArtImageStep().execute(image_inputs)
+
+        return {
+            "art_description": {
+                "prompt": prompt_text,
+                "alt_text": getattr(description_content, "alt_text", ""),
+                "palette": list(getattr(description_content, "palette", []) or []),
+            },
+            "image": image_result.output_content,
         }

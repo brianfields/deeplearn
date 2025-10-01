@@ -7,6 +7,7 @@ import {
   Text,
   Box,
   Button,
+  ArtworkImage,
   uiSystemProvider,
   useHaptics,
 } from '../../ui_system/public';
@@ -73,142 +74,162 @@ export function UnitCard({
             : null,
         ]}
       >
-        {/* Header */}
         <View
           style={{
             flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: ui.getSpacing('sm'),
+            alignItems: 'flex-start',
+            columnGap: ui.getSpacing('md'),
           }}
         >
-          <Text
-            variant="title"
-            weight="700"
-            color={isDisabled ? theme.colors.textSecondary : theme.colors.text}
-            style={{ flex: 1, marginRight: ui.getSpacing('sm') }}
-            numberOfLines={2}
-          >
-            {unit.title}
-          </Text>
+          <ArtworkImage
+            title={unit.title}
+            imageUrl={unit.artImageUrl ?? undefined}
+            description={unit.artImageDescription ?? undefined}
+            variant="thumbnail"
+            style={{ flexShrink: 0 }}
+            testID={index !== undefined ? `unit-art-${index}` : undefined}
+          />
 
-          <View style={{ flexDirection: 'row', columnGap: 8 }}>
+          <View style={{ flex: 1 }}>
             <View
               style={{
-                backgroundColor: ownershipBadgeBackground,
-                paddingHorizontal: 8,
-                paddingVertical: 4,
-                borderRadius: 8,
-                borderWidth: StyleSheet.hairlineWidth,
-                borderColor: theme.colors.border,
+                flexDirection: 'row',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                marginBottom: ui.getSpacing('sm'),
               }}
             >
               <Text
-                variant="caption"
-                color={ownershipBadgeTextColor}
-                weight="600"
-              >
-                {unit.ownershipLabel}
-              </Text>
-            </View>
-            <View
-              style={{
-                backgroundColor: isDisabled
-                  ? theme.colors.border
-                  : theme.colors.accent,
-                paddingHorizontal: 8,
-                paddingVertical: 4,
-                borderRadius: 8,
-              }}
-            >
-              <Text
-                variant="caption"
+                variant="title"
+                weight="700"
                 color={
-                  ui.isLightColor(theme.colors.accent)
-                    ? theme.colors.surface
-                    : theme.colors.background
+                  isDisabled ? theme.colors.textSecondary : theme.colors.text
                 }
-                weight="600"
+                style={{ flex: 1, marginRight: ui.getSpacing('sm') }}
+                numberOfLines={2}
               >
-                {unit.difficultyLabel}
+                {unit.title}
               </Text>
+
+              <View style={{ flexDirection: 'row', columnGap: 8 }}>
+                <View
+                  style={{
+                    backgroundColor: ownershipBadgeBackground,
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                    borderRadius: 8,
+                    borderWidth: StyleSheet.hairlineWidth,
+                    borderColor: theme.colors.border,
+                  }}
+                >
+                  <Text
+                    variant="caption"
+                    color={ownershipBadgeTextColor}
+                    weight="600"
+                  >
+                    {unit.ownershipLabel}
+                  </Text>
+                </View>
+                <View
+                  style={{
+                    backgroundColor: isDisabled
+                      ? theme.colors.border
+                      : theme.colors.accent,
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                    borderRadius: 8,
+                  }}
+                >
+                  <Text
+                    variant="caption"
+                    color={
+                      ui.isLightColor(theme.colors.accent)
+                        ? theme.colors.surface
+                        : theme.colors.background
+                    }
+                    weight="600"
+                  >
+                    {unit.difficultyLabel}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <Text
+              variant="secondary"
+              color={isDisabled ? theme.colors.textSecondary : undefined}
+              numberOfLines={2}
+              style={{ marginBottom: ui.getSpacing('sm') }}
+            >
+              {unit.description || unit.progressMessage}
+            </Text>
+
+            {unit.status !== 'completed' && (
+              <View style={{ marginBottom: ui.getSpacing('sm') }}>
+                <UnitProgressIndicator
+                  status={unit.status}
+                  progress={unit.creationProgress}
+                  errorMessage={unit.errorMessage}
+                />
+              </View>
+            )}
+
+            {showFailedActions && (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'flex-end',
+                  marginTop: ui.getSpacing('sm'),
+                  marginBottom: ui.getSpacing('xs'),
+                  columnGap: ui.getSpacing('sm'),
+                }}
+              >
+                {onRetry && (
+                  <Button
+                    title="Retry"
+                    variant="primary"
+                    size="small"
+                    onPress={handleRetry}
+                    testID={
+                      index !== undefined ? `retry-button-${index}` : undefined
+                    }
+                  />
+                )}
+                {onDismiss && (
+                  <Button
+                    title="Dismiss"
+                    variant="secondary"
+                    size="small"
+                    onPress={handleDismiss}
+                    testID={
+                      index !== undefined
+                        ? `dismiss-button-${index}`
+                        : undefined
+                    }
+                  />
+                )}
+              </View>
+            )}
+
+            <View
+              style={{ flexDirection: 'row', justifyContent: 'space-between' }}
+            >
+              <Text
+                variant="caption"
+                color={isDisabled ? theme.colors.textSecondary : undefined}
+              >
+                {unit.lessonCount} lessons
+              </Text>
+              {typeof unit.targetLessonCount === 'number' && (
+                <Text
+                  variant="caption"
+                  color={isDisabled ? theme.colors.textSecondary : undefined}
+                >
+                  Target: {unit.targetLessonCount}
+                </Text>
+              )}
             </View>
           </View>
-        </View>
-
-        {/* Description */}
-        <Text
-          variant="secondary"
-          color={isDisabled ? theme.colors.textSecondary : undefined}
-          numberOfLines={2}
-          style={{ marginBottom: ui.getSpacing('sm') }}
-        >
-          {unit.description || unit.progressMessage}
-        </Text>
-
-        {/* Status indicator for non-completed units */}
-        {unit.status !== 'completed' && (
-          <View style={{ marginBottom: ui.getSpacing('sm') }}>
-            <UnitProgressIndicator
-              status={unit.status}
-              progress={unit.creationProgress}
-              errorMessage={unit.errorMessage}
-            />
-          </View>
-        )}
-
-        {/* Failed unit actions */}
-        {showFailedActions && (
-          <View
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'flex-end',
-              marginTop: ui.getSpacing('sm'),
-              marginBottom: ui.getSpacing('xs'),
-              columnGap: ui.getSpacing('sm'),
-            }}
-          >
-            {onRetry && (
-              <Button
-                title="Retry"
-                variant="primary"
-                size="small"
-                onPress={handleRetry}
-                testID={
-                  index !== undefined ? `retry-button-${index}` : undefined
-                }
-              />
-            )}
-            {onDismiss && (
-              <Button
-                title="Dismiss"
-                variant="secondary"
-                size="small"
-                onPress={handleDismiss}
-                testID={
-                  index !== undefined ? `dismiss-button-${index}` : undefined
-                }
-              />
-            )}
-          </View>
-        )}
-
-        {/* Footer */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-          <Text
-            variant="caption"
-            color={isDisabled ? theme.colors.textSecondary : undefined}
-          >
-            {unit.lessonCount} lessons
-          </Text>
-          {typeof unit.targetLessonCount === 'number' && (
-            <Text
-              variant="caption"
-              color={isDisabled ? theme.colors.textSecondary : undefined}
-            >
-              Target: {unit.targetLessonCount}
-            </Text>
-          )}
         </View>
       </Card>
     </Box>

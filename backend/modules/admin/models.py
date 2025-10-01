@@ -187,6 +187,8 @@ class UserOwnedUnitSummary(BaseModel):
     title: str
     is_global: bool
     updated_at: datetime
+    art_image_url: str | None = None
+    art_image_description: str | None = None
 
 
 class UserSessionSummary(BaseModel):

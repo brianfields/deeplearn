@@ -15,6 +15,18 @@ interface UnitDetailsPageProps {
   params: { id: string };
 }
 
+function computeInitials(title: string): string {
+  return (
+    title
+      ?.trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 3)
+      .map(word => word[0]?.toUpperCase() ?? '')
+      .join('') || 'U'
+  );
+}
+
 export default function UnitDetailsPage({ params }: UnitDetailsPageProps) {
   const { data: unit, isLoading, error, refetch } = useUnit(params.id);
 
@@ -59,6 +71,41 @@ export default function UnitDetailsPage({ params }: UnitDetailsPageProps) {
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
           <span>Reload</span>
         </button>
+      </div>
+
+      <div className="bg-white rounded-lg shadow">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-medium text-gray-900">Unit Artwork</h2>
+          <p className="text-sm text-gray-600">AI-generated hero image and prompt</p>
+        </div>
+        <div className="px-6 py-6 grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+          <div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-slate-900 text-white min-h-[220px] flex items-center justify-center">
+            {unit.art_image_url ? (
+              <img
+                src={unit.art_image_url}
+                alt={`${unit.title} artwork`}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="text-center space-y-2">
+                <div className="text-4xl font-semibold tracking-[0.4em]">
+                  {computeInitials(unit.title)}
+                </div>
+                <p className="text-sm text-slate-300">Artwork not available</p>
+              </div>
+            )}
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold text-gray-700">Generation Prompt</h3>
+            {unit.art_image_description ? (
+              <p className="text-sm leading-relaxed text-gray-700 whitespace-pre-line">
+                {unit.art_image_description}
+              </p>
+            ) : (
+              <p className="text-sm text-gray-500">No generation prompt provided.</p>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Unit-level Learning Objectives & Source Material */}

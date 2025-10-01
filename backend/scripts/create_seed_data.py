@@ -775,6 +775,8 @@ async def main() -> None:
             for unit_spec in units_spec:
                 owner_key = unit_spec["owner_key"]
                 unit_spec["owner_id"] = user_snapshots[owner_key]["id"]
+                objectives_preview = ", ".join(unit_spec["learning_objectives"][:2]) if unit_spec.get("learning_objectives") else "its core learning journey"
+                unit_spec["art_image_description"] = f"Weimar Edge illustration of {unit_spec['title']} highlighting {objectives_preview} with petrol blue geometry and gilt accents."
 
             for unit_spec in units_spec:
                 for lesson_spec in unit_spec["lessons"]:
@@ -788,6 +790,7 @@ async def main() -> None:
                     "owner_key": unit_spec["owner_key"],
                     "owner_id": unit_spec["owner_id"],
                     "lessons": [],
+                    "art_image_description": unit_spec["art_image_description"],
                 }
                 units_output.append(unit_entry)
 
@@ -807,6 +810,7 @@ async def main() -> None:
                     error_message=None,
                     user_id=unit_spec["owner_id"],
                     is_global=unit_spec["is_global"],
+                    art_image_description=unit_spec["art_image_description"],
                 )
                 db_session.add(unit_model)
 

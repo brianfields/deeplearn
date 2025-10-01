@@ -222,4 +222,4 @@ def get_order_service(s: Session = Depends(get_session)) -> OrderService:
 * Boundary safety: **Service & public return DTOs**, so no ORM leaks.
 * No facade: **public returns the service directly**; enforcement is by convention (import only from `module.public`) and, if you wish, a linter rule.
 * Keep sessions request-scoped in `get_session()` (commit/rollback there).
-* Pick sync **or** async across repo/service/routes and stick to it.
+* Pick sync **or** async across repo/service/routes and stick to it (use async if depending on any modules that have async public interfaces).
