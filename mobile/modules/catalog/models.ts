@@ -34,6 +34,7 @@ interface ApiLessonDetail {
   glossary_terms: any[];
   created_at: string;
   exercise_count: number;
+  unit_id?: string | null;
 }
 
 // ================================
@@ -74,6 +75,7 @@ export interface LessonDetail {
   readonly durationDisplay: string;
   readonly readinessStatus: string;
   readonly tags: string[];
+  readonly unitId?: string | null;
 }
 
 export interface BrowseLessonsResponse {
@@ -197,6 +199,7 @@ export function toLessonDetailDTO(api: ApiLessonDetail): LessonDetail {
       api.exercise_count
     ),
     tags: api.key_concepts.slice(0, 3),
+    unitId: api.unit_id ?? null,
   };
 }
 

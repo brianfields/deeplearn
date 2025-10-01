@@ -12,6 +12,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import TrackPlayer from 'react-native-track-player';
 
 // Screens (using new modular structure)
 import { LessonListScreen } from './modules/catalog/screens/UnitListScreen';
@@ -29,6 +30,9 @@ import type { RootStackParamList, LearningStackParamList } from './types';
 import { uiSystemProvider } from './modules/ui_system/public';
 import { reducedMotion } from './modules/ui_system/utils/motion';
 import { AuthProvider, useAuth } from './modules/user/public';
+import { useTrackPlayer } from './modules/podcast_player/public';
+
+TrackPlayer.registerPlaybackService(() => async () => {});
 
 // Create navigators
 const RootStack = createNativeStackNavigator<RootStackParamList>();
@@ -159,6 +163,8 @@ export default function App(): React.ReactElement {
 
   // Initialize reduced motion once at app start (guarded for tests)
   (reducedMotion as any).initialize?.();
+
+  useTrackPlayer();
 
   const navigationTheme: NavigationTheme = {
     ...DefaultTheme,

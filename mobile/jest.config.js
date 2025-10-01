@@ -26,6 +26,8 @@ module.exports = {
     '^@react-native-community/netinfo$': '<rootDir>/__mocks__/netinfo.js',
     '^expo-haptics$': '<rootDir>/__mocks__/expo-haptics.js',
     '^expo-av$': '<rootDir>/__mocks__/expo-av.js',
+    '^react-native-track-player$':
+      '<rootDir>/__mocks__/react-native-track-player.ts',
   },
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
   testEnvironment: 'node',

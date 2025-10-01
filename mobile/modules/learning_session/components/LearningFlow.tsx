@@ -8,6 +8,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Alert } from 'react-native';
 import { Button, Progress, useHaptics } from '../../ui_system/public';
 import { uiSystemProvider } from '../../ui_system/public';
+import { MiniPlayer, usePodcastState } from '../../podcast_player/public';
 import { useActiveLearningSession } from '../queries';
 import { useLearningSessionStore } from '../store';
 import MiniLesson from './MiniLesson';
@@ -19,6 +20,7 @@ interface LearningFlowProps {
   sessionId: string;
   onComplete: (results: any) => void;
   onBack: () => void;
+  unitId?: string | null;
 }
 
 // Simple element to auto-skip glossary entries
@@ -28,11 +30,29 @@ export default function LearningFlow({
   sessionId,
   onComplete,
   onBack,
+  unitId,
 }: LearningFlowProps) {
   const uiSystem = uiSystemProvider();
   const theme = uiSystem.getCurrentTheme();
   const styles = createStyles(theme);
   const haptics = useHaptics();
+  const { currentTrack, isMinimized, setMinimized } = usePodcastState();
+  const isMiniVisible = useMemo(
+    () => Boolean(unitId && currentTrack?.unitId === unitId && !isMinimized),
+    [currentTrack?.unitId, isMinimized, unitId]
+  );
+  const showMiniRestore = useMemo(
+    () => Boolean(unitId && currentTrack?.unitId === unitId && isMinimized),
+    [currentTrack?.unitId, isMinimized, unitId]
+  );
+  const hasBottomOverlay = isMiniVisible || showMiniRestore;
+
+  useEffect(() => {
+    setMinimized(false);
+    return () => {
+      setMinimized(false);
+    };
+  }, [setMinimized]);
 
   // Session data and actions
   const {
@@ -265,7 +285,12 @@ export default function LearningFlow({
   }
 
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        hasBottomOverlay ? styles.containerWithMini : undefined,
+      ]}
+    >
       {/* Header with title and progress */}
       <View style={styles.header}>
         {session?.lessonTitle && (
@@ -294,7 +319,12 @@ export default function LearningFlow({
       </View>
 
       {/* Didactic first, then exercises */}
-      <View style={styles.componentContainer}>
+      <View
+        style={[
+          styles.componentContainer,
+          hasBottomOverlay ? styles.componentContainerWithMini : undefined,
+        ]}
+      >
         {shouldShowDidactic && (
           <MiniLesson
             snippet={{
@@ -316,6 +346,22 @@ export default function LearningFlow({
           <Text style={styles.completingText}>Completing session...</Text>
         </View>
       )}
+      {showMiniRestore && unitId ? (
+        <View style={styles.restoreContainer}>
+          <Button
+            title="Show Podcast"
+            onPress={() => {
+              haptics.trigger('light');
+              setMinimized(false);
+            }}
+            variant="secondary"
+            size="small"
+            style={styles.restoreButton}
+            testID="mini-player-restore"
+          />
+        </View>
+      ) : null}
+      {isMiniVisible && unitId ? <MiniPlayer unitId={unitId} /> : null}
     </View>
   );
 }
@@ -325,6 +371,9 @@ const createStyles = (theme: any) =>
     container: {
       flex: 1,
       backgroundColor: theme.colors.background,
+    },
+    containerWithMini: {
+      paddingBottom: (theme.spacing?.xxl || 32) * 2,
     },
     header: {
       paddingTop: theme.spacing?.xl || 24,
@@ -380,6 +429,9 @@ const createStyles = (theme: any) =>
     },
     componentContainer: {
       flex: 1,
+    },
+    componentContainerWithMini: {
+      paddingBottom: theme.spacing?.xxl || 32,
     },
     loadingContainer: {
       flex: 1,
@@ -453,5 +505,15 @@ const createStyles = (theme: any) =>
       fontWeight: '400',
       color: theme.colors.surface,
       textAlign: 'center',
+    },
+    restoreContainer: {
+      position: 'absolute',
+      left: theme.spacing?.lg || 16,
+      right: theme.spacing?.lg || 16,
+      bottom: theme.spacing?.lg || 16,
+      alignItems: 'center',
+    },
+    restoreButton: {
+      minWidth: 160,
     },
   });
