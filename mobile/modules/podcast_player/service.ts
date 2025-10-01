@@ -1,13 +1,12 @@
 /**
  * Podcast Player Service
  *
- * Handles Track Player orchestration, persistence, and playback controls.
+ * Handles audio playback orchestration, persistence, and playback controls.
+ * Uses expo-audio for cross-platform audio support.
  */
 
-import TrackPlayer, {
-  AppKilledPlaybackBehavior,
-  Capability,
-} from 'react-native-track-player';
+import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
+import type { AudioPlayer } from 'expo-audio';
 import type { InfrastructureProvider } from '../infrastructure/public';
 import { infrastructureProvider } from '../infrastructure/public';
 import type {
@@ -38,6 +37,8 @@ export class PodcastPlayerService {
   private isInitialized = false;
   private initializationPromise: Promise<void> | null = null;
   private currentTrackId: string | null = null;
+  private player: AudioPlayer | null = null;
+  private statusUpdateInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor(infra: InfrastructureProvider = infrastructureProvider()) {
     this.infrastructure = infra;
@@ -52,26 +53,12 @@ export class PodcastPlayerService {
     }
 
     this.initializationPromise = (async () => {
-      await TrackPlayer.setupPlayer();
-      await TrackPlayer.updateOptions({
-        capabilities: [
-          Capability.Play,
-          Capability.Pause,
-          Capability.SeekTo,
-          Capability.JumpForward,
-          Capability.JumpBackward,
-        ],
-        compactCapabilities: [
-          Capability.Play,
-          Capability.Pause,
-          Capability.JumpForward,
-          Capability.JumpBackward,
-        ],
-        progressUpdateEventInterval: 1,
+      await setAudioModeAsync({
+        playsInSilentMode: true,
+        shouldPlayInBackground: true,
+        interruptionMode: 'duckOthers',
+        interruptionModeAndroid: 'duckOthers',
       });
-      await TrackPlayer.setAppKilledPlaybackBehavior(
-        AppKilledPlaybackBehavior.StopPlayback
-      );
       await this.hydrateGlobalSpeed();
       this.isInitialized = true;
     })();
@@ -96,7 +83,17 @@ export class PodcastPlayerService {
 
     const isSameTrack = currentTrack?.unitId === track.unitId;
     if (!isSameTrack) {
-      await TrackPlayer.reset();
+      // Stop and release previous player
+      if (this.player) {
+        this.player.pause();
+        this.player.remove();
+        this.player = null;
+      }
+      // Clear status update interval
+      if (this.statusUpdateInterval) {
+        clearInterval(this.statusUpdateInterval);
+        this.statusUpdateInterval = null;
+      }
       this.currentTrackId = track.unitId;
       store.setCurrentTrack(track);
       store.updatePlaybackState({
@@ -106,19 +103,14 @@ export class PodcastPlayerService {
       });
     }
 
-    const queue = await TrackPlayer.getQueue();
-    const trackAlreadyQueued = queue.some(q => q.id === track.unitId);
-    if (!trackAlreadyQueued) {
-      if (isSameTrack) {
-        await TrackPlayer.reset();
-      }
-      await TrackPlayer.add({
-        id: track.unitId,
-        url: track.audioUrl,
-        title: track.title,
-        artwork: track.artworkUrl ?? undefined,
-        duration: track.durationSeconds,
-      });
+    // Create new player if needed
+    if (!this.player) {
+      this.player = createAudioPlayer({ uri: track.audioUrl });
+
+      // Set up status polling
+      this.statusUpdateInterval = setInterval(() => {
+        this.updatePlaybackStatus();
+      }, 500);
     }
 
     const persistedPosition = await this.getPersistedUnitState(track.unitId);
@@ -129,11 +121,11 @@ export class PodcastPlayerService {
     );
 
     if (startPosition > 0) {
-      await TrackPlayer.seekTo(startPosition);
+      await this.player.seekTo(startPosition);
     }
 
     const speed = store.globalSpeed;
-    await TrackPlayer.setRate(speed);
+    this.player.setPlaybackRate(speed);
 
     store.setCurrentTrack(track);
     store.updatePlaybackState({
@@ -146,7 +138,9 @@ export class PodcastPlayerService {
 
   async play(): Promise<void> {
     await this.initialize();
-    await TrackPlayer.play();
+    if (this.player) {
+      this.player.play();
+    }
     usePodcastStore.getState().updatePlaybackState({
       isPlaying: true,
       isLoading: false,
@@ -155,7 +149,9 @@ export class PodcastPlayerService {
 
   async pause(): Promise<void> {
     await this.initialize();
-    await TrackPlayer.pause();
+    if (this.player) {
+      this.player.pause();
+    }
     usePodcastStore.getState().updatePlaybackState({
       isPlaying: false,
     });
@@ -193,7 +189,9 @@ export class PodcastPlayerService {
     const store = getPodcastStoreState();
     const duration = store.playbackState.duration || Number.MAX_SAFE_INTEGER;
     const clamped = clamp(position, 0, duration);
-    await TrackPlayer.seekTo(clamped);
+    if (this.player) {
+      await this.player.seekTo(clamped);
+    }
     store.updatePlaybackState({ position: clamped });
     const trackId = store.currentTrack?.unitId;
     if (trackId) {
@@ -204,7 +202,9 @@ export class PodcastPlayerService {
   async setSpeed(speed: PlaybackSpeed): Promise<void> {
     await this.initialize();
     usePodcastStore.getState().setGlobalSpeed(speed);
-    await TrackPlayer.setRate(speed);
+    if (this.player) {
+      this.player.setPlaybackRate(speed);
+    }
     const payload: GlobalPlayerState = { speed };
     await this.infrastructure.setStorageItem(
       GLOBAL_STATE_KEY,
@@ -256,10 +256,47 @@ export class PodcastPlayerService {
         isValidSpeed(parsed.speed)
       ) {
         usePodcastStore.getState().setGlobalSpeed(parsed.speed);
-        await TrackPlayer.setRate(parsed.speed);
+        if (this.player) {
+          this.player.setPlaybackRate(parsed.speed);
+        }
       }
     } catch (error) {
       console.warn('[PodcastPlayer] Failed to parse global state', error);
+    }
+  }
+
+  private updatePlaybackStatus(): void {
+    if (!this.player) {
+      return;
+    }
+
+    const store = usePodcastStore.getState();
+    const isPlaying = this.player.playing ?? false;
+    const isLoading = this.player.isBuffering ?? false;
+    const position = this.player.currentTime ?? 0;
+    const duration = this.player.duration ?? 0;
+
+    // Only update if values have changed significantly (avoid unnecessary re-renders)
+    const currentState = store.playbackState;
+    const hasSignificantChange =
+      Math.abs(position - currentState.position) > 0.5 ||
+      isPlaying !== currentState.isPlaying ||
+      isLoading !== currentState.isLoading ||
+      Math.abs(duration - (currentState.duration ?? 0)) > 0.5;
+
+    if (hasSignificantChange) {
+      store.updatePlaybackState({
+        isPlaying,
+        isLoading,
+        position,
+        duration,
+      });
+    }
+
+    // Save position periodically (throttle to avoid excessive writes)
+    const currentTrack = store.currentTrack;
+    if (currentTrack && position > 0 && Math.floor(position) % 5 === 0) {
+      this.savePosition(currentTrack.unitId, position).catch(() => {});
     }
   }
 

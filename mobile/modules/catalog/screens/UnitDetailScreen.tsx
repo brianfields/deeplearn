@@ -55,7 +55,7 @@ export function UnitDetailScreen() {
   const ui = uiSystemProvider();
   const theme = ui.getCurrentTheme();
   const haptics = useHaptics();
-  const { loadTrack, currentTrack, pause } = usePodcastPlayer();
+  const { loadTrack, currentTrack } = usePodcastPlayer();
   const userKey = currentUserId ? String(currentUserId) : 'anonymous';
   const { data: progressLS } = useUnitProgressLS(userKey, unit?.id || '', {
     enabled: !!unit?.id,
@@ -160,20 +160,6 @@ export function UnitDetailScreen() {
       console.warn('[PodcastPlayer] Failed to load unit track', error);
     });
   }, [currentTrack?.unitId, loadTrack, podcastTrack]);
-
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('blur', () => {
-      if (currentTrack?.unitId === unit?.id) {
-        pause().catch(() => {});
-      }
-    });
-    return () => {
-      unsubscribe();
-      if (currentTrack?.unitId === unit?.id) {
-        pause().catch(() => {});
-      }
-    };
-  }, [currentTrack?.unitId, navigation, pause, unit?.id]);
 
   const handleLessonPress = async (lessonId: string): Promise<void> => {
     try {

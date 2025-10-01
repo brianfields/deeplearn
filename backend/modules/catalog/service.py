@@ -45,6 +45,7 @@ class LessonDetail(BaseModel):
     glossary_terms: list[dict[str, Any]]
     created_at: str
     exercise_count: int
+    unit_id: str | None = None
 
     def is_ready_for_learning(self) -> bool:
         """Ready when there is at least one exercise."""
@@ -254,6 +255,7 @@ class CatalogService:
             glossary_terms=glossary_terms,
             created_at=str(lesson.created_at),
             exercise_count=len(exercises),
+            unit_id=lesson.unit_id,
         )
 
     async def search_lessons(

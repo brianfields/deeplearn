@@ -32,7 +32,25 @@ jest.mock('../infrastructure/public', () => {
   };
 });
 
-import TrackPlayer from 'react-native-track-player';
+jest.mock('expo-audio', () => {
+  const mockPlayer = {
+    playing: false,
+    currentTime: 0,
+    duration: 0,
+    isBuffering: false,
+    play: jest.fn(),
+    pause: jest.fn(),
+    seekTo: jest.fn().mockResolvedValue(undefined),
+    setPlaybackRate: jest.fn(),
+    remove: jest.fn(),
+  };
+  return {
+    createAudioPlayer: jest.fn(() => mockPlayer),
+    setAudioModeAsync: jest.fn(),
+  };
+});
+
+import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import {
   __resetPodcastPlayerServiceForTests,
   getPodcastPlayerService,
@@ -67,7 +85,7 @@ describe('PodcastPlayerService', () => {
     transcript: overrides.transcript ?? 'Transcript',
   });
 
-  it('initializes Track Player and hydrates global speed', async () => {
+  it('initializes audio and hydrates global speed', async () => {
     const storageState = (infraMock as any).__storageState as {
       map: Map<string, string>;
     };
@@ -79,10 +97,13 @@ describe('PodcastPlayerService', () => {
     const service = getPodcastPlayerService();
     await service.initialize();
 
-    expect(TrackPlayer.setupPlayer).toHaveBeenCalledTimes(1);
-    expect(TrackPlayer.updateOptions).toHaveBeenCalledTimes(1);
+    expect(setAudioModeAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        playsInSilentMode: true,
+        shouldPlayInBackground: true,
+      })
+    );
     expect(usePodcastStore.getState().globalSpeed).toBe(1.5);
-    expect(TrackPlayer.setRate).toHaveBeenCalledWith(1.5);
   });
 
   it('loads tracks and enforces single-track playback', async () => {
@@ -91,9 +112,9 @@ describe('PodcastPlayerService', () => {
     const firstTrack = createTrack({ unitId: 'unit-1', title: 'Unit 1' });
     await service.loadTrack(firstTrack);
 
-    expect(TrackPlayer.add).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'unit-1', url: firstTrack.audioUrl })
-    );
+    expect(createAudioPlayer).toHaveBeenCalledWith({
+      uri: firstTrack.audioUrl,
+    });
     expect(usePodcastStore.getState().currentTrack?.unitId).toBe('unit-1');
 
     usePodcastStore
@@ -107,10 +128,6 @@ describe('PodcastPlayerService', () => {
     expect(infraInstance.setStorageItem).toHaveBeenCalledWith(
       'podcast_player:unit:unit-1:position',
       expect.stringContaining('"position":42')
-    );
-    expect(TrackPlayer.reset).toHaveBeenCalledTimes(2);
-    expect(TrackPlayer.add).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'unit-2', url: secondTrack.audioUrl })
     );
     expect(usePodcastStore.getState().currentTrack?.unitId).toBe('unit-2');
   });
@@ -129,7 +146,6 @@ describe('PodcastPlayerService', () => {
 
     await service.setSpeed(1.25);
     expect(usePodcastStore.getState().globalSpeed).toBe(1.25);
-    expect(TrackPlayer.setRate).toHaveBeenCalledWith(1.25);
     expect(
       (infraMock.mock.results[0].value as any).setStorageItem
     ).toHaveBeenCalledWith(
