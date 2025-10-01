@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -7,12 +7,10 @@ import {
   TouchableOpacity,
   Alert,
   Switch,
-  ActivityIndicator,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Audio } from 'expo-av';
 
 import { useCatalogUnitDetail, useToggleUnitSharing } from '../queries';
 import { UnitProgressView } from '../components/UnitProgress';
@@ -32,6 +30,11 @@ import {
 } from '../../ui_system/public';
 import { useAuth } from '../../user/public';
 import { infrastructureProvider } from '../../infrastructure/public';
+import {
+  FullPlayer,
+  usePodcastPlayer,
+  type PodcastTrack,
+} from '../../podcast_player/public';
 
 type UnitDetailScreenNavigationProp = NativeStackNavigationProp<
   LearningStackParamList,
@@ -51,6 +54,7 @@ export function UnitDetailScreen() {
   const ui = uiSystemProvider();
   const theme = ui.getCurrentTheme();
   const haptics = useHaptics();
+  const { loadTrack, currentTrack, pause } = usePodcastPlayer();
   const userKey = currentUserId ? String(currentUserId) : 'anonymous';
   const { data: progressLS } = useUnitProgressLS(userKey, unit?.id || '', {
     enabled: !!unit?.id,
@@ -111,10 +115,6 @@ export function UnitDetailScreen() {
     return unit.lessons.find(l => l.id === nextLessonId)?.title ?? null;
   }, [unit, nextLessonId]);
 
-  const [podcastSound, setPodcastSound] = useState<Audio.Sound | null>(null);
-  const [isLoadingPodcast, setIsLoadingPodcast] = useState(false);
-  const [isPodcastPlaying, setIsPodcastPlaying] = useState(false);
-
   // Resolve absolute podcast URL against API base if backend returned a relative path
   const infra = infrastructureProvider();
   const apiBase = useMemo(() => {
@@ -133,83 +133,46 @@ export function UnitDetailScreen() {
     return `${apiBase}${path}`;
   }, [unit?.podcastAudioUrl, apiBase]);
 
+  const hasPodcast = Boolean(unit?.hasPodcast && podcastAudioUrl);
+
+  const podcastTrack = useMemo<PodcastTrack | null>(() => {
+    if (!unit || !hasPodcast || !podcastAudioUrl) {
+      return null;
+    }
+    return {
+      unitId: unit.id,
+      title: unit.title,
+      audioUrl: podcastAudioUrl,
+      durationSeconds: unit.podcastDurationSeconds ?? 0,
+      transcript: unit.podcastTranscript ?? null,
+    };
+  }, [hasPodcast, podcastAudioUrl, unit]);
+
   useEffect(() => {
+    if (!podcastTrack) {
+      return;
+    }
+    if (currentTrack?.unitId === podcastTrack.unitId) {
+      return;
+    }
+    loadTrack(podcastTrack).catch(error => {
+      console.warn('[PodcastPlayer] Failed to load unit track', error);
+    });
+  }, [currentTrack?.unitId, loadTrack, podcastTrack]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('blur', () => {
+      if (currentTrack?.unitId === unit?.id) {
+        pause().catch(() => {});
+      }
+    });
     return () => {
-      if (podcastSound) {
-        podcastSound.unloadAsync().catch(() => {});
+      unsubscribe();
+      if (currentTrack?.unitId === unit?.id) {
+        pause().catch(() => {});
       }
     };
-  }, [podcastSound]);
-
-  useEffect(() => {
-    if (podcastSound) {
-      podcastSound.unloadAsync().catch(() => {});
-      setPodcastSound(null);
-      setIsPodcastPlaying(false);
-    }
-  }, [unit?.id]);
-
-  const podcastDurationLabel = useMemo(() => {
-    if (!unit?.podcastDurationSeconds) return null;
-    const minutes = Math.floor(unit.podcastDurationSeconds / 60);
-    const seconds = unit.podcastDurationSeconds % 60;
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  }, [unit?.podcastDurationSeconds]);
-
-  const handleTogglePodcast = useCallback(async () => {
-    if (!unit?.hasPodcast || !podcastAudioUrl) {
-      Alert.alert(
-        'Podcast unavailable',
-        'This unit does not have a podcast yet.'
-      );
-      return;
-    }
-    if (isLoadingPodcast) {
-      return;
-    }
-    try {
-      if (!podcastSound) {
-        setIsLoadingPodcast(true);
-        const { sound } = await Audio.Sound.createAsync(
-          { uri: podcastAudioUrl },
-          { shouldPlay: true }
-        );
-        sound.setOnPlaybackStatusUpdate(status => {
-          if (!status.isLoaded) {
-            return;
-          }
-          setIsPodcastPlaying(status.isPlaying);
-          if (status.didJustFinish) {
-            sound.setPositionAsync(0).catch(() => {});
-            setIsPodcastPlaying(false);
-          }
-        });
-        setPodcastSound(sound);
-        setIsPodcastPlaying(true);
-      } else {
-        const status = await podcastSound.getStatusAsync();
-        if (!status.isLoaded) {
-          await podcastSound.unloadAsync();
-          setPodcastSound(null);
-          setIsPodcastPlaying(false);
-          return;
-        }
-        if (status.isPlaying) {
-          await podcastSound.pauseAsync();
-          setIsPodcastPlaying(false);
-        } else {
-          await podcastSound.playAsync();
-          setIsPodcastPlaying(true);
-        }
-      }
-    } catch (error) {
-      Alert.alert('Unable to play podcast', 'Please try again later.');
-    } finally {
-      setIsLoadingPodcast(false);
-    }
-  }, [podcastSound, unit, podcastAudioUrl, isLoadingPodcast]);
-
-  const hasPodcast = Boolean(unit?.hasPodcast && podcastAudioUrl);
+  }, [currentTrack?.unitId, navigation, pause, unit?.id]);
 
   const handleLessonPress = async (lessonId: string): Promise<void> => {
     try {
@@ -303,53 +266,18 @@ export function UnitDetailScreen() {
         </Card>
       </Box>
 
-      {hasPodcast && (
+      {hasPodcast && podcastTrack && (
         <Box px="lg" mt="md">
-          <Card variant="outlined" style={{ margin: 0 }}>
-            <Text variant="title" style={{ marginBottom: 8 }}>
-              Unit Podcast
-            </Text>
-            {unit.podcastVoice && (
-              <Text
-                variant="secondary"
-                color={theme.colors.textSecondary}
-                style={{ marginBottom: 12 }}
-              >
-                Narrated in {unit.podcastVoice}
-              </Text>
-            )}
-            <Button
-              title={isPodcastPlaying ? 'Pause Podcast' : 'Play Podcast'}
-              onPress={() => {
-                haptics.trigger('light');
-                handleTogglePodcast();
-              }}
+          {unit.podcastVoice && (
+            <Text
               variant="secondary"
-              size="medium"
-              fullWidth
-              disabled={isLoadingPodcast}
-              testID="podcast-toggle"
-            />
-            {isLoadingPodcast && (
-              <View style={{ marginTop: 12, alignItems: 'center' }}>
-                <ActivityIndicator color={theme.colors.primary} />
-              </View>
-            )}
-            {podcastDurationLabel && (
-              <Text
-                variant="caption"
-                color={theme.colors.textSecondary}
-                style={{ marginTop: 12 }}
-              >
-                Duration: {podcastDurationLabel}
-              </Text>
-            )}
-            {unit.podcastTranscript && (
-              <Text variant="body" style={{ marginTop: 12 }}>
-                {unit.podcastTranscript}
-              </Text>
-            )}
-          </Card>
+              color={theme.colors.textSecondary}
+              style={{ marginBottom: 12 }}
+            >
+              Narrated in {unit.podcastVoice}
+            </Text>
+          )}
+          <FullPlayer track={podcastTrack} />
         </Box>
       )}
 

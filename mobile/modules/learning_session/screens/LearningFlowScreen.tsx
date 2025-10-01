@@ -50,6 +50,7 @@ import { uiSystemProvider } from '../../ui_system/public';
 // Hooks
 import { useStartSession } from '../queries';
 import { catalogProvider } from '../../catalog/public';
+import { usePodcastPlayer } from '../../podcast_player/public';
 
 // Types
 import type { LearningStackParamList } from '../../../types';
@@ -63,6 +64,7 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [unitTitle, setUnitTitle] = useState<string | null>(null);
+  const unitId = lesson.unitId ?? null;
 
   const uiSystem = uiSystemProvider();
   const theme = uiSystem.getCurrentTheme();
@@ -71,6 +73,7 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
 
   // Session creation mutation
   const startSessionMutation = useStartSession();
+  const { pause, currentTrack } = usePodcastPlayer();
 
   // Create session on mount
   useEffect(() => {
@@ -114,6 +117,15 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
     createSession();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lesson.id, sessionId]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('blur', () => {
+      if (currentTrack?.unitId && unitId && currentTrack.unitId === unitId) {
+        pause().catch(() => {});
+      }
+    });
+    return unsubscribe;
+  }, [currentTrack?.unitId, navigation, pause, unitId]);
 
   // Lookup unit context for this lesson (best-effort)
   useEffect(() => {
@@ -235,6 +247,7 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
           sessionId={sessionId}
           onComplete={handleComplete}
           onBack={handleBack}
+          unitId={unitId}
         />
       </SafeAreaView>
     );
