@@ -213,8 +213,8 @@ class GenerateUnitArtDescriptionStep(StructuredStep):
     class Inputs(BaseModel):
         unit_title: str
         unit_description: str | None = None
-        learning_objectives: list[str] = []
-        key_concepts: list[str] = []
+        learning_objectives: str = ""
+        key_concepts: str = ""
 
     class Outputs(BaseModel):
         prompt: str
