@@ -217,11 +217,18 @@ class UnitArtCreationFlow(BaseFlow):
     async def _execute_flow_logic(self, inputs: dict[str, Any]) -> dict[str, Any]:
         logger.info("🖼️ Unit Art Flow - %s", inputs.get("unit_title", "Unknown"))
 
+        # Format lists as bullet-point strings for the prompt template
+        learning_objectives = inputs.get("learning_objectives") or []
+        key_concepts = inputs.get("key_concepts") or []
+
+        learning_objectives_str = "\n".join(f"- {obj}" for obj in learning_objectives) if learning_objectives else "- (None specified)"
+        key_concepts_str = "\n".join(f"- {concept}" for concept in key_concepts) if key_concepts else "- (None specified)"
+
         description_inputs = {
             "unit_title": inputs.get("unit_title", ""),
             "unit_description": inputs.get("unit_description"),
-            "learning_objectives": list(inputs.get("learning_objectives") or []),
-            "key_concepts": list(inputs.get("key_concepts") or []),
+            "learning_objectives": learning_objectives_str,
+            "key_concepts": key_concepts_str,
         }
 
         description_result = await GenerateUnitArtDescriptionStep().execute(description_inputs)
@@ -235,8 +242,9 @@ class UnitArtCreationFlow(BaseFlow):
             "size": "1024x1024",
             "quality": "standard",
         }
-        if inputs.get("style_hint"):
-            image_inputs["style"] = inputs.get("style_hint")
+        style_hint = inputs.get("style_hint")
+        if isinstance(style_hint, str) and style_hint:
+            image_inputs["style"] = style_hint
 
         image_result = await GenerateUnitArtImageStep().execute(image_inputs)
 

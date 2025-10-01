@@ -5,11 +5,10 @@ Tests for the content creator service layer.
 """
 
 from datetime import datetime
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-
-from types import SimpleNamespace
 
 from modules.content.package_models import LessonPackage, Meta, Objective
 from modules.content.public import LessonRead
@@ -251,10 +250,13 @@ class TestContentCreatorService:
         content.get_unit_detail.return_value = unit_detail
 
         mock_flow = AsyncMock()
-        mock_flow.execute.side_effect = [RuntimeError("boom"), {
-            "art_description": {"prompt": "Prompt", "alt_text": "Alt"},
-            "image": {"image_url": "https://example.com/art.png"},
-        }]
+        mock_flow.execute.side_effect = [
+            RuntimeError("boom"),
+            {
+                "art_description": {"prompt": "Prompt", "alt_text": "Alt"},
+                "image": {"image_url": "https://example.com/art.png"},
+            },
+        ]
         mock_flow_class.return_value = mock_flow
 
         download_mock = AsyncMock(return_value=(b"img", "image/png"))

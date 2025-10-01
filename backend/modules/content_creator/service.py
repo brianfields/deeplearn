@@ -24,7 +24,7 @@ from modules.content.package_models import (
     Meta,
     Objective,
 )
-from modules.content.public import ContentProvider, LessonCreate, UnitCreate, UnitStatus
+from modules.content.public import ContentProvider, LessonCreate, UnitCreate, UnitRead, UnitStatus
 from modules.task_queue.public import task_queue_provider
 
 from .flows import LessonCreationFlow, UnitArtCreationFlow, UnitCreationFlow
@@ -252,7 +252,7 @@ class ContentCreatorService:
         title: str
         status: str
 
-    async def create_unit_art(self, unit_id: str) -> "ContentService.UnitRead":
+    async def create_unit_art(self, unit_id: str) -> UnitRead:
         """Generate and persist Weimar Edge artwork for the specified unit."""
 
         unit_detail = await self.content.get_unit_detail(unit_id, include_art_presigned_url=False)

@@ -3,7 +3,7 @@ import {
   View,
   StyleSheet,
   SafeAreaView,
-  FlatList,
+  ScrollView,
   TouchableOpacity,
   Alert,
   Switch,
@@ -208,140 +208,145 @@ export function UnitDetailScreen() {
     <SafeAreaView
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
-      <Box p="lg" pb="sm">
-        <TouchableOpacity
-          onPress={() => {
-            haptics.trigger('light');
-            navigation.goBack();
-          }}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-          style={{ paddingVertical: 6, paddingRight: 12 }}
-        >
-          <Text variant="body" color={theme.colors.primary}>
-            {'‹ Back'}
-          </Text>
-        </TouchableOpacity>
-        <Text variant="h1" style={{ marginTop: 8, fontWeight: 'normal' }}>
-          {unit.title}
-        </Text>
-        <Text variant="secondary" color={theme.colors.textSecondary}>
-          {unit.ownershipLabel}
-        </Text>
-      </Box>
-
-      <Box px="lg" mb="lg">
-        <ArtworkImage
-          title={unit.title}
-          imageUrl={unit.artImageUrl ?? undefined}
-          description={unit.artImageDescription ?? undefined}
-          variant="hero"
-          testID="unit-hero-art"
-        />
-        {unit.artImageDescription ? (
-          <Text
-            variant="secondary"
-            color={theme.colors.textSecondary}
-            style={{ marginTop: ui.getSpacing('sm') }}
-          >
-            {unit.artImageDescription}
-          </Text>
-        ) : null}
-      </Box>
-
-      <Box px="lg">
-        <Card variant="default" style={{ margin: 0 }}>
-          {nextLessonTitle && (
-            <Box mb="md">
-              <Text variant="secondary" color={theme.colors.textSecondary}>
-                Resume next:
-              </Text>
-              <Text variant="title" style={{ fontWeight: 'normal' }}>
-                {nextLessonTitle}
-              </Text>
-            </Box>
-          )}
-
-          {overallProgress && (
-            <Box mb="md">
-              <UnitProgressView progress={overallProgress} />
-            </Box>
-          )}
-
-          <Button
-            title={nextLessonTitle ? 'Resume Lesson' : 'Start Learning'}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <Box p="lg" pb="sm">
+          <TouchableOpacity
             onPress={() => {
-              const next = unit.lessons[0]?.id;
-              if (next) {
-                handleLessonPress(next);
-              } else {
-                Alert.alert('No lessons', 'This unit has no lessons yet.');
-              }
+              haptics.trigger('light');
+              navigation.goBack();
             }}
-            variant="primary"
-            size="large"
-            fullWidth
-            testID="primary-cta"
-          />
-        </Card>
-      </Box>
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            style={{ paddingVertical: 6, paddingRight: 12 }}
+          >
+            <Text variant="body" color={theme.colors.primary}>
+              {'‹ Back'}
+            </Text>
+          </TouchableOpacity>
+          <Text variant="h1" style={{ marginTop: 8, fontWeight: 'normal' }}>
+            {unit.title}
+          </Text>
+          <Text variant="secondary" color={theme.colors.textSecondary}>
+            {unit.ownershipLabel}
+          </Text>
+        </Box>
 
-      {hasPodcast && podcastTrack && (
-        <Box px="lg" mt="md">
-          {unit.podcastVoice && (
+        <Box px="lg" mb="lg">
+          <ArtworkImage
+            title={unit.title}
+            imageUrl={unit.artImageUrl ?? undefined}
+            description={unit.artImageDescription ?? undefined}
+            variant="hero"
+            testID="unit-hero-art"
+          />
+        </Box>
+
+        {unit.artImageDescription ? (
+          <Box px="lg" mb="md">
             <Text
               variant="secondary"
               color={theme.colors.textSecondary}
-              style={{ marginBottom: 12 }}
+              style={{ marginTop: ui.getSpacing('sm') }}
             >
-              Narrated in {unit.podcastVoice}
+              {unit.artImageDescription}
             </Text>
-          )}
-          <FullPlayer track={podcastTrack} />
-        </Box>
-      )}
+          </Box>
+        ) : null}
 
-      {unit.isOwnedByCurrentUser && (
-        <Box px="lg" mt="md">
-          <Card variant="outlined" style={{ margin: 0 }}>
-            <View style={styles.sharingRow}>
-              <Text variant="body" style={{ flex: 1 }}>
-                Share globally
+        <Box px="lg">
+          <Card variant="default" style={{ margin: 0 }}>
+            {nextLessonTitle && (
+              <Box mb="md">
+                <Text variant="secondary" color={theme.colors.textSecondary}>
+                  Resume next:
+                </Text>
+                <Text variant="title" style={{ fontWeight: 'normal' }}>
+                  {nextLessonTitle}
+                </Text>
+              </Box>
+            )}
+
+            {overallProgress && (
+              <Box mb="md">
+                <UnitProgressView progress={overallProgress} />
+              </Box>
+            )}
+
+            <Button
+              title={nextLessonTitle ? 'Resume Lesson' : 'Start Learning'}
+              onPress={() => {
+                const next = unit.lessons[0]?.id;
+                if (next) {
+                  handleLessonPress(next);
+                } else {
+                  Alert.alert('No lessons', 'This unit has no lessons yet.');
+                }
+              }}
+              variant="primary"
+              size="large"
+              fullWidth
+              testID="primary-cta"
+            />
+          </Card>
+        </Box>
+
+        {hasPodcast && podcastTrack && (
+          <Box px="lg" mt="md">
+            {unit.podcastVoice && (
+              <Text
+                variant="secondary"
+                color={theme.colors.textSecondary}
+                style={{ marginBottom: 12 }}
+              >
+                Narrated in {unit.podcastVoice}
               </Text>
-              <Switch
-                value={unit.isGlobal}
-                onValueChange={handleShareToggle}
-                disabled={isTogglingShare}
-              />
-            </View>
-            <Text variant="caption" color={theme.colors.textSecondary}>
-              {unit.isGlobal
-                ? 'Learners across the platform can view this unit.'
-                : 'Toggle on to make this unit visible to everyone.'}
-            </Text>
-          </Card>
+            )}
+            <FullPlayer track={podcastTrack} />
+          </Box>
+        )}
+
+        {unit.isOwnedByCurrentUser && (
+          <Box px="lg" mt="md">
+            <Card variant="outlined" style={{ margin: 0 }}>
+              <View style={styles.sharingRow}>
+                <Text variant="body" style={{ flex: 1 }}>
+                  Share globally
+                </Text>
+                <Switch
+                  value={unit.isGlobal}
+                  onValueChange={handleShareToggle}
+                  disabled={isTogglingShare}
+                />
+              </View>
+              <Text variant="caption" color={theme.colors.textSecondary}>
+                {unit.isGlobal
+                  ? 'Learners across the platform can view this unit.'
+                  : 'Toggle on to make this unit visible to everyone.'}
+              </Text>
+            </Card>
+          </Box>
+        )}
+
+        {ownershipDescription && !unit.isOwnedByCurrentUser && (
+          <Box px="lg" mt="md">
+            <Card variant="outlined" style={{ margin: 0 }}>
+              <Text variant="body">{ownershipDescription}</Text>
+            </Card>
+          </Box>
+        )}
+
+        <Box px="lg" mt="lg">
+          <Text variant="title" style={{ marginBottom: 8 }}>
+            Lessons
+          </Text>
         </Box>
-      )}
 
-      {ownershipDescription && !unit.isOwnedByCurrentUser && (
-        <Box px="lg" mt="md">
-          <Card variant="outlined" style={{ margin: 0 }}>
-            <Text variant="body">{ownershipDescription}</Text>
-          </Card>
-        </Box>
-      )}
-
-      <Box px="lg" mt="lg">
-        <Text variant="title" style={{ marginBottom: 8 }}>
-          Lessons
-        </Text>
-      </Box>
-
-      <FlatList
-        data={unit.lessons}
-        keyExtractor={l => l.id}
-        renderItem={({ item }) => (
-          <Box px="lg" testID="lesson-card">
+        {unit.lessons.map(item => (
+          <Box key={item.id} px="lg" testID="lesson-card">
             <Card
               variant="outlined"
               style={{ margin: 0, marginBottom: 12 }}
@@ -371,18 +376,17 @@ export function UnitDetailScreen() {
               </View>
             </Card>
           </Box>
-        )}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-      />
+        ))}
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  scrollView: { flex: 1 },
+  scrollContent: { paddingBottom: 24 },
   lessonRight: { alignItems: 'flex-end' },
-  listContent: { paddingVertical: 8, paddingBottom: 24 },
   lessonRowInner: {
     flexDirection: 'row',
     alignItems: 'center',
