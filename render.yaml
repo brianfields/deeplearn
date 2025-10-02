@@ -117,3 +117,5 @@ services:
           type: web
           name: lantern-room-backend
           property: host
+      - key: NEXT_PUBLIC_API_BASE_URL
+        value: https://lantern-room-backend.onrender.com
