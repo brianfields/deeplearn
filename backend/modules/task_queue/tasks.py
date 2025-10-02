@@ -19,7 +19,7 @@ from .service import TaskQueueService, WorkerManager
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["execute_registered_task", "get_arq_worker_settings"]
+__all__ = ["WorkerSettings", "execute_registered_task", "get_arq_worker_settings"]
 
 
 # Global worker manager instance

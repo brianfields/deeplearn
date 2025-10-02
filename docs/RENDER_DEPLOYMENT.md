@@ -140,6 +140,7 @@ Same as backend (needs DB, Redis, OpenAI, S3).
 1. Check logs for startup errors
 2. Verify Redis connection: Should see "✅ Connected to Redis"
 3. Verify task registrations: Should see "📦 Registered task handler"
+4. If you see "This event loop is already running", the worker is using the wrong startup method (fixed in current config)
 
 ### Admin can't connect to backend
 
