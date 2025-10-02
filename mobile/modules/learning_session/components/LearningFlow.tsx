@@ -275,11 +275,8 @@ export default function LearningFlow({
         hasPlayer ? styles.containerWithMini : undefined,
       ]}
     >
-      {/* Header with title and progress */}
+      {/* Header with progress */}
       <View style={styles.header}>
-        {session?.lessonTitle && (
-          <Text style={styles.lessonTitle}>{session.lessonTitle}</Text>
-        )}
         <View style={styles.progressContainer}>
           <Button
             title="✕"
@@ -314,6 +311,7 @@ export default function LearningFlow({
             snippet={{
               explanation: didacticData as string,
             }}
+            lessonTitle={session?.lessonTitle}
             onContinue={() => {
               setDidacticShown(true);
               setCurrentExercise(0);
@@ -344,27 +342,23 @@ const createStyles = (theme: any) =>
       paddingBottom: 0,
     },
     header: {
-      paddingTop: theme.spacing?.xl || 24,
-      paddingHorizontal: theme.spacing?.lg || 16,
-      paddingBottom: theme.spacing?.md || 12,
-      backgroundColor: theme.colors.surface,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.colors.border,
+      paddingTop: theme.spacing?.sm || 8,
+      paddingHorizontal: theme.spacing?.md || 12,
+      paddingBottom: theme.spacing?.xs || 4,
+      backgroundColor: theme.colors.background,
     },
     progressContainer: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'flex-start',
-      marginTop: theme.spacing?.sm || 8,
-      marginBottom: theme.spacing?.sm || 8,
       width: '100%',
     },
     closeButton: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
+      width: 28,
+      height: 28,
+      borderRadius: 14,
       aspectRatio: 1,
-      marginRight: theme.spacing?.md || 12,
+      marginRight: theme.spacing?.sm || 8,
       paddingHorizontal: 0,
       paddingVertical: 0,
       justifyContent: 'center',
@@ -385,15 +379,7 @@ const createStyles = (theme: any) =>
     progressWrapper: {
       flex: 1,
       justifyContent: 'center',
-      paddingVertical: 10,
-    },
-    lessonTitle: {
-      fontSize: 20,
-      fontWeight: '400',
-      color: theme.colors.text,
-      textAlign: 'center',
-      letterSpacing: 0.2,
-      marginBottom: theme.spacing?.xs || 6,
+      paddingVertical: 6,
     },
     componentContainer: {
       flex: 1,
