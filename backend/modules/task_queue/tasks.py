@@ -192,13 +192,26 @@ def get_arq_worker_settings() -> dict[str, Any]:
     infra.initialize(env_file=env_file if env_file else None)
     redis_config = infra.get_redis_config()
 
-    # Create Redis settings
-    redis_settings = RedisSettings(
-        host=redis_config.host,
-        port=redis_config.port,
-        password=redis_config.password,
-        database=redis_config.db,
-    )
+    # Parse Redis URL if provided (e.g., from Render: redis://host:port/db)
+    # Otherwise use individual components
+    if redis_config.url:
+        from urllib.parse import urlparse
+
+        parsed = urlparse(redis_config.url)
+
+        redis_settings = RedisSettings(
+            host=parsed.hostname or redis_config.host,
+            port=parsed.port or redis_config.port,
+            password=parsed.password or redis_config.password,
+            database=int(parsed.path.lstrip("/")) if parsed.path and parsed.path != "/" else redis_config.db,
+        )
+    else:
+        redis_settings = RedisSettings(
+            host=redis_config.host,
+            port=redis_config.port,
+            password=redis_config.password,
+            database=redis_config.db,
+        )
 
     return {
         "functions": [execute_registered_task],
@@ -213,11 +226,12 @@ def get_arq_worker_settings() -> dict[str, Any]:
     }
 
 
-# Initialize settings at module level for ARQ
+# Initialize settings for ARQ at module load time
+# Now safe because we properly parse REDIS_URL environment variable
 _settings = get_arq_worker_settings()
 
 
-# Create a proper ARQ WorkerSettings class for direct ARQ usage
+# ARQ WorkerSettings class for use with 'python -m arq' command
 class WorkerSettings:
     """
     ARQ Worker Settings class for use with 'python -m arq' command.
@@ -226,12 +240,11 @@ class WorkerSettings:
     with ARQ's command line interface.
     """
 
-    # Class attributes (not properties) as required by ARQ
+    # Class attributes as required by ARQ
     functions = _settings["functions"]
     on_startup = _settings["on_startup"]
     on_shutdown = _settings["on_shutdown"]
     redis_settings = _settings["redis_settings"]
-    # Do not set queue_name so ARQ uses its default queue key
     max_jobs = _settings["max_jobs"]
     job_timeout = _settings["job_timeout"]
     keep_result = _settings["keep_result"]
