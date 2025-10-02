@@ -1034,7 +1034,7 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                     if args.verbose:
                         print(f"   • Deleting existing unit: {existing_unit.title}")
                     # Delete associated lessons first
-                    from sqlalchemy import delete
+                    from sqlalchemy import delete  # noqa: PLC0415
 
                     await db_session.execute(delete(LessonModel).where(LessonModel.unit_id == unit_spec["id"]))
                     await db_session.delete(existing_unit)
@@ -1141,7 +1141,7 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                 print("📈 Creating learning sessions and unit sessions for sample progress...")
 
             # Clean up existing learning sessions and unit sessions for these users and units
-            from sqlalchemy import delete
+            from sqlalchemy import delete  # noqa: PLC0415
 
             cat_unit_id = units_spec[0]["id"]
             grad_unit_id = units_spec[1]["id"]

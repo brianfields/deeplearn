@@ -31,18 +31,18 @@ The mobile app is built with React Native and Expo, and should be deployed using
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "API_BASE_URL": "http://localhost:8000"
+        "EXPO_PUBLIC_API_BASE_URL": "http://localhost:8000"
       }
     },
     "preview": {
       "distribution": "internal",
       "env": {
-        "API_BASE_URL": "https://lantern-room-backend.onrender.com"
+        "EXPO_PUBLIC_API_BASE_URL": "https://lantern-room-backend.onrender.com"
       }
     },
     "production": {
       "env": {
-        "API_BASE_URL": "https://lantern-room-backend.onrender.com"
+        "EXPO_PUBLIC_API_BASE_URL": "https://lantern-room-backend.onrender.com"
       }
     }
   },
@@ -60,11 +60,14 @@ Update the production API URL:
 const DEFAULT_HTTP_CONFIG: HttpClientConfig = {
   baseURL: __DEV__
     ? DEV_BASE_URL
-    : process.env.API_BASE_URL || 'https://lantern-room-backend.onrender.com',
+    : process.env.EXPO_PUBLIC_API_BASE_URL ||
+      'https://lantern-room-backend.onrender.com',
   timeout: 30000,
   retryAttempts: 3,
 };
 ```
+
+**Note:** The environment variable must be prefixed with `EXPO_PUBLIC_` to be accessible in the app (similar to Next.js's `NEXT_PUBLIC_` prefix).
 
 ## Build Commands
 
@@ -119,7 +122,7 @@ Set this in `eas.json` (see above) or pass via build command:
 
 ```bash
 eas build --profile production --platform ios --non-interactive \
-  --build-env API_BASE_URL=https://lantern-room-backend.onrender.com
+  --build-env EXPO_PUBLIC_API_BASE_URL=https://lantern-room-backend.onrender.com
 ```
 
 ## Testing Preview Builds

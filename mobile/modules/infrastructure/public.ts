@@ -37,7 +37,10 @@ const DEV_BASE_URL: string = Platform.select({
 }) as string;
 
 const DEFAULT_HTTP_CONFIG: HttpClientConfig = {
-  baseURL: __DEV__ ? DEV_BASE_URL : 'https://your-production-api.com',
+  baseURL: __DEV__
+    ? DEV_BASE_URL
+    : process.env.EXPO_PUBLIC_API_BASE_URL ||
+      'https://lantern-room-backend.onrender.com',
   timeout: 30000,
   retryAttempts: 3,
 };

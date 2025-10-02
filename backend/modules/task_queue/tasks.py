@@ -9,6 +9,7 @@ import logging
 import os
 import time
 from typing import Any
+from urllib.parse import urlparse
 import uuid
 
 from arq.connections import RedisSettings
@@ -195,8 +196,6 @@ def get_arq_worker_settings() -> dict[str, Any]:
     # Parse Redis URL if provided (e.g., from Render: redis://host:port/db)
     # Otherwise use individual components
     if redis_config.url:
-        from urllib.parse import urlparse
-
         parsed = urlparse(redis_config.url)
 
         redis_settings = RedisSettings(
