@@ -970,8 +970,8 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                 ImageModel(
                     id=cat_unit_image_id,
                     user_id=sample_user_ids.get("eylem"),
-                    s3_key="users/3/images/7cf29b22-58e2-4b16-88af-db5162a151bf.png",
-                    s3_bucket="digital-innie",
+                    s3_key="seed/7cf29b22-58e2-4b16-88af-db5162a151bf.png",
+                    s3_bucket="lantern-room",
                     filename="unit-art-9435f1bf-472d-47c5-a759-99beadd98076.png",
                     content_type="image/png",
                     file_size=1991902,
@@ -998,8 +998,8 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                 AudioModel(
                     id=cat_unit_audio_id,
                     user_id=sample_user_ids.get("eylem"),
-                    s3_key="users/3/audio/bf8638e3-c64a-48d3-ba3d-d1229d8dff08.mp3",
-                    s3_bucket="digital-innie",
+                    s3_key="seed/f2ff972d-b8d1-4549-afd4-0e791bee9882.mp3",
+                    s3_bucket="lantern-room",
                     filename="unit-9435f1bf-472d-47c5-a759-99beadd98076.mp3",
                     content_type="audio/mpeg",
                     file_size=4668000,
