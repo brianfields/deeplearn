@@ -164,6 +164,17 @@ async def startup_event() -> None:
         raise
 
 
+@app.get("/")
+async def root() -> dict[str, str]:
+    """Root endpoint - provides API information."""
+    return {
+        "message": "Lantern Room API",
+        "version": "2.0.0",
+        "docs": "/docs",
+        "health": "/health",
+    }
+
+
 @app.get("/health")
 async def health_check() -> dict[str, str | dict[str, bool] | list[str]]:
     """Health check endpoint for the entire application."""
