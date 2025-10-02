@@ -8,10 +8,12 @@ Summary of created artifacts:
   • Admin — Eylem Ozaslan (eylem.ozaslan@gmail.com) / password: epsilon
   • Learner — Epsilon cat (epsilon.cat@example.com) / password: epsilon
   • Learner — Nova cat (nova.cat@example.com) / password: epsilon
-- 1 completed global unit about “Cats in Istanbul” shared by Eylem and containing three fully packaged lessons.
-- 1 completed private unit about “Gradient Descent Mastery” owned by Brian with two packaged lessons.
+- 1 completed global unit about "Street Kittens of Istanbul" shared by Eylem with two packaged lessons, including
+  podcast transcript and audio, and unit artwork.
+- 1 completed private unit about "Gradient Descent Mastery" owned by Brian with two packaged lessons.
 - Per-lesson flow runs, step runs, and LLM request records mirroring the lesson generation pipeline.
 - Learning sessions and unit sessions for the learners so UI dashboards have ready-made progress data.
+- Sample images and audio files linked to the units.
 
 Creates sample unit and lesson data using the canonical package structure
 without making actual LLM calls.
@@ -436,7 +438,7 @@ async def main() -> None:
         logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
         print("🔧 Verbose mode enabled")
 
-    print("🌱 Creating seed data: Cats in Istanbul (global) + Gradient Descent (private)")
+    print("🌱 Creating seed data: Street Kittens of Istanbul (global) + Gradient Descent (private)")
     print()
 
     sample_user_ids: dict[str, int] = {}
@@ -470,14 +472,24 @@ async def main() -> None:
                 role: str = "learner",
                 is_active: bool = True,
             ) -> int:
-                password_hash = user_service._hash_password(password)
-                user = user_repo.create(
-                    email=email,
-                    password_hash=password_hash,
-                    name=name,
-                    role=role,
-                    is_active=is_active,
-                )
+                # Check if user already exists
+                existing_user = user_repo.by_email(email)
+                if existing_user:
+                    if args.verbose:
+                        print(f"   • User {email} already exists, reusing...")
+                    user = existing_user
+                else:
+                    password_hash = user_service._hash_password(password)
+                    user = user_repo.create(
+                        email=email,
+                        password_hash=password_hash,
+                        name=name,
+                        role=role,
+                        is_active=is_active,
+                    )
+                    if args.verbose:
+                        print(f"   • Created user {email}")
+
                 user_id = cast(int, user.id)
                 sample_user_ids[key] = user_id
                 user_snapshots[key] = {
@@ -521,148 +533,299 @@ async def main() -> None:
         async with infra.get_async_session_context() as db_session:
             units_spec = [
                 {
-                    "id": str(uuid.uuid4()),
-                    "title": "Cats in Istanbul: City Companions",
-                    "description": "Discover how Istanbul's street cats thrive alongside the city's residents.",
-                    "learner_level": "beginner",
+                    "id": "9435f1bf-472d-47c5-a759-99beadd98076",
+                    "title": "Street Kittens of Istanbul",
+                    "description": "A learning unit about Street Kittens of Istanbul",
+                    "learner_level": "intermediate",
                     "learning_objectives": [
-                        {"lo_id": "cat_unit_lo_1", "text": "Describe the cultural role of Istanbul's street cats", "bloom_level": "Understand"},
-                        {"lo_id": "cat_unit_lo_2", "text": "Identify best practices for caring for community cats", "bloom_level": "Apply"},
-                        {"lo_id": "cat_unit_lo_3", "text": "Explain how urban planning supports feline welfare", "bloom_level": "Analyze"},
+                        {"lo_id": "lo_1", "text": "Explain the managed-commons context for Istanbul's street kittens, distinguishing stray vs. feral statuses, kitten life-stage bands, key actors, and seasonality.", "bloom_level": None},
+                        {"lo_id": "lo_2", "text": "Map a 50–100 m urban microhabitat to identify food sources, shelters, risks, and human–cat interfaces, and recommend placements for shelters and trap sites.", "bloom_level": None},
                     ],
-                    "target_lesson_count": 3,
-                    "source_material": "City reports on community cats, volunteer diaries, and Istanbul tourism guides.",
+                    "target_lesson_count": 2,
+                    "source_material": None,
                     "generated_from_topic": True,
                     "is_global": True,
                     "owner_key": "eylem",
+                    "podcast_transcript": """Picture Istanbul at dawn. The call to prayer, the hiss of kettles, and in the alley between a bakery and a barber—two wet-nosed kittens blinking into the day. They don't make it because of luck. They make it because a city of humans manages a commons, whether it knows it or not. That's our unit: from seeing the system to working the system.
+
+Start with classification. Strays tolerate us. Ferals don't. That single split decides how close we get, how we feed, how we trap. Then read the clock on a kitten's body. Neonate, zero to two weeks—eyes closed, heat-dependent. Infant, two to four—eyes open, wobble stance. Transitional, four to eight—teething, learning to eat. Juvenile, eight to twenty-four—fast, curious, hitting surgical weight. Seasonality is the drumbeat. Spring and late summer flood the streets with kittens. Winter tests endurance. If you know the rhythm, you can play ahead of it.
+
+Now shrink your world to a 50–100 meter circle. Walk it. Sketch it. Where's food? Dumpsters behind meyhanes, a feeder's mat of bowls under the fig tree, a cafe's crumbs at closing. Where's shelter? The dry corner under the stairs, a basement vent, an old "cat house" near the kiosk. Where's danger? A taxi cut-through, a dog pack's patrol, a gutter that becomes a river when it rains, the shop owner who's had enough. Where do cats meet people? Schools, markets, tourist choke points. Name the actors: the auntie who feeds at dusk, the municipal mobile clinic two streets over, the guy who complains when bowls block his door.
+
+Then place things with intention. Micro-shelters elevated, dry, out of the wind, with two exits. Insulate before the cold; shade and water before the heat. Keep feeding stations tidy and consistent, but not on thresholds. And keep trap sites separate and discreet, pre-baited so trap day isn't a surprise. Four to six weeks before the spring and late-summer waves, turn up the trapping. Prioritize juveniles at weight and intact adults. Lactating queens? Sterilize only if you can return same day to the exact spot.
+
+Lesson two starts with a single rule: triage in order—warmth, hydration, respiration, nutrition. Cold and limp, or breathing hard? That's urgent. Warm first. Don't feed a cold kitten. Stable but snotty eyes, underweight? Priority. Bright-eyed, eating, normal vitals? Routine.
+
+Feed by stage. Neonates get kitten milk replacer by bottle, small and frequent, in warmth and dryness. Two to four weeks, gruel. Four to eight, move to wet food. Eight and up, high-protein wet and dry. Micro-shelters get straw in winter, not fabric. Airflow and shade in heat. Begin core vaccines around eight to nine weeks; boost three to four weeks later. Deworm by weight. Add flea control to cut vectors and protect the group.
+
+TNR is choreography. Pre-bait. Trap. Sterilize. Ear-tip. Vaccinate when possible. Recover. Return to the same territory within 24–48 hours. Time campaigns for late winter and late summer to blunt kitten surges. Track everything: photos, locations, ear-tip status, sex, dates, interventions. That ledger is your memory.
+
+Edge cases change the tempo. Lactating queens—same-day return. Late pregnancy—postpone if you can. Panleukopenia—stop mixing, isolate, bleach. Heatwave—shade and water stations. Winter—elevate shelters, add straw, cut drafts. And watch the socialization window: from roughly two to seven weeks, gentle daily handling can turn a life on the street into a home.
+
+So here's your charge. Map one microhabitat. Place one shelter right. Set one clean feeding routine apart from your future trap line. Run one triage. Plan one season-timed TNR cycle, and write it down. Istanbul's street kittens aren't waiting for perfect. They're waiting for you to start. Next, pick a colony and commit twelve weeks. We'll be here, walking the alley with you.""",
+                    "podcast_voice": "Plain",
                     "lessons": [
                         {
-                            "title": "Street Cat Legends of Kadıköy",
-                            "learner_level": "beginner",
-                            "source_material": "Community stories describing the famous fish market felines of Kadıköy.",
+                            "title": "Managed Commons in Practice: Context, Seasonality, and Microhabitats",
+                            "learner_level": "intermediate",
+                            "source_material": None,
                             "objectives": [
-                                {"text": "Summarize why Kadıköy is known for friendly street cats", "bloom_level": "Remember"},
-                                {"text": "List community habits that keep cat colonies healthy", "bloom_level": "Understand"},
+                                {"text": "Explain the managed-commons context for Istanbul's street kittens, distinguishing stray vs. feral statuses, kitten life-stage bands, key actors, and seasonality.", "bloom_level": None},
+                                {"text": "Map a 50–100 m urban microhabitat to identify food sources, shelters, risks, and human–cat interfaces, and recommend placements for shelters and trap sites.", "bloom_level": None},
                             ],
                             "glossary_terms": [
-                                {"term": "Kadıköy", "definition": "A vibrant district on Istanbul's Asian side known for its markets and resident cats."},
-                                {"term": "Colony Care", "definition": "Daily routines locals follow to feed and monitor a group of community cats."},
-                                {"term": "Sahiplenmek", "definition": "Turkish for adopting or taking responsibility for an animal."},
+                                {"term": "Managed commons", "definition": "A shared urban space where cats persist through community care and municipal services under social norms."},
+                                {"term": "Seasonality", "definition": "Predictable shifts across the year in breeding, disease, and resource needs."},
+                                {"term": "Microhabitat", "definition": "A 50–100 m patch of urban features that shape food, shelter, and risk."},
+                                {"term": "Stray", "definition": "Formerly owned or human-acclimated cat living outdoors."},
+                                {"term": "Feral", "definition": "Minimally socialized cat that avoids close human contact."},
+                                {"term": "Trap–Neuter–Return (TNR)", "definition": "Capture, sterilize, vaccinate when possible, ear-tip, and return to territory."},
+                                {"term": "Ear-tipping", "definition": "Small surgical notch marking a sterilized free-roaming cat."},
                             ],
-                            "mini_lesson": "Kadıköy's fish market blends aromas of the sea with the patter of paws. Residents and vendors place bowls of anchovies beside their stalls, making the cats unofficial mascots. Volunteers organize feeding schedules, rotate water bowls, and ensure every cat has a sheltered nook away from traffic. As a result, locals view community cats as neighbors—protectors of the market and keepers of tradition.",
+                            "mini_lesson": """Istanbul's street kittens live in a managed commons: survival and population stability come from residents, feeders, and municipal clinics working together. Classify cats first: strays accept human proximity; ferals avoid it. Note kitten life stages—neonate (0–2 w), infant (2–4 w), transitional (4–8 w), juvenile (8–24 w)—because feeding, sheltering, and TNR timing depend on age. Seasonality matters: expect kitten surges in spring and late summer; prepare for thermal stress in winter.
+
+Map a 50–100 m microhabitat. Mark on a sketch: 1) food sources (dumpsters, cafes, feeder spots), 2) shelters (nooks, basements, existing "cat houses"), 3) risks (traffic lanes, dogs, flood paths, conflicts), 4) human–cat interfaces (markets, tourist hubs, schools). Add actors: who feeds, who complains, nearest mobile clinic.
+
+Recommendations:
+- Place micro-shelters elevated, dry, wind-sheltered, with two exits; anchor and keep clean. Add insulation before winter; add shade and water in heat.
+- Keep feeding stations consistent and tidy away from doorways; separate them from discreet pre-baited trap sites.
+- Schedule intensified trapping 4–6 weeks before spring/late-summer surges; prioritize juveniles at surgical weight and visibly intact adults; same-day return for lactating queens.
+
+This map plus rationale guides shelter placement and trap cycles while respecting site fidelity and social license.""",
                             "mcqs": [
                                 {
-                                    "stem": "Which daily practice keeps the Kadıköy cat colony thriving?",
+                                    "stem": "Which observation best supports classifying an outdoor cat as a Stray rather than Feral?",
                                     "options": [
-                                        {"text": "Volunteers share feeding and water duties"},
-                                        {"text": "Cats are confined indoors during market hours", "rationale_wrong": "The cats roam freely; confinement would disrupt the tradition."},
-                                        {"text": "Vendors discourage tourists from interacting", "rationale_wrong": "Tourists are encouraged to meet the cats respectfully."},
+                                        {"text": "Approaches people within arm's reach."},
+                                        {"text": "Retreats or hides when approached.", "rationale_wrong": "Avoiding humans describes feral behavior, not a socialized stray."},
+                                        {"text": "Ear-tipping notch is visible.", "rationale_wrong": "Ear-tipping marks sterilization status, not socialization or temperament."},
+                                        {"text": "Mostly active at night.", "rationale_wrong": "Activity timing doesn't define stray versus feral."},
                                     ],
                                     "correct_index": 0,
-                                    "cognitive_level": "Understand",
-                                    "difficulty": "Easy",
-                                    "misconceptions": ["cats_need_no_care"],
-                                    "correct_rationale": "Shared feeding schedules keep every cat healthy and visible to caretakers.",
+                                    "cognitive_level": None,
+                                    "difficulty": "Medium",
+                                    "misconceptions": [],
+                                    "correct_rationale": "Strays accept close human proximity; ferals avoid approach. Proximity indicates stray.",
                                 },
                                 {
-                                    "stem": "Why do locals say the cats are part of Kadıköy's identity?",
+                                    "stem": "You find a shivering 1‑week kitten under stairs. What is the best first step?",
                                     "options": [
-                                        {"text": "They guard the fish market at night"},
-                                        {"text": "They appear in city council meetings", "rationale_wrong": "Cats are beloved but do not attend council meetings."},
-                                        {"text": "They symbolize kindness between residents and animals"},
+                                        {"text": "Warm the neonate, then feed kitten milk replacer."},
+                                        {"text": "Feed cow's milk immediately.", "rationale_wrong": "Cow's milk causes GI upset and malnutrition; cold kittens shouldn't eat."},
+                                        {"text": "Begin Trap–Neuter–Return (TNR) around the nest.", "rationale_wrong": "Trap–Neuter–Return (TNR) targets adults; immediate neonatal priority is warming."},
+                                        {"text": "Place in an outdoor shelter and feed later.", "rationale_wrong": "Passive sheltering delays warming; stabilize temperature before any feeding."},
+                                    ],
+                                    "correct_index": 0,
+                                    "cognitive_level": None,
+                                    "difficulty": "Medium",
+                                    "misconceptions": ["MC3", "MC4"],
+                                    "correct_rationale": "Warm first; hypothermic neonates can't digest safely. Use kitten milk replacer.",
+                                },
+                                {
+                                    "stem": "Mapping a 60 m Microhabitat alley, choose the best micro‑shelter location.",
+                                    "options": [
+                                        {"text": "Beside a busy shop doorway.", "rationale_wrong": "Doorways cause complaints and disruptions; avoid high foot traffic."},
+                                        {"text": "Raised, dry stairwell alcove, shielded from wind, two exits."},
+                                        {"text": "Under a leaky gutter near a drain path.", "rationale_wrong": "Leakage and flood paths make shelters damp and unsafe."},
+                                        {"text": "Along a dog patrol path behind dumpsters.", "rationale_wrong": "Dogs and movement corridors increase stress and risk."},
+                                    ],
+                                    "correct_index": 1,
+                                    "cognitive_level": None,
+                                    "difficulty": "Medium",
+                                    "misconceptions": [],
+                                    "correct_rationale": "Elevated, dry, wind‑sheltered placement with two exits matches guidance.",
+                                },
+                                {
+                                    "stem": "A feeder runs a visible feeding station by a cafe. For Trap–Neuter–Return (TNR), where should you stage traps to reduce trap shyness?",
+                                    "options": [
+                                        {"text": "Right beside the feeding bowls for consistency.", "rationale_wrong": "Combining sites conditions cats to avoid traps at meals."},
+                                        {"text": "At the cafe doorway for easy monitoring.", "rationale_wrong": "Doorways invite conflict and attention, undermining social license."},
+                                        {"text": "Discreet, pre‑baited spot away from the feeding station."},
+                                        {"text": "Inside a micro‑shelter with two exits.", "rationale_wrong": "Shelters are for protection, not trapping; blocked exits deter use."},
                                     ],
                                     "correct_index": 2,
-                                    "cognitive_level": "Analyze",
+                                    "cognitive_level": None,
                                     "difficulty": "Medium",
-                                    "misconceptions": ["cats_are_pests"],
-                                    "correct_rationale": "The cats reflect everyday compassion in Kadıköy's community life.",
+                                    "misconceptions": [],
+                                    "correct_rationale": "Trap sites should be discreet and separate from feeding stations.",
                                 },
+                                {
+                                    "stem": "For a 50–100 m Microhabitat in a Managed commons, which annotations best guide shelter placement and Trap–Neuter–Return (TNR) cycles aligned with Seasonality?",
+                                    "options": [
+                                        {"text": "Food sources, shelters, risks, human–cat interfaces, actors, mobile clinic."},
+                                        {"text": "Only feeding spots; other details clutter the map.", "rationale_wrong": "Feeding alone ignores shelter, disease, risks, and community conflicts."},
+                                        {"text": "Only shelters and nests; skip human factors.", "rationale_wrong": "Nests are fragile; leaving out human interfaces weakens outcomes."},
+                                        {"text": "Only tourist hubs; ignore other interfaces and risks.", "rationale_wrong": "Narrow focus misses risks, resources, and actors needed for planning."},
+                                    ],
+                                    "correct_index": 0,
+                                    "cognitive_level": None,
+                                    "difficulty": "Medium",
+                                    "misconceptions": ["MC1"],
+                                    "correct_rationale": "These capture resources, risks, and actors for shelter and TNR planning.",
+                                },
+                            ],
+                            "misconceptions": [
+                                {
+                                    "id": "MC1",
+                                    "misbelief": "Feeding alone keeps street kittens safe and stable.",
+                                    "why_plausible": "Feeding is visible, easy to organize, and shows immediate response from cats.",
+                                    "correction": "Survival also depends on shelter, vaccination/parasite control, and TNR; feeding without these can raise disease and conflict risks.",
+                                },
+                                {
+                                    "id": "MC2",
+                                    "misbelief": "TNR makes colonies grow because cats are returned.",
+                                    "why_plausible": "Returned, ear-tipped cats remain visible in the area.",
+                                    "correction": "Sterilized, site-faithful adults prevent new litters and defend territory, which stabilizes or reduces numbers over time.",
+                                },
+                                {
+                                    "id": "MC3",
+                                    "misbelief": "Any milk is fine for neonate kittens.",
+                                    "why_plausible": "Cow's milk is common and inexpensive.",
+                                    "correction": "Use kitten milk replacer; cow's milk causes GI upset and malnutrition.",
+                                },
+                                {
+                                    "id": "MC4",
+                                    "misbelief": "Cold, hungry kittens should be fed immediately.",
+                                    "why_plausible": "Hunger seems most urgent to bystanders.",
+                                    "correction": "Warm first, then feed; hypothermic kittens cannot digest safely and risk aspiration.",
+                                },
+                            ],
+                            "confusables": [
+                                {"a": "Stray", "b": "Feral", "contrast": "Strays tolerate human proximity; ferals avoid it and show minimal socialization."},
+                                {"a": "Feeding Station", "b": "Trap Site", "contrast": "Feeding stations are stable and visible; trap sites are pre-baited and discreet to reduce trap shyness."},
+                                {"a": "Shelter", "b": "Nest", "contrast": "Shelters are human-made and weatherproof; nests are queen-selected natural hideouts that are fragile and hidden."},
                             ],
                         },
                         {
-                            "title": "Galata's Rooftop Guardians",
-                            "learner_level": "beginner",
-                            "source_material": "Travel journals describing sunset photography tours featuring Galata Tower cats.",
+                            "title": "From Triage to TNR: Integrated Care and Control Plan",
+                            "learner_level": "intermediate",
+                            "source_material": None,
                             "objectives": [
-                                {"text": "Explain how rooftop habitats keep cats safe", "bloom_level": "Understand"},
-                                {"text": "Identify respectful ways visitors interact with Galata cats", "bloom_level": "Apply"},
+                                {"text": "Sequence triage for kittens using the warmth–hydration–respiration–nutrition order and assign cases to urgent, priority, or routine categories.", "bloom_level": None},
+                                {"text": "Specify age-appropriate feeding, micro-shelter features, and a basic vaccination and parasite-control schedule for a given kitten profile.", "bloom_level": None},
+                                {"text": "Design a Trap–Neuter–Return (TNR) workflow aligned to seasonality, including ear-tipping, return-to-territory, and simple record-keeping.", "bloom_level": None},
+                                {"text": "Identify edge cases (e.g., lactating queens, late pregnancy, panleukopenia outbreaks, heatwaves/winter) and specify the operational adjustment required.", "bloom_level": None},
                             ],
                             "glossary_terms": [
-                                {"term": "Galata Tower", "definition": "Historic watchtower overlooking the Bosphorus, home to many friendly cats."},
-                                {"term": "Sunset Stewards", "definition": "Volunteers who provide water and shaded rest stops during evening tours."},
-                                {"term": "Rooftop Habitat", "definition": "Elevated resting spots built to keep cats away from narrow traffic lanes."},
+                                {"term": "Triage", "definition": "A prioritization sequence: warmth, hydration, respiration, then nutrition."},
+                                {"term": "Kitten Milk Replacer (KMR)", "definition": "Formula designed to substitute for queen's milk."},
+                                {"term": "Micro-shelter", "definition": "Simple, weather-resistant housing that reduces exposure to cold, heat, wind, and rain."},
+                                {"term": "Ear-tipping", "definition": "Small surgical removal of the ear tip to mark a sterilized free-roaming cat."},
+                                {"term": "Trap–Neuter–Return (TNR)", "definition": "Humane population control: trap, sterilize, vaccinate when possible, and return to territory."},
+                                {"term": "Socialization Window", "definition": "Peak period (~2–7 weeks) when handling most effectively builds tameness."},
+                                {"term": "Herd Effect", "definition": "Lower disease spread when enough individuals are immunized."},
                             ],
-                            "mini_lesson": "As the sun dips behind the Bosphorus, photographers gather near Galata Tower. Locals quietly lay out cushions on rooftops, guiding the cats to safe perches away from crowded stairwells. Visitors learn that a slow blink and a gentle approach keep the cats calm. The tower's caretakers chart feeding stations on a shared map so every cat receives care, even during the busiest tourist season.",
+                            "mini_lesson": """Start with triage. Sequence needs: warmth → hydration → respiration → nutrition. Urgent: cold, lethargic, or labored breathing; warm to safe temperature before any feeding. Priority: ocular/nasal discharge or low weight but stable breathing. Routine: active, eating, normal vitals.
+
+Match care to age. Neonates (0–2 wks): KMR by bottle, tiny frequent feeds; keep dry, draft-free, and warmed. 2–4 wks: introduce gruel; 4–8 wks: transition to wet food; 8+ wks: high-protein wet/dry. Micro-shelter: elevated, insulated box with wind break, dual exits, shade and airflow in heat; straw (not fabric) for winter moisture.
+
+Disease prevention: begin core vaccines around weaning (e.g., 8–9 wks) with a booster in 3–4 weeks; deworm by weight; add flea control to cut vector risks and build herd effect.
+
+TNR workflow: pre-bait, trap, sterilize, ear-tip, vaccinate as possible, recover, return to the same spot within 24–48 hours. Plan campaigns late winter and late summer to blunt kitten surges; log photos, location, ear-tip status, sex, dates, and interventions.
+
+Edge-case adjustments: lactating queens—same-day return or delay surgery; late pregnancy—postpone when feasible; panleukopenia—isolate and pause mixing; heatwaves—shade and water stations; winter—elevate shelters, use straw.""",
                             "mcqs": [
                                 {
-                                    "stem": "What is the main purpose of Galata's rooftop habitats?",
+                                    "stem": "Triage a 3-week-old kitten: cold, lethargic, stable breathing. What immediate action and urgency fit best?",
                                     "options": [
-                                        {"text": "To provide elevated shelters away from traffic"},
-                                        {"text": "To display cats as part of a paid exhibit", "rationale_wrong": "Habitat spaces are free community efforts, not exhibits."},
-                                        {"text": "To keep cats from interacting with visitors", "rationale_wrong": "Visitors are encouraged to interact calmly with the cats."},
+                                        {"text": "Warm gently; urgent category"},
+                                        {"text": "Offer KMR; priority category", "rationale_wrong": "Feeding contradicts triage; cold kittens risk aspiration."},
+                                        {"text": "Hydrate orally; routine category", "rationale_wrong": "Hydration follows warming; routine misclassifies a cold kitten."},
+                                        {"text": "Start dewormer; routine category", "rationale_wrong": "Deworming is not immediate; routine misses urgent signs."},
                                     ],
                                     "correct_index": 0,
-                                    "cognitive_level": "Apply",
-                                    "difficulty": "Easy",
-                                    "misconceptions": ["cats_prefer_ground"],
-                                    "correct_rationale": "Elevated shelters keep cats safe from sudden traffic and provide shade.",
-                                },
-                                {
-                                    "stem": "How should tourists greet the Galata cats during sunset tours?",
-                                    "options": [
-                                        {"text": "Approach slowly and offer a relaxed blink"},
-                                        {"text": "Pick them up immediately for photos", "rationale_wrong": "Picking up cats without consent can stress them."},
-                                        {"text": "Use flash photography to capture attention", "rationale_wrong": "Flash startles cats and is discouraged."},
-                                    ],
-                                    "correct_index": 0,
-                                    "cognitive_level": "Apply",
-                                    "difficulty": "Easy",
-                                    "misconceptions": ["cats_like_flash"],
-                                    "correct_rationale": "A calm greeting mirrors how volunteers interact with the rooftop guardians.",
-                                },
-                            ],
-                        },
-                        {
-                            "title": "Bosphorus Ferry Felines",
-                            "learner_level": "beginner",
-                            "source_material": "Transport authority memos and conductor notes on caring for ferry cats.",
-                            "objectives": [
-                                {"text": "Describe the ferry schedule that supports feeding routines", "bloom_level": "Understand"},
-                                {"text": "Recognize community partnerships that sponsor veterinary care", "bloom_level": "Remember"},
-                            ],
-                            "glossary_terms": [
-                                {"term": "Vapur", "definition": "Turkish word for traditional passenger ferries crossing the Bosphorus."},
-                                {"term": "Harbor Haven", "definition": "Designated corner of the ferry terminal reserved for cat shelters."},
-                                {"term": "Evening Clinic", "definition": "Weekly veterinary check run by volunteers after the last ferry."},
-                            ],
-                            "mini_lesson": "Ferry conductors know their feline passengers by name. Before the morning rush, they place kibble in sheltered crates near the gangway. The harbor authority funds weekly veterinary rounds, while commuters donate blankets during winter. The cats repay the kindness by greeting passengers and keeping warehouses free of rodents, making them cherished crew members.",
-                            "mcqs": [
-                                {
-                                    "stem": "Why do ferry conductors feed cats before the morning rush?",
-                                    "options": [
-                                        {"text": "To keep the gangway clear and cats satisfied"},
-                                        {"text": "To train cats to stay inside the ticket office", "rationale_wrong": "Cats are free to roam the docks."},
-                                        {"text": "To encourage cats to board ferries with commuters", "rationale_wrong": "Cats remain near the terminals rather than riding."},
-                                    ],
-                                    "correct_index": 0,
-                                    "cognitive_level": "Understand",
-                                    "difficulty": "Easy",
-                                    "misconceptions": ["cats_eat_anytime"],
-                                    "correct_rationale": "Feeding before rush hour keeps walkways tidy and cats content.",
-                                },
-                                {
-                                    "stem": "Who sponsors veterinary care for the ferry felines?",
-                                    "options": [
-                                        {"text": "A partnership between the harbor authority and volunteers"},
-                                        {"text": "Only private pet clinics", "rationale_wrong": "Public-private collaboration keeps care consistent."},
-                                        {"text": "Passengers paying a cat ticket", "rationale_wrong": "There is no separate cat ticket; donations are optional."},
-                                    ],
-                                    "correct_index": 0,
-                                    "cognitive_level": "Remember",
+                                    "cognitive_level": None,
                                     "difficulty": "Medium",
-                                    "misconceptions": ["care_is_unfunded"],
-                                    "correct_rationale": "Community partnerships ensure regular health checks.",
+                                    "misconceptions": ["MC1"],
+                                    "correct_rationale": "Warm first per triage; cold lethargy is urgent.",
                                 },
+                                {
+                                    "stem": "Outdoors in summer, an 8-week-old kitten needs care. Select feeding, micro-shelter feature, and vaccine/parasite plan.",
+                                    "options": [
+                                        {"text": "High-protein wet/dry; shade and airflow; start core vaccine, deworm"},
+                                        {"text": "KMR by bottle; fabric bedding; vaccinate later only", "rationale_wrong": "Neonatal KMR and fabric bedding are inappropriate; vaccines start now."},
+                                        {"text": "Wet food only; sealed box; skip vaccines outdoors", "rationale_wrong": "Skipping vaccines outdoors ignores herd effect; sealed shelters trap heat."},
+                                        {"text": "Gruel; wind break only; deworm replaces vaccines", "rationale_wrong": "Parasite control complements, not replaces, core vaccination."},
+                                    ],
+                                    "correct_index": 0,
+                                    "cognitive_level": None,
+                                    "difficulty": "Medium",
+                                    "misconceptions": ["MC2", "MC3"],
+                                    "correct_rationale": "At 8 weeks, high-protein diet, ventilated shade, begin core vaccines and deworming.",
+                                },
+                                {
+                                    "stem": "Design a late-winter Trap–Neuter–Return (TNR) plan for a feral colony. Choose steps and logging aligned to site fidelity.",
+                                    "options": [
+                                        {"text": "Pre-bait, trap, sterilize, ear-tip, vaccinate, return; log ear-tip status"},
+                                        {"text": "Trap, sterilize, relocate colony; skip ear-tips; record adopters", "rationale_wrong": "Relocation violates TNR and invites the vacuum effect."},
+                                        {"text": "Trap in spring, vaccinate only; release anywhere; no records", "rationale_wrong": "Seasonality off; vaccination-only and no records break workflow."},
+                                        {"text": "Pre-bait, trap, ear-tip, return; log photos and location", "rationale_wrong": "Omits sterilization and vaccination; logging is incomplete alone."},
+                                    ],
+                                    "correct_index": 0,
+                                    "cognitive_level": None,
+                                    "difficulty": "Medium",
+                                    "misconceptions": ["MC4"],
+                                    "correct_rationale": "Matches TNR steps, return-to-territory, and essential ear-tip logging.",
+                                },
+                                {
+                                    "stem": "During a heatwave, micro-shelters sit in sun, and a lactating queen is trapped. What adjustment best protects kittens and colony?",
+                                    "options": [
+                                        {"text": "Same-day return the lactating queen; add shade and water stations"},
+                                        {"text": "Relocate queen to cooler site; shelters unchanged", "rationale_wrong": "Relocation risks disorientation and refilling; site fidelity preferred."},
+                                        {"text": "Delay surgery; hold nursing queen until kittens wean", "rationale_wrong": "Holding separates queen from kittens during heat; return is safer."},
+                                        {"text": "Spay late-term queen immediately; move kittens to new shelter", "rationale_wrong": "Irrelevant to lactation; moving kittens disrupts care under heat stress."},
+                                    ],
+                                    "correct_index": 0,
+                                    "cognitive_level": None,
+                                    "difficulty": "Medium",
+                                    "misconceptions": ["MC4"],
+                                    "correct_rationale": "Return lactating queens promptly; heatwaves require shade and water provisioning.",
+                                },
+                                {
+                                    "stem": "Select the correct triage sequence for kittens.",
+                                    "options": [
+                                        {"text": "Warmth → Hydration → Respiration → Nutrition"},
+                                        {"text": "Nutrition → Hydration → Respiration → Warmth", "rationale_wrong": "Feeding first risks aspiration in cold kittens."},
+                                        {"text": "Hydration → Warmth → Nutrition → Respiration", "rationale_wrong": "Warmth precedes hydration; order here is incorrect."},
+                                        {"text": "Respiration → Warmth → Hydration → Nutrition", "rationale_wrong": "The protocol places warmth first, not respiration."},
+                                    ],
+                                    "correct_index": 0,
+                                    "cognitive_level": None,
+                                    "difficulty": "Medium",
+                                    "misconceptions": ["MC1"],
+                                    "correct_rationale": "This order prevents aspiration and shock before feeding.",
+                                },
+                            ],
+                            "misconceptions": [
+                                {
+                                    "id": "MC1",
+                                    "misbelief": "Feeding first is safest for weak kittens.",
+                                    "why_plausible": "Hunger is visible and feels most urgent.",
+                                    "correction": "Triage follows warmth → hydration → respiration → nutrition; warming precedes feeding to prevent aspiration and shock.",
+                                },
+                                {
+                                    "id": "MC2",
+                                    "misbelief": "Any milk works for neonates.",
+                                    "why_plausible": "Cow's milk is common and inexpensive.",
+                                    "correction": "Use kitten milk replacer (KMR); cow's milk causes GI upset and malnutrition.",
+                                },
+                                {
+                                    "id": "MC3",
+                                    "misbelief": "Vaccination is optional for outdoor colonies.",
+                                    "why_plausible": "Street cats seem hardy and already exposed.",
+                                    "correction": "Core vaccines reduce outbreaks; herd effect protects the whole colony.",
+                                },
+                                {
+                                    "id": "MC4",
+                                    "misbelief": "Relocating cats is better than returning them.",
+                                    "why_plausible": "New location seems safer or cleaner.",
+                                    "correction": "TNR returns cats to their territory; site fidelity maintains stability and prevents the vacuum effect.",
+                                },
+                            ],
+                            "confusables": [
+                                {"a": "Stray", "b": "Feral", "contrast": "Strays tolerate human proximity; ferals avoid it and show minimal socialization."},
+                                {"a": "TNR", "b": "Relocation", "contrast": "TNR sterilizes and returns to origin; relocation moves cats and risks disorientation and colony refill."},
+                                {"a": "Core vaccine", "b": "Parasite control", "contrast": "Vaccines prevent viral/bacterial disease; parasite control targets internal/external parasites like worms and fleas."},
                             ],
                         },
                     ],
@@ -775,8 +938,107 @@ async def main() -> None:
             for unit_spec in units_spec:
                 owner_key = unit_spec["owner_key"]
                 unit_spec["owner_id"] = user_snapshots[owner_key]["id"]
-                objectives_preview = ", ".join(unit_spec["learning_objectives"][:2]) if unit_spec.get("learning_objectives") else "its core learning journey"
+                objectives_preview = ", ".join([obj["text"] for obj in unit_spec["learning_objectives"][:2]]) if unit_spec.get("learning_objectives") else "its core learning journey"
                 unit_spec["art_image_description"] = f"Weimar Edge illustration of {unit_spec['title']} highlighting {objectives_preview} with petrol blue geometry and gilt accents."
+
+            # Set up IDs for the real Istanbul unit's image and audio
+            cat_unit_image_id = uuid.UUID("1a7efaaf-e91d-429b-b032-1a9d08e45af4")
+            cat_unit_audio_id = uuid.UUID("b2992f30-f404-43e9-a4fa-dc15c698e025")
+
+            # Create images and audio first (before units that reference them)
+            if args.verbose:
+                print("🖼️  Creating images and audio files...")
+
+            # Delete existing images and audio with the same IDs if they exist
+            existing_cat_image = await db_session.get(ImageModel, cat_unit_image_id)
+            if existing_cat_image:
+                if args.verbose:
+                    print(f"   • Deleting existing image: {existing_cat_image.filename}")
+                await db_session.delete(existing_cat_image)
+                await db_session.flush()
+
+            existing_cat_audio = await db_session.get(AudioModel, cat_unit_audio_id)
+            if existing_cat_audio:
+                if args.verbose:
+                    print(f"   • Deleting existing audio: {existing_cat_audio.filename}")
+                await db_session.delete(existing_cat_audio)
+                await db_session.flush()
+
+            bucket_name = os.getenv("OBJECT_STORE_BUCKET", "lantern-room")
+
+            sample_images = [
+                ImageModel(
+                    id=cat_unit_image_id,
+                    user_id=sample_user_ids.get("eylem"),
+                    s3_key="users/3/images/7cf29b22-58e2-4b16-88af-db5162a151bf.png",
+                    s3_bucket="digital-innie",
+                    filename="unit-art-9435f1bf-472d-47c5-a759-99beadd98076.png",
+                    content_type="image/png",
+                    file_size=1991902,
+                    width=1024,
+                    height=1024,
+                    alt_text="Ear‑tipped street kitten on a crate in a petrol‑blue, rain‑slick Istanbul alley under a tight spotlight; thin gilt lines indicate care stations and an open humane trap.",
+                    description="Cinematic realism: petrol‑blue, rain‑slick Istanbul alley; ear‑tipped kitten, tiny gauze wrap, on a lacquered crate in a tight spotlight. Hairline gilt lines map care points and humane trap; Art‑Deco geometry, 3% grain.",
+                ),
+                ImageModel(
+                    user_id=None,
+                    s3_key="seed/system/gradient-descent/contours.png",
+                    s3_bucket=bucket_name,
+                    filename="gradient-descent-contours.png",
+                    content_type="image/png",
+                    file_size=32_768,
+                    width=1024,
+                    height=768,
+                    alt_text="Contour plot illustrating gradient descent steps",
+                    description="System-wide reference image for optimization lessons.",
+                ),
+            ]
+
+            sample_audio = [
+                AudioModel(
+                    id=cat_unit_audio_id,
+                    user_id=sample_user_ids.get("eylem"),
+                    s3_key="users/3/audio/bf8638e3-c64a-48d3-ba3d-d1229d8dff08.mp3",
+                    s3_bucket="digital-innie",
+                    filename="unit-9435f1bf-472d-47c5-a759-99beadd98076.mp3",
+                    content_type="audio/mpeg",
+                    file_size=4668000,
+                    duration_seconds=None,
+                    bitrate_kbps=None,
+                    sample_rate_hz=None,
+                    transcript=units_spec[0].get("podcast_transcript"),
+                ),
+                AudioModel(
+                    user_id=brian_admin_id,
+                    s3_key="seed/brian/audio/gradient-intro.mp3",
+                    s3_bucket=bucket_name,
+                    filename="gradient-intro.mp3",
+                    content_type="audio/mpeg",
+                    file_size=2_621_440,
+                    duration_seconds=95.0,
+                    bitrate_kbps=192,
+                    sample_rate_hz=44_100,
+                    transcript="Welcome to Gradient Descent Mastery. In this lesson we explore step sizes and convergence.",
+                ),
+            ]
+
+            db_session.add_all([*sample_images, *sample_audio])
+            await db_session.flush()
+
+            # Delete existing units with the same IDs if they exist (to allow re-running the script)
+            if args.verbose:
+                print("🗑️  Checking for existing units to clean up...")
+            for unit_spec in units_spec:
+                existing_unit = await db_session.get(UnitModel, unit_spec["id"])
+                if existing_unit:
+                    if args.verbose:
+                        print(f"   • Deleting existing unit: {existing_unit.title}")
+                    # Delete associated lessons first
+                    from sqlalchemy import delete
+
+                    await db_session.execute(delete(LessonModel).where(LessonModel.unit_id == unit_spec["id"]))
+                    await db_session.delete(existing_unit)
+                    await db_session.flush()
 
             for unit_spec in units_spec:
                 for lesson_spec in unit_spec["lessons"]:
@@ -793,6 +1055,9 @@ async def main() -> None:
                     "art_image_description": unit_spec["art_image_description"],
                 }
                 units_output.append(unit_entry)
+
+                # For the Istanbul unit, set the real art_image_id and podcast_audio_object_id
+                is_istanbul_unit = unit_spec["id"] == "9435f1bf-472d-47c5-a759-99beadd98076"
 
                 unit_model = UnitModel(
                     id=unit_spec["id"],
@@ -811,6 +1076,10 @@ async def main() -> None:
                     user_id=unit_spec["owner_id"],
                     is_global=unit_spec["is_global"],
                     art_image_description=unit_spec["art_image_description"],
+                    podcast_transcript=unit_spec.get("podcast_transcript"),
+                    podcast_voice=unit_spec.get("podcast_voice"),
+                    art_image_id=cat_unit_image_id if is_istanbul_unit else None,
+                    podcast_audio_object_id=cat_unit_audio_id if is_istanbul_unit else None,
                 )
                 db_session.add(unit_model)
 
@@ -871,7 +1140,19 @@ async def main() -> None:
             if args.verbose:
                 print("📈 Creating learning sessions and unit sessions for sample progress...")
 
-            now = datetime.now(UTC)
+            # Clean up existing learning sessions and unit sessions for these users and units
+            from sqlalchemy import delete
+
+            cat_unit_id = units_spec[0]["id"]
+            grad_unit_id = units_spec[1]["id"]
+
+            # Delete existing learning sessions for these units
+            await db_session.execute(delete(LearningSessionModel).where(LearningSessionModel.unit_id.in_([cat_unit_id, grad_unit_id])))
+            # Delete existing unit sessions for these units
+            await db_session.execute(delete(UnitSessionModel).where(UnitSessionModel.unit_id.in_([cat_unit_id, grad_unit_id])))
+            await db_session.flush()
+
+            now = datetime.utcnow()
 
             cat_unit = units_spec[0]
             grad_unit = units_spec[1]
@@ -936,7 +1217,7 @@ async def main() -> None:
                 completed_at=now - timedelta(days=2),
                 updated_at=now - timedelta(days=2),
                 progress_percentage=100.0,
-                last_lesson_id=cat_unit["lessons"][2]["id"],
+                last_lesson_id=cat_unit["lessons"][-1]["id"],  # Last lesson in the unit
                 completed_lesson_ids=[lesson["id"] for lesson in cat_unit["lessons"]],
             )
 
@@ -954,64 +1235,6 @@ async def main() -> None:
             )
 
             db_session.add_all([epsilon_unit_session, brian_unit_session])
-            await db_session.flush()
-
-            bucket_name = os.getenv("OBJECT_STORE_BUCKET", "digital-innie")
-            sample_images = [
-                ImageModel(
-                    user_id=brian_admin_id,
-                    s3_key="seed/brian/cats/kadikoy-plaza.png",
-                    s3_bucket=bucket_name,
-                    filename="kadikoy-plaza.png",
-                    content_type="image/png",
-                    file_size=48_512,
-                    width=1280,
-                    height=720,
-                    alt_text="Street cats sunbathing near the Kadıköy fish market",
-                    description="Sample image demonstrating the Istanbul cat content used throughout the seed data.",
-                ),
-                ImageModel(
-                    user_id=None,
-                    s3_key="seed/system/gradient-descent/contours.png",
-                    s3_bucket=bucket_name,
-                    filename="gradient-descent-contours.png",
-                    content_type="image/png",
-                    file_size=32_768,
-                    width=1024,
-                    height=768,
-                    alt_text="Contour plot illustrating gradient descent steps",
-                    description="System-wide reference image for optimization lessons.",
-                ),
-            ]
-
-            sample_audio = [
-                AudioModel(
-                    user_id=brian_admin_id,
-                    s3_key="seed/brian/audio/gradient-intro.mp3",
-                    s3_bucket=bucket_name,
-                    filename="gradient-intro.mp3",
-                    content_type="audio/mpeg",
-                    file_size=2_621_440,
-                    duration_seconds=95.0,
-                    bitrate_kbps=192,
-                    sample_rate_hz=44_100,
-                    transcript="Welcome to Gradient Descent Mastery. In this lesson we explore step sizes and convergence.",
-                ),
-                AudioModel(
-                    user_id=None,
-                    s3_key="seed/system/audio/istanbul-walking-tour.m4a",
-                    s3_bucket=bucket_name,
-                    filename="istanbul-walking-tour.m4a",
-                    content_type="audio/mp4",
-                    file_size=1_572_864,
-                    duration_seconds=62.0,
-                    bitrate_kbps=128,
-                    sample_rate_hz=44_100,
-                    transcript="Join us on a walking tour describing how Istanbul residents care for community cats.",
-                ),
-            ]
-
-            db_session.add_all([*sample_images, *sample_audio])
             await db_session.flush()
 
             users_created_count = len(sample_user_ids)
