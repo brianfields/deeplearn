@@ -65,5 +65,5 @@ export function getPodcastStoreState(): PodcastPlayerState {
 }
 
 export const PLAYBACK_SPEEDS: readonly PlaybackSpeed[] = [
-  0.5, 0.75, 1, 1.25, 1.5, 1.75, 2,
+  0.75, 1, 1.17, 1.33, 1.5, 1.67, 1.83, 2, 2.5, 3,
 ] as const;

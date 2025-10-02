@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -31,11 +31,7 @@ import {
 } from '../../ui_system/public';
 import { useAuth } from '../../user/public';
 import { infrastructureProvider } from '../../infrastructure/public';
-import {
-  FullPlayer,
-  usePodcastPlayer,
-  type PodcastTrack,
-} from '../../podcast_player/public';
+import { PodcastPlayer, type PodcastTrack } from '../../podcast_player/public';
 
 type UnitDetailScreenNavigationProp = NativeStackNavigationProp<
   LearningStackParamList,
@@ -55,7 +51,6 @@ export function UnitDetailScreen() {
   const ui = uiSystemProvider();
   const theme = ui.getCurrentTheme();
   const haptics = useHaptics();
-  const { loadTrack, currentTrack } = usePodcastPlayer();
   const userKey = currentUserId ? String(currentUserId) : 'anonymous';
   const { data: progressLS } = useUnitProgressLS(userKey, unit?.id || '', {
     enabled: !!unit?.id,
@@ -149,17 +144,7 @@ export function UnitDetailScreen() {
     };
   }, [hasPodcast, podcastAudioUrl, unit]);
 
-  useEffect(() => {
-    if (!podcastTrack) {
-      return;
-    }
-    if (currentTrack?.unitId === podcastTrack.unitId) {
-      return;
-    }
-    loadTrack(podcastTrack).catch(error => {
-      console.warn('[PodcastPlayer] Failed to load unit track', error);
-    });
-  }, [currentTrack?.unitId, loadTrack, podcastTrack]);
+  // Note: PodcastPlayer component now handles loadTrack, no need to do it here
 
   const handleLessonPress = async (lessonId: string): Promise<void> => {
     try {
@@ -291,7 +276,6 @@ export function UnitDetailScreen() {
                 Narrated in {unit.podcastVoice}
               </Text>
             )}
-            <FullPlayer track={podcastTrack} />
           </Box>
         )}
 
@@ -364,6 +348,13 @@ export function UnitDetailScreen() {
           </Box>
         ))}
       </ScrollView>
+      {hasPodcast && podcastTrack && (
+        <PodcastPlayer
+          track={podcastTrack}
+          unitId={unit.id}
+          defaultExpanded={false}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -371,7 +362,7 @@ export function UnitDetailScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollView: { flex: 1 },
-  scrollContent: { paddingBottom: 24 },
+  scrollContent: { paddingBottom: 96 }, // Extra padding for podcast player
   lessonRight: { alignItems: 'flex-end' },
   lessonRowInner: {
     flexDirection: 'row',

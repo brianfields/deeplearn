@@ -4,7 +4,17 @@
  * Type definitions for podcast playback state and persistence.
  */
 
-export type PlaybackSpeed = 0.5 | 0.75 | 1 | 1.25 | 1.5 | 1.75 | 2;
+export type PlaybackSpeed =
+  | 0.75
+  | 1
+  | 1.17
+  | 1.33
+  | 1.5
+  | 1.67
+  | 1.83
+  | 2
+  | 2.5
+  | 3;
 
 export interface PodcastTrack {
   readonly unitId: string;

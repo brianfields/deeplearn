@@ -144,13 +144,13 @@ describe('PodcastPlayerService', () => {
     );
     await expect(service.getPosition('unit-99')).resolves.toBeCloseTo(123.45);
 
-    await service.setSpeed(1.25);
-    expect(usePodcastStore.getState().globalSpeed).toBe(1.25);
+    await service.setSpeed(1.33);
+    expect(usePodcastStore.getState().globalSpeed).toBe(1.33);
     expect(
       (infraMock.mock.results[0].value as any).setStorageItem
     ).toHaveBeenCalledWith(
       'podcast_player:global_speed',
-      expect.stringContaining('"speed":1.25')
+      expect.stringContaining('"speed":1.33')
     );
   });
 });

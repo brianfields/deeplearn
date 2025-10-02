@@ -1,13 +1,11 @@
-import { FullPlayer } from './components/FullPlayer';
-import { MiniPlayer } from './components/MiniPlayer';
+import { PodcastPlayer } from './components/PodcastPlayer';
 import { usePodcastPlayer } from './hooks/usePodcastPlayer';
 import { usePodcastState, useIsTrackActive } from './hooks/usePodcastState';
 import { useTrackPlayer } from './hooks/useTrackPlayer';
 import { PLAYBACK_SPEEDS } from './store';
 
 export {
-  FullPlayer,
-  MiniPlayer,
+  PodcastPlayer,
   usePodcastPlayer,
   usePodcastState,
   useIsTrackActive,

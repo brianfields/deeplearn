@@ -39,6 +39,7 @@ export class PodcastPlayerService {
   private currentTrackId: string | null = null;
   private player: AudioPlayer | null = null;
   private statusUpdateInterval: ReturnType<typeof setInterval> | null = null;
+  private isPlayPending = false; // Flag to prevent status polling from overriding play() calls
 
   constructor(infra: InfrastructureProvider = infrastructureProvider()) {
     this.infrastructure = infra;
@@ -105,12 +106,19 @@ export class PodcastPlayerService {
 
     // Create new player if needed
     if (!this.player) {
+      console.log(
+        '[PodcastPlayer] Creating new audio player for:',
+        track.title
+      );
       this.player = createAudioPlayer({ uri: track.audioUrl });
 
       // Set up status polling
       this.statusUpdateInterval = setInterval(() => {
         this.updatePlaybackStatus();
       }, 500);
+      console.log('[PodcastPlayer] Player created successfully');
+    } else {
+      console.log('[PodcastPlayer] Reusing existing player for:', track.title);
     }
 
     const persistedPosition = await this.getPersistedUnitState(track.unitId);
@@ -137,14 +145,56 @@ export class PodcastPlayerService {
   }
 
   async play(): Promise<void> {
+    console.log('[PodcastPlayer] play() called');
     await this.initialize();
-    if (this.player) {
-      this.player.play();
+    if (!this.player) {
+      console.warn('[PodcastPlayer] Cannot play: no player instance');
+      return;
     }
-    usePodcastStore.getState().updatePlaybackState({
-      isPlaying: true,
-      isLoading: false,
-    });
+    try {
+      const currentTime = this.player.currentTime ?? 0;
+      const duration = this.player.duration ?? 0;
+
+      console.log(
+        '[PodcastPlayer] Current position:',
+        currentTime,
+        'Duration:',
+        duration
+      );
+
+      // If we're at or very close to the end, restart from beginning
+      if (duration > 0 && currentTime >= duration - 1) {
+        console.log('[PodcastPlayer] At end of track, seeking to beginning');
+        await this.player.seekTo(0);
+      }
+
+      console.log('[PodcastPlayer] Calling player.play()');
+      this.isPlayPending = true; // Prevent status polling from overriding
+      this.player.play();
+      console.log(
+        '[PodcastPlayer] After play() - player.playing:',
+        this.player.playing
+      );
+
+      usePodcastStore.getState().updatePlaybackState({
+        isPlaying: true,
+        isLoading: false,
+      });
+      console.log('[PodcastPlayer] State updated to isPlaying: true');
+
+      // Give the player time to start, then clear the pending flag
+      setTimeout(() => {
+        this.isPlayPending = false;
+        console.log('[PodcastPlayer] Cleared play pending flag');
+      }, 1000); // Give it a full second to start
+    } catch (error) {
+      console.error('[PodcastPlayer] Play failed:', error);
+      this.isPlayPending = false; // Clear the flag on error
+      usePodcastStore.getState().updatePlaybackState({
+        isPlaying: false,
+        isLoading: false,
+      });
+    }
   }
 
   async pause(): Promise<void> {
@@ -278,19 +328,46 @@ export class PodcastPlayerService {
 
     // Only update if values have changed significantly (avoid unnecessary re-renders)
     const currentState = store.playbackState;
+
+    // Don't override isPlaying to false if we just called play()
+    const shouldUpdateIsPlaying = !this.isPlayPending || isPlaying;
+
     const hasSignificantChange =
       Math.abs(position - currentState.position) > 0.5 ||
-      isPlaying !== currentState.isPlaying ||
+      (shouldUpdateIsPlaying && isPlaying !== currentState.isPlaying) ||
       isLoading !== currentState.isLoading ||
       Math.abs(duration - (currentState.duration ?? 0)) > 0.5;
 
     if (hasSignificantChange) {
-      store.updatePlaybackState({
+      console.log('[PodcastPlayer] Status update:', {
         isPlaying,
+        position: position.toFixed(2),
+        duration: duration.toFixed(2),
+        isBuffering: isLoading,
+        isPlayPending: this.isPlayPending,
+        willUpdateIsPlaying: shouldUpdateIsPlaying,
+      });
+
+      // Build the update object, conditionally including isPlaying
+      const update: any = {
         isLoading,
         position,
         duration,
-      });
+      };
+
+      if (shouldUpdateIsPlaying) {
+        update.isPlaying = isPlaying;
+      }
+
+      store.updatePlaybackState(update);
+
+      // If player actually started playing, clear the pending flag
+      if (this.isPlayPending && isPlaying) {
+        this.isPlayPending = false;
+        console.log(
+          '[PodcastPlayer] Player started, cleared play pending flag'
+        );
+      }
     }
 
     // Save position periodically (throttle to avoid excessive writes)

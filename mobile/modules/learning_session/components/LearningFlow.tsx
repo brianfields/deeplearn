@@ -8,7 +8,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Alert } from 'react-native';
 import { Button, Progress, useHaptics } from '../../ui_system/public';
 import { uiSystemProvider } from '../../ui_system/public';
-import { MiniPlayer, usePodcastState } from '../../podcast_player/public';
+import { PodcastPlayer, usePodcastState } from '../../podcast_player/public';
 import { useActiveLearningSession } from '../queries';
 import { useLearningSessionStore } from '../store';
 import MiniLesson from './MiniLesson';
@@ -36,23 +36,8 @@ export default function LearningFlow({
   const theme = uiSystem.getCurrentTheme();
   const styles = createStyles(theme);
   const haptics = useHaptics();
-  const { currentTrack, isMinimized, setMinimized } = usePodcastState();
-  const isMiniVisible = useMemo(
-    () => Boolean(unitId && currentTrack?.unitId === unitId && !isMinimized),
-    [currentTrack?.unitId, isMinimized, unitId]
-  );
-  const showMiniRestore = useMemo(
-    () => Boolean(unitId && currentTrack?.unitId === unitId && isMinimized),
-    [currentTrack?.unitId, isMinimized, unitId]
-  );
-  const hasBottomOverlay = isMiniVisible || showMiniRestore;
-
-  useEffect(() => {
-    setMinimized(false);
-    return () => {
-      setMinimized(false);
-    };
-  }, [setMinimized]);
+  const { currentTrack } = usePodcastState();
+  const hasPlayer = Boolean(unitId && currentTrack?.unitId === unitId);
 
   // Session data and actions
   const {
@@ -288,7 +273,7 @@ export default function LearningFlow({
     <View
       style={[
         styles.container,
-        hasBottomOverlay ? styles.containerWithMini : undefined,
+        hasPlayer ? styles.containerWithMini : undefined,
       ]}
     >
       {/* Header with title and progress */}
@@ -322,7 +307,7 @@ export default function LearningFlow({
       <View
         style={[
           styles.componentContainer,
-          hasBottomOverlay ? styles.componentContainerWithMini : undefined,
+          hasPlayer ? styles.componentContainerWithMini : undefined,
         ]}
       >
         {shouldShowDidactic && (
@@ -346,22 +331,13 @@ export default function LearningFlow({
           <Text style={styles.completingText}>Completing session...</Text>
         </View>
       )}
-      {showMiniRestore && unitId ? (
-        <View style={styles.restoreContainer}>
-          <Button
-            title="Show Podcast"
-            onPress={() => {
-              haptics.trigger('light');
-              setMinimized(false);
-            }}
-            variant="secondary"
-            size="small"
-            style={styles.restoreButton}
-            testID="mini-player-restore"
-          />
-        </View>
+      {hasPlayer && currentTrack && unitId ? (
+        <PodcastPlayer
+          track={currentTrack}
+          unitId={unitId}
+          defaultExpanded={false}
+        />
       ) : null}
-      {isMiniVisible && unitId ? <MiniPlayer unitId={unitId} /> : null}
     </View>
   );
 }
