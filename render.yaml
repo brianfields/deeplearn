@@ -9,7 +9,7 @@ services:
   # Redis — For ARQ task queue
   - type: redis
     name: lantern-room-redis
-    plan: starter
+    plan: Free
     region: oregon
     ipAllowList: []  # Only allow internal connections
 
