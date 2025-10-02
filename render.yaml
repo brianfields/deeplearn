@@ -2,7 +2,7 @@
 
 databases:
   - name: lantern-room-db
-    plan: basic
+    plan: Free
     region: oregon
 
 services:
