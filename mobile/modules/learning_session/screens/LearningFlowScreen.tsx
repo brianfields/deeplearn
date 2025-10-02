@@ -50,7 +50,11 @@ import { uiSystemProvider } from '../../ui_system/public';
 // Hooks
 import { useStartSession } from '../queries';
 import { catalogProvider } from '../../catalog/public';
-import { usePodcastPlayer } from '../../podcast_player/public';
+import {
+  usePodcastPlayer,
+  PodcastPlayer,
+  usePodcastState,
+} from '../../podcast_player/public';
 
 // Types
 import type { LearningStackParamList } from '../../../types';
@@ -73,7 +77,9 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
 
   // Session creation mutation
   const startSessionMutation = useStartSession();
-  const { pause, currentTrack } = usePodcastPlayer();
+  const { pause } = usePodcastPlayer();
+  const { currentTrack } = usePodcastState();
+  const hasPlayer = Boolean(unitId && currentTrack?.unitId === unitId);
 
   // Create session on mount
   useEffect(() => {
@@ -248,7 +254,15 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
           onComplete={handleComplete}
           onBack={handleBack}
           unitId={unitId}
+          hasPlayer={hasPlayer}
         />
+        {hasPlayer && currentTrack && unitId ? (
+          <PodcastPlayer
+            track={currentTrack}
+            unitId={unitId}
+            defaultExpanded={false}
+          />
+        ) : null}
       </SafeAreaView>
     );
   }

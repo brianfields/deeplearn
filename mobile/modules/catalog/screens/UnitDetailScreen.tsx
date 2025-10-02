@@ -201,9 +201,6 @@ export function UnitDetailScreen() {
           <Text variant="h1" style={{ marginTop: 8, fontWeight: 'normal' }}>
             {unit.title}
           </Text>
-          <Text variant="secondary" color={theme.colors.textSecondary}>
-            {unit.ownershipLabel}
-          </Text>
         </Box>
 
         <Box px="lg" mb="lg">
@@ -216,25 +213,10 @@ export function UnitDetailScreen() {
           />
         </Box>
 
-        {unit.artImageDescription ? (
-          <Box px="lg" mb="md">
-            <Text
-              variant="secondary"
-              color={theme.colors.textSecondary}
-              style={{ marginTop: ui.getSpacing('sm') }}
-            >
-              {unit.artImageDescription}
-            </Text>
-          </Box>
-        ) : null}
-
         <Box px="lg">
           <Card variant="default" style={{ margin: 0 }}>
             {nextLessonTitle && (
               <Box mb="md">
-                <Text variant="secondary" color={theme.colors.textSecondary}>
-                  Resume next:
-                </Text>
                 <Text variant="title" style={{ fontWeight: 'normal' }}>
                   {nextLessonTitle}
                 </Text>
@@ -265,42 +247,6 @@ export function UnitDetailScreen() {
           </Card>
         </Box>
 
-        {hasPodcast && podcastTrack && (
-          <Box px="lg" mt="md">
-            {unit.podcastVoice && (
-              <Text
-                variant="secondary"
-                color={theme.colors.textSecondary}
-                style={{ marginBottom: 12 }}
-              >
-                Narrated in {unit.podcastVoice}
-              </Text>
-            )}
-          </Box>
-        )}
-
-        {unit.isOwnedByCurrentUser && (
-          <Box px="lg" mt="md">
-            <Card variant="outlined" style={{ margin: 0 }}>
-              <View style={styles.sharingRow}>
-                <Text variant="body" style={{ flex: 1 }}>
-                  Share globally
-                </Text>
-                <Switch
-                  value={unit.isGlobal}
-                  onValueChange={handleShareToggle}
-                  disabled={isTogglingShare}
-                />
-              </View>
-              <Text variant="caption" color={theme.colors.textSecondary}>
-                {unit.isGlobal
-                  ? 'Learners across the platform can view this unit.'
-                  : 'Toggle on to make this unit visible to everyone.'}
-              </Text>
-            </Card>
-          </Box>
-        )}
-
         {ownershipDescription && !unit.isOwnedByCurrentUser && (
           <Box px="lg" mt="md">
             <Card variant="outlined" style={{ margin: 0 }}>
@@ -329,29 +275,38 @@ export function UnitDetailScreen() {
                 <Text variant="body" style={{ flex: 1, marginRight: 12 }}>
                   {item.title}
                 </Text>
-                <View style={styles.lessonRight}>
-                  {progressLS && (
-                    <Text variant="caption" color={theme.colors.accent}>
-                      {Math.round(
-                        progressLS.lessons.find(lp => lp.lessonId === item.id)
-                          ?.progressPercentage || 0
-                      )}
-                      %
-                    </Text>
-                  )}
-                  <Text variant="caption" color={theme.colors.textSecondary}>
-                    {item.estimatedDuration} min
-                  </Text>
-                </View>
+                <View style={styles.lessonRight}></View>
               </View>
             </Card>
           </Box>
         ))}
+        {unit.isOwnedByCurrentUser && (
+          <Box px="lg" mt="md">
+            <Card variant="outlined" style={{ margin: 0 }}>
+              <View style={styles.sharingRow}>
+                <Text variant="body" style={{ flex: 1 }}>
+                  Share globally
+                </Text>
+                <Switch
+                  value={unit.isGlobal}
+                  onValueChange={handleShareToggle}
+                  disabled={isTogglingShare}
+                />
+              </View>
+              <Text variant="caption" color={theme.colors.textSecondary}>
+                {unit.isGlobal
+                  ? 'Learners across the platform can view this unit.'
+                  : 'Toggle on to make this unit visible to everyone.'}
+              </Text>
+            </Card>
+          </Box>
+        )}
       </ScrollView>
       {hasPodcast && podcastTrack && (
         <PodcastPlayer
           track={podcastTrack}
           unitId={unit.id}
+          artworkUrl={unit.artImageUrl ?? undefined}
           defaultExpanded={false}
         />
       )}

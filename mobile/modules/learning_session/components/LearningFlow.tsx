@@ -8,7 +8,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Alert } from 'react-native';
 import { Button, Progress, useHaptics } from '../../ui_system/public';
 import { uiSystemProvider } from '../../ui_system/public';
-import { PodcastPlayer, usePodcastState } from '../../podcast_player/public';
 import { useActiveLearningSession } from '../queries';
 import { useLearningSessionStore } from '../store';
 import MiniLesson from './MiniLesson';
@@ -21,6 +20,7 @@ interface LearningFlowProps {
   onComplete: (results: any) => void;
   onBack: () => void;
   unitId?: string | null;
+  hasPlayer?: boolean;
 }
 
 // Simple element to auto-skip glossary entries
@@ -30,14 +30,13 @@ export default function LearningFlow({
   sessionId,
   onComplete,
   onBack,
-  unitId,
+  unitId: _unitId,
+  hasPlayer = false,
 }: LearningFlowProps) {
   const uiSystem = uiSystemProvider();
   const theme = uiSystem.getCurrentTheme();
   const styles = createStyles(theme);
   const haptics = useHaptics();
-  const { currentTrack } = usePodcastState();
-  const hasPlayer = Boolean(unitId && currentTrack?.unitId === unitId);
 
   // Session data and actions
   const {
@@ -331,13 +330,6 @@ export default function LearningFlow({
           <Text style={styles.completingText}>Completing session...</Text>
         </View>
       )}
-      {hasPlayer && currentTrack && unitId ? (
-        <PodcastPlayer
-          track={currentTrack}
-          unitId={unitId}
-          defaultExpanded={false}
-        />
-      ) : null}
     </View>
   );
 }
@@ -349,7 +341,7 @@ const createStyles = (theme: any) =>
       backgroundColor: theme.colors.background,
     },
     containerWithMini: {
-      paddingBottom: (theme.spacing?.xxl || 32) * 2,
+      paddingBottom: 0,
     },
     header: {
       paddingTop: theme.spacing?.xl || 24,
@@ -407,7 +399,7 @@ const createStyles = (theme: any) =>
       flex: 1,
     },
     componentContainerWithMini: {
-      paddingBottom: theme.spacing?.xxl || 32,
+      paddingBottom: 48, // Match UnitDetailScreen padding for podcast player
     },
     loadingContainer: {
       flex: 1,

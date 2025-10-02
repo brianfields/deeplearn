@@ -22,7 +22,6 @@ export interface PodcastTrack {
   readonly audioUrl: string;
   readonly durationSeconds: number;
   readonly transcript?: string | null;
-  readonly artworkUrl?: string | null;
 }
 
 export interface PlaybackState {

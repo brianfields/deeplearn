@@ -26,12 +26,14 @@ import { PLAYBACK_SPEEDS } from '../store';
 interface PodcastPlayerProps {
   readonly track: PodcastTrack;
   readonly unitId: string;
+  readonly artworkUrl?: string;
   readonly defaultExpanded?: boolean;
 }
 
 export function PodcastPlayer({
   track,
   unitId,
+  artworkUrl,
   defaultExpanded = false,
 }: PodcastPlayerProps): React.ReactElement {
   const ui = uiSystemProvider();
@@ -249,8 +251,9 @@ export function PodcastPlayer({
         <View style={styles.artworkContainer}>
           <ArtworkImage
             title={track.title}
-            imageUrl={track.artworkUrl ?? undefined}
+            imageUrl={artworkUrl}
             variant="thumbnail"
+            style={styles.artwork}
           />
         </View>
       </View>
@@ -408,6 +411,7 @@ const createStyles = (theme: any) =>
       shadowRadius: 8,
       shadowOffset: { width: 0, height: -2 },
       elevation: 16,
+      paddingBottom: theme.spacing?.md || 16,
     },
     collapsedBar: {
       flexDirection: 'row',
@@ -468,8 +472,13 @@ const createStyles = (theme: any) =>
     artworkContainer: {
       width: 48,
       height: 48,
-      borderRadius: 8,
+      borderRadius: 4,
       overflow: 'hidden',
+    },
+    artwork: {
+      width: 48,
+      height: 48,
+      borderRadius: 4,
     },
     expandedContent: {
       maxHeight: 400,

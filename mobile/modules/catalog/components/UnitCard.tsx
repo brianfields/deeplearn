@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View } from 'react-native';
 import type { Unit } from '../../content/public';
 import { UnitProgressIndicator } from './UnitProgressIndicator';
 import {
@@ -34,12 +34,6 @@ export function UnitCard({
   const isDisabled = !unit.isInteractive;
   const showFailedActions: boolean =
     unit.status === 'failed' && !!(onRetry || onDismiss);
-  const ownershipBadgeBackground = unit.isGlobal
-    ? theme.colors.primary
-    : theme.colors.surface;
-  const ownershipBadgeTextColor = unit.isGlobal
-    ? theme.colors.surface
-    : theme.colors.textSecondary;
 
   const handlePress = (): void => {
     if (isDisabled) return;
@@ -110,49 +104,6 @@ export function UnitCard({
               >
                 {unit.title}
               </Text>
-
-              <View style={{ flexDirection: 'row', columnGap: 8 }}>
-                <View
-                  style={{
-                    backgroundColor: ownershipBadgeBackground,
-                    paddingHorizontal: 8,
-                    paddingVertical: 4,
-                    borderRadius: 8,
-                    borderWidth: StyleSheet.hairlineWidth,
-                    borderColor: theme.colors.border,
-                  }}
-                >
-                  <Text
-                    variant="caption"
-                    color={ownershipBadgeTextColor}
-                    weight="600"
-                  >
-                    {unit.ownershipLabel}
-                  </Text>
-                </View>
-                <View
-                  style={{
-                    backgroundColor: isDisabled
-                      ? theme.colors.border
-                      : theme.colors.accent,
-                    paddingHorizontal: 8,
-                    paddingVertical: 4,
-                    borderRadius: 8,
-                  }}
-                >
-                  <Text
-                    variant="caption"
-                    color={
-                      ui.isLightColor(theme.colors.accent)
-                        ? theme.colors.surface
-                        : theme.colors.background
-                    }
-                    weight="600"
-                  >
-                    {unit.difficultyLabel}
-                  </Text>
-                </View>
-              </View>
             </View>
 
             <Text
@@ -218,16 +169,8 @@ export function UnitCard({
                 variant="caption"
                 color={isDisabled ? theme.colors.textSecondary : undefined}
               >
-                {unit.lessonCount} lessons
+                {unit.targetLessonCount} lessons
               </Text>
-              {typeof unit.targetLessonCount === 'number' && (
-                <Text
-                  variant="caption"
-                  color={isDisabled ? theme.colors.textSecondary : undefined}
-                >
-                  Target: {unit.targetLessonCount}
-                </Text>
-              )}
             </View>
           </View>
         </View>

@@ -206,7 +206,7 @@ def _maybe_mock_llm() -> Generator[None, None, None]:
 
             if response_model is ExtractUnitMetadataStep.Outputs:
                 payload = {
-                    "unit_title": "Learning Unit: Mocked",
+                    "unit_title": "Mocked",
                     "learning_objectives": [
                         {"lo_id": "lo_1", "text": "Understand concept A", "bloom_level": "Understand"},
                         {"lo_id": "lo_2", "text": "Apply concept B", "bloom_level": "Apply"},

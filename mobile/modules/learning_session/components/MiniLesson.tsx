@@ -126,21 +126,6 @@ export default function MiniLesson({
 
   return (
     <View style={styles.container}>
-      {/* Clean Title */}
-      <Animated.View
-        entering={
-          reducedMotion.enabled
-            ? undefined
-            : FadeIn.duration(animationTimings.ui).easing(
-                Easing.bezier(0.2, 0.8, 0.2, 1)
-              )
-        }
-        style={styles.titleSection}
-      >
-        <Text style={styles.title}>{title}</Text>
-        {/* core_concept removed per new models */}
-      </Animated.View>
-
       {/* Main Content */}
       <Animated.View
         entering={
