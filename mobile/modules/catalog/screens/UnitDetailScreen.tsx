@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -7,12 +7,10 @@ import {
   TouchableOpacity,
   Alert,
   Switch,
-  ActivityIndicator,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Audio } from 'expo-av';
 
 import { useCatalogUnitDetail, useToggleUnitSharing } from '../queries';
 import { UnitProgressView } from '../components/UnitProgress';
@@ -33,6 +31,7 @@ import {
 } from '../../ui_system/public';
 import { useAuth } from '../../user/public';
 import { infrastructureProvider } from '../../infrastructure/public';
+import { PodcastPlayer, type PodcastTrack } from '../../podcast_player/public';
 
 type UnitDetailScreenNavigationProp = NativeStackNavigationProp<
   LearningStackParamList,
@@ -112,10 +111,6 @@ export function UnitDetailScreen() {
     return unit.lessons.find(l => l.id === nextLessonId)?.title ?? null;
   }, [unit, nextLessonId]);
 
-  const [podcastSound, setPodcastSound] = useState<Audio.Sound | null>(null);
-  const [isLoadingPodcast, setIsLoadingPodcast] = useState(false);
-  const [isPodcastPlaying, setIsPodcastPlaying] = useState(false);
-
   // Resolve absolute podcast URL against API base if backend returned a relative path
   const infra = infrastructureProvider();
   const apiBase = useMemo(() => {
@@ -134,83 +129,22 @@ export function UnitDetailScreen() {
     return `${apiBase}${path}`;
   }, [unit?.podcastAudioUrl, apiBase]);
 
-  useEffect(() => {
-    return () => {
-      if (podcastSound) {
-        podcastSound.unloadAsync().catch(() => {});
-      }
-    };
-  }, [podcastSound]);
-
-  useEffect(() => {
-    if (podcastSound) {
-      podcastSound.unloadAsync().catch(() => {});
-      setPodcastSound(null);
-      setIsPodcastPlaying(false);
-    }
-  }, [unit?.id]);
-
-  const podcastDurationLabel = useMemo(() => {
-    if (!unit?.podcastDurationSeconds) return null;
-    const minutes = Math.floor(unit.podcastDurationSeconds / 60);
-    const seconds = unit.podcastDurationSeconds % 60;
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  }, [unit?.podcastDurationSeconds]);
-
-  const handleTogglePodcast = useCallback(async () => {
-    if (!unit?.hasPodcast || !podcastAudioUrl) {
-      Alert.alert(
-        'Podcast unavailable',
-        'This unit does not have a podcast yet.'
-      );
-      return;
-    }
-    if (isLoadingPodcast) {
-      return;
-    }
-    try {
-      if (!podcastSound) {
-        setIsLoadingPodcast(true);
-        const { sound } = await Audio.Sound.createAsync(
-          { uri: podcastAudioUrl },
-          { shouldPlay: true }
-        );
-        sound.setOnPlaybackStatusUpdate(status => {
-          if (!status.isLoaded) {
-            return;
-          }
-          setIsPodcastPlaying(status.isPlaying);
-          if (status.didJustFinish) {
-            sound.setPositionAsync(0).catch(() => {});
-            setIsPodcastPlaying(false);
-          }
-        });
-        setPodcastSound(sound);
-        setIsPodcastPlaying(true);
-      } else {
-        const status = await podcastSound.getStatusAsync();
-        if (!status.isLoaded) {
-          await podcastSound.unloadAsync();
-          setPodcastSound(null);
-          setIsPodcastPlaying(false);
-          return;
-        }
-        if (status.isPlaying) {
-          await podcastSound.pauseAsync();
-          setIsPodcastPlaying(false);
-        } else {
-          await podcastSound.playAsync();
-          setIsPodcastPlaying(true);
-        }
-      }
-    } catch (error) {
-      Alert.alert('Unable to play podcast', 'Please try again later.');
-    } finally {
-      setIsLoadingPodcast(false);
-    }
-  }, [podcastSound, unit, podcastAudioUrl, isLoadingPodcast]);
-
   const hasPodcast = Boolean(unit?.hasPodcast && podcastAudioUrl);
+
+  const podcastTrack = useMemo<PodcastTrack | null>(() => {
+    if (!unit || !hasPodcast || !podcastAudioUrl) {
+      return null;
+    }
+    return {
+      unitId: unit.id,
+      title: unit.title,
+      audioUrl: podcastAudioUrl,
+      durationSeconds: unit.podcastDurationSeconds ?? 0,
+      transcript: unit.podcastTranscript ?? null,
+    };
+  }, [hasPodcast, podcastAudioUrl, unit]);
+
+  // Note: PodcastPlayer component now handles loadTrack, no need to do it here
 
   const handleLessonPress = async (lessonId: string): Promise<void> => {
     try {
@@ -267,9 +201,6 @@ export function UnitDetailScreen() {
           <Text variant="h1" style={{ marginTop: 8, fontWeight: 'normal' }}>
             {unit.title}
           </Text>
-          <Text variant="secondary" color={theme.colors.textSecondary}>
-            {unit.ownershipLabel}
-          </Text>
         </Box>
 
         <Box px="lg" mb="lg">
@@ -280,24 +211,12 @@ export function UnitDetailScreen() {
             variant="hero"
             testID="unit-hero-art"
           />
-          {unit.artImageDescription ? (
-            <Text
-              variant="secondary"
-              color={theme.colors.textSecondary}
-              style={{ marginTop: ui.getSpacing('sm') }}
-            >
-              {unit.artImageDescription}
-            </Text>
-          ) : null}
         </Box>
 
         <Box px="lg">
           <Card variant="default" style={{ margin: 0 }}>
             {nextLessonTitle && (
               <Box mb="md">
-                <Text variant="secondary" color={theme.colors.textSecondary}>
-                  Resume next:
-                </Text>
                 <Text variant="title" style={{ fontWeight: 'normal' }}>
                   {nextLessonTitle}
                 </Text>
@@ -328,78 +247,6 @@ export function UnitDetailScreen() {
           </Card>
         </Box>
 
-        {hasPodcast && (
-          <Box px="lg" mt="md">
-            <Card variant="outlined" style={{ margin: 0 }}>
-              <Text variant="title" style={{ marginBottom: 8 }}>
-                Unit Podcast
-              </Text>
-              {unit.podcastVoice && (
-                <Text
-                  variant="secondary"
-                  color={theme.colors.textSecondary}
-                  style={{ marginBottom: 12 }}
-                >
-                  Narrated in {unit.podcastVoice}
-                </Text>
-              )}
-              <Button
-                title={isPodcastPlaying ? 'Pause Podcast' : 'Play Podcast'}
-                onPress={() => {
-                  haptics.trigger('light');
-                  handleTogglePodcast();
-                }}
-                variant="secondary"
-                size="medium"
-                fullWidth
-                disabled={isLoadingPodcast}
-                testID="podcast-toggle"
-              />
-              {isLoadingPodcast && (
-                <View style={{ marginTop: 12, alignItems: 'center' }}>
-                  <ActivityIndicator color={theme.colors.primary} />
-                </View>
-              )}
-              {podcastDurationLabel && (
-                <Text
-                  variant="caption"
-                  color={theme.colors.textSecondary}
-                  style={{ marginTop: 12 }}
-                >
-                  Duration: {podcastDurationLabel}
-                </Text>
-              )}
-              {unit.podcastTranscript && (
-                <Text variant="body" style={{ marginTop: 12 }}>
-                  {unit.podcastTranscript}
-                </Text>
-              )}
-            </Card>
-          </Box>
-        )}
-
-        {unit.isOwnedByCurrentUser && (
-          <Box px="lg" mt="md">
-            <Card variant="outlined" style={{ margin: 0 }}>
-              <View style={styles.sharingRow}>
-                <Text variant="body" style={{ flex: 1 }}>
-                  Share globally
-                </Text>
-                <Switch
-                  value={unit.isGlobal}
-                  onValueChange={handleShareToggle}
-                  disabled={isTogglingShare}
-                />
-              </View>
-              <Text variant="caption" color={theme.colors.textSecondary}>
-                {unit.isGlobal
-                  ? 'Learners across the platform can view this unit.'
-                  : 'Toggle on to make this unit visible to everyone.'}
-              </Text>
-            </Card>
-          </Box>
-        )}
-
         {ownershipDescription && !unit.isOwnedByCurrentUser && (
           <Box px="lg" mt="md">
             <Card variant="outlined" style={{ margin: 0 }}>
@@ -428,25 +275,41 @@ export function UnitDetailScreen() {
                 <Text variant="body" style={{ flex: 1, marginRight: 12 }}>
                   {item.title}
                 </Text>
-                <View style={styles.lessonRight}>
-                  {progressLS && (
-                    <Text variant="caption" color={theme.colors.accent}>
-                      {Math.round(
-                        progressLS.lessons.find(lp => lp.lessonId === item.id)
-                          ?.progressPercentage || 0
-                      )}
-                      %
-                    </Text>
-                  )}
-                  <Text variant="caption" color={theme.colors.textSecondary}>
-                    {item.estimatedDuration} min
-                  </Text>
-                </View>
+                <View style={styles.lessonRight}></View>
               </View>
             </Card>
           </Box>
         ))}
+        {unit.isOwnedByCurrentUser && (
+          <Box px="lg" mt="md">
+            <Card variant="outlined" style={{ margin: 0 }}>
+              <View style={styles.sharingRow}>
+                <Text variant="body" style={{ flex: 1 }}>
+                  Share globally
+                </Text>
+                <Switch
+                  value={unit.isGlobal}
+                  onValueChange={handleShareToggle}
+                  disabled={isTogglingShare}
+                />
+              </View>
+              <Text variant="caption" color={theme.colors.textSecondary}>
+                {unit.isGlobal
+                  ? 'Learners across the platform can view this unit.'
+                  : 'Toggle on to make this unit visible to everyone.'}
+              </Text>
+            </Card>
+          </Box>
+        )}
       </ScrollView>
+      {hasPodcast && podcastTrack && (
+        <PodcastPlayer
+          track={podcastTrack}
+          unitId={unit.id}
+          artworkUrl={unit.artImageUrl ?? undefined}
+          defaultExpanded={false}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -454,7 +317,7 @@ export function UnitDetailScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollView: { flex: 1 },
-  scrollContent: { paddingBottom: 24 },
+  scrollContent: { paddingBottom: 96 }, // Extra padding for podcast player
   lessonRight: { alignItems: 'flex-end' },
   lessonRowInner: {
     flexDirection: 'row',

@@ -19,6 +19,8 @@ interface LearningFlowProps {
   sessionId: string;
   onComplete: (results: any) => void;
   onBack: () => void;
+  unitId?: string | null;
+  hasPlayer?: boolean;
 }
 
 // Simple element to auto-skip glossary entries
@@ -28,6 +30,8 @@ export default function LearningFlow({
   sessionId,
   onComplete,
   onBack,
+  unitId: _unitId,
+  hasPlayer = false,
 }: LearningFlowProps) {
   const uiSystem = uiSystemProvider();
   const theme = uiSystem.getCurrentTheme();
@@ -265,12 +269,14 @@ export default function LearningFlow({
   }
 
   return (
-    <View style={styles.container}>
-      {/* Header with title and progress */}
+    <View
+      style={[
+        styles.container,
+        hasPlayer ? styles.containerWithMini : undefined,
+      ]}
+    >
+      {/* Header with progress */}
       <View style={styles.header}>
-        {session?.lessonTitle && (
-          <Text style={styles.lessonTitle}>{session.lessonTitle}</Text>
-        )}
         <View style={styles.progressContainer}>
           <Button
             title="✕"
@@ -294,12 +300,18 @@ export default function LearningFlow({
       </View>
 
       {/* Didactic first, then exercises */}
-      <View style={styles.componentContainer}>
+      <View
+        style={[
+          styles.componentContainer,
+          hasPlayer ? styles.componentContainerWithMini : undefined,
+        ]}
+      >
         {shouldShowDidactic && (
           <MiniLesson
             snippet={{
               explanation: didacticData as string,
             }}
+            lessonTitle={session?.lessonTitle}
             onContinue={() => {
               setDidacticShown(true);
               setCurrentExercise(0);
@@ -326,28 +338,27 @@ const createStyles = (theme: any) =>
       flex: 1,
       backgroundColor: theme.colors.background,
     },
+    containerWithMini: {
+      paddingBottom: 0,
+    },
     header: {
-      paddingTop: theme.spacing?.xl || 24,
-      paddingHorizontal: theme.spacing?.lg || 16,
-      paddingBottom: theme.spacing?.md || 12,
-      backgroundColor: theme.colors.surface,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.colors.border,
+      paddingTop: theme.spacing?.sm || 8,
+      paddingHorizontal: theme.spacing?.md || 12,
+      paddingBottom: theme.spacing?.xs || 4,
+      backgroundColor: theme.colors.background,
     },
     progressContainer: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'flex-start',
-      marginTop: theme.spacing?.sm || 8,
-      marginBottom: theme.spacing?.sm || 8,
       width: '100%',
     },
     closeButton: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
+      width: 28,
+      height: 28,
+      borderRadius: 14,
       aspectRatio: 1,
-      marginRight: theme.spacing?.md || 12,
+      marginRight: theme.spacing?.sm || 8,
       paddingHorizontal: 0,
       paddingVertical: 0,
       justifyContent: 'center',
@@ -368,18 +379,13 @@ const createStyles = (theme: any) =>
     progressWrapper: {
       flex: 1,
       justifyContent: 'center',
-      paddingVertical: 10,
-    },
-    lessonTitle: {
-      fontSize: 20,
-      fontWeight: '400',
-      color: theme.colors.text,
-      textAlign: 'center',
-      letterSpacing: 0.2,
-      marginBottom: theme.spacing?.xs || 6,
+      paddingVertical: 6,
     },
     componentContainer: {
       flex: 1,
+    },
+    componentContainerWithMini: {
+      paddingBottom: 48, // Match UnitDetailScreen padding for podcast player
     },
     loadingContainer: {
       flex: 1,
@@ -453,5 +459,15 @@ const createStyles = (theme: any) =>
       fontWeight: '400',
       color: theme.colors.surface,
       textAlign: 'center',
+    },
+    restoreContainer: {
+      position: 'absolute',
+      left: theme.spacing?.lg || 16,
+      right: theme.spacing?.lg || 16,
+      bottom: theme.spacing?.lg || 16,
+      alignItems: 'center',
+    },
+    restoreButton: {
+      minWidth: 160,
     },
   });

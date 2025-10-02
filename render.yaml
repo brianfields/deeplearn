@@ -1,0 +1,119 @@
+# render.yaml — Lantern Room on Render (native runtimes)
+
+databases:
+  - name: lantern-room-db
+    plan: starter
+    region: oregon
+
+services:
+  # Redis — For ARQ task queue
+  - type: redis
+    name: lantern-room-redis
+    plan: starter
+    region: oregon
+    ipAllowList: []  # Only allow internal connections
+
+  # FastAPI backend — Native Python
+  - type: web
+    name: lantern-room-backend
+    runtime: python
+    region: oregon
+    plan: starter
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    preDeployCommand: alembic upgrade head
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: DEBUG
+        value: "false"
+      - key: LOG_LEVEL
+        value: INFO
+      - key: DATABASE_URL
+        fromDatabase:
+          name: lantern-room-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: lantern-room-redis
+          property: connectionString
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-4o
+      - key: TASK_QUEUE_REGISTRATIONS
+        value: modules.content_creator.public
+      - key: S3_REGION
+        value: us-west-1
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: OBJECT_STORE_BUCKET
+        value: lantern-room
+
+  # ARQ Worker — Background task processor
+  - type: worker
+    name: lantern-room-worker
+    runtime: python
+    region: oregon
+    plan: starter
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: python scripts/start_worker.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: DEBUG
+        value: "false"
+      - key: LOG_LEVEL
+        value: INFO
+      - key: DATABASE_URL
+        fromDatabase:
+          name: lantern-room-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: lantern-room-redis
+          property: connectionString
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-4o
+      - key: TASK_QUEUE_REGISTRATIONS
+        value: modules.content_creator.public
+      - key: S3_REGION
+        value: us-west-1
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: OBJECT_STORE_BUCKET
+        value: lantern-room-storage
+
+  # Next.js Admin frontend — Native Node
+  - type: web
+    name: lantern-room-admin
+    runtime: node
+    region: oregon
+    plan: starter
+    rootDir: admin
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm run start -- -p $PORT
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: 23.1.0
+      - key: NPM_CONFIG_PRODUCTION
+        value: "false"
+      - key: NODE_ENV
+        value: production
+      - key: BACKEND_URL
+        fromService:
+          type: web
+          name: lantern-room-backend
+          property: host

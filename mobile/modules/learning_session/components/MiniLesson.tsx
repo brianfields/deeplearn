@@ -43,12 +43,14 @@ interface MiniLessonProps {
     examples?: string[];
     estimated_duration?: number;
   };
+  lessonTitle?: string;
   onContinue: () => void;
   isLoading?: boolean;
 }
 
 export default function MiniLesson({
   snippet,
+  lessonTitle,
   onContinue,
   isLoading = false,
 }: MiniLessonProps) {
@@ -118,7 +120,7 @@ export default function MiniLesson({
   }
 
   // Extract content with fallbacks
-  const title = snippet.title || 'Learning Lesson';
+  const _title = snippet.title || 'Learning Lesson';
   const content =
     snippet.explanation || snippet.snippet || 'Content will be displayed here.';
   const key_points = snippet.key_points || [];
@@ -126,21 +128,6 @@ export default function MiniLesson({
 
   return (
     <View style={styles.container}>
-      {/* Clean Title */}
-      <Animated.View
-        entering={
-          reducedMotion.enabled
-            ? undefined
-            : FadeIn.duration(animationTimings.ui).easing(
-                Easing.bezier(0.2, 0.8, 0.2, 1)
-              )
-        }
-        style={styles.titleSection}
-      >
-        <Text style={styles.title}>{title}</Text>
-        {/* core_concept removed per new models */}
-      </Animated.View>
-
       {/* Main Content */}
       <Animated.View
         entering={
@@ -160,6 +147,13 @@ export default function MiniLesson({
           showsVerticalScrollIndicator={false}
           testID="didactic-content-scroll"
         >
+          {/* Lesson Title */}
+          {lessonTitle && (
+            <View style={styles.titleSection}>
+              <Text style={styles.title}>{lessonTitle}</Text>
+            </View>
+          )}
+
           {/* Main Content */}
           <View style={styles.contentSection}>
             <Text style={styles.contentText}>{content}</Text>
@@ -308,16 +302,14 @@ const createStyles = (theme: any) =>
     },
 
     titleSection: {
-      paddingTop: 20,
-      paddingHorizontal: 20,
-      paddingBottom: 16,
+      marginBottom: 20,
     },
 
     title: {
-      ...theme.typography?.heading2,
+      fontSize: 24,
+      fontWeight: '400',
       color: theme.colors.text,
-      marginBottom: 8,
-      fontWeight: 'normal',
+      letterSpacing: 0.2,
     },
 
     subtitle: {

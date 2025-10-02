@@ -324,7 +324,7 @@ class ContentCreatorService:
             learner_level: Difficulty level.
         """
         # Pre-create the shell unit for both paths
-        provisional_title = f"Learning Unit: {topic}"
+        provisional_title = f"{topic}"
         unit = await self.content.create_unit(
             UnitCreate(
                 title=provisional_title,
@@ -394,7 +394,7 @@ class ContentCreatorService:
         )
 
         # Update unit metadata from plan
-        final_title = str(unit_plan.get("unit_title") or f"Learning Unit: {topic}")
+        final_title = str(unit_plan.get("unit_title") or f"{topic}")
         await self.content.update_unit_status(unit_id, UnitStatus.IN_PROGRESS.value, creation_progress={"stage": "generating", "message": "Generating lessons..."})
 
         # Prepare look-up of unit-level LO texts by id

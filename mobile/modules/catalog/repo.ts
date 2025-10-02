@@ -39,6 +39,7 @@ interface ApiLessonDetail {
   glossary_terms: any[];
   created_at: string;
   exercise_count: number;
+  unit_id?: string | null;
 }
 
 export class CatalogRepo {

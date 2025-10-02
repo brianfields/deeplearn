@@ -29,6 +29,7 @@ import type { RootStackParamList, LearningStackParamList } from './types';
 import { uiSystemProvider } from './modules/ui_system/public';
 import { reducedMotion } from './modules/ui_system/utils/motion';
 import { AuthProvider, useAuth } from './modules/user/public';
+import { useTrackPlayer } from './modules/podcast_player/public';
 
 // Create navigators
 const RootStack = createNativeStackNavigator<RootStackParamList>();
@@ -159,6 +160,8 @@ export default function App(): React.ReactElement {
 
   // Initialize reduced motion once at app start (guarded for tests)
   (reducedMotion as any).initialize?.();
+
+  useTrackPlayer();
 
   const navigationTheme: NavigationTheme = {
     ...DefaultTheme,
