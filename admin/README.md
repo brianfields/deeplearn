@@ -75,5 +75,8 @@ The dashboard connects to the backend admin API at `/api/v1/admin/` with the fol
 Create a `.env.local` file with:
 
 ```
+# Backend URL (without /api/v1 - that's added automatically)
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 ```
+
+Note: The `/api/v1` path is automatically appended by the app. The environment variable should only contain the backend domain.

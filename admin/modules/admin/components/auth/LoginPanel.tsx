@@ -3,7 +3,7 @@
 import React, { FormEvent, useMemo, useState } from 'react';
 import { useAdminAuth } from './AdminAuthProvider';
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL ?? '').replace(/\/$/, '');
+const BACKEND_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? '').replace(/\/$/, '');
 
 interface LoginResponse {
   user: {
@@ -22,7 +22,7 @@ export function LoginPanel(): React.ReactElement {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const loginEndpoint = useMemo(() => {
-    const base = API_BASE;
+    const base = BACKEND_URL;
     if (!base) {
       return '/api/v1/users/login';
     }
