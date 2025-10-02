@@ -63,7 +63,7 @@ services:
     plan: starter
     rootDir: backend
     buildCommand: pip install -r requirements.txt
-    startCommand: arq modules.task_queue.tasks.WorkerSettings
+    startCommand: python -m arq modules.task_queue.tasks.WorkerSettings
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9

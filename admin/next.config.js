@@ -4,10 +4,16 @@ const nextConfig = {
     BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:8000',
   },
   async rewrites() {
+    // Ensure backend URL has protocol
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000';
+    const backendUrlWithProtocol = backendUrl.startsWith('http')
+      ? backendUrl
+      : `https://${backendUrl}`;
+
     return [
       {
         source: '/api/v1/:path*',
-        destination: `${process.env.BACKEND_URL || 'http://localhost:8000'}/api/v1/:path*`,
+        destination: `${backendUrlWithProtocol}/api/v1/:path*`,
       },
     ];
   },
