@@ -13,7 +13,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.brian.deeplearn"
+      "bundleIdentifier": "com.brian.deeplearn",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -25,6 +28,11 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "73fcfef2-62b0-4298-8be7-a511147d9bc1"
+      }
     }
   }
 }

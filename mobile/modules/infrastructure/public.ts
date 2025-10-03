@@ -30,11 +30,22 @@ export interface InfrastructureProvider {
 }
 
 // Default configuration
-const DEV_BASE_URL: string = Platform.select({
-  ios: 'http://127.0.0.1:8000',
-  android: 'http://10.0.2.2:8000',
-  default: 'http://127.0.0.1:8000',
-}) as string;
+// Check environment variable first, otherwise fall back to platform-specific defaults
+const getDevBaseUrl = (): string => {
+  // If EXPO_PUBLIC_DEV_API_URL is set, use it
+  if (process.env.EXPO_PUBLIC_DEV_API_URL) {
+    return process.env.EXPO_PUBLIC_DEV_API_URL;
+  }
+
+  // Otherwise, use platform-specific defaults for simulators/emulators
+  return Platform.select({
+    ios: 'http://127.0.0.1:8000', // iOS simulator
+    android: 'http://10.0.2.2:8000', // Android emulator
+    default: 'http://127.0.0.1:8000',
+  }) as string;
+};
+
+const DEV_BASE_URL: string = getDevBaseUrl();
 
 const DEFAULT_HTTP_CONFIG: HttpClientConfig = {
   baseURL: __DEV__

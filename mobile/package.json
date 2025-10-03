@@ -6,8 +6,14 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios --host localhost --port 8082",
-    "ios:debug": "METRO_DEBUG=1 EXPO_DEBUG=1 expo start --ios --host localhost -c --port 8082",
     "web": "expo start --web",
+    "start:simulator": "expo start",
+    "start:device": "EXPO_PUBLIC_DEV_API_URL=http://192.168.4.188:8000 expo start",
+    "ios:simulator": "expo start --ios --host localhost --port 8082",
+    "ios:device": "EXPO_PUBLIC_DEV_API_URL=http://192.168.4.188:8000 expo start --ios --host lan --port 8082",
+    "android:emulator": "expo start --android",
+    "android:device": "EXPO_PUBLIC_DEV_API_URL=http://192.168.4.188:8000 expo start --android --host lan",
+    "ios:debug": "METRO_DEBUG=1 EXPO_DEBUG=1 expo start --ios --host localhost -c --port 8082",
     "typecheck": "tsc --noEmit --jsx react-jsx --moduleResolution bundler --allowImportingTsExtensions --skipLibCheck --strict false",
     "typecheck:watch": "tsc --noEmit --jsx react-jsx --moduleResolution bundler --allowImportingTsExtensions --skipLibCheck --strict false --watch",
     "typecheck:file": "tsc --noEmit --jsx react-jsx --moduleResolution bundler --allowImportingTsExtensions --skipLibCheck --strict false",
@@ -55,7 +61,8 @@
     "react-native-screens": "~4.11.1",
     "react-native-svg": "15.11.2",
     "react-native-web": "^0.20.0",
-    "zustand": "^5.0.8"
+    "zustand": "^5.0.8",
+    "expo-dev-client": "~5.2.4"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
