@@ -290,6 +290,50 @@ eas build --profile production --platform android
 - See who has installed, session data, and crash reports
 - Export tester list as CSV
 
+#### Complete TestFlight Invitation Flow
+
+**For New/Unregistered Testers**:
+
+1. **Developer submits build**:
+   ```bash
+   eas build --profile preview --platform ios
+   eas submit --platform ios --profile preview
+   ```
+
+2. **Developer adds tester in App Store Connect**:
+   - TestFlight → Internal/External Testing → Add Tester
+   - Enter tester's email address
+
+3. **Tester receives email**:
+   - Subject: "You're invited to test [App Name]"
+   - Contains TestFlight download link (if needed)
+   - Contains app-specific invitation/redeem code
+
+4. **Tester installs TestFlight** (if not already installed):
+   - Click TestFlight link in email → App Store → Install
+   - Or manually search "TestFlight" in App Store
+
+5. **Tester accepts invitation**:
+   - Option A: Click "View in TestFlight" link in email
+   - Option B: Open TestFlight app → Redeem → Enter code from email
+
+6. **Tester installs your app**:
+   - TestFlight opens showing your app
+   - Tap "Install" or "Accept"
+   - App downloads and installs
+
+7. **Testing**:
+   - Tester can provide feedback via TestFlight
+   - Crashes automatically reported to you
+   - You can see tester activity in App Store Connect
+
+**Important Notes**:
+- Tester's email must match their Apple ID email
+- External testers: First build requires Beta App Review (1-2 days wait)
+- Internal testers: Immediate access, but limited to 100 users
+- Invitations expire after 90 days if not accepted
+- Builds expire after 90 days (testers need to update)
+
 ### Android Preview Distribution
 
 #### Option 1: Internal Testing Track (Google Play Console)
@@ -570,11 +614,47 @@ You can integrate EAS with GitHub Actions for automatic builds:
 
 ### How do I add a single tester?
 
-**iOS**:
-1. Go to App Store Connect → TestFlight
-2. Click "+" next to "Testers and Groups"
-3. Enter their email
-4. They receive an invitation to download TestFlight and your app
+**iOS (TestFlight) - Step by Step**:
+
+1. **Ensure you have a build submitted**:
+   ```bash
+   # Build and submit to TestFlight first
+   eas build --profile preview --platform ios
+   eas submit --platform ios --profile preview
+   ```
+   Wait 10-30 minutes for processing
+
+2. **Add the tester in App Store Connect**:
+   - Go to [App Store Connect](https://appstoreconnect.apple.com)
+   - Click **My Apps** → Select your app
+   - Click **TestFlight** tab
+   - Choose tester type:
+     - **Internal Testers** (for team members): Click "Internal Testing" → "+" → Add Users
+     - **External Testers** (for anyone else): Click "External Testing" → Create a group if needed → "+" → Add Testers
+
+3. **Enter tester information**:
+   - Enter their email address
+   - (Optional) Add first and last name
+   - Click **Add**
+
+4. **What the tester receives**:
+   - Email invitation from TestFlight
+   - Subject: "You're invited to test [Your App Name]"
+   - Contains instructions and TestFlight link
+
+5. **What the tester needs to do**:
+   - Download TestFlight app from App Store (if not installed)
+   - Open the invitation email on their iOS device
+   - Click "View in TestFlight" or "Accept"
+   - TestFlight app opens and shows your app
+   - Tap "Install" to download your app
+
+6. **Tester doesn't have TestFlight?**:
+   - The invitation email includes a link to download TestFlight
+   - Once installed, they can click the invitation link again
+   - Or they can search for your app in TestFlight using the redeem code from the email
+
+**Note**: External testers require Beta App Review for the first build (1-2 days). Internal testers get instant access.
 
 **Android (Play Console)**:
 1. Go to Play Console → Testing → Internal testing
@@ -674,7 +754,34 @@ eas build:run --profile preview --platform ios
 - **Solution**:
   1. Check spam folder
   2. Verify email address is correct in App Store Connect
-  3. Resend invitation
+  3. Resend invitation from TestFlight → Testers → Select tester → Resend Invite
+  4. Try adding with a different email address
+  5. Make sure the build has finished processing (can take 10-30 minutes)
+
+**Issue**: Tester clicks invitation but nothing happens
+- **Solution**:
+  1. Ensure TestFlight app is installed (download from App Store)
+  2. Try copying the invitation link and pasting in Safari
+  3. Use the redeem code from email: Open TestFlight → Redeem → Enter code
+  4. Check they're signed in to the App Store with the correct Apple ID
+
+**Issue**: "This beta is full" message in TestFlight
+- **Solution**:
+  1. External tester groups have max capacity limits
+  2. Create a new group in App Store Connect
+  3. Or remove inactive testers to make room
+
+**Issue**: "This beta isn't accepting any new testers" message
+- **Solution**:
+  1. External testing may be paused in App Store Connect
+  2. Go to TestFlight → External Testing → Resume testing
+  3. For first build, wait for Beta App Review approval
+
+**Issue**: Tester sees "No apps available to test"
+- **Solution**:
+  1. They may be signed in with wrong Apple ID
+  2. Verify the email address matches their Apple ID
+  3. Invitation may have expired (resend from App Store Connect)
 
 **Issue**: Android tester can't access internal testing
 - **Solution**:

@@ -409,16 +409,7 @@ For production deployments:
 3. **Testing**: Run backend tests and frontend type checking
 4. **Documentation**: Update relevant docs for changes
 
-## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🙏 Acknowledgments
-
-- OpenAI for providing the GPT models
-- FastAPI and Next.js communities
-- PostgreSQL development team
-- All contributors and users of this platform
 
 ---
 
