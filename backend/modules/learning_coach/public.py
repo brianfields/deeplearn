@@ -23,8 +23,7 @@ class LearningCoachProvider(Protocol):
         *,
         topic: str | None = None,
         user_id: uuid.UUID | None = None,
-    ) -> LearningCoachSessionState:
-        ...
+    ) -> LearningCoachSessionState: ...
 
     async def submit_learner_turn(
         self,
@@ -32,8 +31,7 @@ class LearningCoachProvider(Protocol):
         conversation_id: str,
         message: str,
         user_id: uuid.UUID | None = None,
-    ) -> LearningCoachSessionState:
-        ...
+    ) -> LearningCoachSessionState: ...
 
     async def accept_brief(
         self,
@@ -41,24 +39,21 @@ class LearningCoachProvider(Protocol):
         conversation_id: str,
         brief: dict[str, Any],
         user_id: uuid.UUID | None = None,
-    ) -> LearningCoachSessionState:
-        ...
+    ) -> LearningCoachSessionState: ...
 
     async def restart_session(
         self,
         *,
         topic: str | None = None,
         user_id: uuid.UUID | None = None,
-    ) -> LearningCoachSessionState:
-        ...
+    ) -> LearningCoachSessionState: ...
 
     async def get_session_state(
         self,
         conversation_id: str,
         *,
         include_system_messages: bool = False,
-    ) -> LearningCoachSessionState:
-        ...
+    ) -> LearningCoachSessionState: ...
 
     async def list_conversations(
         self,
@@ -66,8 +61,7 @@ class LearningCoachProvider(Protocol):
         limit: int = 50,
         offset: int = 0,
         status: str | None = None,
-    ) -> list[LearningCoachConversationSummary]:
-        ...
+    ) -> list[LearningCoachConversationSummary]: ...
 
 
 def learning_coach_provider(

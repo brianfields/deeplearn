@@ -13,20 +13,20 @@ if TYPE_CHECKING:
 __all__ = ["ConversationContext"]
 
 
-_conversation_context: ContextVar["ConversationContext | None"] = ContextVar("conversation_context", default=None)
+_conversation_context: ContextVar[ConversationContext | None] = ContextVar("conversation_context", default=None)
 
 
 @dataclass
 class ConversationContext:
     """Stores infrastructure required during a conversation turn."""
 
-    service: "ConversationEngineService"
+    service: ConversationEngineService
     conversation_id: uuid.UUID
     user_id: uuid.UUID | None = None
     metadata: dict[str, Any] | None = None
 
     @classmethod
-    def set(cls, **kwargs: Any) -> "ConversationContext":
+    def set(cls, **kwargs: Any) -> ConversationContext:
         """Attach a context to the current task."""
 
         ctx = cls(**kwargs)
@@ -34,7 +34,7 @@ class ConversationContext:
         return ctx
 
     @classmethod
-    def current(cls) -> "ConversationContext":
+    def current(cls) -> ConversationContext:
         """Return the current context or raise if missing."""
 
         ctx = _conversation_context.get()
@@ -54,6 +54,5 @@ class ConversationContext:
         return {
             "conversation_id": str(self.conversation_id),
             "user_id": str(self.user_id) if self.user_id else None,
-            "metadata_keys": sorted(list(self.metadata.keys())) if self.metadata else [],
+            "metadata_keys": sorted(self.metadata.keys()) if self.metadata else [],
         }
-

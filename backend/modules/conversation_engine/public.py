@@ -17,8 +17,8 @@ from .service import (
 )
 
 __all__ = [
-    "ConversationEngineProvider",
     "ConversationDetailDTO",
+    "ConversationEngineProvider",
     "ConversationMessageDTO",
     "ConversationSummaryDTO",
     "conversation_engine_provider",
@@ -35,11 +35,9 @@ class ConversationEngineProvider(Protocol):
         user_id: uuid.UUID | None = None,
         title: str | None = None,
         metadata: dict[str, Any] | None = None,
-    ) -> ConversationSummaryDTO:
-        ...
+    ) -> ConversationSummaryDTO: ...
 
-    async def get_conversation(self, conversation_id: uuid.UUID) -> ConversationDetailDTO:
-        ...
+    async def get_conversation(self, conversation_id: uuid.UUID) -> ConversationDetailDTO: ...
 
     async def list_conversations_for_user(
         self,
@@ -49,8 +47,7 @@ class ConversationEngineProvider(Protocol):
         offset: int = 0,
         conversation_type: str | None = None,
         status: str | None = None,
-    ) -> list[ConversationSummaryDTO]:
-        ...
+    ) -> list[ConversationSummaryDTO]: ...
 
     async def list_conversations_by_type(
         self,
@@ -59,8 +56,7 @@ class ConversationEngineProvider(Protocol):
         limit: int = 50,
         offset: int = 0,
         status: str | None = None,
-    ) -> list[ConversationSummaryDTO]:
-        ...
+    ) -> list[ConversationSummaryDTO]: ...
 
     async def record_user_message(
         self,
@@ -68,8 +64,7 @@ class ConversationEngineProvider(Protocol):
         content: str,
         *,
         metadata: dict[str, Any] | None = None,
-    ) -> ConversationMessageDTO:
-        ...
+    ) -> ConversationMessageDTO: ...
 
     async def record_system_message(
         self,
@@ -77,8 +72,7 @@ class ConversationEngineProvider(Protocol):
         content: str,
         *,
         metadata: dict[str, Any] | None = None,
-    ) -> ConversationMessageDTO:
-        ...
+    ) -> ConversationMessageDTO: ...
 
     async def record_assistant_message(
         self,
@@ -89,8 +83,7 @@ class ConversationEngineProvider(Protocol):
         metadata: dict[str, Any] | None = None,
         tokens_used: int | None = None,
         cost_estimate: float | None = None,
-    ) -> ConversationMessageDTO:
-        ...
+    ) -> ConversationMessageDTO: ...
 
     async def get_message_history(
         self,
@@ -98,8 +91,7 @@ class ConversationEngineProvider(Protocol):
         *,
         limit: int | None = None,
         include_system: bool = True,
-    ) -> list[ConversationMessageDTO]:
-        ...
+    ) -> list[ConversationMessageDTO]: ...
 
     async def build_llm_messages(
         self,
@@ -108,8 +100,7 @@ class ConversationEngineProvider(Protocol):
         system_prompt: str | None = None,
         limit: int | None = None,
         include_system: bool = False,
-    ) -> list[LLMMessage]:
-        ...
+    ) -> list[LLMMessage]: ...
 
     async def generate_assistant_response(
         self,
@@ -122,11 +113,9 @@ class ConversationEngineProvider(Protocol):
         temperature: float | None = None,
         max_output_tokens: int | None = None,
         **kwargs: Any,
-    ) -> tuple[ConversationMessageDTO, uuid.UUID, LLMResponse]:
-        ...
+    ) -> tuple[ConversationMessageDTO, uuid.UUID, LLMResponse]: ...
 
-    async def update_conversation_status(self, conversation_id: uuid.UUID, status: str) -> ConversationSummaryDTO:
-        ...
+    async def update_conversation_status(self, conversation_id: uuid.UUID, status: str) -> ConversationSummaryDTO: ...
 
 
 def conversation_engine_provider(session: Session) -> ConversationEngineProvider:
@@ -134,4 +123,3 @@ def conversation_engine_provider(session: Session) -> ConversationEngineProvider
 
     llm_services: LLMServicesProvider = llm_services_provider()
     return ConversationEngineService(ConversationRepo(session), ConversationMessageRepo(session), llm_services)
-

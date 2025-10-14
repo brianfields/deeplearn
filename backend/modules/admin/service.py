@@ -23,8 +23,8 @@ from .models import (
     FlowRunSummary,
     FlowStepDetails,
     LearningCoachConversationDetail,
-    LearningCoachConversationSummaryAdmin,
     LearningCoachConversationsListResponse,
+    LearningCoachConversationSummaryAdmin,
     LearningCoachMessageAdmin,
     LessonDetails,
     LessonsListResponse,
@@ -190,9 +190,7 @@ class AdminService:
 
         return LearningCoachConversationsListResponse(conversations=conversations, limit=limit, offset=offset)
 
-    async def get_learning_coach_conversation(
-        self, conversation_id: str
-    ) -> LearningCoachConversationDetail | None:
+    async def get_learning_coach_conversation(self, conversation_id: str) -> LearningCoachConversationDetail | None:
         """Return transcript-level detail for a learning coach conversation."""
 
         if not self.learning_coach:

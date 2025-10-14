@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from typing import Any
+from unittest.mock import AsyncMock, MagicMock, patch
 import uuid
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from .base_conversation import BaseConversation, conversation_session
 from .context import ConversationContext
@@ -42,7 +42,7 @@ class TestRepositories:
     """Smoke-test repository wiring."""
 
     def test_repo_initialisation(self) -> None:
-        from .repo import ConversationMessageRepo, ConversationRepo
+        from .repo import ConversationMessageRepo, ConversationRepo  # noqa: PLC0415
 
         session = MagicMock()
         conversation_repo = ConversationRepo(session)
@@ -131,8 +131,8 @@ class TestService:
             user_id=None,
         )
 
-        assert message_dto.metadata["provider"] == "test-provider"
-        assert message_dto.metadata["model"] == "gpt-test"
+        assert message_dto.metadata["provider"] == "test-provider"  # pyright: ignore[reportOptionalSubscript]
+        assert message_dto.metadata["model"] == "gpt-test"  # pyright: ignore[reportOptionalSubscript]
         assert llm_services.generate_response.await_args.kwargs["messages"][0].role == "system"
         assert isinstance(request_id, uuid.UUID)
         assert llm_response is response
@@ -169,7 +169,7 @@ class TestBaseConversation:
             conversation_type = "demo"
 
             @conversation_session
-            async def handle(self, *, user_id: uuid.UUID | None = None, conversation_id: str | None = None) -> str:
+            async def handle(self, *, _user_id: uuid.UUID | None = None, conversation_id: str | None = None) -> str:
                 assert conversation_id is not None
                 await self.record_user_message("Hi")
                 return conversation_id
@@ -222,7 +222,7 @@ class TestBaseConversation:
             )
             service_cls.return_value = service_instance
 
-            result = await demo.handle(user_id=None)
+            result = await demo.handle(_user_id=None)
 
             assert isinstance(result, str)
             service_instance.create_conversation.assert_awaited()
@@ -236,7 +236,7 @@ class TestBaseConversation:
             conversation_type = "demo"
 
             @conversation_session
-            async def handle(self, *, conversation_id: str, user_id: uuid.UUID | None = None) -> dict[str, Any]:
+            async def handle(self, *, _conversation_id: str, _user_id: uuid.UUID | None = None) -> dict[str, Any]:
                 assert self.conversation_metadata == stored_metadata
                 await self.update_conversation_metadata({"level": "advanced"})
                 return ConversationContext.current().to_dict()
@@ -287,7 +287,7 @@ class TestBaseConversation:
             service_instance.update_conversation_metadata = AsyncMock(return_value=updated_summary)
             service_cls.return_value = service_instance
 
-            ctx_info = await demo.handle(conversation_id=existing_id, user_id=None)
+            ctx_info = await demo.handle(_conversation_id=existing_id, _user_id=None)
 
             assert ctx_info["conversation_id"] == existing_id
             assert ctx_info["metadata_keys"] == ["level", "topic"]
@@ -300,7 +300,7 @@ class TestBaseConversation:
             conversation_type = "demo"
 
             @conversation_session
-            async def handle(self, *, conversation_id: str) -> None:  # pragma: no cover - we expect to fail before body
+            async def handle(self, *, _conversation_id: str) -> None:  # pragma: no cover - we expect to fail before body
                 raise AssertionError("Should not reach handler")
 
         demo = DemoConversation()
@@ -337,5 +337,4 @@ class TestBaseConversation:
             service_cls.return_value = service_instance
 
             with pytest.raises(ValueError):
-                await demo.handle(conversation_id=existing_id)
-
+                await demo.handle(_conversation_id=existing_id)

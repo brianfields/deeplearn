@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from .models import ConversationMessageModel, ConversationModel
 
-__all__ = ["ConversationRepo", "ConversationMessageRepo"]
+__all__ = ["ConversationMessageRepo", "ConversationRepo"]
 
 
 class ConversationRepo:
@@ -68,9 +68,7 @@ class ConversationRepo:
     ) -> list[ConversationModel]:
         """Return paginated conversations filtered by type."""
 
-        query: Select[tuple[ConversationModel]] = select(ConversationModel).where(
-            ConversationModel.conversation_type == conversation_type
-        )
+        query: Select[tuple[ConversationModel]] = select(ConversationModel).where(ConversationModel.conversation_type == conversation_type)
 
         if status:
             query = query.where(ConversationModel.status == status)
@@ -107,9 +105,7 @@ class ConversationMessageRepo:
     ) -> list[ConversationMessageModel]:
         """Return ordered message history for a conversation."""
 
-        query: Select[tuple[ConversationMessageModel]] = select(ConversationMessageModel).where(
-            ConversationMessageModel.conversation_id == conversation_id
-        )
+        query: Select[tuple[ConversationMessageModel]] = select(ConversationMessageModel).where(ConversationMessageModel.conversation_id == conversation_id)
 
         if not include_system:
             query = query.where(ConversationMessageModel.role != "system")
@@ -127,4 +123,3 @@ class ConversationMessageRepo:
 
         query = select(ConversationMessageModel.id).where(ConversationMessageModel.conversation_id == conversation_id)
         return len(list(self.s.execute(query).scalars()))
-

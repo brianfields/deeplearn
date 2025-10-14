@@ -11,7 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from modules.shared_models import Base, PostgresUUID
 
-__all__ = ["ConversationModel", "ConversationMessageModel"]
+__all__ = ["ConversationMessageModel", "ConversationModel"]
 
 
 class ConversationModel(Base):
@@ -36,7 +36,7 @@ class ConversationModel(Base):
     )
     last_message_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    messages: Mapped[list["ConversationMessageModel"]] = relationship(
+    messages: Mapped[list[ConversationMessageModel]] = relationship(
         "ConversationMessageModel",
         back_populates="conversation",
         cascade="all, delete-orphan",
@@ -97,4 +97,3 @@ class ConversationMessageModel(Base):
         """Return True when the message is a system turn."""
 
         return self.role == "system"
-

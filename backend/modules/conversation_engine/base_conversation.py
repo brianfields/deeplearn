@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import functools
 from pathlib import Path
-from typing import Any, Callable, ParamSpec
+from typing import Any, ParamSpec
 import uuid
 
 from ..infrastructure.public import infrastructure_provider
@@ -30,7 +31,7 @@ def conversation_session(func: Callable[P, Any]) -> Callable[P, Any]:
     """Decorator that initialises infrastructure for a conversation handler."""
 
     @functools.wraps(func)
-    async def wrapper(self: "BaseConversation", *args: P.args, **kwargs: P.kwargs) -> Any:  # type: ignore[misc]
+    async def wrapper(self: BaseConversation, *args: P.args, **kwargs: P.kwargs) -> Any:  # type: ignore[misc]
         infra = infrastructure_provider()
         infra.initialize()
         llm_services = llm_services_provider()
@@ -61,10 +62,7 @@ def conversation_session(func: Callable[P, Any]) -> Callable[P, Any]:
             else:
                 summary = await service.get_conversation_summary(conversation_uuid)
                 if summary.conversation_type != self.conversation_type:
-                    raise ValueError(
-                        "Conversation type mismatch for BaseConversation subclass: "
-                        f"expected '{self.conversation_type}', got '{summary.conversation_type}'"
-                    )
+                    raise ValueError(f"Conversation type mismatch for BaseConversation subclass: expected '{self.conversation_type}', got '{summary.conversation_type}'")
 
             context_metadata = dict(summary.metadata or {}) if summary else None
 
@@ -209,4 +207,3 @@ class BaseConversation:
         summary = await ctx.service.get_conversation_summary(ctx.conversation_id)
         ctx.metadata = dict(summary.metadata or {})
         return summary
-

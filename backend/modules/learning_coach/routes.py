@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from modules.infrastructure.public import infrastructure_provider
 
 from .dtos import LearningCoachMessage, LearningCoachSessionState
-from .public import LearningCoachProvider, learning_coach_provider
+from .service import LearningCoachService
 
 router = APIRouter(prefix="/api/v1/learning_coach", tags=["learning_coach"])
 
@@ -60,18 +60,18 @@ class AcceptBriefRequest(BaseModel):
     user_id: str | None = Field(default=None, description="Authenticated learner identifier")
 
 
-def get_learning_coach_service() -> LearningCoachProvider:
+def get_learning_coach_service() -> LearningCoachService:
     """Resolve the learning coach service with shared infrastructure."""
 
     infra = infrastructure_provider()
     infra.initialize()
-    return learning_coach_provider(infra)
+    return LearningCoachService(infrastructure=infra)
 
 
 @router.post("/session/start", response_model=LearningCoachSessionStateModel, status_code=status.HTTP_201_CREATED)
 async def start_session(
     request: StartSessionRequest,
-    service: LearningCoachProvider = Depends(get_learning_coach_service),
+    service: LearningCoachService = Depends(get_learning_coach_service),
 ) -> LearningCoachSessionStateModel:
     """Create a new learning coach conversation and return the opening state."""
 
@@ -83,7 +83,7 @@ async def start_session(
 @router.post("/session/message", response_model=LearningCoachSessionStateModel)
 async def submit_learner_turn(
     request: LearnerTurnRequest,
-    service: LearningCoachProvider = Depends(get_learning_coach_service),
+    service: LearningCoachService = Depends(get_learning_coach_service),
 ) -> LearningCoachSessionStateModel:
     """Append a learner message and return the updated conversation state."""
 
@@ -99,7 +99,7 @@ async def submit_learner_turn(
 @router.post("/session/accept", response_model=LearningCoachSessionStateModel)
 async def accept_brief(
     request: AcceptBriefRequest,
-    service: LearningCoachProvider = Depends(get_learning_coach_service),
+    service: LearningCoachService = Depends(get_learning_coach_service),
 ) -> LearningCoachSessionStateModel:
     """Mark the coach's current proposal as accepted."""
 
@@ -119,7 +119,7 @@ async def accept_brief(
 async def get_session_state(
     conversation_id: str,
     include_system_messages: bool = False,
-    service: LearningCoachProvider = Depends(get_learning_coach_service),
+    service: LearningCoachService = Depends(get_learning_coach_service),
 ) -> LearningCoachSessionStateModel:
     """Fetch the latest state for a learning coach conversation."""
 

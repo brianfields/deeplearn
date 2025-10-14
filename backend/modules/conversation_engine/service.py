@@ -385,4 +385,3 @@ class ConversationEngineService:
             **self._to_summary_dto(conversation).__dict__,
             messages=[self._to_message_dto(message) for message in messages],
         )
-

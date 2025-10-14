@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock, patch
 import uuid
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from modules.conversation_engine.service import (
     ConversationMessageDTO,

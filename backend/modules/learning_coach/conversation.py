@@ -23,10 +23,10 @@ class LearningCoachConversation(BaseConversation):
     async def start_session(
         self,
         *,
-        user_id: uuid.UUID | None = None,
-        conversation_id: str | None = None,
+        _user_id: uuid.UUID | None = None,
+        _conversation_id: str | None = None,
         topic: str | None = None,
-        conversation_metadata: dict[str, Any] | None = None,
+        _conversation_metadata: dict[str, Any] | None = None,
     ) -> LearningCoachSessionState:
         """Kick off a new learning coach conversation."""
 
@@ -39,8 +39,8 @@ class LearningCoachConversation(BaseConversation):
     async def submit_learner_turn(
         self,
         *,
-        conversation_id: str,
-        user_id: uuid.UUID | None = None,
+        _conversation_id: str,
+        _user_id: uuid.UUID | None = None,
         message: str,
     ) -> LearningCoachSessionState:
         """Record a learner response and fetch the follow-up coach reply."""
@@ -53,8 +53,8 @@ class LearningCoachConversation(BaseConversation):
     async def accept_brief(
         self,
         *,
-        conversation_id: str,
-        user_id: uuid.UUID | None = None,
+        _conversation_id: str,
+        _user_id: uuid.UUID | None = None,
         brief: dict[str, Any],
     ) -> LearningCoachSessionState:
         """Mark the current proposal as accepted and return the refreshed state."""
