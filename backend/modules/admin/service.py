@@ -12,6 +12,7 @@ import uuid
 from modules.catalog.public import CatalogProvider
 from modules.content.public import ContentProvider
 from modules.flow_engine.public import FlowEngineAdminProvider
+from modules.learning_coach.public import LearningCoachProvider
 from modules.learning_session.public import LearningSessionProvider
 from modules.llm_services.public import LLMServicesAdminProvider
 from modules.user.public import UserProvider, UserRead
@@ -21,6 +22,10 @@ from .models import (
     FlowRunsListResponse,
     FlowRunSummary,
     FlowStepDetails,
+    LearningCoachConversationDetail,
+    LearningCoachConversationsListResponse,
+    LearningCoachConversationSummaryAdmin,
+    LearningCoachMessageAdmin,
     LessonDetails,
     LessonsListResponse,
     LessonSummary,
@@ -49,6 +54,7 @@ class AdminService:
         content: ContentProvider,
         users: UserProvider,
         learning_sessions: LearningSessionProvider | None = None,
+        learning_coach: LearningCoachProvider | None = None,
     ) -> None:
         """Initialize admin service with required dependencies."""
         self.flow_engine_admin = flow_engine_admin
@@ -57,6 +63,7 @@ class AdminService:
         self.content = content
         self.users = users
         self.learning_sessions = learning_sessions
+        self.learning_coach = learning_coach
 
     # ---- User Management ----
 
@@ -154,6 +161,64 @@ class AdminService:
             return None
 
         return await self.get_user_detail(user_id)
+
+    async def list_learning_coach_conversations(
+        self,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> LearningCoachConversationsListResponse:
+        """Return paginated learning coach conversations for QA."""
+
+        if not self.learning_coach:
+            return LearningCoachConversationsListResponse(conversations=[], limit=limit, offset=offset)
+
+        summaries = await self.learning_coach.list_conversations(limit=limit, offset=offset)
+        conversations = [
+            LearningCoachConversationSummaryAdmin(
+                id=summary.id,
+                user_id=summary.user_id,
+                title=summary.title,
+                message_count=summary.message_count,
+                created_at=summary.created_at,
+                updated_at=summary.updated_at,
+                last_message_at=summary.last_message_at,
+                metadata=summary.metadata,
+            )
+            for summary in summaries
+        ]
+
+        return LearningCoachConversationsListResponse(conversations=conversations, limit=limit, offset=offset)
+
+    async def get_learning_coach_conversation(self, conversation_id: str) -> LearningCoachConversationDetail | None:
+        """Return transcript-level detail for a learning coach conversation."""
+
+        if not self.learning_coach:
+            return None
+
+        state = await self.learning_coach.get_session_state(
+            conversation_id,
+            include_system_messages=True,
+        )
+
+        messages = [
+            LearningCoachMessageAdmin(
+                id=message.id,
+                role=message.role,
+                content=message.content,
+                created_at=message.created_at,
+                metadata=message.metadata,
+            )
+            for message in state.messages
+        ]
+
+        return LearningCoachConversationDetail(
+            conversation_id=state.conversation_id,
+            messages=messages,
+            metadata=state.metadata,
+            proposed_brief=state.proposed_brief,
+            accepted_brief=state.accepted_brief,
+        )
 
     async def _build_user_associations(self, user: UserRead) -> UserAssociationSummary:
         """Aggregate association counts for a user."""

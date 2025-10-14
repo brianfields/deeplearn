@@ -1,0 +1,17 @@
+# Conversation Engine Module — Agents Guide
+
+This module mirrors the flow engine but focuses on conversational exchanges.
+
+- Always work through the service or `BaseConversation` helper when adding messages; do not write directly to the ORM from other modules.
+- Message ordering must remain strictly incremental per conversation. Use the provided helpers so new messages increment counts atomically.
+- System prompts live outside of persisted history; prepend them when calling the LLM.
+- LLM calls must flow through `llm_services` so usage is tracked in `llm_requests`.
+- Use `conversation_session` to wrap conversation handlers so context (service, conversation ID, user) is set up automatically.
+- DTOs should expose UUIDs as strings for easy serialization.
+
+When composing new conversational experiences:
+1. Subclass `BaseConversation`, set `conversation_type`, and optionally `system_prompt_file`.
+2. Decorate async entrypoints with `@conversation_session` to bootstrap infrastructure.
+3. Within the entrypoint, call `await self.record_user_message(...)` and `await self.generate_assistant_reply(...)` as needed.
+
+Keep the module’s public interface narrow—export only the service provider and DTOs required by other modules.
