@@ -140,6 +140,42 @@ class LLMRequestsListResponse(BaseModel):
     has_next: bool
 
 
+# ---- Learning Coach Conversations ----
+
+
+class LearningCoachMessageAdmin(BaseModel):
+    id: str
+    role: str
+    content: str
+    created_at: datetime
+    metadata: dict[str, Any]
+
+
+class LearningCoachConversationDetail(BaseModel):
+    conversation_id: str
+    messages: list[LearningCoachMessageAdmin]
+    metadata: dict[str, Any]
+    proposed_brief: dict[str, Any] | None = None
+    accepted_brief: dict[str, Any] | None = None
+
+
+class LearningCoachConversationSummaryAdmin(BaseModel):
+    id: str
+    user_id: str | None
+    title: str | None
+    message_count: int
+    created_at: datetime
+    updated_at: datetime
+    last_message_at: datetime | None
+    metadata: dict[str, Any]
+
+
+class LearningCoachConversationsListResponse(BaseModel):
+    conversations: list[LearningCoachConversationSummaryAdmin]
+    limit: int
+    offset: int
+
+
 # ---- Lesson Management DTOs ----
 
 
