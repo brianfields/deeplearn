@@ -84,10 +84,10 @@
 - [x] Implement admin APIs to list and inspect learning coach conversations.
 
 ### Frontend (Mobile)
-- [ ] Create chat UI components (message bubbles, brief card, quick replies) under `mobile/modules/catalog` (or new `learning_coach` slice).
-- [ ] Implement service/repo methods to call learning coach endpoints; update DTOs to remove difficulty and include conversation metadata.
-- [ ] Replace create-unit navigation entry with the learning coach screen; ensure acceptance triggers existing unit generation polling.
-- [ ] Update tests and stories/snapshots covering new screen and service behaviors.
+- [x] Create chat UI components (message bubbles, brief card, quick replies) under `mobile/modules/catalog` (or new `learning_coach` slice).
+- [x] Implement service/repo methods to call learning coach endpoints; update DTOs to remove difficulty and include conversation metadata.
+- [x] Replace create-unit navigation entry with the learning coach screen; ensure acceptance triggers existing unit generation polling.
+- [x] Update tests and stories/snapshots covering new screen and service behaviors.
 
 ### Admin/Web
 - [ ] Surface learning coach conversations (list + detail) in the admin experience using the new backend APIs.

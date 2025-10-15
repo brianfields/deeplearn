@@ -15,7 +15,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 // Screens (using new modular structure)
 import { LessonListScreen } from './modules/catalog/screens/UnitListScreen';
-import { CreateUnitScreen } from './modules/catalog/screens/CreateUnitScreen';
+import { LearningCoachScreen } from './modules/learning_coach/screens/LearningCoachScreen';
 import LearningFlowScreen from './modules/learning_session/screens/LearningFlowScreen';
 import ResultsScreen from './modules/learning_session/screens/ResultsScreen';
 import { UnitDetailScreen } from './modules/catalog/screens/UnitDetailScreen';
@@ -68,10 +68,10 @@ function LearningStackNavigator(): React.ReactElement {
         }}
       />
       <LearningStack.Screen
-        name="CreateUnit"
-        component={CreateUnitScreen}
+        name="LearningCoach"
+        component={LearningCoachScreen}
         options={{
-          title: 'Create New Unit',
+          title: 'Learning Coach',
         }}
       />
       <LearningStack.Screen
