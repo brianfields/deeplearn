@@ -16,7 +16,12 @@ interface Props {
   readonly isAccepting: boolean;
 }
 
-export function BriefCard({ brief, onAccept, onIterate, isAccepting }: Props): React.ReactElement {
+export function BriefCard({
+  brief,
+  onAccept,
+  onIterate,
+  isAccepting,
+}: Props): React.ReactElement {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>{brief.title}</Text>
@@ -49,7 +54,9 @@ export function BriefCard({ brief, onAccept, onIterate, isAccepting }: Props): R
           onPress={onAccept}
           disabled={isAccepting}
         >
-          <Text style={styles.primaryText}>{isAccepting ? 'Accepting…' : 'Accept brief'}</Text>
+          <Text style={styles.primaryText}>
+            {isAccepting ? 'Accepting…' : 'Accept brief'}
+          </Text>
         </Pressable>
       </View>
     </View>

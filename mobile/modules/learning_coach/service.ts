@@ -13,15 +13,21 @@ function createDefaultRepo(): LearningCoachRepo {
 export class LearningCoachService {
   constructor(private repo: LearningCoachRepo = createDefaultRepo()) {}
 
-  async startSession(payload: StartSessionPayload): Promise<LearningCoachSessionState> {
+  async startSession(
+    payload: StartSessionPayload
+  ): Promise<LearningCoachSessionState> {
     return this.repo.startSession(payload);
   }
 
-  async sendLearnerTurn(payload: LearnerTurnPayload): Promise<LearningCoachSessionState> {
+  async sendLearnerTurn(
+    payload: LearnerTurnPayload
+  ): Promise<LearningCoachSessionState> {
     return this.repo.sendLearnerTurn(payload);
   }
 
-  async acceptBrief(payload: AcceptBriefPayload): Promise<LearningCoachSessionState> {
+  async acceptBrief(
+    payload: AcceptBriefPayload
+  ): Promise<LearningCoachSessionState> {
     return this.repo.acceptBrief(payload);
   }
 

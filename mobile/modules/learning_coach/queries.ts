@@ -16,9 +16,13 @@ export const learningCoachKeys = {
   },
 };
 
-export function useLearningCoachSession(conversationId: string | null | undefined) {
+export function useLearningCoachSession(
+  conversationId: string | null | undefined
+) {
   return useQuery<LearningCoachSessionState, Error>({
-    queryKey: conversationId ? learningCoachKeys.session(conversationId) : ['learningCoach', 'session', 'empty'],
+    queryKey: conversationId
+      ? learningCoachKeys.session(conversationId)
+      : ['learningCoach', 'session', 'empty'],
     queryFn: () => learningCoach.getSession(conversationId as string),
     enabled: Boolean(conversationId),
     staleTime: 5 * 60 * 1000,
@@ -28,9 +32,12 @@ export function useLearningCoachSession(conversationId: string | null | undefine
 export function useStartLearningCoachSession() {
   const queryClient = useQueryClient();
   return useMutation<LearningCoachSessionState, Error, StartSessionPayload>({
-    mutationFn: (payload) => learningCoach.startSession(payload),
-    onSuccess: (state) => {
-      queryClient.setQueryData(learningCoachKeys.session(state.conversationId), state);
+    mutationFn: payload => learningCoach.startSession(payload),
+    onSuccess: state => {
+      queryClient.setQueryData(
+        learningCoachKeys.session(state.conversationId),
+        state
+      );
     },
   });
 }
@@ -38,9 +45,12 @@ export function useStartLearningCoachSession() {
 export function useLearnerTurnMutation() {
   const queryClient = useQueryClient();
   return useMutation<LearningCoachSessionState, Error, LearnerTurnPayload>({
-    mutationFn: (payload) => learningCoach.sendLearnerTurn(payload),
-    onSuccess: (state) => {
-      queryClient.setQueryData(learningCoachKeys.session(state.conversationId), state);
+    mutationFn: payload => learningCoach.sendLearnerTurn(payload),
+    onSuccess: state => {
+      queryClient.setQueryData(
+        learningCoachKeys.session(state.conversationId),
+        state
+      );
     },
   });
 }
@@ -48,9 +58,12 @@ export function useLearnerTurnMutation() {
 export function useAcceptBriefMutation() {
   const queryClient = useQueryClient();
   return useMutation<LearningCoachSessionState, Error, AcceptBriefPayload>({
-    mutationFn: (payload) => learningCoach.acceptBrief(payload),
-    onSuccess: (state) => {
-      queryClient.setQueryData(learningCoachKeys.session(state.conversationId), state);
+    mutationFn: payload => learningCoach.acceptBrief(payload),
+    onSuccess: state => {
+      queryClient.setQueryData(
+        learningCoachKeys.session(state.conversationId),
+        state
+      );
     },
   });
 }

@@ -16,8 +16,17 @@ const userTextColor = uiSystem.isLightColor(theme.colors.primary)
 export function MessageBubble({ message }: Props): React.ReactElement {
   const isUser = message.role === 'user';
   return (
-    <View style={[styles.container, isUser ? styles.userContainer : styles.assistantContainer]}>
-      <Text style={[styles.text, isUser ? styles.userText : styles.assistantText]}>{message.content}</Text>
+    <View
+      style={[
+        styles.container,
+        isUser ? styles.userContainer : styles.assistantContainer,
+      ]}
+    >
+      <Text
+        style={[styles.text, isUser ? styles.userText : styles.assistantText]}
+      >
+        {message.content}
+      </Text>
     </View>
   );
 }

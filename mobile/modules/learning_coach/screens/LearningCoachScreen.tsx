@@ -19,11 +19,19 @@ import { useCreateUnit } from '../../catalog/queries';
 const uiSystem = uiSystemProvider();
 const theme = uiSystem.getCurrentTheme();
 
-type ScreenProps = NativeStackScreenProps<LearningStackParamList, 'LearningCoach'>;
+type ScreenProps = NativeStackScreenProps<
+  LearningStackParamList,
+  'LearningCoach'
+>;
 
-export function LearningCoachScreen({ navigation, route }: ScreenProps): React.ReactElement {
+export function LearningCoachScreen({
+  navigation,
+  route,
+}: ScreenProps): React.ReactElement {
   const { user } = useAuth();
-  const [conversationId, setConversationId] = useState<string | null>(route.params?.conversationId ?? null);
+  const [conversationId, setConversationId] = useState<string | null>(
+    route.params?.conversationId ?? null
+  );
   const startSession = useStartLearningCoachSession();
   const learnerTurn = useLearnerTurnMutation();
   const acceptBrief = useAcceptBriefMutation();
@@ -33,9 +41,12 @@ export function LearningCoachScreen({ navigation, route }: ScreenProps): React.R
   useEffect(() => {
     if (!conversationId && !startSession.isPending && !startSession.isSuccess) {
       startSession.mutate(
-        { topic: route.params?.topic ?? null, userId: user ? String(user.id) : null },
         {
-          onSuccess: (state) => {
+          topic: route.params?.topic ?? null,
+          userId: user ? String(user.id) : null,
+        },
+        {
+          onSuccess: state => {
             setConversationId(state.conversationId);
           },
         }
@@ -52,7 +63,9 @@ export function LearningCoachScreen({ navigation, route }: ScreenProps): React.R
   const sessionState = sessionQuery.data ?? startSession.data ?? null;
 
   const isCoachLoading = useMemo(() => {
-    return startSession.isPending || learnerTurn.isPending || sessionQuery.isFetching;
+    return (
+      startSession.isPending || learnerTurn.isPending || sessionQuery.isFetching
+    );
   }, [startSession.isPending, learnerTurn.isPending, sessionQuery.isFetching]);
 
   const handleSend = (message: string) => {
@@ -70,7 +83,9 @@ export function LearningCoachScreen({ navigation, route }: ScreenProps): React.R
     handleSend(reply);
   };
 
-  const normalizeDifficulty = (level: string | null | undefined): 'beginner' | 'intermediate' | 'advanced' => {
+  const normalizeDifficulty = (
+    level: string | null | undefined
+  ): 'beginner' | 'intermediate' | 'advanced' => {
     if (!level) {
       return 'intermediate';
     }
@@ -98,7 +113,7 @@ export function LearningCoachScreen({ navigation, route }: ScreenProps): React.R
         userId: user ? String(user.id) : null,
       },
       {
-        onSuccess: (state) => {
+        onSuccess: state => {
           const accepted = state.acceptedBrief ?? state.proposedBrief;
           if (!accepted) {
             return;
@@ -109,21 +124,29 @@ export function LearningCoachScreen({ navigation, route }: ScreenProps): React.R
             {
               topic: accepted.title,
               difficulty,
-              targetLessonCount: (state.metadata?.target_lesson_count as number | undefined) ?? undefined,
+              targetLessonCount:
+                (state.metadata?.target_lesson_count as number | undefined) ??
+                undefined,
               ownerUserId: user?.id ?? undefined,
             },
             {
               onSuccess: () => {
-                Alert.alert('Unit creation started', 'We will notify you when your unit is ready.');
+                Alert.alert(
+                  'Unit creation started',
+                  'We will notify you when your unit is ready.'
+                );
                 navigation.navigate('LessonList');
               },
-              onError: (error) => {
-                console.error('Failed to create unit from learning coach brief', error);
+              onError: error => {
+                console.error(
+                  'Failed to create unit from learning coach brief',
+                  error
+                );
               },
             }
           );
         },
-        onError: (error) => {
+        onError: error => {
           console.error('Failed to accept learning coach brief', error);
         },
       }
@@ -148,7 +171,9 @@ export function LearningCoachScreen({ navigation, route }: ScreenProps): React.R
         <BriefCard
           brief={sessionState.proposedBrief}
           onAccept={handleAccept}
-          onIterate={() => handleQuickReply('Can we try a different direction?')}
+          onIterate={() =>
+            handleQuickReply('Can we try a different direction?')
+          }
           isAccepting={isAccepting}
         />
       ) : null}

@@ -5,7 +5,8 @@
  * Returns raw API responses.
  */
 
-import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
+import axios from 'axios';
+import type { AxiosInstance, AxiosRequestConfig } from 'axios';
 import NetInfo from '@react-native-community/netinfo';
 import type {
   HttpClientConfig,

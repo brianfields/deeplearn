@@ -18,20 +18,20 @@ const QUICK_REPLIES = [
   'Can we reduce the time commitment?',
 ];
 
-export function QuickReplies({ onSelect, disabled }: Props): React.ReactElement {
+export function QuickReplies({
+  onSelect,
+  disabled,
+}: Props): React.ReactElement {
   if (disabled) {
     return <View style={styles.container} />;
   }
 
   return (
     <View style={styles.container}>
-      {QUICK_REPLIES.map((reply) => (
+      {QUICK_REPLIES.map(reply => (
         <Pressable
           key={reply}
-          style={({ pressed }) => [
-            styles.chip,
-            { opacity: pressed ? 0.7 : 1 },
-          ]}
+          style={({ pressed }) => [styles.chip, { opacity: pressed ? 0.7 : 1 }]}
           onPress={() => onSelect(reply)}
         >
           <Text style={styles.chipText}>{reply}</Text>

@@ -33,7 +33,7 @@ repos:
         pass_filenames: true
       - id: typescript
         name: TypeScript Check (Frontend)
-        entry: bash -c 'cd mobile && files=("${@#mobile/}") && npm run typecheck -- "${files[@]}"'
+        entry: bash -c 'cd mobile && npm run typecheck'
         language: system
         files: ^mobile/.*\.(ts|tsx)$
-        pass_filenames: true
+        pass_filenames: false

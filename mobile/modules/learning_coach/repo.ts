@@ -37,12 +37,14 @@ function toMessage(dto: ApiMessage): LearningCoachMessage {
   };
 }
 
-function normalizeBrief(brief: Record<string, any> | null | undefined): LearningCoachBrief | null {
+function normalizeBrief(
+  brief: Record<string, any> | null | undefined
+): LearningCoachBrief | null {
   if (!brief || typeof brief !== 'object') {
     return null;
   }
   const objectives = Array.isArray(brief.objectives)
-    ? brief.objectives.map((value) => String(value))
+    ? brief.objectives.map(value => String(value))
     : [];
   return {
     title: String(brief.title ?? ''),
@@ -66,7 +68,9 @@ function toSessionState(dto: ApiSessionState): LearningCoachSessionState {
 export class LearningCoachRepo {
   private infrastructure = infrastructureProvider();
 
-  async startSession(payload: StartSessionPayload): Promise<LearningCoachSessionState> {
+  async startSession(
+    payload: StartSessionPayload
+  ): Promise<LearningCoachSessionState> {
     try {
       const response = await this.infrastructure.request<ApiSessionState>(
         `${LEARNING_COACH_BASE}/session/start`,
@@ -85,7 +89,9 @@ export class LearningCoachRepo {
     }
   }
 
-  async sendLearnerTurn(payload: LearnerTurnPayload): Promise<LearningCoachSessionState> {
+  async sendLearnerTurn(
+    payload: LearnerTurnPayload
+  ): Promise<LearningCoachSessionState> {
     try {
       const response = await this.infrastructure.request<ApiSessionState>(
         `${LEARNING_COACH_BASE}/session/message`,
@@ -105,7 +111,9 @@ export class LearningCoachRepo {
     }
   }
 
-  async acceptBrief(payload: AcceptBriefPayload): Promise<LearningCoachSessionState> {
+  async acceptBrief(
+    payload: AcceptBriefPayload
+  ): Promise<LearningCoachSessionState> {
     try {
       const response = await this.infrastructure.request<ApiSessionState>(
         `${LEARNING_COACH_BASE}/session/accept`,

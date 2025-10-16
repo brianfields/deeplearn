@@ -12,7 +12,7 @@ export function ConversationList({ messages }: Props): React.ReactElement {
     <FlatList
       data={messages}
       renderItem={({ item }) => <MessageBubble message={item} />}
-      keyExtractor={(item) => item.id}
+      keyExtractor={item => item.id}
       contentContainerStyle={styles.container}
       ListFooterComponent={<View style={styles.footer} />}
     />
