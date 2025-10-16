@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "next": "14.2.5",
@@ -34,6 +35,11 @@
     "eslint": "^8.57.0",
     "eslint-config-next": "14.2.5",
     "@typescript-eslint/eslint-plugin": "^7.16.1",
-    "@typescript-eslint/parser": "^7.16.1"
+    "@typescript-eslint/parser": "^7.16.1",
+    "@testing-library/jest-dom": "^6.4.2",
+    "@testing-library/react": "^14.3.1",
+    "@vitejs/plugin-react": "^4.3.1",
+    "jsdom": "^24.0.0",
+    "vitest": "^1.6.0"
   }
 }
