@@ -499,7 +499,7 @@ class TestAdminService:
 
         mock_request = LLMRequest(
             id=uuid.uuid4(),
-            user_id=uuid.uuid4(),
+            user_id=42,
             api_variant="chat",
             provider="openai",
             model="gpt-4",

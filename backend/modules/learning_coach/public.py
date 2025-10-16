@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from typing import Any, Protocol
-import uuid
 
 from modules.infrastructure.public import InfrastructureProvider, infrastructure_provider
 
@@ -22,7 +21,7 @@ class LearningCoachProvider(Protocol):
         self,
         *,
         topic: str | None = None,
-        user_id: uuid.UUID | None = None,
+        user_id: int | None = None,
     ) -> LearningCoachSessionState: ...
 
     async def submit_learner_turn(
@@ -30,7 +29,7 @@ class LearningCoachProvider(Protocol):
         *,
         conversation_id: str,
         message: str,
-        user_id: uuid.UUID | None = None,
+        user_id: int | None = None,
     ) -> LearningCoachSessionState: ...
 
     async def accept_brief(
@@ -38,14 +37,14 @@ class LearningCoachProvider(Protocol):
         *,
         conversation_id: str,
         brief: dict[str, Any],
-        user_id: uuid.UUID | None = None,
+        user_id: int | None = None,
     ) -> LearningCoachSessionState: ...
 
     async def restart_session(
         self,
         *,
         topic: str | None = None,
-        user_id: uuid.UUID | None = None,
+        user_id: int | None = None,
     ) -> LearningCoachSessionState: ...
 
     async def get_session_state(

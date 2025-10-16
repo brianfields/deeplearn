@@ -84,26 +84,29 @@
 - [x] Implement admin APIs to list and inspect learning coach conversations.
 
 ### Frontend (Mobile)
-- [ ] Create chat UI components (message bubbles, brief card, quick replies) under `mobile/modules/catalog` (or new `learning_coach` slice).
-- [ ] Implement service/repo methods to call learning coach endpoints; update DTOs to remove difficulty and include conversation metadata.
-- [ ] Replace create-unit navigation entry with the learning coach screen; ensure acceptance triggers existing unit generation polling.
-- [ ] Update tests and stories/snapshots covering new screen and service behaviors.
+- [x] Create chat UI components (message bubbles, brief card, quick replies) under `mobile/modules/catalog` (or new `learning_coach` slice).
+- [x] Implement service/repo methods to call learning coach endpoints; update DTOs to remove difficulty and include conversation metadata.
+- [x] Replace create-unit navigation entry with the learning coach screen; ensure acceptance triggers existing unit generation polling.
+- [x] Update tests and stories/snapshots covering new screen and service behaviors.
 
 ### Admin/Web
-- [ ] Surface learning coach conversations (list + detail) in the admin experience using the new backend APIs.
+- [x] Surface learning coach conversations (list + detail) in the admin experience using the new backend APIs.
+  - Added Vitest coverage for loading, error, and happy-path states in the list/detail React components to guard the new admin flows.
 
 ### DevOps / Misc
-- [ ] Document new prompt files and environment flags (if any) in `docs/prompts.md` or module README.
-- [ ] Update API docs describing the learning coach endpoints and new request/response schemas.
+- [x] Document new prompt files and environment flags (if any) in `docs/prompts.md` or module README.
+- [x] Update API docs describing the learning coach endpoints and new request/response schemas.
+  - Documented admin QA list/detail endpoints and payload shapes so reviewers know how the dashboard consumes the backend service.
 
 ### Validation & Quality Gates
-- [ ] Ensure lint passes, i.e. ./format_code.sh runs clean.
-- [ ] Ensure unit tests pass, i.e. (in backend) scripts/run_unit.py and (in mobile) npm run test both run clean.
-- [ ] Ensure integration tests pass, i.e. (in backend) scripts/run_integration.py runs clean.
-- [ ] Follow the instructions in codegen/prompts/trace.md to ensure the user story is implemented correctly.
-- [ ] Fix any issues documented during the tracing of the user story in docs/specs/learning_coach/trace.md.
-- [ ] Follow the instructions in codegen/prompts/modulecheck.md to ensure the new code is following the modular architecture correctly.
-- [ ] Examine all new code that has been created and make sure all of it is being used; there is no dead code.
+- [x] Ensure lint passes, i.e. ./format_code.sh runs clean.
+- [x] Ensure unit tests pass, i.e. (in backend) scripts/run_unit.py and (in mobile) npm run test both run clean.
+- [x] Ensure integration tests pass, i.e. (in backend) scripts/run_integration.py runs clean.
+- [x] Add admin Vitest coverage for learning coach UI flows and run `npm run test` within the admin workspace.
+- [x] Follow the instructions in codegen/prompts/trace.md to ensure the user story is implemented correctly.
+- [x] Fix any issues documented during the tracing of the user story in docs/specs/learning_coach/trace.md.
+- [x] Follow the instructions in codegen/prompts/modulecheck.md to ensure the new code is following the modular architecture correctly.
+- [x] Examine all new code that has been created and make sure all of it is being used; there is no dead code.
 
 ## Future Work
 - Incorporate learner history: feed previous unit performance, interests, or disliked topics into learning coach prompts and metadata when available.

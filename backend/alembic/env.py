@@ -35,9 +35,11 @@ try:
     # Import all model modules to register them with the Base metadata
     # This ensures all tables are included in migrations
     from modules.content.models import LessonModel, UnitModel  # noqa: F401
+    from modules.conversation_engine.models import ConversationMessageModel, ConversationModel  # noqa: F401
     from modules.flow_engine.models import FlowRunModel, FlowStepRunModel  # noqa: F401
     from modules.learning_session.models import LearningSessionModel, UnitSessionModel  # noqa: F401
     from modules.llm_services.models import LLMRequestModel  # noqa: F401
+    from modules.object_store.models import AudioModel, ImageModel  # noqa: F401
     from modules.shared_models import Base
     from modules.user.models import UserModel  # noqa: F401
 

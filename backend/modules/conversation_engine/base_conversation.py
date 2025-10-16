@@ -20,11 +20,38 @@ P = ParamSpec("P")
 
 
 def _coerce_uuid(value: str | uuid.UUID | None) -> uuid.UUID | None:
+    """Coerce a value to UUID for conversation_id."""
+
     if value is None:
         return None
     if isinstance(value, uuid.UUID):
         return value
     return uuid.UUID(str(value))
+
+
+def _coerce_user_id(value: int | str | uuid.UUID | None) -> int | None:
+    """Coerce a value to int for user_id.
+
+    Accepts int, str (numeric), or None. This supports migration from UUID-based user_ids.
+    """
+
+    if value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        # Try to parse as int
+        try:
+            return int(value)
+        except ValueError:
+            # If it's not a valid int string, return None
+            return None
+    if isinstance(value, uuid.UUID):
+        # For backwards compatibility during migration, extract int from UUID
+        # This handles UUIDs created by _int_to_uuid
+        int_value = value.int & 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+        return int_value if int_value > 0 else None
+    return None
 
 
 def conversation_session(func: Callable[P, Any]) -> Callable[P, Any]:
@@ -36,10 +63,16 @@ def conversation_session(func: Callable[P, Any]) -> Callable[P, Any]:
         infra.initialize()
         llm_services = llm_services_provider()
 
-        user_uuid = _coerce_uuid(kwargs.get("user_id"))  # type: ignore[arg-type]
-        conversation_uuid = _coerce_uuid(kwargs.get("conversation_id"))  # type: ignore[arg-type]
-        metadata = kwargs.get("conversation_metadata")  # type: ignore[assignment]
-        title = kwargs.get("conversation_title")  # type: ignore[assignment]
+        # Support both underscored and non-underscored parameter names
+        user_id_key = "_user_id" if "_user_id" in kwargs else "user_id"
+        conversation_id_key = "_conversation_id" if "_conversation_id" in kwargs else "conversation_id"
+        metadata_key = "_conversation_metadata" if "_conversation_metadata" in kwargs else "conversation_metadata"
+        title_key = "_conversation_title" if "_conversation_title" in kwargs else "conversation_title"
+
+        user_int_id = _coerce_user_id(kwargs.get(user_id_key))  # type: ignore[arg-type]
+        conversation_uuid = _coerce_uuid(kwargs.get(conversation_id_key))  # type: ignore[arg-type]
+        metadata = kwargs.get(metadata_key)  # type: ignore[assignment]
+        title = kwargs.get(title_key)  # type: ignore[assignment]
 
         with infra.get_session_context() as db_session:
             service = ConversationEngineService(
@@ -52,13 +85,14 @@ def conversation_session(func: Callable[P, Any]) -> Callable[P, Any]:
             if conversation_uuid is None:
                 created = await service.create_conversation(
                     conversation_type=self.conversation_type,
-                    user_id=user_uuid,
+                    user_id=user_int_id,
                     title=title,
                     metadata=metadata,
                 )
                 conversation_uuid = uuid.UUID(created.id)
-                kwargs["conversation_id"] = created.id  # type: ignore[index]
                 summary = created
+                # Always inject as _conversation_id (the magic parameter convention)
+                kwargs["_conversation_id"] = created.id  # type: ignore[index]
             else:
                 summary = await service.get_conversation_summary(conversation_uuid)
                 if summary.conversation_type != self.conversation_type:
@@ -69,7 +103,7 @@ def conversation_session(func: Callable[P, Any]) -> Callable[P, Any]:
             ConversationContext.set(
                 service=service,
                 conversation_id=conversation_uuid,
-                user_id=user_uuid,
+                user_id=user_int_id,
                 metadata=context_metadata,
             )
 

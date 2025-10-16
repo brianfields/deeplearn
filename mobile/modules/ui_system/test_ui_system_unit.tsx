@@ -4,6 +4,7 @@
  * Tests theme management, component utilities, and design system functionality.
  */
 
+import React from 'react';
 import renderer, { act } from 'react-test-renderer';
 import type { ReactTestInstance } from 'react-test-renderer';
 import { UISystemService } from './service';

@@ -22,7 +22,7 @@ class ConversationContext:
 
     service: ConversationEngineService
     conversation_id: uuid.UUID
-    user_id: uuid.UUID | None = None
+    user_id: int | None = None
     metadata: dict[str, Any] | None = None
 
     @classmethod

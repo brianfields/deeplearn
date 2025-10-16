@@ -33,7 +33,7 @@ class LLMRequestRepo:
         """Save changes to an existing LLM request."""
         self.s.add(llm_request)
 
-    def by_user_id(self, user_id: uuid.UUID, limit: int = 50, offset: int = 0) -> list[LLMRequestModel]:
+    def by_user_id(self, user_id: int, limit: int = 50, offset: int = 0) -> list[LLMRequestModel]:
         """Get LLM requests for a specific user."""
         return self.s.query(LLMRequestModel).filter(LLMRequestModel.user_id == user_id).order_by(desc(LLMRequestModel.created_at)).limit(limit).offset(offset).all()
 
@@ -90,7 +90,7 @@ class LLMRequestRepo:
             request.retry_attempt = retry_attempt
             self.save(request)
 
-    def count_by_user(self, user_id: uuid.UUID) -> int:
+    def count_by_user(self, user_id: int) -> int:
         """Count total requests for a user."""
         return self.s.query(LLMRequestModel).filter(LLMRequestModel.user_id == user_id).count()
 
@@ -106,7 +106,7 @@ class LLMRequestRepo:
         """Get total count of LLM requests. FOR ADMIN USE ONLY."""
         return self.s.query(LLMRequestModel).count()
 
-    def assign_user(self, request_id: uuid.UUID, user_id: uuid.UUID) -> None:
+    def assign_user(self, request_id: uuid.UUID, user_id: int) -> None:
         """Ensure an LLM request is associated with the provided user."""
 
         request = self.by_id(request_id)

@@ -32,7 +32,7 @@ class ConversationEngineProvider(Protocol):
         self,
         *,
         conversation_type: str,
-        user_id: uuid.UUID | None = None,
+        user_id: int | None = None,
         title: str | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> ConversationSummaryDTO: ...
@@ -41,7 +41,7 @@ class ConversationEngineProvider(Protocol):
 
     async def list_conversations_for_user(
         self,
-        user_id: uuid.UUID,
+        user_id: int,
         *,
         limit: int = 50,
         offset: int = 0,
@@ -107,7 +107,7 @@ class ConversationEngineProvider(Protocol):
         conversation_id: uuid.UUID,
         *,
         system_prompt: str | None = None,
-        user_id: uuid.UUID | None = None,
+        user_id: int | None = None,
         metadata: dict[str, Any] | None = None,
         model: str | None = None,
         temperature: float | None = None,

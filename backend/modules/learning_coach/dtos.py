@@ -34,7 +34,7 @@ class LearningCoachConversationSummary:
     """Summary information for listing learning coach conversations."""
 
     id: str
-    user_id: str | None
+    user_id: int | None
     title: str | None
     created_at: datetime
     updated_at: datetime

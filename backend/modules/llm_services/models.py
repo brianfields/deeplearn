@@ -38,7 +38,7 @@ class LLMRequestModel(Base):
     # Unique identifier for this LLM request record
     id: Mapped[uuid.UUID] = mapped_column(PostgresUUID(), primary_key=True, default=uuid.uuid4)
     # Optional application user associated with this request (for tenancy/auditing)
-    user_id: Mapped[uuid.UUID | None] = mapped_column(PostgresUUID(), nullable=True, index=True)
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
 
     # API variant/versioning (e.g., Responses API)
     # Which high-level API was used to make this call (currently "responses")

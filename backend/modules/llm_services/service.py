@@ -111,7 +111,7 @@ class LLMRequest(BaseModel):
     """DTO for LLM request records."""
 
     id: uuid.UUID = Field(..., description="Request ID")
-    user_id: uuid.UUID | None = Field(None, description="User ID")
+    user_id: int | None = Field(None, description="User ID")
     api_variant: str = Field(..., description="API variant used (e.g., responses)")
     provider: str = Field(..., description="LLM provider")
     model: str = Field(..., description="Model used")
@@ -238,7 +238,7 @@ class LLMService:
             logger.warning(f"Failed to initialize LLM provider: {e}")
             self.provider = None
 
-    def _ensure_request_user(self, request_id: uuid.UUID, user_id: uuid.UUID | None) -> None:
+    def _ensure_request_user(self, request_id: uuid.UUID, user_id: int | None) -> None:
         """Persist the user association for the given LLM request when provided."""
 
         if user_id is None:
@@ -248,7 +248,7 @@ class LLMService:
             self.repo.assign_user(request_id, user_id)
 
     async def generate_response(
-        self, messages: list[LLMMessage], user_id: uuid.UUID | None = None, model: str | None = None, temperature: float | None = None, max_output_tokens: int | None = None, **kwargs: LLMProviderKwargs
+        self, messages: list[LLMMessage], user_id: int | None = None, model: str | None = None, temperature: float | None = None, max_output_tokens: int | None = None, **kwargs: LLMProviderKwargs
     ) -> tuple[LLMResponse, uuid.UUID]:
         """
         Generate a text response from the LLM.
@@ -270,7 +270,7 @@ class LLMService:
         return response_dto, request_id
 
     async def generate_structured_response(
-        self, messages: list[LLMMessage], response_model: type[T], user_id: uuid.UUID | None = None, model: str | None = None, temperature: float | None = None, max_output_tokens: int | None = None, **kwargs: LLMProviderKwargs
+        self, messages: list[LLMMessage], response_model: type[T], user_id: int | None = None, model: str | None = None, temperature: float | None = None, max_output_tokens: int | None = None, **kwargs: LLMProviderKwargs
     ) -> tuple[T, uuid.UUID, dict[str, Any]]:
         """
         Generate a structured response using a Pydantic model.
@@ -301,7 +301,7 @@ class LLMService:
         self,
         text: str,
         voice: str,
-        user_id: uuid.UUID | None = None,
+        user_id: int | None = None,
         model: str | None = None,
         audio_format: str = "mp3",
         speed: float | None = None,
@@ -332,7 +332,7 @@ class LLMService:
         self._ensure_request_user(request_id, user_id)
         return response_dto, request_id
 
-    async def generate_image(self, prompt: str, user_id: uuid.UUID | None = None, size: str = "1024x1024", quality: str = "standard", style: str | None = None, **kwargs: LLMProviderKwargs) -> tuple[ImageResponse, uuid.UUID]:
+    async def generate_image(self, prompt: str, user_id: int | None = None, size: str = "1024x1024", quality: str = "standard", style: str | None = None, **kwargs: LLMProviderKwargs) -> tuple[ImageResponse, uuid.UUID]:
         """
         Generate an image from a text prompt.
         """
@@ -354,7 +354,7 @@ class LLMService:
         self._ensure_request_user(request_id, user_id)
         return response_dto, request_id
 
-    async def search_web(self, queries: list[str], user_id: uuid.UUID | None = None, max_results: int = 10, **kwargs: LLMProviderKwargs) -> tuple[WebSearchResponse, uuid.UUID]:
+    async def search_web(self, queries: list[str], user_id: int | None = None, max_results: int = 10, **kwargs: LLMProviderKwargs) -> tuple[WebSearchResponse, uuid.UUID]:
         """
         Search the web for recent information.
         """
@@ -374,7 +374,7 @@ class LLMService:
         request = self.repo.by_id(request_id)
         return LLMRequest.model_validate(request) if request else None
 
-    def get_user_requests(self, user_id: uuid.UUID, limit: int = 50, offset: int = 0) -> list[LLMRequest]:
+    def get_user_requests(self, user_id: int, limit: int = 50, offset: int = 0) -> list[LLMRequest]:
         """Get recent requests for a specific user."""
         requests = self.repo.by_user_id(user_id, limit, offset)
         return [LLMRequest.model_validate(req) for req in requests]
@@ -397,7 +397,7 @@ class LLMService:
             model=model,
         )
 
-    def get_request_count_by_user(self, user_id: uuid.UUID) -> int:
+    def get_request_count_by_user(self, user_id: int) -> int:
         """Get total request count for a user."""
         return self.repo.count_by_user(user_id)
 

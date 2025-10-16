@@ -17,6 +17,7 @@ from modules.llm_services.repo import LLMRequestRepo
 from modules.llm_services.service import LLMMessage, LLMService
 from modules.llm_services.types import LLMProviderType, LLMResponse, MessageRole
 from modules.shared_models import Base
+from modules.user.models import UserModel
 
 
 @dataclass
@@ -84,6 +85,10 @@ def db_session() -> Session:
     Base.metadata.create_all(engine)
     session_factory = sessionmaker(bind=engine, future=True)
     with session_factory() as session:
+        # Create a test user for FK constraint
+        user = UserModel(id=1, email="test@example.com", password_hash="hash", name="Test User")
+        session.add(user)
+        session.commit()
         yield session
         session.rollback()
     Base.metadata.drop_all(engine)
@@ -106,7 +111,7 @@ async def test_generate_response_assigns_user_context(db_session: Session, monke
     provider = provider_factory.last_provider
     assert isinstance(provider, _RecordingProvider)
 
-    user_id = uuid.uuid4()
+    user_id = 1  # Use integer user ID matching our test user
     messages = [LLMMessage(role="user", content="Hello LLM")]
 
     response, request_id = await service.generate_response(

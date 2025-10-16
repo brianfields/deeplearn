@@ -49,7 +49,7 @@ class LLMProvider(ABC):
     def _create_llm_request(
         self,
         messages: list[LLMMessage],
-        user_id: uuid.UUID | None = None,
+        user_id: int | None = None,
         model: str | None = None,
         temperature: float | None = None,
         max_output_tokens: int | None = None,
@@ -192,7 +192,7 @@ class LLMProvider(ABC):
     async def generate_response(
         self,
         messages: list[LLMMessage],
-        user_id: uuid.UUID | None = None,
+        user_id: int | None = None,
         **kwargs: LLMProviderKwargs,
     ) -> tuple[LLMResponse, uuid.UUID]:
         """Generate a completion from the LLM provider."""
@@ -202,7 +202,7 @@ class LLMProvider(ABC):
         self,
         messages: list[LLMMessage],
         response_model: type[T],
-        user_id: uuid.UUID | None = None,
+        user_id: int | None = None,
         **kwargs: LLMProviderKwargs,
     ) -> tuple[T, uuid.UUID, dict[str, Any]]:
         """Default structured object generation. Provider may override."""
@@ -212,7 +212,7 @@ class LLMProvider(ABC):
     async def generate_image(
         self,
         request: ImageGenerationRequest,
-        user_id: uuid.UUID | None = None,
+        user_id: int | None = None,
         **kwargs: LLMProviderKwargs,
     ) -> tuple[ImageResponse, uuid.UUID]:
         """Generate an image from the provider."""
@@ -222,7 +222,7 @@ class LLMProvider(ABC):
     async def generate_audio(
         self,
         request: AudioGenerationRequest,
-        user_id: uuid.UUID | None = None,
+        user_id: int | None = None,
         **kwargs: LLMProviderKwargs,
     ) -> tuple[AudioResponse, uuid.UUID]:
         """Synthesize narrated audio from the provider."""
@@ -232,7 +232,7 @@ class LLMProvider(ABC):
     async def search_recent_news(
         self,
         search_queries: list[str],
-        user_id: uuid.UUID | None = None,
+        user_id: int | None = None,
         **kwargs: LLMProviderKwargs,
     ) -> tuple[WebSearchResponse, uuid.UUID]:
         """Search recent news using the provider."""

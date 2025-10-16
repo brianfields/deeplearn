@@ -27,6 +27,7 @@ class LearningCoachConversation(BaseConversation):
         _conversation_id: str | None = None,
         topic: str | None = None,
         _conversation_metadata: dict[str, Any] | None = None,
+        _conversation_title: str | None = None,
     ) -> LearningCoachSessionState:
         """Kick off a new learning coach conversation."""
 
@@ -39,21 +40,21 @@ class LearningCoachConversation(BaseConversation):
     async def submit_learner_turn(
         self,
         *,
-        _conversation_id: str,
+        _conversation_id: str | None = None,
         _user_id: uuid.UUID | None = None,
         message: str,
     ) -> LearningCoachSessionState:
         """Record a learner response and fetch the follow-up coach reply."""
 
         await self.record_user_message(message)
-        await self.generate_assistant_reply()
+        await self.generate_assistant_reply(model="gpt-5-mini")
         return await self._build_session_state()
 
     @conversation_session
     async def accept_brief(
         self,
         *,
-        _conversation_id: str,
+        _conversation_id: str | None = None,
         _user_id: uuid.UUID | None = None,
         brief: dict[str, Any],
     ) -> LearningCoachSessionState:
@@ -73,7 +74,7 @@ class LearningCoachConversation(BaseConversation):
         history = await ctx.service.get_message_history(ctx.conversation_id, include_system=False)
         if any(message.role == "assistant" for message in history):
             return
-        await self.generate_assistant_reply()
+        await self.generate_assistant_reply(model="gpt-5-mini")
 
     async def _build_session_state(self) -> LearningCoachSessionState:
         """Assemble the latest session state for clients."""
