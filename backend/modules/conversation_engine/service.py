@@ -40,7 +40,7 @@ class ConversationSummaryDTO:
     """DTO representing conversation metadata without messages."""
 
     id: str
-    user_id: str | None
+    user_id: int | None
     conversation_type: str
     title: str | None
     status: str
@@ -75,7 +75,7 @@ class ConversationEngineService:
         self,
         *,
         conversation_type: str,
-        user_id: uuid.UUID | None = None,
+        user_id: int | None = None,
         title: str | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> ConversationSummaryDTO:
@@ -105,7 +105,7 @@ class ConversationEngineService:
 
     async def list_conversations_for_user(
         self,
-        user_id: uuid.UUID,
+        user_id: int,
         *,
         limit: int = 50,
         offset: int = 0,
@@ -222,7 +222,7 @@ class ConversationEngineService:
         conversation_id: uuid.UUID,
         *,
         system_prompt: str | None = None,
-        user_id: uuid.UUID | None = None,
+        user_id: int | None = None,
         metadata: dict[str, Any] | None = None,
         model: str | None = None,
         temperature: float | None = None,
@@ -363,7 +363,7 @@ class ConversationEngineService:
 
         return ConversationSummaryDTO(
             id=str(conversation.id),
-            user_id=str(conversation.user_id) if conversation.user_id else None,
+            user_id=conversation.user_id,
             conversation_type=conversation.conversation_type,
             title=conversation.title,
             status=conversation.status,

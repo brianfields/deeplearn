@@ -161,7 +161,7 @@ async def test_submit_learner_turn_appends_message() -> None:
         patch("modules.conversation_engine.base_conversation.ConversationEngineService", return_value=service_instance),
     ):
         state = await conversation.submit_learner_turn(
-            conversation_id=str(conversation_id),
+            _conversation_id=str(conversation_id),
             message="I prefer project-based learning.",
         )
 
@@ -224,7 +224,7 @@ async def test_accept_brief_updates_metadata() -> None:
         patch("modules.conversation_engine.base_conversation.ConversationEngineService", return_value=service_instance),
     ):
         state = await conversation.accept_brief(
-            conversation_id=str(conversation_id),
+            _conversation_id=str(conversation_id),
             brief=accepted_payload,
         )
 

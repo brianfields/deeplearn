@@ -287,7 +287,7 @@ class OpenAIProvider(LLMProvider):
     async def generate_response(
         self,
         messages: list[LLMMessage],
-        user_id: uuid.UUID | None = None,
+        user_id: int | None = None,
         **kwargs: Any,
     ) -> tuple[LLMResponse, uuid.UUID]:
         """
@@ -506,7 +506,7 @@ class OpenAIProvider(LLMProvider):
         self,
         messages: list[LLMMessage],
         response_model: type[T],
-        user_id: uuid.UUID | None = None,
+        user_id: int | None = None,
         **kwargs: Any,
     ) -> tuple[T, uuid.UUID, dict[str, Any]]:
         """
@@ -665,7 +665,7 @@ class OpenAIProvider(LLMProvider):
     async def generate_image(
         self,
         request: ImageGenerationRequest,
-        user_id: uuid.UUID | None = None,
+        user_id: int | None = None,
         **kwargs: Any,
     ) -> tuple[ImageResponse, uuid.UUID]:
         """Generate an image from a text prompt."""
@@ -737,7 +737,7 @@ class OpenAIProvider(LLMProvider):
     async def generate_audio(
         self,
         request: AudioGenerationRequest,
-        user_id: uuid.UUID | None = None,
+        user_id: int | None = None,
         **kwargs: Any,
     ) -> tuple[AudioResponse, uuid.UUID]:
         """Synthesize narrated audio using the OpenAI Text-to-Speech API."""
@@ -846,7 +846,7 @@ class OpenAIProvider(LLMProvider):
     async def search_recent_news(
         self,
         search_queries: list[str],
-        user_id: uuid.UUID | None = None,
+        user_id: int | None = None,
         **kwargs: Any,
     ) -> tuple[WebSearchResponse, uuid.UUID]:
         """

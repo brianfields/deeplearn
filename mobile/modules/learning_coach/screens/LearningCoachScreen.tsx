@@ -166,7 +166,10 @@ export function LearningCoachScreen({
 
   return (
     <View style={styles.screen}>
-      <ConversationList messages={sessionState.messages} />
+      <ConversationList
+        messages={sessionState.messages}
+        isLoading={isCoachLoading}
+      />
       {sessionState.proposedBrief ? (
         <BriefCard
           brief={sessionState.proposedBrief}
