@@ -52,6 +52,15 @@ class CoachResponse(BaseModel):
         default=None,
         description=("When finalizing, suggest the number of lessons (2-10) to cover the learning objectives. Consider the breadth of objectives, the learner's level, and natural topic boundaries. Update if the learner requests changes."),
     )
+    suggested_quick_replies: list[str] | None = Field(
+        default=None,
+        description=(
+            "Provide 2-5 contextually relevant quick reply options based on the conversation state. "
+            "These should be natural follow-ups to help guide the learner to the next step. "
+            "Examples: 'Tell me more', 'Yes, that works', 'Can we adjust the focus?', 'I'm a beginner'. "
+            "Keep each under 40 characters. Tailor to what you need to know next or what the learner might want to say."
+        ),
+    )
 
 
 class LearningCoachConversation(BaseConversation):
@@ -165,9 +174,11 @@ class LearningCoachConversation(BaseConversation):
         )
 
         # Record the assistant message
-        message_metadata = {
+        message_metadata: dict[str, Any] = {
             "provider": raw_response.get("provider", "openai"),
         }
+        if coach_response.suggested_quick_replies is not None:
+            message_metadata["suggested_quick_replies"] = coach_response.suggested_quick_replies
         await self.record_assistant_message(
             coach_response.message,
             metadata=message_metadata,

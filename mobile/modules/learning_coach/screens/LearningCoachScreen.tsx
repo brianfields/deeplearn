@@ -95,6 +95,18 @@ export function LearningCoachScreen({
     return realMessages;
   }, [sessionState?.messages, optimisticMessage]);
 
+  // Extract quick replies from the most recent assistant message
+  const quickReplies = useMemo(() => {
+    const messages = sessionState?.messages ?? [];
+    const lastAssistantMessage = messages
+      .slice()
+      .reverse()
+      .find(msg => msg.role === 'assistant');
+
+    const replies = lastAssistantMessage?.metadata?.suggested_quick_replies;
+    return Array.isArray(replies) ? replies : [];
+  }, [sessionState?.messages]);
+
   const isCoachLoading = useMemo(() => {
     return (
       startSession.isPending || learnerTurn.isPending || sessionQuery.isFetching
@@ -321,7 +333,11 @@ export function LearningCoachScreen({
           isAccepting={isAccepting}
         />
       ) : null}
-      <QuickReplies onSelect={handleQuickReply} disabled={isCoachLoading} />
+      <QuickReplies
+        onSelect={handleQuickReply}
+        disabled={isCoachLoading}
+        replies={quickReplies}
+      />
       <Composer onSend={handleSend} disabled={isCoachLoading || isAccepting} />
     </View>
   );

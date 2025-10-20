@@ -8,27 +8,22 @@ const theme = uiSystem.getCurrentTheme();
 interface Props {
   readonly onSelect: (value: string) => void;
   readonly disabled?: boolean;
+  readonly replies: string[];
 }
-
-const QUICK_REPLIES = [
-  'I have some prior knowledge',
-  'I am a complete beginner',
-  'I prefer hands-on projects',
-  'Focus on theory',
-  'Can we reduce the time commitment?',
-];
 
 export function QuickReplies({
   onSelect,
   disabled,
+  replies,
 }: Props): React.ReactElement {
-  if (disabled) {
+  // Don't render if disabled or no replies available
+  if (disabled || replies.length === 0) {
     return <View style={styles.container} />;
   }
 
   return (
     <View style={styles.container}>
-      {QUICK_REPLIES.map(reply => (
+      {replies.map(reply => (
         <Pressable
           key={reply}
           style={({ pressed }) => [styles.chip, { opacity: pressed ? 0.7 : 1 }]}
