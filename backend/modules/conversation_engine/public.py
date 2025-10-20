@@ -34,23 +34,17 @@ class LearningCoachConversation(BaseConversation):
         if topic:
             await self.record_user_message(f"I'd like to learn about {topic}.")
 
-        # Generate initial coach response
-        ctx = ConversationContext.current()
-        llm_messages = await ctx.service.build_llm_messages(
-            ctx.conversation_id,
-            system_prompt=self.get_system_prompt()
+        # Generate structured response using helper
+        coach_response, request_id, raw_response = await self.generate_structured_reply(
+            CoachResponse,
+            model="gpt-5-mini",
         )
 
-        coach_response, request_id, raw_response = await ctx.service.llm_services.generate_structured_response(
-            messages=llm_messages,
-            response_model=CoachResponse,
-            user_id=ctx.user_id,
-            model="gpt-5-mini"
-        )
-
+        # Record the assistant message
         await self.record_assistant_message(
             coach_response.message,
             llm_request_id=request_id,
+            tokens_used=raw_response.get("usage", {}).get("total_tokens"),
         )
 
         return {"message": coach_response.message}
@@ -225,7 +219,6 @@ from pydantic import BaseModel, Field
 from modules.conversation_engine.public import (
     BaseConversation,
     conversation_session,
-    ConversationContext,
 )
 
 class TutorResponse(BaseModel):
@@ -251,20 +244,10 @@ class MathTutorConversation(BaseConversation):
         # Record initial context
         await self.record_user_message(f"I want to learn {topic} at {level} level.")
 
-        # Access context
-        ctx = ConversationContext.current()
-
-        # Generate structured response
-        llm_messages = await ctx.service.build_llm_messages(
-            ctx.conversation_id,
-            system_prompt=self.get_system_prompt()
-        )
-
-        response, request_id, raw = await ctx.service.llm_services.generate_structured_response(
-            messages=llm_messages,
-            response_model=TutorResponse,
-            user_id=ctx.user_id,
-            model="gpt-5-mini"
+        # Generate structured response using helper
+        response, request_id, raw = await self.generate_structured_reply(
+            TutorResponse,
+            model="gpt-5-mini",
         )
 
         # Record assistant message
@@ -274,7 +257,7 @@ class MathTutorConversation(BaseConversation):
             tokens_used=raw.get("usage", {}).get("total_tokens"),
         )
 
-        # Update metadata
+        # Update metadata based on structured response
         if response.difficulty:
             await self.update_conversation_metadata({
                 "current_difficulty": response.difficulty,
@@ -282,7 +265,7 @@ class MathTutorConversation(BaseConversation):
             })
 
         return {
-            "conversation_id": str(ctx.conversation_id),
+            "conversation_id": self.conversation_id,
             "message": response.message,
             "difficulty": response.difficulty,
         }
