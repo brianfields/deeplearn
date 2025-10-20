@@ -4,13 +4,32 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from typing import Any
-import uuid
 
-from modules.conversation_engine.base_conversation import BaseConversation, conversation_session
-from modules.conversation_engine.context import ConversationContext
-from modules.conversation_engine.service import ConversationMessageDTO
+from pydantic import BaseModel, Field
+
+from modules.conversation_engine.public import (
+    BaseConversation,
+    ConversationContext,
+    ConversationMessageDTO,
+    conversation_session,
+)
 
 from .dtos import LearningCoachMessage, LearningCoachSessionState
+
+
+class CoachResponse(BaseModel):
+    """Structured response from the learning coach."""
+
+    message: str = Field(description="The coach's response message to the learner (max ~100 words)")
+    finalized_topic: str | None = Field(
+        default=None,
+        description=(
+            "When you have clarity on both WHAT they want to learn and their current knowledge level, "
+            "provide a detailed topic description including: specific topics/concepts, starting level "
+            "(e.g., 'beginner', 'intermediate with Python basics'), focus areas, and scope for 2-10 "
+            "mini-lessons. Update this if they request changes. Leave null only while still gathering information."
+        ),
+    )
 
 
 class LearningCoachConversation(BaseConversation):
@@ -23,7 +42,7 @@ class LearningCoachConversation(BaseConversation):
     async def start_session(
         self,
         *,
-        _user_id: uuid.UUID | None = None,
+        _user_id: int | None = None,
         _conversation_id: str | None = None,
         topic: str | None = None,
         _conversation_metadata: dict[str, Any] | None = None,
@@ -41,13 +60,13 @@ class LearningCoachConversation(BaseConversation):
         self,
         *,
         _conversation_id: str | None = None,
-        _user_id: uuid.UUID | None = None,
+        _user_id: int | None = None,
         message: str,
     ) -> LearningCoachSessionState:
         """Record a learner response and fetch the follow-up coach reply."""
 
         await self.record_user_message(message)
-        await self.generate_assistant_reply(model="gpt-5-mini")
+        await self._generate_structured_reply()
         return await self._build_session_state()
 
     @conversation_session
@@ -55,7 +74,7 @@ class LearningCoachConversation(BaseConversation):
         self,
         *,
         _conversation_id: str | None = None,
-        _user_id: uuid.UUID | None = None,
+        _user_id: int | None = None,
         brief: dict[str, Any],
     ) -> LearningCoachSessionState:
         """Mark the current proposal as accepted and return the refreshed state."""
@@ -74,7 +93,7 @@ class LearningCoachConversation(BaseConversation):
         history = await ctx.service.get_message_history(ctx.conversation_id, include_system=False)
         if any(message.role == "assistant" for message in history):
             return
-        await self.generate_assistant_reply(model="gpt-5-mini")
+        await self._generate_structured_reply()
 
     async def _build_session_state(self) -> LearningCoachSessionState:
         """Assemble the latest session state for clients."""
@@ -88,6 +107,7 @@ class LearningCoachConversation(BaseConversation):
             conversation_id=str(ctx.conversation_id),
             messages=[self._to_message(message) for message in history],
             metadata=metadata,
+            finalized_topic=metadata.get("finalized_topic"),
             proposed_brief=self._dict_or_none(metadata.get("proposed_brief")),
             accepted_brief=self._dict_or_none(metadata.get("accepted_brief")),
         )
@@ -109,3 +129,44 @@ class LearningCoachConversation(BaseConversation):
         if isinstance(value, dict):
             return value
         return None
+
+    async def _generate_structured_reply(self) -> None:
+        """Generate a structured coach response and persist it."""
+
+        ctx = ConversationContext.current()
+
+        # Build message history for LLM
+        llm_messages = await ctx.service.build_llm_messages(
+            ctx.conversation_id,
+            system_prompt=self.get_system_prompt(),
+            include_system=False,
+        )
+
+        # Get structured response
+        coach_response, request_id, raw_response = await ctx.service.llm_services.generate_structured_response(
+            messages=llm_messages,
+            response_model=CoachResponse,
+            user_id=ctx.user_id,
+            model="gpt-5-mini",
+        )
+
+        # Record the assistant message
+        message_metadata = {
+            "provider": raw_response.get("provider", "openai"),
+        }
+        await self.record_assistant_message(
+            coach_response.message,
+            metadata=message_metadata,
+            llm_request_id=request_id,
+            tokens_used=raw_response.get("usage", {}).get("total_tokens"),
+            cost_estimate=raw_response.get("cost_estimate"),
+        )
+
+        # If topic is finalized, update conversation metadata
+        if coach_response.finalized_topic:
+            await self.update_conversation_metadata(
+                {
+                    "finalized_topic": coach_response.finalized_topic,
+                    "finalized_at": datetime.now(UTC).isoformat(),
+                }
+            )

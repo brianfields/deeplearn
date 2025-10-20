@@ -317,18 +317,19 @@ class ContentCreatorService:
         """Create a learning unit (foreground or background).
 
         Args:
-            topic: Topic used to generate or contextualize the unit.
+            topic: Topic/description for the unit. Can be detailed text from learning coach.
             source_material: Optional pre-provided material. If None, it will be generated.
             background: If True, enqueue and return immediately with in_progress status.
             target_lesson_count: Optional target number of lessons.
             learner_level: Difficulty level.
         """
         # Pre-create the shell unit for both paths
-        provisional_title = f"{topic}"
+        # Truncate topic for provisional title (will be replaced by proper title from flow)
+        provisional_title = topic[:200] + "..." if len(topic) > 200 else topic
         unit = await self.content.create_unit(
             UnitCreate(
                 title=provisional_title,
-                description=f"A learning unit about {topic}",
+                description=topic,  # Store full detailed topic in description
                 learner_level=learner_level,
                 lesson_order=[],
                 user_id=user_id,

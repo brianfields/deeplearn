@@ -32,6 +32,7 @@ class LearningCoachSessionStateModel(BaseModel):
     conversation_id: str
     messages: list[LearningCoachMessageModel]
     metadata: dict[str, Any]
+    finalized_topic: str | None = None
     proposed_brief: dict[str, Any] | None = None
     accepted_brief: dict[str, Any] | None = None
 
@@ -130,6 +131,7 @@ def _serialize_state(state: LearningCoachSessionState) -> LearningCoachSessionSt
         conversation_id=state.conversation_id,
         messages=[_serialize_message(message) for message in state.messages],
         metadata=state.metadata,
+        finalized_topic=state.finalized_topic,
         proposed_brief=state.proposed_brief,
         accepted_brief=state.accepted_brief,
     )

@@ -117,6 +117,7 @@ class LearningCoachService:
             conversation_id=detail.id,
             messages=messages,
             metadata=metadata,
+            finalized_topic=metadata.get("finalized_topic"),
             proposed_brief=self._dict_or_none(metadata.get("proposed_brief")),
             accepted_brief=self._dict_or_none(metadata.get("accepted_brief")),
         )

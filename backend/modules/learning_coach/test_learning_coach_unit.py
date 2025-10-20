@@ -8,7 +8,7 @@ import uuid
 
 import pytest
 
-from modules.conversation_engine.service import (
+from modules.conversation_engine.public import (
     ConversationMessageDTO,
     ConversationSummaryDTO,
 )
@@ -80,10 +80,27 @@ async def test_start_session_records_topic_and_returns_assistant_turn() -> None:
         [user_message],
         [user_message, assistant_message],
     ]
+    service_instance.build_llm_messages.return_value = []
+    service_instance.record_assistant_message.return_value = assistant_message
+
+    # Mock the structured LLM response
+    from modules.learning_coach.conversation import CoachResponse  # noqa: PLC0415
+
+    coach_response = CoachResponse(
+        message="Great! Let's explore algebra together.",
+        next_action=None,
+        brief_proposal=None,
+    )
+    llm_request_id = uuid.uuid4()
+    raw_response = {"provider": "openai", "usage": {"total_tokens": 42}, "cost_estimate": 0.12}
+
+    mock_llm_services = AsyncMock()
+    mock_llm_services.generate_structured_response.return_value = (coach_response, llm_request_id, raw_response)
+    service_instance.llm_services = mock_llm_services
 
     with (
         patch("modules.conversation_engine.base_conversation.infrastructure_provider", return_value=mock_infra),
-        patch("modules.conversation_engine.base_conversation.llm_services_provider", return_value=AsyncMock()),
+        patch("modules.conversation_engine.base_conversation.llm_services_provider", return_value=mock_llm_services),
         patch("modules.conversation_engine.base_conversation.ConversationEngineService", return_value=service_instance),
     ):
         state = await conversation.start_session(topic="algebra")
@@ -92,7 +109,7 @@ async def test_start_session_records_topic_and_returns_assistant_turn() -> None:
     assert state.metadata["topic"] == "algebra"
     assert state.messages[-1].role == "assistant"
     service_instance.record_user_message.assert_awaited_once()
-    service_instance.generate_assistant_response.assert_awaited_once()
+    mock_llm_services.generate_structured_response.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -154,10 +171,27 @@ async def test_submit_learner_turn_appends_message() -> None:
     service_instance.record_user_message.return_value = user_message
     service_instance.generate_assistant_response.return_value = (assistant_message, uuid.uuid4(), MagicMock())
     service_instance.get_message_history.return_value = [user_message, assistant_message]
+    service_instance.build_llm_messages.return_value = []
+    service_instance.record_assistant_message.return_value = assistant_message
+
+    # Mock the structured LLM response
+    from modules.learning_coach.conversation import CoachResponse  # noqa: PLC0415
+
+    coach_response = CoachResponse(
+        message="Noted! I'll include project work in the plan.",
+        next_action=None,
+        brief_proposal=None,
+    )
+    llm_request_id = uuid.uuid4()
+    raw_response = {"provider": "openai", "usage": {"total_tokens": 15}, "cost_estimate": 0.04}
+
+    mock_llm_services = AsyncMock()
+    mock_llm_services.generate_structured_response.return_value = (coach_response, llm_request_id, raw_response)
+    service_instance.llm_services = mock_llm_services
 
     with (
         patch("modules.conversation_engine.base_conversation.infrastructure_provider", return_value=mock_infra),
-        patch("modules.conversation_engine.base_conversation.llm_services_provider", return_value=AsyncMock()),
+        patch("modules.conversation_engine.base_conversation.llm_services_provider", return_value=mock_llm_services),
         patch("modules.conversation_engine.base_conversation.ConversationEngineService", return_value=service_instance),
     ):
         state = await conversation.submit_learner_turn(
@@ -167,7 +201,7 @@ async def test_submit_learner_turn_appends_message() -> None:
 
     assert state.messages[-1].content.startswith("Noted!")
     service_instance.record_user_message.assert_awaited_once()
-    service_instance.generate_assistant_response.assert_awaited_once()
+    mock_llm_services.generate_structured_response.assert_awaited_once()
 
 
 @pytest.mark.asyncio

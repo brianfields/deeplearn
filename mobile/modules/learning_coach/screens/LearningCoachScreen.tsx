@@ -1,5 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, ActivityIndicator, Text, StyleSheet, Alert } from 'react-native';
+import {
+  View,
+  ActivityIndicator,
+  Text,
+  StyleSheet,
+  Alert,
+  Pressable,
+} from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../../user/public';
 import { uiSystemProvider } from '../../ui_system/public';
@@ -15,6 +22,7 @@ import {
 } from '../queries';
 import type { LearningStackParamList } from '../../../types';
 import { useCreateUnit } from '../../catalog/queries';
+import { LearningCoachMessage } from '../models';
 
 const uiSystem = uiSystemProvider();
 const theme = uiSystem.getCurrentTheme();
@@ -32,6 +40,8 @@ export function LearningCoachScreen({
   const [conversationId, setConversationId] = useState<string | null>(
     route.params?.conversationId ?? null
   );
+  const [optimisticMessage, setOptimisticMessage] =
+    useState<LearningCoachMessage | null>(null);
   const startSession = useStartLearningCoachSession();
   const learnerTurn = useLearnerTurnMutation();
   const acceptBrief = useAcceptBriefMutation();
@@ -62,6 +72,15 @@ export function LearningCoachScreen({
 
   const sessionState = sessionQuery.data ?? startSession.data ?? null;
 
+  // Combine real messages with optimistic message
+  const displayMessages = useMemo(() => {
+    const realMessages = sessionState?.messages ?? [];
+    if (optimisticMessage) {
+      return [...realMessages, optimisticMessage];
+    }
+    return realMessages;
+  }, [sessionState?.messages, optimisticMessage]);
+
   const isCoachLoading = useMemo(() => {
     return (
       startSession.isPending || learnerTurn.isPending || sessionQuery.isFetching
@@ -72,11 +91,32 @@ export function LearningCoachScreen({
     if (!conversationId) {
       return;
     }
-    learnerTurn.mutate({
-      conversationId,
-      message,
-      userId: user ? String(user.id) : null,
-    });
+
+    // Create optimistic message
+    const optimistic: LearningCoachMessage = {
+      id: `optimistic-${Date.now()}`,
+      role: 'user',
+      content: message,
+      metadata: {},
+      createdAt: new Date().toISOString(),
+    };
+    setOptimisticMessage(optimistic);
+
+    learnerTurn.mutate(
+      {
+        conversationId,
+        message,
+        userId: user ? String(user.id) : null,
+      },
+      {
+        onSuccess: () => {
+          setOptimisticMessage(null);
+        },
+        onError: () => {
+          setOptimisticMessage(null);
+        },
+      }
+    );
   };
 
   const handleQuickReply = (reply: string) => {
@@ -97,6 +137,45 @@ export function LearningCoachScreen({
       return 'advanced';
     }
     return 'intermediate';
+  };
+
+  const handleCreateUnit = () => {
+    if (!conversationId || !sessionState?.finalizedTopic) {
+      return;
+    }
+
+    // Show confirmation dialog immediately
+    Alert.alert(
+      'Creating Your Unit',
+      'Your personalized learning unit is being generated. This will take a few minutes. You can track its progress in your units list.',
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            // Navigate back to units list
+            navigation.navigate('LessonList');
+
+            // Start unit creation in background
+            createUnit.mutate(
+              {
+                topic: sessionState.finalizedTopic ?? '',
+                difficulty: 'intermediate',
+                ownerUserId: user?.id ?? undefined,
+              },
+              {
+                onError: error => {
+                  console.error(
+                    'Failed to create unit from finalized topic',
+                    error
+                  );
+                },
+              }
+            );
+          },
+        },
+      ],
+      { cancelable: false }
+    );
   };
 
   const handleAccept = () => {
@@ -166,11 +245,28 @@ export function LearningCoachScreen({
 
   return (
     <View style={styles.screen}>
-      <ConversationList
-        messages={sessionState.messages}
-        isLoading={isCoachLoading}
-      />
-      {sessionState.proposedBrief ? (
+      <ConversationList messages={displayMessages} isLoading={isCoachLoading} />
+      {sessionState.finalizedTopic ? (
+        <View style={styles.finalizedContainer}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.generateButton,
+              { opacity: pressed || isAccepting ? 0.7 : 1 },
+            ]}
+            onPress={handleCreateUnit}
+            disabled={isAccepting}
+          >
+            {isAccepting ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.generateButtonText}>🚀 Generate Unit</Text>
+            )}
+          </Pressable>
+          <Text style={styles.finalizedHint}>
+            You can still ask questions or request changes below
+          </Text>
+        </View>
+      ) : sessionState.proposedBrief ? (
         <BriefCard
           brief={sessionState.proposedBrief}
           onAccept={handleAccept}
@@ -201,5 +297,42 @@ const styles = StyleSheet.create({
   loadingText: {
     color: theme.colors.text,
     fontSize: 16,
+  },
+  finalizedContainer: {
+    padding: 16,
+    backgroundColor: theme.colors.surface,
+    borderTopWidth: 2,
+    borderColor: theme.colors.primary,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  generateButton: {
+    backgroundColor: theme.colors.primary,
+    borderRadius: 16,
+    paddingVertical: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 56,
+    shadowColor: theme.colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  generateButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  finalizedHint: {
+    fontSize: 12,
+    color: theme.colors.textSecondary ?? '#999',
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
 });

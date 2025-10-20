@@ -25,8 +25,9 @@ class LearningCoachSessionState:
     conversation_id: str
     messages: list[LearningCoachMessage]
     metadata: dict[str, Any]
-    proposed_brief: dict[str, Any] | None
-    accepted_brief: dict[str, Any] | None
+    finalized_topic: str | None
+    proposed_brief: dict[str, Any] | None  # Deprecated, will be removed
+    accepted_brief: dict[str, Any] | None  # Deprecated, will be removed
 
 
 @dataclass(slots=True)

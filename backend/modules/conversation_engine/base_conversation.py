@@ -63,16 +63,10 @@ def conversation_session(func: Callable[P, Any]) -> Callable[P, Any]:
         infra.initialize()
         llm_services = llm_services_provider()
 
-        # Support both underscored and non-underscored parameter names
-        user_id_key = "_user_id" if "_user_id" in kwargs else "user_id"
-        conversation_id_key = "_conversation_id" if "_conversation_id" in kwargs else "conversation_id"
-        metadata_key = "_conversation_metadata" if "_conversation_metadata" in kwargs else "conversation_metadata"
-        title_key = "_conversation_title" if "_conversation_title" in kwargs else "conversation_title"
-
-        user_int_id = _coerce_user_id(kwargs.get(user_id_key))  # type: ignore[arg-type]
-        conversation_uuid = _coerce_uuid(kwargs.get(conversation_id_key))  # type: ignore[arg-type]
-        metadata = kwargs.get(metadata_key)  # type: ignore[assignment]
-        title = kwargs.get(title_key)  # type: ignore[assignment]
+        user_int_id = _coerce_user_id(kwargs.get("_user_id"))  # type: ignore[arg-type]
+        conversation_uuid = _coerce_uuid(kwargs.get("_conversation_id"))  # type: ignore[arg-type]
+        metadata: dict[str, Any] | None = kwargs.get("_conversation_metadata")  # type: ignore[assignment]
+        title: str | None = kwargs.get("_conversation_title")  # type: ignore[assignment]
 
         with infra.get_session_context() as db_session:
             service = ConversationEngineService(

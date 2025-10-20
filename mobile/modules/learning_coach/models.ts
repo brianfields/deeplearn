@@ -20,8 +20,9 @@ export interface LearningCoachSessionState {
   readonly conversationId: string;
   readonly messages: LearningCoachMessage[];
   readonly metadata: Record<string, any>;
-  readonly proposedBrief?: LearningCoachBrief | null;
-  readonly acceptedBrief?: LearningCoachBrief | null;
+  readonly finalizedTopic?: string | null;
+  readonly proposedBrief?: LearningCoachBrief | null; // Deprecated
+  readonly acceptedBrief?: LearningCoachBrief | null; // Deprecated
 }
 
 export interface StartSessionPayload {

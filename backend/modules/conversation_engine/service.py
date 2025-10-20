@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from typing import Any
 import uuid
@@ -382,6 +382,6 @@ class ConversationEngineService:
         """Convert ORM objects into a detail DTO."""
 
         return ConversationDetailDTO(
-            **self._to_summary_dto(conversation).__dict__,
+            **asdict(self._to_summary_dto(conversation)),
             messages=[self._to_message_dto(message) for message in messages],
         )
