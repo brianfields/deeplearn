@@ -36,7 +36,7 @@ class LearningCoachConversation(BaseConversation):
     """High-level dialog handler for the learning coach experience."""
 
     conversation_type = "learning_coach"
-    system_prompt_file = "learning_coach/system_prompt.md"
+    system_prompt_file = "prompts/system_prompt.md"
 
     @conversation_session
     async def start_session(

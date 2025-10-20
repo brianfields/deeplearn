@@ -123,7 +123,6 @@ class BaseConversation:
     def __init__(self) -> None:
         if not getattr(self, "conversation_type", None):
             raise ValueError("conversation_type must be set on subclasses of BaseConversation")
-        self._prompts_dir = Path(__file__).resolve().parent.parent / "prompts" / "conversations"
 
     @property
     def conversation_id(self) -> str:
@@ -139,18 +138,46 @@ class BaseConversation:
         ctx = ConversationContext.current()
         return ctx.metadata
 
-    def _load_prompt(self, filename: str) -> str:
-        prompt_path = self._prompts_dir / filename
-        if not prompt_path.exists():
-            raise FileNotFoundError(f"Conversation prompt file not found: {prompt_path}")
-        return prompt_path.read_text(encoding="utf-8")
+    def _load_prompt_from_file(self, filename: str) -> str:
+        """
+        Load a prompt from a markdown file.
+
+        This method looks for the prompt file in the same module's directory
+        as the conversation class, mirroring the flow_engine pattern.
+
+        Args:
+            filename: Name of the prompt file relative to the module directory
+                     (e.g., "prompts/system_prompt.md")
+
+        Returns:
+            Content of the prompt file as a string
+
+        Raises:
+            FileNotFoundError: If the prompt file cannot be found
+        """
+        # Get the file path where the conversation subclass is defined
+        # Use inspect to get the actual file of the subclass, not BaseConversation
+        import inspect
+
+        conversation_file = inspect.getfile(self.__class__)
+        conversation_dir = Path(conversation_file).parent
+
+        # Build path to the prompt file relative to the conversation's directory
+        prompt_file_path = conversation_dir / filename
+
+        # Try to read the file
+        try:
+            with prompt_file_path.open(encoding="utf-8") as f:
+                return f.read().strip()
+        except FileNotFoundError as e:
+            raise FileNotFoundError(f"Conversation prompt file '{filename}' not found. Looked in: {prompt_file_path}") from e
 
     def get_system_prompt(self) -> str | None:
         """Return the configured system prompt, if any."""
 
         if self.system_prompt_file is None:
             return None
-        return self._load_prompt(self.system_prompt_file)
+        return self._load_prompt_from_file(self.system_prompt_file)
 
     async def record_user_message(self, content: str, *, metadata: dict[str, Any] | None = None) -> ConversationMessageDTO:
         """Record a user message against the active conversation."""
