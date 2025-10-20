@@ -133,20 +133,9 @@ class LearningCoachConversation(BaseConversation):
     async def _generate_structured_reply(self) -> None:
         """Generate a structured coach response and persist it."""
 
-        ctx = ConversationContext.current()
-
-        # Build message history for LLM
-        llm_messages = await ctx.service.build_llm_messages(
-            ctx.conversation_id,
-            system_prompt=self.get_system_prompt(),
-            include_system=False,
-        )
-
-        # Get structured response
-        coach_response, request_id, raw_response = await ctx.service.llm_services.generate_structured_response(
-            messages=llm_messages,
-            response_model=CoachResponse,
-            user_id=ctx.user_id,
+        # Generate structured response using helper
+        coach_response, request_id, raw_response = await self.generate_structured_reply(
+            CoachResponse,
             model="gpt-5-mini",
         )
 

@@ -119,7 +119,8 @@ Available in your conversation subclass methods:
 - `await self.record_system_message(content, metadata=None)`
 
 **LLM Integration:**
-- `await self.generate_assistant_reply(system_prompt=None, model=None, ...)` - Convenience method
+- `await self.generate_assistant_reply(system_prompt=None, model=None, ...)` - Generate and record unstructured response
+- `await self.generate_structured_reply(response_model, model=None, ...)` - Generate structured response (caller records message)
 
 **Metadata Management:**
 - `await self.update_conversation_metadata(metadata, merge=True)`

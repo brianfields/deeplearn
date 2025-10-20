@@ -5,8 +5,10 @@ from __future__ import annotations
 from collections.abc import Callable
 import functools
 from pathlib import Path
-from typing import Any, ParamSpec
+from typing import Any, ParamSpec, TypeVar
 import uuid
+
+from pydantic import BaseModel
 
 from ..infrastructure.public import infrastructure_provider
 from ..llm_services.public import llm_services_provider
@@ -17,6 +19,7 @@ from .service import ConversationEngineService, ConversationMessageDTO, Conversa
 __all__ = ["BaseConversation", "conversation_session"]
 
 P = ParamSpec("P")
+T = TypeVar("T", bound=BaseModel)
 
 
 def _coerce_uuid(value: str | uuid.UUID | None) -> uuid.UUID | None:
@@ -207,6 +210,79 @@ class BaseConversation:
             **kwargs,
         )
         return message_dto, request_id
+
+    async def generate_structured_reply(
+        self,
+        response_model: type[T],
+        *,
+        system_prompt: str | None = None,
+        model: str | None = None,
+        temperature: float | None = None,
+        max_output_tokens: int | None = None,
+        **kwargs: Any,
+    ) -> tuple[T, uuid.UUID, dict[str, Any]]:
+        """Generate a structured response using a Pydantic model (does not record message).
+
+        This is a convenience method that combines:
+        1. Building LLM messages from conversation history
+        2. Calling llm_services.generate_structured_response()
+
+        Note: This method does NOT automatically record the assistant message.
+        After calling this, you typically want to call record_assistant_message()
+        with the appropriate content extracted from the structured response.
+
+        Args:
+            response_model: Pydantic model class for structured output
+            system_prompt: Override system prompt (uses self.get_system_prompt() if None)
+            model: LLM model to use (e.g., "gpt-5-mini")
+            temperature: Temperature for generation
+            max_output_tokens: Maximum output tokens
+            **kwargs: Additional LLM provider parameters
+
+        Returns:
+            Tuple of (structured response object, LLM request ID, raw response dict)
+
+        Example:
+            class CoachResponse(BaseModel):
+                message: str
+                confidence: float
+
+            response, request_id, raw = await self.generate_structured_reply(
+                CoachResponse,
+                model="gpt-5-mini",
+            )
+
+            # Record the message field as the assistant message
+            await self.record_assistant_message(
+                response.message,
+                llm_request_id=request_id,
+                tokens_used=raw.get("usage", {}).get("total_tokens"),
+            )
+
+            # Use other fields for metadata updates
+            if response.confidence > 0.8:
+                await self.update_conversation_metadata({"high_confidence": True})
+        """
+        ctx = ConversationContext.current()
+        prompt = system_prompt or self.get_system_prompt()
+
+        # Build message history for LLM
+        llm_messages = await ctx.service.build_llm_messages(
+            ctx.conversation_id,
+            system_prompt=prompt,
+            include_system=False,
+        )
+
+        # Get structured response and return all details
+        return await ctx.service.llm_services.generate_structured_response(
+            messages=llm_messages,
+            response_model=response_model,
+            user_id=ctx.user_id,
+            model=model,
+            temperature=temperature,
+            max_output_tokens=max_output_tokens,
+            **kwargs,
+        )
 
     async def update_conversation_metadata(
         self,
