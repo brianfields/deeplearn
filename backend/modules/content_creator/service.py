@@ -313,6 +313,7 @@ class ContentCreatorService:
         target_lesson_count: int | None = None,
         learner_level: str = "beginner",
         user_id: int | None = None,
+        unit_title: str | None = None,
     ) -> "ContentCreatorService.UnitCreationResult | ContentCreatorService.MobileUnitCreationResult":
         """Create a learning unit (foreground or background).
 
@@ -322,10 +323,12 @@ class ContentCreatorService:
             background: If True, enqueue and return immediately with in_progress status.
             target_lesson_count: Optional target number of lessons.
             learner_level: Difficulty level.
+            user_id: Optional user identifier.
+            unit_title: Optional short title (from learning coach). If None, will use topic or flow-generated title.
         """
         # Pre-create the shell unit for both paths
-        # Truncate topic for provisional title (will be replaced by proper title from flow)
-        provisional_title = topic[:200] + "..." if len(topic) > 200 else topic
+        # Use provided title or truncate topic for provisional title (will be replaced by proper title from flow if not provided)
+        provisional_title = unit_title if unit_title else (topic[:200] + "..." if len(topic) > 200 else topic)
         unit = await self.content.create_unit(
             UnitCreate(
                 title=provisional_title,

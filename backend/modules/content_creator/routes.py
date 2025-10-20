@@ -37,6 +37,7 @@ class MobileUnitCreateRequest(BaseModel):
 
     topic: str
     difficulty: str = "beginner"  # beginner, intermediate, advanced
+    unit_title: str | None = None
     target_lesson_count: int | None = None
 
 
@@ -66,6 +67,7 @@ async def create_unit_from_mobile(
         result = await service.create_unit(
             topic=request.topic,
             learner_level=request.difficulty,
+            unit_title=request.unit_title,
             target_lesson_count=request.target_lesson_count,
             background=True,
             user_id=user_id,

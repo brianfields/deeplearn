@@ -78,6 +78,7 @@ export function LearningCoachScreen({
       console.log('[LearningCoach] Session state updated:', {
         conversationId: sessionState.conversationId,
         finalizedTopic: sessionState.finalizedTopic ? 'present' : 'null',
+        unitTitle: sessionState.unitTitle,
         learningObjectives: sessionState.learningObjectives,
         suggestedLessonCount: sessionState.suggestedLessonCount,
         messageCount: sessionState.messages.length,
@@ -156,6 +157,7 @@ export function LearningCoachScreen({
     console.log('[LearningCoach] handleCreateUnit called', {
       conversationId,
       finalizedTopic: sessionState?.finalizedTopic,
+      unitTitle: sessionState?.unitTitle,
       learningObjectives: sessionState?.learningObjectives,
       suggestedLessonCount: sessionState?.suggestedLessonCount,
     });
@@ -181,6 +183,7 @@ export function LearningCoachScreen({
               {
                 topic: sessionState.finalizedTopic ?? '',
                 difficulty: 'intermediate',
+                unitTitle: sessionState.unitTitle ?? undefined,
                 targetLessonCount:
                   sessionState.suggestedLessonCount ?? undefined,
                 ownerUserId: user?.id ?? undefined,
@@ -271,6 +274,9 @@ export function LearningCoachScreen({
       <ConversationList messages={displayMessages} isLoading={isCoachLoading} />
       {sessionState.finalizedTopic && sessionState.learningObjectives ? (
         <View style={styles.finalizedContainer}>
+          {sessionState.unitTitle && (
+            <Text style={styles.unitTitle}>{sessionState.unitTitle}</Text>
+          )}
           <Text style={styles.sectionTitle}>Learning Objectives:</Text>
           <View style={styles.objectivesList}>
             {sessionState.learningObjectives.map((objective, idx) => (
@@ -348,6 +354,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 5,
+  },
+  unitTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: theme.colors.text,
+    marginBottom: 8,
   },
   sectionTitle: {
     fontSize: 16,

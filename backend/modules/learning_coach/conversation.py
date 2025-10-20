@@ -31,6 +31,14 @@ class CoachResponse(BaseModel):
             "Leave null only while still gathering information."
         ),
     )
+    unit_title: str | None = Field(
+        default=None,
+        description=(
+            "When finalizing, provide a short, engaging unit title (1-6 words) that captures the essence "
+            "of what they'll learn. Examples: 'React Native with Expo', 'Python Data Structures', "
+            "'Web API Design Basics'. Update if the learner requests changes."
+        ),
+    )
     learning_objectives: list[str] | None = Field(
         default=None,
         description=(
@@ -122,6 +130,7 @@ class LearningCoachConversation(BaseConversation):
             messages=[self._to_message(message) for message in history],
             metadata=metadata,
             finalized_topic=metadata.get("finalized_topic"),
+            unit_title=metadata.get("unit_title"),
             learning_objectives=metadata.get("learning_objectives"),
             suggested_lesson_count=metadata.get("suggested_lesson_count"),
             proposed_brief=self._dict_or_none(metadata.get("proposed_brief")),
@@ -173,6 +182,8 @@ class LearningCoachConversation(BaseConversation):
                 "finalized_topic": coach_response.finalized_topic,
                 "finalized_at": datetime.now(UTC).isoformat(),
             }
+            if coach_response.unit_title is not None:
+                metadata_update["unit_title"] = coach_response.unit_title
             if coach_response.learning_objectives is not None:
                 metadata_update["learning_objectives"] = coach_response.learning_objectives
             if coach_response.suggested_lesson_count is not None:
