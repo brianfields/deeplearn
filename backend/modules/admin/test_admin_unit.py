@@ -158,13 +158,7 @@ class TestAdminService:
             metadata={},
         )
 
-        state = LearningCoachSessionState(
-            conversation_id=conversation_id,
-            messages=[message],
-            metadata=summary.metadata,
-            proposed_brief=None,
-            accepted_brief=None,
-        )
+        state = LearningCoachSessionState(conversation_id=conversation_id, messages=[message], metadata=summary.metadata, proposed_brief=None, accepted_brief=None, finalized_topic=None)
 
         provider = SimpleNamespace()
         provider.list_conversations = AsyncMock(return_value=[summary])
@@ -499,7 +493,7 @@ class TestAdminService:
 
         mock_request = LLMRequest(
             id=uuid.uuid4(),
-            user_id=uuid.uuid4(),
+            user_id=42,
             api_variant="chat",
             provider="openai",
             model="gpt-4",

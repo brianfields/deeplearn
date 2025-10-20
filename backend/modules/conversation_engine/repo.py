@@ -39,7 +39,7 @@ class ConversationRepo:
 
     def list_for_user(
         self,
-        user_id: uuid.UUID,
+        user_id: int,
         *,
         limit: int = 50,
         offset: int = 0,

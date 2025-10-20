@@ -3,6 +3,7 @@ import type { UnitStatus } from '../content/public';
 export interface UnitCreationRequest {
   readonly topic: string;
   readonly difficulty: 'beginner' | 'intermediate' | 'advanced';
+  readonly unitTitle?: string | null;
   readonly targetLessonCount?: number | null;
   readonly shareGlobally?: boolean;
   readonly ownerUserId?: number | null;

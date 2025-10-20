@@ -32,6 +32,11 @@ response, request_id = await svc.generate_response([
 - Request tracking and retrieval (returns a `request_id` alongside responses).
 - Cost estimation helpers.
 
+## ID Types
+
+- **Primary keys** (`llm_requests.id`): Use `UUID` because requests are created asynchronously by providers.
+- **Foreign keys** (`user_id`): Use `int | None` to match `users.id`. Pass integer user IDs when calling LLM services—they'll be properly tracked for auditing and cost attribution.
+
 ## Providers and extensibility
 
 - Providers live under `modules/llm_services/providers/` and share common types defined in `providers/base.py`.

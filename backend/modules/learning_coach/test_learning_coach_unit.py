@@ -8,7 +8,7 @@ import uuid
 
 import pytest
 
-from modules.conversation_engine.service import (
+from modules.conversation_engine.public import (
     ConversationMessageDTO,
     ConversationSummaryDTO,
 )
@@ -63,27 +63,30 @@ async def test_start_session_records_topic_and_returns_assistant_turn() -> None:
         id=str(uuid.uuid4()),
         conversation_id=str(conversation_id),
         role="assistant",
-        content="Great! Let's explore algebra together.",
+        content="What would you like to learn today?",
         message_order=2,
-        llm_request_id=str(uuid.uuid4()),
-        metadata={"proposal": "draft"},
-        tokens_used=42,
-        cost_estimate=0.12,
+        llm_request_id=None,  # Static message has no LLM request
+        metadata={},
+        tokens_used=None,
+        cost_estimate=None,
         created_at=now,
     )
 
     service_instance.create_conversation.return_value = summary
     service_instance.get_conversation_summary.return_value = summary
     service_instance.record_user_message.return_value = user_message
-    service_instance.generate_assistant_response.return_value = (assistant_message, uuid.uuid4(), MagicMock())
     service_instance.get_message_history.side_effect = [
         [user_message],
         [user_message, assistant_message],
     ]
+    service_instance.record_assistant_message.return_value = assistant_message
+
+    mock_llm_services = AsyncMock()
+    service_instance.llm_services = mock_llm_services
 
     with (
         patch("modules.conversation_engine.base_conversation.infrastructure_provider", return_value=mock_infra),
-        patch("modules.conversation_engine.base_conversation.llm_services_provider", return_value=AsyncMock()),
+        patch("modules.conversation_engine.base_conversation.llm_services_provider", return_value=mock_llm_services),
         patch("modules.conversation_engine.base_conversation.ConversationEngineService", return_value=service_instance),
     ):
         state = await conversation.start_session(topic="algebra")
@@ -91,8 +94,12 @@ async def test_start_session_records_topic_and_returns_assistant_turn() -> None:
     assert state.conversation_id == str(conversation_id)
     assert state.metadata["topic"] == "algebra"
     assert state.messages[-1].role == "assistant"
+    assert state.messages[-1].content == "What would you like to learn today?"
     service_instance.record_user_message.assert_awaited_once()
-    service_instance.generate_assistant_response.assert_awaited_once()
+    # Verify the static opening message was recorded
+    service_instance.record_assistant_message.assert_awaited_once()
+    call_args = service_instance.record_assistant_message.await_args
+    assert call_args[0][1] == "What would you like to learn today?"  # Second positional arg is the content
 
 
 @pytest.mark.asyncio
@@ -154,20 +161,37 @@ async def test_submit_learner_turn_appends_message() -> None:
     service_instance.record_user_message.return_value = user_message
     service_instance.generate_assistant_response.return_value = (assistant_message, uuid.uuid4(), MagicMock())
     service_instance.get_message_history.return_value = [user_message, assistant_message]
+    service_instance.build_llm_messages.return_value = []
+    service_instance.record_assistant_message.return_value = assistant_message
+
+    # Mock the structured LLM response
+    from modules.learning_coach.conversation import CoachResponse  # noqa: PLC0415
+
+    coach_response = CoachResponse(
+        message="Noted! I'll include project work in the plan.",
+        next_action=None,
+        brief_proposal=None,
+    )
+    llm_request_id = uuid.uuid4()
+    raw_response = {"provider": "openai", "usage": {"total_tokens": 15}, "cost_estimate": 0.04}
+
+    mock_llm_services = AsyncMock()
+    mock_llm_services.generate_structured_response.return_value = (coach_response, llm_request_id, raw_response)
+    service_instance.llm_services = mock_llm_services
 
     with (
         patch("modules.conversation_engine.base_conversation.infrastructure_provider", return_value=mock_infra),
-        patch("modules.conversation_engine.base_conversation.llm_services_provider", return_value=AsyncMock()),
+        patch("modules.conversation_engine.base_conversation.llm_services_provider", return_value=mock_llm_services),
         patch("modules.conversation_engine.base_conversation.ConversationEngineService", return_value=service_instance),
     ):
         state = await conversation.submit_learner_turn(
-            conversation_id=str(conversation_id),
+            _conversation_id=str(conversation_id),
             message="I prefer project-based learning.",
         )
 
     assert state.messages[-1].content.startswith("Noted!")
     service_instance.record_user_message.assert_awaited_once()
-    service_instance.generate_assistant_response.assert_awaited_once()
+    mock_llm_services.generate_structured_response.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -224,7 +248,7 @@ async def test_accept_brief_updates_metadata() -> None:
         patch("modules.conversation_engine.base_conversation.ConversationEngineService", return_value=service_instance),
     ):
         state = await conversation.accept_brief(
-            conversation_id=str(conversation_id),
+            _conversation_id=str(conversation_id),
             brief=accepted_payload,
         )
 

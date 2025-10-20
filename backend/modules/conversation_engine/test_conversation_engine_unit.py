@@ -169,10 +169,10 @@ class TestBaseConversation:
             conversation_type = "demo"
 
             @conversation_session
-            async def handle(self, *, _user_id: uuid.UUID | None = None, conversation_id: str | None = None) -> str:
-                assert conversation_id is not None
+            async def handle(self, *, _user_id: uuid.UUID | None = None, _conversation_id: str | None = None) -> str:
+                assert _conversation_id is not None
                 await self.record_user_message("Hi")
-                return conversation_id
+                return _conversation_id
 
         demo = DemoConversation()
 

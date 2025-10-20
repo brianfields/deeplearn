@@ -25,8 +25,12 @@ class LearningCoachSessionState:
     conversation_id: str
     messages: list[LearningCoachMessage]
     metadata: dict[str, Any]
-    proposed_brief: dict[str, Any] | None
-    accepted_brief: dict[str, Any] | None
+    finalized_topic: str | None
+    unit_title: str | None
+    learning_objectives: list[str] | None
+    suggested_lesson_count: int | None
+    proposed_brief: dict[str, Any] | None  # Deprecated, will be removed
+    accepted_brief: dict[str, Any] | None  # Deprecated, will be removed
 
 
 @dataclass(slots=True)
@@ -34,7 +38,7 @@ class LearningCoachConversationSummary:
     """Summary information for listing learning coach conversations."""
 
     id: str
-    user_id: str | None
+    user_id: int | None
     title: str | None
     created_at: datetime
     updated_at: datetime
