@@ -49,7 +49,6 @@ class LearningCoachConversation(BaseConversation):
         _conversation_title: str | None = None,
     ) -> LearningCoachSessionState:
         """Kick off a new learning coach conversation."""
-
         if topic:
             await self.record_user_message(f"I'd like to learn about {topic}.")
         await self._ensure_opening_assistant_turn()
@@ -93,7 +92,8 @@ class LearningCoachConversation(BaseConversation):
         history = await ctx.service.get_message_history(ctx.conversation_id, include_system=False)
         if any(message.role == "assistant" for message in history):
             return
-        await self._generate_structured_reply()
+        # Start with a simple static greeting
+        await self.record_assistant_message("What would you like to learn today?")
 
     async def _build_session_state(self) -> LearningCoachSessionState:
         """Assemble the latest session state for clients."""
