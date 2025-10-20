@@ -21,6 +21,8 @@ export interface LearningCoachSessionState {
   readonly messages: LearningCoachMessage[];
   readonly metadata: Record<string, any>;
   readonly finalizedTopic?: string | null;
+  readonly learningObjectives?: string[] | null;
+  readonly suggestedLessonCount?: number | null;
   readonly proposedBrief?: LearningCoachBrief | null; // Deprecated
   readonly acceptedBrief?: LearningCoachBrief | null; // Deprecated
 }

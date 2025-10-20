@@ -26,9 +26,23 @@ class CoachResponse(BaseModel):
         description=(
             "When you have clarity on both WHAT they want to learn and their current knowledge level, "
             "provide a detailed topic description including: specific topics/concepts, starting level "
-            "(e.g., 'beginner', 'intermediate with Python basics'), focus areas, and scope for 2-10 "
-            "mini-lessons. Update this if they request changes. Leave null only while still gathering information."
+            "(e.g., 'beginner', 'intermediate with Python basics'), focus areas, scope for 2-10 "
+            "mini-lessons, and the learning objectives (listed out). Update this if they request changes. "
+            "Leave null only while still gathering information."
         ),
+    )
+    learning_objectives: list[str] | None = Field(
+        default=None,
+        description=(
+            "When finalizing the topic, provide 3-8 clear, specific learning objectives. Each should be "
+            "measurable, action-oriented, and appropriate for the learner's level. Examples: 'Explain how "
+            "outliers affect mean and median differently', 'Apply decision rules to select appropriate "
+            "measures of center'. Update if the learner requests changes."
+        ),
+    )
+    suggested_lesson_count: int | None = Field(
+        default=None,
+        description=("When finalizing, suggest the number of lessons (2-10) to cover the learning objectives. Consider the breadth of objectives, the learner's level, and natural topic boundaries. Update if the learner requests changes."),
     )
 
 
@@ -108,6 +122,8 @@ class LearningCoachConversation(BaseConversation):
             messages=[self._to_message(message) for message in history],
             metadata=metadata,
             finalized_topic=metadata.get("finalized_topic"),
+            learning_objectives=metadata.get("learning_objectives"),
+            suggested_lesson_count=metadata.get("suggested_lesson_count"),
             proposed_brief=self._dict_or_none(metadata.get("proposed_brief")),
             accepted_brief=self._dict_or_none(metadata.get("accepted_brief")),
         )
@@ -153,9 +169,12 @@ class LearningCoachConversation(BaseConversation):
 
         # If topic is finalized, update conversation metadata
         if coach_response.finalized_topic:
-            await self.update_conversation_metadata(
-                {
-                    "finalized_topic": coach_response.finalized_topic,
-                    "finalized_at": datetime.now(UTC).isoformat(),
-                }
-            )
+            metadata_update: dict[str, Any] = {
+                "finalized_topic": coach_response.finalized_topic,
+                "finalized_at": datetime.now(UTC).isoformat(),
+            }
+            if coach_response.learning_objectives is not None:
+                metadata_update["learning_objectives"] = coach_response.learning_objectives
+            if coach_response.suggested_lesson_count is not None:
+                metadata_update["suggested_lesson_count"] = coach_response.suggested_lesson_count
+            await self.update_conversation_metadata(metadata_update)

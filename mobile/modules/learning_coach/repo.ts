@@ -24,6 +24,8 @@ interface ApiSessionState {
   readonly messages: ApiMessage[];
   readonly metadata: Record<string, any>;
   readonly finalized_topic?: string | null;
+  readonly learning_objectives?: string[] | null;
+  readonly suggested_lesson_count?: number | null;
   readonly proposed_brief?: Record<string, any> | null;
   readonly accepted_brief?: Record<string, any> | null;
 }
@@ -62,6 +64,8 @@ function toSessionState(dto: ApiSessionState): LearningCoachSessionState {
     messages: dto.messages.map(toMessage),
     metadata: dto.metadata ?? {},
     finalizedTopic: dto.finalized_topic ?? null,
+    learningObjectives: dto.learning_objectives ?? null,
+    suggestedLessonCount: dto.suggested_lesson_count ?? null,
     proposedBrief: normalizeBrief(dto.proposed_brief),
     acceptedBrief: normalizeBrief(dto.accepted_brief),
   };

@@ -72,6 +72,19 @@ export function LearningCoachScreen({
 
   const sessionState = sessionQuery.data ?? startSession.data ?? null;
 
+  // Debug: Log session state changes
+  useEffect(() => {
+    if (sessionState) {
+      console.log('[LearningCoach] Session state updated:', {
+        conversationId: sessionState.conversationId,
+        finalizedTopic: sessionState.finalizedTopic ? 'present' : 'null',
+        learningObjectives: sessionState.learningObjectives,
+        suggestedLessonCount: sessionState.suggestedLessonCount,
+        messageCount: sessionState.messages.length,
+      });
+    }
+  }, [sessionState]);
+
   // Combine real messages with optimistic message
   const displayMessages = useMemo(() => {
     const realMessages = sessionState?.messages ?? [];
@@ -140,7 +153,15 @@ export function LearningCoachScreen({
   };
 
   const handleCreateUnit = () => {
+    console.log('[LearningCoach] handleCreateUnit called', {
+      conversationId,
+      finalizedTopic: sessionState?.finalizedTopic,
+      learningObjectives: sessionState?.learningObjectives,
+      suggestedLessonCount: sessionState?.suggestedLessonCount,
+    });
+
     if (!conversationId || !sessionState?.finalizedTopic) {
+      console.log('[LearningCoach] Early return - missing required data');
       return;
     }
 
@@ -160,6 +181,8 @@ export function LearningCoachScreen({
               {
                 topic: sessionState.finalizedTopic ?? '',
                 difficulty: 'intermediate',
+                targetLessonCount:
+                  sessionState.suggestedLessonCount ?? undefined,
                 ownerUserId: user?.id ?? undefined,
               },
               {
@@ -246,8 +269,24 @@ export function LearningCoachScreen({
   return (
     <View style={styles.screen}>
       <ConversationList messages={displayMessages} isLoading={isCoachLoading} />
-      {sessionState.finalizedTopic ? (
+      {sessionState.finalizedTopic && sessionState.learningObjectives ? (
         <View style={styles.finalizedContainer}>
+          <Text style={styles.sectionTitle}>Learning Objectives:</Text>
+          <View style={styles.objectivesList}>
+            {sessionState.learningObjectives.map((objective, idx) => (
+              <View key={idx} style={styles.objectiveItem}>
+                <Text style={styles.objectiveBullet}>•</Text>
+                <Text style={styles.objectiveText}>{objective}</Text>
+              </View>
+            ))}
+          </View>
+          {sessionState.suggestedLessonCount && (
+            <Text style={styles.lessonCountInfo}>
+              {sessionState.suggestedLessonCount}{' '}
+              {sessionState.suggestedLessonCount === 1 ? 'lesson' : 'lessons'}{' '}
+              recommended
+            </Text>
+          )}
           <Pressable
             style={({ pressed }) => [
               styles.generateButton,
@@ -303,12 +342,44 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
     borderTopWidth: 2,
     borderColor: theme.colors.primary,
-    gap: 8,
+    gap: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 5,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.text,
+    marginBottom: 4,
+  },
+  objectivesList: {
+    gap: 8,
+  },
+  objectiveItem: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'flex-start',
+  },
+  objectiveBullet: {
+    fontSize: 16,
+    color: theme.colors.primary,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  objectiveText: {
+    flex: 1,
+    fontSize: 14,
+    color: theme.colors.text,
+    lineHeight: 20,
+  },
+  lessonCountInfo: {
+    fontSize: 13,
+    color: theme.colors.textSecondary ?? '#999',
+    fontWeight: '500',
+    marginTop: 4,
   },
   generateButton: {
     backgroundColor: theme.colors.primary,
@@ -322,6 +393,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+    marginTop: 4,
   },
   generateButtonText: {
     color: '#fff',

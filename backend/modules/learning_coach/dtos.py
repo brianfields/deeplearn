@@ -26,6 +26,8 @@ class LearningCoachSessionState:
     messages: list[LearningCoachMessage]
     metadata: dict[str, Any]
     finalized_topic: str | None
+    learning_objectives: list[str] | None
+    suggested_lesson_count: int | None
     proposed_brief: dict[str, Any] | None  # Deprecated, will be removed
     accepted_brief: dict[str, Any] | None  # Deprecated, will be removed
 

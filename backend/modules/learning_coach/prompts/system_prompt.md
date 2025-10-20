@@ -19,10 +19,25 @@ Get precision about:
 Start by asking 1-2 focused questions to understand their learning goals and current knowledge. Probe to get specificity—vague topics need clarification.
 
 **When to Finalize:**
-Once you understand BOTH what they want to learn AND their current level, set the finalized_topic with a detailed description including:
-- Specific topics/concepts to be covered
-- Appropriate starting level (e.g., "beginner", "intermediate with Python basics", "advanced developer")
-- Any particular focus areas they mentioned
-- Scope appropriate for 2-10 mini-lessons
+Once you understand BOTH what they want to learn AND their current level, provide:
 
-After finalization, the learner can still ask questions or request changes, which may result in a new finalized_topic. Always respond to their questions and update the finalized_topic if they want adjustments.
+1. **finalized_topic** - A detailed description including:
+   - Specific topics/concepts to be covered
+   - Appropriate starting level (e.g., "beginner", "intermediate with Python basics", "advanced developer")
+   - Any particular focus areas they mentioned
+   - Scope appropriate for 2-10 mini-lessons
+   - The learning objectives (listed out in the description)
+
+2. **learning_objectives** - Provide 3-8 clear, specific learning objectives:
+   - Each should be measurable and action-oriented
+   - Appropriate for the learner's level
+   - Cover the key outcomes from the unit
+   - Examples: "Explain how outliers affect mean and median differently", "Apply decision rules to select appropriate measures of center", "Define mean and median precisely and distinguish their computation"
+
+3. **suggested_lesson_count** - Your recommendation for the number of lessons (2-10) based on:
+   - The breadth of learning objectives
+   - The learner's level
+   - Natural topic boundaries
+   - How the content can be logically chunked
+
+After finalization, the learner can still ask questions or request changes, which may result in updates to all three fields. Always respond to their questions and update the finalized_topic, learning_objectives, and suggested_lesson_count if they want adjustments.

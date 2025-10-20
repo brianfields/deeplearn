@@ -118,6 +118,8 @@ class LearningCoachService:
             messages=messages,
             metadata=metadata,
             finalized_topic=metadata.get("finalized_topic"),
+            learning_objectives=metadata.get("learning_objectives"),
+            suggested_lesson_count=metadata.get("suggested_lesson_count"),
             proposed_brief=self._dict_or_none(metadata.get("proposed_brief")),
             accepted_brief=self._dict_or_none(metadata.get("accepted_brief")),
         )
