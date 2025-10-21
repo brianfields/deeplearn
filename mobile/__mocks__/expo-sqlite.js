@@ -40,9 +40,7 @@ function toResult(rows, rowsAffected = 0, insertId = null) {
 }
 
 function parseColumns(segment) {
-  return segment
-    .split(',')
-    .map(column => column.trim().replace(/`/g, ''));
+  return segment.split(',').map(column => column.trim().replace(/`/g, ''));
 }
 
 function handleCreateTable(state, sql) {
@@ -56,7 +54,9 @@ function handleCreateTable(state, sql) {
 }
 
 function handleInsert(state, sql, params, replace = false) {
-  const match = sql.match(/INSERT(?: OR REPLACE)? INTO (\w+) \(([^)]+)\) VALUES \(([^)]+)\)/i);
+  const match = sql.match(
+    /INSERT(?: OR REPLACE)? INTO (\w+) \(([^)]+)\) VALUES \(([^)]+)\)/i
+  );
   if (!match) {
     throw new Error(`Unsupported INSERT statement: ${sql}`);
   }
@@ -302,7 +302,11 @@ function openDatabase(name) {
   return {
     transaction(callback, errorCallback, successCallback) {
       try {
-        const tx = createTransaction(state, () => {}, errorCallback || (() => {}));
+        const tx = createTransaction(
+          state,
+          () => {},
+          errorCallback || (() => {})
+        );
         callback(tx);
         if (successCallback) {
           successCallback();

@@ -8,7 +8,7 @@ Handles content operations and data transformation.
 """
 
 # Import inside methods when needed to avoid circular imports with public/providers
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 import logging
 from typing import Any, Literal
@@ -418,11 +418,7 @@ class ContentService:
             resolved_meta = audio_meta if audio_meta is not None else None
         else:
             resolved_meta = audio_meta
-            if (
-                resolved_meta is None
-                and audio_object_id
-                and self._object_store is not None
-            ):
+            if resolved_meta is None and audio_object_id and self._object_store is not None:
                 resolved_meta = await self._fetch_audio_metadata(
                     audio_object_id,
                     requesting_user_id=getattr(unit, "user_id", None),
@@ -496,11 +492,7 @@ class ContentService:
         audio_identifier = getattr(unit, "podcast_audio_object_id", None)
         if include_audio and audio_identifier:
             try:
-                audio_uuid = (
-                    audio_identifier
-                    if isinstance(audio_identifier, uuid.UUID)
-                    else uuid.UUID(str(audio_identifier))
-                )
+                audio_uuid = audio_identifier if isinstance(audio_identifier, uuid.UUID) else uuid.UUID(str(audio_identifier))
             except (TypeError, ValueError):  # pragma: no cover - defensive
                 logger.warning("🎧 Invalid podcast audio id encountered: %s", audio_identifier)
             else:
@@ -528,11 +520,7 @@ class ContentService:
         art_identifier = getattr(unit, "art_image_id", None)
         if include_image and art_identifier:
             try:
-                art_uuid = (
-                    art_identifier
-                    if isinstance(art_identifier, uuid.UUID)
-                    else uuid.UUID(str(art_identifier))
-                )
+                art_uuid = art_identifier if isinstance(art_identifier, uuid.UUID) else uuid.UUID(str(art_identifier))
             except (TypeError, ValueError):  # pragma: no cover - defensive
                 logger.warning("🖼️ Invalid unit artwork id encountered: %s", art_identifier)
             else:
@@ -930,18 +918,14 @@ class ContentService:
                     ordered_models.append(model)
                     seen_ids.add(model.id)
 
-                remaining_models = [
-                    model
-                    for model_id, model in lesson_bucket.items()
-                    if model_id not in seen_ids
-                ]
+                remaining_models = [model for model_id, model in lesson_bucket.items() if model_id not in seen_ids]
                 remaining_models.sort(key=lambda model: model.updated_at)
                 ordered_models.extend(remaining_models)
 
                 for model in ordered_models:
                     try:
                         lesson_read = self._lesson_model_to_read(model)
-                    except Exception:  # pragma: no cover - helper already logged
+                    except Exception:  # pragma: no cover - helper already logged  # noqa: S112
                         continue
                     lesson_reads.append(lesson_read)
                     cursor_candidates.append(model.updated_at)
@@ -960,11 +944,7 @@ class ContentService:
                 )
             )
 
-        cursor = (
-            max(cursor_candidates)
-            if cursor_candidates
-            else (since if since is not None else datetime.now(tz=timezone.utc))
-        )
+        cursor = max(cursor_candidates) if cursor_candidates else (since if since is not None else datetime.now(tz=UTC))
 
         deleted_unit_ids: list[str] = []
         deleted_lesson_ids: list[str] = []

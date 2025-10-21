@@ -4,7 +4,10 @@
  * Encapsulates SQLite access for cached units, lessons, assets, outbox, and metadata.
  */
 
-import type { SQLiteDatabaseProvider, SQLiteMigration } from '../infrastructure/public';
+import type {
+  SQLiteDatabaseProvider,
+  SQLiteMigration,
+} from '../infrastructure/public';
 import type {
   CachedUnit,
   CachedLesson,
@@ -133,15 +136,41 @@ export class OfflineCacheRepository {
   }
 
   async deleteUnitsBelowSchemaVersion(schemaVersion: number): Promise<void> {
-    await this.provider.execute(
-      `DELETE FROM units WHERE schema_version < ?;`,
-      [schemaVersion]
-    );
+    await this.provider.execute(`DELETE FROM units WHERE schema_version < ?;`, [
+      schemaVersion,
+    ]);
   }
 
   async replaceLessons(unitId: string, lessons: CachedLesson[]): Promise<void> {
     await this.provider.transaction(async executor => {
-      await executor.execute(`DELETE FROM lessons WHERE unit_id = ?;`, [unitId]);
+      await executor.execute(`DELETE FROM lessons WHERE unit_id = ?;`, [
+        unitId,
+      ]);
+      for (const lesson of lessons) {
+        await executor.execute(
+          `INSERT OR REPLACE INTO lessons (
+            id, unit_id, title, position, payload, updated_at, schema_version
+          ) VALUES (?, ?, ?, ?, ?, ?, ?);`,
+          [
+            lesson.id,
+            lesson.unitId,
+            lesson.title,
+            lesson.position,
+            JSON.stringify(lesson.payload ?? null),
+            lesson.updatedAt,
+            lesson.schemaVersion,
+          ]
+        );
+      }
+    });
+  }
+
+  async upsertLessons(lessons: CachedLesson[]): Promise<void> {
+    if (lessons.length === 0) {
+      return;
+    }
+
+    await this.provider.transaction(async executor => {
       for (const lesson of lessons) {
         await executor.execute(
           `INSERT OR REPLACE INTO lessons (
@@ -172,6 +201,34 @@ export class OfflineCacheRepository {
   async replaceAssets(unitId: string, assets: CachedAsset[]): Promise<void> {
     await this.provider.transaction(async executor => {
       await executor.execute(`DELETE FROM assets WHERE unit_id = ?;`, [unitId]);
+      for (const asset of assets) {
+        await executor.execute(
+          `INSERT OR REPLACE INTO assets (
+            id, unit_id, type, remote_uri, checksum, updated_at,
+            local_path, status, downloaded_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+          [
+            asset.id,
+            asset.unitId,
+            asset.type,
+            asset.remoteUri,
+            asset.checksum ?? null,
+            asset.updatedAt,
+            asset.localPath ?? null,
+            asset.status,
+            asset.downloadedAt ?? null,
+          ]
+        );
+      }
+    });
+  }
+
+  async upsertAssets(assets: CachedAsset[]): Promise<void> {
+    if (assets.length === 0) {
+      return;
+    }
+
+    await this.provider.transaction(async executor => {
       for (const asset of assets) {
         await executor.execute(
           `INSERT OR REPLACE INTO assets (
@@ -226,7 +283,9 @@ export class OfflineCacheRepository {
   }
 
   async removeAssets(unitId: string): Promise<void> {
-    await this.provider.execute(`DELETE FROM assets WHERE unit_id = ?;`, [unitId]);
+    await this.provider.execute(`DELETE FROM assets WHERE unit_id = ?;`, [
+      unitId,
+    ]);
   }
 
   async enqueueOutbox(
@@ -324,7 +383,6 @@ export class OfflineCacheRepository {
       assets,
     };
   }
-
 }
 
 function mapUnitRow(row: any): CachedUnit {

@@ -16,7 +16,10 @@ declare module 'expo-sqlite' {
       sqlStatement: string,
       args?: any[],
       callback?: (transaction: SQLTransaction, resultSet: SQLResultSet) => void,
-      errorCallback?: (transaction: SQLTransaction, error: any) => boolean | void
+      errorCallback?: (
+        transaction: SQLTransaction,
+        error: any
+      ) => boolean | void
     ): void;
   }
 

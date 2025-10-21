@@ -113,7 +113,8 @@ export class OfflineCacheService {
       ...unit,
       cacheMode,
       downloadStatus: cacheMode === 'full' ? unit.downloadStatus : 'idle',
-      downloadedAt: cacheMode === 'full' ? unit.downloadedAt ?? Date.now() : null,
+      downloadedAt:
+        cacheMode === 'full' ? (unit.downloadedAt ?? Date.now()) : null,
     };
     await this.repository.upsertUnits([updated]);
 
@@ -139,9 +140,13 @@ export class OfflineCacheService {
     }
 
     const targetPath = this.buildAssetPath(asset);
-    const download = await this.fileSystem.downloadFile(asset.remoteUri, targetPath, {
-      skipIfExists: true,
-    });
+    const download = await this.fileSystem.downloadFile(
+      asset.remoteUri,
+      targetPath,
+      {
+        skipIfExists: true,
+      }
+    );
     if (download.status === 'completed') {
       const timestamp = Date.now();
       await this.repository.updateAssetLocation(
@@ -174,7 +179,9 @@ export class OfflineCacheService {
     this.status = await this.refreshSyncStatus();
   }
 
-  async processOutbox(processor: OutboxProcessor): Promise<OutboxProcessResult> {
+  async processOutbox(
+    processor: OutboxProcessor
+  ): Promise<OutboxProcessResult> {
     const now = Date.now();
     const records = await this.repository.listOutbox();
     const due = records.find(item => item.nextAttemptAt <= now);
@@ -224,7 +231,8 @@ export class OfflineCacheService {
         }
       }
 
-      const cursor = (await this.repository.getMetadata(META_LAST_CURSOR)) || null;
+      const cursor =
+        (await this.repository.getMetadata(META_LAST_CURSOR)) || null;
       const units = await this.repository.listUnits();
       const payload: CacheMode = units.some(unit => unit.cacheMode === 'full')
         ? 'full'
@@ -268,7 +276,8 @@ export class OfflineCacheService {
   }
 
   private mapUnitPayload(payload: OfflineUnitPayload): CachedUnit {
-    const downloadStatus: DownloadStatus = payload.downloadStatus ?? 'completed';
+    const downloadStatus: DownloadStatus =
+      payload.downloadStatus ?? 'completed';
     return {
       id: payload.id,
       title: payload.title,
@@ -320,21 +329,60 @@ export class OfflineCacheService {
       );
     }
 
-    const lessonsByUnit = groupBy(response.lessons, lesson => lesson.unitId);
-    for (const [unitId, lessons] of lessonsByUnit.entries()) {
-      const mapped = lessons.map(this.mapLessonPayload);
-      await this.repository.replaceLessons(unitId, mapped);
+    // Upsert lessons incrementally (no deletion, preserves unchanged lessons)
+    if (response.lessons.length > 0) {
+      const mapped = response.lessons.map(this.mapLessonPayload);
+      await this.repository.upsertLessons(mapped);
     }
 
-    const assetsByUnit = groupBy(response.assets, asset => asset.unitId);
-    for (const [unitId, assets] of assetsByUnit.entries()) {
-      const mapped = assets.map(asset => this.mapAssetPayload(asset));
-      await this.repository.replaceAssets(unitId, mapped);
+    // Upsert assets incrementally, preserving local metadata for unchanged assets
+    if (response.assets.length > 0) {
+      const mapped = await this.mergeAssetMetadata(response.assets);
+      await this.repository.upsertAssets(mapped);
     }
 
     if (response.cursor !== null) {
       await this.repository.setMetadata(META_LAST_CURSOR, response.cursor);
     }
+  }
+
+  private async mergeAssetMetadata(
+    incomingAssets: OfflineAssetPayload[]
+  ): Promise<CachedAsset[]> {
+    // Fetch all existing assets to check for local metadata
+    const assetIds = incomingAssets.map(a => a.id);
+    const existingMap = new Map<string, CachedAsset>();
+
+    // Batch fetch existing assets
+    for (const assetId of assetIds) {
+      const existing = await this.repository.getAssetById(assetId);
+      if (existing) {
+        existingMap.set(assetId, existing);
+      }
+    }
+
+    // Map incoming assets, preserving local metadata when asset hasn't changed
+    return incomingAssets.map(incomingAsset => {
+      const newAsset = this.mapAssetPayload(incomingAsset);
+      const existingAsset = existingMap.get(incomingAsset.id);
+
+      // If asset exists and hasn't changed (same checksum & updatedAt), preserve local metadata
+      if (
+        existingAsset &&
+        existingAsset.checksum === newAsset.checksum &&
+        existingAsset.updatedAt === newAsset.updatedAt &&
+        existingAsset.localPath
+      ) {
+        return {
+          ...newAsset,
+          localPath: existingAsset.localPath,
+          status: existingAsset.status,
+          downloadedAt: existingAsset.downloadedAt,
+        };
+      }
+
+      return newAsset;
+    });
   }
 
   private async refreshSyncStatus(): Promise<SyncStatus> {
@@ -349,7 +397,8 @@ export class OfflineCacheService {
     });
 
     const lastCursor = await this.repository.getMetadata(META_LAST_CURSOR);
-    const lastPulledAtRaw = await this.repository.getMetadata(META_LAST_PULL_AT);
+    const lastPulledAtRaw =
+      await this.repository.getMetadata(META_LAST_PULL_AT);
     const lastPulledAt = lastPulledAtRaw ? Number(lastPulledAtRaw) : null;
     const persistedStatus = await this.loadLastSyncStatus();
 
@@ -366,10 +415,16 @@ export class OfflineCacheService {
     };
   }
 
-  private async loadLastSyncStatus(): Promise<Pick<SyncStatus, 'lastSyncAttempt' | 'lastSyncResult' | 'lastSyncError'>> {
+  private async loadLastSyncStatus(): Promise<
+    Pick<SyncStatus, 'lastSyncAttempt' | 'lastSyncResult' | 'lastSyncError'>
+  > {
     const raw = await this.repository.getMetadata(META_LAST_SYNC);
     if (!raw) {
-      return { lastSyncAttempt: 0, lastSyncResult: 'idle', lastSyncError: null };
+      return {
+        lastSyncAttempt: 0,
+        lastSyncResult: 'idle',
+        lastSyncError: null,
+      };
     }
     try {
       const parsed = JSON.parse(raw);
@@ -379,7 +434,11 @@ export class OfflineCacheService {
         lastSyncError: parsed.lastSyncError ?? null,
       };
     } catch {
-      return { lastSyncAttempt: 0, lastSyncResult: 'idle', lastSyncError: null };
+      return {
+        lastSyncAttempt: 0,
+        lastSyncResult: 'idle',
+        lastSyncError: null,
+      };
     }
   }
 
@@ -395,16 +454,4 @@ export class OfflineCacheService {
     const random = Math.random().toString(36).slice(2);
     return `outbox_${Date.now()}_${random}`;
   }
-}
-
-function groupBy<T>(items: T[], iteratee: (item: T) => string): Map<string, T[]> {
-  const map = new Map<string, T[]>();
-  for (const item of items) {
-    const key = iteratee(item);
-    if (!map.has(key)) {
-      map.set(key, []);
-    }
-    map.get(key)!.push(item);
-  }
-  return map;
 }

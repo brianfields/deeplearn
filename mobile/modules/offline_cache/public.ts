@@ -6,10 +6,7 @@
 
 import * as FileSystem from 'expo-file-system';
 import { infrastructureProvider } from '../infrastructure/public';
-import {
-  OfflineCacheRepository,
-  OFFLINE_CACHE_MIGRATIONS,
-} from './repo';
+import { OfflineCacheRepository, OFFLINE_CACHE_MIGRATIONS } from './repo';
 import { OfflineCacheService, SyncCycleOptions } from './service';
 import type {
   CacheMode,

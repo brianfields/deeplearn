@@ -6,7 +6,10 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as SQLite from 'expo-sqlite';
+import * as SQLiteImport from 'expo-sqlite';
+
+// Use any for SQLite to avoid type conflicts with expo-sqlite v15+
+const SQLite = SQLiteImport as any;
 import * as FileSystem from 'expo-file-system';
 import { InfrastructureRepo } from './repo';
 import type {
@@ -171,9 +174,9 @@ export interface SQLiteExecutor {
 }
 
 class SQLiteTransactionExecutor implements SQLiteExecutor {
-  private transaction: SQLite.SQLTransaction;
+  private transaction: any;
 
-  constructor(transaction: SQLite.SQLTransaction) {
+  constructor(transaction: any) {
     this.transaction = transaction;
   }
 
@@ -182,8 +185,8 @@ class SQLiteTransactionExecutor implements SQLiteExecutor {
       this.transaction.executeSql(
         sql,
         params as any[],
-        (_, result) => resolve(transformResult(result)),
-        (_, error) => {
+        (_: any, result: any) => resolve(transformResult(result)),
+        (_: any, error: any) => {
           reject(error);
           return false;
         }
@@ -194,7 +197,7 @@ class SQLiteTransactionExecutor implements SQLiteExecutor {
 
 export class SQLiteDatabaseProvider {
   private config: SQLiteConfig;
-  private database: SQLite.WebSQLDatabase | null = null;
+  private database: any | null = null;
   private initialized = false;
 
   constructor(config: SQLiteConfig) {
@@ -224,36 +227,38 @@ export class SQLiteDatabaseProvider {
     const db = this.ensureDatabase();
     return new Promise((resolve, reject) => {
       db.readTransaction(
-        tx => {
+        (tx: any) => {
           tx.executeSql(
             sql,
             params as any[],
-            (_, result) => resolve(transformResult(result)),
-            (_, error) => {
+            (_: any, result: any) => resolve(transformResult(result)),
+            (_: any, error: any) => {
               reject(error);
               return false;
             }
           );
         },
-        error => reject(error)
+        (error: any) => reject(error)
       );
     });
   }
 
-  async transaction<T>(fn: (executor: SQLiteExecutor) => Promise<T>): Promise<T> {
+  async transaction<T>(
+    fn: (executor: SQLiteExecutor) => Promise<T>
+  ): Promise<T> {
     const db = this.ensureDatabase();
     return new Promise<T>((resolve, reject) => {
       let resultValue: T;
       let pending: Promise<void> = Promise.resolve();
 
       db.transaction(
-        tx => {
+        (tx: any) => {
           const executor = new SQLiteTransactionExecutor(tx);
           pending = Promise.resolve(fn(executor)).then(value => {
             resultValue = value;
           });
         },
-        error => {
+        (error: any) => {
           reject(error);
         },
         () => {
@@ -293,7 +298,7 @@ export class SQLiteDatabaseProvider {
     });
   }
 
-  private ensureDatabase(): SQLite.WebSQLDatabase {
+  private ensureDatabase(): any {
     if (!this.database) {
       this.database = SQLite.openDatabase(this.config.databaseName);
     }
@@ -305,6 +310,9 @@ export class FileSystemService {
   async getInfo(uri: string): Promise<FileInfo> {
     try {
       const info = await FileSystem.getInfoAsync(uri);
+      if (!info.exists) {
+        return { exists: false, uri: info.uri };
+      }
       return {
         exists: info.exists,
         uri: info.uri,
@@ -325,7 +333,9 @@ export class FileSystemService {
     try {
       const info = await FileSystem.getInfoAsync(directoryUri);
       if (!info.exists) {
-        await FileSystem.makeDirectoryAsync(directoryUri, { intermediates: true });
+        await FileSystem.makeDirectoryAsync(directoryUri, {
+          intermediates: true,
+        });
       }
     } catch (error) {
       console.warn('[FileSystem] ensureDirectory error:', error);
@@ -344,7 +354,7 @@ export class FileSystemService {
         return {
           uri: localUri,
           status: 'completed',
-          bytesWritten: existing.size,
+          bytesWritten: existing.size ?? 0,
         };
       }
     }
@@ -380,7 +390,7 @@ function extractDirectory(fileUri: string): string {
   return normalized.slice(0, lastSlash);
 }
 
-function transformResult(result: SQLite.SQLResultSet): SQLiteResultSet {
+function transformResult(result: any): SQLiteResultSet {
   const rows: Record<string, unknown>[] = [];
   for (let index = 0; index < result.rows.length; index += 1) {
     rows.push(result.rows.item(index));

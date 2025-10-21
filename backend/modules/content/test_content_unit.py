@@ -9,15 +9,15 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 import uuid
 
-import pytest
-
 from fastapi import FastAPI, status
 from httpx import ASGITransport, AsyncClient
+import pytest
 
 from modules.content.models import LessonModel, UnitModel
 from modules.content.package_models import GlossaryTerm, LessonPackage, MCQAnswerKey, MCQExercise, MCQOption, Meta, Objective
 from modules.content.repo import ContentRepo
-from modules.content.routes import get_content_service, router as content_router
+from modules.content.routes import get_content_service
+from modules.content.routes import router as content_router
 from modules.content.service import ContentService, LessonCreate
 
 pytestmark = pytest.mark.asyncio
@@ -666,12 +666,15 @@ class _StubSyncService:
     """Minimal stub to capture sync calls from the FastAPI route."""
 
     def __init__(self) -> None:
-        self.args: tuple[
-            datetime | None,
-            int,
-            bool,
-            ContentService.UnitSyncPayload,
-        ] | None = None
+        self.args: (
+            tuple[
+                datetime | None,
+                int,
+                bool,
+                ContentService.UnitSyncPayload,
+            ]
+            | None
+        ) = None
 
     async def get_units_since(
         self,

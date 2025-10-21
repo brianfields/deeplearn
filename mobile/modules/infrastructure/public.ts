@@ -9,7 +9,6 @@ import {
   InfrastructureService,
   SQLiteDatabaseProvider,
   FileSystemService,
-  OLDEST_SUPPORTED_UNIT_SCHEMA,
 } from './service';
 import { Platform } from 'react-native';
 import type {
@@ -20,11 +19,6 @@ import type {
   NetworkStatus,
   InfrastructureHealth,
   SQLiteConfig,
-  SQLiteMigration,
-  SQLiteResultSet,
-  FileInfo,
-  FileDownloadOptions,
-  FileDownloadResult,
 } from './models';
 
 // Public interface protocol
