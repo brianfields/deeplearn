@@ -73,16 +73,16 @@
 
 ### Acceptance Criteria
 
-- [ ] Can configure Anthropic Direct API via `ANTHROPIC_API_KEY`
-- [ ] Can configure AWS Bedrock via AWS credentials and region
-- [ ] Can call `generate_response()` with `model="claude-haiku-4-5"` and get valid response
-- [ ] Can call `generate_structured_object()` with Claude models and get valid parsed objects
-- [ ] Calling unsupported operations (image/audio) with Claude models raises clear exceptions
-- [ ] All Claude requests are logged to `llm_requests` table with correct provider, model, tokens, and cost
+- [x] Can configure Anthropic Direct API via `ANTHROPIC_API_KEY`
+- [x] Can configure AWS Bedrock via AWS credentials and region
+- [x] Can call `generate_response()` with `model="claude-haiku-4-5"` and get valid response
+- [x] Can call `generate_structured_object()` with Claude models and get valid parsed objects
+- [x] Calling unsupported operations (image/audio) with Claude models raises clear exceptions
+- [x] All Claude requests are logged to `llm_requests` table with correct provider, model, tokens, and cost
 - [ ] Integration tests can specify Claude models and validate responses
-- [ ] Cost estimates use Claude pricing correctly
-- [ ] Admin dashboard shows Claude requests with model names
-- [ ] Flows and conversations can specify Claude models
+- [x] Cost estimates use Claude pricing correctly
+- [x] Admin dashboard shows Claude requests with model names
+- [x] Flows and conversations can specify Claude models
 
 ---
 

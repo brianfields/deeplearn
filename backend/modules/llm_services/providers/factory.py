@@ -7,6 +7,7 @@ from ..types import LLMProviderType
 from .base import LLMProvider
 
 # Import provider classes
+from .claude import AnthropicProvider, BedrockProvider
 from .openai import OpenAIProvider
 
 __all__ = ["LLMProviderError", "create_llm_provider"]
@@ -34,12 +35,13 @@ def create_llm_provider(config: LLMConfig, db_session: Session) -> LLMProvider:
     """
     if config.provider == LLMProviderType.OPENAI:
         return OpenAIProvider(config, db_session)
-    elif config.provider == LLMProviderType.AZURE_OPENAI:
+    if config.provider == LLMProviderType.AZURE_OPENAI:
         # Azure OpenAI uses the same provider with different base URL
         return OpenAIProvider(config, db_session)
-    elif config.provider == LLMProviderType.ANTHROPIC:
-        # TODO: Implement Anthropic provider
-        raise LLMProviderError("Anthropic provider not yet implemented")
+    if config.provider == LLMProviderType.ANTHROPIC:
+        return AnthropicProvider(config, db_session)
+    if config.provider == LLMProviderType.BEDROCK:
+        return BedrockProvider(config, db_session)
     else:
         raise LLMProviderError(f"Unsupported provider: {config.provider}")
 
@@ -54,4 +56,6 @@ def get_available_providers() -> list[LLMProviderType]:
     return [
         LLMProviderType.OPENAI,
         LLMProviderType.AZURE_OPENAI,
+        LLMProviderType.ANTHROPIC,
+        LLMProviderType.BEDROCK,
     ]

@@ -10,6 +10,13 @@ from .types import ImageQuality, LLMProviderType, WebSearchConfig
 __all__ = ["LLMConfig", "create_llm_config_from_env"]
 
 
+_CLAUDE_BEDROCK_MODEL_IDS = {
+    "claude-haiku-4-5": "anthropic.claude-haiku-4-5-v1:0",
+    "claude-sonnet-4-5": "anthropic.claude-sonnet-4-5-v1:0",
+    "claude-opus-4-1": "anthropic.claude-opus-4-1-v1:0",
+}
+
+
 class LLMConfig(BaseModel):
     """Configuration for LLM providers"""
 
@@ -17,6 +24,13 @@ class LLMConfig(BaseModel):
     model: str = Field(default="gpt-5", description="Model name to use")
     api_key: str | None = Field(default=None, description="API key for the provider")
     base_url: str | None = Field(default=None, description="Custom base URL for API calls")
+    anthropic_api_key: str | None = Field(default=None, description="Anthropic API key")
+    anthropic_model: str | None = Field(default=None, description="Default Claude model name")
+    aws_access_key_id: str | None = Field(default=None, description="AWS access key for Bedrock")
+    aws_secret_access_key: str | None = Field(default=None, description="AWS secret key for Bedrock")
+    aws_session_token: str | None = Field(default=None, description="AWS session token for Bedrock")
+    aws_region: str | None = Field(default=None, description="AWS region for Bedrock access")
+    bedrock_model_id: str | None = Field(default=None, description="Bedrock-specific model identifier")
     temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="Temperature for generation")
     max_output_tokens: int | None = Field(default=None, gt=0, description="Maximum output tokens per request")
     timeout: int = Field(default=180, gt=0, description="Request timeout in seconds")
@@ -71,11 +85,20 @@ class LLMConfig(BaseModel):
 
     def validate_config(self) -> bool:
         """Validate that configuration is complete and valid"""
-        if not self.api_key:
-            raise ValueError("API key is required")
+        if self.provider in {LLMProviderType.OPENAI, LLMProviderType.ANTHROPIC, LLMProviderType.AZURE_OPENAI} and not self.api_key:
+            raise ValueError("API key is required for OpenAI and Anthropic providers")
+
+        if self.provider == LLMProviderType.ANTHROPIC and not (self.anthropic_api_key or self.api_key):
+            raise ValueError("Anthropic provider requires ANTHROPIC_API_KEY to be set")
 
         if self.provider == LLMProviderType.AZURE_OPENAI and not self.base_url:
             raise ValueError("Azure OpenAI requires base_url to be set")
+
+        if self.provider == LLMProviderType.BEDROCK:
+            if not self.aws_region:
+                raise ValueError("Bedrock provider requires AWS region")
+            if not self.bedrock_model_id:
+                raise ValueError("Bedrock provider requires a model identifier")
 
         return True
 
@@ -84,7 +107,10 @@ class LLMConfig(BaseModel):
         return self.model_dump()
 
 
-def create_llm_config_from_env() -> LLMConfig:
+def create_llm_config_from_env(
+    provider_override: LLMProviderType | None = None,
+    model_override: str | None = None,
+) -> LLMConfig:
     """
     Create LLM configuration from environment variables.
 
@@ -113,12 +139,23 @@ def create_llm_config_from_env() -> LLMConfig:
         ValueError: If no API key is found or configuration is invalid
     """
     # Read environment variables
+    provider_hint = (provider_override.value if provider_override else os.getenv("LLM_PROVIDER", "")).lower()
     openai_api_key = os.getenv("OPENAI_API_KEY")
     openai_model = os.getenv("OPENAI_MODEL", "gpt-5")
     openai_base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
 
     azure_openai_api_key = os.getenv("AZURE_OPENAI_API_KEY")
     azure_openai_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+
+    anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
+    anthropic_model = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5")
+    anthropic_base_url = os.getenv("ANTHROPIC_BASE_URL", "https://api.anthropic.com")
+
+    aws_access_key_id = os.getenv("AWS_ACCESS_KEY_ID")
+    aws_secret_access_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+    aws_session_token = os.getenv("AWS_SESSION_TOKEN")
+    aws_region = os.getenv("AWS_REGION", "us-west-2")
+    bedrock_model_id = os.getenv("BEDROCK_MODEL_ID")
 
     temperature = float(os.getenv("TEMPERATURE", "0.7"))
     max_output_tokens_env = os.getenv("MAX_OUTPUT_TOKENS")
@@ -147,24 +184,93 @@ def create_llm_config_from_env() -> LLMConfig:
     log_level = os.getenv("LOG_LEVEL", "INFO")
     log_requests = os.getenv("LOG_REQUESTS", "true").lower() == "true"
 
-    # Determine provider based on available keys
-    if azure_openai_api_key and azure_openai_endpoint:
+    # Determine provider based on overrides and available credentials
+    provider: LLMProviderType
+    api_key: str | None = None
+    base_url: str | None = None
+    model_name: str
+
+    def wants(provider_type: LLMProviderType, *aliases: str) -> bool:
+        if provider_override is not None:
+            return provider_override == provider_type
+        normalized_hint = provider_hint
+        if normalized_hint and normalized_hint in aliases:
+            return True
+        return False
+
+    if provider_override == LLMProviderType.ANTHROPIC and not anthropic_api_key:
+        raise ValueError("ANTHROPIC_API_KEY must be set to use the Anthropic provider")
+    if provider_override == LLMProviderType.BEDROCK and not (aws_access_key_id and aws_secret_access_key) and not os.getenv("AWS_PROFILE"):
+        raise ValueError("AWS credentials are required to use the Bedrock provider")
+
+    if azure_openai_api_key and azure_openai_endpoint and wants(LLMProviderType.AZURE_OPENAI, "azure", "azure_openai"):
         provider = LLMProviderType.AZURE_OPENAI
         api_key = azure_openai_api_key
         base_url = azure_openai_endpoint
+        model_name = model_override or openai_model
+    elif wants(LLMProviderType.ANTHROPIC, "anthropic", "claude") and anthropic_api_key:
+        provider = LLMProviderType.ANTHROPIC
+        api_key = anthropic_api_key
+        base_url = anthropic_base_url
+        model_name = model_override or anthropic_model
+    elif wants(LLMProviderType.BEDROCK, "bedrock") and (aws_access_key_id and aws_secret_access_key or os.getenv("AWS_PROFILE")):
+        provider = LLMProviderType.BEDROCK
+        model_name = model_override or anthropic_model
+    elif azure_openai_api_key and azure_openai_endpoint and provider_override == LLMProviderType.AZURE_OPENAI:
+        provider = LLMProviderType.AZURE_OPENAI
+        api_key = azure_openai_api_key
+        base_url = azure_openai_endpoint
+        model_name = model_override or openai_model
+    elif anthropic_api_key and provider_override == LLMProviderType.ANTHROPIC:
+        provider = LLMProviderType.ANTHROPIC
+        api_key = anthropic_api_key
+        base_url = anthropic_base_url
+        model_name = model_override or anthropic_model
+    elif provider_override == LLMProviderType.BEDROCK and (aws_access_key_id and aws_secret_access_key or os.getenv("AWS_PROFILE")):
+        provider = LLMProviderType.BEDROCK
+        model_name = model_override or anthropic_model
+    elif azure_openai_api_key and azure_openai_endpoint:
+        provider = LLMProviderType.AZURE_OPENAI
+        api_key = azure_openai_api_key
+        base_url = azure_openai_endpoint
+        model_name = model_override or openai_model
+    elif anthropic_api_key and not openai_api_key:
+        provider = LLMProviderType.ANTHROPIC
+        api_key = anthropic_api_key
+        base_url = anthropic_base_url
+        model_name = model_override or anthropic_model
+    elif (aws_access_key_id and aws_secret_access_key) and not openai_api_key:
+        provider = LLMProviderType.BEDROCK
+        model_name = model_override or anthropic_model
     elif openai_api_key:
         provider = LLMProviderType.OPENAI
         api_key = openai_api_key
         base_url = openai_base_url
+        model_name = model_override or openai_model
     else:
-        raise ValueError("No API key found. Please set OPENAI_API_KEY or AZURE_OPENAI_API_KEY")
+        raise ValueError(
+            "No LLM provider credentials found. Please set OPENAI_API_KEY, AZURE_OPENAI_API_KEY, ANTHROPIC_API_KEY, or AWS credentials",
+        )
 
     # Create and validate config
+    resolved_bedrock_model_id = (
+        _CLAUDE_BEDROCK_MODEL_IDS.get(model_name, bedrock_model_id)
+        if provider == LLMProviderType.BEDROCK
+        else bedrock_model_id
+    )
+
     config = LLMConfig(
         provider=provider,
-        model=openai_model,
+        model=model_name,
         api_key=api_key,
         base_url=base_url,
+        anthropic_api_key=anthropic_api_key,
+        anthropic_model=anthropic_model,
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        aws_session_token=aws_session_token,
+        aws_region=aws_region if provider == LLMProviderType.BEDROCK else None,
+        bedrock_model_id=resolved_bedrock_model_id,
         temperature=temperature,
         max_output_tokens=max_output_tokens,
         timeout=request_timeout,
