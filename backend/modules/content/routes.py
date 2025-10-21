@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
+from datetime import datetime, timezone
 from typing import cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -49,6 +50,35 @@ async def list_units(
     """Return all units ordered by most recent update."""
 
     return await service.list_units(limit=limit, offset=offset)
+
+
+@router.get("/units/sync", response_model=ContentService.UnitSyncResponse)
+async def sync_units(
+    since: str | None = Query(
+        None,
+        description="ISO-8601 timestamp indicating the last successful sync",
+    ),
+    limit: int = Query(100, ge=1, le=500, description="Maximum number of units to inspect"),
+    include_deleted: bool = Query(False, description="Whether to include deletion tombstones"),
+    service: ContentService = Depends(get_content_service),
+) -> ContentService.UnitSyncResponse:
+    """Return units and lessons that have changed since the provided cursor."""
+
+    parsed_since: datetime | None = None
+    if since:
+        try:
+            parsed_since = datetime.fromisoformat(since)
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid since timestamp") from exc
+
+        if parsed_since.tzinfo is None:
+            parsed_since = parsed_since.replace(tzinfo=timezone.utc)
+
+    return await service.get_units_since(
+        since=parsed_since,
+        limit=limit,
+        include_deleted=include_deleted,
+    )
 
 
 @router.get("/units/personal", response_model=list[ContentService.UnitRead])

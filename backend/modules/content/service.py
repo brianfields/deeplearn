@@ -8,10 +8,10 @@ Handles content operations and data transformation.
 """
 
 # Import inside methods when needed to avoid circular imports with public/providers
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 import logging
-from typing import Any
+from typing import Any, Literal
 import uuid
 
 from pydantic import BaseModel, ConfigDict
@@ -53,6 +53,7 @@ class LessonRead(BaseModel):
     flow_run_id: uuid.UUID | None = None
     created_at: datetime
     updated_at: datetime
+    schema_version: int = 1
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -83,35 +84,46 @@ class ContentService:
         self._art_metadata_cache: dict[uuid.UUID, Any | None] = {}
 
     # Lesson operations
+    def _lesson_model_to_read(self, lesson: LessonModel) -> LessonRead:
+        """Convert an ORM lesson model into the LessonRead DTO."""
+
+        try:
+            package = LessonPackage.model_validate(lesson.package)
+        except Exception as exc:  # pragma: no cover - invalid persisted data
+            logger.error(
+                "❌ Failed to validate lesson %s (%s): %s",
+                lesson.id,
+                getattr(lesson, "title", "<unknown>"),
+                exc,
+            )
+            raise
+
+        lesson_dict = {
+            "id": lesson.id,
+            "title": lesson.title,
+            "learner_level": lesson.learner_level,
+            "unit_id": getattr(lesson, "unit_id", None),
+            "source_material": lesson.source_material,
+            "source_domain": getattr(lesson, "source_domain", None),
+            "source_level": getattr(lesson, "source_level", None),
+            "refined_material": getattr(lesson, "refined_material", None),
+            "package": package,
+            "package_version": lesson.package_version,
+            "flow_run_id": lesson.flow_run_id,
+            "created_at": lesson.created_at,
+            "updated_at": lesson.updated_at,
+            "schema_version": getattr(lesson, "schema_version", 1),
+        }
+
+        return LessonRead.model_validate(lesson_dict)
+
     async def get_lesson(self, lesson_id: str) -> LessonRead | None:
         """Get lesson with package by ID."""
         lesson = await self.repo.get_lesson_by_id(lesson_id)
         if not lesson:
             return None
 
-        try:
-            package = LessonPackage.model_validate(lesson.package)
-
-            lesson_dict = {
-                "id": lesson.id,
-                "title": lesson.title,
-                "learner_level": lesson.learner_level,
-                "unit_id": getattr(lesson, "unit_id", None),
-                "source_material": lesson.source_material,
-                "source_domain": getattr(lesson, "source_domain", None),
-                "source_level": getattr(lesson, "source_level", None),
-                "refined_material": getattr(lesson, "refined_material", None),
-                "package": package,
-                "package_version": lesson.package_version,
-                "flow_run_id": lesson.flow_run_id,
-                "created_at": lesson.created_at,
-                "updated_at": lesson.updated_at,
-            }
-
-            return LessonRead.model_validate(lesson_dict)
-        except Exception as e:
-            logger.error(f"❌ Failed to validate lesson {lesson.id} ({lesson.title}): {e}")
-            raise
+        return self._lesson_model_to_read(lesson)
 
     async def get_all_lessons(self, limit: int = 100, offset: int = 0) -> list[LessonRead]:
         """Get all lessons with packages."""
@@ -136,6 +148,7 @@ class ContentService:
                     "flow_run_id": lesson.flow_run_id,
                     "created_at": lesson.created_at,
                     "updated_at": lesson.updated_at,
+                    "schema_version": getattr(lesson, "schema_version", 1),
                 }
 
                 result.append(LessonRead.model_validate(lesson_dict))
@@ -174,6 +187,7 @@ class ContentService:
                     "flow_run_id": lesson.flow_run_id,
                     "created_at": lesson.created_at,
                     "updated_at": lesson.updated_at,
+                    "schema_version": getattr(lesson, "schema_version", 1),
                 }
 
                 result.append(LessonRead.model_validate(lesson_dict))
@@ -204,6 +218,7 @@ class ContentService:
                     "flow_run_id": lesson.flow_run_id,
                     "created_at": lesson.created_at,
                     "updated_at": lesson.updated_at,
+                    "schema_version": getattr(lesson, "schema_version", 1),
                 }
                 result.append(LessonRead.model_validate(lesson_dict))
             except Exception as e:  # pragma: no cover - defensive
@@ -244,6 +259,7 @@ class ContentService:
             "flow_run_id": saved_lesson.flow_run_id,
             "created_at": saved_lesson.created_at,
             "updated_at": saved_lesson.updated_at,
+            "schema_version": getattr(saved_lesson, "schema_version", 1),
         }
 
         try:
@@ -293,6 +309,7 @@ class ContentService:
         art_image_url: str | None = None
         created_at: datetime
         updated_at: datetime
+        schema_version: int = 1
 
         model_config = ConfigDict(from_attributes=True)
 
@@ -311,6 +328,33 @@ class ContentService:
         podcast_audio_url: str | None = None
 
         model_config = ConfigDict(from_attributes=True)
+
+    class UnitSyncAsset(BaseModel):
+        """Metadata describing a downloadable asset for an offline unit."""
+
+        id: str
+        unit_id: str
+        type: Literal["audio", "image"]
+        object_id: uuid.UUID | None = None
+        remote_url: str | None = None
+        presigned_url: str | None = None
+        updated_at: datetime | None = None
+        schema_version: int = 1
+
+    class UnitSyncEntry(BaseModel):
+        """Unit payload returned from the sync endpoint."""
+
+        unit: ContentService.UnitRead
+        lessons: list[LessonRead]
+        assets: list[ContentService.UnitSyncAsset]
+
+    class UnitSyncResponse(BaseModel):
+        """Full sync response payload describing unit changes."""
+
+        units: list[ContentService.UnitSyncEntry]
+        deleted_unit_ids: list[str]
+        deleted_lesson_ids: list[str]
+        cursor: datetime
 
     class UnitCreate(BaseModel):
         id: str | None = None
@@ -340,6 +384,7 @@ class ContentService:
         include_art_presigned_url: bool = True,
     ) -> ContentService.UnitRead:
         unit_read = self.UnitRead.model_validate(unit)
+        unit_read.schema_version = getattr(unit, "schema_version", 1)
         await self._apply_podcast_metadata(unit_read, unit, audio_meta=audio_meta)
         await self._apply_artwork_metadata(
             unit_read,
@@ -417,6 +462,81 @@ class ContentService:
             return
 
         unit_read.art_image_url = getattr(metadata, "presigned_url", None)
+
+    async def _build_unit_assets(
+        self,
+        unit: UnitModel,
+        unit_read: ContentService.UnitRead,
+    ) -> list[ContentService.UnitSyncAsset]:
+        """Construct asset metadata for the sync payload."""
+
+        assets: list[ContentService.UnitSyncAsset] = []
+
+        audio_identifier = getattr(unit, "podcast_audio_object_id", None)
+        if audio_identifier:
+            try:
+                audio_uuid = (
+                    audio_identifier
+                    if isinstance(audio_identifier, uuid.UUID)
+                    else uuid.UUID(str(audio_identifier))
+                )
+            except (TypeError, ValueError):  # pragma: no cover - defensive
+                logger.warning("🎧 Invalid podcast audio id encountered: %s", audio_identifier)
+            else:
+                presigned_audio: str | None = None
+                if self._object_store is not None:
+                    metadata = await self._fetch_audio_metadata(
+                        audio_uuid,
+                        requesting_user_id=getattr(unit, "user_id", None),
+                        include_presigned_url=True,
+                    )
+                    presigned_audio = getattr(metadata, "presigned_url", None)
+
+                assets.append(
+                    self.UnitSyncAsset(
+                        id=str(audio_uuid),
+                        unit_id=unit.id,
+                        type="audio",
+                        object_id=audio_uuid,
+                        remote_url=self._build_podcast_audio_url(unit),
+                        presigned_url=presigned_audio,
+                        updated_at=getattr(unit, "podcast_generated_at", unit.updated_at),
+                    )
+                )
+
+        art_identifier = getattr(unit, "art_image_id", None)
+        if art_identifier:
+            try:
+                art_uuid = (
+                    art_identifier
+                    if isinstance(art_identifier, uuid.UUID)
+                    else uuid.UUID(str(art_identifier))
+                )
+            except (TypeError, ValueError):  # pragma: no cover - defensive
+                logger.warning("🖼️ Invalid unit artwork id encountered: %s", art_identifier)
+            else:
+                presigned_art: str | None = None
+                if self._object_store is not None:
+                    metadata = await self._fetch_image_metadata(
+                        art_uuid,
+                        requesting_user_id=getattr(unit, "user_id", None),
+                        include_presigned_url=True,
+                    )
+                    presigned_art = getattr(metadata, "presigned_url", None)
+
+                assets.append(
+                    self.UnitSyncAsset(
+                        id=str(art_uuid),
+                        unit_id=unit.id,
+                        type="image",
+                        object_id=art_uuid,
+                        remote_url=unit_read.art_image_url,
+                        presigned_url=presigned_art or unit_read.art_image_url,
+                        updated_at=unit.updated_at,
+                    )
+                )
+
+        return assets
 
     async def _fetch_audio_metadata(
         self,
@@ -717,6 +837,110 @@ class ContentService:
         for unit in arr:
             results.append(await self._build_unit_read(unit))
         return results
+
+    async def get_units_since(
+        self,
+        *,
+        since: datetime | None,
+        limit: int = 100,
+        include_deleted: bool = False,
+    ) -> ContentService.UnitSyncResponse:
+        """Return units and lessons that changed since the provided timestamp."""
+
+        units = await self.repo.get_units_updated_since(since, limit=limit)
+        unit_by_id: dict[str, UnitModel] = {unit.id: unit for unit in units}
+
+        lessons_by_unit: dict[str, dict[str, LessonModel]] = {}
+        base_lessons = await self.repo.get_lessons_for_unit_ids(unit_by_id.keys())
+        for lesson in base_lessons:
+            if not lesson.unit_id:
+                continue
+            bucket = lessons_by_unit.setdefault(lesson.unit_id, {})
+            existing = bucket.get(lesson.id)
+            if existing is None or existing.updated_at < lesson.updated_at:
+                bucket[lesson.id] = lesson
+
+        if since is not None:
+            recent_lessons = await self.repo.get_lessons_updated_since(since, limit=limit)
+            for lesson in recent_lessons:
+                if not lesson.unit_id:
+                    continue
+                if lesson.unit_id not in unit_by_id:
+                    unit = await self.repo.get_unit_by_id(lesson.unit_id)
+                    if unit is not None:
+                        unit_by_id[unit.id] = unit
+                        units.append(unit)
+                bucket = lessons_by_unit.setdefault(lesson.unit_id, {})
+                existing = bucket.get(lesson.id)
+                if existing is None or existing.updated_at < lesson.updated_at:
+                    bucket[lesson.id] = lesson
+
+        entries: list[ContentService.UnitSyncEntry] = []
+        cursor_candidates: list[datetime] = []
+
+        for unit in units:
+            unit_read = await self._build_unit_read(unit, include_art_presigned_url=True)
+            unit_read.schema_version = getattr(unit, "schema_version", 1)
+            cursor_candidates.append(unit.updated_at)
+
+            lesson_bucket = lessons_by_unit.get(unit.id, {})
+            ordered_ids = list(getattr(unit, "lesson_order", []) or [])
+            ordered_models: list[LessonModel] = []
+            seen_ids: set[str] = set()
+
+            for lesson_id in ordered_ids:
+                model = lesson_bucket.get(lesson_id)
+                if model is None:
+                    continue
+                ordered_models.append(model)
+                seen_ids.add(model.id)
+
+            remaining_models = [
+                model
+                for model_id, model in lesson_bucket.items()
+                if model_id not in seen_ids
+            ]
+            remaining_models.sort(key=lambda model: model.updated_at)
+            ordered_models.extend(remaining_models)
+
+            lesson_reads: list[LessonRead] = []
+            for model in ordered_models:
+                try:
+                    lesson_read = self._lesson_model_to_read(model)
+                except Exception:  # pragma: no cover - helper already logged
+                    continue
+                lesson_reads.append(lesson_read)
+                cursor_candidates.append(model.updated_at)
+
+            assets = await self._build_unit_assets(unit, unit_read)
+
+            entries.append(
+                self.UnitSyncEntry(
+                    unit=unit_read,
+                    lessons=lesson_reads,
+                    assets=assets,
+                )
+            )
+
+        cursor = (
+            max(cursor_candidates)
+            if cursor_candidates
+            else (since if since is not None else datetime.now(tz=timezone.utc))
+        )
+
+        deleted_unit_ids: list[str] = []
+        deleted_lesson_ids: list[str] = []
+        if include_deleted:
+            # Tombstones are not yet tracked; keep placeholders for forward compatibility.
+            deleted_unit_ids = []
+            deleted_lesson_ids = []
+
+        return self.UnitSyncResponse(
+            units=entries,
+            deleted_unit_ids=deleted_unit_ids,
+            deleted_lesson_ids=deleted_lesson_ids,
+            cursor=cursor,
+        )
 
     async def list_units_for_user(self, user_id: int, *, limit: int = 100, offset: int = 0) -> list[ContentService.UnitRead]:
         """Return units owned by a specific user."""

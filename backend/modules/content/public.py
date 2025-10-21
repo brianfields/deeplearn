@@ -1,5 +1,6 @@
 """Protocol definition and dependency injection provider for the content module."""
 
+from datetime import datetime
 from typing import Any, Protocol
 import uuid
 
@@ -54,6 +55,13 @@ class ContentProvider(Protocol):
         limit: int = 100,
         offset: int = 0,
     ) -> list[ContentService.UnitRead]: ...
+    async def get_units_since(
+        self,
+        *,
+        since: datetime | None,
+        limit: int = 100,
+        include_deleted: bool = False,
+    ) -> ContentService.UnitSyncResponse: ...
     async def update_unit_status(
         self,
         unit_id: str,
@@ -127,6 +135,7 @@ UnitRead = ContentService.UnitRead
 UnitDetailRead = ContentService.UnitDetailRead
 UnitPodcastAudio = ContentService.UnitPodcastAudio
 UnitSessionRead = ContentService.UnitSessionRead
+UnitSyncResponse = ContentService.UnitSyncResponse
 
 __all__ = [
     "ContentProvider",
@@ -137,6 +146,7 @@ __all__ = [
     "UnitPodcastAudio",
     "UnitRead",
     "UnitSessionRead",
+    "UnitSyncResponse",
     "UnitStatus",
     "content_provider",
 ]

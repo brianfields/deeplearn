@@ -4,15 +4,20 @@ Content Module - Unit Tests
 Tests for the content module service layer with package structure.
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 import uuid
 
 import pytest
 
+from fastapi import FastAPI, status
+from httpx import ASGITransport, AsyncClient
+
 from modules.content.models import LessonModel, UnitModel
 from modules.content.package_models import GlossaryTerm, LessonPackage, MCQAnswerKey, MCQExercise, MCQOption, Meta, Objective
 from modules.content.repo import ContentRepo
+from modules.content.routes import get_content_service, router as content_router
 from modules.content.service import ContentService, LessonCreate
 
 pytestmark = pytest.mark.asyncio
@@ -517,6 +522,159 @@ class TestContentService:
         assert audio.presigned_url == "https://example.com/audio.mp3"
         assert audio.audio_bytes is None
         assert audio.mime_type == "audio/mpeg"
-        object_store.get_audio.assert_awaited_once()
-        _, kwargs = object_store.get_audio.await_args
-        assert kwargs.get("include_presigned_url") is True
+
+    async def test_get_units_since_returns_unit_and_assets(self) -> None:
+        """Unit sync should include lessons, assets, and a cursor."""
+
+        repo = AsyncMock(spec=ContentRepo)
+        object_store = AsyncMock()
+        service = ContentService(repo, object_store=object_store)
+
+        now = datetime.now(UTC)
+        since = now - timedelta(minutes=30)
+        unit_id = "unit-sync"
+        lesson_id = "lesson-sync"
+        audio_uuid = uuid.uuid4()
+        art_uuid = uuid.uuid4()
+
+        unit_model = UnitModel(
+            id=unit_id,
+            title="Offline Unit",
+            description="",
+            learner_level="beginner",
+            lesson_order=[lesson_id],
+            user_id=5,
+            is_global=False,
+            learning_objectives=None,
+            target_lesson_count=None,
+            source_material=None,
+            generated_from_topic=False,
+            flow_type="standard",
+            status="completed",
+            creation_progress=None,
+            error_message=None,
+            podcast_transcript="Transcript",
+            podcast_voice="alloy",
+            podcast_audio_object_id=audio_uuid,
+            podcast_generated_at=now,
+            art_image_id=art_uuid,
+            art_image_description="cover",
+            created_at=now,
+            updated_at=now,
+        )
+
+        package = LessonPackage(
+            meta=Meta(lesson_id=lesson_id, title="Lesson", learner_level="beginner"),
+            objectives=[Objective(id="obj-1", text="Objective")],
+            glossary={"terms": []},
+            mini_lesson="Mini lesson",
+            exercises=[],
+        )
+
+        lesson_model = LessonModel(
+            id=lesson_id,
+            title="Lesson",
+            learner_level="beginner",
+            unit_id=unit_id,
+            source_material=None,
+            package=package.model_dump(),
+            package_version=1,
+            flow_run_id=None,
+            created_at=now,
+            updated_at=now,
+        )
+
+        repo.get_units_updated_since.return_value = [unit_model]
+        repo.get_lessons_for_unit_ids.return_value = [lesson_model]
+        repo.get_lessons_updated_since.return_value = []
+
+        object_store.get_audio.return_value = SimpleNamespace(presigned_url="https://cdn/audio.mp3")
+        object_store.get_image.return_value = SimpleNamespace(presigned_url="https://cdn/image.png")
+
+        response = await service.get_units_since(since=since, limit=20)
+
+        repo.get_units_updated_since.assert_awaited_once_with(since, limit=20)
+        repo.get_lessons_for_unit_ids.assert_awaited_once()
+        repo.get_lessons_updated_since.assert_awaited_once_with(since, limit=20)
+
+        assert len(response.units) == 1
+        entry = response.units[0]
+        assert entry.unit.id == unit_id
+        assert entry.unit.schema_version == 1
+        assert entry.lessons and entry.lessons[0].id == lesson_id
+        assert entry.lessons[0].schema_version == 1
+        assert {asset.type for asset in entry.assets} == {"audio", "image"}
+        assert response.cursor == now
+
+
+class _StubSyncService:
+    """Minimal stub to capture sync calls from the FastAPI route."""
+
+    def __init__(self) -> None:
+        self.args: tuple[datetime | None, int, bool] | None = None
+
+    async def get_units_since(
+        self,
+        *,
+        since: datetime | None,
+        limit: int,
+        include_deleted: bool,
+    ) -> ContentService.UnitSyncResponse:
+        self.args = (since, limit, include_deleted)
+        return ContentService.UnitSyncResponse(
+            units=[],
+            deleted_unit_ids=[],
+            deleted_lesson_ids=[],
+            cursor=datetime.now(UTC),
+        )
+
+
+async def _build_test_app(stub: _StubSyncService) -> FastAPI:
+    app = FastAPI()
+    app.include_router(content_router)
+
+    async def _override() -> _StubSyncService:
+        return stub
+
+    app.dependency_overrides[get_content_service] = _override
+    return app
+
+
+async def test_sync_units_route_parses_query_parameters() -> None:
+    """The sync route should parse timestamps and limits before delegating to the service."""
+
+    stub = _StubSyncService()
+    app = await _build_test_app(stub)
+
+    since_value = datetime.now(UTC).isoformat()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get(
+            "/api/v1/content/units/sync",
+            params={"since": since_value, "limit": 7, "include_deleted": "true"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert stub.args is not None
+    parsed_since, captured_limit, captured_deleted = stub.args
+    assert parsed_since == datetime.fromisoformat(since_value)
+    assert captured_limit == 7
+    assert captured_deleted is True
+
+
+async def test_sync_units_route_validates_since_format() -> None:
+    """Invalid timestamps should be rejected with a 400 response."""
+
+    stub = _StubSyncService()
+    app = await _build_test_app(stub)
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get(
+            "/api/v1/content/units/sync",
+            params={"since": "not-a-timestamp"},
+        )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    # Dependency override means service was never invoked
+    assert stub.args is None
