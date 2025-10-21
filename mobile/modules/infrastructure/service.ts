@@ -6,6 +6,8 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SQLite from 'expo-sqlite';
+import * as FileSystem from 'expo-file-system';
 import { InfrastructureRepo } from './repo';
 import type {
   HttpClientConfig,
@@ -14,11 +16,19 @@ import type {
   StorageStats,
   NetworkStatus,
   InfrastructureHealth,
+  SQLiteConfig,
+  SQLiteMigration,
+  SQLiteResultSet,
+  FileInfo,
+  FileDownloadResult,
+  FileDownloadOptions,
 } from './models';
 
 export class InfrastructureService {
   private repo: InfrastructureRepo;
   private storageConfig: StorageConfig;
+  private sqliteProviders: Map<string, SQLiteDatabaseProvider> = new Map();
+  private fileSystemService: FileSystemService | null = null;
 
   constructor(httpConfig: HttpClientConfig, storageConfig: StorageConfig) {
     this.repo = new InfrastructureRepo(httpConfig);
@@ -118,6 +128,28 @@ export class InfrastructureService {
     }
   }
 
+  async createSQLiteProvider(
+    config: SQLiteConfig
+  ): Promise<SQLiteDatabaseProvider> {
+    const existingProvider = this.sqliteProviders.get(config.databaseName);
+    if (existingProvider) {
+      await existingProvider.initialize();
+      return existingProvider;
+    }
+
+    const provider = new SQLiteDatabaseProvider(config);
+    await provider.initialize();
+    this.sqliteProviders.set(config.databaseName, provider);
+    return provider;
+  }
+
+  getFileSystem(): FileSystemService {
+    if (!this.fileSystemService) {
+      this.fileSystemService = new FileSystemService();
+    }
+    return this.fileSystemService;
+  }
+
   private async checkStorageHealth(): Promise<boolean> {
     try {
       const testKey = `${this.storageConfig.prefix}health_check`;
@@ -132,4 +164,231 @@ export class InfrastructureService {
       return false;
     }
   }
+}
+
+export interface SQLiteExecutor {
+  execute(sql: string, params?: unknown[]): Promise<SQLiteResultSet>;
+}
+
+class SQLiteTransactionExecutor implements SQLiteExecutor {
+  private transaction: SQLite.SQLTransaction;
+
+  constructor(transaction: SQLite.SQLTransaction) {
+    this.transaction = transaction;
+  }
+
+  execute(sql: string, params: unknown[] = []): Promise<SQLiteResultSet> {
+    return new Promise((resolve, reject) => {
+      this.transaction.executeSql(
+        sql,
+        params as any[],
+        (_, result) => resolve(transformResult(result)),
+        (_, error) => {
+          reject(error);
+          return false;
+        }
+      );
+    });
+  }
+}
+
+export class SQLiteDatabaseProvider {
+  private config: SQLiteConfig;
+  private database: SQLite.WebSQLDatabase | null = null;
+  private initialized = false;
+
+  constructor(config: SQLiteConfig) {
+    this.config = config;
+  }
+
+  async initialize(): Promise<void> {
+    if (this.initialized) {
+      return;
+    }
+
+    if (!this.database) {
+      this.database = SQLite.openDatabase(this.config.databaseName);
+    }
+
+    if (this.config.enableForeignKeys) {
+      await this.transaction(async executor => {
+        await executor.execute('PRAGMA foreign_keys = ON;');
+      });
+    }
+
+    await this.runMigrations();
+    this.initialized = true;
+  }
+
+  async execute(sql: string, params: unknown[] = []): Promise<SQLiteResultSet> {
+    const db = this.ensureDatabase();
+    return new Promise((resolve, reject) => {
+      db.readTransaction(
+        tx => {
+          tx.executeSql(
+            sql,
+            params as any[],
+            (_, result) => resolve(transformResult(result)),
+            (_, error) => {
+              reject(error);
+              return false;
+            }
+          );
+        },
+        error => reject(error)
+      );
+    });
+  }
+
+  async transaction<T>(fn: (executor: SQLiteExecutor) => Promise<T>): Promise<T> {
+    const db = this.ensureDatabase();
+    return new Promise<T>((resolve, reject) => {
+      let resultValue: T;
+      let pending: Promise<void> = Promise.resolve();
+
+      db.transaction(
+        tx => {
+          const executor = new SQLiteTransactionExecutor(tx);
+          pending = Promise.resolve(fn(executor)).then(value => {
+            resultValue = value;
+          });
+        },
+        error => {
+          reject(error);
+        },
+        () => {
+          pending.then(() => resolve(resultValue)).catch(reject);
+        }
+      );
+    });
+  }
+
+  async close(): Promise<void> {
+    if (this.database && typeof (this.database as any).close === 'function') {
+      try {
+        (this.database as any).close();
+      } catch (error) {
+        console.warn('[SQLite] Close error:', error);
+      }
+    }
+    this.database = null;
+    this.initialized = false;
+  }
+
+  private async runMigrations(): Promise<void> {
+    const migrations: SQLiteMigration[] = [...this.config.migrations].sort(
+      (a, b) => a.id - b.id
+    );
+
+    if (migrations.length === 0) {
+      return;
+    }
+
+    await this.transaction(async executor => {
+      for (const migration of migrations) {
+        for (const statement of migration.statements) {
+          await executor.execute(statement);
+        }
+      }
+    });
+  }
+
+  private ensureDatabase(): SQLite.WebSQLDatabase {
+    if (!this.database) {
+      this.database = SQLite.openDatabase(this.config.databaseName);
+    }
+    return this.database;
+  }
+}
+
+export class FileSystemService {
+  async getInfo(uri: string): Promise<FileInfo> {
+    try {
+      const info = await FileSystem.getInfoAsync(uri);
+      return {
+        exists: info.exists,
+        uri: info.uri,
+        size: info.size,
+        modificationTime: info.modificationTime ?? undefined,
+      };
+    } catch (error) {
+      console.warn('[FileSystem] getInfo error:', error);
+      return { exists: false };
+    }
+  }
+
+  async ensureDirectory(directoryUri: string): Promise<void> {
+    if (!directoryUri) {
+      return;
+    }
+
+    try {
+      const info = await FileSystem.getInfoAsync(directoryUri);
+      if (!info.exists) {
+        await FileSystem.makeDirectoryAsync(directoryUri, { intermediates: true });
+      }
+    } catch (error) {
+      console.warn('[FileSystem] ensureDirectory error:', error);
+      throw error;
+    }
+  }
+
+  async downloadFile(
+    remoteUri: string,
+    localUri: string,
+    options: FileDownloadOptions = {}
+  ): Promise<FileDownloadResult> {
+    if (options.skipIfExists) {
+      const existing = await this.getInfo(localUri);
+      if (existing.exists) {
+        return {
+          uri: localUri,
+          status: 'completed',
+          bytesWritten: existing.size,
+        };
+      }
+    }
+
+    const directory = extractDirectory(localUri);
+    await this.ensureDirectory(directory);
+
+    const result = await FileSystem.downloadAsync(remoteUri, localUri);
+    return {
+      uri: result.uri,
+      status: result.status === 200 ? 'completed' : 'failed',
+      bytesWritten: (result as any).bytesWritten,
+    };
+  }
+
+  async deleteFile(localUri: string): Promise<void> {
+    try {
+      await FileSystem.deleteAsync(localUri, { idempotent: true });
+    } catch (error) {
+      console.warn('[FileSystem] deleteFile error:', error);
+    }
+  }
+}
+
+export const OLDEST_SUPPORTED_UNIT_SCHEMA = 1;
+
+function extractDirectory(fileUri: string): string {
+  const normalized = fileUri.replace(/\\/g, '/');
+  const lastSlash = normalized.lastIndexOf('/');
+  if (lastSlash === -1) {
+    return normalized;
+  }
+  return normalized.slice(0, lastSlash);
+}
+
+function transformResult(result: SQLite.SQLResultSet): SQLiteResultSet {
+  const rows: Record<string, unknown>[] = [];
+  for (let index = 0; index < result.rows.length; index += 1) {
+    rows.push(result.rows.item(index));
+  }
+
+  return {
+    rows,
+    rowsAffected: result.rowsAffected ?? 0,
+    insertId: result.insertId ?? null,
+  };
 }

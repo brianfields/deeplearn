@@ -60,3 +60,38 @@ export interface InfrastructureHealth {
   network: boolean;
   timestamp: number;
 }
+
+// SQLite helpers
+export interface SQLiteMigration {
+  id: number;
+  statements: string[];
+}
+
+export interface SQLiteConfig {
+  databaseName: string;
+  migrations: SQLiteMigration[];
+  enableForeignKeys?: boolean;
+}
+
+export interface SQLiteResultSet<T = Record<string, unknown>> {
+  rows: T[];
+  rowsAffected: number;
+  insertId?: number | null;
+}
+
+export interface FileInfo {
+  exists: boolean;
+  uri?: string;
+  size?: number;
+  modificationTime?: number;
+}
+
+export interface FileDownloadOptions {
+  skipIfExists?: boolean;
+}
+
+export interface FileDownloadResult {
+  uri: string;
+  status: 'completed' | 'failed';
+  bytesWritten?: number;
+}
