@@ -154,7 +154,7 @@ def estimate_claude_cost(model: str, input_tokens: int, output_tokens: int) -> f
 def _ensure_iterable(value: Any) -> Iterable[Any]:
     if value is None:
         return []
-    if isinstance(value, Iterable) and not isinstance(value, (str, bytes, dict)):
+    if isinstance(value, Iterable) and not isinstance(value, str | bytes | dict):
         return value
     return [value]
 
@@ -209,7 +209,7 @@ def convert_to_claude_messages(messages: list[LLMMessage]) -> tuple[str | None, 
 def _to_serializable(obj: Any) -> Any:
     if obj is None:
         return None
-    if isinstance(obj, (str, int, float, bool)):
+    if isinstance(obj, str | int | float | bool):
         return obj
     if isinstance(obj, dict):
         return {k: _to_serializable(v) for k, v in obj.items()}
@@ -543,10 +543,7 @@ class BedrockProvider(ClaudeProviderBase):
                 raise LLMError(f"Bedrock invocation failed: {exc}") from exc
 
             body = response.get("body")
-            if hasattr(body, "read"):
-                raw = body.read()
-            else:
-                raw = body
+            raw = body.read() if hasattr(body, "read") else body
             try:
                 return json.loads(raw)
             except Exception as exc:  # pragma: no cover - defensive

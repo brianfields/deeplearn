@@ -194,9 +194,7 @@ def create_llm_config_from_env(
         if provider_override is not None:
             return provider_override == provider_type
         normalized_hint = provider_hint
-        if normalized_hint and normalized_hint in aliases:
-            return True
-        return False
+        return bool(normalized_hint and normalized_hint in aliases)
 
     if provider_override == LLMProviderType.ANTHROPIC and not anthropic_api_key:
         raise ValueError("ANTHROPIC_API_KEY must be set to use the Anthropic provider")
@@ -213,7 +211,7 @@ def create_llm_config_from_env(
         api_key = anthropic_api_key
         base_url = anthropic_base_url
         model_name = model_override or anthropic_model
-    elif wants(LLMProviderType.BEDROCK, "bedrock") and (aws_access_key_id and aws_secret_access_key or os.getenv("AWS_PROFILE")):
+    elif wants(LLMProviderType.BEDROCK, "bedrock") and ((aws_access_key_id and aws_secret_access_key) or os.getenv("AWS_PROFILE")):
         provider = LLMProviderType.BEDROCK
         model_name = model_override or anthropic_model
     elif azure_openai_api_key and azure_openai_endpoint and provider_override == LLMProviderType.AZURE_OPENAI:
@@ -226,7 +224,7 @@ def create_llm_config_from_env(
         api_key = anthropic_api_key
         base_url = anthropic_base_url
         model_name = model_override or anthropic_model
-    elif provider_override == LLMProviderType.BEDROCK and (aws_access_key_id and aws_secret_access_key or os.getenv("AWS_PROFILE")):
+    elif provider_override == LLMProviderType.BEDROCK and ((aws_access_key_id and aws_secret_access_key) or os.getenv("AWS_PROFILE")):
         provider = LLMProviderType.BEDROCK
         model_name = model_override or anthropic_model
     elif azure_openai_api_key and azure_openai_endpoint:
@@ -253,11 +251,7 @@ def create_llm_config_from_env(
         )
 
     # Create and validate config
-    resolved_bedrock_model_id = (
-        _CLAUDE_BEDROCK_MODEL_IDS.get(model_name, bedrock_model_id)
-        if provider == LLMProviderType.BEDROCK
-        else bedrock_model_id
-    )
+    resolved_bedrock_model_id = _CLAUDE_BEDROCK_MODEL_IDS.get(model_name, bedrock_model_id) if provider == LLMProviderType.BEDROCK else bedrock_model_id
 
     config = LLMConfig(
         provider=provider,

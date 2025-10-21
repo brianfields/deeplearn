@@ -157,7 +157,7 @@ class BaseConversation:
         """
         # Get the file path where the conversation subclass is defined
         # Use inspect to get the actual file of the subclass, not BaseConversation
-        import inspect
+        import inspect  # noqa: PLC0415
 
         conversation_file = inspect.getfile(self.__class__)
         conversation_dir = Path(conversation_file).parent

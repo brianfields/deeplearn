@@ -271,10 +271,15 @@ class LLMService:
                     return self._ensure_provider(candidate)
             raise RuntimeError("Claude provider is not configured")
 
-        if model and model.startswith("gpt-") and self._default_provider_type not in {
-            LLMProviderType.OPENAI,
-            LLMProviderType.AZURE_OPENAI,
-        }:
+        if (
+            model
+            and model.startswith("gpt-")
+            and self._default_provider_type
+            not in {
+                LLMProviderType.OPENAI,
+                LLMProviderType.AZURE_OPENAI,
+            }
+        ):
             with contextlib.suppress(RuntimeError):
                 return self._ensure_provider(LLMProviderType.OPENAI)
 

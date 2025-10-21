@@ -8,8 +8,8 @@ import json
 from typing import Any
 import uuid
 
-import pytest
 from pydantic import BaseModel
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -23,10 +23,8 @@ from modules.llm_services.providers.claude import (
 )
 from modules.llm_services.repo import LLMRequestRepo
 from modules.llm_services.service import LLMMessage, LLMService
-from modules.llm_services.types import LLMProviderType, LLMResponse, MessageRole
 from modules.llm_services.types import LLMMessage as InternalLLMMessage
-from modules.shared_models import Base
-from modules.user.models import UserModel
+from modules.llm_services.types import LLMProviderType, LLMResponse, MessageRole
 from modules.shared_models import Base
 from modules.user.models import UserModel
 
@@ -185,7 +183,7 @@ async def test_anthropic_provider_generates_text_response(db_session: Session, m
     )
     provider = AnthropicProvider(config, db_session)
 
-    async def _fake_execute(self: AnthropicProvider, **_: Any) -> ClaudeRequestResult:
+    async def _fake_execute(self: AnthropicProvider, **_: Any) -> ClaudeRequestResult:  # noqa: ARG001
         return ClaudeRequestResult(
             text="Hello from Claude",
             input_tokens=120,
@@ -221,7 +219,7 @@ async def test_anthropic_provider_structured_output(db_session: Session, monkeyp
     )
     provider = AnthropicProvider(config, db_session)
 
-    async def _fake_execute(self: AnthropicProvider, **_: Any) -> ClaudeRequestResult:
+    async def _fake_execute(self: AnthropicProvider, **_: Any) -> ClaudeRequestResult:  # noqa: ARG001
         return ClaudeRequestResult(
             text=json.dumps({"title": "Structured"}),
             input_tokens=150,
