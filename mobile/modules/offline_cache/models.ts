@@ -10,6 +10,34 @@ export type DownloadStatus = 'idle' | 'pending' | 'completed' | 'failed';
 
 export type AssetType = 'audio' | 'image';
 
+export interface OfflineUnitSummaryPayload {
+  id: string;
+  title: string;
+  description?: string | null;
+  learner_level?: string;
+  lesson_order?: string[];
+  user_id?: number | null;
+  is_global?: boolean;
+  learning_objectives?: unknown;
+  target_lesson_count?: number | null;
+  source_material?: string | null;
+  generated_from_topic?: boolean;
+  flow_type?: string;
+  status?: string;
+  creation_progress?: unknown;
+  error_message?: string | null;
+  has_podcast?: boolean;
+  podcast_voice?: string | null;
+  podcast_duration_seconds?: number | null;
+  podcast_audio_url?: string | null;
+  podcast_transcript?: string | null;
+  art_image_url?: string | null;
+  art_image_description?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  schema_version?: number;
+}
+
 export interface CachedUnit {
   id: string;
   title: string;
@@ -22,6 +50,7 @@ export interface CachedUnit {
   cacheMode: CacheMode;
   downloadedAt?: number | null;
   syncedAt?: number | null;
+  unitPayload?: OfflineUnitSummaryPayload | null;
 }
 
 export interface CachedLesson {
@@ -49,6 +78,19 @@ export interface CachedAsset {
 export interface CachedUnitDetail extends CachedUnit {
   lessons: CachedLesson[];
   assets: CachedAsset[];
+}
+
+export interface CachedUnitMetrics extends CachedUnit {
+  lessonCount: number;
+  assetCount: number;
+  downloadedAssets: number;
+  storageBytes: number;
+}
+
+export interface CacheOverview {
+  units: CachedUnitMetrics[];
+  totalStorageBytes: number;
+  syncStatus: SyncStatus;
 }
 
 export interface OutboxRecord {
@@ -99,6 +141,7 @@ export interface OfflineUnitPayload {
   downloadStatus?: DownloadStatus;
   downloadedAt?: number | null;
   syncedAt?: number | null;
+  unitPayload?: OfflineUnitSummaryPayload | null;
 }
 
 export interface OfflineLessonPayload {

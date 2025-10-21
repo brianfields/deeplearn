@@ -37,6 +37,10 @@ describe('CatalogService', () => {
       listGlobalUnits: jest.fn(),
       getUserUnitCollections: jest.fn(),
       updateUnitSharing: jest.fn(),
+      requestUnitDownload: jest.fn(),
+      resolveAsset: jest.fn(),
+      syncNow: jest.fn(),
+      getSyncStatus: jest.fn(),
     } as unknown as jest.Mocked<ContentProvider>;
 
     mockContentCreator = {

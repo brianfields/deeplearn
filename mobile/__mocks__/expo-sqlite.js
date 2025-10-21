@@ -257,6 +257,11 @@ function executeStatement(state, sql, params) {
   if (/^INSERT INTO/i.test(normalized)) {
     return handleInsert(state, normalized, params, false);
   }
+  if (
+    /^ALTER TABLE units ADD COLUMN unit_payload TEXT;?$/i.test(normalized)
+  ) {
+    return toResult([]);
+  }
   if (/^DELETE FROM/i.test(normalized)) {
     return handleDelete(state, normalized, params);
   }

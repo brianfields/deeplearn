@@ -9,6 +9,7 @@ import { LearningSessionRepo } from './repo';
 import { catalogProvider } from '../catalog/public';
 import { infrastructureProvider } from '../infrastructure/public';
 import { userIdentityProvider } from '../user/public';
+import { offlineCacheProvider } from '../offline_cache/public';
 import type {
   LearningSession,
   SessionProgress,
@@ -28,11 +29,14 @@ import {
   toSessionResultsDTO,
 } from './models';
 
+const LEARNING_SESSION_BASE = '/api/v1/learning_session';
+
 export class LearningSessionService {
   private repo: LearningSessionRepo;
   private catalog = catalogProvider();
   private infrastructure = infrastructureProvider();
   private userIdentity = userIdentityProvider();
+  private offlineCache = offlineCacheProvider();
 
   constructor(repo: LearningSessionRepo) {
     this.repo = repo;
@@ -129,27 +133,49 @@ export class LearningSessionService {
   async updateProgress(
     request: UpdateProgressRequest
   ): Promise<SessionProgress> {
-    try {
-      const userId = await this.resolveSessionUserId(
-        request.sessionId,
-        request.userId
-      );
+    const userId = await this.resolveSessionUserId(
+      request.sessionId,
+      request.userId
+    );
 
-      // Update progress via repository
+    const normalizedAnswer =
+      request.userAnswer === null || request.userAnswer === undefined
+        ? null
+        : typeof request.userAnswer === 'object'
+          ? request.userAnswer
+          : { value: request.userAnswer };
+
+    await this.offlineCache.enqueueOutbox({
+      endpoint: `${LEARNING_SESSION_BASE}/${request.sessionId}/progress`,
+      method: 'PUT',
+      payload: {
+        exercise_id: request.exerciseId,
+        exercise_type: request.exerciseType,
+        user_answer: normalizedAnswer,
+        is_correct: request.isCorrect,
+        time_spent_seconds: request.timeSpentSeconds,
+        user_id: userId,
+      },
+      headers: { 'Content-Type': 'application/json' },
+      idempotencyKey: `progress-${request.sessionId}-${request.exerciseId}-${Date.now()}`,
+    });
+
+    try {
       const apiProgress = await this.repo.updateProgress({
         ...request,
         userId,
       });
-
-      // Convert to DTO
       const progress = toSessionProgressDTO(apiProgress);
-
-      // Update local session cache
       await this.updateLocalSessionProgress(request.sessionId, progress);
-
       return progress;
     } catch (error) {
-      throw this.handleServiceError(error, 'Failed to update session progress');
+      console.warn('Falling back to optimistic progress due to error:', error);
+      const fallback = this.buildOptimisticProgress(
+        request,
+        normalizedAnswer
+      );
+      await this.updateLocalSessionProgress(request.sessionId, fallback);
+      return fallback;
     }
   }
 
@@ -159,27 +185,41 @@ export class LearningSessionService {
   async completeSession(
     request: CompleteSessionRequest
   ): Promise<SessionResults> {
-    try {
-      const userId = await this.resolveSessionUserId(
-        request.sessionId,
-        request.userId
-      );
+    const userId = await this.resolveSessionUserId(
+      request.sessionId,
+      request.userId
+    );
 
-      // Complete session via repository
+    const endpoint = new URL(
+      `${LEARNING_SESSION_BASE}/${request.sessionId}/complete`,
+      'http://localhost'
+    );
+    if (userId) {
+      endpoint.searchParams.set('user_id', userId);
+    }
+
+    await this.offlineCache.enqueueOutbox({
+      endpoint: endpoint.pathname + endpoint.search,
+      method: 'POST',
+      payload: {},
+      headers: { 'Content-Type': 'application/json' },
+      idempotencyKey: `complete-${request.sessionId}-${Date.now()}`,
+    });
+
+    try {
       const apiResults = await this.repo.completeSession({
         ...request,
         userId,
       });
 
-      // Convert to DTO
       const results = toSessionResultsDTO(apiResults);
-
-      // Update local session as completed
       await this.markSessionCompleted(request.sessionId, results);
-
       return results;
     } catch (error) {
-      throw this.handleServiceError(error, 'Failed to complete session');
+      console.warn('Falling back to optimistic completion due to error:', error);
+      const fallback = await this.buildOptimisticResults(request.sessionId);
+      await this.markSessionCompleted(request.sessionId, fallback);
+      return fallback;
     }
   }
 
@@ -475,6 +515,62 @@ export class LearningSessionService {
     }
 
     return this.userIdentity.getCurrentUserId();
+  }
+
+  private buildOptimisticProgress(
+    request: UpdateProgressRequest,
+    normalizedAnswer: any
+  ): SessionProgress {
+    const timestamp = new Date().toISOString();
+    const isCorrect = request.isCorrect ?? false;
+    return {
+      sessionId: request.sessionId,
+      exerciseId: request.exerciseId,
+      exerciseType: request.exerciseType,
+      startedAt: timestamp,
+      completedAt: timestamp,
+      isCorrect,
+      userAnswer: normalizedAnswer,
+      timeSpentSeconds: request.timeSpentSeconds,
+      attempts: 1,
+      isCompleted: true,
+      accuracy: isCorrect ? 1 : 0,
+      attemptHistory: [
+        {
+          attemptNumber: 1,
+          isCorrect,
+          userAnswer: normalizedAnswer,
+          timeSpentSeconds: request.timeSpentSeconds,
+          submittedAt: timestamp,
+        },
+      ],
+      hasBeenAnsweredCorrectly: isCorrect,
+    };
+  }
+
+  private async buildOptimisticResults(
+    sessionId: string
+  ): Promise<SessionResults> {
+    const session = await this.getSession(sessionId);
+    const totalExercises = session?.totalExercises ?? 0;
+    const completedExercises = session?.currentExerciseIndex ?? 0;
+    const completionPercentage = totalExercises
+      ? Math.round((completedExercises / totalExercises) * 100)
+      : 0;
+    return {
+      sessionId,
+      lessonId: session?.lessonId ?? '',
+      totalExercises,
+      completedExercises,
+      correctExercises: 0,
+      totalTimeSeconds: 0,
+      completionPercentage,
+      scorePercentage: completionPercentage,
+      achievements: [],
+      grade: 'F',
+      timeDisplay: '0s',
+      performanceSummary: 'Results stored locally. Sync pending.',
+    };
   }
 
   private async updateLocalSessionProgress(

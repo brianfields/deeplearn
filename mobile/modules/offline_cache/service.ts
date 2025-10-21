@@ -10,10 +10,12 @@ import {
 } from '../infrastructure/public';
 import { OfflineCacheRepository } from './repo';
 import type {
+  CacheOverview,
   CachedAsset,
   CachedLesson,
   CachedUnit,
   CachedUnitDetail,
+  CachedUnitMetrics,
   CacheMode,
   DownloadStatus,
   OfflineAssetPayload,
@@ -123,6 +125,34 @@ export class OfflineCacheService {
       await this.repository.removeAssets(unitId);
     }
 
+    this.status = await this.refreshSyncStatus();
+  }
+
+  async deleteUnit(unitId: string): Promise<void> {
+    const detail = await this.repository.buildUnitDetail(unitId);
+    if (detail) {
+      await Promise.all(
+        detail.assets.map(async asset => {
+          if (asset.localPath) {
+            await this.fileSystem.deleteFile(asset.localPath);
+          }
+        })
+      );
+    }
+    await this.repository.deleteUnit(unitId);
+    this.status = await this.refreshSyncStatus();
+  }
+
+  async clearAll(): Promise<void> {
+    const assets = await this.repository.listAllAssets();
+    await Promise.all(
+      assets.map(async asset => {
+        if (asset.localPath) {
+          await this.fileSystem.deleteFile(asset.localPath);
+        }
+      })
+    );
+    await this.repository.clearAll();
     this.status = await this.refreshSyncStatus();
   }
 
@@ -275,6 +305,52 @@ export class OfflineCacheService {
     return this.status;
   }
 
+  async getCacheOverview(): Promise<CacheOverview> {
+    const units = await this.repository.listUnits();
+    const metrics = await Promise.all(
+      units.map(async unit => {
+        const detail = await this.repository.buildUnitDetail(unit.id);
+        let lessonCount = 0;
+        let assetCount = 0;
+        let downloadedAssets = 0;
+        let storageBytes = 0;
+
+        if (detail) {
+          lessonCount = detail.lessons.length;
+          assetCount = detail.assets.length;
+          await Promise.all(
+            detail.assets.map(async asset => {
+              if (!asset.localPath) {
+                return;
+              }
+              const info = await this.fileSystem.getInfo(asset.localPath);
+              if (info.exists) {
+                downloadedAssets += 1;
+                storageBytes += info.size ?? 0;
+              }
+            })
+          );
+        }
+
+        const metricsEntry: CachedUnitMetrics = {
+          ...unit,
+          lessonCount,
+          assetCount,
+          downloadedAssets,
+          storageBytes,
+        };
+        return metricsEntry;
+      })
+    );
+
+    const totalStorageBytes = metrics.reduce(
+      (sum, metric) => sum + metric.storageBytes,
+      0
+    );
+    const syncStatus = await this.getSyncStatus();
+    return { units: metrics, totalStorageBytes, syncStatus };
+  }
+
   private mapUnitPayload(payload: OfflineUnitPayload): CachedUnit {
     const downloadStatus: DownloadStatus =
       payload.downloadStatus ?? 'completed';
@@ -290,6 +366,7 @@ export class OfflineCacheService {
       cacheMode: payload.cacheMode,
       downloadedAt: payload.downloadedAt ?? null,
       syncedAt: payload.syncedAt ?? null,
+      unitPayload: payload.unitPayload ?? null,
     };
   }
 

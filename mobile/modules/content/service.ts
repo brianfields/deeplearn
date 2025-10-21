@@ -1,82 +1,123 @@
-import { ContentRepo } from './repo';
+import { ContentRepo, type ApiUnitSyncEntry, type ApiUnitSyncResponse } from './repo';
 import type {
+  ApiUnitDetail,
+  ApiUnitSummary,
+  ContentError,
   Unit,
   UnitDetail,
-  UserUnitCollections,
-  ContentError,
   UpdateUnitSharingRequest,
+  UserUnitCollections,
 } from './models';
 import { toUnitDTO, toUnitDetailDTO } from './models';
+import {
+  offlineCacheProvider,
+  type CachedAsset,
+  type CachedUnit,
+  type CachedUnitDetail,
+  type CacheMode,
+  type DownloadStatus,
+  type OfflineAssetPayload,
+  type OfflineCacheProvider,
+  type OfflineLessonPayload,
+  type OfflineUnitPayload,
+  type OfflineUnitSummaryPayload,
+  type OutboxRecord,
+  type SyncPullArgs,
+  type SyncPullResponse,
+  type SyncStatus,
+} from '../offline_cache/public';
+import {
+  infrastructureProvider,
+  type InfrastructureProvider,
+} from '../infrastructure/public';
 
-interface ListUnitsParams {
+type NullableNumber = number | null | undefined;
+
+type ListUnitsParams = {
   limit?: number;
   offset?: number;
   currentUserId?: number | null;
+};
+
+type PersonalUnitsOptions = {
+  limit?: number;
+  offset?: number;
+  currentUserId?: number | null;
+};
+
+type UnitDetailOptions = { currentUserId?: number | null };
+
+type ContentServiceDeps = {
+  offlineCache: OfflineCacheProvider;
+  infrastructure: InfrastructureProvider;
+};
+
+function createDefaultDeps(): ContentServiceDeps {
+  return {
+    offlineCache: offlineCacheProvider(),
+    infrastructure: infrastructureProvider(),
+  };
 }
 
 export class ContentService {
-  constructor(private repo: ContentRepo) {}
+  private readonly repo: ContentRepo;
+  private readonly offlineCache: OfflineCacheProvider;
+  private readonly infrastructure: InfrastructureProvider;
+
+  constructor(
+    repo: ContentRepo,
+    deps: ContentServiceDeps = createDefaultDeps()
+  ) {
+    this.repo = repo;
+    this.offlineCache = deps.offlineCache;
+    this.infrastructure = deps.infrastructure;
+  }
 
   async listUnits(params?: ListUnitsParams): Promise<Unit[]> {
     try {
-      const currentUserId = params?.currentUserId;
-      const apiUnits = await this.repo.listUnits({
-        limit: params?.limit,
-        offset: params?.offset,
-      });
-      return apiUnits.map(api => toUnitDTO(api, currentUserId));
+      const cached = await this.ensureUnitsCached();
+      const paged = this.applyPaging(
+        cached,
+        params?.limit,
+        params?.offset
+      );
+      return paged.map(unit =>
+        this.mapCachedUnitToUnit(unit, params?.currentUserId)
+      );
     } catch (error) {
       throw this.handleError(error, 'Failed to list units');
     }
   }
 
-  async getUnitDetail(
-    unitId: string,
-    options?: { currentUserId?: number | null }
-  ): Promise<UnitDetail | null> {
-    if (!unitId?.trim()) {
-      return null;
-    }
-
-    try {
-      const api = await this.repo.getUnitDetail(unitId);
-      return toUnitDetailDTO(api, options?.currentUserId);
-    } catch (error: any) {
-      if (error?.statusCode === 404) {
-        return null;
-      }
-      throw this.handleError(error, `Failed to get unit ${unitId}`);
-    }
-  }
-
   async listPersonalUnits(
     userId: number,
-    options?: { limit?: number; offset?: number; currentUserId?: number | null }
+    options?: PersonalUnitsOptions
   ): Promise<Unit[]> {
     try {
-      const apiUnits = await this.repo.listPersonalUnits(userId, {
-        limit: options?.limit,
-        offset: options?.offset,
+      const cached = await this.ensureUnitsCached();
+      const filtered = cached.filter(unit => {
+        const ownerId = this.getOwnerId(unit);
+        return ownerId === userId;
       });
-      return apiUnits.map(api =>
-        toUnitDTO(api, options?.currentUserId ?? userId)
+      const paged = this.applyPaging(filtered, options?.limit, options?.offset);
+      return paged.map(unit =>
+        this.mapCachedUnitToUnit(unit, options?.currentUserId ?? userId)
       );
     } catch (error) {
       throw this.handleError(error, 'Failed to load personal units');
     }
   }
 
-  async listGlobalUnits(options?: {
-    limit?: number;
-    offset?: number;
-    currentUserId?: number | null;
-  }): Promise<Unit[]> {
+  async listGlobalUnits(
+    options?: PersonalUnitsOptions
+  ): Promise<Unit[]> {
     try {
-      const apiUnits = await this.repo.listGlobalUnits({
-        limit: options?.limit,
-        offset: options?.offset,
-      });
-      return apiUnits.map(api => toUnitDTO(api, options?.currentUserId));
+      const cached = await this.ensureUnitsCached();
+      const filtered = cached.filter(unit => unit.isGlobal);
+      const paged = this.applyPaging(filtered, options?.limit, options?.offset);
+      return paged.map(unit =>
+        this.mapCachedUnitToUnit(unit, options?.currentUserId)
+      );
     } catch (error) {
       throw this.handleError(error, 'Failed to load global units');
     }
@@ -91,28 +132,56 @@ export class ContentService {
     }
 
     const includeGlobal = options?.includeGlobal ?? true;
-    const paging = { limit: options?.limit, offset: options?.offset };
 
     try {
-      const personalPromise = this.repo.listPersonalUnits(userId, paging);
-      const globalPromise = includeGlobal
-        ? this.repo.listGlobalUnits(paging)
-        : Promise.resolve([]);
+      const cached = await this.ensureUnitsCached();
+      const personalUnits = cached
+        .filter(unit => this.getOwnerId(unit) === userId)
+        .map(unit => this.mapCachedUnitToUnit(unit, userId));
 
-      const [personalApi, globalApi] = await Promise.all([
-        personalPromise,
-        globalPromise,
-      ]);
-
-      const personalUnits = personalApi.map(api => toUnitDTO(api, userId));
       const personalIds = new Set(personalUnits.map(unit => unit.id));
-      const globalUnits = globalApi
-        .filter(api => !personalIds.has(api.id))
-        .map(api => toUnitDTO(api, userId));
+
+      const globalUnits = includeGlobal
+        ? cached
+            .filter(unit => unit.isGlobal && !personalIds.has(unit.id))
+            .map(unit => this.mapCachedUnitToUnit(unit, userId))
+        : [];
 
       return { personalUnits, globalUnits };
     } catch (error) {
       throw this.handleError(error, 'Failed to load user units');
+    }
+  }
+
+  async getUnitDetail(
+    unitId: string,
+    options?: UnitDetailOptions
+  ): Promise<UnitDetail | null> {
+    if (!unitId?.trim()) {
+      return null;
+    }
+
+    try {
+      await this.ensureUnitsCached();
+
+      let cached = await this.offlineCache.getUnitDetail(unitId);
+      if (!cached || (cached.cacheMode === 'full' && cached.lessons.length === 0)) {
+        await this.runSyncCycle();
+        cached = await this.offlineCache.getUnitDetail(unitId);
+      }
+
+      if (cached) {
+        return this.mapCachedUnitDetail(cached, options?.currentUserId);
+      }
+
+      const apiDetail = await this.repo.getUnitDetail(unitId);
+      await this.cacheDetailFallback(apiDetail);
+      return toUnitDetailDTO(apiDetail, options?.currentUserId);
+    } catch (error: any) {
+      if (error?.statusCode === 404) {
+        return null;
+      }
+      throw this.handleError(error, `Failed to get unit ${unitId}`);
     }
   }
 
@@ -130,10 +199,511 @@ export class ContentService {
 
     try {
       const updated = await this.repo.updateUnitSharing(unitId, request);
+      await this.offlineCache.cacheMinimalUnits([
+        this.toOfflineUnitPayloadFromSummary(updated),
+      ]);
+      const cached = (await this.offlineCache.listUnits()).find(
+        unit => unit.id === updated.id
+      );
+      if (cached) {
+        return this.mapCachedUnitToUnit(cached, currentUserId);
+      }
       return toUnitDTO(updated, currentUserId);
     } catch (error) {
       throw this.handleError(error, 'Failed to update unit sharing');
     }
+  }
+
+  async requestUnitDownload(unitId: string): Promise<void> {
+    const cachedUnits = await this.offlineCache.listUnits();
+    const existing = cachedUnits.find(unit => unit.id === unitId);
+    if (!existing) {
+      throw this.handleError(
+        new Error(`Unit ${unitId} not cached`),
+        `Unit ${unitId} is not cached`
+      );
+    }
+
+    const payload: OfflineUnitPayload = {
+      id: existing.id,
+      title: existing.title,
+      description: existing.description,
+      learnerLevel: existing.learnerLevel,
+      isGlobal: existing.isGlobal,
+      updatedAt: existing.updatedAt,
+      schemaVersion: existing.schemaVersion,
+      cacheMode: 'full',
+      downloadStatus: 'pending',
+      downloadedAt: existing.downloadedAt ?? null,
+      syncedAt: Date.now(),
+      unitPayload: existing.unitPayload ?? null,
+    };
+    await this.offlineCache.cacheMinimalUnits([payload]);
+    await this.runSyncCycle();
+  }
+
+  async resolveAsset(assetId: string): Promise<CachedAsset | null> {
+    return this.offlineCache.resolveAsset(assetId);
+  }
+
+  async syncNow(): Promise<SyncStatus> {
+    return this.offlineCache.runSyncCycle({
+      processor: this.createOutboxProcessor(),
+      pull: args => this.pullUpdates(args),
+    });
+  }
+
+  async getSyncStatus(): Promise<SyncStatus> {
+    return this.offlineCache.getSyncStatus();
+  }
+
+  private async ensureUnitsCached(): Promise<CachedUnit[]> {
+    const cached = await this.offlineCache.listUnits();
+    if (cached.length > 0) {
+      return cached;
+    }
+    await this.runSyncCycle();
+    return this.offlineCache.listUnits();
+  }
+
+  private async runSyncCycle(): Promise<void> {
+    await this.offlineCache.runSyncCycle({
+      processor: this.createOutboxProcessor(),
+      pull: args => this.pullUpdates(args),
+    });
+  }
+
+  private async pullUpdates(args: SyncPullArgs): Promise<SyncPullResponse> {
+    const [response, existing] = await Promise.all([
+      this.repo.syncUnits({
+        since: args.cursor ?? undefined,
+        payload: args.payload,
+      }),
+      this.offlineCache.listUnits(),
+    ]);
+    const existingMap = new Map(existing.map(unit => [unit.id, unit]));
+    return this.toSyncPullResponse(response, args.payload, existingMap);
+  }
+
+  private toSyncPullResponse(
+    response: ApiUnitSyncResponse,
+    payloadMode: CacheMode,
+    existingMap: Map<string, CachedUnit>
+  ): SyncPullResponse {
+    const units = new Array<OfflineUnitPayload>();
+    const lessons = new Array<OfflineLessonPayload>();
+    const assets = new Array<OfflineAssetPayload>();
+
+    response.units.forEach(entry => {
+      const payloads = this.toOfflinePayloads(entry, existingMap, payloadMode);
+      units.push(payloads.unit);
+      lessons.push(...payloads.lessons);
+      assets.push(...payloads.assets);
+    });
+
+    return {
+      units,
+      lessons,
+      assets,
+      cursor: response.cursor ?? null,
+    };
+  }
+
+  private toOfflinePayloads(
+    entry: ApiUnitSyncEntry,
+    existingMap: Map<string, CachedUnit>,
+    payloadMode: CacheMode
+  ): {
+    unit: OfflineUnitPayload;
+    lessons: OfflineLessonPayload[];
+    assets: OfflineAssetPayload[];
+  } {
+    const existing = existingMap.get(entry.unit.id);
+    const summary = entry.unit;
+    const now = Date.now();
+    const updatedAt = this.parseTimestamp(summary.updated_at) ?? now;
+    const schemaVersion = summary.schema_version ?? existing?.schemaVersion ?? 1;
+
+    const inferredCacheMode: CacheMode = existing?.cacheMode
+      ? existing.cacheMode
+      : entry.lessons.length > 0
+        ? 'full'
+        : payloadMode;
+
+    const downloadStatus: DownloadStatus = existing?.downloadStatus ?? 'completed';
+    const downloadedAt = existing?.downloadedAt ?? null;
+
+    const unitPayload: OfflineUnitSummaryPayload = {
+      id: summary.id,
+      title: summary.title,
+      description: summary.description ?? null,
+      learner_level: summary.learner_level,
+      lesson_order: summary.lesson_order ?? [],
+      user_id: summary.user_id ?? null,
+      is_global: summary.is_global ?? false,
+      learning_objectives: summary.learning_objectives ?? null,
+      target_lesson_count: summary.target_lesson_count ?? null,
+      source_material: summary.source_material ?? null,
+      generated_from_topic: summary.generated_from_topic ?? false,
+      flow_type: summary.flow_type ?? 'standard',
+      status: summary.status ?? existing?.unitPayload?.status ?? 'completed',
+      creation_progress: summary.creation_progress ?? null,
+      error_message: summary.error_message ?? null,
+      has_podcast: summary.has_podcast ?? false,
+      podcast_voice: summary.podcast_voice ?? null,
+      podcast_duration_seconds: summary.podcast_duration_seconds ?? null,
+      podcast_audio_url: (summary as any).podcast_audio_url ?? null,
+      podcast_transcript: (summary as any).podcast_transcript ?? null,
+      art_image_url: summary.art_image_url ?? null,
+      art_image_description: summary.art_image_description ?? null,
+      created_at: summary.created_at ?? undefined,
+      updated_at: summary.updated_at ?? undefined,
+      schema_version: schemaVersion,
+    };
+
+    const unit: OfflineUnitPayload = {
+      id: summary.id,
+      title: summary.title,
+      description: summary.description ?? '',
+      learnerLevel: summary.learner_level ?? existing?.learnerLevel ?? 'beginner',
+      isGlobal: summary.is_global ?? existing?.isGlobal ?? false,
+      updatedAt,
+      schemaVersion,
+      cacheMode: inferredCacheMode,
+      downloadStatus,
+      downloadedAt,
+      syncedAt: now,
+      unitPayload,
+    };
+
+    const orderIndex = new Map<string, number>();
+    (summary.lesson_order ?? []).forEach((lessonId, index) => {
+      orderIndex.set(lessonId, index + 1);
+    });
+
+    const lessonPayloads = entry.lessons.map((lesson, index) => {
+      const lessonUpdatedAt = this.parseTimestamp(lesson.updated_at) ?? now;
+      return {
+        id: lesson.id,
+        unitId: summary.id,
+        title: lesson.title,
+        position: orderIndex.get(lesson.id) ?? index + 1,
+        payload: lesson,
+        updatedAt: lessonUpdatedAt,
+        schemaVersion: lesson.schema_version ?? 1,
+      } satisfies OfflineLessonPayload;
+    });
+
+    const assetPayloads = entry.assets
+      .map(asset => this.toOfflineAssetPayload(asset, summary.id, now))
+      .filter((asset): asset is OfflineAssetPayload => Boolean(asset));
+
+    return {
+      unit,
+      lessons: lessonPayloads,
+      assets: assetPayloads,
+    };
+  }
+
+  private toOfflineAssetPayload(
+    asset: { [key: string]: any },
+    unitId: string,
+    fallbackTime: number
+  ): OfflineAssetPayload | null {
+    const type = asset.type === 'audio' ? 'audio' : asset.type === 'image' ? 'image' : null;
+    if (!type) {
+      return null;
+    }
+    const remoteUri = asset.presigned_url ?? asset.remote_url ?? null;
+    if (!remoteUri) {
+      return null;
+    }
+    const updatedAt = this.parseTimestamp(asset.updated_at) ?? fallbackTime;
+    return {
+      id: asset.id,
+      unitId,
+      type,
+      remoteUri,
+      checksum: asset.checksum ?? null,
+      updatedAt,
+    };
+  }
+
+  private mapCachedUnitToUnit(
+    cached: CachedUnit,
+    currentUserId?: number | null
+  ): Unit {
+    const apiSummary = this.buildApiUnitSummaryFromCached(cached);
+    const dto = toUnitDTO(apiSummary, currentUserId);
+    return {
+      ...dto,
+      cacheMode: cached.cacheMode,
+      downloadStatus: cached.downloadStatus,
+      downloadedAt: cached.downloadedAt ?? null,
+      syncedAt: cached.syncedAt ?? null,
+    };
+  }
+
+  private mapCachedUnitDetail(
+    cached: CachedUnitDetail,
+    currentUserId?: number | null
+  ): UnitDetail {
+    const apiDetail = this.buildApiUnitDetailFromCached(cached);
+    const dto = toUnitDetailDTO(apiDetail, currentUserId);
+    return {
+      ...dto,
+      cacheMode: cached.cacheMode,
+      downloadStatus: cached.downloadStatus,
+      downloadedAt: cached.downloadedAt ?? null,
+      syncedAt: cached.syncedAt ?? null,
+    };
+  }
+
+  private buildApiUnitSummaryFromCached(cached: CachedUnit): ApiUnitSummary {
+    const payload = cached.unitPayload;
+    const lessonCount = Array.isArray(payload?.lesson_order)
+      ? payload!.lesson_order!.length
+      : 0;
+    const creationProgress = this.normalizeCreationProgress(
+      payload?.creation_progress
+    );
+    return {
+      id: cached.id,
+      title: payload?.title ?? cached.title,
+      description: payload?.description ?? cached.description ?? null,
+      learner_level: payload?.learner_level ?? cached.learnerLevel,
+      lesson_count: lessonCount,
+      target_lesson_count: (payload?.target_lesson_count as NullableNumber) ?? null,
+      generated_from_topic: Boolean(payload?.generated_from_topic),
+      status: (payload?.status as string) ?? 'completed',
+      creation_progress: creationProgress,
+      error_message: (payload?.error_message as string | null) ?? null,
+      user_id:
+        typeof payload?.user_id === 'number' ? payload.user_id : null,
+      is_global: payload?.is_global ?? cached.isGlobal,
+      created_at: payload?.created_at ?? undefined,
+      updated_at: payload?.updated_at ?? new Date(cached.updatedAt).toISOString(),
+      has_podcast: payload?.has_podcast ?? false,
+      podcast_voice: payload?.podcast_voice ?? null,
+      podcast_duration_seconds:
+        (payload?.podcast_duration_seconds as NullableNumber) ?? null,
+      art_image_url: payload?.art_image_url ?? null,
+      art_image_description: payload?.art_image_description ?? null,
+    };
+  }
+
+  private buildApiUnitDetailFromCached(
+    cached: CachedUnitDetail
+  ): ApiUnitDetail {
+    const summary = this.buildApiUnitSummaryFromCached(cached);
+    const lessonOrder =
+      (cached.unitPayload?.lesson_order as string[] | undefined) ??
+      cached.lessons.map(lesson => lesson.id);
+
+    const lessons: ApiUnitDetail['lessons'] = cached.lessons.map(lesson =>
+      this.buildApiLessonFromCached(lesson)
+    );
+
+    return {
+      id: summary.id,
+      title: summary.title,
+      description: summary.description,
+      learner_level: summary.learner_level,
+      lesson_order: lessonOrder,
+      lessons,
+      learning_objectives:
+        (cached.unitPayload?.learning_objectives as string[] | null) ?? null,
+      target_lesson_count: summary.target_lesson_count ?? null,
+      source_material:
+        (cached.unitPayload?.source_material as string | null) ?? null,
+      generated_from_topic: summary.generated_from_topic ?? false,
+      user_id: summary.user_id ?? null,
+      is_global: summary.is_global ?? false,
+      learning_objective_progress: null,
+      has_podcast: summary.has_podcast ?? false,
+      podcast_voice: summary.podcast_voice ?? null,
+      podcast_duration_seconds: summary.podcast_duration_seconds ?? null,
+      podcast_transcript:
+        (cached.unitPayload?.podcast_transcript as string | null) ?? null,
+      podcast_audio_url:
+        (cached.unitPayload?.podcast_audio_url as string | null) ?? null,
+      art_image_url: summary.art_image_url ?? null,
+      art_image_description: summary.art_image_description ?? null,
+    };
+  }
+
+  private buildApiLessonFromCached(
+    lesson: CachedUnitDetail['lessons'][number]
+  ): ApiUnitDetail['lessons'][number] {
+    const payload = (lesson.payload ?? {}) as Record<string, any>;
+    const packagePayload =
+      payload && typeof payload === 'object' ? payload.package ?? {} : {};
+
+    const learningObjectives = Array.isArray(packagePayload?.learning_objectives)
+      ? packagePayload.learning_objectives
+      : [];
+    const keyConcepts = Array.isArray(packagePayload?.key_concepts)
+      ? packagePayload.key_concepts
+      : [];
+
+    const exerciseComponents = Array.isArray(packagePayload?.components)
+      ? packagePayload.components
+      : Array.isArray(packagePayload?.exercises)
+        ? packagePayload.exercises
+        : [];
+
+    return {
+      id: lesson.id,
+      title: lesson.title,
+      learner_level:
+        (payload?.learner_level as string) ??
+        (lesson.payload as Record<string, any> | undefined)?.learner_level ??
+          'beginner',
+      learning_objectives: learningObjectives,
+      key_concepts: keyConcepts,
+      exercise_count: exerciseComponents.length,
+    };
+  }
+
+  private async cacheDetailFallback(detail: ApiUnitDetail): Promise<void> {
+    const payload = this.toOfflineUnitPayloadFromSummary(detail);
+    await this.offlineCache.cacheMinimalUnits([payload]);
+  }
+
+  private toOfflineUnitPayloadFromSummary(
+    summary: ApiUnitSummary | ApiUnitDetail
+  ): OfflineUnitPayload {
+    const updatedAtSource =
+      'updated_at' in summary ? summary.updated_at ?? null : null;
+    const updatedAt = updatedAtSource
+      ? this.parseTimestamp(updatedAtSource)
+      : Date.now();
+    const status =
+      'status' in summary && summary.status ? summary.status : 'completed';
+    const creationProgress =
+      'creation_progress' in summary
+        ? this.normalizeCreationProgress(summary.creation_progress)
+        : null;
+    const errorMessage =
+      'error_message' in summary ? summary.error_message ?? null : null;
+    const hasPodcast =
+      'has_podcast' in summary ? summary.has_podcast ?? false : false;
+    const podcastVoice =
+      'podcast_voice' in summary ? summary.podcast_voice ?? null : null;
+    const podcastDuration =
+      'podcast_duration_seconds' in summary
+        ? summary.podcast_duration_seconds ?? null
+        : null;
+    const podcastTranscript =
+      'podcast_transcript' in summary
+        ? summary.podcast_transcript ?? null
+        : null;
+    const podcastAudioUrl =
+      'podcast_audio_url' in summary
+        ? summary.podcast_audio_url ?? null
+        : null;
+    const artImageUrl =
+      'art_image_url' in summary ? summary.art_image_url ?? null : null;
+    const artImageDescription =
+      'art_image_description' in summary
+        ? summary.art_image_description ?? null
+        : null;
+    const createdAt =
+      'created_at' in summary ? summary.created_at ?? undefined : undefined;
+
+    return {
+      id: summary.id,
+      title: summary.title,
+      description: summary.description ?? '',
+      learnerLevel: summary.learner_level ?? 'beginner',
+      isGlobal: Boolean(summary.is_global),
+      updatedAt: updatedAt ?? Date.now(),
+      schemaVersion: 1,
+      cacheMode: 'minimal',
+      downloadStatus: 'completed',
+      downloadedAt: null,
+      syncedAt: Date.now(),
+      unitPayload: {
+        id: summary.id,
+        title: summary.title,
+        description: summary.description ?? null,
+        learner_level: summary.learner_level ?? 'beginner',
+        lesson_order: 'lesson_order' in summary ? summary.lesson_order : [],
+        user_id: summary.user_id ?? null,
+        is_global: Boolean(summary.is_global),
+        learning_objectives:
+          'learning_objectives' in summary ? summary.learning_objectives : null,
+        target_lesson_count: summary.target_lesson_count ?? null,
+        generated_from_topic: summary.generated_from_topic ?? false,
+        status,
+        creation_progress: creationProgress,
+        error_message: errorMessage,
+        has_podcast: hasPodcast,
+        podcast_voice: podcastVoice,
+        podcast_duration_seconds: podcastDuration,
+        podcast_audio_url: podcastAudioUrl,
+        podcast_transcript: podcastTranscript,
+        art_image_url: artImageUrl,
+        art_image_description: artImageDescription,
+        created_at: createdAt,
+        updated_at:
+          'updated_at' in summary ? summary.updated_at ?? undefined : undefined,
+        schema_version: 1,
+      },
+    };
+  }
+
+  private normalizeCreationProgress(
+    value: unknown
+  ): ApiUnitSummary['creation_progress'] {
+    if (!value || typeof value !== 'object') {
+      return null;
+    }
+    const stage = (value as Record<string, unknown>).stage;
+    const message = (value as Record<string, unknown>).message;
+    if (typeof stage !== 'string' || typeof message !== 'string') {
+      return null;
+    }
+    return { stage, message };
+  }
+
+  private createOutboxProcessor() {
+    return async (record: OutboxRecord): Promise<void> => {
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(record.headers ?? {}),
+      } as Record<string, string>;
+      await this.infrastructure.request(record.endpoint, {
+        method: record.method,
+        headers,
+        body: record.payload ? JSON.stringify(record.payload) : undefined,
+      });
+    };
+  }
+
+  private applyPaging<T>(
+    items: T[],
+    limit?: number,
+    offset?: number
+  ): T[] {
+    const safeOffset = Math.max(0, offset ?? 0);
+    if (typeof limit === 'number' && limit >= 0) {
+      return items.slice(safeOffset, safeOffset + limit);
+    }
+    return items.slice(safeOffset);
+  }
+
+  private parseTimestamp(value: string | null | undefined): number | null {
+    if (!value) {
+      return null;
+    }
+    const parsed = Date.parse(value);
+    return Number.isNaN(parsed) ? null : parsed;
+  }
+
+  private getOwnerId(unit: CachedUnit): number | null {
+    const owner = unit.unitPayload?.user_id;
+    return typeof owner === 'number' ? owner : null;
   }
 
   private handleError(error: any, defaultMessage: string): ContentError {

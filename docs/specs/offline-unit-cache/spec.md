@@ -71,15 +71,15 @@ As a mobile learner, I want to download a unit (with its lessons, audio, and art
 - [x] Backend: add unit tests covering the new sync service/route logic.
 - [x] Mobile infrastructure: add SQLite initialization helpers and file utilities (expo-sqlite, expo-file-system) with Jest mocks.
 - [x] Mobile offline_cache module: create models, SQLite repository, and service handling caching, asset downloads, outbox, and sync triggers.
-- [ ] Mobile content module: update services/queries to use SQLite-first read path and expose unit download actions + asset resolution.
-- [ ] Mobile learning_session module: queue writes through the offline outbox and rely on local state for immediate UI updates.
-- [ ] Mobile UI: add a cache management screen with navigation entry point, online/offline + outstanding writes indicators, and delete/sync controls.
-- [ ] Mobile tests: cover offline cache service, updated content service, learning session outbox usage, and the cache screen.
-- [ ] Update mobile dependencies (package.json, lockfile) for expo-sqlite and expo-file-system.
-- [ ] Ensure lint passes, i.e. ./format_code.sh runs clean.
-- [ ] Ensure unit tests pass, i.e. (in backend) scripts/run_unit.py and (in mobile) npm run test both run clean.
-- [ ] Ensure integration tests pass, i.e. (in backend) scripts/run_integration.py runs clean.
-- [ ] Follow the instructions in codegen/prompts/trace.md to ensure the user story is implemented correctly.
-- [ ] Fix any issues documented during the tracing of the user story in docs/specs/offline-unit-cache/trace.md.
-- [ ] Follow the instructions in codegen/prompts/modulecheck.md to ensure the new code is following the modular architecture correctly.
-- [ ] Examine all new code that has been created and make sure all of it is being used; there is no dead code.
+- [x] Mobile content module: update services/queries to use SQLite-first read path and expose unit download actions + asset resolution.
+- [x] Mobile learning_session module: queue writes through the offline outbox and rely on local state for immediate UI updates.
+- [x] Mobile UI: add a cache management screen with navigation entry point, online/offline + outstanding writes indicators, and delete/sync controls.
+- [x] Mobile tests: cover offline cache service, updated content service, learning session outbox usage, and the cache screen.
+- [x] Update mobile dependencies (package.json, lockfile) for expo-sqlite and expo-file-system.
+- [x] Ensure lint passes, i.e. ./format_code.sh runs clean.
+- [x] Ensure unit tests pass, i.e. (in backend) scripts/run_unit.py and (in mobile) npm run test both run clean.
+- [x] Ensure integration tests pass, i.e. (in backend) scripts/run_integration.py runs clean.
+- [x] Follow the instructions in codegen/prompts/trace.md to ensure the user story is implemented correctly.
+- [x] Fix any issues documented during the tracing of the user story in docs/specs/offline-unit-cache/trace.md.
+- [x] Follow the instructions in codegen/prompts/modulecheck.md to ensure the new code is following the modular architecture correctly.
+- [x] Examine all new code that has been created and make sure all of it is being used; there is no dead code.

@@ -10,15 +10,21 @@ import { OfflineCacheRepository, OFFLINE_CACHE_MIGRATIONS } from './repo';
 import { OfflineCacheService, SyncCycleOptions } from './service';
 import type {
   CacheMode,
+  CacheOverview,
   CachedAsset,
   CachedUnit,
   CachedUnitDetail,
+  DownloadStatus,
   OfflineAssetPayload,
   OfflineLessonPayload,
   OfflineUnitPayload,
+  OfflineUnitSummaryPayload,
+  OutboxRecord,
   OutboxProcessResult,
   OutboxProcessor,
   OutboxRequest,
+  SyncPullArgs,
+  SyncPullResponse,
   SyncStatus,
 } from './models';
 
@@ -37,6 +43,9 @@ export interface OfflineCacheProvider {
   processOutbox(processor: OutboxProcessor): Promise<OutboxProcessResult>;
   runSyncCycle(options: SyncCycleOptions): Promise<SyncStatus>;
   getSyncStatus(): Promise<SyncStatus>;
+  deleteUnit(unitId: string): Promise<void>;
+  clearAll(): Promise<void>;
+  getCacheOverview(): Promise<CacheOverview>;
 }
 
 let servicePromise: Promise<OfflineCacheService> | null = null;
@@ -101,6 +110,14 @@ export function offlineCacheProvider(): OfflineCacheProvider {
       const service = await ensureService();
       return service.resolveAsset(assetId);
     },
+    async deleteUnit(unitId: string) {
+      const service = await ensureService();
+      await service.deleteUnit(unitId);
+    },
+    async clearAll() {
+      const service = await ensureService();
+      await service.clearAll();
+    },
     async enqueueOutbox(request: OutboxRequest) {
       const service = await ensureService();
       await service.enqueueOutbox(request);
@@ -117,6 +134,10 @@ export function offlineCacheProvider(): OfflineCacheProvider {
       const service = await ensureService();
       return service.getSyncStatus();
     },
+    async getCacheOverview() {
+      const service = await ensureService();
+      return service.getCacheOverview();
+    },
   };
 }
 
@@ -124,13 +145,20 @@ export type {
   CachedUnit,
   CachedUnitDetail,
   CachedAsset,
+  CachedUnitMetrics,
+  CacheOverview,
   CacheMode,
+  DownloadStatus,
   OfflineUnitPayload,
   OfflineLessonPayload,
   OfflineAssetPayload,
+  OfflineUnitSummaryPayload,
+  OutboxRecord,
   OutboxRequest,
   OutboxProcessor,
   OutboxProcessResult,
+  SyncPullArgs,
+  SyncPullResponse,
   SyncStatus,
 } from './models';
 export type { SyncCycleOptions } from './service';
