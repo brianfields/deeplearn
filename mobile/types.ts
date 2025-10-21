@@ -25,6 +25,7 @@ export type LearningStackParamList = {
   CreateUnit: undefined;
   LearningFlow: { lessonId: string; lesson: LessonDetail };
   UnitDetail: { unitId: string };
+  CacheManagement: undefined;
   Results: {
     results: SessionResults;
   };

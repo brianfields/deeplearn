@@ -16,7 +16,7 @@ import {
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { reducedMotion } from '../../ui_system/utils/motion';
 import { animationTimings } from '../../ui_system/utils/animations';
-import { Search, Plus } from 'lucide-react-native';
+import { HardDrive, Plus, Search } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -104,6 +104,11 @@ export function LessonListScreen() {
     navigation.navigate('CreateUnit');
   }, [navigation, haptics]);
 
+  const handleOpenDownloads = useCallback(() => {
+    haptics.trigger('light');
+    navigation.navigate('CacheManagement');
+  }, [navigation, haptics]);
+
   const handleRetryUnit = useCallback(
     (unitId: string) => {
       if (!currentUserId) {
@@ -135,9 +140,7 @@ export function LessonListScreen() {
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       {/* Header */}
-      <View
-        style={[styles.header, { flexDirection: 'row', alignItems: 'center' }]}
-      >
+      <View style={[styles.header, styles.headerRow]}>
         <View style={{ flex: 1 }}>
           <Text
             variant="h1"
@@ -150,17 +153,28 @@ export function LessonListScreen() {
             {totalUnits} available
           </Text>
         </View>
-        <Button
-          title="Sign out"
-          variant="secondary"
-          size="small"
-          testID="unit-list-logout-button"
-          onPress={async () => {
-            haptics.trigger('light');
-            await identity.clear();
-            await signOut();
-          }}
-        />
+        <View style={styles.headerActions}>
+          <Button
+            title="Downloads"
+            variant="secondary"
+            size="small"
+            onPress={handleOpenDownloads}
+            testID="unit-list-cache-button"
+            icon={<HardDrive size={16} color={theme.colors.primary} />}
+          />
+          <Button
+            title="Sign out"
+            variant="secondary"
+            size="small"
+            style={styles.headerActionSpacing}
+            testID="unit-list-logout-button"
+            onPress={async () => {
+              haptics.trigger('light');
+              await identity.clear();
+              await signOut();
+            }}
+          />
+        </View>
       </View>
 
       {/* Search and Create Button */}
@@ -294,6 +308,17 @@ const styles = StyleSheet.create({
   header: {
     padding: 20,
     paddingBottom: 16,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerActionSpacing: {
+    marginLeft: 8,
   },
   searchContainer: {
     flexDirection: 'row',

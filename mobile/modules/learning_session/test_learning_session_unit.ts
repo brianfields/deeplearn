@@ -10,6 +10,7 @@ import { jest } from '@jest/globals';
 jest.mock('../infrastructure/public');
 jest.mock('../catalog/public');
 jest.mock('../user/public');
+jest.mock('../offline_cache/public');
 
 import { LearningSessionService } from './service';
 import { LearningSessionRepo } from './repo';
@@ -25,6 +26,10 @@ import type {
 } from './models';
 import type { UserIdentityProvider } from '../user/public';
 import type { User } from '../user/models';
+import type {
+  OfflineCacheProvider,
+  SyncStatus,
+} from '../offline_cache/public';
 
 // Mock implementations
 const mockCatalogProvider = {
@@ -54,6 +59,17 @@ const createIdentityMock = (): jest.Mocked<UserIdentityProvider> => {
 };
 
 let mockIdentity: jest.Mocked<UserIdentityProvider>;
+let mockOfflineCache: jest.Mocked<OfflineCacheProvider>;
+
+const createSyncStatus = (): SyncStatus => ({
+  lastPulledAt: null,
+  lastCursor: null,
+  pendingWrites: 0,
+  cacheModeCounts: { minimal: 0, full: 0 },
+  lastSyncAttempt: 0,
+  lastSyncResult: 'idle',
+  lastSyncError: null,
+});
 
 // Mock the providers
 jest
@@ -68,6 +84,10 @@ jest
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   .mocked(require('../user/public').userIdentityProvider)
   .mockImplementation(() => mockIdentity);
+jest
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  .mocked(require('../offline_cache/public').offlineCacheProvider)
+  .mockImplementation(() => mockOfflineCache);
 
 describe('Learning Session Module', () => {
   // Mock console methods to suppress output during tests
@@ -81,6 +101,27 @@ describe('Learning Session Module', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockIdentity = createIdentityMock();
+    mockOfflineCache = {
+      listUnits: jest.fn().mockImplementation(async () => []),
+      getUnitDetail: jest.fn().mockImplementation(async () => null),
+      cacheMinimalUnits: jest.fn().mockImplementation(async () => undefined),
+      cacheFullUnit: jest.fn().mockImplementation(async () => undefined),
+      markUnitCacheMode: jest.fn().mockImplementation(async () => undefined),
+      deleteUnit: jest.fn().mockImplementation(async () => undefined),
+      clearAll: jest.fn().mockImplementation(async () => undefined),
+      getCacheOverview: jest.fn().mockImplementation(async () => ({
+        totalStorageBytes: 0,
+        syncStatus: createSyncStatus(),
+        units: [],
+      })),
+      resolveAsset: jest.fn().mockImplementation(async () => null),
+      enqueueOutbox: jest.fn().mockImplementation(async () => undefined),
+      processOutbox: jest
+        .fn()
+        .mockImplementation(async () => ({ processed: 0, remaining: 0 })),
+      runSyncCycle: jest.fn().mockImplementation(async () => createSyncStatus()),
+      getSyncStatus: jest.fn().mockImplementation(async () => createSyncStatus()),
+    } as jest.Mocked<OfflineCacheProvider>;
   });
 
   afterAll(() => {
@@ -247,6 +288,12 @@ describe('Learning Session Module', () => {
           ...request,
           userId: 'anonymous',
         });
+        expect(mockOfflineCache.enqueueOutbox).toHaveBeenCalledWith(
+          expect.objectContaining({
+            endpoint: expect.stringContaining('/progress'),
+            method: 'PUT',
+          })
+        );
       });
     });
 
@@ -291,6 +338,12 @@ describe('Learning Session Module', () => {
           ...request,
           userId: 'anonymous',
         });
+        expect(mockOfflineCache.enqueueOutbox).toHaveBeenCalledWith(
+          expect.objectContaining({
+            endpoint: expect.stringContaining('/complete'),
+            method: 'POST',
+          })
+        );
       });
     });
 

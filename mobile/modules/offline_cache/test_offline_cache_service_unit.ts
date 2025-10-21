@@ -63,6 +63,16 @@ describe('OfflineCacheService', () => {
         updatedAt: Date.now(),
         schemaVersion: 1,
         cacheMode: 'minimal',
+        unitPayload: {
+          id: 'unit-1',
+          title: 'Intro Unit',
+          description: 'Basics',
+          learner_level: 'A1',
+          lesson_order: [],
+          status: 'completed',
+          updated_at: new Date().toISOString(),
+          schema_version: 1,
+        },
       },
     ];
 
@@ -84,6 +94,16 @@ describe('OfflineCacheService', () => {
         updatedAt: now,
         schemaVersion: 1,
         cacheMode: 'full',
+        unitPayload: {
+          id: 'unit-asset',
+          title: 'Asset Unit',
+          description: 'Has assets',
+          learner_level: 'B1',
+          lesson_order: [],
+          status: 'completed',
+          updated_at: new Date(now).toISOString(),
+          schema_version: 1,
+        },
       },
       [],
       [
@@ -146,6 +166,16 @@ describe('OfflineCacheService', () => {
           updatedAt: Date.now(),
           schemaVersion: 1,
           cacheMode: 'minimal' as const,
+          unitPayload: {
+            id: 'unit-sync',
+            title: 'Synced Unit',
+            description: 'Pulled from server',
+            learner_level: 'B2',
+            lesson_order: [],
+            status: 'completed',
+            updated_at: new Date().toISOString(),
+            schema_version: 1,
+          },
         },
       ],
       lessons: [],
@@ -166,6 +196,132 @@ describe('OfflineCacheService', () => {
 
     const units = await service.listUnits();
     expect(units.find(unit => unit.id === 'unit-sync')).toBeTruthy();
+  });
+
+  it('deletes a cached unit and clears local asset files', async () => {
+    const timestamp = Date.now();
+    await service.cacheFullUnit(
+      {
+        id: 'unit-delete',
+        title: 'Delete Me',
+        description: 'Temporary',
+        learnerLevel: 'B2',
+        isGlobal: false,
+        updatedAt: timestamp,
+        schemaVersion: 1,
+        cacheMode: 'full',
+        unitPayload: {
+          id: 'unit-delete',
+          title: 'Delete Me',
+          description: 'Temporary',
+          learner_level: 'B2',
+          lesson_order: [],
+          status: 'completed',
+          updated_at: new Date(timestamp).toISOString(),
+          schema_version: 1,
+        },
+      },
+      [
+        {
+          id: 'lesson-delete',
+          unitId: 'unit-delete',
+          title: 'Lesson',
+          position: 1,
+          payload: { content: 'hello' },
+          updatedAt: timestamp,
+          schemaVersion: 1,
+        },
+      ],
+      [
+        {
+          id: 'asset-delete',
+          unitId: 'unit-delete',
+          type: 'audio',
+          remoteUri: 'https://example.com/delete.mp3',
+          updatedAt: timestamp,
+        },
+      ]
+    );
+
+    const resolved = await service.resolveAsset('asset-delete');
+    expect(resolved?.localPath).toBeTruthy();
+    if (!resolved?.localPath) {
+      throw new Error('Expected resolved asset to include local path');
+    }
+
+    await service.deleteUnit('unit-delete');
+    const unitsAfterDelete = await service.listUnits();
+    expect(unitsAfterDelete.find(unit => unit.id === 'unit-delete')).toBeUndefined();
+
+    const info = await fileSystemMock.getInfoAsync(resolved.localPath);
+    expect(info.exists).toBe(false);
+  });
+
+  it('provides cache overview metrics including storage usage', async () => {
+    const timestamp = Date.now();
+    await service.cacheFullUnit(
+      {
+        id: 'unit-overview',
+        title: 'Overview Unit',
+        description: 'Stats',
+        learnerLevel: 'C1',
+        isGlobal: true,
+        updatedAt: timestamp,
+        schemaVersion: 1,
+        cacheMode: 'full',
+        unitPayload: {
+          id: 'unit-overview',
+          title: 'Overview Unit',
+          description: 'Stats',
+          learner_level: 'C1',
+          lesson_order: ['lesson-1', 'lesson-2'],
+          status: 'completed',
+          updated_at: new Date(timestamp).toISOString(),
+          schema_version: 1,
+        },
+      },
+      [
+        {
+          id: 'lesson-1',
+          unitId: 'unit-overview',
+          title: 'Lesson 1',
+          position: 1,
+          payload: { value: 1 },
+          updatedAt: timestamp,
+          schemaVersion: 1,
+        },
+        {
+          id: 'lesson-2',
+          unitId: 'unit-overview',
+          title: 'Lesson 2',
+          position: 2,
+          payload: { value: 2 },
+          updatedAt: timestamp,
+          schemaVersion: 1,
+        },
+      ],
+      [
+        {
+          id: 'asset-keep',
+          unitId: 'unit-overview',
+          type: 'image',
+          remoteUri: 'https://example.com/art.png',
+          updatedAt: timestamp,
+        },
+      ]
+    );
+
+    await service.resolveAsset('asset-keep');
+    const overview = await service.getCacheOverview();
+
+    expect(overview.totalStorageBytes).toBeGreaterThan(0);
+    expect(overview.units).toHaveLength(1);
+    const [unitMetrics] = overview.units;
+    expect(unitMetrics.lessonCount).toBe(2);
+    expect(unitMetrics.assetCount).toBe(1);
+    expect(unitMetrics.downloadedAssets).toBe(1);
+    expect(unitMetrics.storageBytes).toBeGreaterThan(0);
+    expect(overview.syncStatus).toHaveProperty('pendingWrites');
   });
 
   it('preserves asset local paths during incremental sync', async () => {

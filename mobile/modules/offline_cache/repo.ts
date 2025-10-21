@@ -74,6 +74,12 @@ export const OFFLINE_CACHE_MIGRATIONS: SQLiteMigration[] = [
       );`,
     ],
   },
+  {
+    id: 2,
+    statements: [
+      `ALTER TABLE units ADD COLUMN unit_payload TEXT;`,
+    ],
+  },
 ];
 
 export class OfflineCacheRepository {
@@ -97,8 +103,8 @@ export class OfflineCacheRepository {
         await executor.execute(
           `INSERT OR REPLACE INTO units (
             id, title, description, learner_level, is_global, updated_at,
-            schema_version, download_status, cache_mode, downloaded_at, synced_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+            schema_version, download_status, cache_mode, downloaded_at, synced_at, unit_payload
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
           [
             unit.id,
             unit.title,
@@ -111,6 +117,7 @@ export class OfflineCacheRepository {
             unit.cacheMode,
             unit.downloadedAt ?? null,
             unit.syncedAt ?? null,
+            unit.unitPayload ? JSON.stringify(unit.unitPayload) : null,
           ]
         );
       }
@@ -133,6 +140,18 @@ export class OfflineCacheRepository {
       `SELECT * FROM units ORDER BY updated_at DESC;`
     );
     return result.rows.map(mapUnitRow);
+  }
+
+  async deleteUnit(unitId: string): Promise<void> {
+    await this.provider.transaction(async executor => {
+      await executor.execute(`DELETE FROM lessons WHERE unit_id = ?;`, [
+        unitId,
+      ]);
+      await executor.execute(`DELETE FROM assets WHERE unit_id = ?;`, [
+        unitId,
+      ]);
+      await executor.execute(`DELETE FROM units WHERE id = ?;`, [unitId]);
+    });
   }
 
   async deleteUnitsBelowSchemaVersion(schemaVersion: number): Promise<void> {
@@ -288,6 +307,21 @@ export class OfflineCacheRepository {
     ]);
   }
 
+  async listAllAssets(): Promise<CachedAsset[]> {
+    const result = await this.provider.execute(`SELECT * FROM assets;`);
+    return result.rows.map(mapAssetRow);
+  }
+
+  async clearAll(): Promise<void> {
+    await this.provider.transaction(async executor => {
+      await executor.execute('DELETE FROM lessons;');
+      await executor.execute('DELETE FROM assets;');
+      await executor.execute('DELETE FROM outbox;');
+      await executor.execute('DELETE FROM metadata;');
+      await executor.execute('DELETE FROM units;');
+    });
+  }
+
   async enqueueOutbox(
     request: OutboxRequest & { id: string },
     timestamp: number
@@ -386,6 +420,14 @@ export class OfflineCacheRepository {
 }
 
 function mapUnitRow(row: any): CachedUnit {
+  let unitPayload: CachedUnit['unitPayload'] = null;
+  if (row.unit_payload) {
+    try {
+      unitPayload = JSON.parse(row.unit_payload);
+    } catch {
+      unitPayload = null;
+    }
+  }
   return {
     id: row.id,
     title: row.title,
@@ -398,6 +440,7 @@ function mapUnitRow(row: any): CachedUnit {
     cacheMode: row.cache_mode,
     downloadedAt: row.downloaded_at ?? null,
     syncedAt: row.synced_at ?? null,
+    unitPayload,
   };
 }
 
