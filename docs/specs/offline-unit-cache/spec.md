@@ -69,8 +69,8 @@ As a mobile learner, I want to download a unit (with its lessons, audio, and art
 - [x] Backend: add `get_units_since` repo/service methods and DTOs in `modules/content`.
 - [x] Backend: expose `/api/v1/content/units/sync` route returning units, lessons, and tombstones with asset metadata.
 - [x] Backend: add unit tests covering the new sync service/route logic.
-- [ ] Mobile infrastructure: add SQLite initialization helpers and file utilities (expo-sqlite, expo-file-system) with Jest mocks.
-- [ ] Mobile offline_cache module: create models, SQLite repository, and service handling caching, asset downloads, outbox, and sync triggers.
+- [x] Mobile infrastructure: add SQLite initialization helpers and file utilities (expo-sqlite, expo-file-system) with Jest mocks.
+- [x] Mobile offline_cache module: create models, SQLite repository, and service handling caching, asset downloads, outbox, and sync triggers.
 - [ ] Mobile content module: update services/queries to use SQLite-first read path and expose unit download actions + asset resolution.
 - [ ] Mobile learning_session module: queue writes through the offline outbox and rely on local state for immediate UI updates.
 - [ ] Mobile UI: add a cache management screen with navigation entry point, online/offline + outstanding writes indicators, and delete/sync controls.

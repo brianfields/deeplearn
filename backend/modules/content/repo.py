@@ -5,8 +5,9 @@ Database access layer that returns ORM objects.
 Handles all CRUD operations for lessons with embedded package content.
 """
 
+from collections.abc import Iterable
 from datetime import datetime
-from typing import Any, Iterable
+from typing import Any
 import uuid
 
 from sqlalchemy import and_, desc, select
@@ -215,12 +216,7 @@ class ContentRepo:
     ) -> list[LessonModel]:
         """Return lessons that have been updated on or after the provided timestamp."""
 
-        stmt = (
-            select(LessonModel)
-            .where(LessonModel.updated_at >= since)
-            .order_by(desc(LessonModel.updated_at))
-            .limit(limit)
-        )
+        stmt = select(LessonModel).where(LessonModel.updated_at >= since).order_by(desc(LessonModel.updated_at)).limit(limit)
         result = await self.s.execute(stmt)
         return list(result.scalars().all())
 

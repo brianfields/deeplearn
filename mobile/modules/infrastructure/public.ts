@@ -5,7 +5,11 @@
  * Pure forwarder - no logic, just selects/forwards service methods.
  */
 
-import { InfrastructureService } from './service';
+import {
+  InfrastructureService,
+  SQLiteDatabaseProvider,
+  FileSystemService,
+} from './service';
 import { Platform } from 'react-native';
 import type {
   HttpClientConfig,
@@ -14,6 +18,7 @@ import type {
   StorageStats,
   NetworkStatus,
   InfrastructureHealth,
+  SQLiteConfig,
 } from './models';
 
 // Public interface protocol
@@ -27,6 +32,8 @@ export interface InfrastructureProvider {
   removeStorageItem(key: string): Promise<void>;
   getStorageStats(): Promise<StorageStats>;
   clearStorage(): Promise<void>;
+  createSQLiteProvider(config: SQLiteConfig): Promise<SQLiteDatabaseProvider>;
+  getFileSystem(): FileSystemService;
 }
 
 // Default configuration
@@ -87,6 +94,8 @@ export function infrastructureProvider(): InfrastructureProvider {
     removeStorageItem: service.removeStorageItem.bind(service),
     getStorageStats: service.getStorageStats.bind(service),
     clearStorage: service.clearStorage.bind(service),
+    createSQLiteProvider: service.createSQLiteProvider.bind(service),
+    getFileSystem: service.getFileSystem.bind(service),
   };
 }
 
@@ -98,4 +107,15 @@ export type {
   StorageStats,
   NetworkStatus,
   InfrastructureHealth,
+  SQLiteConfig,
+  SQLiteMigration,
+  SQLiteResultSet,
+  FileInfo,
+  FileDownloadResult,
+  FileDownloadOptions,
 } from './models';
+export {
+  SQLiteDatabaseProvider,
+  FileSystemService,
+  OLDEST_SUPPORTED_UNIT_SCHEMA,
+} from './service';
