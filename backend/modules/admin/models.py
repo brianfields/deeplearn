@@ -161,7 +161,7 @@ class LearningCoachConversationDetail(BaseModel):
 
 class LearningCoachConversationSummaryAdmin(BaseModel):
     id: str
-    user_id: str | None
+    user_id: int | None
     title: str | None
     message_count: int
     created_at: datetime

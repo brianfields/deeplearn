@@ -141,7 +141,7 @@ class TestAdminService:
 
         summary = LearningCoachConversationSummary(
             id=conversation_id,
-            user_id=str(uuid.uuid4()),
+            user_id=42,
             title="Exploring Algebra",
             created_at=now,
             updated_at=now,
@@ -158,7 +158,17 @@ class TestAdminService:
             metadata={},
         )
 
-        state = LearningCoachSessionState(conversation_id=conversation_id, messages=[message], metadata=summary.metadata, proposed_brief=None, accepted_brief=None, finalized_topic=None)
+        state = LearningCoachSessionState(
+            conversation_id=conversation_id,
+            messages=[message],
+            metadata=summary.metadata,
+            finalized_topic=None,
+            unit_title=None,
+            learning_objectives=None,
+            suggested_lesson_count=None,
+            proposed_brief=None,
+            accepted_brief=None,
+        )
 
         provider = SimpleNamespace()
         provider.list_conversations = AsyncMock(return_value=[summary])
