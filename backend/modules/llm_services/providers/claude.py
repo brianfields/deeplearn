@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 import importlib
 import json
 import logging
-from typing import Any, Iterable, Sequence
+from typing import Any
 import uuid
 
 from pydantic import BaseModel
@@ -179,7 +179,7 @@ def parse_claude_response(response_content: Any) -> str:
     if isinstance(response_content, Sequence):
         return "".join(parse_claude_response(item) for item in response_content)
     if hasattr(response_content, "text"):
-        return parse_claude_response({"text": getattr(response_content, "text")})
+        return parse_claude_response({"text": response_content.text})
     return str(response_content)
 
 
@@ -195,7 +195,7 @@ def convert_to_claude_messages(messages: list[LLMMessage]) -> tuple[str | None, 
             continue
 
         role = "assistant" if message.role is MessageRole.ASSISTANT else "user"
-        content_blocks: list[dict[str, str]] = []
+        content_blocks: list[dict[str, Any]] = []
         if message.content:
             content_blocks.append({"type": "text", "text": message.content})
         if message.tool_calls:
@@ -272,10 +272,7 @@ class ClaudeProviderBase(LLMProvider):
                     "schema": schema,
                 },
             }
-            extra_system = (
-                "You must respond with a strict JSON object that matches the provided schema. "
-                "Do not include any additional commentary or markdown."
-            )
+            extra_system = "You must respond with a strict JSON object that matches the provided schema. Do not include any additional commentary or markdown."
             system_prompt = f"{system_prompt}\n\n{extra_system}" if system_prompt else extra_system
         else:
             response_format = None
