@@ -17,6 +17,7 @@ import {
   ArtworkImage,
   uiSystemProvider,
   useHaptics,
+  Slider,
 } from '../../ui_system/public';
 import { usePodcastPlayer } from '../hooks/usePodcastPlayer';
 import { usePodcastState } from '../hooks/usePodcastState';
@@ -54,6 +55,9 @@ export function PodcastPlayer({
 
   const isCurrentTrack = currentTrack?.unitId === unitId;
 
+  const [isSeekingPosition, setIsSeekingPosition] = useState(false);
+  const [pendingSeekPosition, setPendingSeekPosition] = useState(0);
+
   // Speed slider drag state
   const sliderWidth = useRef(0);
   const sliderX = useRef(0);
@@ -71,9 +75,10 @@ export function PodcastPlayer({
   }, [isCurrentTrack, loadTrack, track]);
 
   const isPlaying = playbackState.isPlaying;
-  const position = playbackState.position;
+  const position = playbackState.position ?? 0;
   const duration = playbackState.duration || track.durationSeconds;
-  const progressPercent = duration > 0 ? position / duration : 0;
+  const sliderMaximum = Math.max(duration || 0, track.durationSeconds);
+  const displayedPosition = isSeekingPosition ? pendingSeekPosition : position;
 
   // Map speed to slider position (0-1)
   const getSpeedPosition = (speed: number): number => {
@@ -94,10 +99,16 @@ export function PodcastPlayer({
     ? dragSpeedPosition
     : speedPosition;
 
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  const formatTime = (seconds: number | null | undefined): string => {
+    if (!Number.isFinite(seconds)) {
+      return '0:00';
+    }
+    const safeSeconds = Math.max(0, seconds ?? 0);
+    const mins = Math.floor(safeSeconds / 60);
+    const secs = Math.floor(safeSeconds % 60)
+      .toString()
+      .padStart(2, '0');
+    return `${mins}:${secs}`;
   };
 
   const handleTogglePlay = (): void => {
@@ -133,10 +144,49 @@ export function PodcastPlayer({
     setIsExpanded(!isExpanded);
   };
 
-  const handleSeek = (percent: number): void => {
-    const newPosition = percent * duration;
-    seekTo(newPosition).catch(() => {});
-  };
+  const clampSeekPosition = useCallback(
+    (value: number): number => {
+      if (!Number.isFinite(value)) {
+        return 0;
+      }
+      const max = sliderMaximum > 0 ? sliderMaximum : 0;
+      return Math.min(Math.max(value, 0), max);
+    },
+    [sliderMaximum]
+  );
+
+  const handleSeekStart = useCallback(
+    (value: number): void => {
+      setIsSeekingPosition(true);
+      setPendingSeekPosition(clampSeekPosition(value));
+      haptics.trigger('light');
+    },
+    [clampSeekPosition, haptics]
+  );
+
+  const handleSeekChange = useCallback(
+    (value: number): void => {
+      setPendingSeekPosition(clampSeekPosition(value));
+    },
+    [clampSeekPosition]
+  );
+
+  const handleSeekComplete = useCallback(
+    (value: number): void => {
+      const nextValue = clampSeekPosition(value);
+      setPendingSeekPosition(nextValue);
+      setIsSeekingPosition(false);
+      haptics.trigger('medium');
+      seekTo(nextValue).catch(() => {});
+    },
+    [clampSeekPosition, haptics, seekTo]
+  );
+
+  useEffect(() => {
+    if (!isSeekingPosition && Number.isFinite(position)) {
+      setPendingSeekPosition(clampSeekPosition(position));
+    }
+  }, [clampSeekPosition, isSeekingPosition, position]);
 
   const handleSpeedChange = useCallback(
     (speed: number): void => {
@@ -273,35 +323,26 @@ export function PodcastPlayer({
             {/* Time Labels */}
             <View style={styles.timeRow}>
               <Text variant="caption" color={theme.colors.textSecondary}>
-                {formatTime(position)}
+                {formatTime(displayedPosition)}
               </Text>
               <Text variant="caption" color={theme.colors.textSecondary}>
-                {formatTime(duration)}
+                {formatTime(sliderMaximum)}
               </Text>
             </View>
 
-            {/* Progress Bar */}
-            <View style={styles.progressContainer}>
-              <View style={styles.progressTrack}>
-                <View
-                  style={[
-                    styles.progressFill,
-                    {
-                      width: `${progressPercent * 100}%`,
-                      backgroundColor: theme.colors.primary,
-                    },
-                  ]}
-                />
-              </View>
-              <Pressable
-                style={styles.progressTouchable}
-                onPress={e => {
-                  const { locationX } = e.nativeEvent;
-                  const percent = locationX / 300; // Approximate width
-                  handleSeek(percent);
-                }}
-              />
-            </View>
+            <Slider
+              value={displayedPosition}
+              minimumValue={0}
+              maximumValue={sliderMaximum > 0 ? sliderMaximum : 0}
+              step={0.1}
+              onSlidingStart={handleSeekStart}
+              onValueChange={handleSeekChange}
+              onSlidingComplete={handleSeekComplete}
+              disabled={sliderMaximum <= 0}
+              containerStyle={styles.sliderContainer}
+              showValueLabels={false}
+              testID="podcast-player-slider"
+            />
 
             {/* Speed Controls - Overcast Style */}
             <View style={styles.speedSection}>
@@ -497,27 +538,8 @@ const createStyles = (theme: any) =>
       justifyContent: 'space-between',
       marginBottom: theme.spacing?.xs || 8,
     },
-    progressContainer: {
-      height: 32,
+    sliderContainer: {
       marginBottom: theme.spacing?.lg || 20,
-      justifyContent: 'center',
-    },
-    progressTrack: {
-      height: 4,
-      backgroundColor: theme.colors.border,
-      borderRadius: 2,
-      overflow: 'hidden',
-    },
-    progressFill: {
-      height: '100%',
-      borderRadius: 2,
-    },
-    progressTouchable: {
-      position: 'absolute',
-      left: 0,
-      right: 0,
-      top: 0,
-      bottom: 0,
     },
     speedSection: {
       marginBottom: theme.spacing?.lg || 20,

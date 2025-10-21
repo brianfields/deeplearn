@@ -19,6 +19,7 @@ export { Button } from './components/Button';
 export { Card } from './components/Card';
 export { Progress } from './components/Progress';
 export { ArtworkImage } from './components/ArtworkImage';
+export { Slider } from './components/Slider';
 export { Box } from './components/primitives/Box';
 export { Text } from './components/primitives/Text';
 export { useHaptics } from './hooks/useHaptics';
@@ -78,6 +79,7 @@ export type {
   CardProps,
   ProgressProps,
   ArtworkImageProps,
+  SliderProps,
   ThemeManagerState,
   DesignSystemConfig,
 } from './models';
