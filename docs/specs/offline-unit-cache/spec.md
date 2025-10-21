@@ -5,6 +5,7 @@ As a mobile learner, I want to download a unit (with its lessons, audio, and art
 
 ## Requirements summary
 - **Data ownership**: The backend content service remains the source of truth. The mobile app mirrors units/lessons in a client-side SQLite database that also stores client-only metadata (local asset paths, download status, schema version, `synced_at`).
+- **Caching modes**: Each cached unit is tracked with a `cache_mode` flag (`minimal` vs `full`). `minimal` means the device only stores the unit metadata required for the unit list plus the hero image; `full` indicates the lessons, audio, and any supporting assets are present for offline play. The mode can be upgraded in place when a learner explicitly downloads the full unit.
 - **SQLite schema**:
   - `units`: unit metadata (`id`, `title`, `description`, `learner_level`, `is_global`, `updated_at`, `schema_version`, `download_status`, `downloaded_at`, `synced_at`).
   - `lessons`: one row per lesson with the lesson payload needed by the player plus `unit_id`, `updated_at`, `schema_version`.
@@ -16,9 +17,9 @@ As a mobile learner, I want to download a unit (with its lessons, audio, and art
 - **Write path**: Recording answers/progress should persist immediately to SQLite (append-only events keyed to a session/lesson) and enqueue an API call into the `outbox` with an `idempotency_key`. The UI reflects the local result instantly. The outbox processor retries requests with exponential backoff until confirmed by the server.
 - **Sync orchestration**:
   - Sync triggers: app foreground, connectivity changes to online, and an explicit "Sync now" action on the new cache screen.
-  - Sync loop order: push outbox entries (oldest first, backoff, drop or surface errors after repeated failures) then pull deltas from the server using a `since` cursor for units/lessons. Deletions should be handled via tombstones in the response.
+  - Sync loop order: push outbox entries (oldest first, backoff, drop or surface errors after repeated failures) then pull deltas from the server using a `since` cursor for units/lessons. The pull step requests either `payload=full` (lessons + audio/image assets) or `payload=minimal` (unit metadata + image only) depending on the client-side cache mode. Deletions should be handled via tombstones in the response.
   - Maintain last successful pull timestamps in the `metadata` table.
-- **Cache management UI**: Add a screen that lists cached units with download size and status, allows deleting individual units or clearing all cached data, shows whether the device is online, and displays outstanding write count plus last sync status. Provide a "Sync now" button.
+- **Cache management UI**: Add a screen that lists cached units with download size, cache mode (minimal vs full), and status, allows deleting individual units or clearing all cached data, shows whether the device is online, and displays outstanding write count plus last sync status. Provide controls to trigger "Download full unit" when only minimal data is present, "Downgrade to minimal" (remove lesson/audio blobs), and a "Sync now" button.
 - **Schema versioning**: Store a `schema_version` on each unit row. The app defines an `OLDEST_SUPPORTED_UNIT_SCHEMA`. On boot and after pull, delete any cached unit/lesson with an older schema; they must be re-downloaded.
 - **Dependencies**: Add `expo-file-system` and `expo-sqlite` to the mobile project. Provide lightweight mocks for Jest.
 - **Testing**: Add backend unit coverage for the sync endpoint and mobile Jest coverage for the SQLite/outbox managers and asset resolver.
@@ -27,9 +28,9 @@ As a mobile learner, I want to download a unit (with its lessons, audio, and art
 ### Backend
 - **modules/content**
   - Extend `ContentRepo` with a method that returns units (with lessons) updated since a timestamp, including `deleted_at` tombstones.
-  - Update `ContentService` to expose `get_units_since` returning DTOs with nested lessons, `updated_at`, and asset metadata (podcast audio object id + presigned URL, art image id + presigned URL when present).
+  - Update `ContentService` to expose `get_units_since` returning DTOs with nested lessons, `updated_at`, and asset metadata (podcast audio object id + presigned URL, art image id + presigned URL when present). The service accepts a `payload` argument (`full` vs `minimal`) to skip lesson/audio hydration when the client only needs list metadata.
   - Add a new `UnitSyncResponse` DTO.
-  - Add a route `GET /api/v1/content/units/sync` that accepts query params `since` (ISO datetime), `limit`, and `include_deleted`. It should return units, lessons, and tombstones, and generate presigned URLs for assets via `modules.object_store`.
+  - Add a route `GET /api/v1/content/units/sync` that accepts query params `since` (ISO datetime), `limit`, `payload` (`full|minimal`), and `include_deleted`. It should return units, lessons, and tombstones, and generate presigned URLs for assets via `modules.object_store`, respecting the requested payload level (no lessons/audio for `minimal`).
   - Ensure unit and lesson DTOs include `schema_version` (default 1) so the client can enforce the minimum supported version.
   - Add unit tests covering service transformation and route behaviour (cursor handling, tombstone emission, asset metadata inclusion).
 
@@ -43,10 +44,10 @@ As a mobile learner, I want to download a unit (with its lessons, audio, and art
   - Implement a repository wrapping SQLite queries for CRUD on the `units`, `lessons`, `assets`, `outbox`, and `metadata` tables. Include helpers to purge stale schema versions.
   - Implement a service responsible for:
     - Read-through caching helpers used by `content` service (SQLite-first, network fallback).
-    - Asset download orchestration (checking disk, downloading, updating SQLite metadata).
+    - Asset download orchestration (checking disk, downloading, updating SQLite metadata). Cache mode changes must atomically move units between `minimal` and `full` states, scheduling lesson/audio downloads or removals as appropriate.
     - Outbox enqueueing, dequeueing, backoff scheduling, and retry bookkeeping.
-    - Sync loop orchestration (push then pull) triggered by app lifecycle events and the cache screen.
-    - Reporting outstanding write counts and last sync status to the UI.
+    - Sync loop orchestration (push then pull) triggered by app lifecycle events and the cache screen. Pull requests choose `payload=minimal` unless a unit is marked for full download.
+    - Reporting outstanding write counts and last sync status to the UI, including counts of units per cache mode.
   - Expose a public provider for other modules.
   - Add Jest tests for the service (read/write flows, outbox retry/backoff) using a SQLite mock or in-memory DB and file system mocks.
 - **modules/content**

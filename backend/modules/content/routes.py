@@ -60,6 +60,10 @@ async def sync_units(
     ),
     limit: int = Query(100, ge=1, le=500, description="Maximum number of units to inspect"),
     include_deleted: bool = Query(False, description="Whether to include deletion tombstones"),
+    payload: str = Query(
+        "full",
+        description="Payload detail level: 'full' returns lessons/audio/image metadata, 'minimal' returns unit metadata + image",
+    ),
     service: ContentService = Depends(get_content_service),
 ) -> ContentService.UnitSyncResponse:
     """Return units and lessons that have changed since the provided cursor."""
@@ -74,10 +78,17 @@ async def sync_units(
         if parsed_since.tzinfo is None:
             parsed_since = parsed_since.replace(tzinfo=timezone.utc)
 
+    if payload not in {"full", "minimal"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid payload value; expected 'full' or 'minimal'",
+        )
+
     return await service.get_units_since(
         since=parsed_since,
         limit=limit,
         include_deleted=include_deleted,
+        payload=payload,
     )
 
 

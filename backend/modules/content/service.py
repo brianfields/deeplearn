@@ -356,6 +356,8 @@ class ContentService:
         deleted_lesson_ids: list[str]
         cursor: datetime
 
+    UnitSyncPayload = Literal["full", "minimal"]
+
     class UnitCreate(BaseModel):
         id: str | None = None
         title: str
@@ -382,10 +384,16 @@ class ContentService:
         *,
         audio_meta: Any | None = None,
         include_art_presigned_url: bool = True,
+        include_audio_metadata: bool = True,
     ) -> ContentService.UnitRead:
         unit_read = self.UnitRead.model_validate(unit)
         unit_read.schema_version = getattr(unit, "schema_version", 1)
-        await self._apply_podcast_metadata(unit_read, unit, audio_meta=audio_meta)
+        await self._apply_podcast_metadata(
+            unit_read,
+            unit,
+            audio_meta=audio_meta,
+            include_metadata=include_audio_metadata,
+        )
         await self._apply_artwork_metadata(
             unit_read,
             unit,
@@ -399,18 +407,26 @@ class ContentService:
         unit: UnitModel,
         *,
         audio_meta: Any | None = None,
+        include_metadata: bool = True,
     ) -> None:
         audio_object_id = getattr(unit, "podcast_audio_object_id", None)
         unit_read.has_podcast = bool(audio_object_id)
         unit_read.podcast_voice = getattr(unit, "podcast_voice", None)
         unit_read.podcast_generated_at = getattr(unit, "podcast_generated_at", None)
 
-        resolved_meta = audio_meta
-        if resolved_meta is None and audio_object_id and self._object_store is not None:
-            resolved_meta = await self._fetch_audio_metadata(
-                audio_object_id,
-                requesting_user_id=getattr(unit, "user_id", None),
-            )
+        if not include_metadata:
+            resolved_meta = audio_meta if audio_meta is not None else None
+        else:
+            resolved_meta = audio_meta
+            if (
+                resolved_meta is None
+                and audio_object_id
+                and self._object_store is not None
+            ):
+                resolved_meta = await self._fetch_audio_metadata(
+                    audio_object_id,
+                    requesting_user_id=getattr(unit, "user_id", None),
+                )
 
         duration_value: Any | None = None if resolved_meta is None else getattr(resolved_meta, "duration_seconds", None)
         if isinstance(duration_value, int):
@@ -467,13 +483,18 @@ class ContentService:
         self,
         unit: UnitModel,
         unit_read: ContentService.UnitRead,
+        *,
+        allowed_types: set[str] | None = None,
     ) -> list[ContentService.UnitSyncAsset]:
         """Construct asset metadata for the sync payload."""
 
         assets: list[ContentService.UnitSyncAsset] = []
 
+        include_audio = allowed_types is None or "audio" in allowed_types
+        include_image = allowed_types is None or "image" in allowed_types
+
         audio_identifier = getattr(unit, "podcast_audio_object_id", None)
-        if audio_identifier:
+        if include_audio and audio_identifier:
             try:
                 audio_uuid = (
                     audio_identifier
@@ -505,7 +526,7 @@ class ContentService:
                 )
 
         art_identifier = getattr(unit, "art_image_id", None)
-        if art_identifier:
+        if include_image and art_identifier:
             try:
                 art_uuid = (
                     art_identifier
@@ -844,23 +865,29 @@ class ContentService:
         since: datetime | None,
         limit: int = 100,
         include_deleted: bool = False,
+        payload: ContentService.UnitSyncPayload = "full",
     ) -> ContentService.UnitSyncResponse:
         """Return units and lessons that changed since the provided timestamp."""
+
+        if payload not in ("full", "minimal"):
+            raise ValueError(f"Unsupported sync payload: {payload}")
 
         units = await self.repo.get_units_updated_since(since, limit=limit)
         unit_by_id: dict[str, UnitModel] = {unit.id: unit for unit in units}
 
         lessons_by_unit: dict[str, dict[str, LessonModel]] = {}
-        base_lessons = await self.repo.get_lessons_for_unit_ids(unit_by_id.keys())
-        for lesson in base_lessons:
-            if not lesson.unit_id:
-                continue
-            bucket = lessons_by_unit.setdefault(lesson.unit_id, {})
-            existing = bucket.get(lesson.id)
-            if existing is None or existing.updated_at < lesson.updated_at:
-                bucket[lesson.id] = lesson
+        include_lessons = payload == "full"
+        if include_lessons and unit_by_id:
+            base_lessons = await self.repo.get_lessons_for_unit_ids(unit_by_id.keys())
+            for lesson in base_lessons:
+                if not lesson.unit_id:
+                    continue
+                bucket = lessons_by_unit.setdefault(lesson.unit_id, {})
+                existing = bucket.get(lesson.id)
+                if existing is None or existing.updated_at < lesson.updated_at:
+                    bucket[lesson.id] = lesson
 
-        if since is not None:
+        if include_lessons and since is not None:
             recent_lessons = await self.repo.get_lessons_updated_since(since, limit=limit)
             for lesson in recent_lessons:
                 if not lesson.unit_id:
@@ -878,41 +905,52 @@ class ContentService:
         entries: list[ContentService.UnitSyncEntry] = []
         cursor_candidates: list[datetime] = []
 
+        allowed_asset_types = None if payload == "full" else {"image"}
+
         for unit in units:
-            unit_read = await self._build_unit_read(unit, include_art_presigned_url=True)
+            unit_read = await self._build_unit_read(
+                unit,
+                include_art_presigned_url=True,
+                include_audio_metadata=payload == "full",
+            )
             unit_read.schema_version = getattr(unit, "schema_version", 1)
             cursor_candidates.append(unit.updated_at)
 
-            lesson_bucket = lessons_by_unit.get(unit.id, {})
-            ordered_ids = list(getattr(unit, "lesson_order", []) or [])
-            ordered_models: list[LessonModel] = []
-            seen_ids: set[str] = set()
-
-            for lesson_id in ordered_ids:
-                model = lesson_bucket.get(lesson_id)
-                if model is None:
-                    continue
-                ordered_models.append(model)
-                seen_ids.add(model.id)
-
-            remaining_models = [
-                model
-                for model_id, model in lesson_bucket.items()
-                if model_id not in seen_ids
-            ]
-            remaining_models.sort(key=lambda model: model.updated_at)
-            ordered_models.extend(remaining_models)
-
             lesson_reads: list[LessonRead] = []
-            for model in ordered_models:
-                try:
-                    lesson_read = self._lesson_model_to_read(model)
-                except Exception:  # pragma: no cover - helper already logged
-                    continue
-                lesson_reads.append(lesson_read)
-                cursor_candidates.append(model.updated_at)
+            if include_lessons:
+                lesson_bucket = lessons_by_unit.get(unit.id, {})
+                ordered_ids = list(getattr(unit, "lesson_order", []) or [])
+                ordered_models: list[LessonModel] = []
+                seen_ids: set[str] = set()
 
-            assets = await self._build_unit_assets(unit, unit_read)
+                for lesson_id in ordered_ids:
+                    model = lesson_bucket.get(lesson_id)
+                    if model is None:
+                        continue
+                    ordered_models.append(model)
+                    seen_ids.add(model.id)
+
+                remaining_models = [
+                    model
+                    for model_id, model in lesson_bucket.items()
+                    if model_id not in seen_ids
+                ]
+                remaining_models.sort(key=lambda model: model.updated_at)
+                ordered_models.extend(remaining_models)
+
+                for model in ordered_models:
+                    try:
+                        lesson_read = self._lesson_model_to_read(model)
+                    except Exception:  # pragma: no cover - helper already logged
+                        continue
+                    lesson_reads.append(lesson_read)
+                    cursor_candidates.append(model.updated_at)
+
+            assets = await self._build_unit_assets(
+                unit,
+                unit_read,
+                allowed_types=allowed_asset_types,
+            )
 
             entries.append(
                 self.UnitSyncEntry(

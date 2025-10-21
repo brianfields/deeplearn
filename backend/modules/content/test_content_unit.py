@@ -606,12 +606,72 @@ class TestContentService:
         assert {asset.type for asset in entry.assets} == {"audio", "image"}
         assert response.cursor == now
 
+    async def test_get_units_since_minimal_payload_skips_lessons_and_audio(self) -> None:
+        """Minimal payload requests should avoid lesson hydration and audio fetches."""
+
+        repo = AsyncMock(spec=ContentRepo)
+        object_store = AsyncMock()
+        object_store.get_audio = AsyncMock()
+        object_store.get_image = AsyncMock(return_value=SimpleNamespace(presigned_url="https://cdn/image.png"))
+
+        service = ContentService(repo, object_store=object_store)
+
+        now = datetime.now(UTC)
+        unit_id = "unit-minimal"
+        audio_uuid = uuid.uuid4()
+        art_uuid = uuid.uuid4()
+
+        unit_model = UnitModel(
+            id=unit_id,
+            title="Offline Unit",
+            description="",
+            learner_level="beginner",
+            lesson_order=[],
+            user_id=None,
+            is_global=False,
+            learning_objectives=None,
+            target_lesson_count=None,
+            source_material=None,
+            generated_from_topic=False,
+            flow_type="standard",
+            status="completed",
+            creation_progress=None,
+            error_message=None,
+            podcast_transcript=None,
+            podcast_voice=None,
+            podcast_audio_object_id=audio_uuid,
+            podcast_generated_at=now,
+            art_image_id=art_uuid,
+            art_image_description="cover",
+            created_at=now,
+            updated_at=now,
+        )
+
+        repo.get_units_updated_since.return_value = [unit_model]
+
+        response = await service.get_units_since(since=None, limit=5, payload="minimal")
+
+        repo.get_lessons_for_unit_ids.assert_not_called()
+        repo.get_lessons_updated_since.assert_not_called()
+        object_store.get_audio.assert_not_awaited()
+
+        assert len(response.units) == 1
+        entry = response.units[0]
+        assert entry.lessons == []
+        assert {asset.type for asset in entry.assets} == {"image"}
+        assert response.cursor == now
+
 
 class _StubSyncService:
     """Minimal stub to capture sync calls from the FastAPI route."""
 
     def __init__(self) -> None:
-        self.args: tuple[datetime | None, int, bool] | None = None
+        self.args: tuple[
+            datetime | None,
+            int,
+            bool,
+            ContentService.UnitSyncPayload,
+        ] | None = None
 
     async def get_units_since(
         self,
@@ -619,8 +679,9 @@ class _StubSyncService:
         since: datetime | None,
         limit: int,
         include_deleted: bool,
+        payload: ContentService.UnitSyncPayload,
     ) -> ContentService.UnitSyncResponse:
-        self.args = (since, limit, include_deleted)
+        self.args = (since, limit, include_deleted, payload)
         return ContentService.UnitSyncResponse(
             units=[],
             deleted_unit_ids=[],
@@ -656,10 +717,11 @@ async def test_sync_units_route_parses_query_parameters() -> None:
 
     assert response.status_code == status.HTTP_200_OK
     assert stub.args is not None
-    parsed_since, captured_limit, captured_deleted = stub.args
+    parsed_since, captured_limit, captured_deleted, payload = stub.args
     assert parsed_since == datetime.fromisoformat(since_value)
     assert captured_limit == 7
     assert captured_deleted is True
+    assert payload == "full"
 
 
 async def test_sync_units_route_validates_since_format() -> None:
@@ -677,4 +739,40 @@ async def test_sync_units_route_validates_since_format() -> None:
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     # Dependency override means service was never invoked
+    assert stub.args is None
+
+
+async def test_sync_units_route_accepts_minimal_payload() -> None:
+    """Clients may request the lightweight payload variant."""
+
+    stub = _StubSyncService()
+    app = await _build_test_app(stub)
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get(
+            "/api/v1/content/units/sync",
+            params={"payload": "minimal"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert stub.args is not None
+    _, _, _, payload = stub.args
+    assert payload == "minimal"
+
+
+async def test_sync_units_route_rejects_unknown_payload() -> None:
+    """Unsupported payload values should raise a validation error."""
+
+    stub = _StubSyncService()
+    app = await _build_test_app(stub)
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get(
+            "/api/v1/content/units/sync",
+            params={"payload": "everything"},
+        )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert stub.args is None

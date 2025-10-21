@@ -61,6 +61,7 @@ class ContentProvider(Protocol):
         since: datetime | None,
         limit: int = 100,
         include_deleted: bool = False,
+        payload: ContentService.UnitSyncPayload = "full",
     ) -> ContentService.UnitSyncResponse: ...
     async def update_unit_status(
         self,
