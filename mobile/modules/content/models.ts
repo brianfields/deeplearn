@@ -161,8 +161,8 @@ export interface UnitProgress {
 }
 
 export interface UserUnitCollections {
-  readonly personalUnits: Unit[];
-  readonly globalUnits: Unit[];
+  readonly units: Unit[];
+  readonly ownedUnitIds: string[];
 }
 
 export interface UpdateUnitSharingRequest {

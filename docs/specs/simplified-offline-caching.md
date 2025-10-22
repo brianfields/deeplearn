@@ -299,102 +299,102 @@ No backend changes needed. The `/api/v1/content/units/sync` endpoint already sup
 
 ### Phase 1: Core Logic Changes
 
-- [ ] **Update sync to always use 'minimal' payload**
+- [x] **Update sync to always use 'minimal' payload**
   - File: `mobile/modules/offline_cache/service.ts`
   - Change: Remove logic that checks for 'full' cache mode
   - Set: `const payload: CacheMode = 'minimal';`
 
-- [ ] **Update getUnitDetail to check download status**
+- [x] **Update getUnitDetail to check download status**
   - File: `mobile/modules/content/service.ts`
   - Change: Only return full lessons if `downloadStatus === 'completed'`
   - Add: `mapCachedUnitMetadata()` helper for non-downloaded units
   - Add: Logging to show why full detail is/isn't returned
 
-- [ ] **Ensure download flow marks units correctly**
+- [x] **Ensure download flow marks units correctly**
   - File: `mobile/modules/content/service.ts`
   - Verify: `requestUnitDownload()` properly sets statuses
   - Ensure: Downloads complete before marking 'completed'
 
 ### Phase 2: UI Changes - Unit List Screen
 
-- [ ] **Replace sections from Global/Personal to Downloaded/Available**
+- [x] **Replace sections from Global/Personal to Downloaded/Available**
   - File: `mobile/modules/catalog/screens/UnitListScreen.tsx`
   - Remove: `filteredPersonalUnits`, `filteredGlobalUnits` logic
   - Add: `downloadedUnits`, `availableUnits` sections
   - Group by: `unit.downloadStatus === 'completed'`
 
-- [ ] **Update section titles and empty messages**
+- [x] **Update section titles and empty messages**
   - "Downloaded" section: "Your downloaded units"
   - "Available" section: "Available units"
   - Empty message for downloaded: "No units downloaded yet"
   - Empty message for available: "No units available"
 
-- [ ] **Update unit card to show download status**
+- [x] **Update unit card to show download status**
   - Show storage size only for downloaded units
   - Show download button/icon for available units
   - Show progress indicator for downloading units
 
-- [ ] **Remove isGlobal filtering and UI elements**
+- [x] **Remove isGlobal filtering and UI elements**
   - Remove "Make Global" / "Make Private" buttons
   - Remove ownership labels
   - Simplify to just download status
 
 ### Phase 3: UI Changes - Unit Detail Screen
 
-- [ ] **Add download status check**
+- [x] **Add download status check**
   - File: `mobile/modules/catalog/screens/UnitDetailScreen.tsx`
   - Check: `unit.downloadStatus === 'completed'`
   - If not downloaded: Show download prompt instead of lessons
 
-- [ ] **Create DownloadPrompt component**
+- [x] **Create DownloadPrompt component**
   - Show: Unit metadata (title, description, lesson count)
   - Show: Estimated download size
   - Button: "Download Unit" (primary)
   - Button: "Cancel" (secondary)
   - Handle: Call `requestUnitDownload(unitId)`
 
-- [ ] **Show download progress if in progress**
+- [x] **Show download progress if in progress**
   - If `downloadStatus === 'in_progress'`: Show progress indicator
   - Display: "Downloading... X/Y assets"
   - Button: "Cancel Download"
 
 ### Phase 4: Downloads Screen Updates
 
-- [ ] **Update CacheManagementScreen sections**
+- [x] **Update CacheManagementScreen sections**
   - File: `mobile/modules/offline_cache/screens/CacheManagementScreen.tsx`
   - Same grouping: Downloaded vs Available
   - Show storage size only for downloaded
   - Show download button for available
 
-- [ ] **Remove sync/clear all buttons**
+- [x] **Remove sync/clear all buttons**
   - Already done per previous feedback
   - Verify this is still in place
 
 ### Phase 5: Content Service Updates
 
-- [ ] **Add mapCachedUnitMetadata helper**
+- [x] **Add mapCachedUnitMetadata helper**
   - File: `mobile/modules/content/service.ts`
   - Returns: Unit info without lessons
   - Used for: Non-downloaded units in detail view
 
-- [ ] **Update getUserUnitCollections**
+- [x] **Update getUserUnitCollections**
   - File: `mobile/modules/content/service.ts`
   - Change: Return single array instead of Global/Personal split
   - Keep filtering by userId for "My Units" if needed elsewhere
 
-- [ ] **Add logging for cache decisions**
+- [x] **Add logging for cache decisions**
   - Log when serving from cache vs requiring download
   - Log download start/progress/completion
   - Help debugging cache issues
 
 ### Phase 6: Cleanup
 
-- [ ] **Remove unused code**
+- [x] **Remove unused code**
   - Remove `cacheMode` references from UI (keep in DB)
   - Remove Global/Personal distinction code
   - Clean up unused imports
 
-- [ ] **Update logging**
+- [x] **Update logging**
   - Remove debug logs added during development
   - Keep useful production logs
   - Ensure no sensitive data logged

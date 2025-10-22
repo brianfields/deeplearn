@@ -48,9 +48,9 @@ describe('CacheManagementScreen', () => {
   const mockGetCacheOverview = jest.fn<Promise<CacheOverview>, []>();
   const mockClearAll = jest.fn();
   const mockDeleteUnit = jest.fn();
-  const mockMarkUnit = jest.fn();
   const mockSyncNow = jest.fn();
   const mockRequestUnitDownload = jest.fn();
+  const mockRemoveUnitDownload = jest.fn();
   const mockGetNetworkStatus = jest.fn(() => ({ isConnected: true }));
 
   beforeEach(() => {
@@ -59,20 +59,20 @@ describe('CacheManagementScreen', () => {
     mockGetCacheOverview.mockReset();
     mockClearAll.mockReset();
     mockDeleteUnit.mockReset();
-    mockMarkUnit.mockReset();
     mockSyncNow.mockReset();
     mockRequestUnitDownload.mockReset();
+    mockRemoveUnitDownload.mockReset();
     mockGetNetworkStatus.mockReset();
 
     mockOfflineCacheProvider.mockReturnValue({
       getCacheOverview: mockGetCacheOverview,
       clearAll: mockClearAll,
       deleteUnit: mockDeleteUnit,
-      markUnitCacheMode: mockMarkUnit,
     });
     mockContentProvider.mockReturnValue({
       syncNow: mockSyncNow,
       requestUnitDownload: mockRequestUnitDownload,
+      removeUnitDownload: mockRemoveUnitDownload,
     });
     mockInfrastructureProvider.mockReturnValue({
       getNetworkStatus: mockGetNetworkStatus,
@@ -163,7 +163,7 @@ describe('CacheManagementScreen', () => {
           isGlobal: false,
           updatedAt: Date.now(),
           schemaVersion: 1,
-          downloadStatus: 'completed',
+          downloadStatus: 'idle',
           cacheMode: 'minimal',
           downloadedAt: null,
           syncedAt: null,
@@ -201,20 +201,8 @@ describe('CacheManagementScreen', () => {
     });
     const root = (component as renderer.ReactTestRenderer).root;
 
-    const syncButton = root.findByProps({ testID: 'cache-sync-button' });
-    await act(async () => {
-      await syncButton.props.onPress();
-    });
-    expect(mockSyncNow).toHaveBeenCalledTimes(1);
-
-    const clearButton = root.findByProps({ testID: 'cache-clear-all-button' });
-    await act(async () => {
-      await clearButton.props.onPress();
-    });
-    expect(mockClearAll).toHaveBeenCalledTimes(1);
-
     const downloadButton = root.findByProps({
-      testID: 'cache-unit-download-unit-minimal',
+      testID: 'cache-unit-toggle-unit-minimal',
     });
     await act(async () => {
       await downloadButton.props.onPress();
@@ -222,20 +210,12 @@ describe('CacheManagementScreen', () => {
     expect(mockRequestUnitDownload).toHaveBeenCalledWith('unit-minimal');
 
     const downgradeButton = root.findByProps({
-      testID: 'cache-unit-downgrade-unit-full',
+      testID: 'cache-unit-toggle-unit-full',
     });
     await act(async () => {
       await downgradeButton.props.onPress();
     });
-    expect(mockMarkUnit).toHaveBeenCalledWith('unit-full', 'minimal');
-
-    const deleteButton = root.findByProps({
-      testID: 'cache-unit-delete-unit-full',
-    });
-    await act(async () => {
-      await deleteButton.props.onPress();
-    });
-    expect(mockDeleteUnit).toHaveBeenCalledWith('unit-full');
+    expect(mockRemoveUnitDownload).toHaveBeenCalledWith('unit-full');
   });
 });
 

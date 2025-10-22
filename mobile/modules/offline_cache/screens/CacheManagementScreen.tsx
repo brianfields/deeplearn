@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
@@ -44,6 +50,25 @@ export function CacheManagementScreen(): React.ReactElement {
   const [unitAction, setUnitAction] = useState<UnitActionState | null>(null);
   const isMounted = useRef(true);
 
+  const cachedUnits = overview?.units ?? [];
+  const downloadedUnits = useMemo(
+    () => cachedUnits.filter(unit => unit.downloadStatus === 'completed'),
+    [cachedUnits]
+  );
+  const availableUnits = useMemo(
+    () => cachedUnits.filter(unit => unit.downloadStatus !== 'completed'),
+    [cachedUnits]
+  );
+  const hasActiveDownloads = useMemo(
+    () =>
+      cachedUnits.some(
+        unit =>
+          unit.downloadStatus === 'pending' ||
+          unit.downloadStatus === 'in_progress'
+      ),
+    [cachedUnits]
+  );
+
   useEffect(() => {
     return () => {
       isMounted.current = false;
@@ -77,24 +102,17 @@ export function CacheManagementScreen(): React.ReactElement {
     }, [loadOverview])
   );
 
-  // Poll for updates when there are pending/in-progress downloads
   useEffect(() => {
-    const hasActiveDownloads = cachedUnits.some(
-      unit =>
-        unit.downloadStatus === 'pending' ||
-        unit.downloadStatus === 'in_progress'
-    );
-
     if (!hasActiveDownloads) {
       return;
     }
 
     const pollInterval = setInterval(() => {
       loadOverview();
-    }, 2000); // Poll every 2 seconds
+    }, 2000);
 
     return () => clearInterval(pollInterval);
-  }, [cachedUnits, loadOverview]);
+  }, [hasActiveDownloads, loadOverview]);
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -102,39 +120,147 @@ export function CacheManagementScreen(): React.ReactElement {
   }, [loadOverview]);
 
   const handleDownloadToggle = useCallback(
-    async (unitId: string, isDownloaded: boolean) => {
-      if (isDownloaded) {
-        // Delete the download
-        setUnitAction({ unitId, action: 'delete' });
-        try {
-          await offlineCache.deleteUnit(unitId);
+    async (unit: CacheOverview['units'][number]) => {
+      const isDownloaded = unit.downloadStatus === 'completed';
+      const isCancelable =
+        unit.downloadStatus === 'pending' || unit.downloadStatus === 'in_progress';
+      const action: UnitActionState['action'] =
+        isDownloaded || isCancelable ? 'delete' : 'download';
+
+      setUnitAction({ unitId: unit.id, action });
+
+      try {
+        if (action === 'delete') {
+          await content.removeUnitDownload(unit.id);
           trigger('light');
-        } catch (error: any) {
-          console.error('[CacheManagement] Failed to delete unit:', error);
-        } finally {
-          setUnitAction(null);
-          await loadOverview();
-        }
-      } else {
-        // Download the unit
-        setUnitAction({ unitId, action: 'download' });
-        try {
-          await content.requestUnitDownload(unitId);
+        } else {
+          await content.requestUnitDownload(unit.id);
           trigger('medium');
-        } catch (error: any) {
-          console.error('[CacheManagement] Failed to queue download:', error);
-        } finally {
-          setUnitAction(null);
-          // Reload to show updated status
-          await loadOverview();
         }
+      } catch (error: any) {
+        console.error('[CacheManagement] Failed to process unit action:', {
+          unitId: unit.id,
+          action,
+          error,
+        });
+      } finally {
+        setUnitAction(null);
+        await loadOverview();
       }
     },
-    [content, loadOverview, offlineCache, trigger]
+    [content, loadOverview, trigger]
   );
 
-  const cachedUnits = overview?.units ?? [];
   const isOnline = infrastructure.getNetworkStatus()?.isConnected ?? false;
+
+  const renderUnitCard = useCallback(
+    (unit: CacheOverview['units'][number], section: 'downloaded' | 'available') => {
+      const isDownloaded = unit.downloadStatus === 'completed';
+      const isPending = unit.downloadStatus === 'pending';
+      const isInProgress = unit.downloadStatus === 'in_progress';
+      const isFailed = unit.downloadStatus === 'failed';
+      const isCancelable = isPending || isInProgress;
+      const isActionTarget = unitAction?.unitId === unit.id;
+      const isDeleting = isActionTarget && unitAction.action === 'delete';
+      const isRequestingDownload =
+        isActionTarget && unitAction.action === 'download';
+
+      let statusContent: React.ReactNode = null;
+
+      if (isPending || isInProgress) {
+        const totalAssets = unit.assetCount ?? 0;
+        const completedAssets = Math.min(unit.downloadedAssets ?? 0, totalAssets);
+        const progressLabel = isPending
+          ? 'Download queued...'
+          : totalAssets > 0
+            ? `Downloading... ${completedAssets}/${totalAssets} assets`
+            : 'Downloading assets...';
+        statusContent = (
+          <View style={styles.progressRow} testID={`cache-unit-${unit.id}-progress`}>
+            <ActivityIndicator size="small" color={theme.colors.primary} />
+            <Text variant="caption" color={theme.colors.primary}>
+              {progressLabel}
+            </Text>
+          </View>
+        );
+      } else if (isFailed) {
+        statusContent = (
+          <Text
+            variant="caption"
+            color={theme.colors.error}
+            testID={`cache-unit-${unit.id}-progress`}
+          >
+            Download failed. Tap to retry.
+          </Text>
+        );
+      } else if (isDownloaded) {
+        const bytes = unit.storageBytes ?? 0;
+        const label = bytes > 0 ? formatBytes(bytes) : 'Downloaded';
+        statusContent = (
+          <Text
+            variant="caption"
+            color={theme.colors.textSecondary}
+            testID={`cache-unit-${unit.id}-storage`}
+          >
+            {label}
+          </Text>
+        );
+      } else if (section === 'available') {
+        statusContent = (
+          <Text variant="caption" color={theme.colors.textSecondary}>
+            Not downloaded
+          </Text>
+        );
+      }
+
+      const showSpinner = isDeleting || isRequestingDownload;
+      const disableAction =
+        showSpinner || (!isDownloaded && !isCancelable && !isOnline);
+      const actionIcon = showSpinner ? (
+        <ActivityIndicator size="small" color={theme.colors.textSecondary} />
+      ) : isDownloaded || isCancelable ? (
+        <Trash2 size={24} color={theme.colors.error} />
+      ) : (
+        <Download
+          size={24}
+          color={
+            !isOnline && section === 'available'
+              ? theme.colors.textSecondary
+              : theme.colors.primary
+          }
+        />
+      );
+
+      return (
+        <View
+          key={unit.id}
+          style={[styles.unitCard, { backgroundColor: theme.colors.surface }]}
+          testID={`cache-unit-${unit.id}`}
+        >
+          <View style={styles.unitContent}>
+            <View style={styles.unitInfo}>
+              <Text variant="title" testID={`cache-unit-${unit.id}-title`}>
+                {unit.title}
+              </Text>
+              {statusContent}
+            </View>
+            <TouchableOpacity
+              onPress={() => handleDownloadToggle(unit)}
+              disabled={disableAction}
+              style={[
+                styles.iconButton,
+                !isOnline && !isDownloaded && !isCancelable && styles.iconButtonDisabled,
+              ]}
+              testID={`cache-unit-toggle-${unit.id}`}
+            >
+              {actionIcon}
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    },
+    [handleDownloadToggle, isOnline, theme, unitAction]
+  );
 
   if (isLoading) {
     return (
@@ -180,113 +306,49 @@ export function CacheManagementScreen(): React.ReactElement {
           </Text>
         </View>
 
-        {cachedUnits.length === 0 ? (
-          <View style={styles.emptyState} testID="cache-empty-state">
-            <Text variant="title">No downloads yet</Text>
+        <View style={styles.section} testID="cache-section-downloaded">
+          <View style={styles.sectionHeader}>
+            <Text variant="h2">Downloaded units</Text>
             <Text variant="secondary" color={theme.colors.textSecondary}>
-              Download units to make them available offline.
+              Fully available offline
             </Text>
           </View>
-        ) : (
-          cachedUnits.map(unit => {
-            const isFullyDownloaded =
-              unit.cacheMode === 'full' && unit.downloadStatus === 'completed';
-            const isPending = unit.downloadStatus === 'pending';
-            const isInProgress = unit.downloadStatus === 'in_progress';
-            const isDownloading =
-              (unitAction?.unitId === unit.id &&
-                unitAction.action === 'download') ||
-              isPending ||
-              isInProgress;
-            const isDeleting =
-              unitAction?.unitId === unit.id && unitAction.action === 'delete';
-            const isProcessing = isDownloading || isDeleting;
+          {downloadedUnits.length === 0 ? (
+            <View
+              style={[styles.emptyState, { backgroundColor: theme.colors.surface }]}
+              testID="cache-empty-downloaded"
+            >
+              <Text variant="title">No units downloaded yet</Text>
+              <Text variant="secondary" color={theme.colors.textSecondary}>
+                Download units to make them available offline.
+              </Text>
+            </View>
+          ) : (
+            downloadedUnits.map(unit => renderUnitCard(unit, 'downloaded'))
+          )}
+        </View>
 
-            // Show progress text for downloads
-            let progressText: string | null = null;
-            if (isPending) {
-              progressText = 'Download queued...';
-            } else if (isInProgress) {
-              progressText = `Downloading... ${unit.downloadedAssets}/${unit.assetCount} assets`;
-            }
-
-            // Show storage size for completed downloads with assets
-            const showStorage =
-              isFullyDownloaded &&
-              unit.downloadedAssets > 0 &&
-              unit.storageBytes > 0;
-
-            return (
-              <View
-                key={unit.id}
-                style={[
-                  styles.unitCard,
-                  { backgroundColor: theme.colors.surface },
-                ]}
-                testID={`cache-unit-${unit.id}`}
-              >
-                <View style={styles.unitContent}>
-                  <View style={styles.unitInfo}>
-                    <Text
-                      variant="title"
-                      testID={`cache-unit-${unit.id}-title`}
-                    >
-                      {unit.title}
-                    </Text>
-                    {progressText ? (
-                      <Text
-                        variant="caption"
-                        color={theme.colors.primary}
-                        testID={`cache-unit-${unit.id}-progress`}
-                      >
-                        {progressText}
-                      </Text>
-                    ) : showStorage ? (
-                      <Text
-                        variant="caption"
-                        color={theme.colors.textSecondary}
-                        testID={`cache-unit-${unit.id}-storage`}
-                      >
-                        {formatBytes(unit.storageBytes)}
-                      </Text>
-                    ) : null}
-                  </View>
-                  <TouchableOpacity
-                    onPress={() =>
-                      handleDownloadToggle(unit.id, isFullyDownloaded)
-                    }
-                    disabled={isProcessing || !isOnline}
-                    style={[
-                      styles.iconButton,
-                      !isOnline &&
-                        !isFullyDownloaded &&
-                        styles.iconButtonDisabled,
-                    ]}
-                    testID={`cache-unit-toggle-${unit.id}`}
-                  >
-                    {isProcessing ? (
-                      <ActivityIndicator
-                        size="small"
-                        color={theme.colors.textSecondary}
-                      />
-                    ) : isFullyDownloaded ? (
-                      <Trash2 size={24} color={theme.colors.error} />
-                    ) : (
-                      <Download
-                        size={24}
-                        color={
-                          isOnline
-                            ? theme.colors.primary
-                            : theme.colors.textSecondary
-                        }
-                      />
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </View>
-            );
-          })
-        )}
+        <View style={styles.section} testID="cache-section-available">
+          <View style={styles.sectionHeader}>
+            <Text variant="h2">Available units</Text>
+            <Text variant="secondary" color={theme.colors.textSecondary}>
+              Download to use offline
+            </Text>
+          </View>
+          {availableUnits.length === 0 ? (
+            <View
+              style={[styles.emptyState, { backgroundColor: theme.colors.surface }]}
+              testID="cache-empty-available"
+            >
+              <Text variant="title">No units available</Text>
+              <Text variant="secondary" color={theme.colors.textSecondary}>
+                Everything here is ready to learn.
+              </Text>
+            </View>
+          ) : (
+            availableUnits.map(unit => renderUnitCard(unit, 'available'))
+          )}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -318,7 +380,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 20,
-    gap: 16,
+    gap: 24,
   },
   topBar: {
     flexDirection: 'row',
@@ -328,16 +390,22 @@ const styles = StyleSheet.create({
   title: {
     flex: 1,
   },
+  section: {
+    gap: 16,
+  },
+  sectionHeader: {
+    gap: 4,
+  },
   emptyState: {
     borderRadius: 16,
     padding: 24,
     alignItems: 'center',
     gap: 8,
-    marginTop: 40,
   },
   unitCard: {
     borderRadius: 16,
     padding: 16,
+    gap: 12,
   },
   unitContent: {
     flexDirection: 'row',
@@ -346,7 +414,12 @@ const styles = StyleSheet.create({
   },
   unitInfo: {
     flex: 1,
-    gap: 4,
+    gap: 8,
+  },
+  progressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   iconButton: {
     padding: 8,
