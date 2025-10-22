@@ -165,23 +165,24 @@ describe('ContentService (offline cache integration)', () => {
 
   it('requests full unit download via offline cache', async () => {
     offlineCache.listUnits.mockImplementationOnce(async () => [baseUnit]);
-    offlineCache.runSyncCycle.mockImplementationOnce(async () =>
-      ({
-        lastPulledAt: null,
-        lastCursor: null,
-        pendingWrites: 0,
-        cacheModeCounts: { minimal: 0, full: 0 },
-        lastSyncAttempt: Date.now(),
-        lastSyncResult: 'success',
-        lastSyncError: null,
-      })
-    );
+    offlineCache.runSyncCycle.mockImplementationOnce(async () => ({
+      lastPulledAt: null,
+      lastCursor: null,
+      pendingWrites: 0,
+      cacheModeCounts: { minimal: 0, full: 0 },
+      lastSyncAttempt: Date.now(),
+      lastSyncResult: 'success',
+      lastSyncError: null,
+    }));
 
     await service.requestUnitDownload('unit-1');
 
     expect(offlineCache.cacheMinimalUnits).toHaveBeenCalledWith(
       expect.arrayContaining([
-        expect.objectContaining({ cacheMode: 'full', downloadStatus: 'pending' }),
+        expect.objectContaining({
+          cacheMode: 'full',
+          downloadStatus: 'pending',
+        }),
       ])
     );
     expect(offlineCache.runSyncCycle).toHaveBeenCalled();

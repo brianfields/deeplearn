@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-import inspect
 import functools
+import inspect
 from pathlib import Path
 from typing import Any, ParamSpec
 import uuid

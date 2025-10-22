@@ -168,12 +168,14 @@ export class ContentRepo {
   }
 
   async syncUnits(params: {
+    userId: number;
     since?: string | null;
     limit?: number;
     includeDeleted?: boolean;
     payload: 'minimal' | 'full';
   }): Promise<ApiUnitSyncResponse> {
     const search = new URLSearchParams();
+    search.append('user_id', String(params.userId));
     if (params.since) {
       search.append('since', params.since);
     }

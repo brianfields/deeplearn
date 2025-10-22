@@ -173,25 +173,46 @@ export interface SQLiteExecutor {
   execute(sql: string, params?: unknown[]): Promise<SQLiteResultSet>;
 }
 
-class SQLiteTransactionExecutor implements SQLiteExecutor {
-  private transaction: any;
+class SQLiteSyncExecutor implements SQLiteExecutor {
+  private database: any;
 
-  constructor(transaction: any) {
-    this.transaction = transaction;
+  constructor(database: any) {
+    this.database = database;
   }
 
-  execute(sql: string, params: unknown[] = []): Promise<SQLiteResultSet> {
-    return new Promise((resolve, reject) => {
-      this.transaction.executeSql(
-        sql,
-        params as any[],
-        (_: any, result: any) => resolve(transformResult(result)),
-        (_: any, error: any) => {
-          reject(error);
-          return false;
-        }
-      );
-    });
+  async execute(sql: string, params: unknown[] = []): Promise<SQLiteResultSet> {
+    try {
+      // Use runSync for INSERT/UPDATE/DELETE, getAllSync for SELECT
+      const normalizedSql = sql.trim().toUpperCase();
+
+      if (normalizedSql.startsWith('SELECT')) {
+        const result = this.database.getAllSync(sql, params);
+        return {
+          rows: result,
+          rowsAffected: 0,
+          insertId: null,
+        };
+      } else if (normalizedSql.startsWith('PRAGMA')) {
+        // PRAGMA statements don't return rows in expo-sqlite v15
+        this.database.execSync(sql);
+        return {
+          rows: [],
+          rowsAffected: 0,
+          insertId: null,
+        };
+      } else {
+        // INSERT, UPDATE, DELETE, CREATE TABLE, etc.
+        const result = this.database.runSync(sql, params);
+        return {
+          rows: [],
+          rowsAffected: result.changes ?? 0,
+          insertId: result.lastInsertRowId ?? null,
+        };
+      }
+    } catch (error) {
+      console.error('[SQLite] Execute error:', error, 'SQL:', sql);
+      throw error;
+    }
   }
 }
 
@@ -210,7 +231,7 @@ export class SQLiteDatabaseProvider {
     }
 
     if (!this.database) {
-      this.database = SQLite.openDatabase(this.config.databaseName);
+      this.database = SQLite.openDatabaseSync(this.config.databaseName);
     }
 
     if (this.config.enableForeignKeys) {
@@ -225,53 +246,22 @@ export class SQLiteDatabaseProvider {
 
   async execute(sql: string, params: unknown[] = []): Promise<SQLiteResultSet> {
     const db = this.ensureDatabase();
-    return new Promise((resolve, reject) => {
-      db.readTransaction(
-        (tx: any) => {
-          tx.executeSql(
-            sql,
-            params as any[],
-            (_: any, result: any) => resolve(transformResult(result)),
-            (_: any, error: any) => {
-              reject(error);
-              return false;
-            }
-          );
-        },
-        (error: any) => reject(error)
-      );
-    });
+    const executor = new SQLiteSyncExecutor(db);
+    return executor.execute(sql, params);
   }
 
   async transaction<T>(
     fn: (executor: SQLiteExecutor) => Promise<T>
   ): Promise<T> {
     const db = this.ensureDatabase();
-    return new Promise<T>((resolve, reject) => {
-      let resultValue: T;
-      let pending: Promise<void> = Promise.resolve();
-
-      db.transaction(
-        (tx: any) => {
-          const executor = new SQLiteTransactionExecutor(tx);
-          pending = Promise.resolve(fn(executor)).then(value => {
-            resultValue = value;
-          });
-        },
-        (error: any) => {
-          reject(error);
-        },
-        () => {
-          pending.then(() => resolve(resultValue)).catch(reject);
-        }
-      );
-    });
+    const executor = new SQLiteSyncExecutor(db);
+    return fn(executor);
   }
 
   async close(): Promise<void> {
-    if (this.database && typeof (this.database as any).close === 'function') {
+    if (this.database && typeof this.database.closeSync === 'function') {
       try {
-        (this.database as any).close();
+        this.database.closeSync();
       } catch (error) {
         console.warn('[SQLite] Close error:', error);
       }
@@ -290,17 +280,42 @@ export class SQLiteDatabaseProvider {
     }
 
     await this.transaction(async executor => {
+      // Create migrations tracking table
+      await executor.execute(`
+        CREATE TABLE IF NOT EXISTS _migrations (
+          id INTEGER PRIMARY KEY,
+          applied_at INTEGER NOT NULL
+        );
+      `);
+
+      // Get already applied migrations
+      const appliedResult = await executor.execute(
+        'SELECT id FROM _migrations ORDER BY id;'
+      );
+      const appliedIds = new Set(appliedResult.rows.map((row: any) => row.id));
+
+      // Run pending migrations
       for (const migration of migrations) {
+        if (appliedIds.has(migration.id)) {
+          continue; // Skip already applied migration
+        }
+
         for (const statement of migration.statements) {
           await executor.execute(statement);
         }
+
+        // Record migration as applied
+        await executor.execute(
+          'INSERT INTO _migrations (id, applied_at) VALUES (?, ?);',
+          [migration.id, Date.now()]
+        );
       }
     });
   }
 
   private ensureDatabase(): any {
     if (!this.database) {
-      this.database = SQLite.openDatabase(this.config.databaseName);
+      this.database = SQLite.openDatabaseSync(this.config.databaseName);
     }
     return this.database;
   }
@@ -388,17 +403,4 @@ function extractDirectory(fileUri: string): string {
     return normalized;
   }
   return normalized.slice(0, lastSlash);
-}
-
-function transformResult(result: any): SQLiteResultSet {
-  const rows: Record<string, unknown>[] = [];
-  for (let index = 0; index < result.rows.length; index += 1) {
-    rows.push(result.rows.item(index));
-  }
-
-  return {
-    rows,
-    rowsAffected: result.rowsAffected ?? 0,
-    insertId: result.insertId ?? null,
-  };
 }

@@ -31,6 +31,7 @@ import type { LearningStackParamList } from '../../../types';
 import { uiSystemProvider, Text, useHaptics } from '../../ui_system/public';
 import { useAuth, userIdentityProvider } from '../../user/public';
 import { Button } from '../../ui_system/components/Button';
+import { contentProvider } from '../../content/public';
 
 type LessonListScreenNavigationProp = NativeStackNavigationProp<
   LearningStackParamList,
@@ -64,6 +65,19 @@ export function LessonListScreen() {
   const personalUnits = collections?.personalUnits ?? [];
   const globalUnits = collections?.globalUnits ?? [];
   const totalUnits = personalUnits.length + globalUnits.length;
+
+  // Handle pull-to-refresh by forcing a full sync
+  const handleRefresh = useCallback(async () => {
+    try {
+      const content = contentProvider();
+      await content.syncNow(); // Force full sync, ignoring cursor
+      await refetch(); // Then refresh the query
+    } catch (error) {
+      console.warn('[UnitListScreen] Sync failed on refresh:', error);
+      // Still refetch to show cached data
+      await refetch();
+    }
+  }, [refetch]);
 
   const matchesSearch = (unit: Unit) =>
     !searchQuery.trim() ||
@@ -275,7 +289,7 @@ export function LessonListScreen() {
           !hasResults && styles.listContainerEmpty,
         ]}
         refreshing={isLoading}
-        onRefresh={() => refetch()}
+        onRefresh={handleRefresh}
         ListFooterComponent={() =>
           hasResults ? null : (
             <View style={styles.emptyState}>

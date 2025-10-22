@@ -19,6 +19,7 @@ function getPrimaryKey(tableName) {
     case 'lessons':
     case 'assets':
     case 'outbox':
+    case '_migrations':
       return 'id';
     case 'metadata':
       return 'key';
@@ -185,24 +186,28 @@ function handleSelect(state, sql, params) {
     return toResult([{ value: value.value }]);
   }
 
-  const match = sql.match(
-    /SELECT \* FROM (\w+)(?: WHERE ([^O]+?))?(?: ORDER BY (\w+)(?: (ASC|DESC))?)?(?: LIMIT (\d+))?/i
+  // Match SELECT column(s) FROM table with optional WHERE/ORDER BY/LIMIT
+  const selectMatch = sql.match(
+    /SELECT (.+?) FROM (\w+)(?: WHERE (.+?))?(?:\s+ORDER BY (\w+)(?: (ASC|DESC))?)?(?: LIMIT (\d+))?;?$/i
   );
-  if (!match) {
+  if (!selectMatch) {
     throw new Error(`Unsupported SELECT statement: ${sql}`);
   }
-  const tableName = match[1];
+
+  const columns = selectMatch[1].trim();
+  const tableName = selectMatch[2];
   const table = ensureTable(state, tableName);
-  const whereClause = match[2];
-  const orderColumn = match[3];
-  const orderDirection = (match[4] || 'ASC').toUpperCase();
-  const limit = match[5] ? parseInt(match[5], 10) : undefined;
+  const whereClause = selectMatch[3];
+  const orderColumn = selectMatch[4];
+  const orderDirection = (selectMatch[5] || 'ASC').toUpperCase();
+  const limit = selectMatch[6] ? parseInt(selectMatch[6], 10) : undefined;
 
   let rows = Array.from(table.values());
+
   if (whereClause) {
     const conditions = whereClause.split('AND').map(part => part.trim());
-    let paramIndex = 0;
     rows = rows.filter(row => {
+      let paramIndex = 0; // Reset paramIndex for each row
       return conditions.every(condition => {
         const comparison = condition.match(/(\w+)\s*(=|<=|<)\s*\?/);
         if (!comparison) {
@@ -236,6 +241,18 @@ function handleSelect(state, sql, params) {
     rows = rows.slice(0, limit);
   }
 
+  // If selecting specific columns (not *), project only those columns
+  if (columns !== '*') {
+    const columnList = columns.split(',').map(c => c.trim());
+    rows = rows.map(row => {
+      const projected = {};
+      columnList.forEach(col => {
+        projected[col] = row[col];
+      });
+      return projected;
+    });
+  }
+
   return toResult(rows);
 }
 
@@ -257,9 +274,7 @@ function executeStatement(state, sql, params) {
   if (/^INSERT INTO/i.test(normalized)) {
     return handleInsert(state, normalized, params, false);
   }
-  if (
-    /^ALTER TABLE units ADD COLUMN unit_payload TEXT;?$/i.test(normalized)
-  ) {
+  if (/^ALTER TABLE units ADD COLUMN unit_payload TEXT;?$/i.test(normalized)) {
     return toResult([]);
   }
   if (/^DELETE FROM/i.test(normalized)) {
@@ -328,7 +343,33 @@ function openDatabase(name) {
     close() {
       // no-op for mock
     },
+    // expo-sqlite v15 synchronous API
+    execSync(sql) {
+      executeStatement(state, sql, []);
+    },
+    runSync(sql, params = []) {
+      const result = executeStatement(state, sql, params);
+      return {
+        changes: result.rowsAffected || 0,
+        lastInsertRowId: result.insertId || undefined,
+      };
+    },
+    getAllSync(sql, params = []) {
+      const result = executeStatement(state, sql, params);
+      return result.rows._array || [];
+    },
+    getFirstSync(sql, params = []) {
+      const result = executeStatement(state, sql, params);
+      return result.rows.length > 0 ? result.rows._array[0] : null;
+    },
+    closeSync() {
+      // no-op for mock
+    },
   };
 }
 
-module.exports = { openDatabase };
+module.exports = {
+  openDatabase,
+  openDatabaseSync: openDatabase,
+  openDatabaseAsync: async name => openDatabase(name),
+};

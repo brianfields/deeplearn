@@ -23,6 +23,11 @@ declare module 'expo-sqlite' {
     ): void;
   }
 
+  export interface SQLiteRunResult {
+    changes: number;
+    lastInsertRowId?: number;
+  }
+
   export interface WebSQLDatabase {
     transaction(
       callback: (transaction: SQLTransaction) => void,
@@ -35,9 +40,17 @@ declare module 'expo-sqlite' {
       successCallback?: () => void
     ): void;
     close(): void;
+    // expo-sqlite v15 synchronous API
+    execSync(sql: string): void;
+    runSync(sql: string, params?: any[]): SQLiteRunResult;
+    getAllSync<T = any>(sql: string, params?: any[]): T[];
+    getFirstSync<T = any>(sql: string, params?: any[]): T | null;
+    closeSync(): void;
   }
 
   export function openDatabase(name: string): WebSQLDatabase;
+  export function openDatabaseSync(name: string): WebSQLDatabase;
+  export function openDatabaseAsync(name: string): Promise<WebSQLDatabase>;
 }
 
 declare module 'expo-file-system' {

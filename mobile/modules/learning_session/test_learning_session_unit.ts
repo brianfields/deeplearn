@@ -26,10 +26,7 @@ import type {
 } from './models';
 import type { UserIdentityProvider } from '../user/public';
 import type { User } from '../user/models';
-import type {
-  OfflineCacheProvider,
-  SyncStatus,
-} from '../offline_cache/public';
+import type { OfflineCacheProvider, SyncStatus } from '../offline_cache/public';
 
 // Mock implementations
 const mockCatalogProvider = {
@@ -119,8 +116,12 @@ describe('Learning Session Module', () => {
       processOutbox: jest
         .fn()
         .mockImplementation(async () => ({ processed: 0, remaining: 0 })),
-      runSyncCycle: jest.fn().mockImplementation(async () => createSyncStatus()),
-      getSyncStatus: jest.fn().mockImplementation(async () => createSyncStatus()),
+      runSyncCycle: jest
+        .fn()
+        .mockImplementation(async () => createSyncStatus()),
+      getSyncStatus: jest
+        .fn()
+        .mockImplementation(async () => createSyncStatus()),
     } as jest.Mocked<OfflineCacheProvider>;
   });
 

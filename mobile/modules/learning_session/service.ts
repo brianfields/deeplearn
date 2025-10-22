@@ -170,10 +170,7 @@ export class LearningSessionService {
       return progress;
     } catch (error) {
       console.warn('Falling back to optimistic progress due to error:', error);
-      const fallback = this.buildOptimisticProgress(
-        request,
-        normalizedAnswer
-      );
+      const fallback = this.buildOptimisticProgress(request, normalizedAnswer);
       await this.updateLocalSessionProgress(request.sessionId, fallback);
       return fallback;
     }
@@ -216,7 +213,10 @@ export class LearningSessionService {
       await this.markSessionCompleted(request.sessionId, results);
       return results;
     } catch (error) {
-      console.warn('Falling back to optimistic completion due to error:', error);
+      console.warn(
+        'Falling back to optimistic completion due to error:',
+        error
+      );
       const fallback = await this.buildOptimisticResults(request.sessionId);
       await this.markSessionCompleted(request.sessionId, fallback);
       return fallback;

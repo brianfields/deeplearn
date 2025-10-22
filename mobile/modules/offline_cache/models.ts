@@ -6,7 +6,12 @@
 
 export type CacheMode = 'minimal' | 'full';
 
-export type DownloadStatus = 'idle' | 'pending' | 'completed' | 'failed';
+export type DownloadStatus =
+  | 'idle'
+  | 'pending'
+  | 'in_progress'
+  | 'completed'
+  | 'failed';
 
 export type AssetType = 'audio' | 'image';
 

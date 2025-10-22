@@ -831,7 +831,7 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                     ],
                 },
                 {
-                    "id": str(uuid.uuid4()),
+                    "id": "9435f1bf-472d-47c5-a759-99beadd98077",
                     "title": "Gradient Descent Mastery",
                     "description": "A focused look at optimization fundamentals for machine learning practitioners.",
                     "learner_level": "intermediate",
@@ -1092,6 +1092,8 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                         glossary_terms=lesson_spec["glossary_terms"],
                         mini_lesson=lesson_spec["mini_lesson"],
                         mcqs=lesson_spec["mcqs"],
+                        misconceptions=lesson_spec.get("misconceptions"),
+                        confusables=lesson_spec.get("confusables"),
                     )
 
                     lesson_data = create_lesson_data(
@@ -1127,6 +1129,7 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                     await db_session.flush()
 
                     db_session.add(LessonModel(**lesson_dict))
+                    await db_session.flush()
 
                     unit_entry["lessons"].append(
                         {
@@ -1136,6 +1139,9 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                             "glossary_count": len(package.glossary["terms"]),
                         }
                     )
+
+            await db_session.flush()
+            await db_session.commit()
 
             if args.verbose:
                 print("📈 Creating learning sessions and unit sessions for sample progress...")

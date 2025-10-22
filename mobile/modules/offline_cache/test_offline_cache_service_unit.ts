@@ -251,7 +251,9 @@ describe('OfflineCacheService', () => {
 
     await service.deleteUnit('unit-delete');
     const unitsAfterDelete = await service.listUnits();
-    expect(unitsAfterDelete.find(unit => unit.id === 'unit-delete')).toBeUndefined();
+    expect(
+      unitsAfterDelete.find(unit => unit.id === 'unit-delete')
+    ).toBeUndefined();
 
     const info = await fileSystemMock.getInfoAsync(resolved.localPath);
     expect(info.exists).toBe(false);

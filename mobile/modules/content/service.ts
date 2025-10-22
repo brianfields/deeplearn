@@ -1,4 +1,8 @@
-import { ContentRepo, type ApiUnitSyncEntry, type ApiUnitSyncResponse } from './repo';
+import {
+  ContentRepo,
+  type ApiUnitSyncEntry,
+  type ApiUnitSyncResponse,
+} from './repo';
 import type {
   ApiUnitDetail,
   ApiUnitSummary,
@@ -30,6 +34,10 @@ import {
   infrastructureProvider,
   type InfrastructureProvider,
 } from '../infrastructure/public';
+import {
+  userIdentityProvider,
+  type UserIdentityProvider,
+} from '../user/public';
 
 type NullableNumber = number | null | undefined;
 
@@ -50,12 +58,14 @@ type UnitDetailOptions = { currentUserId?: number | null };
 type ContentServiceDeps = {
   offlineCache: OfflineCacheProvider;
   infrastructure: InfrastructureProvider;
+  userIdentity: UserIdentityProvider;
 };
 
 function createDefaultDeps(): ContentServiceDeps {
   return {
     offlineCache: offlineCacheProvider(),
     infrastructure: infrastructureProvider(),
+    userIdentity: userIdentityProvider(),
   };
 }
 
@@ -63,6 +73,7 @@ export class ContentService {
   private readonly repo: ContentRepo;
   private readonly offlineCache: OfflineCacheProvider;
   private readonly infrastructure: InfrastructureProvider;
+  private readonly userIdentity: UserIdentityProvider;
 
   constructor(
     repo: ContentRepo,
@@ -71,16 +82,13 @@ export class ContentService {
     this.repo = repo;
     this.offlineCache = deps.offlineCache;
     this.infrastructure = deps.infrastructure;
+    this.userIdentity = deps.userIdentity;
   }
 
   async listUnits(params?: ListUnitsParams): Promise<Unit[]> {
     try {
       const cached = await this.ensureUnitsCached();
-      const paged = this.applyPaging(
-        cached,
-        params?.limit,
-        params?.offset
-      );
+      const paged = this.applyPaging(cached, params?.limit, params?.offset);
       return paged.map(unit =>
         this.mapCachedUnitToUnit(unit, params?.currentUserId)
       );
@@ -108,9 +116,7 @@ export class ContentService {
     }
   }
 
-  async listGlobalUnits(
-    options?: PersonalUnitsOptions
-  ): Promise<Unit[]> {
+  async listGlobalUnits(options?: PersonalUnitsOptions): Promise<Unit[]> {
     try {
       const cached = await this.ensureUnitsCached();
       const filtered = cached.filter(unit => unit.isGlobal);
@@ -165,7 +171,10 @@ export class ContentService {
       await this.ensureUnitsCached();
 
       let cached = await this.offlineCache.getUnitDetail(unitId);
-      if (!cached || (cached.cacheMode === 'full' && cached.lessons.length === 0)) {
+      if (
+        !cached ||
+        (cached.cacheMode === 'full' && cached.lessons.length === 0)
+      ) {
         await this.runSyncCycle();
         cached = await this.offlineCache.getUnitDetail(unitId);
       }
@@ -224,6 +233,7 @@ export class ContentService {
       );
     }
 
+    // Mark as full download with pending status
     const payload: OfflineUnitPayload = {
       id: existing.id,
       title: existing.title,
@@ -234,12 +244,22 @@ export class ContentService {
       schemaVersion: existing.schemaVersion,
       cacheMode: 'full',
       downloadStatus: 'pending',
-      downloadedAt: existing.downloadedAt ?? null,
+      downloadedAt: null,
       syncedAt: Date.now(),
       unitPayload: existing.unitPayload ?? null,
     };
     await this.offlineCache.cacheMinimalUnits([payload]);
+
+    // Sync to get lessons/assets metadata
     await this.runSyncCycle();
+
+    // Download assets in the background (don't await to avoid blocking)
+    this.offlineCache.downloadUnitAssets(unitId).catch(error => {
+      console.error(
+        '[ContentService] Background asset download failed:',
+        error
+      );
+    });
   }
 
   async resolveAsset(assetId: string): Promise<CachedAsset | null> {
@@ -247,9 +267,11 @@ export class ContentService {
   }
 
   async syncNow(): Promise<SyncStatus> {
+    console.log('[ContentService] syncNow called - triggering forced sync');
     return this.offlineCache.runSyncCycle({
       processor: this.createOutboxProcessor(),
       pull: args => this.pullUpdates(args),
+      force: true, // Always fetch all units, ignoring cursor
     });
   }
 
@@ -274,13 +296,39 @@ export class ContentService {
   }
 
   private async pullUpdates(args: SyncPullArgs): Promise<SyncPullResponse> {
+    const userId = this.userIdentity.getUserId();
+    console.log('[ContentService] pullUpdates called', {
+      userId,
+      cursor: args.cursor,
+      payload: args.payload,
+    });
+
+    if (!userId) {
+      console.warn('[ContentService] No user logged in, skipping sync');
+      // If no user is logged in, return empty response
+      return {
+        units: [],
+        lessons: [],
+        assets: [],
+        cursor: args.cursor ?? null,
+      };
+    }
+
+    console.log('[ContentService] Fetching units from backend');
     const [response, existing] = await Promise.all([
       this.repo.syncUnits({
+        userId,
         since: args.cursor ?? undefined,
         payload: args.payload,
       }),
       this.offlineCache.listUnits(),
     ]);
+
+    console.log('[ContentService] Backend response received', {
+      units: response.units.length,
+      cursor: response.cursor,
+    });
+
     const existingMap = new Map(existing.map(unit => [unit.id, unit]));
     return this.toSyncPullResponse(response, args.payload, existingMap);
   }
@@ -322,7 +370,8 @@ export class ContentService {
     const summary = entry.unit;
     const now = Date.now();
     const updatedAt = this.parseTimestamp(summary.updated_at) ?? now;
-    const schemaVersion = summary.schema_version ?? existing?.schemaVersion ?? 1;
+    const schemaVersion =
+      summary.schema_version ?? existing?.schemaVersion ?? 1;
 
     const inferredCacheMode: CacheMode = existing?.cacheMode
       ? existing.cacheMode
@@ -330,7 +379,8 @@ export class ContentService {
         ? 'full'
         : payloadMode;
 
-    const downloadStatus: DownloadStatus = existing?.downloadStatus ?? 'completed';
+    const downloadStatus: DownloadStatus =
+      existing?.downloadStatus ?? 'completed';
     const downloadedAt = existing?.downloadedAt ?? null;
 
     const unitPayload: OfflineUnitSummaryPayload = {
@@ -365,7 +415,8 @@ export class ContentService {
       id: summary.id,
       title: summary.title,
       description: summary.description ?? '',
-      learnerLevel: summary.learner_level ?? existing?.learnerLevel ?? 'beginner',
+      learnerLevel:
+        summary.learner_level ?? existing?.learnerLevel ?? 'beginner',
       isGlobal: summary.is_global ?? existing?.isGlobal ?? false,
       updatedAt,
       schemaVersion,
@@ -410,7 +461,12 @@ export class ContentService {
     unitId: string,
     fallbackTime: number
   ): OfflineAssetPayload | null {
-    const type = asset.type === 'audio' ? 'audio' : asset.type === 'image' ? 'image' : null;
+    const type =
+      asset.type === 'audio'
+        ? 'audio'
+        : asset.type === 'image'
+          ? 'image'
+          : null;
     if (!type) {
       return null;
     }
@@ -473,16 +529,17 @@ export class ContentService {
       description: payload?.description ?? cached.description ?? null,
       learner_level: payload?.learner_level ?? cached.learnerLevel,
       lesson_count: lessonCount,
-      target_lesson_count: (payload?.target_lesson_count as NullableNumber) ?? null,
+      target_lesson_count:
+        (payload?.target_lesson_count as NullableNumber) ?? null,
       generated_from_topic: Boolean(payload?.generated_from_topic),
       status: (payload?.status as string) ?? 'completed',
       creation_progress: creationProgress,
       error_message: (payload?.error_message as string | null) ?? null,
-      user_id:
-        typeof payload?.user_id === 'number' ? payload.user_id : null,
+      user_id: typeof payload?.user_id === 'number' ? payload.user_id : null,
       is_global: payload?.is_global ?? cached.isGlobal,
       created_at: payload?.created_at ?? undefined,
-      updated_at: payload?.updated_at ?? new Date(cached.updatedAt).toISOString(),
+      updated_at:
+        payload?.updated_at ?? new Date(cached.updatedAt).toISOString(),
       has_podcast: payload?.has_podcast ?? false,
       podcast_voice: payload?.podcast_voice ?? null,
       podcast_duration_seconds:
@@ -537,9 +594,11 @@ export class ContentService {
   ): ApiUnitDetail['lessons'][number] {
     const payload = (lesson.payload ?? {}) as Record<string, any>;
     const packagePayload =
-      payload && typeof payload === 'object' ? payload.package ?? {} : {};
+      payload && typeof payload === 'object' ? (payload.package ?? {}) : {};
 
-    const learningObjectives = Array.isArray(packagePayload?.learning_objectives)
+    const learningObjectives = Array.isArray(
+      packagePayload?.learning_objectives
+    )
       ? packagePayload.learning_objectives
       : [];
     const keyConcepts = Array.isArray(packagePayload?.key_concepts)
@@ -558,7 +617,7 @@ export class ContentService {
       learner_level:
         (payload?.learner_level as string) ??
         (lesson.payload as Record<string, any> | undefined)?.learner_level ??
-          'beginner',
+        'beginner',
       learning_objectives: learningObjectives,
       key_concepts: keyConcepts,
       exercise_count: exerciseComponents.length,
@@ -574,7 +633,7 @@ export class ContentService {
     summary: ApiUnitSummary | ApiUnitDetail
   ): OfflineUnitPayload {
     const updatedAtSource =
-      'updated_at' in summary ? summary.updated_at ?? null : null;
+      'updated_at' in summary ? (summary.updated_at ?? null) : null;
     const updatedAt = updatedAtSource
       ? this.parseTimestamp(updatedAtSource)
       : Date.now();
@@ -585,31 +644,31 @@ export class ContentService {
         ? this.normalizeCreationProgress(summary.creation_progress)
         : null;
     const errorMessage =
-      'error_message' in summary ? summary.error_message ?? null : null;
+      'error_message' in summary ? (summary.error_message ?? null) : null;
     const hasPodcast =
-      'has_podcast' in summary ? summary.has_podcast ?? false : false;
+      'has_podcast' in summary ? (summary.has_podcast ?? false) : false;
     const podcastVoice =
-      'podcast_voice' in summary ? summary.podcast_voice ?? null : null;
+      'podcast_voice' in summary ? (summary.podcast_voice ?? null) : null;
     const podcastDuration =
       'podcast_duration_seconds' in summary
-        ? summary.podcast_duration_seconds ?? null
+        ? (summary.podcast_duration_seconds ?? null)
         : null;
     const podcastTranscript =
       'podcast_transcript' in summary
-        ? summary.podcast_transcript ?? null
+        ? (summary.podcast_transcript ?? null)
         : null;
     const podcastAudioUrl =
       'podcast_audio_url' in summary
-        ? summary.podcast_audio_url ?? null
+        ? (summary.podcast_audio_url ?? null)
         : null;
     const artImageUrl =
-      'art_image_url' in summary ? summary.art_image_url ?? null : null;
+      'art_image_url' in summary ? (summary.art_image_url ?? null) : null;
     const artImageDescription =
       'art_image_description' in summary
-        ? summary.art_image_description ?? null
+        ? (summary.art_image_description ?? null)
         : null;
     const createdAt =
-      'created_at' in summary ? summary.created_at ?? undefined : undefined;
+      'created_at' in summary ? (summary.created_at ?? undefined) : undefined;
 
     return {
       id: summary.id,
@@ -647,7 +706,9 @@ export class ContentService {
         art_image_description: artImageDescription,
         created_at: createdAt,
         updated_at:
-          'updated_at' in summary ? summary.updated_at ?? undefined : undefined,
+          'updated_at' in summary
+            ? (summary.updated_at ?? undefined)
+            : undefined,
         schema_version: 1,
       },
     };
@@ -681,11 +742,7 @@ export class ContentService {
     };
   }
 
-  private applyPaging<T>(
-    items: T[],
-    limit?: number,
-    offset?: number
-  ): T[] {
+  private applyPaging<T>(items: T[], limit?: number, offset?: number): T[] {
     const safeOffset = Math.max(0, offset ?? 0);
     if (typeof limit === 'number' && limit >= 0) {
       return items.slice(safeOffset, safeOffset + limit);

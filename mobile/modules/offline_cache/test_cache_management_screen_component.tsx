@@ -129,10 +129,14 @@ describe('CacheManagementScreen', () => {
     const storageText = root.findByProps({
       testID: 'cache-summary-total-storage',
     });
-    expect(asString(storageText.props.children)).toContain('Storage used: 1 MB');
+    expect(asString(storageText.props.children)).toContain(
+      'Storage used: 1 MB'
+    );
 
     const pendingWrites = root.findByProps({ testID: 'cache-pending-writes' });
-    expect(asString(pendingWrites.props.children)).toContain('Pending writes: 2');
+    expect(asString(pendingWrites.props.children)).toContain(
+      'Pending writes: 2'
+    );
 
     const unitTitle = root.findByProps({ testID: 'cache-unit-unit-1-title' });
     expect(asString(unitTitle.props.children)).toBe('Unit One');

@@ -76,9 +76,7 @@ export const OFFLINE_CACHE_MIGRATIONS: SQLiteMigration[] = [
   },
   {
     id: 2,
-    statements: [
-      `ALTER TABLE units ADD COLUMN unit_payload TEXT;`,
-    ],
+    statements: [`ALTER TABLE units ADD COLUMN unit_payload TEXT;`],
   },
 ];
 
@@ -147,9 +145,7 @@ export class OfflineCacheRepository {
       await executor.execute(`DELETE FROM lessons WHERE unit_id = ?;`, [
         unitId,
       ]);
-      await executor.execute(`DELETE FROM assets WHERE unit_id = ?;`, [
-        unitId,
-      ]);
+      await executor.execute(`DELETE FROM assets WHERE unit_id = ?;`, [unitId]);
       await executor.execute(`DELETE FROM units WHERE id = ?;`, [unitId]);
     });
   }

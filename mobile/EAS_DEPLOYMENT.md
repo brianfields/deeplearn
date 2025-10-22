@@ -6,13 +6,13 @@ The mobile app is built with React Native and Expo, and should be deployed using
 
 ## Quick Reference: Build Types and Access Control
 
-| Build Type | Purpose | Distribution | Who Can Access | How to Track Users | Account Required |
-|------------|---------|--------------|----------------|-------------------|------------------|
-| **Development** | Active development & debugging | Local (USB/simulator) | Developers only | N/A (local only) | Expo only |
-| **Preview (iOS)** | Beta testing | TestFlight | Internal testers (100) or External (10k) | App Store Connect dashboard | Expo + Apple Developer ($99/yr) |
-| **Preview (Android - Play)** | Beta testing | Play Console tracks | Email list (unlimited) | Play Console dashboard | Expo + Google Play ($25 one-time) |
-| **Preview (Android - Direct)** | Quick testing | Direct APK download | Anyone with link | Download count only (no user details) | Expo only |
-| **Production** | Public release | App Store / Play Store | Public | Store analytics | Expo + Apple/Google accounts |
+| Build Type                     | Purpose                        | Distribution           | Who Can Access                           | How to Track Users                    | Account Required                  |
+| ------------------------------ | ------------------------------ | ---------------------- | ---------------------------------------- | ------------------------------------- | --------------------------------- |
+| **Development**                | Active development & debugging | Local (USB/simulator)  | Developers only                          | N/A (local only)                      | Expo only                         |
+| **Preview (iOS)**              | Beta testing                   | TestFlight             | Internal testers (100) or External (10k) | App Store Connect dashboard           | Expo + Apple Developer ($99/yr)   |
+| **Preview (Android - Play)**   | Beta testing                   | Play Console tracks    | Email list (unlimited)                   | Play Console dashboard                | Expo + Google Play ($25 one-time) |
+| **Preview (Android - Direct)** | Quick testing                  | Direct APK download    | Anyone with link                         | Download count only (no user details) | Expo only                         |
+| **Production**                 | Public release                 | App Store / Play Store | Public                                   | Store analytics                       | Expo + Apple/Google accounts      |
 
 ### Key Takeaways
 
@@ -55,6 +55,7 @@ The mobile app is built with React Native and Expo, and should be deployed using
    ```
 
 2. Login to Expo:
+
    ```bash
    eas login
    ```
@@ -139,6 +140,7 @@ const DEFAULT_HTTP_CONFIG: HttpClientConfig = {
 ### Development Workflow
 
 1. **Build for development**:
+
    ```bash
    eas build --profile development --platform ios
    # or
@@ -153,6 +155,7 @@ const DEFAULT_HTTP_CONFIG: HttpClientConfig = {
 ### Preview/Testing Workflow
 
 1. **Build preview version**:
+
    ```bash
    eas build --profile preview --platform ios
    eas build --profile preview --platform android
@@ -161,17 +164,21 @@ const DEFAULT_HTTP_CONFIG: HttpClientConfig = {
 2. **Submit to testing platforms**:
 
    **iOS (TestFlight)**:
+
    ```bash
    eas submit --platform ios
    ```
+
    - Then add testers in App Store Connect
    - Testers receive email invitation
    - They install via TestFlight app
 
    **Android (Play Console)**:
+
    ```bash
    eas submit --platform android --track internal
    ```
+
    - Add tester emails in Play Console
    - Share opt-in link with testers
    - They opt-in and install from Play Store
@@ -189,12 +196,14 @@ const DEFAULT_HTTP_CONFIG: HttpClientConfig = {
 ### Production Workflow
 
 1. **Build for production**:
+
    ```bash
    eas build --profile production --platform ios
    eas build --profile production --platform android
    ```
 
 2. **Submit to app stores**:
+
    ```bash
    eas submit --platform ios
    eas submit --platform android
@@ -211,6 +220,7 @@ const DEFAULT_HTTP_CONFIG: HttpClientConfig = {
 ## Build Types Explained
 
 ### Development Builds
+
 - **Purpose**: For active development and debugging
 - **Audience**: Developers only
 - **Distribution**: Local installation only (via USB, simulator, or Expo Go)
@@ -219,6 +229,7 @@ const DEFAULT_HTTP_CONFIG: HttpClientConfig = {
 - **Use case**: Testing new features during development
 
 ### Preview Builds
+
 - **Purpose**: Internal testing and QA
 - **Audience**: Internal testers, QA team, stakeholders
 - **Distribution**:
@@ -229,6 +240,7 @@ const DEFAULT_HTTP_CONFIG: HttpClientConfig = {
 - **Use case**: Beta testing, stakeholder reviews, pre-release validation
 
 ### Production Builds
+
 - **Purpose**: Public release
 - **Audience**: All app store users
 - **Distribution**: App Store (iOS) and Google Play Store (Android)
@@ -278,6 +290,7 @@ eas build --profile production --platform android
    - External testers: Up to 10,000 users (requires Beta App Review)
 
 2. **Via EAS CLI**:
+
    ```bash
    # Submit to TestFlight
    eas submit --platform ios
@@ -286,6 +299,7 @@ eas build --profile production --platform android
    ```
 
 #### Viewing TestFlight Testers
+
 - App Store Connect → TestFlight → Testers
 - See who has installed, session data, and crash reports
 - Export tester list as CSV
@@ -295,6 +309,7 @@ eas build --profile production --platform android
 **For New/Unregistered Testers**:
 
 1. **Developer submits build**:
+
    ```bash
    eas build --profile preview --platform ios
    eas submit --platform ios --profile preview
@@ -328,6 +343,7 @@ eas build --profile production --platform android
    - You can see tester activity in App Store Connect
 
 **Important Notes**:
+
 - Tester's email must match their Apple ID email
 - External testers: First build requires Beta App Review (1-2 days wait)
 - Internal testers: Immediate access, but limited to 100 users
@@ -344,10 +360,12 @@ eas build --profile production --platform android
    - Create an email list of testers
 
 2. **Add Testers**:
+
    ```bash
    # Submit to internal testing track
    eas submit --platform android --track internal
    ```
+
    - Then add testers in Play Console → Internal testing → Testers
    - Share the opt-in URL with testers
 
@@ -357,6 +375,7 @@ eas build --profile production --platform android
 #### Option 2: Direct APK Distribution (EAS Dashboard)
 
 1. **Build and Share**:
+
    ```bash
    eas build --profile preview --platform android
    ```
@@ -373,6 +392,7 @@ eas build --profile production --platform android
 ### Development Build Distribution
 
 For development builds, you typically:
+
 1. Install directly via USB or simulator
 2. Share via EAS links (less common for dev builds)
 3. No formal tester registration needed
@@ -450,6 +470,7 @@ Visit [expo.dev](https://expo.dev) to access your project dashboard:
 ### TestFlight Analytics (iOS)
 
 In App Store Connect → TestFlight:
+
 - **Tester Activity**: Who installed, when, which version
 - **Session Data**: Usage statistics per tester
 - **Crash Reports**: Crashes and stack traces
@@ -459,6 +480,7 @@ In App Store Connect → TestFlight:
 ### Google Play Console Analytics (Android)
 
 In Play Console → Testing:
+
 - **Internal/Closed/Open Testing Stats**: Installation numbers
 - **Tester Lists**: Who has access, who has installed
 - **Crash Reports**: ANR and crash analytics
@@ -468,32 +490,38 @@ In Play Console → Testing:
 ### Checking Who Can Access What
 
 #### iOS (TestFlight)
+
 ```bash
 # List all builds
 eas build:list --platform ios
 
 # Then check App Store Connect for testers per build
 ```
+
 - App Store Connect → TestFlight → Testers tab shows all users
 - Each build group shows which testers have access
 - Individual tester view shows which builds they've installed
 
 #### Android (Play Console)
+
 ```bash
 # List all builds
 eas build:list --platform android
 
 # For Play Store testing tracks:
 ```
+
 - Play Console → Testing → Select track (Internal/Closed/Open)
 - Testers tab shows email list and opt-in status
 - Statistics tab shows install counts
 
 #### Android (Direct APK via EAS)
+
 ```bash
 # View build history
 eas build:list --platform android --buildProfile preview
 ```
+
 - EAS dashboard shows download counts (not individual users)
 - Cannot track specific users with direct APK distribution
 - Consider using Play Console internal testing for better tracking
@@ -617,11 +645,13 @@ You can integrate EAS with GitHub Actions for automatic builds:
 **iOS (TestFlight) - Step by Step**:
 
 1. **Ensure you have a build submitted**:
+
    ```bash
    # Build and submit to TestFlight first
    eas build --profile preview --platform ios
    eas submit --platform ios --profile preview
    ```
+
    Wait 10-30 minutes for processing
 
 2. **Add the tester in App Store Connect**:
@@ -657,12 +687,14 @@ You can integrate EAS with GitHub Actions for automatic builds:
 **Note**: External testers require Beta App Review for the first build (1-2 days). Internal testers get instant access.
 
 **Android (Play Console)**:
+
 1. Go to Play Console → Testing → Internal testing
 2. Add their email to the tester list
 3. Share the opt-in URL
 4. They opt-in and install from Play Store
 
 **Android (Direct)**:
+
 1. Build with `eas build --profile preview --platform android`
 2. Get shareable link from EAS dashboard
 3. Send link to tester
@@ -679,12 +711,14 @@ You can integrate EAS with GitHub Actions for automatic builds:
 ### What's the difference between internal and external testers on TestFlight?
 
 **Internal Testers**:
+
 - Up to 100 users
 - Must have App Store Connect access (team members)
 - No App Review required
 - Instant access to new builds
 
 **External Testers**:
+
 - Up to 10,000 users
 - Don't need App Store Connect access
 - First build requires Beta App Review (1-2 days)
@@ -697,6 +731,7 @@ You can integrate EAS with GitHub Actions for automatic builds:
 - **Production**: 15-30 minutes
 
 Times vary based on:
+
 - Platform (iOS usually slower than Android)
 - EAS build queue (free accounts may wait)
 - Dependencies and native modules
@@ -729,28 +764,35 @@ eas build:run --profile preview --platform ios
 ### Build Failures
 
 **Issue**: Build fails with "No matching distribution found for [package]"
+
 - **Solution**: Check `package.json` and ensure all dependencies are compatible with React Native/Expo
 
 **Issue**: Build fails with certificate/provisioning errors (iOS)
+
 - **Solution**: Run `eas credentials` and regenerate certificates, or let EAS manage them automatically
 
 **Issue**: Build stuck in queue
+
 - **Solution**: Free tier has limited workers; upgrade account or wait for queue to clear
 
 ### Submission Failures
 
 **Issue**: iOS submission rejected - "Missing compliance"
+
 - **Solution**: Answer export compliance questions in App Store Connect before submitting
 
 **Issue**: Android submission fails - "Version code already exists"
+
 - **Solution**: Increment version code in `app.json` before building
 
 **Issue**: TestFlight build not appearing
+
 - **Solution**: Check email for processing notification; can take 10-30 minutes
 
 ### Tester Access Issues
 
 **Issue**: Tester not receiving TestFlight invitation
+
 - **Solution**:
   1. Check spam folder
   2. Verify email address is correct in App Store Connect
@@ -759,6 +801,7 @@ eas build:run --profile preview --platform ios
   5. Make sure the build has finished processing (can take 10-30 minutes)
 
 **Issue**: Tester clicks invitation but nothing happens
+
 - **Solution**:
   1. Ensure TestFlight app is installed (download from App Store)
   2. Try copying the invitation link and pasting in Safari
@@ -766,30 +809,35 @@ eas build:run --profile preview --platform ios
   4. Check they're signed in to the App Store with the correct Apple ID
 
 **Issue**: "This beta is full" message in TestFlight
+
 - **Solution**:
   1. External tester groups have max capacity limits
   2. Create a new group in App Store Connect
   3. Or remove inactive testers to make room
 
 **Issue**: "This beta isn't accepting any new testers" message
+
 - **Solution**:
   1. External testing may be paused in App Store Connect
   2. Go to TestFlight → External Testing → Resume testing
   3. For first build, wait for Beta App Review approval
 
 **Issue**: Tester sees "No apps available to test"
+
 - **Solution**:
   1. They may be signed in with wrong Apple ID
   2. Verify the email address matches their Apple ID
   3. Invitation may have expired (resend from App Store Connect)
 
 **Issue**: Android tester can't access internal testing
+
 - **Solution**:
   1. Ensure they're on the email list
   2. Share the correct opt-in URL
   3. Verify they're signed in to Play Store with correct Google account
 
 **Issue**: Direct APK won't install on Android
+
 - **Solution**:
   1. Enable "Install from Unknown Sources" in Android settings
   2. Ensure device meets minimum Android version
@@ -798,12 +846,14 @@ eas build:run --profile preview --platform ios
 ### Environment Variable Issues
 
 **Issue**: App can't reach backend API
+
 - **Solution**:
   1. Verify `EXPO_PUBLIC_API_BASE_URL` is set correctly in `eas.json`
   2. Check backend CORS configuration
   3. Ensure backend is deployed and accessible
 
 **Issue**: Environment variables not available in app
+
 - **Solution**:
   1. Ensure variable has `EXPO_PUBLIC_` prefix
   2. Rebuild the app (env vars are baked in at build time)
@@ -820,6 +870,7 @@ eas build:run --profile preview --platform ios
 ## Resources
 
 ### Official Documentation
+
 - [EAS Build Documentation](https://docs.expo.dev/build/introduction/)
 - [EAS Submit Documentation](https://docs.expo.dev/submit/introduction/)
 - [EAS Update Documentation](https://docs.expo.dev/eas-update/introduction/)
@@ -827,17 +878,20 @@ eas build:run --profile preview --platform ios
 - [Google Play Console Help](https://support.google.com/googleplay/android-developer)
 
 ### Platform-Specific Guides
+
 - [TestFlight Beta Testing Guide](https://developer.apple.com/testflight/)
 - [Google Play Internal Testing](https://support.google.com/googleplay/android-developer/answer/9845334)
 - [Managing iOS Certificates](https://docs.expo.dev/app-signing/app-credentials/)
 - [Android App Signing](https://docs.expo.dev/app-signing/app-credentials/)
 
 ### Community Resources
+
 - [Expo Forums](https://forums.expo.dev)
 - [Expo Discord](https://chat.expo.dev)
 - [Expo GitHub](https://github.com/expo/expo)
 
 ### Quick Links
+
 - [EAS Dashboard](https://expo.dev)
 - [App Store Connect](https://appstoreconnect.apple.com)
 - [Google Play Console](https://play.google.com/console)

@@ -9,7 +9,9 @@ import React, {
 import { useQueryClient } from '@tanstack/react-query';
 import type { User } from './models';
 import { userQueryKeys } from './queries';
-import { UserIdentityService } from './identity';
+import { userIdentityProvider } from './public';
+import { contentProvider } from '../content/public';
+import { offlineCacheProvider } from '../offline_cache/public';
 
 interface AuthContextValue {
   user: User | null;
@@ -25,7 +27,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
-  const identity = useMemo(() => new UserIdentityService(), []);
+  const identity = useMemo(() => userIdentityProvider(), []);
 
   useEffect(() => {
     let isMounted = true;
@@ -39,6 +41,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             userQueryKeys.profile(storedUser.id),
             storedUser
           );
+
+          // Trigger initial sync when app starts with a logged-in user
+          console.log(
+            '[Auth] App started with logged-in user, triggering sync',
+            {
+              userId: storedUser.id,
+              email: storedUser.email,
+            }
+          );
+          try {
+            const content = contentProvider();
+            await content.syncNow();
+            console.log('[Auth] Initial sync completed on app start');
+          } catch (error) {
+            console.error('[Auth] Failed to sync on app start', error);
+          }
         }
       } catch (error) {
         console.warn('[Auth] Failed to load stored user', error);
@@ -64,6 +82,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (error) {
         console.warn('[Auth] Failed to persist user', error);
       }
+
+      // Trigger initial sync after sign-in to cache user's units
+      console.log('[Auth] User signed in, triggering sync', {
+        userId: nextUser.id,
+        email: nextUser.email,
+      });
+      try {
+        const content = contentProvider();
+        await content.syncNow();
+        console.log('[Auth] Initial sync completed after sign-in');
+      } catch (error) {
+        console.error('[Auth] Failed to sync after sign-in', error);
+      }
     },
     [identity, queryClient]
   );
@@ -76,6 +107,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.warn('[Auth] Failed to clear stored user', error);
     }
     queryClient.removeQueries({ queryKey: ['user'] });
+
+    // Clear all cached units when signing out
+    try {
+      const cache = offlineCacheProvider();
+      await cache.clearAll();
+      console.log('[Auth] Cleared offline cache on sign-out');
+    } catch (error) {
+      console.warn('[Auth] Failed to clear cache on sign-out', error);
+    }
   }, [identity, queryClient]);
 
   const value = useMemo<AuthContextValue>(

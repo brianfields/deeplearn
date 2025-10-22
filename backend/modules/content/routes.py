@@ -54,6 +54,7 @@ async def list_units(
 
 @router.get("/units/sync", response_model=ContentService.UnitSyncResponse)
 async def sync_units(
+    user_id: int = Query(..., ge=1, description="User ID for filtering accessible units"),
     since: str | None = Query(
         None,
         description="ISO-8601 timestamp indicating the last successful sync",
@@ -66,7 +67,7 @@ async def sync_units(
     ),
     service: ContentService = Depends(get_content_service),
 ) -> ContentService.UnitSyncResponse:
-    """Return units and lessons that have changed since the provided cursor."""
+    """Return units and lessons that have changed since the provided cursor, filtered by user access."""
 
     parsed_since: datetime | None = None
     if since:
@@ -75,8 +76,12 @@ async def sync_units(
         except ValueError as exc:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid since timestamp") from exc
 
+        # Convert to timezone-aware UTC if naive
         if parsed_since.tzinfo is None:
             parsed_since = parsed_since.replace(tzinfo=UTC)
+
+        # Convert to naive datetime for database comparison (PostgreSQL TIMESTAMP WITHOUT TIME ZONE)
+        parsed_since = parsed_since.replace(tzinfo=None)
 
     if payload not in {"full", "minimal"}:
         raise HTTPException(
@@ -88,7 +93,8 @@ async def sync_units(
         since=parsed_since,
         limit=limit,
         include_deleted=include_deleted,
-        payload=payload,
+        payload=cast(ContentService.UnitSyncPayload, payload),
+        user_id=user_id,
     )
 
 

@@ -854,13 +854,19 @@ class ContentService:
         limit: int = 100,
         include_deleted: bool = False,
         payload: ContentService.UnitSyncPayload = "full",
+        user_id: int | None = None,
     ) -> ContentService.UnitSyncResponse:
-        """Return units and lessons that changed since the provided timestamp."""
+        """Return units and lessons that changed since the provided timestamp, filtered by user access."""
 
         if payload not in ("full", "minimal"):
             raise ValueError(f"Unsupported sync payload: {payload}")
 
         units = await self.repo.get_units_updated_since(since, limit=limit)
+
+        # Filter units to only those the user can access (owned by user OR global)
+        if user_id is not None:
+            units = [unit for unit in units if unit.user_id == user_id or unit.is_global]
+
         unit_by_id: dict[str, UnitModel] = {unit.id: unit for unit in units}
 
         lessons_by_unit: dict[str, dict[str, LessonModel]] = {}

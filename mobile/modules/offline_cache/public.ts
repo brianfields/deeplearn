@@ -14,17 +14,12 @@ import type {
   CachedAsset,
   CachedUnit,
   CachedUnitDetail,
-  DownloadStatus,
   OfflineAssetPayload,
   OfflineLessonPayload,
   OfflineUnitPayload,
-  OfflineUnitSummaryPayload,
-  OutboxRecord,
   OutboxProcessResult,
   OutboxProcessor,
   OutboxRequest,
-  SyncPullArgs,
-  SyncPullResponse,
   SyncStatus,
 } from './models';
 
@@ -39,6 +34,7 @@ export interface OfflineCacheProvider {
   ): Promise<void>;
   markUnitCacheMode(unitId: string, cacheMode: CacheMode): Promise<void>;
   resolveAsset(assetId: string): Promise<CachedAsset | null>;
+  downloadUnitAssets(unitId: string): Promise<void>;
   enqueueOutbox(request: OutboxRequest): Promise<void>;
   processOutbox(processor: OutboxProcessor): Promise<OutboxProcessResult>;
   runSyncCycle(options: SyncCycleOptions): Promise<SyncStatus>;
@@ -109,6 +105,10 @@ export function offlineCacheProvider(): OfflineCacheProvider {
     async resolveAsset(assetId: string) {
       const service = await ensureService();
       return service.resolveAsset(assetId);
+    },
+    async downloadUnitAssets(unitId: string) {
+      const service = await ensureService();
+      await service.downloadUnitAssets(unitId);
     },
     async deleteUnit(unitId: string) {
       const service = await ensureService();
