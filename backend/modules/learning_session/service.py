@@ -155,6 +155,7 @@ class CompleteSessionRequest:
     session_id: str
     user_id: str | None = None
     progress_updates: list[ExerciseProgressUpdate] | None = None
+    lesson_id: str | None = None  # Optional, for creating session if not exists
 
 
 @dataclass
@@ -187,17 +188,26 @@ class LearningSessionService:
         if not request.user_id:
             raise ValueError("User identifier is required to start a session")
 
+        # If client provided a session_id, check if it already exists (idempotency)
+        if request.session_id:
+            existing_session = await self.repo.get_session_by_id(request.session_id)
+            if existing_session:
+                logger.info(f"Session {request.session_id} already exists, returning it (idempotent)")
+                existing_session = await self._ensure_session_user(existing_session, request.user_id)
+                return self._to_session_dto(existing_session)
+
         # Validate lesson exists
         lesson_content = await self.content.get_lesson(request.lesson_id)
         if not lesson_content:
             raise ValueError(f"Lesson {request.lesson_id} not found")
 
-        # Check for existing active session (if user provided)
-        existing_session = await self.repo.get_active_session_for_user_and_lesson(request.user_id, request.lesson_id)
-        if existing_session:
-            # Ensure the session is bound to the requesting user (for legacy records)
-            existing_session = await self._ensure_session_user(existing_session, request.user_id)
-            return self._to_session_dto(existing_session)
+        # Check for existing active session for this user/lesson combo (if no session_id provided)
+        if not request.session_id:
+            existing_session = await self.repo.get_active_session_for_user_and_lesson(request.user_id, request.lesson_id)
+            if existing_session:
+                # Ensure the session is bound to the requesting user (for legacy records)
+                existing_session = await self._ensure_session_user(existing_session, request.user_id)
+                return self._to_session_dto(existing_session)
 
         total_exercises = len(lesson_content.package.exercises) if lesson_content else 0
 
@@ -344,8 +354,26 @@ class LearningSessionService:
     async def complete_session(self, request: CompleteSessionRequest) -> SessionResults:
         """Complete a session and calculate results"""
         session = await self.repo.get_session_by_id(request.session_id)
-        if not session:
-            raise ValueError(f"Session {request.session_id} not found")
+
+        # If session doesn't exist and we have lesson_id, create it (handles outbox out-of-order processing)
+        if not session and request.lesson_id and request.user_id:
+            logger.info(f"Session {request.session_id} not found, creating it for lesson {request.lesson_id}")
+            # Validate lesson exists
+            lesson_content = await self.content.get_lesson(request.lesson_id)
+            if not lesson_content:
+                raise ValueError(f"Lesson {request.lesson_id} not found")
+
+            total_exercises = len(lesson_content.package.exercises) if lesson_content else 0
+
+            # Create the session with the client-provided ID
+            session = await self.repo.create_session(
+                lesson_id=request.lesson_id,
+                user_id=request.user_id,
+                total_exercises=total_exercises,
+                session_id=request.session_id,
+            )
+        elif not session:
+            raise ValueError(f"Session {request.session_id} not found and no lesson_id provided")
 
         session = await self._ensure_session_user(session, request.user_id)
 

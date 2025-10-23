@@ -164,6 +164,7 @@ export class LearningSessionRepo {
   private buildCompletionOutbox(
     sessionId: string,
     userId: string | null,
+    lessonId: string | null,
     progressUpdates: CompletionProgressPayload[],
     idempotencyKey?: string
   ): OutboxRequest {
@@ -179,7 +180,10 @@ export class LearningSessionRepo {
       endpoint: endpoint.pathname + endpoint.search,
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      payload: { progress_updates: progressUpdates },
+      payload: {
+        progress_updates: progressUpdates,
+        lesson_id: lessonId, // Include lesson_id so backend can create session if needed
+      },
       idempotencyKey:
         idempotencyKey ?? `complete-${sessionId}-${Date.now().toString()}`,
     };
@@ -322,9 +326,14 @@ export class LearningSessionRepo {
     progressUpdates: CompletionProgressPayload[],
     idempotencyKey?: string
   ): Promise<void> {
+    // Look up session locally to get lesson_id for backend
+    const session = await this.getSession(sessionId);
+    const lessonId = session?.lessonId ?? null;
+
     const outbox = this.buildCompletionOutbox(
       sessionId,
       userId,
+      lessonId,
       progressUpdates,
       idempotencyKey
     );

@@ -97,6 +97,10 @@ class CompleteSessionRequestModel(BaseModel):
         None,
         description="Optional batch of exercise progress updates to apply before completion",
     )
+    lesson_id: str | None = Field(
+        None,
+        description="Optional lesson ID to create session if it doesn't exist (for offline-first support)",
+    )
 
 
 class SessionResultsResponseModel(BaseModel):
@@ -273,6 +277,7 @@ async def complete_session(
         session_id=session_id,
         user_id=user_id,
         progress_updates=progress_updates,
+        lesson_id=request.lesson_id,
     )
     results = await service.complete_session(complete_request)
 
