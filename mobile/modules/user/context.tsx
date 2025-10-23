@@ -10,7 +10,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { User } from './models';
 import { userQueryKeys } from './queries';
 import { userIdentityProvider } from './public';
-import { contentProvider } from '../content/public';
 import { offlineCacheProvider } from '../offline_cache/public';
 
 interface AuthContextValue {
@@ -42,21 +41,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             storedUser
           );
 
-          // Trigger initial sync when app starts with a logged-in user
+          // Local-first: Don't sync automatically on app start
+          // User can explicitly sync via pull-to-refresh if needed
           console.log(
-            '[Auth] App started with logged-in user, triggering sync',
+            '[Auth] App started with logged-in user (local-first mode)',
             {
               userId: storedUser.id,
               email: storedUser.email,
             }
           );
-          try {
-            const content = contentProvider();
-            await content.syncNow();
-            console.log('[Auth] Initial sync completed on app start');
-          } catch (error) {
-            console.error('[Auth] Failed to sync on app start', error);
-          }
         }
       } catch (error) {
         console.warn('[Auth] Failed to load stored user', error);
@@ -83,18 +76,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.warn('[Auth] Failed to persist user', error);
       }
 
-      // Trigger initial sync after sign-in to cache user's units
-      console.log('[Auth] User signed in, triggering sync', {
+      // Local-first: Don't sync automatically after sign-in
+      // User can explicitly sync via pull-to-refresh if needed
+      console.log('[Auth] User signed in (local-first mode)', {
         userId: nextUser.id,
         email: nextUser.email,
       });
-      try {
-        const content = contentProvider();
-        await content.syncNow();
-        console.log('[Auth] Initial sync completed after sign-in');
-      } catch (error) {
-        console.error('[Auth] Failed to sync after sign-in', error);
-      }
     },
     [identity, queryClient]
   );

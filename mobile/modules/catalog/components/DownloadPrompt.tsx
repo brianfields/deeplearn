@@ -39,10 +39,13 @@ export function DownloadPrompt({
   const ui = uiSystemProvider();
   const theme = ui.getCurrentTheme();
 
-  const { statusLabel, statusColor } = useMemo(() => {
+  const { statusLabel, color: statusColor } = useMemo(() => {
     switch (downloadStatus) {
       case 'pending':
-        return { statusLabel: 'Download queued...', color: theme.colors.primary };
+        return {
+          statusLabel: 'Download queued...',
+          color: theme.colors.primary,
+        };
       case 'in_progress': {
         if (typeof assetCount === 'number' && assetCount > 0) {
           const completed = Math.min(downloadedAssets ?? 0, assetCount);
@@ -64,7 +67,14 @@ export function DownloadPrompt({
       default:
         return { statusLabel: null, color: theme.colors.textSecondary };
     }
-  }, [assetCount, downloadStatus, downloadedAssets, theme.colors.error, theme.colors.primary, theme.colors.textSecondary]);
+  }, [
+    assetCount,
+    downloadStatus,
+    downloadedAssets,
+    theme.colors.error,
+    theme.colors.primary,
+    theme.colors.textSecondary,
+  ]);
 
   const formattedSize = useMemo(() => {
     if (!estimatedSizeBytes || estimatedSizeBytes <= 0) {
@@ -87,7 +97,7 @@ export function DownloadPrompt({
       }}
       testID="download-prompt"
     >
-      <Box gap="sm">
+      <Box style={{ gap: ui.getSpacing('sm') }}>
         <Text variant="h2" style={{ fontWeight: '600' }}>
           Download required
         </Text>
@@ -106,7 +116,7 @@ export function DownloadPrompt({
         </Text>
       </Box>
 
-      <Box gap="xs">
+      <Box style={{ gap: ui.getSpacing('xs') }}>
         <Text variant="body" weight="600">
           Estimated download size
         </Text>
@@ -116,7 +126,13 @@ export function DownloadPrompt({
       </Box>
 
       {statusLabel ? (
-        <Box flexDirection="row" alignItems="center" gap="sm">
+        <Box
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: ui.getSpacing('sm'),
+          }}
+        >
           {isInProgress ? (
             <ActivityIndicator size="small" color={statusColor} />
           ) : null}

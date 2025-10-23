@@ -683,6 +683,7 @@ class _StubSyncService:
         limit: int,
         include_deleted: bool,
         payload: ContentService.UnitSyncPayload,
+        user_id: int | None = None,  # noqa: ARG002
     ) -> ContentService.UnitSyncResponse:
         self.args = (since, limit, include_deleted, payload)
         return ContentService.UnitSyncResponse(
@@ -715,13 +716,15 @@ async def test_sync_units_route_parses_query_parameters() -> None:
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         response = await client.get(
             "/api/v1/content/units/sync",
-            params={"since": since_value, "limit": 7, "include_deleted": "true"},
+            params={"user_id": 1, "since": since_value, "limit": 7, "include_deleted": "true"},
         )
 
     assert response.status_code == status.HTTP_200_OK
     assert stub.args is not None
     parsed_since, captured_limit, captured_deleted, payload = stub.args
-    assert parsed_since == datetime.fromisoformat(since_value)
+    # Route converts to naive datetime for database comparison
+    expected_since = datetime.fromisoformat(since_value).replace(tzinfo=None)
+    assert parsed_since == expected_since
     assert captured_limit == 7
     assert captured_deleted is True
     assert payload == "full"
@@ -737,7 +740,7 @@ async def test_sync_units_route_validates_since_format() -> None:
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         response = await client.get(
             "/api/v1/content/units/sync",
-            params={"since": "not-a-timestamp"},
+            params={"user_id": 1, "since": "not-a-timestamp"},
         )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -755,7 +758,7 @@ async def test_sync_units_route_accepts_minimal_payload() -> None:
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         response = await client.get(
             "/api/v1/content/units/sync",
-            params={"payload": "minimal"},
+            params={"user_id": 1, "payload": "minimal"},
         )
 
     assert response.status_code == status.HTTP_200_OK
@@ -774,7 +777,7 @@ async def test_sync_units_route_rejects_unknown_payload() -> None:
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         response = await client.get(
             "/api/v1/content/units/sync",
-            params={"payload": "everything"},
+            params={"user_id": 1, "payload": "everything"},
         )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST

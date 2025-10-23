@@ -123,7 +123,8 @@ export function CacheManagementScreen(): React.ReactElement {
     async (unit: CacheOverview['units'][number]) => {
       const isDownloaded = unit.downloadStatus === 'completed';
       const isCancelable =
-        unit.downloadStatus === 'pending' || unit.downloadStatus === 'in_progress';
+        unit.downloadStatus === 'pending' ||
+        unit.downloadStatus === 'in_progress';
       const action: UnitActionState['action'] =
         isDownloaded || isCancelable ? 'delete' : 'download';
 
@@ -154,7 +155,10 @@ export function CacheManagementScreen(): React.ReactElement {
   const isOnline = infrastructure.getNetworkStatus()?.isConnected ?? false;
 
   const renderUnitCard = useCallback(
-    (unit: CacheOverview['units'][number], section: 'downloaded' | 'available') => {
+    (
+      unit: CacheOverview['units'][number],
+      section: 'downloaded' | 'available'
+    ) => {
       const isDownloaded = unit.downloadStatus === 'completed';
       const isPending = unit.downloadStatus === 'pending';
       const isInProgress = unit.downloadStatus === 'in_progress';
@@ -169,14 +173,20 @@ export function CacheManagementScreen(): React.ReactElement {
 
       if (isPending || isInProgress) {
         const totalAssets = unit.assetCount ?? 0;
-        const completedAssets = Math.min(unit.downloadedAssets ?? 0, totalAssets);
+        const completedAssets = Math.min(
+          unit.downloadedAssets ?? 0,
+          totalAssets
+        );
         const progressLabel = isPending
           ? 'Download queued...'
           : totalAssets > 0
             ? `Downloading... ${completedAssets}/${totalAssets} assets`
             : 'Downloading assets...';
         statusContent = (
-          <View style={styles.progressRow} testID={`cache-unit-${unit.id}-progress`}>
+          <View
+            style={styles.progressRow}
+            testID={`cache-unit-${unit.id}-progress`}
+          >
             <ActivityIndicator size="small" color={theme.colors.primary} />
             <Text variant="caption" color={theme.colors.primary}>
               {progressLabel}
@@ -249,7 +259,10 @@ export function CacheManagementScreen(): React.ReactElement {
               disabled={disableAction}
               style={[
                 styles.iconButton,
-                !isOnline && !isDownloaded && !isCancelable && styles.iconButtonDisabled,
+                !isOnline &&
+                  !isDownloaded &&
+                  !isCancelable &&
+                  styles.iconButtonDisabled,
               ]}
               testID={`cache-unit-toggle-${unit.id}`}
             >
@@ -315,7 +328,10 @@ export function CacheManagementScreen(): React.ReactElement {
           </View>
           {downloadedUnits.length === 0 ? (
             <View
-              style={[styles.emptyState, { backgroundColor: theme.colors.surface }]}
+              style={[
+                styles.emptyState,
+                { backgroundColor: theme.colors.surface },
+              ]}
               testID="cache-empty-downloaded"
             >
               <Text variant="title">No units downloaded yet</Text>
@@ -337,7 +353,10 @@ export function CacheManagementScreen(): React.ReactElement {
           </View>
           {availableUnits.length === 0 ? (
             <View
-              style={[styles.emptyState, { backgroundColor: theme.colors.surface }]}
+              style={[
+                styles.emptyState,
+                { backgroundColor: theme.colors.surface },
+              ]}
               testID="cache-empty-available"
             >
               <Text variant="title">No units available</Text>

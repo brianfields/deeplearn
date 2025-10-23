@@ -19,6 +19,7 @@ from modules.infrastructure.public import infrastructure_provider
 from .repo import LearningSessionRepo
 from .service import (
     CompleteSessionRequest,
+    ExerciseProgressUpdate,
     LearningSessionService,
     StartSessionRequest,
     UpdateProgressRequest,
@@ -34,6 +35,7 @@ class StartSessionRequestModel(BaseModel):
 
     lesson_id: str = Field(..., description="ID of the lesson to start learning")
     user_id: str = Field(..., min_length=1, description="Authenticated user ID for tracking")
+    session_id: str | None = Field(None, description="Optional client-generated session ID for offline-first support")
 
 
 class UpdateProgressRequestModel(BaseModel):
@@ -76,6 +78,25 @@ class ProgressResponseModel(BaseModel):
     attempts: int
     attempt_history: list[dict[str, Any]]
     has_been_answered_correctly: bool
+
+
+class ExerciseProgressUpdateModel(BaseModel):
+    """Individual exercise progress for batch updates"""
+
+    exercise_id: str
+    exercise_type: str
+    user_answer: dict[str, Any] | None
+    is_correct: bool | None
+    time_spent_seconds: int
+
+
+class CompleteSessionRequestModel(BaseModel):
+    """Request model for completing a session with optional batch progress"""
+
+    progress_updates: list[ExerciseProgressUpdateModel] | None = Field(
+        None,
+        description="Optional batch of exercise progress updates to apply before completion",
+    )
 
 
 class SessionResultsResponseModel(BaseModel):
@@ -148,6 +169,7 @@ async def start_session(
     start_request = StartSessionRequest(
         lesson_id=request.lesson_id,
         user_id=request.user_id,
+        session_id=request.session_id,
     )
 
     session = await service.start_session(start_request)
@@ -229,11 +251,29 @@ async def update_session_progress(
 @router.post("/{session_id}/complete", response_model=SessionResultsResponseModel)
 async def complete_session(
     session_id: str,
+    request: CompleteSessionRequestModel,
     user_id: str = Query(..., description="Authenticated user identifier"),
     service: LearningSessionService = Depends(get_learning_session_service),
 ) -> SessionResultsResponseModel:
-    """Complete a learning session"""
-    complete_request = CompleteSessionRequest(session_id=session_id, user_id=user_id)
+    """Complete a learning session with optional batch progress updates"""
+    progress_updates = None
+    if request.progress_updates:
+        progress_updates = [
+            ExerciseProgressUpdate(
+                exercise_id=p.exercise_id,
+                exercise_type=p.exercise_type,
+                user_answer=p.user_answer,
+                is_correct=p.is_correct,
+                time_spent_seconds=p.time_spent_seconds,
+            )
+            for p in request.progress_updates
+        ]
+
+    complete_request = CompleteSessionRequest(
+        session_id=session_id,
+        user_id=user_id,
+        progress_updates=progress_updates,
+    )
     results = await service.complete_session(complete_request)
 
     return SessionResultsResponseModel(

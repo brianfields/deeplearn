@@ -83,7 +83,9 @@ export function LessonListScreen() {
   const haptics = useHaptics();
   const content = useMemo(() => contentProvider(), []);
   const offlineCache = useMemo(() => offlineCacheProvider(), []);
-  const [cacheOverview, setCacheOverview] = useState<CacheOverview | null>(null);
+  const [cacheOverview, setCacheOverview] = useState<CacheOverview | null>(
+    null
+  );
   const [isCacheLoading, setIsCacheLoading] = useState(true);
   const [pendingDownloadId, setPendingDownloadId] = useState<string | null>(
     null
@@ -375,9 +377,7 @@ export function LessonListScreen() {
         keyExtractor={item => item.unit.id}
         renderItem={({ item, index, section }) => {
           const overallIndex =
-            section.kind === 'available'
-              ? downloadedCount + index
-              : index;
+            section.kind === 'available' ? downloadedCount + index : index;
           return (
             <Animated.View
               entering={

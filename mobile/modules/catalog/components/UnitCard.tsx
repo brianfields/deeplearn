@@ -51,14 +51,20 @@ export function UnitCard({
   const isInteractive = unit.isInteractive;
 
   const resolvedDownloadStatus: DownloadStatus =
-    downloadStatus ?? (unit.downloadStatus as DownloadStatus | undefined) ?? 'idle';
+    downloadStatus ??
+    (unit.downloadStatus as DownloadStatus | undefined) ??
+    'idle';
   const isDownloaded = resolvedDownloadStatus === 'completed';
   const isDownloadInProgress =
-    resolvedDownloadStatus === 'pending' || resolvedDownloadStatus === 'in_progress';
+    resolvedDownloadStatus === 'pending' ||
+    resolvedDownloadStatus === 'in_progress';
   const isDownloadFailed = resolvedDownloadStatus === 'failed';
   const canDownload = isInteractive;
   const showDownloadButton =
-    Boolean(onDownload) && canDownload && !isDownloaded && !isDownloadInProgress;
+    Boolean(onDownload) &&
+    canDownload &&
+    !isDownloaded &&
+    !isDownloadInProgress;
   const showDownloadStatusInfo =
     isInteractive && (isDownloaded || isDownloadInProgress || isDownloadFailed);
 

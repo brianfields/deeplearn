@@ -48,9 +48,20 @@ describe('CatalogService', () => {
       dismissUnit: jest.fn(),
     } as unknown as jest.Mocked<ContentCreatorProvider>;
 
+    const mockOfflineCache = {
+      enqueueOutbox: jest.fn(),
+      runSyncCycle: jest.fn(),
+      getSyncStatus: jest.fn(),
+      getDownloadStatus: jest.fn(),
+      requestDownload: jest.fn(),
+      cancelDownload: jest.fn(),
+      deleteDownload: jest.fn(),
+    } as any;
+
     service = new CatalogService(mockRepo, {
       content: mockContent,
       contentCreator: mockContentCreator,
+      offlineCache: mockOfflineCache,
     });
 
     jest.clearAllMocks();
