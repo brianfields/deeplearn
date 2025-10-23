@@ -6,6 +6,7 @@
 
 import { CatalogService } from './service';
 import { CatalogRepo } from './repo';
+import type { LessonDetail } from './models';
 import type {
   ContentProvider,
   Unit,
@@ -48,23 +49,76 @@ describe('CatalogService', () => {
       dismissUnit: jest.fn(),
     } as unknown as jest.Mocked<ContentCreatorProvider>;
 
-    const mockOfflineCache = {
-      enqueueOutbox: jest.fn(),
-      runSyncCycle: jest.fn(),
-      getSyncStatus: jest.fn(),
-      getDownloadStatus: jest.fn(),
-      requestDownload: jest.fn(),
-      cancelDownload: jest.fn(),
-      deleteDownload: jest.fn(),
-    } as any;
-
     service = new CatalogService(mockRepo, {
       content: mockContent,
       contentCreator: mockContentCreator,
-      offlineCache: mockOfflineCache,
     });
 
     jest.clearAllMocks();
+  });
+
+  describe('getLessonDetail', () => {
+    it('returns null when lesson id is blank', async () => {
+      expect(await service.getLessonDetail('')).toBeNull();
+      expect(mockRepo.getLesson).not.toHaveBeenCalled();
+    });
+
+    it('delegates to repo to resolve lesson detail', async () => {
+      const lesson: LessonDetail = {
+        id: 'lesson-1',
+        title: 'Lesson Title',
+        learnerLevel: 'beginner',
+        learningObjectives: ['Objective'],
+        keyConcepts: ['Concept'],
+        miniLesson: 'Mini lesson content',
+        exercises: [],
+        glossaryTerms: [],
+        exerciseCount: 3,
+        createdAt: new Date().toISOString(),
+        estimatedDuration: 15,
+        isReadyForLearning: true,
+        learnerLevelLabel: 'Beginner',
+        durationDisplay: '15 min',
+        readinessStatus: 'ready',
+        tags: [],
+        unitId: 'unit-1',
+      };
+      mockRepo.getLesson.mockResolvedValue(lesson);
+
+      const result = await service.getLessonDetail('lesson-1');
+
+      expect(result).toEqual(lesson);
+      expect(mockRepo.getLesson).toHaveBeenCalledWith('lesson-1');
+    });
+
+    it('returns null when repo cannot find lesson', async () => {
+      mockRepo.getLesson.mockResolvedValue(null);
+
+      const result = await service.getLessonDetail('missing-lesson');
+
+      expect(result).toBeNull();
+      expect(mockRepo.getLesson).toHaveBeenCalledWith('missing-lesson');
+    });
+
+    it('returns null when repo throws 404 error', async () => {
+      mockRepo.getLesson.mockRejectedValue({ statusCode: 404 });
+
+      await expect(service.getLessonDetail('lesson-404')).resolves.toBeNull();
+    });
+
+    it('wraps other repo errors as catalog errors', async () => {
+      mockRepo.getLesson.mockRejectedValue({
+        message: 'boom',
+        statusCode: 500,
+      });
+
+      await expect(service.getLessonDetail('lesson-err')).rejects.toMatchObject(
+        {
+          message: 'boom',
+          code: 'CATALOG_SERVICE_ERROR',
+        }
+      );
+    });
   });
 
   describe('browseUnits', () => {

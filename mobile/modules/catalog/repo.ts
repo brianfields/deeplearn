@@ -6,11 +6,14 @@
  */
 
 import { infrastructureProvider } from '../infrastructure/public';
+import { offlineCacheProvider } from '../offline_cache/public';
 import type {
   SearchLessonsRequest,
   CatalogStatistics,
   CatalogError,
+  LessonDetail,
 } from './models';
+import { toLessonDetailDTO } from './models';
 
 // Backend API endpoints
 const LESSON_CATALOG_BASE = '/api/v1/catalog';
@@ -44,6 +47,7 @@ interface ApiLessonDetail {
 
 export class CatalogRepo {
   private infrastructure = infrastructureProvider();
+  private offlineCache = offlineCacheProvider();
 
   /**
    * Browse lessons with optional filters
@@ -89,6 +93,35 @@ export class CatalogRepo {
       return response;
     } catch (error) {
       throw this.handleError(error, `Failed to get lesson ${lessonId}`);
+    }
+  }
+
+  /**
+   * Get lesson detail with offline-first behavior
+   */
+  async getLesson(lessonId: string): Promise<LessonDetail | null> {
+    if (!lessonId?.trim()) {
+      return null;
+    }
+
+    const cachedLesson = await this.findLessonInOfflineCache(lessonId);
+    if (cachedLesson) {
+      console.info(`[CatalogRepo] Found lesson ${lessonId} in offline cache`);
+      return cachedLesson;
+    }
+
+    try {
+      const apiResponse = await this.getLessonDetail(lessonId);
+      return toLessonDetailDTO(apiResponse);
+    } catch (error: any) {
+      if (error && typeof error === 'object' && 'statusCode' in error) {
+        const statusCode = (error as CatalogError).statusCode;
+        if (statusCode === 404) {
+          return null;
+        }
+      }
+
+      throw error;
     }
   }
 
@@ -243,6 +276,63 @@ export class CatalogRepo {
     } catch (error) {
       console.warn('[CatalogRepo] Health check failed:', error);
       return false;
+    }
+  }
+
+  private async findLessonInOfflineCache(
+    lessonId: string
+  ): Promise<LessonDetail | null> {
+    try {
+      const units = await this.offlineCache.listUnits();
+
+      for (const unit of units) {
+        const unitDetail = await this.offlineCache.getUnitDetail(unit.id);
+        if (!unitDetail) {
+          continue;
+        }
+
+        const cachedLesson = unitDetail.lessons.find(
+          lesson => lesson.id === lessonId
+        );
+
+        if (cachedLesson && (cachedLesson as { payload?: unknown }).payload) {
+          const payload = (cachedLesson as { payload?: any }).payload || {};
+          const lessonPackage = payload.package || {};
+
+          return {
+            id: cachedLesson.id,
+            title: cachedLesson.title,
+            learnerLevel: (payload.learner_level || 'beginner') as
+              | 'beginner'
+              | 'intermediate'
+              | 'advanced',
+            learningObjectives: lessonPackage.objectives || [],
+            keyConcepts: lessonPackage.key_concepts || [],
+            miniLesson: lessonPackage.mini_lesson || '',
+            exercises: lessonPackage.exercises || [],
+            glossaryTerms: lessonPackage.glossary || {},
+            exerciseCount: lessonPackage.exercises?.length || 0,
+            createdAt: new Date(cachedLesson.updatedAt).toISOString(),
+            estimatedDuration: payload.duration_minutes || 0,
+            isReadyForLearning: true,
+            learnerLevelLabel:
+              payload.learner_level === 'intermediate'
+                ? 'Intermediate'
+                : payload.learner_level === 'advanced'
+                  ? 'Advanced'
+                  : 'Beginner',
+            durationDisplay: `${payload.duration_minutes || 0} min`,
+            readinessStatus: 'ready',
+            tags: payload.tags || [],
+            unitId: cachedLesson.unitId,
+          };
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.warn('[CatalogRepo] Error searching offline cache:', error);
+      return null;
     }
   }
 

@@ -1,15 +1,15 @@
 ## 0) Structure & Naming
 
-* [ ] Module folder is `mobile/modules/{name}/`.
-* [ ] Responsibilities match filenames (no HTTP in `service.ts`, no business rules in `queries.ts`, no UI in `service.ts`).
+* [x] Module folder is `mobile/modules/{name}/`. (Phase 6 audit: learning_session, catalog, user, and podcast_player remain under `mobile/modules/` with correct naming; no edits required.)
+* [x] Responsibilities match filenames (no HTTP in `service.ts`, no business rules in `queries.ts`, no UI in `service.ts`). (Verified Phase 6 modules continue to honor responsibilities after repo abstraction work.)
 
 ## 1) Imports & Boundaries
 
 * [ ] Cross-module imports are **only** from `@/modules/<other>/public`.
 * [ ] This module **does not import its own `public.ts`**.
-* [ ] Only `service.ts` imports `repo.ts`.
-* [ ] `queries.ts` imports **only** this module’s `service.ts` (never `repo.ts`).
-* [ ] No React/React Query imports in `service.ts` or `repo.ts`.
+* [x] Only `service.ts` imports `repo.ts`. (Confirmed for learning_session, catalog, user, podcast_player after refactor.)
+* [x] `queries.ts` imports **only** this module’s `service.ts` (never `repo.ts`). (Validated during Phase 6 review; no code changes needed.)
+* [x] No React/React Query imports in `service.ts` or `repo.ts`. (Checked Phase 6 modules to ensure repos/services stay platform-agnostic.)
 
 ## 2) Types: Wire vs DTO (models.ts)
 
@@ -20,7 +20,7 @@
 
 ## 3) Networking (repo.ts)
 
-* [ ] `repo.ts` is the **only** file that performs HTTP (`axios`/`fetch`).
+* [x] `repo.ts` is the **only** file that performs HTTP (`axios`/`fetch`). (Phase 6 repo review confirmed services rely on repos for data access.)
 * [ ] Base path is limited to **this module’s** routes (vertical slice), e.g., `const MODULE_BASE = '/api/v1/{name}'`. NO CALLS TO ROUTES FROM MODULES THAT ARE NAMED DIFFERENTLY THAN THIS MODULE. A module is a vertical slice through both the backend and the frontend and all network calls from a module must be to that module's routes.
 * [ ] All request params/bodies are typed; no `any`.
 * [ ] Timeouts and headers are set; low-level errors are normalized (no raw Axios errors thrown).
@@ -28,8 +28,8 @@
 
 ## 4) Service Layer (service.ts)
 
-* [ ] Exposes use-cases; returns **DTOs only** (`Promise<DTO>` / `Promise<DTO[]>`).
-* [ ] Performs mapping & business rules (no React/HTTP).
+* [x] Exposes use-cases; returns **DTOs only** (`Promise<DTO>` / `Promise<DTO[]>`). (Phase 6 validation: services emit DTOs while delegating storage/HTTP.)
+* [x] Performs mapping & business rules (no React/HTTP). (Verified learning_session, catalog, user, podcast_player services stay focused on domain logic.)
 * [ ] Cross-module composition imports **only** other modules’ `public` interfaces.
 * [ ] Throws domain-shaped errors (`NotFoundError`, `PermissionError`, etc.) for callers to translate.
 

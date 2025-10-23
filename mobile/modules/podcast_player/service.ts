@@ -7,22 +7,13 @@
 
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import type { AudioPlayer } from 'expo-audio';
-import type { InfrastructureProvider } from '../infrastructure/public';
-import { infrastructureProvider } from '../infrastructure/public';
-import type {
-  GlobalPlayerState,
-  PersistedUnitState,
-  PlaybackSpeed,
-  PodcastTrack,
-} from './models';
+import type { PersistedUnitState, PlaybackSpeed, PodcastTrack } from './models';
 import {
   PLAYBACK_SPEEDS,
   getPodcastStoreState,
   usePodcastStore,
 } from './store';
-
-const GLOBAL_STATE_KEY = 'podcast_player:global_speed';
-const UNIT_STATE_PREFIX = 'podcast_player:unit:';
+import { PodcastPlayerRepo } from './repo';
 
 function isValidSpeed(speed: number): speed is PlaybackSpeed {
   return (PLAYBACK_SPEEDS as readonly number[]).includes(speed);
@@ -33,16 +24,16 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 export class PodcastPlayerService {
-  private infrastructure: InfrastructureProvider;
   private isInitialized = false;
   private initializationPromise: Promise<void> | null = null;
   private currentTrackId: string | null = null;
   private player: AudioPlayer | null = null;
   private statusUpdateInterval: ReturnType<typeof setInterval> | null = null;
   private isPlayPending = false; // Flag to prevent status polling from overriding play() calls
+  private repo: PodcastPlayerRepo;
 
-  constructor(infra: InfrastructureProvider = infrastructureProvider()) {
-    this.infrastructure = infra;
+  constructor(repo: PodcastPlayerRepo = new PodcastPlayerRepo()) {
+    this.repo = repo;
   }
 
   async initialize(): Promise<void> {
@@ -121,9 +112,9 @@ export class PodcastPlayerService {
       console.log('[PodcastPlayer] Reusing existing player for:', track.title);
     }
 
-    const persistedPosition = await this.getPersistedUnitState(track.unitId);
+    const persistedState = await this.getPersistedUnitState(track.unitId);
     const startPosition = clamp(
-      persistedPosition?.position ?? 0,
+      persistedState?.position ?? 0,
       0,
       track.durationSeconds || Number.MAX_SAFE_INTEGER
     );
@@ -255,11 +246,7 @@ export class PodcastPlayerService {
     if (this.player) {
       this.player.setPlaybackRate(speed);
     }
-    const payload: GlobalPlayerState = { speed };
-    await this.infrastructure.setStorageItem(
-      GLOBAL_STATE_KEY,
-      JSON.stringify(payload)
-    );
+    await this.repo.saveGlobalSpeed(speed);
   }
 
   getSpeed(): PlaybackSpeed {
@@ -275,14 +262,7 @@ export class PodcastPlayerService {
     if (!Number.isFinite(position)) {
       return;
     }
-    const payload: PersistedUnitState = {
-      position,
-      updatedAt: Date.now(),
-    };
-    await this.infrastructure.setStorageItem(
-      this.getUnitKey(unitId),
-      JSON.stringify(payload)
-    );
+    await this.repo.saveUnitPosition(unitId, position);
     const store = getPodcastStoreState();
     if (store.currentTrack?.unitId === unitId) {
       store.updatePlaybackState({ position });
@@ -294,24 +274,12 @@ export class PodcastPlayerService {
   }
 
   async hydrateGlobalSpeed(): Promise<void> {
-    const raw = await this.infrastructure.getStorageItem(GLOBAL_STATE_KEY);
-    if (!raw) {
-      return;
-    }
-    try {
-      const parsed = JSON.parse(raw) as Partial<GlobalPlayerState>;
-      if (
-        parsed &&
-        typeof parsed.speed === 'number' &&
-        isValidSpeed(parsed.speed)
-      ) {
-        usePodcastStore.getState().setGlobalSpeed(parsed.speed);
-        if (this.player) {
-          this.player.setPlaybackRate(parsed.speed);
-        }
+    const speed = await this.repo.getGlobalSpeed();
+    if (speed && isValidSpeed(speed)) {
+      usePodcastStore.getState().setGlobalSpeed(speed);
+      if (this.player) {
+        this.player.setPlaybackRate(speed);
       }
-    } catch (error) {
-      console.warn('[PodcastPlayer] Failed to parse global state', error);
     }
   }
 
@@ -380,29 +348,7 @@ export class PodcastPlayerService {
   private async getPersistedUnitState(
     unitId: string
   ): Promise<PersistedUnitState | null> {
-    const raw = await this.infrastructure.getStorageItem(
-      this.getUnitKey(unitId)
-    );
-    if (!raw) {
-      return null;
-    }
-    try {
-      const parsed = JSON.parse(raw) as PersistedUnitState;
-      if (
-        typeof parsed === 'object' &&
-        typeof parsed.position === 'number' &&
-        typeof parsed.updatedAt === 'number'
-      ) {
-        return parsed;
-      }
-    } catch (error) {
-      console.warn('[PodcastPlayer] Failed to parse unit state', error);
-    }
-    return null;
-  }
-
-  private getUnitKey(unitId: string): string {
-    return `${UNIT_STATE_PREFIX}${unitId}:position`;
+    return this.repo.getUnitState(unitId);
   }
 }
 

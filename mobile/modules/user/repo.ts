@@ -6,9 +6,10 @@
  */
 
 import { infrastructureProvider } from '../infrastructure/public';
-import type { ApiAuthenticationResult, ApiUser } from './models';
+import type { ApiAuthenticationResult, ApiUser, User } from './models';
 
 const USER_BASE = '/api/v1/users';
+export const STORAGE_KEY = 'deeplearn/mobile/current-user';
 
 export interface RegisterPayload {
   email: string;
@@ -80,5 +81,42 @@ export class UserRepo {
       }),
       headers: { 'Content-Type': 'application/json' },
     });
+  }
+
+  async getCurrentUser(): Promise<User | null> {
+    try {
+      const stored = await this.infrastructure.getStorageItem(STORAGE_KEY);
+      if (!stored) {
+        return null;
+      }
+
+      const parsed = JSON.parse(stored) as User;
+      if (!parsed || typeof parsed !== 'object' || parsed.id === undefined) {
+        return null;
+      }
+
+      return parsed;
+    } catch (error) {
+      console.warn('[UserIdentityService] Failed to load current user:', error);
+      return null;
+    }
+  }
+
+  async saveCurrentUser(user: User | null): Promise<void> {
+    try {
+      if (user) {
+        await this.infrastructure.setStorageItem(
+          STORAGE_KEY,
+          JSON.stringify(user)
+        );
+      } else {
+        await this.infrastructure.removeStorageItem(STORAGE_KEY);
+      }
+    } catch (error) {
+      console.warn(
+        '[UserIdentityService] Failed to persist current user:',
+        error
+      );
+    }
   }
 }

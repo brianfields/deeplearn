@@ -1,21 +1,24 @@
 /**
  * Learning Session Repository
  *
- * HTTP client for learning session API endpoints.
- * Uses infrastructure module for HTTP requests.
- *
- * Note: Backend endpoints are not yet implemented.
- * This repo provides the interface for future backend integration.
+ * HTTP client and local storage orchestrator for learning session data.
+ * Coordinates AsyncStorage, offline cache outbox, and server sync flows so
+ * services can focus purely on business rules and DTO mapping.
  */
 
 import { infrastructureProvider } from '../infrastructure/public';
+import { offlineCacheProvider } from '../offline_cache/public';
 import type {
+  LearningSession,
+  SessionProgress,
+  SessionResults,
   StartSessionRequest,
   UpdateProgressRequest,
   CompleteSessionRequest,
   SessionFilters,
   LearningSessionError,
 } from './models';
+import type { OutboxRequest } from '../offline_cache/public';
 
 // API wire types (matching future backend)
 interface ApiLearningSession {
@@ -60,12 +63,320 @@ interface ApiSessionListResponse {
   total: number;
 }
 
-// API endpoints (future)
+interface SaveSessionOptions {
+  enqueueOutbox?: boolean;
+  idempotencyKey?: string;
+  updateIndex?: boolean;
+}
+
+type CompletionProgressPayload = {
+  exercise_id: string;
+  exercise_type: string;
+  user_answer: any;
+  is_correct: boolean | undefined;
+  time_spent_seconds: number;
+};
 
 const LEARNING_SESSION_BASE = '/api/v1/learning_session';
 
 export class LearningSessionRepo {
   private infrastructure = infrastructureProvider();
+  private offlineCache = offlineCacheProvider();
+
+  // ================================
+  // Storage Helpers
+  // ================================
+
+  private getSessionKey(sessionId: string): string {
+    return `learning_session_${sessionId}`;
+  }
+
+  private getSessionResultsKey(sessionId: string): string {
+    return `session_results_${sessionId}`;
+  }
+
+  private getProgressKey(sessionId: string, exerciseId: string): string {
+    return `session_progress_${sessionId}_${exerciseId}`;
+  }
+
+  private getProgressIndexKey(sessionId: string): string {
+    return `session_progress_index_${sessionId}`;
+  }
+
+  private getUserSessionIndexKey(userId: string): string {
+    return `user_session_index_${userId}`;
+  }
+
+  private async readJson<T>(key: string): Promise<T | null> {
+    const stored = await this.infrastructure.getStorageItem(key);
+    if (!stored) {
+      return null;
+    }
+    try {
+      return JSON.parse(stored) as T;
+    } catch (error) {
+      console.warn('[LearningSessionRepo] Failed to parse storage item', {
+        key,
+        error,
+      });
+      return null;
+    }
+  }
+
+  private async writeJson(key: string, value: unknown): Promise<void> {
+    await this.infrastructure.setStorageItem(key, JSON.stringify(value));
+  }
+
+  private async removeItem(key: string): Promise<void> {
+    await this.infrastructure.removeStorageItem(key);
+  }
+
+  private async updateIndex(key: string, id: string): Promise<string[]> {
+    const existing = await this.readJson<string[]>(key);
+    const items = Array.isArray(existing) ? existing : [];
+    if (!items.includes(id)) {
+      items.push(id);
+      await this.writeJson(key, items);
+    }
+    return items;
+  }
+
+  private buildStartSessionOutbox(
+    session: LearningSession,
+    idempotencyKey?: string
+  ): OutboxRequest | null {
+    if (!session.userId) {
+      return null;
+    }
+    return {
+      endpoint: `${LEARNING_SESSION_BASE}/`,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      payload: {
+        lesson_id: session.lessonId,
+        user_id: session.userId,
+        session_id: session.id,
+      },
+      idempotencyKey: idempotencyKey ?? `start-session-${session.id}`,
+    };
+  }
+
+  private buildCompletionOutbox(
+    sessionId: string,
+    userId: string | null,
+    progressUpdates: CompletionProgressPayload[],
+    idempotencyKey?: string
+  ): OutboxRequest {
+    const endpoint = new URL(
+      `${LEARNING_SESSION_BASE}/${sessionId}/complete`,
+      'http://localhost'
+    );
+    if (userId) {
+      endpoint.searchParams.set('user_id', userId);
+    }
+
+    return {
+      endpoint: endpoint.pathname + endpoint.search,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      payload: { progress_updates: progressUpdates },
+      idempotencyKey:
+        idempotencyKey ?? `complete-${sessionId}-${Date.now().toString()}`,
+    };
+  }
+
+  // ================================
+  // Local Storage Operations
+  // ================================
+
+  async saveSession(
+    session: LearningSession,
+    options: SaveSessionOptions = {}
+  ): Promise<void> {
+    await this.writeJson(this.getSessionKey(session.id), session);
+
+    const shouldUpdateIndex = options.updateIndex ?? true;
+    if (shouldUpdateIndex && session.userId) {
+      await this.addToUserSessionIndex(session.userId, session.id);
+    }
+
+    if (options.enqueueOutbox) {
+      const outbox = this.buildStartSessionOutbox(
+        session,
+        options.idempotencyKey
+      );
+      if (outbox) {
+        await this.offlineCache.enqueueOutbox(outbox);
+      }
+    }
+  }
+
+  async getSession(sessionId: string): Promise<LearningSession | null> {
+    return this.readJson<LearningSession>(this.getSessionKey(sessionId));
+  }
+
+  async saveProgress(
+    sessionId: string,
+    progress: SessionProgress
+  ): Promise<void> {
+    await this.writeJson(
+      this.getProgressKey(sessionId, progress.exerciseId),
+      progress
+    );
+    await this.updateIndex(
+      this.getProgressIndexKey(sessionId),
+      progress.exerciseId
+    );
+  }
+
+  async getProgress(
+    sessionId: string,
+    exerciseId: string
+  ): Promise<SessionProgress | null> {
+    return this.readJson<SessionProgress>(
+      this.getProgressKey(sessionId, exerciseId)
+    );
+  }
+
+  async getAllProgress(sessionId: string): Promise<SessionProgress[]> {
+    const index =
+      (await this.readJson<string[]>(this.getProgressIndexKey(sessionId))) ??
+      [];
+    const progresses: SessionProgress[] = [];
+    for (const exerciseId of index) {
+      const progress = await this.getProgress(sessionId, exerciseId);
+      if (progress) {
+        progresses.push(progress);
+      }
+    }
+    return progresses;
+  }
+
+  async clearProgress(sessionId: string): Promise<void> {
+    const index =
+      (await this.readJson<string[]>(this.getProgressIndexKey(sessionId))) ??
+      [];
+    for (const exerciseId of index) {
+      await this.removeItem(this.getProgressKey(sessionId, exerciseId));
+    }
+    await this.removeItem(this.getProgressIndexKey(sessionId));
+  }
+
+  async getUserSessionIds(userId: string): Promise<string[]> {
+    return (
+      (await this.readJson<string[]>(this.getUserSessionIndexKey(userId))) ?? []
+    );
+  }
+
+  async addToUserSessionIndex(
+    userId: string,
+    sessionId: string
+  ): Promise<void> {
+    await this.updateIndex(this.getUserSessionIndexKey(userId), sessionId);
+  }
+
+  async getUserSessions(
+    userId: string,
+    filters: SessionFilters = {},
+    limit: number = 50
+  ): Promise<{ sessions: LearningSession[]; total: number }> {
+    const sessionIds = await this.getUserSessionIds(userId);
+    const sessions: LearningSession[] = [];
+
+    for (const sessionId of sessionIds) {
+      const session = await this.getSession(sessionId);
+      if (!session) {
+        continue;
+      }
+      if (filters.status && session.status !== filters.status) {
+        continue;
+      }
+      if (filters.lessonId && session.lessonId !== filters.lessonId) {
+        continue;
+      }
+      sessions.push(session);
+    }
+
+    sessions.sort((a, b) => {
+      const dateA = new Date(b.startedAt).getTime();
+      const dateB = new Date(a.startedAt).getTime();
+      return dateA - dateB;
+    });
+
+    return {
+      sessions: sessions.slice(0, limit),
+      total: sessions.length,
+    };
+  }
+
+  async saveSessionResults(
+    sessionId: string,
+    results: SessionResults
+  ): Promise<void> {
+    await this.writeJson(this.getSessionResultsKey(sessionId), results);
+  }
+
+  async enqueueSessionCompletion(
+    sessionId: string,
+    userId: string | null,
+    progressUpdates: CompletionProgressPayload[],
+    idempotencyKey?: string
+  ): Promise<void> {
+    const outbox = this.buildCompletionOutbox(
+      sessionId,
+      userId,
+      progressUpdates,
+      idempotencyKey
+    );
+    await this.offlineCache.enqueueOutbox(outbox);
+  }
+
+  async syncSessionsFromServer(
+    userId: string,
+    transform?: (
+      apiSession: ApiLearningSession
+    ) => Promise<LearningSession | null>
+  ): Promise<number> {
+    const response = await this.fetchUserSessions(userId, {}, 100, 0);
+    let saved = 0;
+    for (const apiSession of response.sessions) {
+      const mapped = transform ? await transform(apiSession) : null;
+      const session = mapped ?? this.mapApiSession(apiSession);
+      if (!session) {
+        continue;
+      }
+      await this.saveSession(session, { enqueueOutbox: false });
+      saved += 1;
+    }
+    return saved;
+  }
+
+  private mapApiSession(api: ApiLearningSession): LearningSession {
+    const remainingExercises = Math.max(
+      0,
+      api.total_exercises - api.current_exercise_index
+    );
+    const estimatedTimeRemaining = remainingExercises * 3 * 60;
+    return {
+      id: api.id,
+      lessonId: api.lesson_id,
+      userId: api.user_id,
+      status: api.status,
+      startedAt: api.started_at,
+      completedAt: api.completed_at,
+      currentExerciseIndex: api.current_exercise_index,
+      totalExercises: api.total_exercises,
+      progressPercentage: api.progress_percentage,
+      sessionData: api.session_data,
+      estimatedTimeRemaining,
+      isCompleted: api.status === 'completed',
+      canResume: api.status === 'active' || api.status === 'paused',
+    };
+  }
+
+  // ================================
+  // HTTP Operations
+  // ================================
 
   /**
    * Start a new learning session
@@ -97,9 +408,9 @@ export class LearningSessionRepo {
   }
 
   /**
-   * Get session by ID
+   * Fetch session by ID from server
    */
-  async getSession(
+  async fetchSession(
     sessionId: string,
     userId: string
   ): Promise<ApiLearningSession | null> {
@@ -121,7 +432,7 @@ export class LearningSessionRepo {
         error &&
         typeof error === 'object' &&
         'status' in error &&
-        error.status === 404
+        (error as { status?: number }).status === 404
       ) {
         return null;
       }
@@ -130,7 +441,7 @@ export class LearningSessionRepo {
   }
 
   /**
-   * Update session progress
+   * Update session progress via HTTP
    */
   async updateProgress(
     request: UpdateProgressRequest
@@ -170,7 +481,7 @@ export class LearningSessionRepo {
   }
 
   /**
-   * Complete session and get results
+   * Complete session and get results via HTTP
    */
   async completeSession(
     request: CompleteSessionRequest
@@ -201,35 +512,7 @@ export class LearningSessionRepo {
   }
 
   /**
-   * Get user's sessions with filters
-   */
-  async getUserSessions(
-    userId: string,
-    filters: SessionFilters = {},
-    limit: number = 50,
-    offset: number = 0
-  ): Promise<ApiSessionListResponse> {
-    try {
-      const params = new URLSearchParams();
-      params.append('user_id', userId);
-      if (filters.status) params.append('status', filters.status);
-      if (filters.lessonId) params.append('lesson_id', filters.lessonId);
-      params.append('limit', limit.toString());
-      params.append('offset', offset.toString());
-
-      const response =
-        await this.infrastructure.request<ApiSessionListResponse>(
-          `${LEARNING_SESSION_BASE}?${params.toString()}`,
-          { method: 'GET' }
-        );
-      return response;
-    } catch (error) {
-      throw this.handleError(error, 'Failed to get user sessions');
-    }
-  }
-
-  /**
-   * Pause/resume session
+   * Pause session via HTTP
    */
   async pauseSession(
     sessionId: string,
@@ -269,30 +552,59 @@ export class LearningSessionRepo {
   }
 
   // ================================
+  // HTTP Helpers
+  // ================================
+
+  private async fetchUserSessions(
+    userId: string,
+    filters: SessionFilters = {},
+    limit: number = 50,
+    offset: number = 0
+  ): Promise<ApiSessionListResponse> {
+    try {
+      const params = new URLSearchParams();
+      params.append('user_id', userId);
+      if (filters.status) params.append('status', filters.status);
+      if (filters.lessonId) params.append('lesson_id', filters.lessonId);
+      params.append('limit', limit.toString());
+      params.append('offset', offset.toString());
+
+      const response =
+        await this.infrastructure.request<ApiSessionListResponse>(
+          `${LEARNING_SESSION_BASE}?${params.toString()}`,
+          { method: 'GET' }
+        );
+      return response;
+    } catch (error) {
+      throw this.handleError(error, 'Failed to get user sessions');
+    }
+  }
+
+  // ================================
   // Error Handling
   // ================================
 
-  /**
-   * Handle and transform repository errors
-   */
   private handleError(
     error: any,
     defaultMessage: string
   ): LearningSessionError {
     console.error('[LearningSessionRepo]', defaultMessage, error);
 
-    // If it's already a structured error from infrastructure
     if (error && typeof error === 'object') {
-      if (error.code === 'INFRASTRUCTURE_ERROR') {
+      if ((error as { code?: string }).code === 'INFRASTRUCTURE_ERROR') {
+        const infraError = error as {
+          code: string;
+          message?: string;
+          details?: unknown;
+        };
         return {
           code: 'LEARNING_SESSION_ERROR',
-          message: error.message || defaultMessage,
-          details: error.details,
+          message: infraError.message || defaultMessage,
+          details: infraError.details,
         };
       }
     }
 
-    // Generic error
     return {
       code: 'LEARNING_SESSION_ERROR',
       message: defaultMessage,

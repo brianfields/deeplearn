@@ -123,110 +123,110 @@ _No backend changes required for this spec._
 
 #### Phase 1: Refactor `learning_session` Module
 
-- [ ] Update `mobile/modules/learning_session/repo.ts`:
-  - [ ] Add `infrastructureProvider()` and `offlineCacheProvider()` imports
-  - [ ] Add `saveSession()` method (AsyncStorage write + outbox enqueue)
-  - [ ] Add `getSession()` method (AsyncStorage read)
-  - [ ] Add `saveProgress()` method (AsyncStorage write for progress)
-  - [ ] Add `getProgress()` method (AsyncStorage read for single progress)
-  - [ ] Add `getAllProgress()` method (AsyncStorage read for all progress in session)
-  - [ ] Add `clearProgress()` method (AsyncStorage cleanup)
-  - [ ] Add `getUserSessionIds()` method (AsyncStorage read index)
-  - [ ] Add `addToUserSessionIndex()` method (AsyncStorage write index)
-  - [ ] Add `getUserSessions()` method (AsyncStorage read with filtering)
-  - [ ] Add `syncSessionsFromServer()` method (HTTP fetch + AsyncStorage writes)
-  - [ ] Add private helper methods for storage key generation
+- [x] Update `mobile/modules/learning_session/repo.ts`:
+  - [x] Add `infrastructureProvider()` and `offlineCacheProvider()` imports
+  - [x] Add `saveSession()` method (AsyncStorage write + outbox enqueue)
+  - [x] Add `getSession()` method (AsyncStorage read)
+  - [x] Add `saveProgress()` method (AsyncStorage write for progress)
+  - [x] Add `getProgress()` method (AsyncStorage read for single progress)
+  - [x] Add `getAllProgress()` method (AsyncStorage read for all progress in session)
+  - [x] Add `clearProgress()` method (AsyncStorage cleanup)
+  - [x] Add `getUserSessionIds()` method (AsyncStorage read index)
+  - [x] Add `addToUserSessionIndex()` method (AsyncStorage write index)
+  - [x] Add `getUserSessions()` method (AsyncStorage read with filtering)
+  - [x] Add `syncSessionsFromServer()` method (HTTP fetch + AsyncStorage writes)
+  - [x] Add private helper methods for storage key generation
 
-- [ ] Update `mobile/modules/learning_session/service.ts`:
-  - [ ] Remove direct `infrastructure.setStorageItem()` calls - replace with `repo.saveSession()`
-  - [ ] Remove direct `infrastructure.getStorageItem()` calls - replace with `repo.getSession()`
-  - [ ] Remove direct `offlineCache.enqueueOutbox()` calls - move to repo methods
-  - [ ] Remove `addToLocalSessionIndex()` private method - now in repo
-  - [ ] Remove `getLocalSessionIds()` private method - now in repo
-  - [ ] Remove `getLocalUserSessions()` private method - now in repo
-  - [ ] Replace `syncSessionsFromServer()` implementation to call `repo.syncSessionsFromServer()`
-  - [ ] Update `startSession()` to call `repo.saveSession()`
-  - [ ] Update `updateProgress()` to call `repo.saveProgress()`
-  - [ ] Update `completeSession()` to use repo methods for progress collection
-  - [ ] Update `markSessionCompleted()` to call `repo.saveSession()`
-  - [ ] Update `clearSessionProgressData()` to call `repo.clearProgress()`
-  - [ ] Update `getUserSessions()` to call `repo.getUserSessions()`
+- [x] Update `mobile/modules/learning_session/service.ts`:
+  - [x] Remove direct `infrastructure.setStorageItem()` calls - replace with `repo.saveSession()`
+  - [x] Remove direct `infrastructure.getStorageItem()` calls - replace with `repo.getSession()`
+  - [x] Remove direct `offlineCache.enqueueOutbox()` calls - move to repo methods
+  - [x] Remove `addToLocalSessionIndex()` private method - now in repo
+  - [x] Remove `getLocalSessionIds()` private method - now in repo
+  - [x] Remove `getLocalUserSessions()` private method - now in repo
+  - [x] Replace `syncSessionsFromServer()` implementation to call `repo.syncSessionsFromServer()`
+  - [x] Update `startSession()` to call `repo.saveSession()`
+  - [x] Update `updateProgress()` to call `repo.saveProgress()`
+  - [x] Update `completeSession()` to use repo methods for progress collection
+  - [x] Update `markSessionCompleted()` to call `repo.saveSession()`
+  - [x] Update `clearSessionProgressData()` to call `repo.clearProgress()`
+  - [x] Update `getUserSessions()` to call `repo.getUserSessions()`
 
-- [ ] Run tests: `cd mobile && npm test -- learning_session`
+- [x] Run tests: `cd mobile && npm test -- learning_session`
 
 #### Phase 2: Refactor `catalog` Module
 
-- [ ] Update `mobile/modules/catalog/repo.ts`:
-  - [ ] Add `offlineCacheProvider()` import
-  - [ ] Add `getLesson(lessonId: string): Promise<LessonDetail | null>` method
-  - [ ] Method should check offline cache first (via `offlineCache.listUnits()` and `offlineCache.getUnitDetail()`)
-  - [ ] Fall back to HTTP (`getLessonDetail()`) if not in cache
-  - [ ] Add private helper `findLessonInOfflineCache()` similar to current service implementation
+- [x] Update `mobile/modules/catalog/repo.ts`:
+  - [x] Add `offlineCacheProvider()` import
+  - [x] Add `getLesson(lessonId: string): Promise<LessonDetail | null>` method
+  - [x] Method should check offline cache first (via `offlineCache.listUnits()` and `offlineCache.getUnitDetail()`)
+  - [x] Fall back to HTTP (`getLessonDetail()`) if not in cache
+  - [x] Add private helper `findLessonInOfflineCache()` similar to current service implementation
 
-- [ ] Update `mobile/modules/catalog/service.ts`:
-  - [ ] Remove `findLessonInCache()` private method (now in repo)
-  - [ ] Update `getLessonDetail()` to call `repo.getLesson(lessonId)`
-  - [ ] Remove direct `offlineCache` usage from service
+- [x] Update `mobile/modules/catalog/service.ts`:
+  - [x] Remove `findLessonInCache()` private method (now in repo)
+  - [x] Update `getLessonDetail()` to call `repo.getLesson(lessonId)`
+  - [x] Remove direct `offlineCache` usage from service
 
-- [ ] Run tests: `cd mobile && npm test -- catalog`
+- [x] Run tests: `cd mobile && npm test -- catalog`
 
 #### Phase 3: Refactor `user` Module (Identity)
 
-- [ ] Update `mobile/modules/user/repo.ts`:
-  - [ ] Add `getCurrentUser(): Promise<User | null>` method (AsyncStorage read)
-  - [ ] Add `saveCurrentUser(user: User | null): Promise<void>` method (AsyncStorage write/remove)
-  - [ ] Add constant `STORAGE_KEY = 'deeplearn/mobile/current-user'`
+- [x] Update `mobile/modules/user/repo.ts`:
+  - [x] Add `getCurrentUser(): Promise<User | null>` method (AsyncStorage read)
+  - [x] Add `saveCurrentUser(user: User | null): Promise<void>` method (AsyncStorage write/remove)
+  - [x] Add constant `STORAGE_KEY = 'deeplearn/mobile/current-user'`
 
-- [ ] Update `mobile/modules/user/identity.ts`:
-  - [ ] Inject `UserRepo` in constructor
-  - [ ] Update `getCurrentUser()` to call `repo.getCurrentUser()`
-  - [ ] Update `setCurrentUser()` to call `repo.saveCurrentUser()`
-  - [ ] Keep in-memory cache (`cachedUser`) for fast sync access
-  - [ ] Remove direct `infrastructure.setStorageItem/getStorageItem/removeStorageItem` calls
+- [x] Update `mobile/modules/user/identity.ts`:
+  - [x] Inject `UserRepo` in constructor
+  - [x] Update `getCurrentUser()` to call `repo.getCurrentUser()`
+  - [x] Update `setCurrentUser()` to call `repo.saveCurrentUser()`
+  - [x] Keep in-memory cache (`cachedUser`) for fast sync access
+  - [x] Remove direct `infrastructure.setStorageItem/getStorageItem/removeStorageItem` calls
 
-- [ ] Run tests: `cd mobile && npm test -- user`
+- [x] Run tests: `cd mobile && npm test -- user`
 
 #### Phase 4: Refactor `podcast_player` Module
 
-- [ ] Create `mobile/modules/podcast_player/repo.ts`:
-  - [ ] Add imports for `infrastructureProvider`
-  - [ ] Add constants `GLOBAL_STATE_KEY` and `UNIT_STATE_PREFIX`
-  - [ ] Add `getGlobalSpeed(): Promise<PlaybackSpeed | null>` method
-  - [ ] Add `saveGlobalSpeed(speed: PlaybackSpeed): Promise<void>` method
-  - [ ] Add `getUnitPosition(unitId: string): Promise<number>` method
-  - [ ] Add `saveUnitPosition(unitId: string, position: number): Promise<void>` method
-  - [ ] Add private helper `getUnitKey(unitId: string): string`
+- [x] Create `mobile/modules/podcast_player/repo.ts`:
+  - [x] Add imports for `infrastructureProvider`
+  - [x] Add constants `GLOBAL_STATE_KEY` and `UNIT_STATE_PREFIX`
+  - [x] Add `getGlobalSpeed(): Promise<PlaybackSpeed | null>` method
+  - [x] Add `saveGlobalSpeed(speed: PlaybackSpeed): Promise<void>` method
+  - [x] Add `getUnitPosition(unitId: string): Promise<number>` method
+  - [x] Add `saveUnitPosition(unitId: string, position: number): Promise<void>` method
+  - [x] Add private helper `getUnitKey(unitId: string): string`
 
-- [ ] Update `mobile/modules/podcast_player/service.ts`:
-  - [ ] Import and instantiate `PodcastPlayerRepo`
-  - [ ] Update `setSpeed()` to call `repo.saveGlobalSpeed()`
-  - [ ] Update `hydrateGlobalSpeed()` to call `repo.getGlobalSpeed()`
-  - [ ] Update `savePosition()` to call `repo.saveUnitPosition()`
-  - [ ] Update `getPersistedUnitState()` to call `repo.getUnitPosition()`
-  - [ ] Remove direct `infrastructure.setStorageItem/getStorageItem` calls
-  - [ ] Remove private `getUnitKey()` method (now in repo)
+- [x] Update `mobile/modules/podcast_player/service.ts`:
+  - [x] Import and instantiate `PodcastPlayerRepo`
+  - [x] Update `setSpeed()` to call `repo.saveGlobalSpeed()`
+  - [x] Update `hydrateGlobalSpeed()` to call `repo.getGlobalSpeed()`
+  - [x] Update `savePosition()` to call `repo.saveUnitPosition()`
+  - [x] Update `getPersistedUnitState()` to call `repo.getUnitPosition()`
+  - [x] Remove direct `infrastructure.setStorageItem/getStorageItem` calls
+  - [x] Remove private `getUnitKey()` method (now in repo)
 
-- [ ] Run tests: `cd mobile && npm test -- podcast_player`
+- [x] Run tests: `cd mobile && npm test -- podcast_player`
 
 #### Phase 5: Update Architecture Documentation
 
-- [ ] Update `docs/arch/frontend.md`:
-  - [ ] Update "Rules" section to clarify repo abstracts all data access
-  - [ ] Update repo.ts description to include AsyncStorage, offline cache, and outbox
-  - [ ] Add note that sync methods (`sync*FromServer()`) live in repo
-  - [ ] Update example code to show repo handling storage keys
-  - [ ] Add example showing repo enqueueing to outbox
-  - [ ] Clarify that service only calls repo, never infrastructure/offlineCache directly
+- [x] Update `docs/arch/frontend.md`:
+  - [x] Update "Rules" section to clarify repo abstracts all data access
+  - [x] Update repo.ts description to include AsyncStorage, offline cache, and outbox
+  - [x] Add note that sync methods (`sync*FromServer()`) live in repo
+  - [x] Update example code to show repo handling storage keys
+  - [x] Add example showing repo enqueueing to outbox
+  - [x] Clarify that service only calls repo, never infrastructure/offlineCache directly
 
 #### Phase 6: Final Validation
 
-- [ ] Ensure lint passes, i.e. ./format_code.sh runs clean.
-- [ ] Ensure unit tests pass, i.e. (in backend) scripts/run_unit.py and (in mobile) npm run test both run clean.
-- [ ] Ensure integration tests pass, i.e. (in backend) scripts/run_integration.py runs clean.
-- [ ] Follow the instructions in codegen/prompts/trace.md to ensure the user story is implemented correctly.
-- [ ] Fix any issues documented during the tracing of the user story in docs/specs/improve-frontend-repo/trace.md.
-- [ ] Follow the instructions in codegen/prompts/modulecheck.md to ensure the new code is following the modular architecture correctly.
-- [ ] Examine all new code that has been created and make sure all of it is being used; there is no dead code.
+- [x] Ensure lint passes, i.e. ./format_code.sh runs clean. (Created backend venv symlink so script succeeds.)
+- [x] Ensure unit tests pass, i.e. (in backend) scripts/run_unit.py and (in mobile) npm run test both run clean. (All suites pass; Jest left open handles but completed.)
+- [x] Ensure integration tests pass, i.e. (in backend) scripts/run_integration.py runs clean.
+- [x] Follow the instructions in codegen/prompts/trace.md to ensure the user story is implemented correctly. (Trace added at docs/specs/improve-frontend-repo/trace.md.)
+- [x] Fix any issues documented during the tracing of the user story in docs/specs/improve-frontend-repo/trace.md. (No issues found during trace.)
+- [x] Follow the instructions in codegen/prompts/modulecheck.md to ensure the new code is following the modular architecture correctly. (Frontend/backend checklists updated with Phase 6 validation notes.)
+- [x] Examine all new code that has been created and make sure all of it is being used; there is no dead code.
 
 ---
 

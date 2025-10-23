@@ -7,9 +7,7 @@
 
 import { LearningSessionRepo } from './repo';
 import { catalogProvider } from '../catalog/public';
-import { infrastructureProvider } from '../infrastructure/public';
 import { userIdentityProvider } from '../user/public';
-import { offlineCacheProvider } from '../offline_cache/public';
 import type {
   LearningSession,
   SessionProgress,
@@ -25,14 +23,10 @@ import type {
 import type { SessionExercise, MCQContentDTO } from './models';
 import { toLearningSessionDTO } from './models';
 
-const LEARNING_SESSION_BASE = '/api/v1/learning_session';
-
 export class LearningSessionService {
   private repo: LearningSessionRepo;
   private catalog = catalogProvider();
-  private infrastructure = infrastructureProvider();
   private userIdentity = userIdentityProvider();
-  private offlineCache = offlineCacheProvider();
 
   constructor(repo: LearningSessionRepo) {
     this.repo = repo;
@@ -85,27 +79,8 @@ export class LearningSessionService {
         canResume: true,
       };
 
-      // Store locally
-      await this.infrastructure.setStorageItem(
-        `learning_session_${session.id}`,
-        JSON.stringify(session)
-      );
-
-      // Add to user's session index
-      if (session.userId) {
-        await this.addToLocalSessionIndex(session.userId, session.id);
-      }
-
-      // Enqueue creation to server
-      await this.offlineCache.enqueueOutbox({
-        endpoint: `${LEARNING_SESSION_BASE}/`,
-        method: 'POST',
-        payload: {
-          lesson_id: request.lessonId,
-          user_id: userId,
-          session_id: sessionId, // Pass our local ID to server
-        },
-        headers: { 'Content-Type': 'application/json' },
+      await this.repo.saveSession(session, {
+        enqueueOutbox: true,
         idempotencyKey: `start-session-${sessionId}`,
       });
 
@@ -121,20 +96,7 @@ export class LearningSessionService {
    */
   async getSession(sessionId: string): Promise<LearningSession | null> {
     try {
-      // Read from local storage (fast, works offline)
-      const stored = await this.infrastructure.getStorageItem(
-        `learning_session_${sessionId}`
-      );
-      if (stored) {
-        try {
-          const session = JSON.parse(stored) as LearningSession;
-          return session;
-        } catch (error) {
-          console.warn('Failed to parse cached learning session:', error);
-        }
-      }
-
-      return null;
+      return await this.repo.getSession(sessionId);
     } catch (error) {
       throw this.handleServiceError(
         error,
@@ -161,7 +123,7 @@ export class LearningSessionService {
     const progress = this.buildOptimisticProgress(request, normalizedAnswer);
 
     // Store locally only
-    await this.updateLocalSessionProgress(request.sessionId, progress);
+    await this.repo.saveProgress(request.sessionId, progress);
 
     return progress;
   }
@@ -183,24 +145,11 @@ export class LearningSessionService {
       request.sessionId
     );
 
-    const endpoint = new URL(
-      `${LEARNING_SESSION_BASE}/${request.sessionId}/complete`,
-      'http://localhost'
+    await this.repo.enqueueSessionCompletion(
+      request.sessionId,
+      userId ?? null,
+      progressUpdates
     );
-    if (userId) {
-      endpoint.searchParams.set('user_id', userId);
-    }
-
-    // Single outbox entry with all progress data
-    await this.offlineCache.enqueueOutbox({
-      endpoint: endpoint.pathname + endpoint.search,
-      method: 'POST',
-      payload: {
-        progress_updates: progressUpdates,
-      },
-      headers: { 'Content-Type': 'application/json' },
-      idempotencyKey: `complete-${request.sessionId}-${Date.now()}`,
-    });
 
     // Build optimistic results (no network call)
     const results = await this.buildOptimisticResults(request.sessionId);
@@ -233,16 +182,7 @@ export class LearningSessionService {
 
       const session = toLearningSessionDTO(apiSession, lessonTitle);
 
-      // Update local cache
-      await this.infrastructure.setStorageItem(
-        `learning_session_${sessionId}`,
-        JSON.stringify(session)
-      );
-
-      // Add to user's session index
-      if (session.userId) {
-        await this.addToLocalSessionIndex(session.userId, session.id);
-      }
+      await this.repo.saveSession(session, { enqueueOutbox: false });
 
       return session;
     } catch (error) {
@@ -271,11 +211,7 @@ export class LearningSessionService {
         status: 'active',
       };
 
-      // Update local cache
-      await this.infrastructure.setStorageItem(
-        `learning_session_${sessionId}`,
-        JSON.stringify(updatedSession)
-      );
+      await this.repo.saveSession(updatedSession, { enqueueOutbox: false });
 
       return updatedSession;
     } catch (error) {
@@ -295,7 +231,7 @@ export class LearningSessionService {
   ): Promise<{ sessions: LearningSession[]; total: number }> {
     try {
       const resolvedUserId = await this.resolveUserId(userId);
-      return this.getLocalUserSessions(resolvedUserId, filters, limit);
+      return this.repo.getUserSessions(resolvedUserId, filters, limit);
     } catch (error) {
       throw this.handleServiceError(error, 'Failed to get user sessions');
     }
@@ -309,38 +245,25 @@ export class LearningSessionService {
     try {
       const resolvedUserId = await this.resolveUserId(userId);
 
-      const apiResponse = await this.repo.getUserSessions(
+      const syncedCount = await this.repo.syncSessionsFromServer(
         resolvedUserId,
-        {},
-        100, // Get a reasonable batch
-        0
+        async apiSession => {
+          let lessonTitle: string | undefined;
+          try {
+            const lessonDetail = await this.catalog.getLessonDetail(
+              apiSession.lesson_id
+            );
+            lessonTitle = lessonDetail?.title;
+          } catch (error) {
+            console.warn('Failed to fetch lesson title:', error);
+          }
+
+          return toLearningSessionDTO(apiSession, lessonTitle);
+        }
       );
 
-      // Store each session locally and add to index
-      for (const apiSession of apiResponse.sessions) {
-        let lessonTitle: string | undefined;
-        try {
-          const lessonDetail = await this.catalog.getLessonDetail(
-            apiSession.lesson_id
-          );
-          lessonTitle = lessonDetail?.title;
-        } catch (error) {
-          console.warn('Failed to fetch lesson title:', error);
-        }
-
-        const session = toLearningSessionDTO(apiSession, lessonTitle);
-        await this.infrastructure.setStorageItem(
-          `learning_session_${session.id}`,
-          JSON.stringify(session)
-        );
-
-        if (session.userId) {
-          await this.addToLocalSessionIndex(session.userId, session.id);
-        }
-      }
-
       console.info(
-        `[LearningSessionService] Synced ${apiResponse.sessions.length} sessions from server`
+        `[LearningSessionService] Synced ${syncedCount} sessions from server`
       );
     } catch (error) {
       console.warn('[LearningSessionService] Failed to sync sessions:', error);
@@ -514,16 +437,11 @@ export class LearningSessionService {
     }
 
     try {
-      const cached = await this.infrastructure.getStorageItem(
-        `learning_session_${sessionId}`
-      );
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        const candidate =
-          typeof parsed?.userId === 'string' ? parsed.userId.trim() : null;
-        if (candidate) {
-          return candidate;
-        }
+      const session = await this.repo.getSession(sessionId);
+      const candidate =
+        typeof session?.userId === 'string' ? session.userId.trim() : null;
+      if (candidate) {
+        return candidate;
       }
     } catch (error) {
       console.warn('Failed to resolve user id from cached session:', error);
@@ -576,26 +494,13 @@ export class LearningSessionService {
     let totalTimeSeconds = 0;
 
     for (const exercise of exercises) {
-      const progressKey = `session_progress_${sessionId}_${exercise.id}`;
-      const progressData =
-        await this.infrastructure.getStorageItem(progressKey);
-
-      if (progressData) {
-        try {
-          const progress: SessionProgress = JSON.parse(progressData);
-          if (progress.isCompleted) {
-            completedExercises++;
-            if (progress.isCorrect === true) {
-              correctExercises++;
-            }
-            totalTimeSeconds += progress.timeSpentSeconds || 0;
-          }
-        } catch (error) {
-          console.warn(
-            `Failed to parse progress for exercise ${exercise.id}:`,
-            error
-          );
+      const progress = await this.repo.getProgress(sessionId, exercise.id);
+      if (progress && progress.isCompleted) {
+        completedExercises++;
+        if (progress.isCorrect === true) {
+          correctExercises++;
         }
+        totalTimeSeconds += progress.timeSpentSeconds || 0;
       }
     }
 
@@ -640,53 +545,6 @@ export class LearningSessionService {
     };
   }
 
-  private async updateLocalSessionProgress(
-    sessionId: string,
-    progress: SessionProgress
-  ): Promise<void> {
-    try {
-      const session = await this.getSession(sessionId);
-      if (!session) return;
-
-      // Update session progress
-      const updatedSession: LearningSession = {
-        ...session,
-        currentExerciseIndex: Math.max(
-          session.currentExerciseIndex,
-          progress.isCompleted
-            ? session.currentExerciseIndex + 1
-            : session.currentExerciseIndex
-        ),
-        progressPercentage: Math.min(
-          100,
-          ((session.currentExerciseIndex + 1) / session.totalExercises) * 100
-        ),
-      };
-
-      // Save updated session
-      await this.infrastructure.setStorageItem(
-        `learning_session_${sessionId}`,
-        JSON.stringify(updatedSession)
-      );
-
-      // Add to user's session index
-      if (updatedSession.userId) {
-        await this.addToLocalSessionIndex(
-          updatedSession.userId,
-          updatedSession.id
-        );
-      }
-
-      // Save progress data
-      await this.infrastructure.setStorageItem(
-        `session_progress_${sessionId}_${progress.exerciseId}`,
-        JSON.stringify(progress)
-      );
-    } catch (error) {
-      console.warn('Failed to update local session progress:', error);
-    }
-  }
-
   private async markSessionCompleted(
     sessionId: string,
     results: SessionResults
@@ -703,25 +561,8 @@ export class LearningSessionService {
         progressPercentage: 100,
       };
 
-      // Save completed session
-      await this.infrastructure.setStorageItem(
-        `learning_session_${sessionId}`,
-        JSON.stringify(completedSession)
-      );
-
-      // Add to user's session index
-      if (completedSession.userId) {
-        await this.addToLocalSessionIndex(
-          completedSession.userId,
-          completedSession.id
-        );
-      }
-
-      // Save results
-      await this.infrastructure.setStorageItem(
-        `session_results_${sessionId}`,
-        JSON.stringify(results)
-      );
+      await this.repo.saveSession(completedSession, { enqueueOutbox: false });
+      await this.repo.saveSessionResults(sessionId, results);
     } catch (error) {
       console.warn('Failed to mark session as completed:', error);
     }
@@ -746,39 +587,14 @@ export class LearningSessionService {
       time_spent_seconds: number;
     }>
   > {
-    const session = await this.getSession(sessionId);
-    if (!session) {
-      return [];
-    }
-
-    const exercises = await this.getSessionExercises(sessionId);
-    const progressUpdates = [];
-
-    for (const exercise of exercises) {
-      const progressKey = `session_progress_${sessionId}_${exercise.id}`;
-      const progressData =
-        await this.infrastructure.getStorageItem(progressKey);
-
-      if (progressData) {
-        try {
-          const progress: SessionProgress = JSON.parse(progressData);
-          progressUpdates.push({
-            exercise_id: progress.exerciseId,
-            exercise_type: progress.exerciseType,
-            user_answer: progress.userAnswer,
-            is_correct: progress.isCorrect,
-            time_spent_seconds: progress.timeSpentSeconds,
-          });
-        } catch (error) {
-          console.warn(
-            `Failed to parse progress for exercise ${exercise.id}:`,
-            error
-          );
-        }
-      }
-    }
-
-    return progressUpdates;
+    const progressRecords = await this.repo.getAllProgress(sessionId);
+    return progressRecords.map(progress => ({
+      exercise_id: progress.exerciseId,
+      exercise_type: progress.exerciseType,
+      user_answer: progress.userAnswer,
+      is_correct: progress.isCorrect,
+      time_spent_seconds: progress.timeSpentSeconds,
+    }));
   }
 
   /**
@@ -786,103 +602,10 @@ export class LearningSessionService {
    */
   private async clearSessionProgressData(sessionId: string): Promise<void> {
     try {
-      const session = await this.getSession(sessionId);
-      if (!session) {
-        return;
-      }
-
-      const exercises = await this.getSessionExercises(sessionId);
-
-      // Remove progress data for each exercise
-      for (const exercise of exercises) {
-        const progressKey = `session_progress_${sessionId}_${exercise.id}`;
-        await this.infrastructure.removeStorageItem(progressKey);
-      }
+      await this.repo.clearProgress(sessionId);
     } catch (error) {
       console.warn('Failed to clear session progress data:', error);
     }
-  }
-
-  /**
-   * Get all locally stored session IDs for a user
-   * Maintains an index of session IDs per user for efficient querying
-   */
-  private async getLocalSessionIds(userId: string): Promise<string[]> {
-    const indexKey = `user_session_index_${userId}`;
-    const stored = await this.infrastructure.getStorageItem(indexKey);
-    if (stored) {
-      try {
-        return JSON.parse(stored) as string[];
-      } catch (error) {
-        console.warn('Failed to parse local session index:', error);
-      }
-    }
-    return [];
-  }
-
-  /**
-   * Add a session ID to the user's local session index
-   */
-  private async addToLocalSessionIndex(
-    userId: string,
-    sessionId: string
-  ): Promise<void> {
-    const indexKey = `user_session_index_${userId}`;
-    const sessionIds = await this.getLocalSessionIds(userId);
-    if (!sessionIds.includes(sessionId)) {
-      sessionIds.push(sessionId);
-      await this.infrastructure.setStorageItem(
-        indexKey,
-        JSON.stringify(sessionIds)
-      );
-    }
-  }
-
-  /**
-   * Get user sessions from local storage only
-   * Used for offline operation
-   */
-  private async getLocalUserSessions(
-    userId: string,
-    filters: SessionFilters = {},
-    limit: number = 50
-  ): Promise<{ sessions: LearningSession[]; total: number }> {
-    const sessionIds = await this.getLocalSessionIds(userId);
-    const sessions: LearningSession[] = [];
-
-    for (const sessionId of sessionIds) {
-      try {
-        const stored = await this.infrastructure.getStorageItem(
-          `learning_session_${sessionId}`
-        );
-        if (!stored) continue;
-
-        const session: LearningSession = JSON.parse(stored);
-
-        // Apply filters
-        if (filters.status && session.status !== filters.status) continue;
-        if (filters.lessonId && session.lessonId !== filters.lessonId) continue;
-
-        sessions.push(session);
-      } catch (error) {
-        console.warn(`Failed to load local session ${sessionId}:`, error);
-      }
-    }
-
-    // Sort by most recent first
-    sessions.sort((a, b) => {
-      const dateA = new Date(b.startedAt).getTime();
-      const dateB = new Date(a.startedAt).getTime();
-      return dateA - dateB;
-    });
-
-    // Apply limit
-    const limitedSessions = sessions.slice(0, limit);
-
-    return {
-      sessions: limitedSessions,
-      total: sessions.length,
-    };
   }
 
   /**
