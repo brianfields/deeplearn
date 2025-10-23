@@ -15,7 +15,7 @@ const mockGoBack = jest.fn();
 const mockNavigate = jest.fn();
 
 jest.mock('@react-navigation/native', () => {
-  const actual = jest.requireActual('@react-navigation/native');
+  const actual = jest.requireActual('@react-navigation/native') as any;
   return {
     ...actual,
     useNavigation: () => ({
@@ -45,7 +45,7 @@ jest.mock('../infrastructure/public', () => ({
 }));
 
 describe('CacheManagementScreen', () => {
-  const mockGetCacheOverview = jest.fn<Promise<CacheOverview>, []>();
+  const mockGetCacheOverview = jest.fn<() => Promise<CacheOverview>>();
   const mockClearAll = jest.fn();
   const mockDeleteUnit = jest.fn();
   const mockSyncNow = jest.fn();
@@ -118,12 +118,12 @@ describe('CacheManagementScreen', () => {
     };
     mockGetCacheOverview.mockResolvedValue(overview);
 
-    let component: renderer.ReactTestRenderer;
+    let component: any;
     await act(async () => {
       component = renderer.create(<CacheManagementScreen />);
     });
 
-    const root = (component as renderer.ReactTestRenderer).root;
+    const root = component.root;
     expect(mockGetCacheOverview).toHaveBeenCalled();
 
     const storageText = root.findByProps({
@@ -195,11 +195,11 @@ describe('CacheManagementScreen', () => {
     };
     mockGetCacheOverview.mockResolvedValue(overview);
 
-    let component: renderer.ReactTestRenderer;
+    let component: any;
     await act(async () => {
       component = renderer.create(<CacheManagementScreen />);
     });
-    const root = (component as renderer.ReactTestRenderer).root;
+    const root = component.root;
 
     const downloadButton = root.findByProps({
       testID: 'cache-unit-toggle-unit-minimal',

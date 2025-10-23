@@ -22,7 +22,7 @@ export type RootStackParamList = {
 
 export type LearningStackParamList = {
   LessonList: undefined;
-  CreateUnit: undefined;
+  LearningCoach: { topic?: string; conversationId?: string } | undefined;
   LearningFlow: { lessonId: string; lesson: LessonDetail };
   UnitDetail: { unitId: string };
   CacheManagement: undefined;

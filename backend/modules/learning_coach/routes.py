@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any
-import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -33,6 +32,10 @@ class LearningCoachSessionStateModel(BaseModel):
     conversation_id: str
     messages: list[LearningCoachMessageModel]
     metadata: dict[str, Any]
+    finalized_topic: str | None = None
+    unit_title: str | None = None
+    learning_objectives: list[str] | None = None
+    suggested_lesson_count: int | None = None
     proposed_brief: dict[str, Any] | None = None
     accepted_brief: dict[str, Any] | None = None
 
@@ -41,7 +44,7 @@ class StartSessionRequest(BaseModel):
     """Payload to kick off a learning coach session."""
 
     topic: str | None = Field(default=None, description="Optional topic hint supplied by the learner")
-    user_id: str | None = Field(default=None, description="Authenticated learner identifier")
+    user_id: int | None = Field(default=None, description="Authenticated learner identifier", ge=1)
 
 
 class LearnerTurnRequest(BaseModel):
@@ -49,7 +52,7 @@ class LearnerTurnRequest(BaseModel):
 
     conversation_id: str = Field(..., description="Existing learning coach conversation identifier")
     message: str = Field(..., min_length=1, description="Learner message content")
-    user_id: str | None = Field(default=None, description="Authenticated learner identifier")
+    user_id: int | None = Field(default=None, description="Authenticated learner identifier", ge=1)
 
 
 class AcceptBriefRequest(BaseModel):
@@ -57,7 +60,7 @@ class AcceptBriefRequest(BaseModel):
 
     conversation_id: str = Field(..., description="Existing learning coach conversation identifier")
     brief: dict[str, Any] = Field(..., description="Structured brief supplied by the coach")
-    user_id: str | None = Field(default=None, description="Authenticated learner identifier")
+    user_id: int | None = Field(default=None, description="Authenticated learner identifier", ge=1)
 
 
 def get_learning_coach_service() -> LearningCoachService:
@@ -75,8 +78,7 @@ async def start_session(
 ) -> LearningCoachSessionStateModel:
     """Create a new learning coach conversation and return the opening state."""
 
-    user_uuid = _coerce_uuid(request.user_id)
-    state = await service.start_session(topic=request.topic, user_id=user_uuid)
+    state = await service.start_session(topic=request.topic, user_id=request.user_id)
     return _serialize_state(state)
 
 
@@ -87,11 +89,10 @@ async def submit_learner_turn(
 ) -> LearningCoachSessionStateModel:
     """Append a learner message and return the updated conversation state."""
 
-    user_uuid = _coerce_uuid(request.user_id)
     state = await service.submit_learner_turn(
         conversation_id=request.conversation_id,
         message=request.message,
-        user_id=user_uuid,
+        user_id=request.user_id,
     )
     return _serialize_state(state)
 
@@ -103,14 +104,13 @@ async def accept_brief(
 ) -> LearningCoachSessionStateModel:
     """Mark the coach's current proposal as accepted."""
 
-    user_uuid = _coerce_uuid(request.user_id)
     if not isinstance(request.brief, dict):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Brief must be an object")
 
     state = await service.accept_brief(
         conversation_id=request.conversation_id,
         brief=request.brief,
-        user_id=user_uuid,
+        user_id=request.user_id,
     )
     return _serialize_state(state)
 
@@ -127,17 +127,6 @@ async def get_session_state(
     return _serialize_state(state)
 
 
-def _coerce_uuid(value: str | None) -> uuid.UUID | None:
-    """Convert an optional string into a UUID."""
-
-    if value is None:
-        return None
-    try:
-        return uuid.UUID(value)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid user_id") from exc
-
-
 def _serialize_state(state: LearningCoachSessionState) -> LearningCoachSessionStateModel:
     """Convert an internal DTO into an API response model."""
 
@@ -145,6 +134,10 @@ def _serialize_state(state: LearningCoachSessionState) -> LearningCoachSessionSt
         conversation_id=state.conversation_id,
         messages=[_serialize_message(message) for message in state.messages],
         metadata=state.metadata,
+        finalized_topic=state.finalized_topic,
+        unit_title=state.unit_title,
+        learning_objectives=state.learning_objectives,
+        suggested_lesson_count=state.suggested_lesson_count,
         proposed_brief=state.proposed_brief,
         accepted_brief=state.accepted_brief,
     )

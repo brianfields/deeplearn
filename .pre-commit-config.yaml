@@ -27,13 +27,13 @@ repos:
         pass_filenames: true
       - id: prettier
         name: Prettier (Frontend)
-        entry: bash -c 'cd mobile && files=("${@#mobile/}") && npm run format:check -- "${files[@]}"'
+        entry: bash -c 'cd mobile && files=("${@#mobile/}") && if [[ ${#files[@]} -gt 0 ]]; then npm run format:check -- "${files[@]}"; fi'
         language: system
         files: ^mobile/.*\.(ts|tsx|js|jsx|json|md)$
         pass_filenames: true
       - id: typescript
         name: TypeScript Check (Frontend)
-        entry: bash -c 'cd mobile && files=("${@#mobile/}") && npm run typecheck -- "${files[@]}"'
+        entry: bash -c 'cd mobile && npm run typecheck'
         language: system
         files: ^mobile/.*\.(ts|tsx)$
-        pass_filenames: true
+        pass_filenames: false

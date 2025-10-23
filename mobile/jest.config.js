@@ -33,7 +33,15 @@ module.exports = {
   testEnvironment: 'node',
   preset: 'ts-jest',
   transform: {
-    '^.+\\.tsx?$': ['ts-jest', { useESM: true }],
+    '^.+\\.tsx?$': [
+      'ts-jest',
+      {
+        useESM: true,
+        tsconfig: {
+          jsx: 'react',
+        },
+      },
+    ],
   },
   globals: {
     __DEV__: true,

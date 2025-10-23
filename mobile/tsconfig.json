@@ -8,9 +8,9 @@
     "resolveJsonModule": true,
     "module": "esnext",
     "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
-    "jsx": "react-jsx",
     "types": ["jest", "react-test-renderer"],
     "baseUrl": ".",
     "paths": {

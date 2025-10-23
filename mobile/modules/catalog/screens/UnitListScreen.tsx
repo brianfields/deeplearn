@@ -248,7 +248,7 @@ export function LessonListScreen() {
 
   const handleCreateUnit = useCallback(() => {
     haptics.trigger('medium');
-    navigation.navigate('CreateUnit');
+    navigation.navigate('LearningCoach');
   }, [navigation, haptics]);
 
   const handleOpenDownloads = useCallback(() => {

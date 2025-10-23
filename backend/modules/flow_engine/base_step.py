@@ -201,9 +201,7 @@ class BaseStep(ABC):
         """
         Load a prompt from a markdown file.
 
-        This method looks for the prompt file in the following locations:
-        1. In the same module's prompts/ directory as the step class
-        2. In a global prompts/ directory (future enhancement)
+        This method looks for the prompt file in the same module's prompts/ directory as the step class
 
         Args:
             filename: Name of the prompt file (e.g., "extract_content.md")
@@ -234,13 +232,7 @@ class BaseStep(ABC):
             with prompt_file_path.open(encoding="utf-8") as f:
                 return f.read().strip()
         except FileNotFoundError:
-            # Fallback: try relative to current working directory
-            try:
-                fallback_path = Path(f"prompts/{filename}")
-                with fallback_path.open(encoding="utf-8") as f:
-                    return f.read().strip()
-            except FileNotFoundError:
-                raise FileNotFoundError(f"Prompt file '{filename}' not found. Looked in: {prompt_file_path} and prompts/{filename}") from None
+            raise FileNotFoundError(f"Prompt file '{filename}' not found. Looked in: {prompt_file_path}") from None
 
     @abstractmethod
     async def _execute_step_logic(self, inputs: BaseModel, context: "FlowContext") -> tuple[Any, uuid.UUID | None]:

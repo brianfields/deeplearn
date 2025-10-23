@@ -33,16 +33,16 @@ class LearningCoachService:
         self,
         *,
         topic: str | None = None,
-        user_id: uuid.UUID | None = None,
+        user_id: int | None = None,
     ) -> LearningCoachSessionState:
         """Start a new learning coach conversation."""
 
         metadata = {"topic": topic} if topic else None
         conversation = self._conversation_factory()
         return await conversation.start_session(
-            user_id=user_id,
+            _user_id=user_id,
             topic=topic,
-            conversation_metadata=metadata,
+            _conversation_metadata=metadata,
         )
 
     async def submit_learner_turn(
@@ -50,14 +50,14 @@ class LearningCoachService:
         *,
         conversation_id: str,
         message: str,
-        user_id: uuid.UUID | None = None,
+        user_id: int | None = None,
     ) -> LearningCoachSessionState:
         """Append a learner turn and fetch the updated state."""
 
         conversation = self._conversation_factory()
         return await conversation.submit_learner_turn(
-            conversation_id=conversation_id,
-            user_id=user_id,
+            _conversation_id=conversation_id,
+            _user_id=user_id,
             message=message,
         )
 
@@ -66,14 +66,14 @@ class LearningCoachService:
         *,
         conversation_id: str,
         brief: dict[str, Any],
-        user_id: uuid.UUID | None = None,
+        user_id: int | None = None,
     ) -> LearningCoachSessionState:
         """Persist the accepted brief and return the refreshed session state."""
 
         conversation = self._conversation_factory()
         return await conversation.accept_brief(
-            conversation_id=conversation_id,
-            user_id=user_id,
+            _conversation_id=conversation_id,
+            _user_id=user_id,
             brief=brief,
         )
 
@@ -81,7 +81,7 @@ class LearningCoachService:
         self,
         *,
         topic: str | None = None,
-        user_id: uuid.UUID | None = None,
+        user_id: int | None = None,
     ) -> LearningCoachSessionState:
         """Restart the conversation by creating a fresh session."""
 
@@ -117,6 +117,10 @@ class LearningCoachService:
             conversation_id=detail.id,
             messages=messages,
             metadata=metadata,
+            finalized_topic=metadata.get("finalized_topic"),
+            unit_title=metadata.get("unit_title"),
+            learning_objectives=metadata.get("learning_objectives"),
+            suggested_lesson_count=metadata.get("suggested_lesson_count"),
             proposed_brief=self._dict_or_none(metadata.get("proposed_brief")),
             accepted_brief=self._dict_or_none(metadata.get("accepted_brief")),
         )
