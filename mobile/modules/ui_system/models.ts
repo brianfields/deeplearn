@@ -5,6 +5,7 @@
  */
 
 import React from 'react';
+import type { StyleProp, ViewStyle } from 'react-native';
 
 // ================================
 // Theme Types
@@ -115,6 +116,27 @@ export interface ArtworkImageProps {
   description?: string | null;
   variant?: 'thumbnail' | 'hero';
   style?: any;
+  testID?: string;
+}
+
+export interface SliderProps {
+  value: number;
+  minimumValue?: number;
+  maximumValue: number;
+  step?: number;
+  onValueChange?: (value: number) => void;
+  onSlidingStart?: (value: number) => void;
+  onSlidingComplete?: (value: number) => void;
+  disabled?: boolean;
+  minimumTrackTintColor?: string;
+  maximumTrackTintColor?: string;
+  thumbTintColor?: string;
+  showValueLabels?: boolean;
+  formatValueLabel?: (value: number) => string;
+  minimumLabel?: string;
+  maximumLabel?: string;
+  containerStyle?: StyleProp<ViewStyle>;
+  sliderStyle?: StyleProp<ViewStyle>;
   testID?: string;
 }
 
