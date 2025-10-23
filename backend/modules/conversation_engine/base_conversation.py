@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 import functools
+import inspect
 from pathlib import Path
 from typing import Any, ParamSpec, TypeVar
 import uuid
@@ -60,16 +61,33 @@ def _coerce_user_id(value: int | str | uuid.UUID | None) -> int | None:
 def conversation_session(func: Callable[P, Any]) -> Callable[P, Any]:
     """Decorator that initialises infrastructure for a conversation handler."""
 
+    signature = inspect.signature(func)
+    accepts_conversation_id = "conversation_id" in signature.parameters
+    accepts_private_conversation_id = "_conversation_id" in signature.parameters
+
     @functools.wraps(func)
     async def wrapper(self: BaseConversation, *args: P.args, **kwargs: P.kwargs) -> Any:  # type: ignore[misc]
         infra = infrastructure_provider()
         infra.initialize()
         llm_services = llm_services_provider()
 
-        user_int_id = _coerce_user_id(kwargs.get("_user_id"))  # type: ignore[arg-type]
-        conversation_uuid = _coerce_uuid(kwargs.get("_conversation_id"))  # type: ignore[arg-type]
-        metadata: dict[str, Any] | None = kwargs.get("_conversation_metadata")  # type: ignore[assignment]
-        title: str | None = kwargs.get("_conversation_title")  # type: ignore[assignment]
+        user_arg = kwargs.get("user_id")
+        if user_arg is None and "_user_id" in kwargs:
+            user_arg = kwargs["_user_id"]
+        user_int_id = _coerce_user_id(user_arg)  # type: ignore[arg-type]
+
+        conversation_arg = kwargs.get("conversation_id")
+        if conversation_arg is None and "_conversation_id" in kwargs:
+            conversation_arg = kwargs["_conversation_id"]
+        conversation_uuid = _coerce_uuid(conversation_arg)  # type: ignore[arg-type]
+
+        metadata: dict[str, Any] | None = kwargs.get("conversation_metadata")  # type: ignore[assignment]
+        if metadata is None and "_conversation_metadata" in kwargs:
+            metadata = kwargs["_conversation_metadata"]  # type: ignore[assignment]
+
+        title: str | None = kwargs.get("conversation_title")  # type: ignore[assignment]
+        if title is None and "_conversation_title" in kwargs:
+            title = kwargs["_conversation_title"]  # type: ignore[assignment]
 
         with infra.get_session_context() as db_session:
             service = ConversationEngineService(
@@ -94,6 +112,17 @@ def conversation_session(func: Callable[P, Any]) -> Callable[P, Any]:
                 summary = await service.get_conversation_summary(conversation_uuid)
                 if summary.conversation_type != self.conversation_type:
                     raise ValueError(f"Conversation type mismatch for BaseConversation subclass: expected '{self.conversation_type}', got '{summary.conversation_type}'")
+
+            conversation_id_str = str(conversation_uuid) if conversation_uuid else None
+            if accepts_conversation_id:
+                kwargs["conversation_id"] = conversation_id_str  # type: ignore[index]
+            elif "conversation_id" in kwargs:
+                kwargs.pop("conversation_id")
+
+            if accepts_private_conversation_id:
+                kwargs["_conversation_id"] = conversation_id_str  # type: ignore[index]
+            elif "_conversation_id" in kwargs:
+                kwargs.pop("_conversation_id")
 
             context_metadata = dict(summary.metadata or {}) if summary else None
 

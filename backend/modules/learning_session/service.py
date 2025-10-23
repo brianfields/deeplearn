@@ -121,6 +121,7 @@ class StartSessionRequest:
 
     lesson_id: str
     user_id: str
+    session_id: str | None = None
 
 
 @dataclass
@@ -137,11 +138,23 @@ class UpdateProgressRequest:
 
 
 @dataclass
+class ExerciseProgressUpdate:
+    """Individual exercise progress for batch updates"""
+
+    exercise_id: str
+    exercise_type: str
+    user_answer: Any | None
+    is_correct: bool | None
+    time_spent_seconds: int
+
+
+@dataclass
 class CompleteSessionRequest:
     """Request DTO for completing a session"""
 
     session_id: str
     user_id: str | None = None
+    progress_updates: list[ExerciseProgressUpdate] | None = None
 
 
 @dataclass
@@ -188,11 +201,12 @@ class LearningSessionService:
 
         total_exercises = len(lesson_content.package.exercises) if lesson_content else 0
 
-        # Create new session
+        # Create new session (use client-provided ID if available for offline-first support)
         session = await self.repo.create_session(
             lesson_id=request.lesson_id,
             user_id=request.user_id,
             total_exercises=total_exercises,
+            session_id=request.session_id,
         )
 
         # If user and unit context exist, ensure a unit session is created
@@ -334,6 +348,26 @@ class LearningSessionService:
             raise ValueError(f"Session {request.session_id} not found")
 
         session = await self._ensure_session_user(session, request.user_id)
+
+        # Apply any pending progress updates before completing
+        if request.progress_updates:
+            logger.info(f"Applying {len(request.progress_updates)} progress updates before completion")
+            for progress_update in request.progress_updates:
+                update_request = UpdateProgressRequest(
+                    session_id=request.session_id,
+                    exercise_id=progress_update.exercise_id,
+                    exercise_type=progress_update.exercise_type,
+                    user_answer=progress_update.user_answer,
+                    is_correct=progress_update.is_correct,
+                    time_spent_seconds=progress_update.time_spent_seconds,
+                    user_id=request.user_id,
+                )
+                await self.update_progress(update_request)
+
+            # Re-fetch session after updates
+            session = await self.repo.get_session_by_id(request.session_id)
+            if not session:
+                raise ValueError("Session not found after progress updates")
 
         if session.status == SessionStatus.COMPLETED.value:
             # Already completed, return existing results

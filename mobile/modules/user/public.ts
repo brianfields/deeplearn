@@ -37,15 +37,26 @@ export interface UserIdentityProvider {
   getCurrentUser(): Promise<User | null>;
   setCurrentUser(user: User | null): Promise<void>;
   getCurrentUserId(): Promise<string>;
+  getUserId(): number | null;
   clear(): Promise<void>;
 }
 
+let identityServiceInstance: UserIdentityService | null = null;
+
+function getIdentityServiceInstance(): UserIdentityService {
+  if (!identityServiceInstance) {
+    identityServiceInstance = new UserIdentityService();
+  }
+  return identityServiceInstance;
+}
+
 export function userIdentityProvider(): UserIdentityProvider {
-  const service = new UserIdentityService();
+  const service = getIdentityServiceInstance();
   return {
     getCurrentUser: service.getCurrentUser.bind(service),
     setCurrentUser: service.setCurrentUser.bind(service),
     getCurrentUserId: service.getCurrentUserId.bind(service),
+    getUserId: service.getUserId.bind(service),
     clear: service.clear.bind(service),
   };
 }

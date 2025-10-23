@@ -19,6 +19,7 @@ export const Card: React.FC<CardProps> = ({
   margin,
   onPress,
   disabled = false,
+  testID,
 }) => {
   const uiSystem = uiSystemProvider();
   const theme = uiSystem.getCurrentTheme();
@@ -67,6 +68,7 @@ export const Card: React.FC<CardProps> = ({
       onPress={onPress}
       disabled={disabled}
       activeOpacity={onPress ? 0.8 : 1}
+      testID={testID}
     >
       {children}
     </Component>

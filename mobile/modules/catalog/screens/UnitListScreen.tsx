@@ -4,7 +4,13 @@
  * Displays available units for browsing, with search and navigation to UnitDetail.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   View,
   StyleSheet,
@@ -16,8 +22,8 @@ import {
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { reducedMotion } from '../../ui_system/utils/motion';
 import { animationTimings } from '../../ui_system/utils/animations';
-import { Search, Plus } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
+import { HardDrive, Plus, Search } from 'lucide-react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { UnitCard } from '../components/UnitCard';
@@ -31,15 +37,30 @@ import type { LearningStackParamList } from '../../../types';
 import { uiSystemProvider, Text, useHaptics } from '../../ui_system/public';
 import { useAuth, userIdentityProvider } from '../../user/public';
 import { Button } from '../../ui_system/components/Button';
+import { contentProvider } from '../../content/public';
+import {
+  offlineCacheProvider,
+  type CacheOverview,
+  type DownloadStatus,
+} from '../../offline_cache/public';
 
 type LessonListScreenNavigationProp = NativeStackNavigationProp<
   LearningStackParamList,
   'LessonList'
 >;
 
+type UnitListItem = {
+  unit: Unit;
+  downloadStatus: DownloadStatus;
+  storageBytes: number;
+  assetCount: number;
+  downloadedAssets: number;
+};
+
 type UnitSection = {
+  kind: 'downloaded' | 'available';
   title: string;
-  data: Unit[];
+  data: UnitListItem[];
   emptyMessage: string;
 };
 
@@ -60,37 +81,163 @@ export function LessonListScreen() {
   const ui = uiSystemProvider();
   const theme = ui.getCurrentTheme();
   const haptics = useHaptics();
+  const content = useMemo(() => contentProvider(), []);
+  const offlineCache = useMemo(() => offlineCacheProvider(), []);
+  const [cacheOverview, setCacheOverview] = useState<CacheOverview | null>(
+    null
+  );
+  const [isCacheLoading, setIsCacheLoading] = useState(true);
+  const [pendingDownloadId, setPendingDownloadId] = useState<string | null>(
+    null
+  );
+  const hasLoadedCacheRef = useRef(false);
 
-  const personalUnits = collections?.personalUnits ?? [];
-  const globalUnits = collections?.globalUnits ?? [];
-  const totalUnits = personalUnits.length + globalUnits.length;
+  const allUnits = collections?.units ?? [];
+  const totalUnits = allUnits.length;
+
+  const loadCacheOverview = useCallback(
+    async (options?: { showLoading?: boolean }) => {
+      if (!hasLoadedCacheRef.current || options?.showLoading) {
+        setIsCacheLoading(true);
+      }
+      try {
+        const overview = await offlineCache.getCacheOverview();
+        setCacheOverview(overview);
+        hasLoadedCacheRef.current = true;
+      } catch (error) {
+        console.warn('[UnitListScreen] Failed to load cache overview:', error);
+      } finally {
+        setIsCacheLoading(false);
+      }
+    },
+    [offlineCache]
+  );
+
+  useEffect(() => {
+    loadCacheOverview({ showLoading: true });
+  }, [loadCacheOverview]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadCacheOverview();
+    }, [loadCacheOverview])
+  );
+
+  useEffect(() => {
+    const units = cacheOverview?.units ?? [];
+    const hasActiveDownloads = units.some(
+      unit =>
+        unit.downloadStatus === 'pending' ||
+        unit.downloadStatus === 'in_progress'
+    );
+
+    if (!hasActiveDownloads) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      loadCacheOverview();
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [cacheOverview, loadCacheOverview]);
+
+  // Handle pull-to-refresh by forcing a full sync
+  const handleRefresh = useCallback(async () => {
+    try {
+      await content.syncNow(); // Force full sync, ignoring cursor
+      await Promise.all([refetch(), loadCacheOverview({ showLoading: true })]);
+    } catch (error) {
+      console.warn('[UnitListScreen] Sync failed on refresh:', error);
+      // Still refetch to show cached data
+      await Promise.all([refetch(), loadCacheOverview({ showLoading: true })]);
+    }
+  }, [content, loadCacheOverview, refetch]);
 
   const matchesSearch = (unit: Unit) =>
     !searchQuery.trim() ||
     unit.title.toLowerCase().includes(searchQuery.trim().toLowerCase());
 
-  const filteredPersonalUnits = personalUnits.filter(matchesSearch);
-  const filteredGlobalUnits = globalUnits.filter(matchesSearch);
+  const filteredUnits = useMemo(
+    () => allUnits.filter(matchesSearch),
+    [allUnits, searchQuery]
+  );
+
+  const cacheMetricsById = useMemo(() => {
+    const map = new Map<string, CacheOverview['units'][number]>();
+    for (const unit of cacheOverview?.units ?? []) {
+      map.set(unit.id, unit);
+    }
+    return map;
+  }, [cacheOverview]);
+
+  const partitionedUnits = useMemo(() => {
+    const downloaded: UnitListItem[] = [];
+    const available: UnitListItem[] = [];
+    for (const unit of filteredUnits) {
+      const metrics = cacheMetricsById.get(unit.id);
+      const status =
+        metrics?.downloadStatus ??
+        unit.downloadStatus ??
+        ('idle' as DownloadStatus);
+      const item: UnitListItem = {
+        unit,
+        downloadStatus: status,
+        storageBytes: metrics?.storageBytes ?? 0,
+        assetCount: metrics?.assetCount ?? 0,
+        downloadedAssets: metrics?.downloadedAssets ?? 0,
+      };
+      if (status === 'completed') {
+        downloaded.push(item);
+      } else {
+        available.push(item);
+      }
+    }
+    return { downloaded, available };
+  }, [cacheMetricsById, filteredUnits]);
+
+  const downloadedUnits = partitionedUnits.downloaded;
+  const availableUnits = partitionedUnits.available;
 
   const sections: UnitSection[] = [
     {
-      title: 'My Units',
-      data: filteredPersonalUnits,
+      kind: 'downloaded',
+      title: 'Your downloaded units',
+      data: downloadedUnits,
       emptyMessage: searchQuery
-        ? 'No personal units match your search.'
-        : 'Create a unit to see it here.',
+        ? 'No downloaded units match your search.'
+        : isCacheLoading
+          ? 'Loading downloaded units...'
+          : 'No units downloaded yet',
     },
     {
-      title: 'Global Units',
-      data: filteredGlobalUnits,
+      kind: 'available',
+      title: 'Available units',
+      data: availableUnits,
       emptyMessage: searchQuery
-        ? 'No shared units match your search.'
-        : 'Shared units from other learners appear here.',
+        ? 'No available units match your search.'
+        : 'No units available',
     },
   ];
 
-  const hasResults =
-    filteredPersonalUnits.length > 0 || filteredGlobalUnits.length > 0;
+  const hasResults = downloadedUnits.length > 0 || availableUnits.length > 0;
+  const downloadedCount = downloadedUnits.length;
+
+  const handleDownloadUnit = useCallback(
+    async (unitId: string) => {
+      setPendingDownloadId(unitId);
+      try {
+        await content.requestUnitDownload(unitId);
+        haptics.trigger('medium');
+        await Promise.all([refetch(), loadCacheOverview()]);
+      } catch (error) {
+        console.warn('[UnitListScreen] Failed to queue unit download:', error);
+      } finally {
+        setPendingDownloadId(null);
+      }
+    },
+    [content, haptics, loadCacheOverview, refetch]
+  );
 
   const handleUnitPress = useCallback(
     (unit: Unit) => {
@@ -102,6 +249,11 @@ export function LessonListScreen() {
   const handleCreateUnit = useCallback(() => {
     haptics.trigger('medium');
     navigation.navigate('LearningCoach');
+  }, [navigation, haptics]);
+
+  const handleOpenDownloads = useCallback(() => {
+    haptics.trigger('light');
+    navigation.navigate('CacheManagement');
   }, [navigation, haptics]);
 
   const handleRetryUnit = useCallback(
@@ -135,9 +287,7 @@ export function LessonListScreen() {
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       {/* Header */}
-      <View
-        style={[styles.header, { flexDirection: 'row', alignItems: 'center' }]}
-      >
+      <View style={[styles.header, styles.headerRow]}>
         <View style={{ flex: 1 }}>
           <Text
             variant="h1"
@@ -150,17 +300,28 @@ export function LessonListScreen() {
             {totalUnits} available
           </Text>
         </View>
-        <Button
-          title="Sign out"
-          variant="secondary"
-          size="small"
-          testID="unit-list-logout-button"
-          onPress={async () => {
-            haptics.trigger('light');
-            await identity.clear();
-            await signOut();
-          }}
-        />
+        <View style={styles.headerActions}>
+          <Button
+            title="Downloads"
+            variant="secondary"
+            size="small"
+            onPress={handleOpenDownloads}
+            testID="unit-list-cache-button"
+            icon={<HardDrive size={16} color={theme.colors.primary} />}
+          />
+          <Button
+            title="Sign out"
+            variant="secondary"
+            size="small"
+            style={styles.headerActionSpacing}
+            testID="unit-list-logout-button"
+            onPress={async () => {
+              haptics.trigger('light');
+              await identity.clear();
+              await signOut();
+            }}
+          />
+        </View>
       </View>
 
       {/* Search and Create Button */}
@@ -211,14 +372,12 @@ export function LessonListScreen() {
       </View>
 
       {/* Unit Sections */}
-      <SectionList<Unit, UnitSection>
+      <SectionList<UnitListItem, UnitSection>
         sections={sections}
-        keyExtractor={item => item.id}
+        keyExtractor={item => item.unit.id}
         renderItem={({ item, index, section }) => {
           const overallIndex =
-            section.title === 'Global Units'
-              ? filteredPersonalUnits.length + index
-              : index;
+            section.kind === 'available' ? downloadedCount + index : index;
           return (
             <Animated.View
               entering={
@@ -231,11 +390,17 @@ export function LessonListScreen() {
               style={styles.listItemContainer}
             >
               <UnitCard
-                unit={item}
+                unit={item.unit}
                 onPress={handleUnitPress}
                 onRetry={handleRetryUnit}
                 onDismiss={handleDismissUnit}
                 index={overallIndex}
+                downloadStatus={item.downloadStatus}
+                storageBytes={item.storageBytes}
+                downloadedAssets={item.downloadedAssets}
+                assetCount={item.assetCount}
+                onDownload={handleDownloadUnit}
+                isDownloadActionPending={pendingDownloadId === item.unit.id}
               />
             </Animated.View>
           );
@@ -261,7 +426,7 @@ export function LessonListScreen() {
           !hasResults && styles.listContainerEmpty,
         ]}
         refreshing={isLoading}
-        onRefresh={() => refetch()}
+        onRefresh={handleRefresh}
         ListFooterComponent={() =>
           hasResults ? null : (
             <View style={styles.emptyState}>
@@ -294,6 +459,17 @@ const styles = StyleSheet.create({
   header: {
     padding: 20,
     paddingBottom: 16,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerActionSpacing: {
+    marginLeft: 8,
   },
   searchContainer: {
     flexDirection: 'row',

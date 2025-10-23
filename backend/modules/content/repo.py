@@ -5,6 +5,7 @@ Database access layer that returns ORM objects.
 Handles all CRUD operations for lessons with embedded package content.
 """
 
+from collections.abc import Iterable
 from datetime import datetime
 from typing import Any
 import uuid
@@ -108,6 +109,22 @@ class ContentRepo:
         result = await self.s.execute(stmt)
         return list(result.scalars().all())
 
+    async def get_units_updated_since(
+        self,
+        since: datetime | None,
+        *,
+        limit: int = 100,
+    ) -> list[UnitModel]:
+        """Return units updated on or after the provided timestamp."""
+
+        stmt = select(UnitModel)
+        if since is not None:
+            stmt = stmt.where(UnitModel.updated_at >= since)
+
+        stmt = stmt.order_by(desc(UnitModel.updated_at)).limit(limit)
+        result = await self.s.execute(stmt)
+        return list(result.scalars().all())
+
     async def add_unit(self, unit: UnitModel) -> UnitModel:
         """Add a new unit to the database and flush to obtain ID."""
         self.s.add(unit)
@@ -190,6 +207,29 @@ class ContentRepo:
         self.s.add(unit)
         await self.s.flush()
         return unit
+
+    async def get_lessons_updated_since(
+        self,
+        since: datetime,
+        *,
+        limit: int = 200,
+    ) -> list[LessonModel]:
+        """Return lessons that have been updated on or after the provided timestamp."""
+
+        stmt = select(LessonModel).where(LessonModel.updated_at >= since).order_by(desc(LessonModel.updated_at)).limit(limit)
+        result = await self.s.execute(stmt)
+        return list(result.scalars().all())
+
+    async def get_lessons_for_unit_ids(self, unit_ids: Iterable[str]) -> list[LessonModel]:
+        """Return lessons that belong to any of the provided unit identifiers."""
+
+        unit_ids = list(unit_ids)
+        if not unit_ids:
+            return []
+
+        stmt = select(LessonModel).where(LessonModel.unit_id.in_(unit_ids))
+        result = await self.s.execute(stmt)
+        return list(result.scalars().all())
 
     async def set_unit_podcast(
         self,

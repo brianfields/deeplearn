@@ -33,10 +33,13 @@ describe('CatalogService', () => {
     mockContent = {
       listUnits: jest.fn(),
       getUnitDetail: jest.fn(),
-      listPersonalUnits: jest.fn(),
-      listGlobalUnits: jest.fn(),
       getUserUnitCollections: jest.fn(),
       updateUnitSharing: jest.fn(),
+      requestUnitDownload: jest.fn(),
+      removeUnitDownload: jest.fn(),
+      resolveAsset: jest.fn(),
+      syncNow: jest.fn(),
+      getSyncStatus: jest.fn(),
     } as unknown as jest.Mocked<ContentProvider>;
 
     mockContentCreator = {
@@ -45,9 +48,20 @@ describe('CatalogService', () => {
       dismissUnit: jest.fn(),
     } as unknown as jest.Mocked<ContentCreatorProvider>;
 
+    const mockOfflineCache = {
+      enqueueOutbox: jest.fn(),
+      runSyncCycle: jest.fn(),
+      getSyncStatus: jest.fn(),
+      getDownloadStatus: jest.fn(),
+      requestDownload: jest.fn(),
+      cancelDownload: jest.fn(),
+      deleteDownload: jest.fn(),
+    } as any;
+
     service = new CatalogService(mockRepo, {
       content: mockContent,
       contentCreator: mockContentCreator,
+      offlineCache: mockOfflineCache,
     });
 
     jest.clearAllMocks();
@@ -161,8 +175,8 @@ describe('CatalogService', () => {
   describe('getUserUnitCollections', () => {
     it('returns collections from content provider', async () => {
       const collections: UserUnitCollections = {
-        personalUnits: [],
-        globalUnits: [],
+        units: [],
+        ownedUnitIds: [],
       };
       mockContent.getUserUnitCollections.mockResolvedValue(collections);
 

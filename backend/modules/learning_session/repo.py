@@ -27,10 +27,11 @@ class LearningSessionRepo:
         lesson_id: str,
         user_id: str | None = None,
         total_exercises: int = 0,
+        session_id: str | None = None,
     ) -> LearningSessionModel:
         """Create a new learning session"""
         session = LearningSessionModel(
-            id=str(uuid.uuid4()),
+            id=session_id or str(uuid.uuid4()),
             lesson_id=lesson_id,
             user_id=user_id,
             status=SessionStatus.ACTIVE.value,
