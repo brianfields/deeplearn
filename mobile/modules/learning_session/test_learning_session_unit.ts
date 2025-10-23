@@ -7,10 +7,8 @@
 import { jest } from '@jest/globals';
 
 // Mock dependencies
-jest.mock('../infrastructure/public');
 jest.mock('../catalog/public');
 jest.mock('../user/public');
-jest.mock('../offline_cache/public');
 
 import { LearningSessionService } from './service';
 import { LearningSessionRepo } from './repo';
@@ -26,17 +24,10 @@ import type {
 } from './models';
 import type { UserIdentityProvider } from '../user/public';
 import type { User } from '../user/models';
-import type { OfflineCacheProvider, SyncStatus } from '../offline_cache/public';
 
 // Mock implementations
 const mockCatalogProvider = {
   getLessonDetail: jest.fn() as jest.MockedFunction<any>,
-};
-
-const mockInfrastructureProvider = {
-  setStorageItem: jest.fn() as jest.MockedFunction<any>,
-  getStorageItem: jest.fn() as jest.MockedFunction<any>,
-  removeStorageItem: jest.fn() as jest.MockedFunction<any>,
 };
 
 const createIdentityMock = (): jest.Mocked<UserIdentityProvider> => {
@@ -56,17 +47,6 @@ const createIdentityMock = (): jest.Mocked<UserIdentityProvider> => {
 };
 
 let mockIdentity: jest.Mocked<UserIdentityProvider>;
-let mockOfflineCache: jest.Mocked<OfflineCacheProvider>;
-
-const createSyncStatus = (): SyncStatus => ({
-  lastPulledAt: null,
-  lastCursor: null,
-  pendingWrites: 0,
-  cacheModeCounts: { minimal: 0, full: 0 },
-  lastSyncAttempt: 0,
-  lastSyncResult: 'idle',
-  lastSyncError: null,
-});
 
 // Mock the providers
 jest
@@ -75,16 +55,8 @@ jest
   .mockReturnValue(mockCatalogProvider);
 jest
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  .mocked(require('../infrastructure/public').infrastructureProvider)
-  .mockReturnValue(mockInfrastructureProvider);
-jest
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   .mocked(require('../user/public').userIdentityProvider)
   .mockImplementation(() => mockIdentity);
-jest
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  .mocked(require('../offline_cache/public').offlineCacheProvider)
-  .mockImplementation(() => mockOfflineCache);
 
 describe('Learning Session Module', () => {
   // Mock console methods to suppress output during tests
@@ -98,32 +70,6 @@ describe('Learning Session Module', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockIdentity = createIdentityMock();
-    mockOfflineCache = {
-      listUnits: jest.fn().mockImplementation(async () => []),
-      getUnitDetail: jest.fn().mockImplementation(async () => null),
-      cacheMinimalUnits: jest.fn().mockImplementation(async () => undefined),
-      cacheFullUnit: jest.fn().mockImplementation(async () => undefined),
-      setUnitCacheMode: jest.fn().mockImplementation(async () => undefined),
-      downloadUnitAssets: jest.fn().mockImplementation(async () => undefined),
-      deleteUnit: jest.fn().mockImplementation(async () => undefined),
-      clearAll: jest.fn().mockImplementation(async () => undefined),
-      getCacheOverview: jest.fn().mockImplementation(async () => ({
-        totalStorageBytes: 0,
-        syncStatus: createSyncStatus(),
-        units: [],
-      })),
-      resolveAsset: jest.fn().mockImplementation(async () => null),
-      enqueueOutbox: jest.fn().mockImplementation(async () => undefined),
-      processOutbox: jest
-        .fn()
-        .mockImplementation(async () => ({ processed: 0, remaining: 0 })),
-      runSyncCycle: jest
-        .fn()
-        .mockImplementation(async () => createSyncStatus()),
-      getSyncStatus: jest
-        .fn()
-        .mockImplementation(async () => createSyncStatus()),
-    } as jest.Mocked<OfflineCacheProvider>;
   });
 
   afterAll(() => {
@@ -137,13 +83,21 @@ describe('Learning Session Module', () => {
 
     beforeEach(() => {
       mockRepo = {
-        startSession: jest.fn(),
+        saveSession: jest.fn(),
         getSession: jest.fn(),
+        saveProgress: jest.fn(),
+        enqueueSessionCompletion: jest.fn(),
+        clearProgress: jest.fn(),
+        getUserSessions: jest.fn(),
+        saveSessionResults: jest.fn(),
+        getProgress: jest.fn(),
+        getAllProgress: jest.fn(),
+        syncSessionsFromServer: jest.fn(),
+        pauseSession: jest.fn(),
+        checkHealth: jest.fn(),
+        startSession: jest.fn(),
         updateProgress: jest.fn(),
         completeSession: jest.fn(),
-        pauseSession: jest.fn(),
-        getUserSessions: jest.fn(),
-        checkHealth: jest.fn(),
       } as any;
 
       service = new LearningSessionService(mockRepo);
@@ -169,7 +123,7 @@ describe('Learning Session Module', () => {
         };
 
         mockCatalogProvider.getLessonDetail.mockResolvedValue(mockLessonDetail);
-        mockInfrastructureProvider.setStorageItem.mockResolvedValue(undefined);
+        mockRepo.saveSession.mockResolvedValue(undefined);
 
         // Act
         const result = await service.startSession(request);
@@ -189,7 +143,13 @@ describe('Learning Session Module', () => {
         expect(mockCatalogProvider.getLessonDetail).toHaveBeenCalledWith(
           'topic-1'
         );
-        expect(mockInfrastructureProvider.setStorageItem).toHaveBeenCalled();
+        expect(mockRepo.saveSession).toHaveBeenCalledWith(
+          expect.objectContaining({
+            lessonId: 'topic-1',
+            userId: 'user-1',
+          }),
+          expect.objectContaining({ enqueueOutbox: true })
+        );
       });
 
       it('should throw error if topic not found', async () => {
@@ -223,42 +183,7 @@ describe('Learning Session Module', () => {
           timeSpentSeconds: 30,
         };
 
-        const mockApiProgress = {
-          session_id: 'session-1',
-          exercise_id: 'comp-1',
-          exercise_type: 'mcq',
-          started_at: '2024-01-01T00:00:00Z',
-          completed_at: '2024-01-01T00:00:30Z',
-          is_correct: true,
-          user_answer: 'A',
-          time_spent_seconds: 30,
-          attempts: 1,
-          attempt_history: [
-            {
-              attempt_number: 1,
-              is_correct: true,
-              user_answer: 'A',
-              time_spent_seconds: 30,
-              submitted_at: '2024-01-01T00:00:30Z',
-            },
-          ],
-          has_been_answered_correctly: true,
-        };
-
-        const mockSession = {
-          id: 'session-1',
-          lessonId: 'topic-1',
-          status: 'active' as const,
-          currentExerciseIndex: 0,
-          totalExercises: 2,
-          progressPercentage: 0,
-        };
-
-        mockRepo.updateProgress.mockResolvedValue(mockApiProgress);
-        mockInfrastructureProvider.getStorageItem.mockResolvedValue(
-          JSON.stringify(mockSession)
-        );
-        mockInfrastructureProvider.setStorageItem.mockResolvedValue(undefined);
+        mockRepo.saveProgress.mockResolvedValue(undefined);
 
         // Act
         const result = await service.updateProgress(request);
@@ -272,12 +197,11 @@ describe('Learning Session Module', () => {
           userAnswer: { value: 'A' },
           timeSpentSeconds: 30,
           attempts: 1,
-          hasBeenAnsweredCorrectly: true,
         });
-        expect(result.attemptHistory).toHaveLength(1);
-
-        // Service now stores progress locally, no repo call
-        expect(mockInfrastructureProvider.setStorageItem).toHaveBeenCalled();
+        expect(mockRepo.saveProgress).toHaveBeenCalledWith(
+          'session-1',
+          expect.objectContaining({ exerciseId: 'comp-1', isCorrect: true })
+        );
       });
     });
 
@@ -311,17 +235,27 @@ describe('Learning Session Module', () => {
           glossaryTerms: [],
         };
 
-        mockInfrastructureProvider.getStorageItem.mockImplementation(
-          async (key: string) => {
-            if (key === 'learning_session_session-1') {
-              return JSON.stringify(mockSession);
-            }
-            return null;
-          }
-        );
-        mockInfrastructureProvider.setStorageItem.mockResolvedValue(undefined);
+        mockRepo.getSession.mockResolvedValue(mockSession as any);
+        mockRepo.getAllProgress.mockResolvedValue([
+          {
+            sessionId: 'session-1',
+            exerciseId: 'mcq-1',
+            exerciseType: 'mcq',
+            startedAt: '2024-01-01T00:00:00Z',
+            completedAt: '2024-01-01T00:05:00Z',
+            isCorrect: true,
+            userAnswer: { value: 'A' },
+            timeSpentSeconds: 60,
+            attempts: 1,
+            isCompleted: true,
+            accuracy: 1,
+          } as any,
+        ]);
+        mockRepo.enqueueSessionCompletion.mockResolvedValue(undefined);
+        mockRepo.saveSession.mockResolvedValue(undefined);
+        mockRepo.saveSessionResults.mockResolvedValue(undefined);
+        mockRepo.clearProgress.mockResolvedValue(undefined);
         mockCatalogProvider.getLessonDetail.mockResolvedValue(mockLessonDetail);
-        mockOfflineCache.enqueueOutbox.mockResolvedValue(undefined);
 
         // Act
         const result = await service.completeSession(request);
@@ -335,13 +269,15 @@ describe('Learning Session Module', () => {
         expect(result.completionPercentage).toBeGreaterThanOrEqual(0);
         expect(result.scorePercentage).toBeGreaterThanOrEqual(0);
 
-        expect(mockOfflineCache.enqueueOutbox).toHaveBeenCalledWith(
-          expect.objectContaining({
-            endpoint: expect.stringContaining('/complete'),
-            method: 'POST',
-          })
+        expect(mockRepo.enqueueSessionCompletion).toHaveBeenCalledWith(
+          'session-1',
+          'user-1',
+          expect.any(Array)
         );
-        expect(mockInfrastructureProvider.setStorageItem).toHaveBeenCalled();
+        expect(mockRepo.saveSessionResults).toHaveBeenCalledWith(
+          'session-1',
+          expect.any(Object)
+        );
       });
     });
 

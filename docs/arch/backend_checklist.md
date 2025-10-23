@@ -1,7 +1,7 @@
 ## 0) Structure & Naming
 
-* [ ] ORM classes live **only** in `models.py` and end with `Model` (e.g., `UserModel`).
-* [ ] Responsibilities match filenames (no HTTP in `service.py`, no DTOs in `routes.py`, etc.).
+* [x] ORM classes live **only** in `models.py` and end with `Model` (e.g., `UserModel`). (Phase 6 audit: no backend edits required for repo abstraction; existing modules already follow this pattern.)
+* [x] Responsibilities match filenames (no HTTP in `service.py`, no DTOs in `routes.py`, etc.). (Validated while confirming no backend adjustments were necessary for Phase 6.)
 
 ## 1) Imports & Boundaries
 

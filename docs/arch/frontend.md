@@ -3,7 +3,7 @@
 ```
 mobile/modules/{name}/
 ├── models.ts              # DTOs / view models (types only; no logic)
-├── repo.ts                # HTTP access and enqueus to outbox (this module's backend routes only; returns API wire types)
+├── repo.ts                # Data access: AsyncStorage, offline cache, outbox, HTTP (module routes only; returns API wire types)
 ├── service.ts             # Use-cases; API→DTO mapping; business rules; returns DTOs only
 ├── public.ts              # Narrow contract: selects/forwards service methods (no logic)
 ├── queries.ts             # React Query hooks that call THIS module's service (cache & lifecycle only)
@@ -20,38 +20,60 @@ mobile/modules/{name}/
 
 ### Rules for Local-First
 
-1. **All reads are local**: UI queries always read from local storage (fast, predictable, offline-capable)
-2. **All writes are local + outbox**: Writes update local storage immediately AND enqueue to outbox for eventual sync
-3. **Explicit sync methods**: Separate `sync*()` methods pull data from server and update local storage
-4. **No network fallbacks in reads**: Don't try network then fallback to local; just use local
+1. **All reads are local**: UI queries always read from local storage via repo helpers (fast, predictable, offline-capable)
+2. **All writes are local + outbox**: Repo methods persist to AsyncStorage AND enqueue to outbox for eventual sync
+3. **Explicit sync methods live in repo**: `repo.sync*FromServer()` pulls data from HTTP and updates local storage/indexes
+4. **Service never touches infrastructure/offline cache/outbox directly**: It only calls repo methods
 5. **Generate IDs locally**: Create IDs on device (e.g., `${type}_${timestamp}_${random}`) for offline creation
-6. **Outbox drains automatically**: Background process syncs pending writes when online
+6. **Outbox drains automatically**: Background process syncs pending writes when online (repo enqueues the payloads)
 
 ### Pattern: Writes
 
 ```typescript
 // service.ts
-async createItem(data: CreateItemRequest): Promise<Item> {
-  // 1. Generate ID locally
+async createItem(userId: string, data: CreateItemRequest): Promise<Item> {
   const itemId = this.generateId();
-
-  // 2. Create item locally
   const item: Item = { id: itemId, ...data, createdAt: new Date().toISOString() };
-  await this.storage.set(`item_${itemId}`, JSON.stringify(item));
 
-  // 3. Add to local index for querying
-  await this.addToIndex('items', itemId);
+  await this.repo.saveLocalItem(userId, item);        // Repo owns AsyncStorage keys
+  await this.repo.enqueueCreateItem(item);            // Repo enqueues to outbox with idempotency key
 
-  // 4. Enqueue to outbox for server sync
-  await this.outbox.enqueue({
+  return item; // Returns immediately - no network wait
+}
+```
+
+```typescript
+// repo.ts
+async saveLocalItem(userId: string, item: Item): Promise<void> {
+  await this.storage.setItem(this.getItemKey(item.id), JSON.stringify(item));
+  await this.addToIndex(userId, item.id);
+}
+
+async enqueueCreateItem(item: Item): Promise<void> {
+  await this.outbox.enqueueOutbox({
     endpoint: '/api/v1/items',
     method: 'POST',
-    payload: { ...data, item_id: itemId },
-    idempotencyKey: `create-item-${itemId}`,
+    payload: { ...item, created_at: item.createdAt },
+    headers: { 'Content-Type': 'application/json' },
+    idempotencyKey: `create-item-${item.id}`,
   });
+}
 
-  // 5. Return immediately - no network wait
-  return item;
+private getItemKey(itemId: string): string {
+  return `item_${itemId}`;
+}
+
+private getIndexKey(userId: string): string {
+  return `items_index_${userId}`;
+}
+
+private async addToIndex(userId: string, itemId: string): Promise<void> {
+  const indexJson = await this.storage.getItem(this.getIndexKey(userId));
+  const index = indexJson ? JSON.parse(indexJson) as string[] : [];
+  if (!index.includes(itemId)) {
+    index.push(itemId);
+    await this.storage.setItem(this.getIndexKey(userId), JSON.stringify(index));
+  }
 }
 ```
 
@@ -60,16 +82,34 @@ async createItem(data: CreateItemRequest): Promise<Item> {
 ```typescript
 // service.ts
 async getItems(userId: string, filters?: Filters): Promise<Item[]> {
-  // Always read from local storage - fast and works offline
-  const itemIds = await this.getLocalIndex('items', userId);
-  const items = await Promise.all(
-    itemIds.map(id => this.storage.get(`item_${id}`))
+  return this.repo.listLocalItems(userId, filters); // Repo reads + filters locally
+}
+```
+
+```typescript
+// repo.ts
+async listLocalItems(userId: string, filters?: Filters): Promise<Item[]> {
+  const index = await this.readIndex(userId);
+  const storedItems = await Promise.all(
+    index.map(id => this.storage.getItem(this.getItemKey(id)))
   );
 
-  // Apply filters locally
-  return items
-    .filter(item => item && this.matchesFilters(item, filters))
-    .map(item => JSON.parse(item));
+  return storedItems
+    .map(json => (json ? JSON.parse(json) as Item : null))
+    .filter((item): item is Item => item !== null && this.matchesFilters(item, filters));
+}
+
+private async readIndex(userId: string): Promise<string[]> {
+  const indexJson = await this.storage.getItem(this.getIndexKey(userId));
+  return indexJson ? JSON.parse(indexJson) : [];
+}
+
+private matchesFilters(item: Item, filters?: Filters): boolean {
+  if (!filters) {
+    return true;
+  }
+  // Apply domain-specific filters locally (still inside repo so service stays simple)
+  return Object.entries(filters).every(([key, value]) => item[key as keyof Item] === value);
 }
 ```
 
@@ -78,20 +118,18 @@ async getItems(userId: string, filters?: Filters): Promise<Item[]> {
 ```typescript
 // service.ts
 async syncItemsFromServer(userId: string): Promise<void> {
-  try {
-    // Explicit sync - only called when user wants to pull updates
-    const response = await this.repo.getItems(userId);
+  await this.repo.syncItemsFromServer(userId); // Repo orchestrates HTTP + storage writes
+}
+```
 
-    // Update local storage with server data
-    for (const item of response.items) {
-      await this.storage.set(`item_${item.id}`, JSON.stringify(item));
-      await this.addToIndex('items', item.id, userId);
-    }
+```typescript
+// repo.ts
+async syncItemsFromServer(userId: string): Promise<void> {
+  const { data } = await this.http.get(`/users`, { params: { user_id: userId } });
 
-    console.info(`Synced ${response.items.length} items from server`);
-  } catch (error) {
-    // Sync failures are non-fatal - just log and continue
-    console.warn('Sync failed:', error);
+  for (const apiItem of data.items) {
+    await this.storage.setItem(this.getItemKey(apiItem.id), JSON.stringify(apiItem));
+    await this.addToIndex(userId, apiItem.id);
   }
 }
 ```
@@ -120,6 +158,8 @@ createItem(data); // Returns immediately, syncs in background
 * **Queries** are **not special**: they call **this module's service**; no business rules in hooks.
 * **Cross-module composition lives in `service.ts`**, importing **other modules' `public`** only.
 * **Screens** may compose multiple modules' hooks side-by-side for simple views.
+* **Repo owns data access**: it wraps AsyncStorage, offline cache, outbox, and HTTP; services never import `infrastructureProvider()` or `offlineCacheProvider()` directly.
+* **Sync orchestration belongs in repo**: `service.sync*()` methods delegate to `repo.sync*FromServer()` implementations.
 * **Repo** calls **only** this module's backend routes (vertical slice). DO NOT CALL ROUTES FROM MODULES THAT ARE NAMED DIFFERENTLY THAN THIS MODULE. A module is a vertical slice through both the backend and the frontend.
 * **Cross-module imports:** only from `modules/{other}/public`.
 * Don't add to the public API unless there's a clear need.
@@ -131,18 +171,18 @@ createItem(data); // Returns immediately, syncs in background
 ### One-way arrows
 
 ```
-queries.ts  →  service.ts  →  local storage (primary)
-                          →  repo.ts  →  HTTP (sync only)
-                          →  outbox (writes)
+queries.ts  →  service.ts  →  repo.ts  →  local storage / offline cache (primary)
+                                   ↘︎   outbox (writes)
+                                   ↘︎   HTTP (sync-only sync* calls)
 public.ts   →  service.ts
 service.ts  →  otherModule/public   (composition)
 screens/    →  thisModule/queries   (+ optionally otherModule/public hooks for simple UI composition)
 ```
 
 **Local-first flow:**
-- Reads: `queries.ts → service.ts → local storage → return immediately`
-- Writes: `queries.ts → service.ts → local storage + outbox → return immediately`
-- Sync: `syncMutation → service.sync*() → repo.ts → HTTP → local storage`
+- Reads: `queries.ts → service.ts → repo.ts → local storage/offline cache → return immediately`
+- Writes: `queries.ts → service.ts → repo.ts → local storage + outbox → return immediately`
+- Sync: `syncMutation → service.sync*() → repo.ts.sync*FromServer() → HTTP → local storage`
 
 ---
 
@@ -164,6 +204,16 @@ export interface User {
   canPromote: boolean;   // derived
 }
 
+// Shape persisted in AsyncStorage (repo-owned)
+export interface StoredUser {
+  id: UserId;
+  email: string;
+  name: string;
+  role: 'user' | 'admin' | 'manager';
+  isActive: boolean;
+  createdAt: string; // ISO string for storage
+}
+
 // API wire format (private to module)
 export interface ApiUser {
   id: number;
@@ -175,136 +225,170 @@ export interface ApiUser {
 }
 ```
 
-### repo.ts (HTTP for this module only - used for sync operations)
+### repo.ts (data access: AsyncStorage + outbox + HTTP sync)
 
 ```ts
-import axios from 'axios';
-import type { ApiUser } from './models';
-
-const MODULE_BASE = '/api/v1/users'; // only this module's routes
-
-const http = axios.create({
-  baseURL: MODULE_BASE,
-  timeout: 10000,
-  headers: { 'Content-Type': 'application/json' }
-});
-
-export const UserRepo = {
-  // Note: In local-first architecture, repo is used primarily for sync operations
-  // Regular reads/writes go through local storage in service.ts
-
-  async list(params?: { role?: string }): Promise<ApiUser[]> {
-    // Used by service.syncUsersFromServer() to pull updates
-    const { data } = await http.get(`/users`, { params });
-    return data as ApiUser[];
-  },
-  async promote(userId: number, newRole: string): Promise<ApiUser> {
-    // Write operations - typically called by outbox processor, not directly
-    const { data } = await http.post(`/users/${userId}/promote`, { new_role: newRole });
-    return data as ApiUser;
-  }
-};
-```
-
-### service.ts (use-cases; mapping; returns DTOs; local-first)
-
-```ts
-import { UserRepo } from './repo';
 import { infrastructureProvider } from '../infrastructure/public';
 import { offlineCacheProvider } from '../offline_cache/public';
-import type { ApiUser, User } from './models';
+import type { ApiUser, StoredUser } from './models';
 
-const toDTO = (a: ApiUser): User => {
-  const createdAt = new Date(a.created_at);
-  const years = (Date.now() - createdAt.getTime()) / (365 * 24 * 3600 * 1000);
-  return {
-    id: a.id,
-    email: a.email,
-    name: a.name,
-    role: (a.role as User['role']) ?? 'user',
-    isActive: a.is_active,
-    createdAt,
-    displayName: a.name,
-    canPromote: a.is_active && years >= 1 && a.role !== 'admin'
-  };
-};
+const MODULE_BASE = '/api/v1/users';
+const USER_INDEX_KEY = 'users/index';
 
-export class UserService {
-  private storage = infrastructureProvider().getStorage();
-  private outbox = offlineCacheProvider();
+export class UserRepo {
+  private infrastructure = infrastructureProvider();
+  private offlineCache = offlineCacheProvider();
 
-  // READ: Always from local storage (fast, works offline)
-  async get(id: number): Promise<User | null> {
-    const stored = await this.storage.getItem(`user_${id}`);
-    return stored ? JSON.parse(stored) : null;
+  async getLocalUser(id: number): Promise<StoredUser | null> {
+    return this.readJson<StoredUser>(this.getUserKey(id));
   }
 
-  async list(params?: { role?: string }): Promise<User[]> {
-    // Get user IDs from local index
-    const indexKey = `users_index_${params?.role || 'all'}`;
-    const idsJson = await this.storage.getItem(indexKey);
-    const ids: number[] = idsJson ? JSON.parse(idsJson) : [];
-
-    // Fetch users from local storage
-    const users = await Promise.all(
-      ids.map(async id => {
-        const stored = await this.storage.getItem(`user_${id}`);
-        return stored ? JSON.parse(stored) as User : null;
-      })
-    );
-
-    return users.filter((u): u is User => u !== null);
+  async listLocalUsers(params?: { role?: string }): Promise<StoredUser[]> {
+    const ids = (await this.readJson<number[]>(this.getIndexKey(params?.role))) ?? [];
+    const users: StoredUser[] = [];
+    for (const userId of ids) {
+      const user = await this.getLocalUser(userId);
+      if (user) {
+        users.push(user);
+      }
+    }
+    return users;
   }
 
-  // WRITE: Update local storage + enqueue to outbox (instant return)
-  async promote(userId: number, newRole: string): Promise<User> {
-    // Get current user
-    const user = await this.get(userId);
-    if (!user) throw new Error('User not found');
+  async saveLocalUser(user: StoredUser, role?: string): Promise<void> {
+    await this.writeJson(this.getUserKey(user.id), user);
+    await this.addToIndex(user.id);
+    if (role) {
+      await this.addToIndex(user.id, role);
+    }
+  }
 
-    // Update locally
-    const updated = { ...user, role: newRole as User['role'] };
-    await this.storage.setItem(`user_${userId}`, JSON.stringify(updated));
-
-    // Enqueue to outbox for server sync
-    await this.outbox.enqueueOutbox({
-      endpoint: `/api/v1/users/${userId}/promote`,
+  async enqueuePromotion(userId: number, newRole: string): Promise<void> {
+    await this.offlineCache.enqueueOutbox({
+      endpoint: `${MODULE_BASE}/${userId}/promote`,
       method: 'POST',
       payload: { new_role: newRole },
       headers: { 'Content-Type': 'application/json' },
-      idempotencyKey: `promote-user-${userId}-${Date.now()}`,
+      idempotencyKey: `promote-user-${userId}`,
     });
+  }
+
+  async syncUsersFromServer(params?: { role?: string }): Promise<void> {
+    const query = params?.role ? `?role=${encodeURIComponent(params.role)}` : '';
+    const apiUsers = await this.infrastructure.request<ApiUser[]>(`${MODULE_BASE}/users${query}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    for (const apiUser of apiUsers) {
+      const stored = this.mapApiUser(apiUser);
+      await this.saveLocalUser(stored, stored.role);
+    }
+  }
+
+  private getUserKey(id: number): string {
+    return `users/user/${id}`;
+  }
+
+  private getIndexKey(role?: string): string {
+    return role ? `${USER_INDEX_KEY}/${role}` : USER_INDEX_KEY;
+  }
+
+  private async addToIndex(id: number, role?: string): Promise<void> {
+    const key = this.getIndexKey(role);
+    const existing = (await this.readJson<number[]>(key)) ?? [];
+    if (!existing.includes(id)) {
+      existing.push(id);
+      await this.writeJson(key, existing);
+    }
+  }
+
+  private async readJson<T>(key: string): Promise<T | null> {
+    const stored = await this.infrastructure.getStorageItem(key);
+    return stored ? (JSON.parse(stored) as T) : null;
+  }
+
+  private async writeJson<T>(key: string, value: T): Promise<void> {
+    await this.infrastructure.setStorageItem(key, JSON.stringify(value));
+  }
+
+  private mapApiUser(api: ApiUser): StoredUser {
+    return {
+      id: api.id,
+      email: api.email,
+      name: api.name,
+      role: (api.role as StoredUser['role']) ?? 'user',
+      isActive: api.is_active,
+      createdAt: api.created_at,
+    };
+  }
+}
+
+export function userRepo(): UserRepo {
+  return new UserRepo();
+}
+```
+
+### service.ts (business logic + DTO mapping; repo handles storage & outbox)
+
+```ts
+import { userRepo } from './repo';
+import type { StoredUser, User } from './models';
+
+export class UserService {
+  constructor(private repo = userRepo()) {}
+
+  async get(id: number): Promise<User | null> {
+    const stored = await this.repo.getLocalUser(id);
+    return stored ? this.toDTO(stored) : null;
+  }
+
+  async list(params?: { role?: string }): Promise<User[]> {
+    const storedUsers = await this.repo.listLocalUsers(params);
+    return storedUsers.map(u => this.toDTO(u));
+  }
+
+  async promote(userId: number, newRole: string): Promise<User> {
+    const current = await this.get(userId);
+    if (!current) {
+      throw new Error('User not found');
+    }
+
+    const updated: User = { ...current, role: newRole as User['role'] };
+    await this.repo.saveLocalUser(this.fromDTO(updated), updated.role);
+    await this.repo.enqueuePromotion(userId, newRole);
 
     return updated;
   }
 
-  // SYNC: Explicit method to pull from server and update local storage
   async syncUsersFromServer(params?: { role?: string }): Promise<void> {
-    try {
-      const apiUsers = await UserRepo.list(params);
-
-      // Update local storage with server data
-      for (const apiUser of apiUsers) {
-        const user = toDTO(apiUser);
-        await this.storage.setItem(`user_${user.id}`, JSON.stringify(user));
-        await this.addToIndex(user, params?.role);
-      }
-
-      console.info(`Synced ${apiUsers.length} users from server`);
-    } catch (error) {
-      console.warn('Failed to sync users:', error);
-      // Non-fatal - app continues working with local data
-    }
+    await this.repo.syncUsersFromServer(params);
   }
 
-  private async addToIndex(user: User, role?: string): Promise<void> {
-    const indexKey = `users_index_${role || 'all'}`;
-    const idsJson = await this.storage.getItem(indexKey);
-    const ids: number[] = idsJson ? JSON.parse(idsJson) : [];
-    if (!ids.includes(user.id)) {
-      ids.push(user.id);
-      await this.storage.setItem(indexKey, JSON.stringify(ids));
-    }
+  private toDTO(stored: StoredUser): User {
+    const createdAt = new Date(stored.createdAt);
+    const years = (Date.now() - createdAt.getTime()) / (365 * 24 * 3600 * 1000);
+    return {
+      id: stored.id,
+      email: stored.email,
+      name: stored.name,
+      role: stored.role,
+      isActive: stored.isActive,
+      createdAt,
+      displayName: stored.name,
+      canPromote: stored.isActive && years >= 1 && stored.role !== 'admin',
+    };
+  }
+
+  private fromDTO(user: User): StoredUser {
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      isActive: user.isActive,
+      createdAt: user.createdAt.toISOString(),
+    };
   }
 }
 ```

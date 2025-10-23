@@ -1,54 +1,22 @@
-import { infrastructureProvider } from '../infrastructure/public';
 import type { User } from './models';
+import { UserRepo } from './repo';
 
-const STORAGE_KEY = 'deeplearn/mobile/current-user';
 export const DEFAULT_ANONYMOUS_USER_ID = 'anonymous';
 
 export class UserIdentityService {
   private cachedUser: User | null = null;
 
-  constructor(private infrastructure = infrastructureProvider()) {}
+  constructor(private repo: UserRepo = new UserRepo()) {}
 
   async getCurrentUser(): Promise<User | null> {
-    try {
-      const stored = await this.infrastructure.getStorageItem(STORAGE_KEY);
-      if (!stored) {
-        this.cachedUser = null;
-        return null;
-      }
-
-      const parsed = JSON.parse(stored) as User;
-      if (!parsed || typeof parsed !== 'object' || parsed.id === undefined) {
-        this.cachedUser = null;
-        return null;
-      }
-
-      this.cachedUser = parsed;
-      return parsed;
-    } catch (error) {
-      console.warn('[UserIdentityService] Failed to load current user:', error);
-      this.cachedUser = null;
-      return null;
-    }
+    const user = await this.repo.getCurrentUser();
+    this.cachedUser = user;
+    return user;
   }
 
   async setCurrentUser(user: User | null): Promise<void> {
     this.cachedUser = user;
-    try {
-      if (user) {
-        await this.infrastructure.setStorageItem(
-          STORAGE_KEY,
-          JSON.stringify(user)
-        );
-      } else {
-        await this.infrastructure.removeStorageItem(STORAGE_KEY);
-      }
-    } catch (error) {
-      console.warn(
-        '[UserIdentityService] Failed to persist current user:',
-        error
-      );
-    }
+    await this.repo.saveCurrentUser(user);
   }
 
   /**
@@ -70,6 +38,6 @@ export class UserIdentityService {
 
   async clear(): Promise<void> {
     this.cachedUser = null;
-    await this.setCurrentUser(null);
+    await this.repo.saveCurrentUser(null);
   }
 }

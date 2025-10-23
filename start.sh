@@ -112,8 +112,8 @@ kill_port() {
 echo -e "${BLUE}Checking for existing processes on required ports...${NC}"
 kill_port 8000  # Backend
 kill_port 3000  # Admin dashboard
-kill_port 8081  # Mobile app
-kill_port 8082  # Web app
+# kill_port 8081  # Mobile app
+# kill_port 8082  # Web app
 kill_port 6379  # Redis
 
 # Function to cleanup background processes on exit
@@ -254,12 +254,12 @@ npm run ios &
 MOBILE_PID=$!
 fi
 
-# Start web app
-if [ $START_WEB -eq 1 ]; then
-echo -e "${GREEN}Starting web app...${NC}"
-npm run web &
-WEB_PID=$!
-fi
+# # Start web app
+# if [ $START_WEB -eq 1 ]; then
+# echo -e "${GREEN}Starting web app...${NC}"
+# npm run web &
+# WEB_PID=$!
+# fi
 
 # Wait for background processes
 wait

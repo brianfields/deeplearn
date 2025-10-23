@@ -16,11 +16,7 @@ import type {
   CatalogError,
   PaginationInfo,
 } from './models';
-import {
-  toLessonSummaryDTO,
-  toLessonDetailDTO,
-  toBrowseLessonsResponseDTO,
-} from './models';
+import { toLessonSummaryDTO, toBrowseLessonsResponseDTO } from './models';
 import {
   contentProvider,
   type ContentProvider,
@@ -34,22 +30,16 @@ import {
   type UnitCreationRequest,
   type UnitCreationResponse,
 } from '../content_creator/public';
-import {
-  offlineCacheProvider,
-  type OfflineCacheProvider,
-} from '../offline_cache/public';
 
 interface CatalogServiceDeps {
   readonly content: ContentProvider;
   readonly contentCreator: ContentCreatorProvider;
-  readonly offlineCache: OfflineCacheProvider;
 }
 
 function createDefaultDeps(): CatalogServiceDeps {
   return {
     content: contentProvider(),
     contentCreator: contentCreatorProvider(),
-    offlineCache: offlineCacheProvider(),
   };
 }
 
@@ -130,94 +120,22 @@ export class CatalogService {
    * LOCAL-FIRST: Checks offline cache first, only goes to network if not cached
    */
   async getLessonDetail(lessonId: string): Promise<LessonDetail | null> {
-    try {
-      if (!lessonId?.trim()) {
-        return null;
-      }
-
-      // STEP 1: Try to find lesson in offline cache (fast, works offline)
-      const cachedLesson = await this.findLessonInCache(lessonId);
-      if (cachedLesson) {
-        console.info(
-          `[CatalogService] Found lesson ${lessonId} in offline cache`
-        );
-        return cachedLesson;
-      }
-
-      // STEP 2: If not in cache, try network (for lessons not part of downloaded units)
-      console.info(
-        `[CatalogService] Lesson ${lessonId} not in cache, fetching from network`
-      );
-      const apiResponse = await this.repo.getLessonDetail(lessonId);
-      return toLessonDetailDTO(apiResponse);
-    } catch (error: any) {
-      // Return null for 404s, throw for other errors
-      if (error.statusCode === 404) {
-        return null;
-      }
-      throw this.handleServiceError(error, `Failed to get lesson ${lessonId}`);
+    if (!lessonId?.trim()) {
+      return null;
     }
-  }
 
-  /**
-   * Find a lesson in the offline cache by searching all cached units
-   * Returns the lesson detail if found, null otherwise
-   */
-  private async findLessonInCache(
-    lessonId: string
-  ): Promise<LessonDetail | null> {
     try {
-      // Get all cached units
-      const units = await this.deps.offlineCache.listUnits();
-
-      // Search through each unit's lessons
-      for (const unit of units) {
-        const unitDetail = await this.deps.offlineCache.getUnitDetail(unit.id);
-        if (!unitDetail) continue;
-
-        // Find the lesson in this unit
-        const cachedLesson = unitDetail.lessons.find(l => l.id === lessonId);
-        if (cachedLesson && cachedLesson.payload) {
-          // Convert cached lesson to LessonDetail
-          // The payload contains the full lesson package
-          const payload = cachedLesson.payload as any;
-          // Backend stores lesson content inside a "package" field
-          const lessonPackage = payload.package || {};
-
-          return {
-            id: cachedLesson.id,
-            title: cachedLesson.title,
-            learnerLevel: (payload.learner_level || 'beginner') as
-              | 'beginner'
-              | 'intermediate'
-              | 'advanced',
-            learningObjectives: lessonPackage.objectives || [],
-            keyConcepts: lessonPackage.key_concepts || [],
-            miniLesson: lessonPackage.mini_lesson || '',
-            exercises: lessonPackage.exercises || [],
-            glossaryTerms: lessonPackage.glossary || {},
-            exerciseCount: lessonPackage.exercises?.length || 0,
-            createdAt: new Date(cachedLesson.updatedAt).toISOString(),
-            estimatedDuration: payload.duration_minutes || 0,
-            isReadyForLearning: true, // If it's cached, it's ready
-            learnerLevelLabel:
-              payload.learner_level === 'beginner'
-                ? 'Beginner'
-                : payload.learner_level === 'intermediate'
-                  ? 'Intermediate'
-                  : 'Advanced',
-            durationDisplay: `${payload.duration_minutes || 0} min`,
-            readinessStatus: 'ready',
-            tags: payload.tags || [],
-            unitId: cachedLesson.unitId,
-          };
+      const lesson = await this.repo.getLesson(lessonId);
+      return lesson;
+    } catch (error: any) {
+      if (error && typeof error === 'object' && 'statusCode' in error) {
+        const typed = error as CatalogError & { statusCode?: number };
+        if (typed.statusCode === 404) {
+          return null;
         }
       }
 
-      return null;
-    } catch (error) {
-      console.warn('[CatalogService] Error searching offline cache:', error);
-      return null; // Fall through to network fetch
+      throw this.handleServiceError(error, `Failed to get lesson ${lessonId}`);
     }
   }
 
