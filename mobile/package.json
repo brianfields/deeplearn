@@ -4,7 +4,7 @@
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
+    "android": "expo run:android",
     "ios": "expo start --ios --host localhost --port 8082",
     "web": "expo start --web",
     "start:simulator": "expo start",
@@ -14,6 +14,9 @@
     "android:emulator": "expo start --android",
     "android:device": "EXPO_PUBLIC_DEV_API_URL=http://192.168.4.188:8000 expo start --android --host lan",
     "ios:debug": "METRO_DEBUG=1 EXPO_DEBUG=1 expo start --ios --host localhost -c --port 8082",
+    "prebuild": "expo prebuild --clean",
+    "prebuild:ios": "expo prebuild --clean && expo run:ios",
+    "rebuild:ios": "expo prebuild --clean && expo run:ios",
     "typecheck": "tsc --noEmit --jsx react-jsx --moduleResolution bundler --allowImportingTsExtensions --skipLibCheck \"$@\"",
     "typecheck:watch": "tsc --noEmit --jsx react-jsx --moduleResolution bundler --allowImportingTsExtensions --skipLibCheck --watch",
     "typecheck:file": "tsc --noEmit --jsx react-jsx --moduleResolution bundler --allowImportingTsExtensions --skipLibCheck \"$@\"",
