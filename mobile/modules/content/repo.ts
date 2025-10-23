@@ -85,47 +85,6 @@ export class ContentRepo {
     }
   }
 
-  async listPersonalUnits(
-    userId: number,
-    params?: { limit?: number; offset?: number }
-  ): Promise<ApiUnitSummary[]> {
-    const limit = params?.limit ?? 100;
-    const offset = params?.offset ?? 0;
-    const search = new URLSearchParams();
-    search.append('user_id', String(userId));
-    search.append('limit', String(limit));
-    search.append('offset', String(offset));
-    const url = `${CONTENT_BASE}/units/personal?${search.toString()}`;
-
-    try {
-      return await this.infrastructure.request<ApiUnitSummary[]>(url, {
-        method: 'GET',
-      });
-    } catch (error) {
-      throw this.handleError(error, 'Failed to load personal units');
-    }
-  }
-
-  async listGlobalUnits(params?: {
-    limit?: number;
-    offset?: number;
-  }): Promise<ApiUnitSummary[]> {
-    const limit = params?.limit ?? 100;
-    const offset = params?.offset ?? 0;
-    const search = new URLSearchParams();
-    search.append('limit', String(limit));
-    search.append('offset', String(offset));
-    const url = `${CONTENT_BASE}/units/global?${search.toString()}`;
-
-    try {
-      return await this.infrastructure.request<ApiUnitSummary[]>(url, {
-        method: 'GET',
-      });
-    } catch (error) {
-      throw this.handleError(error, 'Failed to load global units');
-    }
-  }
-
   async updateUnitSharing(
     unitId: string,
     request: UpdateUnitSharingRequest

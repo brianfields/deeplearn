@@ -1,6 +1,8 @@
 import React from 'react';
-import { View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
+import { Download } from 'lucide-react-native';
 import type { Unit } from '../../content/public';
+import type { DownloadStatus } from '../../offline_cache/public';
 import { UnitProgressIndicator } from './UnitProgressIndicator';
 import {
   Card,
@@ -18,6 +20,12 @@ interface Props {
   onRetry?: (unitId: string) => void;
   onDismiss?: (unitId: string) => void;
   index?: number;
+  downloadStatus?: DownloadStatus;
+  downloadedAssets?: number;
+  assetCount?: number;
+  storageBytes?: number;
+  onDownload?: (unitId: string) => void;
+  isDownloadActionPending?: boolean;
 }
 
 export function UnitCard({
@@ -26,6 +34,12 @@ export function UnitCard({
   onRetry,
   onDismiss,
   index,
+  downloadStatus,
+  downloadedAssets,
+  assetCount,
+  storageBytes,
+  onDownload,
+  isDownloadActionPending,
 }: Props): React.ReactElement {
   const ui = uiSystemProvider();
   const theme = ui.getCurrentTheme();
@@ -34,6 +48,48 @@ export function UnitCard({
   const isDisabled = !unit.isInteractive;
   const showFailedActions: boolean =
     unit.status === 'failed' && !!(onRetry || onDismiss);
+  const isInteractive = unit.isInteractive;
+
+  const resolvedDownloadStatus: DownloadStatus =
+    downloadStatus ?? (unit.downloadStatus as DownloadStatus | undefined) ?? 'idle';
+  const isDownloaded = resolvedDownloadStatus === 'completed';
+  const isDownloadInProgress =
+    resolvedDownloadStatus === 'pending' || resolvedDownloadStatus === 'in_progress';
+  const isDownloadFailed = resolvedDownloadStatus === 'failed';
+  const canDownload = isInteractive;
+  const showDownloadButton =
+    Boolean(onDownload) && canDownload && !isDownloaded && !isDownloadInProgress;
+  const showDownloadStatusInfo =
+    isInteractive && (isDownloaded || isDownloadInProgress || isDownloadFailed);
+
+  let downloadStatusText: string | null = null;
+  let downloadStatusColor = theme.colors.textSecondary;
+
+  if (isDownloadInProgress) {
+    const total = assetCount ?? 0;
+    const completed = downloadedAssets ?? 0;
+    downloadStatusColor = theme.colors.primary;
+    if (resolvedDownloadStatus === 'pending') {
+      downloadStatusText = 'Download queued...';
+    } else if (total > 0) {
+      const clampedCompleted = Math.min(completed, total);
+      downloadStatusText = `Downloading... ${clampedCompleted}/${total} assets`;
+    } else {
+      downloadStatusText = 'Downloading assets...';
+    }
+  } else if (isDownloadFailed) {
+    downloadStatusText = 'Download failed. Try again.';
+    downloadStatusColor = theme.colors.error;
+  } else if (isDownloaded) {
+    const bytes = storageBytes ?? 0;
+    downloadStatusText =
+      bytes > 0 ? `Downloaded • ${formatBytes(bytes)}` : 'Downloaded';
+    downloadStatusColor = theme.colors.textSecondary;
+  }
+
+  const downloadStatusSpacing = ui.getSpacing(showDownloadButton ? 'xs' : 'sm');
+  const metadataMarginTop =
+    showDownloadStatusInfo || showDownloadButton ? ui.getSpacing('sm') : 0;
 
   const handlePress = (): void => {
     if (isDisabled) return;
@@ -52,6 +108,16 @@ export function UnitCard({
     trigger('light');
     onDismiss(unit.id);
   };
+
+  const handleDownload = (): void => {
+    if (!onDownload || !canDownload) {
+      return;
+    }
+    onDownload(unit.id);
+  };
+
+  const downloadButtonTestId =
+    index !== undefined ? `download-button-${index}` : undefined;
 
   return (
     <Box
@@ -162,8 +228,51 @@ export function UnitCard({
               </View>
             )}
 
+            {showDownloadStatusInfo && downloadStatusText && (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  columnGap: ui.getSpacing('xs'),
+                  marginBottom: downloadStatusSpacing,
+                }}
+              >
+                {isDownloadInProgress && (
+                  <ActivityIndicator
+                    size="small"
+                    color={theme.colors.primary}
+                  />
+                )}
+                <Text variant="caption" color={downloadStatusColor}>
+                  {downloadStatusText}
+                </Text>
+              </View>
+            )}
+
+            {showDownloadButton && (
+              <Button
+                title={isDownloadFailed ? 'Retry download' : 'Download'}
+                variant="primary"
+                size="small"
+                onPress={handleDownload}
+                loading={isDownloadActionPending}
+                icon={<Download size={16} color={theme.colors.surface} />}
+                style={[
+                  { alignSelf: 'flex-start' },
+                  !showDownloadStatusInfo
+                    ? { marginTop: ui.getSpacing('sm') }
+                    : null,
+                ]}
+                testID={downloadButtonTestId}
+              />
+            )}
+
             <View
-              style={{ flexDirection: 'row', justifyContent: 'space-between' }}
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                marginTop: metadataMarginTop,
+              }}
             >
               <Text
                 variant="caption"
@@ -177,4 +286,19 @@ export function UnitCard({
       </Card>
     </Box>
   );
+}
+
+function formatBytes(bytes: number): string {
+  if (!bytes || bytes <= 0) {
+    return '0 B';
+  }
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let value = bytes;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+  const precision = value < 10 && unitIndex > 0 ? 1 : 0;
+  return `${value.toFixed(precision)} ${units[unitIndex]}`;
 }

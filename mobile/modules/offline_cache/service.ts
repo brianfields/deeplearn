@@ -39,6 +39,7 @@ export interface SyncCycleOptions {
   processor: OutboxProcessor;
   pull: (args: SyncPullArgs) => Promise<SyncPullResponse>;
   force?: boolean;
+  payload?: CacheMode;
 }
 
 export class OfflineCacheService {
@@ -79,7 +80,11 @@ export class OfflineCacheService {
     if (units.length === 0) {
       return;
     }
-    const mapped = units.map(unit => this.mapUnitPayload(unit));
+    const existingUnits = await this.repository.listUnits();
+    const existingMap = new Map(existingUnits.map(unit => [unit.id, unit]));
+    const mapped = units.map(unit =>
+      this.mapUnitPayload(unit, existingMap.get(unit.id))
+    );
     await this.repository.upsertUnits(mapped);
     this.status = await this.refreshSyncStatus();
   }
@@ -89,12 +94,16 @@ export class OfflineCacheService {
     lessons: OfflineLessonPayload[],
     assets: OfflineAssetPayload[]
   ): Promise<void> {
-    const cachedUnit = this.mapUnitPayload({
-      ...unit,
-      cacheMode: 'full',
-      downloadStatus: unit.downloadStatus ?? 'completed',
-      downloadedAt: Date.now(),
-    });
+    const existing = await this.repository.getUnit(unit.id);
+    const cachedUnit = this.mapUnitPayload(
+      {
+        ...unit,
+        cacheMode: 'full',
+        downloadStatus: unit.downloadStatus ?? 'completed',
+        downloadedAt: Date.now(),
+      },
+      existing
+    );
     await this.repository.upsertUnits([cachedUnit]);
 
     const cachedLessons = lessons.map(this.mapLessonPayload);
@@ -145,10 +154,8 @@ export class OfflineCacheService {
   }
 
   async clearAll(): Promise<void> {
-    console.log('[OfflineCache] Clearing all cached data');
-
     const assets = await this.repository.listAllAssets();
-    console.log('[OfflineCache] Deleting asset files', {
+    console.info('[OfflineCache] Clearing cached data', {
       assetCount: assets.length,
     });
 
@@ -163,7 +170,7 @@ export class OfflineCacheService {
     await this.repository.clearAll();
     this.status = await this.refreshSyncStatus();
 
-    console.log('[OfflineCache] All cached data cleared');
+    console.info('[OfflineCache] Cache cleared');
   }
 
   async resolveAsset(assetId: string): Promise<CachedAsset | null> {
@@ -210,7 +217,7 @@ export class OfflineCacheService {
   }
 
   async downloadUnitAssets(unitId: string): Promise<void> {
-    console.log('[OfflineCache] Starting asset download', { unitId });
+    console.info('[OfflineCache] Starting asset download', { unitId });
 
     const unit = await this.repository.getUnit(unitId);
     if (!unit) {
@@ -225,7 +232,6 @@ export class OfflineCacheService {
         downloadStatus: 'in_progress',
       },
     ]);
-    console.log('[OfflineCache] Marked unit as in_progress', { unitId });
 
     const detail = await this.repository.buildUnitDetail(unitId);
     if (!detail) {
@@ -233,7 +239,7 @@ export class OfflineCacheService {
       return;
     }
 
-    console.log('[OfflineCache] AssetDownload: Downloading assets', {
+    console.info('[OfflineCache] Downloading unit assets', {
       unitId,
       assetCount: detail.assets.length,
     });
@@ -244,32 +250,17 @@ export class OfflineCacheService {
         if (asset.localPath) {
           const info = await this.fileSystem.getInfo(asset.localPath);
           if (info.exists) {
-            console.log(
-              '[OfflineCache] AssetDownload: Asset already downloaded',
-              {
-                localPath: asset.localPath,
-              }
-            );
             return; // Already downloaded
           }
         }
 
         const targetPath = this.buildAssetPath(asset);
         try {
-          console.log('[OfflineCache] AssetDownload: Downloading asset', {
-            remoteUri: asset.remoteUri,
-            targetPath,
-          });
           const download = await this.fileSystem.downloadFile(
             asset.remoteUri,
             targetPath,
             { skipIfExists: true }
           );
-          console.log('[OfflineCache] AssetDownload: Download result', {
-            status: download.status,
-            uri: download.uri,
-            bytesWritten: download.bytesWritten,
-          });
           if (download.status === 'completed') {
             await this.repository.updateAssetLocation(
               asset.id,
@@ -297,9 +288,7 @@ export class OfflineCacheService {
           downloadedAt: Date.now(),
         },
       ]);
-      console.log('[OfflineCache] AssetDownload: Unit download completed', {
-        unitId,
-      });
+      console.info('[OfflineCache] Asset download completed', { unitId });
     }
 
     this.status = await this.refreshSyncStatus();
@@ -356,9 +345,10 @@ export class OfflineCacheService {
     const startedAt = Date.now();
     let lastError: string | null = null;
 
-    console.log('[OfflineCache] Starting sync cycle', {
-      force: options.force,
-      timestamp: new Date().toISOString(),
+    const requestedPayload: CacheMode = options.payload ?? 'minimal';
+    console.info('[OfflineCache] Sync cycle started', {
+      force: Boolean(options.force),
+      payload: requestedPayload,
     });
 
     try {
@@ -377,29 +367,12 @@ export class OfflineCacheService {
         ? null
         : (await this.repository.getMetadata(META_LAST_CURSOR)) || null;
       const units = await this.repository.listUnits();
-      const payload: CacheMode = units.some(unit => unit.cacheMode === 'full')
-        ? 'full'
-        : 'minimal';
-
-      console.log('[OfflineCache] Pulling updates', {
-        cursor: cursor ? new Date(cursor).toISOString() : 'null',
-        payload,
-        cachedUnitCount: units.length,
-        force: options.force,
-      });
+      const existingUnitMap = new Map(units.map(unit => [unit.id, unit]));
+      const payload: CacheMode = requestedPayload;
 
       const response = await options.pull({ cursor, payload });
 
-      console.log('[OfflineCache] Received sync response', {
-        units: response.units.length,
-        lessons: response.lessons.length,
-        assets: response.assets.length,
-        cursor: response.cursor
-          ? new Date(response.cursor).toISOString()
-          : 'null',
-      });
-
-      await this.applySyncPull(response);
+      await this.applySyncPull(response, existingUnitMap);
 
       await this.repository.setMetadata(META_LAST_PULL_AT, String(Date.now()));
       await this.persistLastSyncStatus({
@@ -408,8 +381,8 @@ export class OfflineCacheService {
         lastSyncError: null,
       });
 
-      console.log('[OfflineCache] Sync cycle completed successfully', {
-        duration: Date.now() - startedAt,
+      console.info('[OfflineCache] Sync cycle completed', {
+        durationMs: Date.now() - startedAt,
       });
     } catch (error: any) {
       lastError = error?.message || String(error);
@@ -489,9 +462,24 @@ export class OfflineCacheService {
     return { units: metrics, totalStorageBytes, syncStatus };
   }
 
-  private mapUnitPayload(payload: OfflineUnitPayload): CachedUnit {
-    const downloadStatus: DownloadStatus =
-      payload.downloadStatus ?? 'completed';
+  private mapUnitPayload(
+    payload: OfflineUnitPayload,
+    existing?: CachedUnit | null
+  ): CachedUnit {
+    const inferredStatus: DownloadStatus = payload.downloadStatus
+      ? payload.downloadStatus
+      : existing?.downloadStatus
+      ? existing.downloadStatus
+      : payload.cacheMode === 'full'
+      ? 'completed'
+      : 'idle';
+
+    const downloadedAt = payload.downloadedAt
+      ? payload.downloadedAt
+      : inferredStatus === 'completed'
+      ? existing?.downloadedAt ?? null
+      : null;
+
     return {
       id: payload.id,
       title: payload.title,
@@ -500,11 +488,11 @@ export class OfflineCacheService {
       isGlobal: payload.isGlobal,
       updatedAt: payload.updatedAt,
       schemaVersion: payload.schemaVersion,
-      downloadStatus,
+      downloadStatus: inferredStatus,
       cacheMode: payload.cacheMode,
-      downloadedAt: payload.downloadedAt ?? null,
-      syncedAt: payload.syncedAt ?? null,
-      unitPayload: payload.unitPayload ?? null,
+      downloadedAt,
+      syncedAt: payload.syncedAt ?? existing?.syncedAt ?? null,
+      unitPayload: payload.unitPayload ?? existing?.unitPayload ?? null,
     };
   }
 
@@ -537,8 +525,11 @@ export class OfflineCacheService {
     return `${this.config.assetDirectory}/${asset.id}${extension}`;
   }
 
-  private async applySyncPull(response: SyncPullResponse): Promise<void> {
-    console.log('[OfflineCache] Applying sync pull', {
+  private async applySyncPull(
+    response: SyncPullResponse,
+    existingUnitMap: Map<string, CachedUnit>
+  ): Promise<void> {
+    console.info('[OfflineCache] Applying sync pull', {
       units: response.units.length,
       lessons: response.lessons.length,
       assets: response.assets.length,
@@ -546,34 +537,26 @@ export class OfflineCacheService {
     });
 
     if (response.units.length > 0) {
-      await this.repository.upsertUnits(
-        response.units.map(unit => this.mapUnitPayload(unit))
+      const mappedUnits = response.units.map(unit =>
+        this.mapUnitPayload(unit, existingUnitMap.get(unit.id))
       );
-      console.log('[OfflineCache] Upserted units', {
-        count: response.units.length,
-        unitIds: response.units.map(u => u.id),
-      });
+      await this.repository.upsertUnits(mappedUnits);
     }
 
     // Upsert lessons incrementally (no deletion, preserves unchanged lessons)
     if (response.lessons.length > 0) {
       const mapped = response.lessons.map(this.mapLessonPayload);
       await this.repository.upsertLessons(mapped);
-      console.log('[OfflineCache] Upserted lessons', { count: mapped.length });
     }
 
     // Upsert assets incrementally, preserving local metadata for unchanged assets
     if (response.assets.length > 0) {
       const mapped = await this.mergeAssetMetadata(response.assets);
       await this.repository.upsertAssets(mapped);
-      console.log('[OfflineCache] Upserted assets', { count: mapped.length });
     }
 
     if (response.cursor !== null) {
       await this.repository.setMetadata(META_LAST_CURSOR, response.cursor);
-      console.log('[OfflineCache] Updated cursor', {
-        cursor: response.cursor,
-      });
     }
   }
 

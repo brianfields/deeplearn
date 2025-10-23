@@ -47,12 +47,6 @@ type ListUnitsParams = {
   currentUserId?: number | null;
 };
 
-type PersonalUnitsOptions = {
-  limit?: number;
-  offset?: number;
-  currentUserId?: number | null;
-};
-
 type UnitDetailOptions = { currentUserId?: number | null };
 
 type ContentServiceDeps = {
@@ -97,63 +91,43 @@ export class ContentService {
     }
   }
 
-  async listPersonalUnits(
-    userId: number,
-    options?: PersonalUnitsOptions
-  ): Promise<Unit[]> {
-    try {
-      const cached = await this.ensureUnitsCached();
-      const filtered = cached.filter(unit => {
-        const ownerId = this.getOwnerId(unit);
-        return ownerId === userId;
-      });
-      const paged = this.applyPaging(filtered, options?.limit, options?.offset);
-      return paged.map(unit =>
-        this.mapCachedUnitToUnit(unit, options?.currentUserId ?? userId)
-      );
-    } catch (error) {
-      throw this.handleError(error, 'Failed to load personal units');
-    }
-  }
-
-  async listGlobalUnits(options?: PersonalUnitsOptions): Promise<Unit[]> {
-    try {
-      const cached = await this.ensureUnitsCached();
-      const filtered = cached.filter(unit => unit.isGlobal);
-      const paged = this.applyPaging(filtered, options?.limit, options?.offset);
-      return paged.map(unit =>
-        this.mapCachedUnitToUnit(unit, options?.currentUserId)
-      );
-    } catch (error) {
-      throw this.handleError(error, 'Failed to load global units');
-    }
-  }
-
   async getUserUnitCollections(
     userId: number,
     options?: { includeGlobal?: boolean; limit?: number; offset?: number }
   ): Promise<UserUnitCollections> {
     if (!Number.isFinite(userId) || userId <= 0) {
-      return { personalUnits: [], globalUnits: [] };
+      return { units: [], ownedUnitIds: [] };
     }
 
     const includeGlobal = options?.includeGlobal ?? true;
 
     try {
       const cached = await this.ensureUnitsCached();
-      const personalUnits = cached
+      const ownedUnits = cached
         .filter(unit => this.getOwnerId(unit) === userId)
         .map(unit => this.mapCachedUnitToUnit(unit, userId));
 
-      const personalIds = new Set(personalUnits.map(unit => unit.id));
+      const ownedUnitIds = new Set(ownedUnits.map(unit => unit.id));
+      const mergedUnits: Unit[] = [...ownedUnits];
 
-      const globalUnits = includeGlobal
-        ? cached
-            .filter(unit => unit.isGlobal && !personalIds.has(unit.id))
-            .map(unit => this.mapCachedUnitToUnit(unit, userId))
-        : [];
+      if (includeGlobal) {
+        cached.forEach(unit => {
+          if (ownedUnitIds.has(unit.id)) {
+            return;
+          }
+          if (!unit.isGlobal) {
+            return;
+          }
+          mergedUnits.push(this.mapCachedUnitToUnit(unit, userId));
+        });
+      }
 
-      return { personalUnits, globalUnits };
+      const resultUnits =
+        options?.limit !== undefined || options?.offset !== undefined
+          ? this.applyPaging(mergedUnits, options?.limit, options?.offset)
+          : mergedUnits;
+
+      return { units: resultUnits, ownedUnitIds: Array.from(ownedUnitIds) };
     } catch (error) {
       throw this.handleError(error, 'Failed to load user units');
     }
@@ -171,16 +145,31 @@ export class ContentService {
       await this.ensureUnitsCached();
 
       let cached = await this.offlineCache.getUnitDetail(unitId);
-      if (
-        !cached ||
-        (cached.cacheMode === 'full' && cached.lessons.length === 0)
-      ) {
+
+      if (!cached) {
         await this.runSyncCycle();
         cached = await this.offlineCache.getUnitDetail(unitId);
       }
 
+      if (cached?.downloadStatus === 'completed') {
+        if (cached.lessons.length === 0) {
+          console.warn(
+            '[ContentService] Downloaded unit missing lessons, forcing full sync',
+            {
+              unitId,
+            }
+          );
+          await this.runSyncCycle({ force: true, payload: 'full' });
+          cached = await this.offlineCache.getUnitDetail(unitId);
+        }
+
+        if (cached?.downloadStatus === 'completed') {
+          return this.mapCachedUnitDetail(cached, options?.currentUserId);
+        }
+      }
+
       if (cached) {
-        return this.mapCachedUnitDetail(cached, options?.currentUserId);
+        return this.mapCachedUnitMetadata(cached, options?.currentUserId);
       }
 
       const apiDetail = await this.repo.getUnitDetail(unitId);
@@ -250,16 +239,35 @@ export class ContentService {
     };
     await this.offlineCache.cacheMinimalUnits([payload]);
 
-    // Sync to get lessons/assets metadata
-    await this.runSyncCycle();
+    console.info('[ContentService] Starting unit download', { unitId });
 
-    // Download assets in the background (don't await to avoid blocking)
-    this.offlineCache.downloadUnitAssets(unitId).catch(error => {
-      console.error(
-        '[ContentService] Background asset download failed:',
-        error
-      );
-    });
+    // Sync to get lessons/assets metadata with full payload
+    await this.runSyncCycle({ force: true, payload: 'full' });
+
+    // Download assets
+    try {
+      await this.offlineCache.downloadUnitAssets(unitId);
+      console.info('[ContentService] Unit download completed', { unitId });
+    } catch (error) {
+      console.error('[ContentService] Asset download failed', {
+        unitId,
+        error,
+      });
+      throw this.handleError(error, 'Failed to download unit assets');
+    }
+  }
+
+  async removeUnitDownload(unitId: string): Promise<void> {
+    if (!unitId?.trim()) {
+      return;
+    }
+
+    const cached = await this.offlineCache.getUnitDetail(unitId);
+    if (!cached) {
+      return;
+    }
+
+    await this.offlineCache.markUnitCacheMode(unitId, 'minimal');
   }
 
   async resolveAsset(assetId: string): Promise<CachedAsset | null> {
@@ -267,7 +275,7 @@ export class ContentService {
   }
 
   async syncNow(): Promise<SyncStatus> {
-    console.log('[ContentService] syncNow called - triggering forced sync');
+    console.info('[ContentService] Forcing sync via syncNow');
     return this.offlineCache.runSyncCycle({
       processor: this.createOutboxProcessor(),
       pull: args => this.pullUpdates(args),
@@ -288,17 +296,18 @@ export class ContentService {
     return this.offlineCache.listUnits();
   }
 
-  private async runSyncCycle(): Promise<void> {
+  private async runSyncCycle(options?: { force?: boolean; payload?: CacheMode }): Promise<void> {
     await this.offlineCache.runSyncCycle({
       processor: this.createOutboxProcessor(),
       pull: args => this.pullUpdates(args),
+      force: options?.force,
+      payload: options?.payload,
     });
   }
 
   private async pullUpdates(args: SyncPullArgs): Promise<SyncPullResponse> {
     const userId = this.userIdentity.getUserId();
-    console.log('[ContentService] pullUpdates called', {
-      userId,
+    console.info('[ContentService] Syncing units', {
       cursor: args.cursor,
       payload: args.payload,
     });
@@ -314,7 +323,6 @@ export class ContentService {
       };
     }
 
-    console.log('[ContentService] Fetching units from backend');
     const [response, existing] = await Promise.all([
       this.repo.syncUnits({
         userId,
@@ -324,8 +332,8 @@ export class ContentService {
       this.offlineCache.listUnits(),
     ]);
 
-    console.log('[ContentService] Backend response received', {
-      units: response.units.length,
+    console.info('[ContentService] Sync completed', {
+      unitCount: response.units.length,
       cursor: response.cursor,
     });
 
@@ -515,6 +523,49 @@ export class ContentService {
     };
   }
 
+  private mapCachedUnitMetadata(
+    cached: CachedUnitDetail,
+    currentUserId?: number | null
+  ): UnitDetail {
+    const summary = this.mapCachedUnitToUnit(cached, currentUserId);
+    const lessonOrder = Array.isArray(cached.unitPayload?.lesson_order)
+      ? cached.unitPayload?.lesson_order ?? []
+      : [];
+    const fallbackLessonIds = cached.lessons.map(lesson => lesson.id);
+    const lessonIds = lessonOrder.length > 0 ? lessonOrder : fallbackLessonIds;
+
+    return {
+      id: summary.id,
+      title: summary.title,
+      description: summary.description ?? null,
+      difficulty: summary.difficulty,
+      lessonIds,
+      lessons: [],
+      learningObjectives: summary.learningObjectives ?? null,
+      targetLessonCount: summary.targetLessonCount ?? null,
+      sourceMaterial:
+        (cached.unitPayload?.source_material as string | null | undefined) ??
+        null,
+      generatedFromTopic: summary.generatedFromTopic,
+      ownerUserId: summary.ownerUserId,
+      isGlobal: summary.isGlobal,
+      ownershipLabel: summary.ownershipLabel,
+      isOwnedByCurrentUser: summary.isOwnedByCurrentUser,
+      learningObjectiveProgress: null,
+      hasPodcast: summary.hasPodcast,
+      podcastVoice: summary.podcastVoice,
+      podcastDurationSeconds: summary.podcastDurationSeconds,
+      podcastTranscript: null,
+      podcastAudioUrl: null,
+      artImageUrl: summary.artImageUrl,
+      artImageDescription: summary.artImageDescription,
+      cacheMode: cached.cacheMode,
+      downloadStatus: cached.downloadStatus,
+      downloadedAt: cached.downloadedAt ?? null,
+      syncedAt: cached.syncedAt ?? null,
+    };
+  }
+
   private buildApiUnitSummaryFromCached(cached: CachedUnit): ApiUnitSummary {
     const payload = cached.unitPayload;
     const lessonCount = Array.isArray(payload?.lesson_order)
@@ -679,7 +730,7 @@ export class ContentService {
       updatedAt: updatedAt ?? Date.now(),
       schemaVersion: 1,
       cacheMode: 'minimal',
-      downloadStatus: 'completed',
+      downloadStatus: 'idle',
       downloadedAt: null,
       syncedAt: Date.now(),
       unitPayload: {

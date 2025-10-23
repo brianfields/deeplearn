@@ -33,11 +33,10 @@ describe('CatalogService', () => {
     mockContent = {
       listUnits: jest.fn(),
       getUnitDetail: jest.fn(),
-      listPersonalUnits: jest.fn(),
-      listGlobalUnits: jest.fn(),
       getUserUnitCollections: jest.fn(),
       updateUnitSharing: jest.fn(),
       requestUnitDownload: jest.fn(),
+      removeUnitDownload: jest.fn(),
       resolveAsset: jest.fn(),
       syncNow: jest.fn(),
       getSyncStatus: jest.fn(),
@@ -165,8 +164,8 @@ describe('CatalogService', () => {
   describe('getUserUnitCollections', () => {
     it('returns collections from content provider', async () => {
       const collections: UserUnitCollections = {
-        personalUnits: [],
-        globalUnits: [],
+        units: [],
+        ownedUnitIds: [],
       };
       mockContent.getUserUnitCollections.mockResolvedValue(collections);
 

@@ -9,12 +9,14 @@ import type {
   SyncStatus,
 } from '../offline_cache/public';
 import type { InfrastructureProvider } from '../infrastructure/public';
+import type { UserIdentityProvider } from '../user/public';
 
 describe('ContentService (offline cache integration)', () => {
   let repo: jest.Mocked<ContentRepo>;
   let offlineCache: jest.Mocked<OfflineCacheProvider>;
   let infrastructure: InfrastructureProvider;
   let infrastructureMocks: any;
+  let userIdentity: jest.Mocked<UserIdentityProvider>;
   let service: ContentService;
 
   const baseUnit: CachedUnit = {
@@ -25,7 +27,7 @@ describe('ContentService (offline cache integration)', () => {
     isGlobal: false,
     updatedAt: Date.now(),
     schemaVersion: 1,
-    downloadStatus: 'completed',
+    downloadStatus: 'idle',
     cacheMode: 'minimal',
     downloadedAt: null,
     syncedAt: Date.now(),
@@ -44,8 +46,6 @@ describe('ContentService (offline cache integration)', () => {
     repo = {
       listUnits: jest.fn(),
       getUnitDetail: jest.fn(),
-      listPersonalUnits: jest.fn(),
-      listGlobalUnits: jest.fn(),
       getUserUnitCollections: jest.fn(),
       updateUnitSharing: jest.fn(),
       syncUnits: jest.fn(),
@@ -76,6 +76,9 @@ describe('ContentService (offline cache integration)', () => {
         .mockResolvedValue(undefined),
       markUnitCacheMode: jest
         .fn<OfflineCacheProvider['markUnitCacheMode']>()
+        .mockResolvedValue(undefined),
+      downloadUnitAssets: jest
+        .fn<OfflineCacheProvider['downloadUnitAssets']>()
         .mockResolvedValue(undefined),
       deleteUnit: jest
         .fn<OfflineCacheProvider['deleteUnit']>()
@@ -112,9 +115,18 @@ describe('ContentService (offline cache integration)', () => {
     };
     infrastructure = infrastructureMocks as unknown as InfrastructureProvider;
 
+    userIdentity = {
+      getCurrentUser: jest.fn(async () => null),
+      setCurrentUser: jest.fn(async () => undefined),
+      getCurrentUserId: jest.fn(async () => ''),
+      getUserId: jest.fn(() => null),
+      clear: jest.fn(async () => undefined),
+    } as unknown as jest.Mocked<UserIdentityProvider>;
+
     service = new ContentService(repo, {
       offlineCache,
       infrastructure,
+      userIdentity,
     });
   });
 
@@ -125,7 +137,7 @@ describe('ContentService (offline cache integration)', () => {
     expect(units[0]).toMatchObject({
       id: 'unit-1',
       cacheMode: 'minimal',
-      downloadStatus: 'completed',
+      downloadStatus: 'idle',
       syncedAt: expect.any(Number),
     });
     expect(repo.listUnits).not.toHaveBeenCalled();
@@ -185,7 +197,28 @@ describe('ContentService (offline cache integration)', () => {
         }),
       ])
     );
-    expect(offlineCache.runSyncCycle).toHaveBeenCalled();
+    expect(offlineCache.runSyncCycle).toHaveBeenCalledWith(
+      expect.objectContaining({ force: true, payload: 'full' })
+    );
+    expect(offlineCache.downloadUnitAssets).toHaveBeenCalledWith('unit-1');
+  });
+
+  it('removes full downloads when requested', async () => {
+    const detail: CachedUnitDetail = {
+      ...baseUnit,
+      downloadStatus: 'completed',
+      downloadedAt: Date.now(),
+      lessons: [],
+      assets: [],
+    };
+    offlineCache.getUnitDetail.mockResolvedValueOnce(detail);
+
+    await service.removeUnitDownload('unit-1');
+
+    expect(offlineCache.markUnitCacheMode).toHaveBeenCalledWith(
+      'unit-1',
+      'minimal'
+    );
   });
 
   it('resolves assets via offline cache provider', async () => {
