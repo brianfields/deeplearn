@@ -33,7 +33,10 @@ import {
 import { useAuth } from '../../user/public';
 import { infrastructureProvider } from '../../infrastructure/public';
 import { PodcastPlayer, type PodcastTrack } from '../../podcast_player/public';
-import { offlineCacheProvider, type DownloadStatus } from '../../offline_cache/public';
+import {
+  offlineCacheProvider,
+  type DownloadStatus,
+} from '../../offline_cache/public';
 import { DownloadPrompt } from '../components/DownloadPrompt';
 
 type UnitDetailScreenNavigationProp = NativeStackNavigationProp<
@@ -141,7 +144,12 @@ export function UnitDetailScreen() {
     ) {
       refetch();
     }
-  }, [isDownloadInProgress, refetch, unitMetrics.assetCount, unitMetrics.downloadedAssets]);
+  }, [
+    isDownloadInProgress,
+    refetch,
+    unitMetrics.assetCount,
+    unitMetrics.downloadedAssets,
+  ]);
 
   const handleShareToggle = (nextValue: boolean): void => {
     if (!unit || !unit.isOwnedByCurrentUser) {
@@ -206,22 +214,71 @@ export function UnitDetailScreen() {
   }, [unit?.podcastAudioUrl, apiBase]);
 
   const hasPodcast = useMemo(
-    () => Boolean(unit?.hasPodcast && podcastAudioUrl && isDownloaded),
-    [isDownloaded, podcastAudioUrl, unit?.hasPodcast]
+    () => Boolean(unit?.hasPodcast && isDownloaded),
+    [isDownloaded, unit?.hasPodcast]
   );
 
+  // Resolve podcast audio asset to get local path when downloaded
+  const [resolvedPodcastUrl, setResolvedPodcastUrl] = useState<string | null>(
+    null
+  );
+
+  useEffect(() => {
+    if (!unit || !isDownloaded || !unit.hasPodcast) {
+      setResolvedPodcastUrl(null);
+      return;
+    }
+
+    const resolvePodcastAsset = async () => {
+      try {
+        const offlineCache = offlineCacheProvider();
+        const unitDetail = await offlineCache.getUnitDetail(unit.id);
+        if (!unitDetail) {
+          console.warn('[UnitDetail] No cached unit detail for podcast', {
+            unitId: unit.id,
+          });
+          setResolvedPodcastUrl(podcastAudioUrl);
+          return;
+        }
+
+        // Find the audio asset (podcast)
+        const audioAsset = unitDetail.assets.find(
+          asset => asset.type === 'audio'
+        );
+        if (audioAsset?.localPath) {
+          console.info('[UnitDetail] Resolved podcast to local path', {
+            unitId: unit.id,
+            localPath: audioAsset.localPath,
+          });
+          setResolvedPodcastUrl(audioAsset.localPath);
+        } else {
+          console.warn('[UnitDetail] No local audio asset found', {
+            unitId: unit.id,
+            audioAsset,
+          });
+          setResolvedPodcastUrl(podcastAudioUrl);
+        }
+      } catch (error) {
+        console.error('[UnitDetail] Failed to resolve podcast asset', error);
+        setResolvedPodcastUrl(podcastAudioUrl);
+      }
+    };
+
+    resolvePodcastAsset();
+  }, [unit, isDownloaded, podcastAudioUrl]);
+
   const podcastTrack = useMemo<PodcastTrack | null>(() => {
-    if (!unit || !hasPodcast || !podcastAudioUrl || !isDownloaded) {
+    if (!unit || !hasPodcast || !resolvedPodcastUrl || !isDownloaded) {
       return null;
     }
     return {
       unitId: unit.id,
       title: unit.title,
-      audioUrl: podcastAudioUrl,
+      audioUrl: resolvedPodcastUrl,
       durationSeconds: unit.podcastDurationSeconds ?? 0,
       transcript: unit.podcastTranscript ?? null,
     };
-  }, [hasPodcast, podcastAudioUrl, isDownloaded, unit]);
+  }, [hasPodcast, resolvedPodcastUrl, isDownloaded, unit]);
 
   // Note: PodcastPlayer component now handles loadTrack, no need to do it here
 
@@ -254,7 +311,12 @@ export function UnitDetailScreen() {
       return lessonCount * 5 * 1024 * 1024;
     }
     return null;
-  }, [unit?.lessonIds, unit?.lessons, unitMetrics.assetCount, unitMetrics.storageBytes]);
+  }, [
+    unit?.lessonIds,
+    unit?.lessons,
+    unitMetrics.assetCount,
+    unitMetrics.storageBytes,
+  ]);
 
   const handleQueueDownload = useCallback(async () => {
     if (!unit) {

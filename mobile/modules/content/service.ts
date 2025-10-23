@@ -267,7 +267,7 @@ export class ContentService {
       return;
     }
 
-    await this.offlineCache.markUnitCacheMode(unitId, 'minimal');
+    await this.offlineCache.setUnitCacheMode(unitId, 'minimal');
   }
 
   async resolveAsset(assetId: string): Promise<CachedAsset | null> {
@@ -296,7 +296,10 @@ export class ContentService {
     return this.offlineCache.listUnits();
   }
 
-  private async runSyncCycle(options?: { force?: boolean; payload?: CacheMode }): Promise<void> {
+  private async runSyncCycle(options?: {
+    force?: boolean;
+    payload?: CacheMode;
+  }): Promise<void> {
     await this.offlineCache.runSyncCycle({
       processor: this.createOutboxProcessor(),
       pull: args => this.pullUpdates(args),
@@ -529,7 +532,7 @@ export class ContentService {
   ): UnitDetail {
     const summary = this.mapCachedUnitToUnit(cached, currentUserId);
     const lessonOrder = Array.isArray(cached.unitPayload?.lesson_order)
-      ? cached.unitPayload?.lesson_order ?? []
+      ? (cached.unitPayload?.lesson_order ?? [])
       : [];
     const fallbackLessonIds = cached.lessons.map(lesson => lesson.id);
     const lessonIds = lessonOrder.length > 0 ? lessonOrder : fallbackLessonIds;
@@ -555,8 +558,8 @@ export class ContentService {
       hasPodcast: summary.hasPodcast,
       podcastVoice: summary.podcastVoice,
       podcastDurationSeconds: summary.podcastDurationSeconds,
-      podcastTranscript: null,
-      podcastAudioUrl: null,
+      podcastTranscript: cached.unitPayload?.podcast_transcript ?? null,
+      podcastAudioUrl: cached.unitPayload?.podcast_audio_url ?? null,
       artImageUrl: summary.artImageUrl,
       artImageDescription: summary.artImageDescription,
       cacheMode: cached.cacheMode,

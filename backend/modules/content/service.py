@@ -304,6 +304,8 @@ class ContentService:
         podcast_voice: str | None = None
         podcast_duration_seconds: int | None = None
         podcast_generated_at: datetime | None = None
+        podcast_transcript: str | None = None
+        podcast_audio_url: str | None = None
         art_image_id: uuid.UUID | None = None
         art_image_description: str | None = None
         art_image_url: str | None = None
@@ -413,6 +415,8 @@ class ContentService:
         unit_read.has_podcast = bool(audio_object_id)
         unit_read.podcast_voice = getattr(unit, "podcast_voice", None)
         unit_read.podcast_generated_at = getattr(unit, "podcast_generated_at", None)
+        unit_read.podcast_transcript = getattr(unit, "podcast_transcript", None)
+        unit_read.podcast_audio_url = self._build_podcast_audio_url(unit) if audio_object_id else None
 
         if not include_metadata:
             resolved_meta = audio_meta if audio_meta is not None else None

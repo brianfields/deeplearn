@@ -115,7 +115,7 @@ export class OfflineCacheService {
     this.status = await this.refreshSyncStatus();
   }
 
-  async markUnitCacheMode(unitId: string, cacheMode: CacheMode): Promise<void> {
+  async setUnitCacheMode(unitId: string, cacheMode: CacheMode): Promise<void> {
     const unit = await this.repository.getUnit(unitId);
     if (!unit) {
       return;
@@ -131,6 +131,17 @@ export class OfflineCacheService {
     await this.repository.upsertUnits([updated]);
 
     if (cacheMode === 'minimal') {
+      // Delete asset files from disk before removing database entries
+      const detail = await this.repository.buildUnitDetail(unitId);
+      if (detail) {
+        await Promise.all(
+          detail.assets.map(async asset => {
+            if (asset.localPath) {
+              await this.fileSystem.deleteFile(asset.localPath);
+            }
+          })
+        );
+      }
       await this.repository.replaceLessons(unitId, []);
       await this.repository.removeAssets(unitId);
     }
@@ -217,11 +228,16 @@ export class OfflineCacheService {
   }
 
   async downloadUnitAssets(unitId: string): Promise<void> {
-    console.info('[OfflineCache] Starting asset download', { unitId });
+    console.info('[OfflineCache] AssetDownload: Starting asset download', {
+      unitId,
+    });
 
     const unit = await this.repository.getUnit(unitId);
     if (!unit) {
-      console.warn('[OfflineCache] Unit not found for download', { unitId });
+      console.warn(
+        '[OfflineCache] AssetDownload: Unit not found for download',
+        { unitId }
+      );
       return;
     }
 
@@ -235,11 +251,13 @@ export class OfflineCacheService {
 
     const detail = await this.repository.buildUnitDetail(unitId);
     if (!detail) {
-      console.warn('[OfflineCache] Unit detail not found', { unitId });
+      console.warn('[OfflineCache] AssetDownload: Unit detail not found', {
+        unitId,
+      });
       return;
     }
 
-    console.info('[OfflineCache] Downloading unit assets', {
+    console.info('[OfflineCache] AssetDownload: Downloading unit assets', {
       unitId,
       assetCount: detail.assets.length,
     });
@@ -250,17 +268,30 @@ export class OfflineCacheService {
         if (asset.localPath) {
           const info = await this.fileSystem.getInfo(asset.localPath);
           if (info.exists) {
-            return; // Already downloaded
+            console.info(
+              '[OfflineCache] AssetDownload: Asset already downloaded',
+              { assetId: asset.id, localPath: asset.localPath }
+            );
+            return;
           }
         }
-
         const targetPath = this.buildAssetPath(asset);
         try {
+          console.info('[OfflineCache] AssetDownload: Downloading asset', {
+            assetId: asset.id,
+            remoteUri: asset.remoteUri,
+            targetPath,
+          });
           const download = await this.fileSystem.downloadFile(
             asset.remoteUri,
             targetPath,
             { skipIfExists: true }
           );
+          console.info('[OfflineCache] AssetDownload: Download result', {
+            status: download.status,
+            uri: download.uri,
+            bytesWritten: download.bytesWritten,
+          });
           if (download.status === 'completed') {
             await this.repository.updateAssetLocation(
               asset.id,
@@ -418,6 +449,12 @@ export class OfflineCacheService {
 
   async getCacheOverview(): Promise<CacheOverview> {
     const units = await this.repository.listUnits();
+
+    // Get database file size
+    const dbPath = `${this.config.assetDirectory}/../offline_unit_cache.db`;
+    const dbInfo = await this.fileSystem.getInfo(dbPath);
+    const dbSize = dbInfo.exists ? (dbInfo.size ?? 0) : 0;
+
     const metrics = await Promise.all(
       units.map(async unit => {
         const detail = await this.repository.buildUnitDetail(unit.id);
@@ -454,6 +491,20 @@ export class OfflineCacheService {
       })
     );
 
+    // Distribute database size proportionally across units based on their content
+    const totalContentWeight = metrics.reduce(
+      (sum, m) => sum + m.lessonCount + m.assetCount,
+      0
+    );
+
+    if (totalContentWeight > 0 && dbSize > 0) {
+      metrics.forEach(metric => {
+        const unitWeight = metric.lessonCount + metric.assetCount;
+        const dbShare = Math.floor((unitWeight / totalContentWeight) * dbSize);
+        metric.storageBytes += dbShare;
+      });
+    }
+
     const totalStorageBytes = metrics.reduce(
       (sum, metric) => sum + metric.storageBytes,
       0
@@ -469,16 +520,16 @@ export class OfflineCacheService {
     const inferredStatus: DownloadStatus = payload.downloadStatus
       ? payload.downloadStatus
       : existing?.downloadStatus
-      ? existing.downloadStatus
-      : payload.cacheMode === 'full'
-      ? 'completed'
-      : 'idle';
+        ? existing.downloadStatus
+        : payload.cacheMode === 'full'
+          ? 'completed'
+          : 'idle';
 
     const downloadedAt = payload.downloadedAt
       ? payload.downloadedAt
       : inferredStatus === 'completed'
-      ? existing?.downloadedAt ?? null
-      : null;
+        ? (existing?.downloadedAt ?? null)
+        : null;
 
     return {
       id: payload.id,

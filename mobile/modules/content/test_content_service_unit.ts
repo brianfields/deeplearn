@@ -74,8 +74,8 @@ describe('ContentService (offline cache integration)', () => {
       cacheFullUnit: jest
         .fn<OfflineCacheProvider['cacheFullUnit']>()
         .mockResolvedValue(undefined),
-      markUnitCacheMode: jest
-        .fn<OfflineCacheProvider['markUnitCacheMode']>()
+      setUnitCacheMode: jest
+        .fn<OfflineCacheProvider['setUnitCacheMode']>()
         .mockResolvedValue(undefined),
       downloadUnitAssets: jest
         .fn<OfflineCacheProvider['downloadUnitAssets']>()
@@ -215,7 +215,7 @@ describe('ContentService (offline cache integration)', () => {
 
     await service.removeUnitDownload('unit-1');
 
-    expect(offlineCache.markUnitCacheMode).toHaveBeenCalledWith(
+    expect(offlineCache.setUnitCacheMode).toHaveBeenCalledWith(
       'unit-1',
       'minimal'
     );

@@ -32,7 +32,7 @@ export interface OfflineCacheProvider {
     lessons: OfflineLessonPayload[],
     assets: OfflineAssetPayload[]
   ): Promise<void>;
-  markUnitCacheMode(unitId: string, cacheMode: CacheMode): Promise<void>;
+  setUnitCacheMode(unitId: string, cacheMode: CacheMode): Promise<void>;
   resolveAsset(assetId: string): Promise<CachedAsset | null>;
   downloadUnitAssets(unitId: string): Promise<void>;
   enqueueOutbox(request: OutboxRequest): Promise<void>;
@@ -98,9 +98,9 @@ export function offlineCacheProvider(): OfflineCacheProvider {
       const service = await ensureService();
       await service.cacheFullUnit(unit, lessons, assets);
     },
-    async markUnitCacheMode(unitId: string, cacheMode: CacheMode) {
+    async setUnitCacheMode(unitId: string, cacheMode: CacheMode) {
       const service = await ensureService();
-      await service.markUnitCacheMode(unitId, cacheMode);
+      await service.setUnitCacheMode(unitId, cacheMode);
     },
     async resolveAsset(assetId: string) {
       const service = await ensureService();
