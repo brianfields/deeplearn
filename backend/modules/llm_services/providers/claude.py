@@ -94,7 +94,7 @@ _CLAUDE_MODEL_CONFIGS: dict[str, ClaudeModelConfig] = {
     "claude-haiku-4-5": ClaudeModelConfig(
         name="claude-haiku-4-5",
         anthropic_id="claude-haiku-4-5-20250219",
-        bedrock_id="anthropic.claude-haiku-4-5-v1:0",
+        bedrock_id="us.anthropic.claude-haiku-4-5-v1:0",
         context_window=200000,
         max_output_tokens=4096,
         input_cost_per_mtoken=1.0,
@@ -103,7 +103,7 @@ _CLAUDE_MODEL_CONFIGS: dict[str, ClaudeModelConfig] = {
     "claude-sonnet-4-5": ClaudeModelConfig(
         name="claude-sonnet-4-5",
         anthropic_id="claude-sonnet-4-5-20250514",
-        bedrock_id="anthropic.claude-sonnet-4-5-v1:0",
+        bedrock_id="us.anthropic.claude-sonnet-4-5-v1:0",
         context_window=200000,
         max_output_tokens=8192,
         input_cost_per_mtoken=3.0,
@@ -112,7 +112,7 @@ _CLAUDE_MODEL_CONFIGS: dict[str, ClaudeModelConfig] = {
     "claude-opus-4-1": ClaudeModelConfig(
         name="claude-opus-4-1",
         anthropic_id="claude-opus-4-1-20250115",
-        bedrock_id="anthropic.claude-opus-4-1-v1:0",
+        bedrock_id="us.anthropic.claude-opus-4-1-v1:0",
         context_window=200000,
         max_output_tokens=8192,
         input_cost_per_mtoken=15.0,
@@ -332,11 +332,24 @@ class ClaudeProviderBase(LLMProvider):
 
         if is_structured and response_model is not None:
             try:
-                parsed_payload = json.loads(result.text)
+                # Strip markdown code blocks if present
+                text_to_parse = result.text.strip()
+                if text_to_parse.startswith("```json"):
+                    text_to_parse = text_to_parse[7:]  # Remove ```json
+                elif text_to_parse.startswith("```"):
+                    text_to_parse = text_to_parse[3:]  # Remove ```
+                if text_to_parse.endswith("```"):
+                    text_to_parse = text_to_parse[:-3]  # Remove trailing ```
+                text_to_parse = text_to_parse.strip()
+
+                logger.info(f"Parsing structured response (length: {len(text_to_parse)}, first 200 chars): {text_to_parse[:200]}")
+                parsed_payload = json.loads(text_to_parse)
                 structured_obj = response_model(**parsed_payload)
             except json.JSONDecodeError as exc:
+                logger.error(f"Failed to parse JSON. Raw text: {result.text[:500]}")
                 raise LLMValidationError(f"Claude response was not valid JSON: {exc}") from exc
             except Exception as exc:
+                logger.error(f"Failed to create structured object. Parsed payload keys: {list(parsed_payload.keys()) if 'parsed_payload' in locals() else 'N/A'}")
                 raise LLMValidationError(f"Failed to parse Claude response: {exc}") from exc
             return structured_obj, request_id, usage_info
 
@@ -410,6 +423,10 @@ class AnthropicProvider(ClaudeProviderBase):
         super().__init__(config, db_session)
         self.provider_type = LLMProviderType.ANTHROPIC
         self._client: Any | None = None
+        # Check SDK availability at initialization time
+        if not _ANTHROPIC_AVAILABLE or AsyncAnthropic is None:
+            raise LLMAuthenticationError("Anthropic SDK is not installed. Please install 'anthropic'.")
+        logger.info("AnthropicProvider initialized")
 
     def _ensure_client(self) -> Any:
         if not _ANTHROPIC_AVAILABLE or AsyncAnthropic is None:
@@ -482,6 +499,7 @@ class BedrockProvider(ClaudeProviderBase):
         super().__init__(config, db_session)
         self.provider_type = LLMProviderType.BEDROCK
         self._client: Any | None = None
+        logger.info(f"BedrockProvider initialized (region: {config.aws_region}, model_id: {config.bedrock_model_id})")
 
     def _ensure_client(self) -> Any:
         if not _BOTO3_AVAILABLE or _boto3 is None:
@@ -514,6 +532,11 @@ class BedrockProvider(ClaudeProviderBase):
         client = self._ensure_client()
         model_id = self.config.bedrock_model_id or model_config.bedrock_id
 
+        logger.info(f"Invoking Bedrock model: '{model_id}' (region: {self.config.aws_region})")
+        logger.debug(f"Model config name: '{model_config.name}', bedrock_id: '{model_config.bedrock_id}'")
+        if self.config.bedrock_model_id:
+            logger.debug(f"Using explicit bedrock_model_id from config: '{self.config.bedrock_model_id}'")
+
         payload: dict[str, Any] = {
             "anthropic_version": "bedrock-2023-05-31",
             "messages": messages,
@@ -522,8 +545,7 @@ class BedrockProvider(ClaudeProviderBase):
         }
         if system_prompt:
             payload["system"] = system_prompt
-        if response_format is not None:
-            payload["response_format"] = response_format
+        # Note: Bedrock doesn't support response_format parameter
 
         async def _invoke() -> dict[str, Any]:
             try:
@@ -536,9 +558,22 @@ class BedrockProvider(ClaudeProviderBase):
                 )
             except (Boto3ClientError, Boto3BotoCoreError) as exc:
                 error_code = getattr(exc, "response", {}).get("Error", {}).get("Code", "bedrock_error")
+                error_message = getattr(exc, "response", {}).get("Error", {}).get("Message", str(exc))
+
+                if error_code == "ValidationException":
+                    logger.error(
+                        f"Bedrock model validation error for '{model_id}' in region '{self.config.aws_region}': {error_message}\n"
+                        f"This usually means:\n"
+                        f"  1. The model isn't available in this region\n"
+                        f"  2. You haven't requested model access in AWS Bedrock console\n"
+                        f"  3. The model ID is incorrect\n"
+                        f"To fix: Visit AWS Bedrock console → Model access → Request access for Claude models"
+                    )
+                    raise LLMValidationError(f"Invalid Bedrock model '{model_id}': {error_message}") from exc
+
                 if error_code in {"ThrottlingException", "TooManyRequestsException"}:
                     raise LLMRateLimitError(str(exc)) from exc
-                raise LLMError(str(exc)) from exc
+                raise LLMError(f"{error_code}: {error_message}") from exc
             except Exception as exc:  # pragma: no cover - defensive
                 raise LLMError(f"Bedrock invocation failed: {exc}") from exc
 
@@ -550,11 +585,22 @@ class BedrockProvider(ClaudeProviderBase):
                 raise LLMError(f"Invalid Bedrock response body: {exc}") from exc
 
         result_payload = await _invoke()
+        logger.debug(f"Bedrock response keys: {list(result_payload.keys())}")
+
+        # Log full payload
+        try:
+            full_payload_str = json.dumps(result_payload, indent=2, default=str)
+            logger.info(f"Bedrock FULL response payload:\n{full_payload_str}")
+        except Exception as e:
+            logger.error(f"Could not serialize payload: {e}")
+
         usage = result_payload.get("usage", {})
         input_tokens = int(usage.get("input_tokens") or usage.get("inputTokens") or 0)
         output_tokens = int(usage.get("output_tokens") or usage.get("outputTokens") or 0)
         stop_reason = result_payload.get("stop_reason") or result_payload.get("stopReason")
         text = parse_claude_response(result_payload.get("output") or result_payload.get("content"))
+        logger.info(f"Extracted text from Bedrock (first 500 chars): {text[:500] if text else '(empty)'}")
+
         provider_response_id = result_payload.get("id") or result_payload.get("response_id")
         if provider_response_id is None:
             metadata = result_payload.get("ResponseMetadata") or {}

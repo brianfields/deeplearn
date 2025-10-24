@@ -8,26 +8,26 @@
 
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
+		33C9D34B57D17C993A7941B1 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = EF9F7CD87956EB7D89B2BA7D /* PrivacyInfo.xcprivacy */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		621E79A09CBD7C610974B172 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 827C346EE5597B85BE1BA08D /* PrivacyInfo.xcprivacy */; };
-		6A85F8BCE734555B2BF1BB45 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 051412A6C95F425FE88838B5 /* ExpoModulesProvider.swift */; };
-		8738B4C66EDB5EB1EA829BF5 /* libPods-DeepLearnMobile.a in Frameworks */ = {isa = PBXBuildFile; fileRef = CDA80F2C83F56C8CB023DB10 /* libPods-DeepLearnMobile.a */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
+		C1CA3D49AB67807E7AB3D88C /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93EB6B41930DBB529E06E4C1 /* ExpoModulesProvider.swift */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
+		F47B8181AD731AEC126964A1 /* libPods-DeepLearnMobile.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 9ED5679892AF722FB5EE064F /* libPods-DeepLearnMobile.a */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		051412A6C95F425FE88838B5 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-DeepLearnMobile/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		08FFF57C068F5DD2C6EF06A6 /* Pods-DeepLearnMobile.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-DeepLearnMobile.debug.xcconfig"; path = "Target Support Files/Pods-DeepLearnMobile/Pods-DeepLearnMobile.debug.xcconfig"; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* DeepLearnMobile.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DeepLearnMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = DeepLearnMobile/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = DeepLearnMobile/Info.plist; sourceTree = "<group>"; };
-		4535ED55C39B1348A554DFD4 /* Pods-DeepLearnMobile.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-DeepLearnMobile.release.xcconfig"; path = "Target Support Files/Pods-DeepLearnMobile/Pods-DeepLearnMobile.release.xcconfig"; sourceTree = "<group>"; };
-		827C346EE5597B85BE1BA08D /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = DeepLearnMobile/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		27C179AEA808871030C3C5D0 /* Pods-DeepLearnMobile.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-DeepLearnMobile.debug.xcconfig"; path = "Target Support Files/Pods-DeepLearnMobile/Pods-DeepLearnMobile.debug.xcconfig"; sourceTree = "<group>"; };
+		760D8E128718F29C2F7FE1B2 /* Pods-DeepLearnMobile.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-DeepLearnMobile.release.xcconfig"; path = "Target Support Files/Pods-DeepLearnMobile/Pods-DeepLearnMobile.release.xcconfig"; sourceTree = "<group>"; };
+		93EB6B41930DBB529E06E4C1 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-DeepLearnMobile/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		9ED5679892AF722FB5EE064F /* libPods-DeepLearnMobile.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-DeepLearnMobile.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = DeepLearnMobile/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
-		CDA80F2C83F56C8CB023DB10 /* libPods-DeepLearnMobile.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-DeepLearnMobile.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
+		EF9F7CD87956EB7D89B2BA7D /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = DeepLearnMobile/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = DeepLearnMobile/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* DeepLearnMobile-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "DeepLearnMobile-Bridging-Header.h"; path = "DeepLearnMobile/DeepLearnMobile-Bridging-Header.h"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -37,7 +37,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8738B4C66EDB5EB1EA829BF5 /* libPods-DeepLearnMobile.a in Frameworks */,
+				F47B8181AD731AEC126964A1 /* libPods-DeepLearnMobile.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -53,15 +53,7 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				827C346EE5597B85BE1BA08D /* PrivacyInfo.xcprivacy */,
-			);
-			name = DeepLearnMobile;
-			sourceTree = "<group>";
-		};
-		2ABB73C9F314FA859D6AFAD7 /* DeepLearnMobile */ = {
-			isa = PBXGroup;
-			children = (
-				051412A6C95F425FE88838B5 /* ExpoModulesProvider.swift */,
+				EF9F7CD87956EB7D89B2BA7D /* PrivacyInfo.xcprivacy */,
 			);
 			name = DeepLearnMobile;
 			sourceTree = "<group>";
@@ -70,17 +62,9 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				CDA80F2C83F56C8CB023DB10 /* libPods-DeepLearnMobile.a */,
+				9ED5679892AF722FB5EE064F /* libPods-DeepLearnMobile.a */,
 			);
 			name = Frameworks;
-			sourceTree = "<group>";
-		};
-		316AEFBB48CB091A04EB3F53 /* ExpoModulesProviders */ = {
-			isa = PBXGroup;
-			children = (
-				2ABB73C9F314FA859D6AFAD7 /* DeepLearnMobile */,
-			);
-			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -97,8 +81,8 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				B90DC90AB8B64534F8D03A51 /* Pods */,
-				316AEFBB48CB091A04EB3F53 /* ExpoModulesProviders */,
+				F8A60272DE16D25566151954 /* Pods */,
+				FB31A541F0503B8E81A8A37B /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -113,14 +97,12 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		B90DC90AB8B64534F8D03A51 /* Pods */ = {
+		B757CE046AE2627F1E3EE535 /* DeepLearnMobile */ = {
 			isa = PBXGroup;
 			children = (
-				08FFF57C068F5DD2C6EF06A6 /* Pods-DeepLearnMobile.debug.xcconfig */,
-				4535ED55C39B1348A554DFD4 /* Pods-DeepLearnMobile.release.xcconfig */,
+				93EB6B41930DBB529E06E4C1 /* ExpoModulesProvider.swift */,
 			);
-			name = Pods;
-			path = Pods;
+			name = DeepLearnMobile;
 			sourceTree = "<group>";
 		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
@@ -132,6 +114,24 @@
 			path = DeepLearnMobile/Supporting;
 			sourceTree = "<group>";
 		};
+		F8A60272DE16D25566151954 /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				27C179AEA808871030C3C5D0 /* Pods-DeepLearnMobile.debug.xcconfig */,
+				760D8E128718F29C2F7FE1B2 /* Pods-DeepLearnMobile.release.xcconfig */,
+			);
+			name = Pods;
+			path = Pods;
+			sourceTree = "<group>";
+		};
+		FB31A541F0503B8E81A8A37B /* ExpoModulesProviders */ = {
+			isa = PBXGroup;
+			children = (
+				B757CE046AE2627F1E3EE535 /* DeepLearnMobile */,
+			);
+			name = ExpoModulesProviders;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -140,13 +140,13 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "DeepLearnMobile" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				877C72D70225132769EA4FBA /* [Expo] Configure project */,
+				DC361C5C76627B9918B10383 /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				97A4BECA8EFAB94B46822387 /* [CP] Embed Pods Frameworks */,
+				A1FACEC69318506542CBC603 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -196,7 +196,7 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				621E79A09CBD7C610974B172 /* PrivacyInfo.xcprivacy in Resources */,
+				33C9D34B57D17C993A7941B1 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -284,26 +284,7 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-DeepLearnMobile/Pods-DeepLearnMobile-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		877C72D70225132769EA4FBA /* [Expo] Configure project */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "[Expo] Configure project";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-DeepLearnMobile/expo-configure-project.sh\"\n";
-		};
-		97A4BECA8EFAB94B46822387 /* [CP] Embed Pods Frameworks */ = {
+		A1FACEC69318506542CBC603 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -323,6 +304,25 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-DeepLearnMobile/Pods-DeepLearnMobile-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
+		DC361C5C76627B9918B10383 /* [Expo] Configure project */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "[Expo] Configure project";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-DeepLearnMobile/expo-configure-project.sh\"\n";
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -331,7 +331,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				6A85F8BCE734555B2BF1BB45 /* ExpoModulesProvider.swift in Sources */,
+				C1CA3D49AB67807E7AB3D88C /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -340,7 +340,7 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 08FFF57C068F5DD2C6EF06A6 /* Pods-DeepLearnMobile.debug.xcconfig */;
+			baseConfigurationReference = 27C179AEA808871030C3C5D0 /* Pods-DeepLearnMobile.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -376,7 +376,7 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 4535ED55C39B1348A554DFD4 /* Pods-DeepLearnMobile.release.xcconfig */;
+			baseConfigurationReference = 760D8E128718F29C2F7FE1B2 /* Pods-DeepLearnMobile.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
