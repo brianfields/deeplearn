@@ -26,12 +26,22 @@ module.exports = {
     '^@react-native-community/netinfo$': '<rootDir>/__mocks__/netinfo.js',
     '^expo-haptics$': '<rootDir>/__mocks__/expo-haptics.js',
     '^expo-audio$': '<rootDir>/__mocks__/expo-audio.js',
+    '^expo-sqlite$': '<rootDir>/__mocks__/expo-sqlite.js',
+    '^expo-file-system$': '<rootDir>/__mocks__/expo-file-system.js',
   },
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
   testEnvironment: 'node',
   preset: 'ts-jest',
   transform: {
-    '^.+\\.tsx?$': ['ts-jest', { useESM: true }],
+    '^.+\\.tsx?$': [
+      'ts-jest',
+      {
+        useESM: true,
+        tsconfig: {
+          jsx: 'react',
+        },
+      },
+    ],
   },
   globals: {
     __DEV__: true,

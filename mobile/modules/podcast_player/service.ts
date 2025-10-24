@@ -321,13 +321,22 @@ export class PodcastPlayerService {
     }
 
     const store = usePodcastStore.getState();
+    const currentState = store.playbackState;
+
     const isPlaying = this.player.playing ?? false;
     const isLoading = this.player.isBuffering ?? false;
     const position = this.player.currentTime ?? 0;
-    const duration = this.player.duration ?? 0;
+    const playerDuration = this.player.duration ?? 0;
+
+    // Determine the best duration value:
+    // 1. If player has a valid duration (> 0), use it
+    // 2. Otherwise, keep the current state duration (from track.durationSeconds)
+    // This handles cases where track.durationSeconds might be 0/null
+    // but the player can still read the actual duration from the audio file
+    const duration =
+      playerDuration > 0 ? playerDuration : (currentState.duration ?? 0);
 
     // Only update if values have changed significantly (avoid unnecessary re-renders)
-    const currentState = store.playbackState;
 
     // Don't override isPlaying to false if we just called play()
     const shouldUpdateIsPlaying = !this.isPlayPending || isPlaying;
@@ -344,8 +353,6 @@ export class PodcastPlayerService {
         position: position.toFixed(2),
         duration: duration.toFixed(2),
         isBuffering: isLoading,
-        isPlayPending: this.isPlayPending,
-        willUpdateIsPlaying: shouldUpdateIsPlaying,
       });
 
       // Build the update object, conditionally including isPlaying

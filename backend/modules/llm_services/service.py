@@ -9,7 +9,7 @@ import uuid
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .config import create_llm_config_from_env
+from .config import LLMConfig, create_llm_config_from_env
 from .providers.base import LLMProvider, LLMProviderKwargs
 from .providers.factory import create_llm_provider
 from .repo import LLMRequestRepo
@@ -18,6 +18,7 @@ from .types import (
     ImageGenerationRequest,
     ImageQuality,
     ImageSize,
+    LLMProviderType,
     MessageRole,
 )
 from .types import (
@@ -111,7 +112,7 @@ class LLMRequest(BaseModel):
     """DTO for LLM request records."""
 
     id: uuid.UUID = Field(..., description="Request ID")
-    user_id: uuid.UUID | None = Field(None, description="User ID")
+    user_id: int | None = Field(None, description="User ID")
     api_variant: str = Field(..., description="API variant used (e.g., responses)")
     provider: str = Field(..., description="LLM provider")
     model: str = Field(..., description="Model used")
@@ -228,17 +229,66 @@ class LLMService:
     def __init__(self, repo: LLMRequestRepo) -> None:
         self.repo = repo
         self.provider: LLMProvider | None = None
-        # Initialize LLM provider
+        self._provider_cache: dict[LLMProviderType, LLMProvider] = {}
+        self._provider_configs: dict[LLMProviderType, LLMConfig] = {}
+        self._default_provider_type: LLMProviderType | None = None
+        # Initialize default LLM provider
         try:
-            config = create_llm_config_from_env()
-            self.provider = create_llm_provider(config, repo.s)
+            default_config = create_llm_config_from_env()
+            self._default_provider_type = default_config.provider
+            self._provider_configs[default_config.provider] = default_config
+            provider_instance = create_llm_provider(default_config, repo.s)
+            self._provider_cache[default_config.provider] = provider_instance
+            self.provider = provider_instance
         except Exception as e:
-            # Log error but don't fail initialization
             logger = logging.getLogger(__name__)
             logger.warning(f"Failed to initialize LLM provider: {e}")
             self.provider = None
+            self._default_provider_type = None
 
-    def _ensure_request_user(self, request_id: uuid.UUID, user_id: uuid.UUID | None) -> None:
+    def _ensure_provider(self, provider_type: LLMProviderType) -> LLMProvider:
+        if provider_type in self._provider_cache:
+            return self._provider_cache[provider_type]
+
+        config = self._provider_configs.get(provider_type)
+        if config is None:
+            try:
+                config = create_llm_config_from_env(provider_override=provider_type)
+            except Exception as exc:
+                raise RuntimeError(f"Provider {provider_type.value} is not configured") from exc
+            self._provider_configs[provider_type] = config
+
+        provider = create_llm_provider(config, self.repo.s)
+        self._provider_cache[provider_type] = provider
+        if self.provider is None and provider_type == self._default_provider_type:
+            self.provider = provider
+        return provider
+
+    def _select_provider(self, model: str | None) -> LLMProvider:
+        if model and model.startswith("claude-"):
+            for candidate in (LLMProviderType.ANTHROPIC, LLMProviderType.BEDROCK):
+                with contextlib.suppress(RuntimeError):
+                    return self._ensure_provider(candidate)
+            raise RuntimeError("Claude provider is not configured")
+
+        if (
+            model
+            and model.startswith("gpt-")
+            and self._default_provider_type
+            not in {
+                LLMProviderType.OPENAI,
+                LLMProviderType.AZURE_OPENAI,
+            }
+        ):
+            with contextlib.suppress(RuntimeError):
+                return self._ensure_provider(LLMProviderType.OPENAI)
+
+        if self._default_provider_type is None:
+            raise RuntimeError("LLM provider not initialized")
+
+        return self._ensure_provider(self._default_provider_type)
+
+    def _ensure_request_user(self, request_id: uuid.UUID, user_id: int | None) -> None:
         """Persist the user association for the given LLM request when provided."""
 
         if user_id is None:
@@ -248,21 +298,18 @@ class LLMService:
             self.repo.assign_user(request_id, user_id)
 
     async def generate_response(
-        self, messages: list[LLMMessage], user_id: uuid.UUID | None = None, model: str | None = None, temperature: float | None = None, max_output_tokens: int | None = None, **kwargs: LLMProviderKwargs
+        self, messages: list[LLMMessage], user_id: int | None = None, model: str | None = None, temperature: float | None = None, max_output_tokens: int | None = None, **kwargs: LLMProviderKwargs
     ) -> tuple[LLMResponse, uuid.UUID]:
         """
         Generate a text response from the LLM.
         """
-        if not self.provider:
-            raise RuntimeError("LLM provider not initialized")
+        provider = self._select_provider(model)
 
         # Convert DTOs to internal types
         internal_messages = [msg.to_llm_message() for msg in messages]
 
-        if self.provider is None:
-            raise RuntimeError("LLM provider not initialized")
         # Call provider
-        internal_response, request_id = await self.provider.generate_response(messages=internal_messages, user_id=user_id, model=model, temperature=temperature, max_output_tokens=max_output_tokens, **kwargs)  # type: ignore[arg-type]
+        internal_response, request_id = await provider.generate_response(messages=internal_messages, user_id=user_id, model=model, temperature=temperature, max_output_tokens=max_output_tokens, **kwargs)  # type: ignore[arg-type]
 
         # Convert back to DTO
         response_dto = LLMResponse.from_llm_response(internal_response)
@@ -270,7 +317,7 @@ class LLMService:
         return response_dto, request_id
 
     async def generate_structured_response(
-        self, messages: list[LLMMessage], response_model: type[T], user_id: uuid.UUID | None = None, model: str | None = None, temperature: float | None = None, max_output_tokens: int | None = None, **kwargs: LLMProviderKwargs
+        self, messages: list[LLMMessage], response_model: type[T], user_id: int | None = None, model: str | None = None, temperature: float | None = None, max_output_tokens: int | None = None, **kwargs: LLMProviderKwargs
     ) -> tuple[T, uuid.UUID, dict[str, Any]]:
         """
         Generate a structured response using a Pydantic model.
@@ -278,8 +325,7 @@ class LLMService:
         Returns:
             Tuple of (structured_object, request_id, usage_info)
         """
-        if not self.provider:
-            raise RuntimeError("LLM provider not initialized")
+        provider = self._select_provider(model)
 
         # Convert DTOs to internal types
         internal_messages = [msg.to_llm_message() for msg in messages]
@@ -292,7 +338,7 @@ class LLMService:
             provider_kwargs["temperature"] = temperature
         if max_output_tokens is not None:
             provider_kwargs["max_output_tokens"] = max_output_tokens
-        structured_obj, request_id, usage_info = await self.provider.generate_structured_object(messages=internal_messages, response_model=response_model, user_id=user_id, **provider_kwargs, **kwargs)
+        structured_obj, request_id, usage_info = await provider.generate_structured_object(messages=internal_messages, response_model=response_model, user_id=user_id, **provider_kwargs, **kwargs)
 
         self._ensure_request_user(request_id, user_id)
         return structured_obj, request_id, usage_info
@@ -301,7 +347,7 @@ class LLMService:
         self,
         text: str,
         voice: str,
-        user_id: uuid.UUID | None = None,
+        user_id: int | None = None,
         model: str | None = None,
         audio_format: str = "mp3",
         speed: float | None = None,
@@ -309,10 +355,9 @@ class LLMService:
     ) -> tuple[AudioResponse, uuid.UUID]:
         """Synthesize narrated audio from text."""
 
-        if not self.provider:
-            raise RuntimeError("LLM provider not initialized")
+        provider = self._select_provider(model)
 
-        resolved_model = model or getattr(self.provider.config, "audio_model", None) or self.provider.config.model
+        resolved_model = model or getattr(provider.config, "audio_model", None) or provider.config.model
 
         request = AudioGenerationRequest(
             text=text,
@@ -322,7 +367,7 @@ class LLMService:
             speed=speed,
         )
 
-        internal_response, request_id = await self.provider.generate_audio(
+        internal_response, request_id = await provider.generate_audio(
             request=request,
             user_id=user_id,
             **kwargs,
@@ -332,12 +377,11 @@ class LLMService:
         self._ensure_request_user(request_id, user_id)
         return response_dto, request_id
 
-    async def generate_image(self, prompt: str, user_id: uuid.UUID | None = None, size: str = "1024x1024", quality: str = "standard", style: str | None = None, **kwargs: LLMProviderKwargs) -> tuple[ImageResponse, uuid.UUID]:
+    async def generate_image(self, prompt: str, user_id: int | None = None, size: str = "1024x1024", quality: str = "standard", style: str | None = None, **kwargs: LLMProviderKwargs) -> tuple[ImageResponse, uuid.UUID]:
         """
         Generate an image from a text prompt.
         """
-        if not self.provider:
-            raise RuntimeError("LLM provider not initialized")
+        provider = self._select_provider(None)
 
         # Create image request
         # Convert string parameters to enums
@@ -347,22 +391,21 @@ class LLMService:
         request = ImageGenerationRequest(prompt=prompt, size=image_size, quality=image_quality, style=style)
 
         # Call provider
-        internal_response, request_id = await self.provider.generate_image(request=request, user_id=user_id, **kwargs)
+        internal_response, request_id = await provider.generate_image(request=request, user_id=user_id, **kwargs)
 
         # Convert to DTO
         response_dto = ImageResponse.from_image_response(internal_response)
         self._ensure_request_user(request_id, user_id)
         return response_dto, request_id
 
-    async def search_web(self, queries: list[str], user_id: uuid.UUID | None = None, max_results: int = 10, **kwargs: LLMProviderKwargs) -> tuple[WebSearchResponse, uuid.UUID]:
+    async def search_web(self, queries: list[str], user_id: int | None = None, max_results: int = 10, **kwargs: LLMProviderKwargs) -> tuple[WebSearchResponse, uuid.UUID]:
         """
         Search the web for recent information.
         """
-        if not self.provider:
-            raise RuntimeError("LLM provider not initialized")
+        provider = self._select_provider(None)
 
         # Call provider (this will raise NotImplementedError for OpenAI)
-        internal_response, request_id = await self.provider.search_recent_news(search_queries=queries, user_id=user_id, max_results=max_results, **kwargs)  # type: ignore[arg-type]
+        internal_response, request_id = await provider.search_recent_news(search_queries=queries, user_id=user_id, max_results=max_results, **kwargs)  # type: ignore[arg-type]
 
         # Convert to DTO
         response_dto = WebSearchResponse.from_web_search_response(internal_response)
@@ -374,7 +417,7 @@ class LLMService:
         request = self.repo.by_id(request_id)
         return LLMRequest.model_validate(request) if request else None
 
-    def get_user_requests(self, user_id: uuid.UUID, limit: int = 50, offset: int = 0) -> list[LLMRequest]:
+    def get_user_requests(self, user_id: int, limit: int = 50, offset: int = 0) -> list[LLMRequest]:
         """Get recent requests for a specific user."""
         requests = self.repo.by_user_id(user_id, limit, offset)
         return [LLMRequest.model_validate(req) for req in requests]
@@ -383,7 +426,9 @@ class LLMService:
         """
         Estimate the cost of a request before making it.
         """
-        if not self.provider:
+        try:
+            provider = self._select_provider(model)
+        except RuntimeError:
             return 0.0
 
         # Rough token estimation (this is approximate)
@@ -391,13 +436,13 @@ class LLMService:
         total_chars = sum(len(msg.content) for msg in messages)
         estimated_tokens = total_chars // 4  # Rough approximation
 
-        return self.provider.estimate_cost(
+        return provider.estimate_cost(
             prompt_tokens=estimated_tokens,
             completion_tokens=estimated_tokens // 4,  # Estimate output tokens
             model=model,
         )
 
-    def get_request_count_by_user(self, user_id: uuid.UUID) -> int:
+    def get_request_count_by_user(self, user_id: int) -> int:
         """Get total request count for a user."""
         return self.repo.count_by_user(user_id)
 

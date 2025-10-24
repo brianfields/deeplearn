@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
+from datetime import UTC, datetime
 from typing import cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -49,6 +50,52 @@ async def list_units(
     """Return all units ordered by most recent update."""
 
     return await service.list_units(limit=limit, offset=offset)
+
+
+@router.get("/units/sync", response_model=ContentService.UnitSyncResponse)
+async def sync_units(
+    user_id: int = Query(..., ge=1, description="User ID for filtering accessible units"),
+    since: str | None = Query(
+        None,
+        description="ISO-8601 timestamp indicating the last successful sync",
+    ),
+    limit: int = Query(100, ge=1, le=500, description="Maximum number of units to inspect"),
+    include_deleted: bool = Query(False, description="Whether to include deletion tombstones"),
+    payload: str = Query(
+        "full",
+        description="Payload detail level: 'full' returns lessons/audio/image metadata, 'minimal' returns unit metadata + image",
+    ),
+    service: ContentService = Depends(get_content_service),
+) -> ContentService.UnitSyncResponse:
+    """Return units and lessons that have changed since the provided cursor, filtered by user access."""
+
+    parsed_since: datetime | None = None
+    if since:
+        try:
+            parsed_since = datetime.fromisoformat(since)
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid since timestamp") from exc
+
+        # Convert to timezone-aware UTC if naive
+        if parsed_since.tzinfo is None:
+            parsed_since = parsed_since.replace(tzinfo=UTC)
+
+        # Convert to naive datetime for database comparison (PostgreSQL TIMESTAMP WITHOUT TIME ZONE)
+        parsed_since = parsed_since.replace(tzinfo=None)
+
+    if payload not in {"full", "minimal"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid payload value; expected 'full' or 'minimal'",
+        )
+
+    return await service.get_units_since(
+        since=parsed_since,
+        limit=limit,
+        include_deleted=include_deleted,
+        payload=cast(ContentService.UnitSyncPayload, payload),
+        user_id=user_id,
+    )
 
 
 @router.get("/units/personal", response_model=list[ContentService.UnitRead])

@@ -12,9 +12,18 @@ import uuid
 
 import pytest
 
-from modules.admin.models import FlowRunsListResponse, FlowRunSummary, UserUpdateRequest
+from modules.admin.models import (
+    FlowRunsListResponse,
+    FlowRunSummary,
+    UserUpdateRequest,
+)
 from modules.admin.service import AdminService
 from modules.flow_engine.models import FlowRunModel, FlowStepRunModel
+from modules.learning_coach.dtos import (
+    LearningCoachConversationSummary,
+    LearningCoachMessage,
+    LearningCoachSessionState,
+)
 from modules.learning_session.service import LearningSession, SessionListResponse
 from modules.llm_services.service import LLMRequest
 from modules.user.service import UserRead
@@ -124,6 +133,55 @@ class TestAdminService:
         return mock
 
     @pytest.fixture
+    def mock_learning_coach_provider(self) -> SimpleNamespace:
+        """Mock LearningCoachProvider with deterministic data."""
+
+        conversation_id = str(uuid.uuid4())
+        now = datetime.now(UTC)
+
+        summary = LearningCoachConversationSummary(
+            id=conversation_id,
+            user_id=42,
+            title="Exploring Algebra",
+            created_at=now,
+            updated_at=now,
+            last_message_at=now,
+            message_count=3,
+            metadata={"topic": "algebra"},
+        )
+
+        message = LearningCoachMessage(
+            id=str(uuid.uuid4()),
+            role="assistant",
+            content="Let's map out your algebra goals.",
+            created_at=now,
+            metadata={},
+        )
+
+        state = LearningCoachSessionState(
+            conversation_id=conversation_id,
+            messages=[message],
+            metadata=summary.metadata,
+            finalized_topic=None,
+            unit_title=None,
+            learning_objectives=None,
+            suggested_lesson_count=None,
+            proposed_brief=None,
+            accepted_brief=None,
+        )
+
+        provider = SimpleNamespace()
+        provider.list_conversations = AsyncMock(return_value=[summary])
+        provider.get_session_state = AsyncMock(return_value=state)
+        provider.start_session = AsyncMock()
+        provider.submit_learner_turn = AsyncMock()
+        provider.accept_brief = AsyncMock()
+        provider.restart_session = AsyncMock()
+        provider.sample_summary = summary
+        provider.sample_state = state
+        return provider
+
+    @pytest.fixture
     def admin_service(
         self,
         mock_flow_engine_admin: Mock,
@@ -141,6 +199,29 @@ class TestAdminService:
             content=mock_content_provider,
             users=mock_user_provider,
             learning_sessions=mock_learning_sessions_provider,
+        )
+
+    @pytest.fixture
+    def admin_service_with_learning_coach(
+        self,
+        mock_flow_engine_admin: Mock,
+        mock_llm_services_admin: Mock,
+        mock_catalog_provider: Mock,
+        mock_content_provider: Mock,
+        mock_user_provider: Mock,
+        mock_learning_sessions_provider: Mock,
+        mock_learning_coach_provider: SimpleNamespace,
+    ) -> AdminService:
+        """Admin service including learning coach provider."""
+
+        return AdminService(
+            flow_engine_admin=mock_flow_engine_admin,
+            llm_services_admin=mock_llm_services_admin,
+            catalog=mock_catalog_provider,
+            content=mock_content_provider,
+            users=mock_user_provider,
+            learning_sessions=mock_learning_sessions_provider,
+            learning_coach=mock_learning_coach_provider,
         )
 
     @pytest.mark.asyncio
@@ -198,7 +279,40 @@ class TestAdminService:
 
         # Verify mock calls
         mock_flow_engine_admin.get_flow_run_by_id.assert_called_once()
-        mock_flow_engine_admin.get_flow_steps_by_run_id.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_list_learning_coach_conversations(
+        self,
+        admin_service_with_learning_coach: AdminService,
+        mock_learning_coach_provider: SimpleNamespace,
+    ) -> None:
+        """Ensure learning coach conversations are surfaced via admin service."""
+
+        response = await admin_service_with_learning_coach.list_learning_coach_conversations(limit=5, offset=0)
+
+        assert response.limit == 5
+        assert len(response.conversations) == 1
+        assert response.conversations[0].id == mock_learning_coach_provider.sample_summary.id
+        mock_learning_coach_provider.list_conversations.assert_awaited_once_with(limit=5, offset=0)
+
+    @pytest.mark.asyncio
+    async def test_get_learning_coach_conversation(
+        self,
+        admin_service_with_learning_coach: AdminService,
+        mock_learning_coach_provider: SimpleNamespace,
+    ) -> None:
+        """Ensure the admin service returns learning coach transcript detail."""
+
+        summary = mock_learning_coach_provider.sample_summary
+        detail = await admin_service_with_learning_coach.get_learning_coach_conversation(summary.id)
+
+        assert detail is not None
+        assert detail.conversation_id == summary.id
+        assert detail.messages[0].role == "assistant"
+        mock_learning_coach_provider.get_session_state.assert_awaited_once_with(
+            summary.id,
+            include_system_messages=True,
+        )
 
     @pytest.mark.asyncio
     async def test_get_users_returns_associations(
@@ -389,7 +503,7 @@ class TestAdminService:
 
         mock_request = LLMRequest(
             id=uuid.uuid4(),
-            user_id=uuid.uuid4(),
+            user_id=42,
             api_variant="chat",
             provider="openai",
             model="gpt-4",

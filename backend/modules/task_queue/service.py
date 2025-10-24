@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 import logging
 import os
 from typing import Any
+from urllib.parse import urlparse
 import uuid
 
 try:
@@ -80,14 +81,23 @@ class TaskQueueService:
         self.repo = TaskQueueRepo(self.redis_connection)
         self._arq_pool: arq.ArqRedis | None = None
 
-        # ARQ configuration
+        # ARQ configuration - Parse Redis URL if provided (e.g., from Render: redis://host:port/db)
         redis_config = infrastructure.get_redis_config()
-        self.redis_settings = RedisSettings(
-            host=redis_config.host,
-            port=redis_config.port,
-            password=redis_config.password,
-            database=redis_config.db,
-        )
+        if redis_config.url:
+            parsed = urlparse(redis_config.url)
+            self.redis_settings = RedisSettings(
+                host=parsed.hostname or redis_config.host,
+                port=parsed.port or redis_config.port,
+                password=parsed.password or redis_config.password,
+                database=int(parsed.path.lstrip("/")) if parsed.path and parsed.path != "/" else redis_config.db,
+            )
+        else:
+            self.redis_settings = RedisSettings(
+                host=redis_config.host,
+                port=redis_config.port,
+                password=redis_config.password,
+                database=redis_config.db,
+            )
 
     async def get_arq_pool(self) -> "arq.ArqRedis":
         """Get or create ARQ connection pool."""

@@ -17,7 +17,7 @@
       }
     },
     "preview": {
-      "distribution": "internal",
+      "distribution": "store",
       "ios": {
         "simulator": false
       },
@@ -41,11 +41,18 @@
     }
   },
   "submit": {
+    "preview": {
+      "ios": {
+        "appleId": "thecriticalpath@gmail.com",
+        "ascAppId": "6753810396",
+        "appleTeamId": "367C9W6G9R"
+      }
+    },
     "production": {
       "ios": {
-        "appleId": "your-apple-id@example.com",
-        "ascAppId": "your-app-store-connect-app-id",
-        "appleTeamId": "your-apple-team-id"
+        "appleId": "thecriticalpath@gmail.com",
+        "ascAppId": "6753810396",
+        "appleTeamId": "367C9W6G9R"
       },
       "android": {
         "serviceAccountKeyPath": "./path-to-service-account-key.json",

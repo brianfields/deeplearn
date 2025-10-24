@@ -153,6 +153,33 @@ export function useCanStartSession(
 }
 
 /**
+ * Sync sessions from server
+ * Call this to pull latest session data from server and update local storage
+ */
+export function useSyncSessions() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (userId?: string) =>
+      learningSession.syncSessionsFromServer(userId),
+    onSuccess: (_data, userId) => {
+      // Invalidate all user session queries to refetch from updated local storage
+      queryClient.invalidateQueries({
+        queryKey: learningSessionKeys.userSessions(userId),
+      });
+
+      // Invalidate unit progress which depends on session data
+      queryClient.invalidateQueries({
+        queryKey: learningSessionKeys.unitProgress(
+          userId ?? DEFAULT_ANONYMOUS_USER_ID,
+          ''
+        ),
+      });
+    },
+  });
+}
+
+/**
  * Start new learning session mutation
  */
 export function useStartSession() {

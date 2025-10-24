@@ -2,6 +2,7 @@ import { ContentService } from './service';
 import { ContentRepo } from './repo';
 import type { Unit, UnitDetail, UserUnitCollections } from './models';
 import type { UpdateUnitSharingRequest } from './models';
+import type { CachedAsset, SyncStatus } from '../offline_cache/public';
 
 export interface ContentProvider {
   listUnits(params?: {
@@ -13,15 +14,6 @@ export interface ContentProvider {
     unitId: string,
     options?: { currentUserId?: number | null }
   ): Promise<UnitDetail | null>;
-  listPersonalUnits(
-    userId: number,
-    options?: { limit?: number; offset?: number; currentUserId?: number | null }
-  ): Promise<Unit[]>;
-  listGlobalUnits(options?: {
-    limit?: number;
-    offset?: number;
-    currentUserId?: number | null;
-  }): Promise<Unit[]>;
   getUserUnitCollections(
     userId: number,
     options?: { includeGlobal?: boolean; limit?: number; offset?: number }
@@ -31,6 +23,11 @@ export interface ContentProvider {
     request: UpdateUnitSharingRequest,
     currentUserId?: number | null
   ): Promise<Unit>;
+  requestUnitDownload(unitId: string): Promise<void>;
+  removeUnitDownload(unitId: string): Promise<void>;
+  resolveAsset(assetId: string): Promise<CachedAsset | null>;
+  syncNow(): Promise<SyncStatus>;
+  getSyncStatus(): Promise<SyncStatus>;
 }
 
 let serviceInstance: ContentService | null = null;
@@ -48,10 +45,13 @@ export function contentProvider(): ContentProvider {
   return {
     listUnits: service.listUnits.bind(service),
     getUnitDetail: service.getUnitDetail.bind(service),
-    listPersonalUnits: service.listPersonalUnits.bind(service),
-    listGlobalUnits: service.listGlobalUnits.bind(service),
     getUserUnitCollections: service.getUserUnitCollections.bind(service),
     updateUnitSharing: service.updateUnitSharing.bind(service),
+    requestUnitDownload: service.requestUnitDownload.bind(service),
+    removeUnitDownload: service.removeUnitDownload.bind(service),
+    resolveAsset: service.resolveAsset.bind(service),
+    syncNow: service.syncNow.bind(service),
+    getSyncStatus: service.getSyncStatus.bind(service),
   };
 }
 

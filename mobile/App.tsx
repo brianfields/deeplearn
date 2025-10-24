@@ -15,12 +15,13 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 // Screens (using new modular structure)
 import { LessonListScreen } from './modules/catalog/screens/UnitListScreen';
-import { CreateUnitScreen } from './modules/catalog/screens/CreateUnitScreen';
+import { LearningCoachScreen } from './modules/learning_coach/screens/LearningCoachScreen';
 import LearningFlowScreen from './modules/learning_session/screens/LearningFlowScreen';
 import ResultsScreen from './modules/learning_session/screens/ResultsScreen';
 import { UnitDetailScreen } from './modules/catalog/screens/UnitDetailScreen';
 import LoginScreen from './modules/user/screens/LoginScreen';
 import RegisterScreen from './modules/user/screens/RegisterScreen';
+import CacheManagementScreen from './modules/offline_cache/screens/CacheManagementScreen';
 
 // Types
 import type { RootStackParamList, LearningStackParamList } from './types';
@@ -68,10 +69,10 @@ function LearningStackNavigator(): React.ReactElement {
         }}
       />
       <LearningStack.Screen
-        name="CreateUnit"
-        component={CreateUnitScreen}
+        name="LearningCoach"
+        component={LearningCoachScreen}
         options={{
-          title: 'Create New Unit',
+          title: 'Learning Coach',
         }}
       />
       <LearningStack.Screen
@@ -79,6 +80,13 @@ function LearningStackNavigator(): React.ReactElement {
         component={UnitDetailScreen}
         options={{
           title: 'Unit',
+        }}
+      />
+      <LearningStack.Screen
+        name="CacheManagement"
+        component={CacheManagementScreen}
+        options={{
+          title: 'Cache Management',
         }}
       />
       <LearningStack.Screen

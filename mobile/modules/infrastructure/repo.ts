@@ -5,7 +5,11 @@
  * Returns raw API responses.
  */
 
-import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
+import axios from 'axios';
+
+// Type workaround for axios types with module resolution bundler
+type AxiosInstance = ReturnType<typeof axios.create>;
+type AxiosRequestConfig = Parameters<typeof axios.request>[0];
 import NetInfo from '@react-native-community/netinfo';
 import type {
   HttpClientConfig,
@@ -135,7 +139,7 @@ export class InfrastructureRepo {
     for (let attempt = 0; attempt <= retryAttempts; attempt++) {
       try {
         const response = await this.httpClient.request(axiosConfig);
-        return response.data;
+        return response.data as T;
       } catch (error: any) {
         lastError = error;
 

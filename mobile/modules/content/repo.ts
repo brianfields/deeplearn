@@ -8,6 +8,52 @@ import type {
 
 const CONTENT_BASE = '/api/v1/content';
 
+export interface ApiUnitRead extends ApiUnitSummary {
+  lesson_order: string[];
+  learning_objectives?: unknown;
+  source_material?: string | null;
+  flow_type?: string;
+  podcast_audio_url?: string | null;
+  podcast_transcript?: string | null;
+  schema_version?: number;
+}
+
+export interface ApiLessonRead {
+  id: string;
+  title: string;
+  learner_level: string;
+  unit_id?: string | null;
+  package: unknown;
+  package_version: number;
+  created_at: string;
+  updated_at: string;
+  schema_version?: number;
+}
+
+export interface ApiUnitSyncAsset {
+  id: string;
+  unit_id: string;
+  type: 'audio' | 'image';
+  object_id?: string | null;
+  remote_url?: string | null;
+  presigned_url?: string | null;
+  updated_at?: string | null;
+  schema_version?: number;
+}
+
+export interface ApiUnitSyncEntry {
+  unit: ApiUnitRead;
+  lessons: ApiLessonRead[];
+  assets: ApiUnitSyncAsset[];
+}
+
+export interface ApiUnitSyncResponse {
+  units: ApiUnitSyncEntry[];
+  deleted_unit_ids: string[];
+  deleted_lesson_ids: string[];
+  cursor: string;
+}
+
 export class ContentRepo {
   private infrastructure = infrastructureProvider();
 
@@ -36,47 +82,6 @@ export class ContentRepo {
       });
     } catch (error) {
       throw this.handleError(error, `Failed to get unit ${unitId}`);
-    }
-  }
-
-  async listPersonalUnits(
-    userId: number,
-    params?: { limit?: number; offset?: number }
-  ): Promise<ApiUnitSummary[]> {
-    const limit = params?.limit ?? 100;
-    const offset = params?.offset ?? 0;
-    const search = new URLSearchParams();
-    search.append('user_id', String(userId));
-    search.append('limit', String(limit));
-    search.append('offset', String(offset));
-    const url = `${CONTENT_BASE}/units/personal?${search.toString()}`;
-
-    try {
-      return await this.infrastructure.request<ApiUnitSummary[]>(url, {
-        method: 'GET',
-      });
-    } catch (error) {
-      throw this.handleError(error, 'Failed to load personal units');
-    }
-  }
-
-  async listGlobalUnits(params?: {
-    limit?: number;
-    offset?: number;
-  }): Promise<ApiUnitSummary[]> {
-    const limit = params?.limit ?? 100;
-    const offset = params?.offset ?? 0;
-    const search = new URLSearchParams();
-    search.append('limit', String(limit));
-    search.append('offset', String(offset));
-    const url = `${CONTENT_BASE}/units/global?${search.toString()}`;
-
-    try {
-      return await this.infrastructure.request<ApiUnitSummary[]>(url, {
-        method: 'GET',
-      });
-    } catch (error) {
-      throw this.handleError(error, 'Failed to load global units');
     }
   }
 
@@ -119,5 +124,36 @@ export class ContentRepo {
       code: 'CONTENT_ERROR',
       details: error,
     };
+  }
+
+  async syncUnits(params: {
+    userId: number;
+    since?: string | null;
+    limit?: number;
+    includeDeleted?: boolean;
+    payload: 'minimal' | 'full';
+  }): Promise<ApiUnitSyncResponse> {
+    const search = new URLSearchParams();
+    search.append('user_id', String(params.userId));
+    if (params.since) {
+      search.append('since', params.since);
+    }
+    if (typeof params.limit === 'number') {
+      search.append('limit', String(params.limit));
+    }
+    if (params.includeDeleted) {
+      search.append('include_deleted', 'true');
+    }
+    search.append('payload', params.payload);
+
+    const url = `${CONTENT_BASE}/units/sync?${search.toString()}`;
+
+    try {
+      return await this.infrastructure.request<ApiUnitSyncResponse>(url, {
+        method: 'GET',
+      });
+    } catch (error) {
+      throw this.handleError(error, 'Failed to sync units');
+    }
   }
 }

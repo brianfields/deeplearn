@@ -95,6 +95,7 @@ export interface CardProps {
   style?: any;
   onPress?: () => void;
   disabled?: boolean;
+  testID?: string;
 }
 
 export interface ProgressProps {

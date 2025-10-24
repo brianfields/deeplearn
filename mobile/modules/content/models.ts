@@ -4,6 +4,8 @@
  * DTOs and mappings for unit content surfaces.
  */
 
+import type { CacheMode, DownloadStatus } from '../offline_cache/public';
+
 // Backend API wire types (private to module)
 export interface ApiUnitSummary {
   id: string;
@@ -109,6 +111,10 @@ export interface Unit {
   readonly podcastDurationSeconds: number | null;
   readonly artImageUrl: string | null;
   readonly artImageDescription: string | null;
+  readonly cacheMode?: CacheMode;
+  readonly downloadStatus?: DownloadStatus;
+  readonly downloadedAt?: number | null;
+  readonly syncedAt?: number | null;
 }
 
 export interface UnitDetail {
@@ -134,6 +140,10 @@ export interface UnitDetail {
   readonly podcastAudioUrl: string | null;
   readonly artImageUrl: string | null;
   readonly artImageDescription: string | null;
+  readonly cacheMode?: CacheMode;
+  readonly downloadStatus?: DownloadStatus;
+  readonly downloadedAt?: number | null;
+  readonly syncedAt?: number | null;
 }
 
 export interface LearningObjectiveProgress {
@@ -151,8 +161,8 @@ export interface UnitProgress {
 }
 
 export interface UserUnitCollections {
-  readonly personalUnits: Unit[];
-  readonly globalUnits: Unit[];
+  readonly units: Unit[];
+  readonly ownedUnitIds: string[];
 }
 
 export interface UpdateUnitSharingRequest {

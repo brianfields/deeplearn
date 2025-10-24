@@ -105,7 +105,7 @@ def object_store_provider(
     """Factory for the object store service used by other modules."""
 
     config = create_s3_config_from_env()
-    resolved_bucket = bucket_name or os.getenv("OBJECT_STORE_BUCKET", "digital-innie")
+    resolved_bucket = bucket_name or os.getenv("OBJECT_STORE_BUCKET", "lantern-room")
     s3 = S3Provider(config, resolved_bucket)
     return ObjectStoreService(ImageRepo(session), AudioRepo(session), s3)
 

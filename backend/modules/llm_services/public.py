@@ -41,7 +41,7 @@ class LLMServicesProvider(Protocol):
     """
 
     async def generate_response(
-        self, messages: list[LLMMessage], user_id: uuid.UUID | None = None, model: str | None = None, temperature: float | None = None, max_output_tokens: int | None = None, **kwargs: LLMProviderKwargs
+        self, messages: list[LLMMessage], user_id: int | None = None, model: str | None = None, temperature: float | None = None, max_output_tokens: int | None = None, **kwargs: LLMProviderKwargs
     ) -> tuple[LLMResponse, uuid.UUID]:
         """
         Generate a text response from the LLM.
@@ -63,7 +63,7 @@ class LLMServicesProvider(Protocol):
         ...
 
     async def generate_structured_response(
-        self, messages: list[LLMMessage], response_model: type[T], user_id: uuid.UUID | None = None, model: str | None = None, temperature: float | None = None, max_output_tokens: int | None = None, **kwargs: LLMProviderKwargs
+        self, messages: list[LLMMessage], response_model: type[T], user_id: int | None = None, model: str | None = None, temperature: float | None = None, max_output_tokens: int | None = None, **kwargs: LLMProviderKwargs
     ) -> tuple[T, uuid.UUID, dict[str, Any]]:
         """
         Generate a structured response using a Pydantic model.
@@ -86,7 +86,7 @@ class LLMServicesProvider(Protocol):
         """
         ...
 
-    async def generate_image(self, prompt: str, user_id: uuid.UUID | None = None, size: str = "1024x1024", quality: str = "standard", style: str | None = None, **kwargs: LLMProviderKwargs) -> tuple[ImageResponse, uuid.UUID]:
+    async def generate_image(self, prompt: str, user_id: int | None = None, size: str = "1024x1024", quality: str = "standard", style: str | None = None, **kwargs: LLMProviderKwargs) -> tuple[ImageResponse, uuid.UUID]:
         """
         Generate an image from a text prompt.
 
@@ -110,7 +110,7 @@ class LLMServicesProvider(Protocol):
         self,
         text: str,
         voice: str,
-        user_id: uuid.UUID | None = None,
+        user_id: int | None = None,
         model: str | None = None,
         audio_format: str = "mp3",
         speed: float | None = None,
@@ -119,7 +119,7 @@ class LLMServicesProvider(Protocol):
         """Synthesize narrated audio from text content."""
         ...
 
-    async def search_web(self, queries: list[str], user_id: uuid.UUID | None = None, max_results: int = 10, **kwargs: LLMProviderKwargs) -> tuple[WebSearchResponse, uuid.UUID]:
+    async def search_web(self, queries: list[str], user_id: int | None = None, max_results: int = 10, **kwargs: LLMProviderKwargs) -> tuple[WebSearchResponse, uuid.UUID]:
         """
         Search the web for recent information.
 
@@ -149,7 +149,7 @@ class LLMServicesProvider(Protocol):
         """
         ...
 
-    def get_user_requests(self, user_id: uuid.UUID, limit: int = 50, offset: int = 0) -> list[LLMRequest]:
+    def get_user_requests(self, user_id: int, limit: int = 50, offset: int = 0) -> list[LLMRequest]:
         """
         Get recent requests for a specific user.
 
@@ -176,7 +176,7 @@ class LLMServicesProvider(Protocol):
         """
         ...
 
-    def get_request_count_by_user(self, user_id: uuid.UUID) -> int:
+    def get_request_count_by_user(self, user_id: int) -> int:
         """
         Get total request count for a user.
 
@@ -223,11 +223,11 @@ class LLMServicesAdminProvider(Protocol):
         """Get total count of LLM requests. FOR ADMIN USE ONLY."""
         ...
 
-    def get_request_count_by_user(self, user_id: uuid.UUID) -> int:
+    def get_request_count_by_user(self, user_id: int) -> int:
         """Get total LLM request count for a user. FOR ADMIN USE ONLY."""
         ...
 
-    def get_user_requests(self, user_id: uuid.UUID, limit: int = 50, offset: int = 0) -> list[LLMRequest]:
+    def get_user_requests(self, user_id: int, limit: int = 50, offset: int = 0) -> list[LLMRequest]:
         """Get recent requests for a user. FOR ADMIN USE ONLY."""
         ...
 

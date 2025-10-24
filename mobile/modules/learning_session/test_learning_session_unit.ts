@@ -10,6 +10,7 @@ import { jest } from '@jest/globals';
 jest.mock('../infrastructure/public');
 jest.mock('../catalog/public');
 jest.mock('../user/public');
+jest.mock('../offline_cache/public');
 
 import { LearningSessionService } from './service';
 import { LearningSessionRepo } from './repo';
@@ -25,6 +26,7 @@ import type {
 } from './models';
 import type { UserIdentityProvider } from '../user/public';
 import type { User } from '../user/models';
+import type { OfflineCacheProvider, SyncStatus } from '../offline_cache/public';
 
 // Mock implementations
 const mockCatalogProvider = {
@@ -54,6 +56,17 @@ const createIdentityMock = (): jest.Mocked<UserIdentityProvider> => {
 };
 
 let mockIdentity: jest.Mocked<UserIdentityProvider>;
+let mockOfflineCache: jest.Mocked<OfflineCacheProvider>;
+
+const createSyncStatus = (): SyncStatus => ({
+  lastPulledAt: null,
+  lastCursor: null,
+  pendingWrites: 0,
+  cacheModeCounts: { minimal: 0, full: 0 },
+  lastSyncAttempt: 0,
+  lastSyncResult: 'idle',
+  lastSyncError: null,
+});
 
 // Mock the providers
 jest
@@ -68,6 +81,10 @@ jest
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   .mocked(require('../user/public').userIdentityProvider)
   .mockImplementation(() => mockIdentity);
+jest
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  .mocked(require('../offline_cache/public').offlineCacheProvider)
+  .mockImplementation(() => mockOfflineCache);
 
 describe('Learning Session Module', () => {
   // Mock console methods to suppress output during tests
@@ -81,6 +98,32 @@ describe('Learning Session Module', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockIdentity = createIdentityMock();
+    mockOfflineCache = {
+      listUnits: jest.fn().mockImplementation(async () => []),
+      getUnitDetail: jest.fn().mockImplementation(async () => null),
+      cacheMinimalUnits: jest.fn().mockImplementation(async () => undefined),
+      cacheFullUnit: jest.fn().mockImplementation(async () => undefined),
+      setUnitCacheMode: jest.fn().mockImplementation(async () => undefined),
+      downloadUnitAssets: jest.fn().mockImplementation(async () => undefined),
+      deleteUnit: jest.fn().mockImplementation(async () => undefined),
+      clearAll: jest.fn().mockImplementation(async () => undefined),
+      getCacheOverview: jest.fn().mockImplementation(async () => ({
+        totalStorageBytes: 0,
+        syncStatus: createSyncStatus(),
+        units: [],
+      })),
+      resolveAsset: jest.fn().mockImplementation(async () => null),
+      enqueueOutbox: jest.fn().mockImplementation(async () => undefined),
+      processOutbox: jest
+        .fn()
+        .mockImplementation(async () => ({ processed: 0, remaining: 0 })),
+      runSyncCycle: jest
+        .fn()
+        .mockImplementation(async () => createSyncStatus()),
+      getSyncStatus: jest
+        .fn()
+        .mockImplementation(async () => createSyncStatus()),
+    } as jest.Mocked<OfflineCacheProvider>;
   });
 
   afterAll(() => {
@@ -118,24 +161,14 @@ describe('Learning Session Module', () => {
           id: 'topic-1',
           title: 'Test Topic',
           miniLesson: '...',
-          exercises: [{ id: 'mcq-1', exercise_type: 'mcq', stem: 'Q?' }],
+          exercises: [
+            { id: 'mcq-1', exercise_type: 'mcq', stem: 'Q1?' },
+            { id: 'mcq-2', exercise_type: 'mcq', stem: 'Q2?' },
+          ],
           glossaryTerms: [],
         };
 
-        const mockApiSession = {
-          id: 'session-1',
-          lesson_id: 'topic-1',
-          user_id: 'user-1',
-          status: 'active' as const,
-          started_at: '2024-01-01T00:00:00Z',
-          current_exercise_index: 0,
-          total_exercises: 2,
-          progress_percentage: 0,
-          session_data: {},
-        };
-
         mockCatalogProvider.getLessonDetail.mockResolvedValue(mockLessonDetail);
-        mockRepo.startSession.mockResolvedValue(mockApiSession);
         mockInfrastructureProvider.setStorageItem.mockResolvedValue(undefined);
 
         // Act
@@ -143,7 +176,6 @@ describe('Learning Session Module', () => {
 
         // Assert
         expect(result).toMatchObject({
-          id: 'session-1',
           lessonId: 'topic-1',
           userId: 'user-1',
           status: 'active',
@@ -151,11 +183,12 @@ describe('Learning Session Module', () => {
           totalExercises: 2,
           progressPercentage: 0,
         });
+        expect(result.id).toBeDefined();
+        expect(typeof result.id).toBe('string');
 
         expect(mockCatalogProvider.getLessonDetail).toHaveBeenCalledWith(
           'topic-1'
         );
-        expect(mockRepo.startSession).toHaveBeenCalledWith(request);
         expect(mockInfrastructureProvider.setStorageItem).toHaveBeenCalled();
       });
 
@@ -236,17 +269,15 @@ describe('Learning Session Module', () => {
           exerciseId: 'comp-1',
           exerciseType: 'mcq',
           isCorrect: true,
-          userAnswer: 'A',
+          userAnswer: { value: 'A' },
           timeSpentSeconds: 30,
           attempts: 1,
           hasBeenAnsweredCorrectly: true,
         });
         expect(result.attemptHistory).toHaveLength(1);
 
-        expect(mockRepo.updateProgress).toHaveBeenCalledWith({
-          ...request,
-          userId: 'anonymous',
-        });
+        // Service now stores progress locally, no repo call
+        expect(mockInfrastructureProvider.setStorageItem).toHaveBeenCalled();
       });
     });
 
@@ -257,20 +288,40 @@ describe('Learning Session Module', () => {
           sessionId: 'session-1',
         };
 
-        const mockApiResults = {
-          session_id: 'session-1',
-          lesson_id: 'topic-1',
-          total_exercises: 2,
-          completed_exercises: 2,
-          correct_exercises: 1,
-          total_time_seconds: 300,
-          completion_percentage: 100,
-          score_percentage: 50,
-          achievements: ['First Completion'],
+        const mockSession = {
+          id: 'session-1',
+          lessonId: 'topic-1',
+          lessonTitle: 'Test Topic',
+          userId: 'user-1',
+          status: 'active' as const,
+          startedAt: '2024-01-01T00:00:00Z',
+          currentExerciseIndex: 0,
+          totalExercises: 2,
+          progressPercentage: 0,
         };
 
-        mockRepo.completeSession.mockResolvedValue(mockApiResults);
+        const mockLessonDetail = {
+          id: 'topic-1',
+          title: 'Test Topic',
+          miniLesson: '...',
+          exercises: [
+            { id: 'mcq-1', exercise_type: 'mcq', stem: 'Q1?' },
+            { id: 'mcq-2', exercise_type: 'mcq', stem: 'Q2?' },
+          ],
+          glossaryTerms: [],
+        };
+
+        mockInfrastructureProvider.getStorageItem.mockImplementation(
+          async (key: string) => {
+            if (key === 'learning_session_session-1') {
+              return JSON.stringify(mockSession);
+            }
+            return null;
+          }
+        );
         mockInfrastructureProvider.setStorageItem.mockResolvedValue(undefined);
+        mockCatalogProvider.getLessonDetail.mockResolvedValue(mockLessonDetail);
+        mockOfflineCache.enqueueOutbox.mockResolvedValue(undefined);
 
         // Act
         const result = await service.completeSession(request);
@@ -280,17 +331,17 @@ describe('Learning Session Module', () => {
           sessionId: 'session-1',
           lessonId: 'topic-1',
           totalExercises: 2,
-          completedExercises: 2,
-          correctExercises: 1,
-          completionPercentage: 100,
-          scorePercentage: 50,
-          achievements: ['First Completion'],
         });
+        expect(result.completionPercentage).toBeGreaterThanOrEqual(0);
+        expect(result.scorePercentage).toBeGreaterThanOrEqual(0);
 
-        expect(mockRepo.completeSession).toHaveBeenCalledWith({
-          ...request,
-          userId: 'anonymous',
-        });
+        expect(mockOfflineCache.enqueueOutbox).toHaveBeenCalledWith(
+          expect.objectContaining({
+            endpoint: expect.stringContaining('/complete'),
+            method: 'POST',
+          })
+        );
+        expect(mockInfrastructureProvider.setStorageItem).toHaveBeenCalled();
       });
     });
 

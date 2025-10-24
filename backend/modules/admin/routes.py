@@ -15,6 +15,7 @@ from modules.catalog.public import catalog_provider
 from modules.content.public import content_provider
 from modules.flow_engine.public import flow_engine_admin_provider
 from modules.infrastructure.public import infrastructure_provider
+from modules.learning_coach.public import learning_coach_provider
 from modules.learning_session.public import (
     learning_session_analytics_provider,
     learning_session_provider,
@@ -26,6 +27,8 @@ from .models import (
     FlowRunDetails,
     FlowRunsListResponse,
     FlowStepDetails,
+    LearningCoachConversationDetail,
+    LearningCoachConversationsListResponse,
     LessonDetails,
     LessonsListResponse,
     LLMRequestDetails,
@@ -86,6 +89,7 @@ async def get_admin_service(
 
     users = user_provider(sync_session)
     learning_sessions = learning_session_provider(async_session, content)
+    learning_coach = learning_coach_provider()
 
     # Create admin service with all dependencies
     return AdminService(
@@ -95,6 +99,7 @@ async def get_admin_service(
         content=content,
         users=users,
         learning_sessions=learning_sessions,
+        learning_coach=learning_coach,
     )
 
 
@@ -206,6 +211,39 @@ async def get_llm_request_details(
     if not request_details:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"LLM request {request_id} not found")
     return request_details
+
+
+# ---- Learning Coach Conversation Routes ----
+
+
+@router.get(
+    "/learning-coach/conversations",
+    response_model=LearningCoachConversationsListResponse,
+)
+async def list_learning_coach_conversations(
+    limit: int = Query(50, ge=1, le=200, description="Maximum conversations to return"),
+    offset: int = Query(0, ge=0, description="Offset into the conversations list"),
+    admin_service: AdminService = Depends(get_admin_service),
+) -> LearningCoachConversationsListResponse:
+    """List learning coach conversations for admin review."""
+
+    return await admin_service.list_learning_coach_conversations(limit=limit, offset=offset)
+
+
+@router.get(
+    "/learning-coach/conversations/{conversation_id}",
+    response_model=LearningCoachConversationDetail,
+)
+async def get_learning_coach_conversation(
+    conversation_id: str,
+    admin_service: AdminService = Depends(get_admin_service),
+) -> LearningCoachConversationDetail:
+    """Return transcript detail for a single learning coach conversation."""
+
+    detail = await admin_service.get_learning_coach_conversation(conversation_id)
+    if not detail:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+    return detail
 
 
 # ---- Lesson Management Routes ----

@@ -1,8 +1,8 @@
 """initial_schema
 
-Revision ID: df47171ac6ed
+Revision ID: 3da76456f20e
 Revises: 
-Create Date: 2025-09-29 11:35:19.957870
+Create Date: 2025-10-24 08:37:40.970344
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'df47171ac6ed'
+revision: str = '3da76456f20e'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -69,7 +69,7 @@ def upgrade() -> None:
     op.create_index(op.f('ix_learning_sessions_user_id'), 'learning_sessions', ['user_id'], unique=False)
     op.create_table('llm_requests',
     sa.Column('id', sa.UUID(), nullable=False),
-    sa.Column('user_id', sa.UUID(), nullable=True),
+    sa.Column('user_id', sa.Integer(), nullable=True),
     sa.Column('api_variant', sa.String(length=50), nullable=False),
     sa.Column('provider', sa.String(length=50), nullable=False),
     sa.Column('model', sa.String(length=100), nullable=False),
@@ -136,6 +136,23 @@ def upgrade() -> None:
     )
     op.create_index('ix_audios_s3_key', 'audios', ['s3_key'], unique=True)
     op.create_index('ix_audios_user_id', 'audios', ['user_id'], unique=False)
+    op.create_table('conversations',
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('user_id', sa.Integer(), nullable=True),
+    sa.Column('conversation_type', sa.String(length=100), nullable=False),
+    sa.Column('title', sa.String(length=255), nullable=True),
+    sa.Column('status', sa.String(length=20), nullable=False),
+    sa.Column('conversation_metadata', sa.JSON(), nullable=True),
+    sa.Column('message_count', sa.Integer(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('last_message_at', sa.DateTime(timezone=True), nullable=True),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_conversations_conversation_type'), 'conversations', ['conversation_type'], unique=False)
+    op.create_index(op.f('ix_conversations_status'), 'conversations', ['status'], unique=False)
+    op.create_index(op.f('ix_conversations_user_id'), 'conversations', ['user_id'], unique=False)
     op.create_table('flow_step_runs',
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('flow_run_id', sa.UUID(), nullable=False),
@@ -180,6 +197,25 @@ def upgrade() -> None:
     )
     op.create_index('ix_images_s3_key', 'images', ['s3_key'], unique=True)
     op.create_index('ix_images_user_id', 'images', ['user_id'], unique=False)
+    op.create_table('conversation_messages',
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('conversation_id', sa.UUID(), nullable=False),
+    sa.Column('llm_request_id', sa.UUID(), nullable=True),
+    sa.Column('role', sa.String(length=20), nullable=False),
+    sa.Column('content', sa.Text(), nullable=False),
+    sa.Column('message_order', sa.Integer(), nullable=False),
+    sa.Column('tokens_used', sa.Integer(), nullable=True),
+    sa.Column('cost_estimate', sa.Float(), nullable=True),
+    sa.Column('message_metadata', sa.JSON(), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.ForeignKeyConstraint(['conversation_id'], ['conversations.id'], ),
+    sa.ForeignKeyConstraint(['llm_request_id'], ['llm_requests.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_conversation_messages_conversation_id'), 'conversation_messages', ['conversation_id'], unique=False)
+    op.create_index(op.f('ix_conversation_messages_llm_request_id'), 'conversation_messages', ['llm_request_id'], unique=False)
+    op.create_index(op.f('ix_conversation_messages_role'), 'conversation_messages', ['role'], unique=False)
     op.create_table('units',
     sa.Column('id', sa.String(length=36), nullable=False),
     sa.Column('title', sa.String(length=255), nullable=False),
@@ -200,12 +236,16 @@ def upgrade() -> None:
     sa.Column('podcast_voice', sa.String(length=100), nullable=True),
     sa.Column('podcast_audio_object_id', sa.UUID(), nullable=True),
     sa.Column('podcast_generated_at', sa.DateTime(), nullable=True),
+    sa.Column('art_image_id', sa.UUID(), nullable=True),
+    sa.Column('art_image_description', sa.Text(), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=False),
     sa.CheckConstraint("status IN ('draft', 'in_progress', 'completed', 'failed')", name='check_unit_status'),
+    sa.ForeignKeyConstraint(['art_image_id'], ['images.id'], ondelete='SET NULL'),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_index(op.f('ix_units_art_image_id'), 'units', ['art_image_id'], unique=False)
     op.create_index(op.f('ix_units_user_id'), 'units', ['user_id'], unique=False)
     op.create_table('lessons',
     sa.Column('id', sa.String(length=36), nullable=False),
@@ -254,7 +294,12 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_lessons_flow_run_id'), table_name='lessons')
     op.drop_table('lessons')
     op.drop_index(op.f('ix_units_user_id'), table_name='units')
+    op.drop_index(op.f('ix_units_art_image_id'), table_name='units')
     op.drop_table('units')
+    op.drop_index(op.f('ix_conversation_messages_role'), table_name='conversation_messages')
+    op.drop_index(op.f('ix_conversation_messages_llm_request_id'), table_name='conversation_messages')
+    op.drop_index(op.f('ix_conversation_messages_conversation_id'), table_name='conversation_messages')
+    op.drop_table('conversation_messages')
     op.drop_index('ix_images_user_id', table_name='images')
     op.drop_index('ix_images_s3_key', table_name='images')
     op.drop_table('images')
@@ -263,6 +308,10 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_flow_step_runs_llm_request_id'), table_name='flow_step_runs')
     op.drop_index(op.f('ix_flow_step_runs_flow_run_id'), table_name='flow_step_runs')
     op.drop_table('flow_step_runs')
+    op.drop_index(op.f('ix_conversations_user_id'), table_name='conversations')
+    op.drop_index(op.f('ix_conversations_status'), table_name='conversations')
+    op.drop_index(op.f('ix_conversations_conversation_type'), table_name='conversations')
+    op.drop_table('conversations')
     op.drop_index('ix_audios_user_id', table_name='audios')
     op.drop_index('ix_audios_s3_key', table_name='audios')
     op.drop_table('audios')

@@ -21,7 +21,7 @@ echo -e "${BLUE}Starting DeepLearn Platform...${NC}"
 
 # Defaults (can be overridden by CLI flags)
 ADMIN_ENABLED=1
-START_WEB=1
+START_WEB=0
 START_IOS=0
 PLATFORMS_SPECIFIED=0
 REDIS_ENABLED=1
