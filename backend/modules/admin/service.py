@@ -8,8 +8,10 @@ Returns DTOs for all admin functionality.
 
 from datetime import datetime
 import uuid
+from typing import Any
 
 from modules.catalog.public import CatalogProvider
+from modules.conversation_engine.public import ConversationEngineProvider
 from modules.content.public import ContentProvider
 from modules.flow_engine.public import FlowEngineAdminProvider
 from modules.learning_coach.public import LearningCoachProvider
@@ -36,11 +38,15 @@ from .models import (
     UserDetail,
     UserListResponse,
     UserLLMRequestSummary,
+    UserConversationSummary,
     UserOwnedUnitSummary,
     UserSessionSummary,
     UserSummary,
     UserUpdateRequest,
 )
+
+
+LEARNING_COACH_CONVERSATION_TYPE = "learning_coach"
 
 
 class AdminService:
@@ -55,6 +61,7 @@ class AdminService:
         users: UserProvider,
         learning_sessions: LearningSessionProvider | None = None,
         learning_coach: LearningCoachProvider | None = None,
+        conversation_engine: ConversationEngineProvider | None = None,
     ) -> None:
         """Initialize admin service with required dependencies."""
         self.flow_engine_admin = flow_engine_admin
@@ -64,6 +71,7 @@ class AdminService:
         self.users = users
         self.learning_sessions = learning_sessions
         self.learning_coach = learning_coach
+        self.conversation_engine = conversation_engine
 
     # ---- User Management ----
 
@@ -132,6 +140,12 @@ class AdminService:
 
         recent_sessions = await self._get_recent_sessions(user)
         recent_llm_requests = self._get_recent_llm_requests(user)
+        user_id_int = self._coerce_user_int(user)
+        recent_conversations = (
+            await self.get_user_conversations(user_id_int)
+            if user_id_int is not None
+            else []
+        )
 
         return UserDetail(
             id=user.id,
@@ -145,6 +159,7 @@ class AdminService:
             owned_units=owned_units,
             recent_sessions=recent_sessions,
             recent_llm_requests=recent_llm_requests,
+            recent_conversations=recent_conversations,
         )
 
     async def update_user(self, user_id: int, payload: UserUpdateRequest) -> UserDetail | None:
@@ -165,41 +180,71 @@ class AdminService:
     async def list_learning_coach_conversations(
         self,
         *,
-        limit: int = 50,
-        offset: int = 0,
+        page: int = 1,
+        page_size: int = 50,
+        status: str | None = None,
     ) -> LearningCoachConversationsListResponse:
         """Return paginated learning coach conversations for QA."""
 
-        if not self.learning_coach:
-            return LearningCoachConversationsListResponse(conversations=[], limit=limit, offset=offset)
+        if not self.conversation_engine:
+            return LearningCoachConversationsListResponse(
+                conversations=[],
+                total_count=0,
+                page=page,
+                page_size=page_size,
+                has_next=False,
+            )
 
-        summaries = await self.learning_coach.list_conversations(limit=limit, offset=offset)
+        page = max(page, 1)
+        page_size = max(page_size, 1)
+        offset = (page - 1) * page_size
+
+        summaries = await self._fetch_learning_coach_conversations(
+            limit=page_size + 1,
+            offset=offset,
+            status=status,
+        )
+
+        has_next = len(summaries) > page_size
+        visible = summaries[:page_size]
+
         conversations = [
             LearningCoachConversationSummaryAdmin(
                 id=summary.id,
                 user_id=summary.user_id,
                 title=summary.title,
+                status=summary.status,
                 message_count=summary.message_count,
                 created_at=summary.created_at,
                 updated_at=summary.updated_at,
                 last_message_at=summary.last_message_at,
-                metadata=summary.metadata,
+                metadata=dict(summary.metadata or {}),
             )
-            for summary in summaries
+            for summary in visible
         ]
 
-        return LearningCoachConversationsListResponse(conversations=conversations, limit=limit, offset=offset)
+        total_count = await self._count_learning_coach_conversations(status=status)
+
+        return LearningCoachConversationsListResponse(
+            conversations=conversations,
+            total_count=total_count,
+            page=page,
+            page_size=page_size,
+            has_next=has_next,
+        )
 
     async def get_learning_coach_conversation(self, conversation_id: str) -> LearningCoachConversationDetail | None:
         """Return transcript-level detail for a learning coach conversation."""
 
-        if not self.learning_coach:
+        if not self.conversation_engine:
             return None
 
-        state = await self.learning_coach.get_session_state(
-            conversation_id,
-            include_system_messages=True,
-        )
+        try:
+            conversation_uuid = uuid.UUID(conversation_id)
+        except ValueError:
+            return None
+
+        detail = await self.conversation_engine.get_conversation(conversation_uuid)
 
         messages = [
             LearningCoachMessageAdmin(
@@ -207,18 +252,123 @@ class AdminService:
                 role=message.role,
                 content=message.content,
                 created_at=message.created_at,
-                metadata=message.metadata,
+                metadata=dict(message.metadata or {}),
+                tokens_used=message.tokens_used,
+                cost_estimate=message.cost_estimate,
+                llm_request_id=message.llm_request_id,
+                message_order=message.message_order,
             )
-            for message in state.messages
+            for message in detail.messages
         ]
 
+        metadata = dict(detail.metadata or {})
+
         return LearningCoachConversationDetail(
-            conversation_id=state.conversation_id,
+            conversation_id=detail.id,
             messages=messages,
-            metadata=state.metadata,
-            proposed_brief=state.proposed_brief,
-            accepted_brief=state.accepted_brief,
+            metadata=metadata,
+            proposed_brief=self._dict_or_none(metadata.get("proposed_brief")),
+            accepted_brief=self._dict_or_none(metadata.get("accepted_brief")),
         )
+
+    async def get_user_conversations(self, user_id: int, *, limit: int = 5) -> list[UserConversationSummary]:
+        """Return recent learning coach conversations for a user."""
+
+        if not self.conversation_engine:
+            return []
+
+        summaries = await self.conversation_engine.list_conversations_for_user(
+            user_id,
+            limit=limit,
+            offset=0,
+            conversation_type=LEARNING_COACH_CONVERSATION_TYPE,
+        )
+
+        return [
+            UserConversationSummary(
+                id=summary.id,
+                title=summary.title,
+                status=summary.status,
+                message_count=summary.message_count,
+                last_message_at=summary.last_message_at,
+            )
+            for summary in summaries
+        ]
+
+    async def _fetch_learning_coach_conversations(
+        self,
+        *,
+        limit: int,
+        offset: int,
+        status: str | None = None,
+        user_id: int | None = None,
+    ) -> list[Any]:
+        if not self.conversation_engine:
+            return []
+
+        if user_id is not None:
+            return await self.conversation_engine.list_conversations_for_user(
+                user_id,
+                limit=limit,
+                offset=offset,
+                conversation_type=LEARNING_COACH_CONVERSATION_TYPE,
+                status=status,
+            )
+
+        return await self.conversation_engine.list_conversations_by_type(
+            LEARNING_COACH_CONVERSATION_TYPE,
+            limit=limit,
+            offset=offset,
+            status=status,
+        )
+
+    async def _has_learning_coach_conversation_at_offset(
+        self,
+        offset: int,
+        *,
+        status: str | None = None,
+        user_id: int | None = None,
+    ) -> bool:
+        if offset < 0:
+            return False
+        conversations = await self._fetch_learning_coach_conversations(
+            limit=1,
+            offset=offset,
+            status=status,
+            user_id=user_id,
+        )
+        return bool(conversations)
+
+    async def _count_learning_coach_conversations(
+        self,
+        *,
+        status: str | None = None,
+        user_id: int | None = None,
+    ) -> int:
+        if not self.conversation_engine:
+            return 0
+
+        if not await self._has_learning_coach_conversation_at_offset(0, status=status, user_id=user_id):
+            return 0
+
+        low = 1
+        high = 2
+
+        while await self._has_learning_coach_conversation_at_offset(high - 1, status=status, user_id=user_id):
+            low = high
+            high *= 2
+
+        left = low
+        right = high
+
+        while left < right:
+            mid = (left + right) // 2
+            if await self._has_learning_coach_conversation_at_offset(mid, status=status, user_id=user_id):
+                left = mid + 1
+            else:
+                right = mid
+
+        return left
 
     async def _build_user_associations(self, user: UserRead) -> UserAssociationSummary:
         """Aggregate association counts for a user."""
@@ -302,6 +452,16 @@ class AdminService:
             for request in requests
         ]
 
+    def _coerce_user_int(self, user: UserRead) -> int | None:
+        if isinstance(user.id, int):
+            return user.id
+        if isinstance(user.id, str):
+            try:
+                return int(user.id)
+            except ValueError:
+                return None
+        return None
+
     def _coerce_user_uuid(self, user: UserRead) -> uuid.UUID | None:
         if isinstance(user.id, uuid.UUID):
             return user.id
@@ -310,6 +470,11 @@ class AdminService:
                 return uuid.UUID(user.id)
             except ValueError:
                 return None
+        return None
+
+    def _dict_or_none(self, value: Any) -> dict[str, Any] | None:
+        if isinstance(value, dict):
+            return value
         return None
 
     # ---- Flow Management ----
