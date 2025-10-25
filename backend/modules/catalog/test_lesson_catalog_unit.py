@@ -11,15 +11,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from modules.catalog.service import CatalogService, LessonDetail, LessonSummary
-from modules.content.package_models import (
-    GlossaryTerm,
-    LessonPackage,
-    MCQAnswerKey,
-    MCQExercise,
-    MCQOption,
-    Meta,
-    Objective,
-)
+from modules.content.package_models import GlossaryTerm, LessonPackage, MCQAnswerKey, MCQExercise, MCQOption, Meta
 from modules.content.public import LessonRead
 from modules.learning_session.public import ExerciseCorrectness
 
@@ -36,7 +28,7 @@ class TestCatalogService:
         # Create mock packages
         package1 = LessonPackage(
             meta=Meta(lesson_id="lesson-1", title="Lesson 1", learner_level="beginner"),
-            objectives=[Objective(id="obj1", text="Learn A")],
+            unit_learning_objective_ids=["obj1"],
             glossary={"terms": [GlossaryTerm(id="term1", term="Key A", definition="Definition A")]},
             mini_lesson="Test explanation",
             exercises=[
@@ -52,7 +44,7 @@ class TestCatalogService:
 
         package2 = LessonPackage(
             meta=Meta(lesson_id="lesson-2", title="Lesson 2", learner_level="intermediate"),
-            objectives=[Objective(id="obj2", text="Learn B")],
+            unit_learning_objective_ids=["obj2"],
             glossary={"terms": []},
             mini_lesson="Test explanation",
             exercises=[],
@@ -89,7 +81,7 @@ class TestCatalogService:
         # Create mock package with components
         package = LessonPackage(
             meta=Meta(lesson_id="lesson-1", title="Lesson 1", learner_level="beginner"),
-            objectives=[Objective(id="obj1", text="Learn A")],
+            unit_learning_objective_ids=["obj1"],
             glossary={"terms": [GlossaryTerm(id="term1", term="Key A", definition="Definition A")]},
             mini_lesson="Test explanation",
             exercises=[
@@ -163,7 +155,7 @@ class TestCatalogService:
                 learner_level="beginner",
                 lesson_order=["lesson-1"],
                 lessons=[detail_lesson],
-                learning_objectives=["Understand A"],
+                learning_objectives=[{"id": "lo_1", "text": "Understand A"}],
                 target_lesson_count=None,
                 source_material=None,
                 generated_from_topic=False,
@@ -173,7 +165,7 @@ class TestCatalogService:
 
         package = LessonPackage(
             meta=Meta(lesson_id="lesson-1", title="Lesson 1", learner_level="beginner"),
-            objectives=[Objective(id="lo_1", text="Understand A")],
+            unit_learning_objective_ids=["lo_1"],
             glossary={"terms": []},
             mini_lesson="",
             exercises=[
@@ -195,6 +187,7 @@ class TestCatalogService:
             id="lesson-1",
             title="Lesson 1",
             learner_level="beginner",
+            unit_id="unit-1",
             package=package,
             package_version=1,
             created_at=datetime.now(UTC),
@@ -348,7 +341,7 @@ class TestCatalogService:
         # Create mock packages
         package1 = LessonPackage(
             meta=Meta(lesson_id="lesson-1", title="React Basics", learner_level="beginner"),
-            objectives=[Objective(id="obj1", text="Learn React")],
+            unit_learning_objective_ids=["obj1"],
             glossary={"terms": [GlossaryTerm(id="term1", term="JSX", definition="JSX definition"), GlossaryTerm(id="term2", term="Props", definition="Props definition")]},
             mini_lesson="Test explanation",
             exercises=[
@@ -364,7 +357,7 @@ class TestCatalogService:
 
         package2 = LessonPackage(
             meta=Meta(lesson_id="lesson-2", title="Python Basics", learner_level="beginner"),
-            objectives=[Objective(id="obj2", text="Learn Python")],
+            unit_learning_objective_ids=["obj2"],
             glossary={"terms": [GlossaryTerm(id="term3", term="Variables", definition="Variables definition")]},
             mini_lesson="Test explanation",
             exercises=[],
@@ -396,7 +389,7 @@ class TestCatalogService:
         # Create mock packages
         package1 = LessonPackage(
             meta=Meta(lesson_id="lesson-1", title="Lesson 1", learner_level="beginner"),
-            objectives=[Objective(id="obj1", text="Learn")],
+            unit_learning_objective_ids=["obj1"],
             glossary={"terms": [GlossaryTerm(id="term1", term="Key", definition="Definition")]},
             mini_lesson="Test explanation",
             exercises=[
@@ -412,7 +405,7 @@ class TestCatalogService:
 
         package2 = LessonPackage(
             meta=Meta(lesson_id="lesson-2", title="Lesson 2", learner_level="intermediate"),
-            objectives=[Objective(id="obj2", text="Learn")],
+            unit_learning_objective_ids=["obj2"],
             glossary={"terms": []},
             mini_lesson="Test explanation",
             exercises=[],

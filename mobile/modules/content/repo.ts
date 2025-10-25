@@ -4,13 +4,14 @@ import type {
   ApiUnitDetail,
   UpdateUnitSharingRequest,
   ContentError,
+  ApiUnitLearningObjective,
 } from './models';
 
 const CONTENT_BASE = '/api/v1/content';
 
 export interface ApiUnitRead extends ApiUnitSummary {
   lesson_order: string[];
-  learning_objectives?: unknown;
+  learning_objectives?: ApiUnitLearningObjective[] | null;
   source_material?: string | null;
   flow_type?: string;
   podcast_audio_url?: string | null;

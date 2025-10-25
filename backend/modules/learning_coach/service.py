@@ -13,6 +13,7 @@ from .conversation import LearningCoachConversation
 from .dtos import (
     LearningCoachConversationSummary,
     LearningCoachMessage,
+    LearningCoachObjective,
     LearningCoachSessionState,
 )
 
@@ -119,7 +120,7 @@ class LearningCoachService:
             metadata=metadata,
             finalized_topic=metadata.get("finalized_topic"),
             unit_title=metadata.get("unit_title"),
-            learning_objectives=metadata.get("learning_objectives"),
+            learning_objectives=self._parse_learning_objectives(metadata.get("learning_objectives")),
             suggested_lesson_count=metadata.get("suggested_lesson_count"),
             proposed_brief=self._dict_or_none(metadata.get("proposed_brief")),
             accepted_brief=self._dict_or_none(metadata.get("accepted_brief")),
@@ -168,6 +169,24 @@ class LearningCoachService:
         if isinstance(value, dict):
             return value
         return None
+
+    def _parse_learning_objectives(
+        self,
+        value: Any,
+    ) -> list[LearningCoachObjective] | None:
+        if not isinstance(value, list):
+            return None
+
+        objectives: list[LearningCoachObjective] = []
+        for entry in value:
+            if not isinstance(entry, dict):
+                continue
+            lo_id = str(entry.get("id") or "").strip()
+            lo_text = str(entry.get("text") or "").strip()
+            if lo_id and lo_text:
+                objectives.append(LearningCoachObjective(id=lo_id, text=lo_text))
+
+        return objectives or None
 
 
 __all__ = [

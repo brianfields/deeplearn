@@ -25,6 +25,7 @@ class LearningSessionRepo:
     async def create_session(
         self,
         lesson_id: str,
+        unit_id: str,
         user_id: str | None = None,
         total_exercises: int = 0,
         session_id: str | None = None,
@@ -33,6 +34,7 @@ class LearningSessionRepo:
         session = LearningSessionModel(
             id=session_id or str(uuid.uuid4()),
             lesson_id=lesson_id,
+            unit_id=unit_id,
             user_id=user_id,
             status=SessionStatus.ACTIVE.value,
             total_exercises=total_exercises,
@@ -163,6 +165,28 @@ class LearningSessionRepo:
             return []
 
         stmt = select(LearningSessionModel).where(LearningSessionModel.lesson_id.in_(lesson_ids))
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
+    async def get_sessions_for_user_and_lessons(
+        self,
+        user_id: str,
+        lesson_ids: Iterable[str],
+    ) -> list[LearningSessionModel]:
+        """Return all sessions for a user covering the provided lessons."""
+
+        lesson_ids = list(lesson_ids)
+        if not lesson_ids:
+            return []
+
+        stmt = (
+            select(LearningSessionModel)
+            .where(
+                LearningSessionModel.user_id == user_id,
+                LearningSessionModel.lesson_id.in_(lesson_ids),
+            )
+            .order_by(desc(LearningSessionModel.started_at))
+        )
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 

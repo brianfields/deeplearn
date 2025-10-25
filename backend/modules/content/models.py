@@ -7,6 +7,7 @@ Uses single lessons table with JSON package field.
 """
 
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import (
     JSON,
@@ -71,8 +72,12 @@ class UnitModel(Base):
     is_global: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     # New fields for unit-level generation and metadata
-    # JSON structure: list of unit-level learning objectives or structured objects
-    learning_objectives: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # JSON structure: list of unit-level learning objective objects {id, text, ...}
+    learning_objectives: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSON,
+        nullable=False,
+        default=list,
+    )
     # Target number of lessons for the unit (e.g., 5, 10, 20)
     target_lesson_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # Full source material used to generate the unit (if any)

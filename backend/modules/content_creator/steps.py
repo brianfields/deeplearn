@@ -48,16 +48,16 @@ class GenerateUnitSourceMaterialStep(UnstructuredStep):
 
 # ---------- 2) Extract Unit Metadata ----------
 class UnitLearningObjective(BaseModel):
-    lo_id: str
+    id: str
     text: str
-    bloom_level: str
+    bloom_level: str | None = None
     evidence_of_mastery: str | None = None
 
 
 class LessonPlanItem(BaseModel):
     title: str
     lesson_objective: str
-    learning_objectives: list[str]
+    learning_objective_ids: list[str]
 
 
 class ExtractUnitMetadataStep(StructuredStep):
@@ -97,6 +97,7 @@ class ExtractLessonMetadataStep(StructuredStep):
         learner_level: str
         voice: str
         learning_objectives: list[str]
+        learning_objective_ids: list[str]
         lesson_objective: str
         unit_source_material: str
 
@@ -105,6 +106,7 @@ class ExtractLessonMetadataStep(StructuredStep):
         learner_level: str
         voice: str
         learning_objectives: list[str]
+        learning_objective_ids: list[str]
         misconceptions: list[LessonMisconception]
         confusables: list[ConfusablePair]
         glossary: list[GlossaryTerm]

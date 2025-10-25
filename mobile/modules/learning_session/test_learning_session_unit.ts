@@ -9,6 +9,24 @@ import { jest } from '@jest/globals';
 // Mock dependencies
 jest.mock('../catalog/public');
 jest.mock('../user/public');
+jest.mock('../offline_cache/public', () => {
+  const actual = jest.requireActual<typeof import('../offline_cache/public')>(
+    '../offline_cache/public'
+  );
+  return {
+    ...actual,
+    offlineCacheProvider: jest.fn(),
+  };
+});
+jest.mock('../infrastructure/public', () => {
+  const actual = jest.requireActual<typeof import('../infrastructure/public')>(
+    '../infrastructure/public'
+  );
+  return {
+    ...actual,
+    infrastructureProvider: jest.fn(),
+  };
+});
 
 import { LearningSessionService } from './service';
 import { LearningSessionRepo } from './repo';
@@ -21,9 +39,17 @@ import type {
   StartSessionRequest,
   UpdateProgressRequest,
   CompleteSessionRequest,
+  LearningSession,
 } from './models';
 import type { UserIdentityProvider } from '../user/public';
 import type { User } from '../user/models';
+import { offlineCacheProvider } from '../offline_cache/public';
+import type {
+  OfflineCacheProvider,
+  CachedUnitDetail,
+} from '../offline_cache/public';
+import { infrastructureProvider } from '../infrastructure/public';
+import type { InfrastructureProvider } from '../infrastructure/public';
 
 // Mock implementations
 const mockCatalogProvider = {
@@ -48,6 +74,82 @@ const createIdentityMock = (): jest.Mocked<UserIdentityProvider> => {
 
 let mockIdentity: jest.Mocked<UserIdentityProvider>;
 
+type TestInfrastructureProvider = jest.Mocked<InfrastructureProvider> & {
+  __storage: Map<string, string>;
+};
+
+const createSyncStatus = () => ({
+  lastPulledAt: null,
+  lastCursor: null,
+  pendingWrites: 0,
+  cacheModeCounts: { minimal: 0, full: 0 },
+  lastSyncAttempt: Date.now(),
+  lastSyncResult: 'idle' as const,
+  lastSyncError: null,
+});
+
+const createOfflineCacheMock = (): jest.Mocked<OfflineCacheProvider> => ({
+  listUnits: jest.fn(async () => []),
+  getUnitDetail: jest.fn(async () => null),
+  cacheMinimalUnits: jest.fn(async () => undefined),
+  cacheFullUnit: jest.fn(async () => undefined),
+  setUnitCacheMode: jest.fn(async () => undefined),
+  resolveAsset: jest.fn(async () => null),
+  downloadUnitAssets: jest.fn(async () => undefined),
+  deleteUnit: jest.fn(async () => undefined),
+  clearAll: jest.fn(async () => undefined),
+  enqueueOutbox: jest.fn(async () => undefined),
+  processOutbox: jest.fn(async () => ({ processed: 0, remaining: 0 })),
+  runSyncCycle: jest.fn(async () => createSyncStatus()),
+  getSyncStatus: jest.fn(async () => createSyncStatus()),
+  getCacheOverview: jest.fn(async () => ({
+    totalStorageBytes: 0,
+    syncStatus: createSyncStatus(),
+  })),
+}) as unknown as jest.Mocked<OfflineCacheProvider>;
+
+const createInfrastructureMock = (): TestInfrastructureProvider => {
+  const storage = new Map<string, string>();
+  const mock = {
+    request: jest.fn(async () => {
+      throw new Error('Infrastructure request not implemented in tests');
+    }),
+    getNetworkStatus: jest.fn(() => ({ isConnected: true })),
+    checkHealth: jest.fn(async () => ({
+      httpClient: true,
+      storage: true,
+      network: true,
+      timestamp: Date.now(),
+    })),
+    getStorageItem: jest.fn(async (key: string) =>
+      storage.has(key) ? storage.get(key)! : null
+    ),
+    setStorageItem: jest.fn(async (key: string, value: string) => {
+      storage.set(key, value);
+    }),
+    removeStorageItem: jest.fn(async (key: string) => {
+      storage.delete(key);
+    }),
+    getStorageStats: jest.fn(async () => ({
+      size: storage.size,
+      entries: storage.size,
+    })),
+    clearStorage: jest.fn(async () => {
+      storage.clear();
+    }),
+    createSQLiteProvider: jest.fn(async () => ({} as any)),
+    getFileSystem: jest.fn(() => ({} as any)),
+  } as unknown as TestInfrastructureProvider;
+  mock.__storage = storage;
+  return mock;
+};
+
+const offlineCacheProviderMock = jest.mocked(offlineCacheProvider);
+const infrastructureProviderMock = jest.mocked(infrastructureProvider);
+
+let mockOfflineCache: jest.Mocked<OfflineCacheProvider>;
+let _mockInfrastructure: TestInfrastructureProvider;
+
 // Mock the providers
 jest
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -70,6 +172,10 @@ describe('Learning Session Module', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockIdentity = createIdentityMock();
+    mockOfflineCache = createOfflineCacheMock();
+    _mockInfrastructure = createInfrastructureMock();
+    offlineCacheProviderMock.mockReturnValue(mockOfflineCache);
+    infrastructureProviderMock.mockReturnValue(_mockInfrastructure);
   });
 
   afterAll(() => {
@@ -90,6 +196,7 @@ describe('Learning Session Module', () => {
         clearProgress: jest.fn(),
         getUserSessions: jest.fn(),
         saveSessionResults: jest.fn(),
+        saveSessionOutcome: jest.fn(),
         getProgress: jest.fn(),
         getAllProgress: jest.fn(),
         syncSessionsFromServer: jest.fn(),
@@ -98,6 +205,7 @@ describe('Learning Session Module', () => {
         startSession: jest.fn(),
         updateProgress: jest.fn(),
         completeSession: jest.fn(),
+        computeUnitLOProgress: jest.fn(),
       } as any;
 
       service = new LearningSessionService(mockRepo);
@@ -108,16 +216,18 @@ describe('Learning Session Module', () => {
         // Arrange
         const request: StartSessionRequest = {
           lessonId: 'topic-1',
+          unitId: 'unit-1',
           userId: 'user-1',
         };
 
         const mockLessonDetail = {
           id: 'topic-1',
           title: 'Test Topic',
+          unitId: 'unit-1',
           miniLesson: '...',
           exercises: [
-            { id: 'mcq-1', exercise_type: 'mcq', stem: 'Q1?' },
-            { id: 'mcq-2', exercise_type: 'mcq', stem: 'Q2?' },
+            { id: 'mcq-1', exercise_type: 'mcq', stem: 'Q1?', lo_id: 'lo-1' },
+            { id: 'mcq-2', exercise_type: 'mcq', stem: 'Q2?', lo_id: 'lo-2' },
           ],
           glossaryTerms: [],
         };
@@ -146,16 +256,32 @@ describe('Learning Session Module', () => {
         expect(mockRepo.saveSession).toHaveBeenCalledWith(
           expect.objectContaining({
             lessonId: 'topic-1',
+            unitId: 'unit-1',
             userId: 'user-1',
           }),
           expect.objectContaining({ enqueueOutbox: true })
         );
       });
 
+      it('should throw error if unitId is missing', async () => {
+        const request: StartSessionRequest = {
+          lessonId: 'topic-1',
+          unitId: '',
+          userId: 'user-1',
+        };
+
+        await expect(service.startSession(request)).rejects.toMatchObject({
+          code: 'LEARNING_SESSION_ERROR',
+          message: expect.stringContaining('unitId is required'),
+        });
+        expect(mockCatalogProvider.getLessonDetail).not.toHaveBeenCalled();
+      });
+
       it('should throw error if topic not found', async () => {
         // Arrange
         const request: StartSessionRequest = {
           lessonId: 'nonexistent-topic',
+          unitId: 'unit-1',
           userId: 'user-1',
         };
 
@@ -216,6 +342,7 @@ describe('Learning Session Module', () => {
           id: 'session-1',
           lessonId: 'topic-1',
           lessonTitle: 'Test Topic',
+          unitId: 'unit-1',
           userId: 'user-1',
           status: 'active' as const,
           startedAt: '2024-01-01T00:00:00Z',
@@ -227,10 +354,11 @@ describe('Learning Session Module', () => {
         const mockLessonDetail = {
           id: 'topic-1',
           title: 'Test Topic',
+          unitId: 'unit-1',
           miniLesson: '...',
           exercises: [
-            { id: 'mcq-1', exercise_type: 'mcq', stem: 'Q1?' },
-            { id: 'mcq-2', exercise_type: 'mcq', stem: 'Q2?' },
+            { id: 'mcq-1', exercise_type: 'mcq', stem: 'Q1?', lo_id: 'lo-1' },
+            { id: 'mcq-2', exercise_type: 'mcq', stem: 'Q2?', lo_id: 'lo-2' },
           ],
           glossaryTerms: [],
         };
@@ -254,8 +382,13 @@ describe('Learning Session Module', () => {
         mockRepo.enqueueSessionCompletion.mockResolvedValue(undefined);
         mockRepo.saveSession.mockResolvedValue(undefined);
         mockRepo.saveSessionResults.mockResolvedValue(undefined);
+        mockRepo.saveSessionOutcome.mockResolvedValue(undefined);
         mockRepo.clearProgress.mockResolvedValue(undefined);
         mockCatalogProvider.getLessonDetail.mockResolvedValue(mockLessonDetail);
+        mockRepo.computeUnitLOProgress.mockResolvedValue({
+          unitId: 'unit-1',
+          items: [],
+        });
 
         // Act
         const result = await service.completeSession(request);
@@ -265,9 +398,11 @@ describe('Learning Session Module', () => {
           sessionId: 'session-1',
           lessonId: 'topic-1',
           totalExercises: 2,
+          unitId: 'unit-1',
         });
         expect(result.completionPercentage).toBeGreaterThanOrEqual(0);
         expect(result.scorePercentage).toBeGreaterThanOrEqual(0);
+        expect(result.unitLOProgress).toEqual({ unitId: 'unit-1', items: [] });
 
         expect(mockRepo.enqueueSessionCompletion).toHaveBeenCalledWith(
           'session-1',
@@ -277,6 +412,40 @@ describe('Learning Session Module', () => {
         expect(mockRepo.saveSessionResults).toHaveBeenCalledWith(
           'session-1',
           expect.any(Object)
+        );
+        expect(mockRepo.saveSessionOutcome).toHaveBeenCalled();
+        expect(mockRepo.computeUnitLOProgress).toHaveBeenCalledWith(
+          'unit-1',
+          'user-1'
+        );
+      });
+    });
+
+    describe('getUnitLOProgress', () => {
+      it('returns learning objective progress from the repository', async () => {
+        const progressResponse = {
+          unitId: 'unit-42',
+          items: [
+            {
+              loId: 'lo-1',
+              loText: 'Objective 1',
+              exercisesTotal: 3,
+              exercisesAttempted: 2,
+              exercisesCorrect: 2,
+              status: 'partial' as const,
+              newlyCompletedInSession: false,
+            },
+          ],
+        };
+
+        mockRepo.computeUnitLOProgress.mockResolvedValue(progressResponse as any);
+
+        const result = await service.getUnitLOProgress('unit-42', 'user-99');
+
+        expect(result).toEqual(progressResponse);
+        expect(mockRepo.computeUnitLOProgress).toHaveBeenCalledWith(
+          'unit-42',
+          'user-99'
         );
       });
     });
@@ -323,10 +492,10 @@ describe('Learning Session Module', () => {
       });
     });
 
-    describe('checkHealth', () => {
-      it('should return health status from repository', async () => {
-        // Arrange
-        mockRepo.checkHealth.mockResolvedValue(true);
+  describe('checkHealth', () => {
+    it('should return health status from repository', async () => {
+      // Arrange
+      mockRepo.checkHealth.mockResolvedValue(true);
 
         // Act
         const result = await service.checkHealth();
@@ -344,8 +513,127 @@ describe('Learning Session Module', () => {
         const result = await service.checkHealth();
 
         // Assert
-        expect(result).toBe(false);
+      expect(result).toBe(false);
+    });
+  });
+  });
+
+  describe('LearningSessionRepo', () => {
+    it('computes unit learning objective progress and caches snapshots', async () => {
+      const repo = new LearningSessionRepo();
+      const unitId = 'unit-1';
+      const userId = 'user-1';
+      const nowIso = new Date().toISOString();
+
+      const cachedDetail: CachedUnitDetail = {
+        id: unitId,
+        title: 'Intro Unit',
+        description: 'Basics',
+        learnerLevel: 'beginner',
+        isGlobal: false,
+        updatedAt: Date.now(),
+        schemaVersion: 1,
+        downloadStatus: 'completed',
+        cacheMode: 'full',
+        downloadedAt: Date.now(),
+        syncedAt: Date.now(),
+        unitPayload: {
+          id: unitId,
+          title: 'Intro Unit',
+          description: 'Basics',
+          learner_level: 'beginner',
+          lesson_order: ['lesson-1'],
+          learning_objectives: [
+            { id: 'lo-1', text: 'Objective 1' },
+            { id: 'lo-2', text: 'Objective 2' },
+          ],
+        },
+        lessons: [
+          {
+            id: 'lesson-1',
+            unitId,
+            title: 'Lesson 1',
+            position: 1,
+            payload: {
+              package: {
+                unit_learning_objective_ids: ['lo-1', 'lo-2'],
+                exercises: [
+                  { id: 'ex-1', exercise_type: 'mcq', lo_id: 'lo-1' },
+                  { id: 'ex-2', exercise_type: 'mcq', lo_id: 'lo-1' },
+                  { id: 'ex-3', exercise_type: 'mcq', lo_id: 'lo-2' },
+                ],
+              },
+            },
+            updatedAt: Date.now(),
+            schemaVersion: 1,
+          },
+        ],
+        assets: [],
+      };
+      mockOfflineCache.getUnitDetail.mockResolvedValue(cachedDetail);
+
+      const session: LearningSession = {
+        id: 'session-1',
+        lessonId: 'lesson-1',
+        unitId,
+        lessonTitle: 'Lesson 1',
+        userId,
+        status: 'completed',
+        startedAt: nowIso,
+        completedAt: nowIso,
+        currentExerciseIndex: 3,
+        totalExercises: 3,
+        progressPercentage: 100,
+        sessionData: {},
+        estimatedTimeRemaining: 0,
+        isCompleted: true,
+        canResume: false,
+      };
+
+      await repo.saveSession(session, { enqueueOutbox: false });
+      await repo.saveSessionOutcome({
+        sessionId: session.id,
+        unitId,
+        lessonId: session.lessonId,
+        completedAt: nowIso,
+        loStats: {
+          'lo-1': { attempted: 2, correct: 2 },
+          'lo-2': { attempted: 1, correct: 0 },
+        },
+      } as any);
+
+      const progress = await repo.computeUnitLOProgress(unitId, userId);
+
+      expect(progress.unitId).toBe(unitId);
+      expect(progress.items).toHaveLength(2);
+      const lo1 = progress.items.find(item => item.loId === 'lo-1');
+      const lo2 = progress.items.find(item => item.loId === 'lo-2');
+      expect(lo1).toMatchObject({
+        status: 'completed',
+        exercisesTotal: 2,
+        exercisesAttempted: 2,
+        exercisesCorrect: 2,
+        newlyCompletedInSession: true,
       });
+      expect(lo2).toMatchObject({
+        status: 'partial',
+        exercisesTotal: 1,
+        exercisesAttempted: 1,
+        exercisesCorrect: 0,
+        newlyCompletedInSession: false,
+      });
+      expect(mockOfflineCache.getUnitDetail).toHaveBeenCalledWith(unitId);
+
+      const second = await repo.computeUnitLOProgress(unitId, userId);
+      const secondLo1 = second.items.find(item => item.loId === 'lo-1');
+      expect(secondLo1?.newlyCompletedInSession).toBe(false);
+    });
+
+    it('returns empty items when cached unit detail is unavailable', async () => {
+      mockOfflineCache.getUnitDetail.mockResolvedValue(null);
+      const repo = new LearningSessionRepo();
+      const progress = await repo.computeUnitLOProgress('missing-unit', 'user-1');
+      expect(progress).toEqual({ unitId: 'missing-unit', items: [] });
     });
   });
 
@@ -356,6 +644,7 @@ describe('Learning Session Module', () => {
         const apiSession = {
           id: 'session-1',
           lesson_id: 'topic-1',
+          unit_id: 'unit-1',
           user_id: 'user-1',
           status: 'active' as const,
           started_at: '2024-01-01T00:00:00Z',
@@ -372,6 +661,7 @@ describe('Learning Session Module', () => {
         expect(result).toMatchObject({
           id: 'session-1',
           lessonId: 'topic-1',
+          unitId: 'unit-1',
           userId: 'user-1',
           status: 'active',
           startedAt: '2024-01-01T00:00:00Z',
@@ -391,6 +681,7 @@ describe('Learning Session Module', () => {
         const apiSession = {
           id: 'session-1',
           lesson_id: 'topic-1',
+          unit_id: 'unit-1',
           status: 'completed' as const,
           started_at: '2024-01-01T00:00:00Z',
           completed_at: '2024-01-01T00:15:00Z',
@@ -451,6 +742,7 @@ describe('Learning Session Module', () => {
         const apiResults = {
           session_id: 'session-1',
           lesson_id: 'topic-1',
+          unit_id: 'unit-1',
           total_exercises: 5,
           completed_exercises: 5,
           correct_exercises: 4,
@@ -467,6 +759,7 @@ describe('Learning Session Module', () => {
         expect(result).toMatchObject({
           sessionId: 'session-1',
           lessonId: 'topic-1',
+          unitId: 'unit-1',
           totalExercises: 5,
           completedExercises: 5,
           correctExercises: 4,
@@ -476,6 +769,7 @@ describe('Learning Session Module', () => {
           achievements: ['First Completion', 'Quick Learner'],
           grade: 'B', // 80% should be B grade
           timeDisplay: '15m 0s',
+          unitLOProgress: undefined,
         });
 
         expect(result.performanceSummary).toContain('Good job');

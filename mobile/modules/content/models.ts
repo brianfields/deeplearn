@@ -7,6 +7,11 @@
 import type { CacheMode, DownloadStatus } from '../offline_cache/public';
 
 // Backend API wire types (private to module)
+export interface ApiUnitLearningObjective {
+  id: string;
+  text: string;
+}
+
 export interface ApiUnitSummary {
   id: string;
   title: string;
@@ -27,6 +32,7 @@ export interface ApiUnitSummary {
   podcast_duration_seconds?: number | null;
   art_image_url?: string | null;
   art_image_description?: string | null;
+  learning_objectives?: ApiUnitLearningObjective[] | null;
 }
 
 export interface ApiUnitDetail {
@@ -39,11 +45,12 @@ export interface ApiUnitDetail {
     id: string;
     title: string;
     learner_level: string;
+    learning_objective_ids: string[];
     learning_objectives: string[];
     key_concepts: string[];
     exercise_count: number;
   }>;
-  learning_objectives?: string[] | null;
+  learning_objectives?: ApiUnitLearningObjective[] | null;
   target_lesson_count?: number | null;
   source_material?: string | null;
   generated_from_topic?: boolean;
@@ -77,6 +84,7 @@ export interface UnitLessonSummary {
   readonly id: string;
   readonly title: string;
   readonly learnerLevel: Difficulty;
+  readonly learningObjectiveIds: string[];
   readonly learningObjectives: string[];
   readonly keyConcepts: string[];
   readonly exerciseCount: number;
@@ -84,6 +92,11 @@ export interface UnitLessonSummary {
   readonly isReadyForLearning: boolean;
   readonly estimatedDuration: number;
   readonly learnerLevelLabel: string;
+}
+
+export interface UnitLearningObjective {
+  readonly id: string;
+  readonly text: string;
 }
 
 export interface Unit {
@@ -95,7 +108,7 @@ export interface Unit {
   readonly difficultyLabel: string;
   readonly targetLessonCount?: number | null;
   readonly generatedFromTopic?: boolean;
-  readonly learningObjectives?: string[] | null;
+  readonly learningObjectives?: UnitLearningObjective[] | null;
   readonly status: UnitStatus;
   readonly creationProgress?: UnitCreationProgress | null;
   readonly errorMessage?: string | null;
@@ -126,7 +139,7 @@ export interface UnitDetail {
   readonly difficulty: Difficulty;
   readonly lessonIds: string[];
   readonly lessons: UnitLessonSummary[];
-  readonly learningObjectives?: string[] | null;
+  readonly learningObjectives?: UnitLearningObjective[] | null;
   readonly targetLessonCount?: number | null;
   readonly sourceMaterial?: string | null;
   readonly generatedFromTopic?: boolean;
@@ -191,6 +204,15 @@ export function toUnitDTO(
     ownerUserId && currentUserId && ownerUserId === currentUserId
   );
 
+  const learningObjectives = Array.isArray(api.learning_objectives)
+    ? api.learning_objectives
+        .filter(
+          (lo): lo is ApiUnitLearningObjective =>
+            !!lo && typeof lo.id === 'string' && typeof lo.text === 'string'
+        )
+        .map(lo => ({ id: lo.id, text: lo.text }))
+    : null;
+
   return {
     id: api.id,
     title: api.title,
@@ -200,7 +222,7 @@ export function toUnitDTO(
     difficultyLabel: formatLearnerLevel(difficulty),
     targetLessonCount: api.target_lesson_count ?? null,
     generatedFromTopic: !!api.generated_from_topic,
-    learningObjectives: undefined,
+    learningObjectives,
     status,
     creationProgress: api.creation_progress || null,
     errorMessage: api.error_message || null,
@@ -242,6 +264,15 @@ export function toUnitDetailDTO(
     ? [...lessonOrder]
     : lessons.map(lesson => lesson.id);
 
+  const learningObjectives = Array.isArray(api.learning_objectives)
+    ? api.learning_objectives
+        .filter(
+          (lo): lo is ApiUnitLearningObjective =>
+            !!lo && typeof lo.id === 'string' && typeof lo.text === 'string'
+        )
+        .map(lo => ({ id: lo.id, text: lo.text }))
+    : null;
+
   return {
     id: api.id,
     title: api.title,
@@ -249,7 +280,7 @@ export function toUnitDetailDTO(
     difficulty,
     lessonIds,
     lessons: lessons.map(toUnitLessonSummaryDTO),
-    learningObjectives: api.learning_objectives ?? null,
+    learningObjectives,
     targetLessonCount: api.target_lesson_count ?? null,
     sourceMaterial: api.source_material ?? null,
     generatedFromTopic: !!api.generated_from_topic,
@@ -286,6 +317,7 @@ function toUnitLessonSummaryDTO(
     id: lesson.id,
     title: lesson.title,
     learnerLevel,
+    learningObjectiveIds: lesson.learning_objective_ids ?? [],
     learningObjectives: lesson.learning_objectives ?? [],
     keyConcepts: lesson.key_concepts ?? [],
     exerciseCount: componentCount,

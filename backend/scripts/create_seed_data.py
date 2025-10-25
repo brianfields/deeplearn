@@ -42,7 +42,7 @@ from modules.content.models import (
     LessonModel,
     UnitModel,  # Import UnitModel so SQLAlchemy knows about the units table
 )
-from modules.content.package_models import GlossaryTerm, LessonPackage, MCQAnswerKey, MCQExercise, MCQOption, Meta, Objective
+from modules.content.package_models import GlossaryTerm, LessonPackage, MCQAnswerKey, MCQExercise, MCQOption, Meta
 from modules.flow_engine.models import FlowRunModel, FlowStepRunModel
 from modules.infrastructure.public import infrastructure_provider
 from modules.learning_session.models import LearningSessionModel, SessionStatus, UnitSessionModel
@@ -74,14 +74,10 @@ def build_lesson_package(
         content_version=1,
     )
 
-    objective_models = [
-        Objective(
-            id=f"{lesson_id}_lo_{idx}",
-            text=obj["text"],
-            bloom_level=obj.get("bloom_level"),
-        )
-        for idx, obj in enumerate(objectives, start=1)
-    ]
+    unit_lo_ids: list[str] = []
+    for idx, obj in enumerate(objectives, start=1):
+        lo_id = obj.get("id") or f"{lesson_id}_lo_{idx}"
+        unit_lo_ids.append(lo_id)
 
     glossary_models = [
         GlossaryTerm(
@@ -95,9 +91,9 @@ def build_lesson_package(
 
     exercises: list[MCQExercise] = []
     for idx, mcq in enumerate(mcqs, start=1):
-        if objective_models:
-            lo_index = max(1, min(mcq.get("lo_index", 1), len(objective_models)))
-            lo_id = objective_models[lo_index - 1].id
+        if unit_lo_ids:
+            lo_index = max(1, min(mcq.get("lo_index", 1), len(unit_lo_ids)))
+            lo_id = unit_lo_ids[lo_index - 1]
         else:
             lo_id = f"{lesson_id}_lo_{idx}"
 
@@ -138,7 +134,7 @@ def build_lesson_package(
 
     return LessonPackage(
         meta=meta,
-        objectives=objective_models,
+        unit_learning_objective_ids=unit_lo_ids,
         glossary={"terms": glossary_models},
         mini_lesson=mini_lesson,
         exercises=exercises,
@@ -155,6 +151,7 @@ def create_lesson_data(
     source_material: str,
     package: LessonPackage,
     flow_run_id: uuid.UUID | None = None,
+    unit_learning_objectives: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Create an ORM-ready lesson dictionary from a package."""
 
@@ -166,6 +163,7 @@ def create_lesson_data(
         "source_material": source_material,
         "package": package.model_dump(),
         "package_version": 1,
+        "unit_learning_objectives": unit_learning_objectives,
     }
 
 
@@ -180,7 +178,16 @@ def create_sample_flow_run(
 
     now = datetime.now(UTC)
     package = lesson_data["package"]
-    objectives = [obj["text"] for obj in package.get("objectives", [])]
+    raw_unit_objectives = lesson_data.get("unit_learning_objectives", []) or []
+    objectives = [
+        obj.get("text") if isinstance(obj, dict) else str(obj)
+        for obj in raw_unit_objectives
+    ]
+    objective_ids = [
+        obj.get("id")
+        for obj in raw_unit_objectives
+        if isinstance(obj, dict) and obj.get("id") is not None
+    ]
     key_terms = [term["term"] for term in package.get("glossary", {}).get("terms", [])]
     total_mcqs = len(package.get("exercises", []))
     lo_coverage = len({exercise["lo_id"] for exercise in package.get("exercises", [])}) if total_mcqs else 0
@@ -210,12 +217,14 @@ def create_sample_flow_run(
             "voice": "narrative",
             "learning_objectives": objectives,
             "lesson_objective": objectives[0] if objectives else "",
+            "learning_objective_ids": objective_ids,
         },
         "outputs": {
             "topic": lesson_data["title"],
             "learner_level": lesson_data["learner_level"],
             "voice": "narrative",
             "learning_objectives": objectives,
+            "learning_objective_ids": objective_ids,
             "key_concepts": key_terms,
             "misconceptions": package.get("misconceptions", []),
             "confusables": package.get("confusables", []),
@@ -236,7 +245,16 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, lesson_data: dict[str, Any])
 
     now = datetime.now(UTC)
     package = lesson_data["package"]
-    objectives = [obj["text"] for obj in package.get("objectives", [])]
+    raw_unit_objectives = lesson_data.get("unit_learning_objectives", []) or []
+    objectives = [
+        obj.get("text") if isinstance(obj, dict) else str(obj)
+        for obj in raw_unit_objectives
+    ]
+    objective_ids = [
+        obj.get("id")
+        for obj in raw_unit_objectives
+        if isinstance(obj, dict) and obj.get("id") is not None
+    ]
     key_terms = [term["term"] for term in package.get("glossary", {}).get("terms", [])]
     exercises = package.get("exercises", [])
     misconceptions = package.get("misconceptions", [])
@@ -249,6 +267,7 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, lesson_data: dict[str, Any])
             "inputs": {"title": lesson_data["title"]},
             "outputs": {
                 "learning_objectives": objectives,
+                "learning_objective_ids": objective_ids,
                 "key_concepts": key_terms[:3],
             },
             "prompt_file": "extract_lesson_metadata.md",
@@ -261,6 +280,7 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, lesson_data: dict[str, Any])
             "step_order": 2,
             "inputs": {
                 "learning_objectives": objectives,
+                "learning_objective_ids": objective_ids,
                 "key_concepts": key_terms[:3],
             },
             "outputs": {"misconceptions": misconceptions},
@@ -277,6 +297,7 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, lesson_data: dict[str, Any])
                 "learner_level": lesson_data["learner_level"],
                 "voice": "narrative",
                 "learning_objectives": objectives,
+                "learning_objective_ids": objective_ids,
                 "unit_source_material": lesson_data["source_material"],
             },
             "outputs": {"mini_lesson": package.get("mini_lesson")},
@@ -306,6 +327,7 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, lesson_data: dict[str, Any])
                 "learner_level": lesson_data["learner_level"],
                 "voice": "narrative",
                 "learning_objectives": objectives,
+                "learning_objective_ids": objective_ids,
                 "misconceptions": misconceptions,
                 "confusables": confusables,
                 "glossary": package.get("glossary", {}),
@@ -538,8 +560,12 @@ async def main() -> None:
                     "description": "A learning unit about Street Kittens of Istanbul",
                     "learner_level": "intermediate",
                     "learning_objectives": [
-                        {"lo_id": "lo_1", "text": "Explain the managed-commons context for Istanbul's street kittens, distinguishing stray vs. feral statuses, kitten life-stage bands, key actors, and seasonality.", "bloom_level": None},
-                        {"lo_id": "lo_2", "text": "Map a 50–100 m urban microhabitat to identify food sources, shelters, risks, and human–cat interfaces, and recommend placements for shelters and trap sites.", "bloom_level": None},
+                        {"id": "lo_1", "text": "Explain the managed-commons context for Istanbul's street kittens, distinguishing stray vs. feral statuses, kitten life-stage bands, key actors, and seasonality.", "bloom_level": None},
+                        {"id": "lo_2", "text": "Map a 50–100 m urban microhabitat to identify food sources, shelters, risks, and human–cat interfaces, and recommend placements for shelters and trap sites.", "bloom_level": None},
+                        {"id": "lo_3", "text": "Sequence kitten triage in warmth–hydration–respiration–nutrition order and classify cases into urgent, priority, or routine pathways.", "bloom_level": None},
+                        {"id": "lo_4", "text": "Specify age-appropriate feeding, micro-shelter features, and a basic vaccination and parasite-control schedule for a given kitten profile.", "bloom_level": None},
+                        {"id": "lo_5", "text": "Design a Trap–Neuter–Return (TNR) workflow aligned to seasonality, including ear-tipping, return-to-territory, and simple record-keeping.", "bloom_level": None},
+                        {"id": "lo_6", "text": "Identify edge cases such as lactating queens, late pregnancy, panleukopenia outbreaks, or seasonal extremes and specify the required operational adjustments.", "bloom_level": None},
                     ],
                     "target_lesson_count": 2,
                     "source_material": None,
@@ -570,8 +596,8 @@ So here's your charge. Map one microhabitat. Place one shelter right. Set one cl
                             "learner_level": "intermediate",
                             "source_material": None,
                             "objectives": [
-                                {"text": "Explain the managed-commons context for Istanbul's street kittens, distinguishing stray vs. feral statuses, kitten life-stage bands, key actors, and seasonality.", "bloom_level": None},
-                                {"text": "Map a 50–100 m urban microhabitat to identify food sources, shelters, risks, and human–cat interfaces, and recommend placements for shelters and trap sites.", "bloom_level": None},
+                                {"id": "lo_1", "text": "Explain the managed-commons context for Istanbul's street kittens, distinguishing stray vs. feral statuses, kitten life-stage bands, key actors, and seasonality.", "bloom_level": None},
+                                {"id": "lo_2", "text": "Map a 50–100 m urban microhabitat to identify food sources, shelters, risks, and human–cat interfaces, and recommend placements for shelters and trap sites.", "bloom_level": None},
                             ],
                             "glossary_terms": [
                                 {"term": "Managed commons", "definition": "A shared urban space where cats persist through community care and municipal services under social norms."},
@@ -700,12 +726,12 @@ This map plus rationale guides shelter placement and trap cycles while respectin
                             "title": "From Triage to TNR: Integrated Care and Control Plan",
                             "learner_level": "intermediate",
                             "source_material": None,
-                            "objectives": [
-                                {"text": "Sequence triage for kittens using the warmth–hydration–respiration–nutrition order and assign cases to urgent, priority, or routine categories.", "bloom_level": None},
-                                {"text": "Specify age-appropriate feeding, micro-shelter features, and a basic vaccination and parasite-control schedule for a given kitten profile.", "bloom_level": None},
-                                {"text": "Design a Trap–Neuter–Return (TNR) workflow aligned to seasonality, including ear-tipping, return-to-territory, and simple record-keeping.", "bloom_level": None},
-                                {"text": "Identify edge cases (e.g., lactating queens, late pregnancy, panleukopenia outbreaks, heatwaves/winter) and specify the operational adjustment required.", "bloom_level": None},
-                            ],
+                              "objectives": [
+                                  {"id": "lo_3", "text": "Sequence triage for kittens using the warmth–hydration–respiration–nutrition order and assign cases to urgent, priority, or routine categories.", "bloom_level": None},
+                                  {"id": "lo_4", "text": "Specify age-appropriate feeding, micro-shelter features, and a basic vaccination and parasite-control schedule for a given kitten profile.", "bloom_level": None},
+                                  {"id": "lo_5", "text": "Design a Trap–Neuter–Return (TNR) workflow aligned to seasonality, including ear-tipping, return-to-territory, and simple record-keeping.", "bloom_level": None},
+                                  {"id": "lo_6", "text": "Identify edge cases (e.g., lactating queens, late pregnancy, panleukopenia outbreaks, heatwaves/winter) and specify the operational adjustment required.", "bloom_level": None},
+                              ],
                             "glossary_terms": [
                                 {"term": "Triage", "definition": "A prioritization sequence: warmth, hydration, respiration, then nutrition."},
                                 {"term": "Kitten Milk Replacer (KMR)", "definition": "Formula designed to substitute for queen's milk."},
@@ -836,8 +862,8 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                     "description": "A focused look at optimization fundamentals for machine learning practitioners.",
                     "learner_level": "intermediate",
                     "learning_objectives": [
-                        {"lo_id": "grad_unit_lo_1", "text": "Explain how gradient descent updates parameters", "bloom_level": "Understand"},
-                        {"lo_id": "grad_unit_lo_2", "text": "Compare batch, stochastic, and mini-batch strategies", "bloom_level": "Analyze"},
+                        {"id": "grad_unit_lo_1", "text": "Explain how gradient descent updates parameters", "bloom_level": "Understand"},
+                        {"id": "grad_unit_lo_2", "text": "Compare batch, stochastic, and mini-batch strategies", "bloom_level": "Analyze"},
                     ],
                     "target_lesson_count": 2,
                     "source_material": "Lecture notes on convex optimization, annotated Python notebooks, and practical training logs.",
@@ -850,8 +876,8 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                             "learner_level": "intermediate",
                             "source_material": "Walk-through of loss landscape intuition with quadratic examples and contour diagrams.",
                             "objectives": [
-                                {"text": "State the gradient descent update rule", "bloom_level": "Remember"},
-                                {"text": "Interpret learning rate effects on convergence", "bloom_level": "Analyze"},
+                                {"id": "grad_unit_lo_1", "text": "State the gradient descent update rule", "bloom_level": "Remember"},
+                                {"id": "grad_unit_lo_1", "text": "Interpret learning rate effects on convergence", "bloom_level": "Analyze"},
                             ],
                             "glossary_terms": [
                                 {"term": "Learning Rate", "definition": "Scalar that scales the gradient step during optimization."},
@@ -893,8 +919,8 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                             "learner_level": "intermediate",
                             "source_material": "Case study comparing batch, stochastic, and mini-batch training on image classifiers.",
                             "objectives": [
-                                {"text": "Differentiate stochastic and mini-batch gradient descent", "bloom_level": "Analyze"},
-                                {"text": "Select batch sizes to balance speed and noise", "bloom_level": "Apply"},
+                                {"id": "grad_unit_lo_2", "text": "Differentiate stochastic and mini-batch gradient descent", "bloom_level": "Analyze"},
+                                {"id": "grad_unit_lo_2", "text": "Select batch sizes to balance speed and noise", "bloom_level": "Apply"},
                             ],
                             "glossary_terms": [
                                 {"term": "Batch Gradient Descent", "definition": "Optimization that uses the full dataset each update."},
@@ -1103,9 +1129,15 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                         source_material=lesson_spec["source_material"],
                         package=package,
                         flow_run_id=lesson_spec["flow_run_id"],
+                        unit_learning_objectives=lesson_spec["objectives"],
                     )
 
-                    lesson_dict = {**lesson_data, "unit_id": unit_spec["id"]}
+                    lesson_db_dict = {
+                        key: value
+                        for key, value in lesson_data.items()
+                        if key != "unit_learning_objectives"
+                    }
+                    lesson_db_dict["unit_id"] = unit_spec["id"]
                     flow_run_data = create_sample_flow_run(
                         lesson_spec["flow_run_id"],
                         lesson_spec["id"],
@@ -1128,7 +1160,7 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                         db_session.add(FlowStepRunModel(**step_data))
                     await db_session.flush()
 
-                    db_session.add(LessonModel(**lesson_dict))
+                    db_session.add(LessonModel(**lesson_db_dict))
                     await db_session.flush()
 
                     unit_entry["lessons"].append(

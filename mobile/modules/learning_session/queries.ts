@@ -47,6 +47,9 @@ export const learningSessionKeys = {
   health: () => ['learning_session', 'health'] as const,
   unitProgress: (userId: string, unitId: string) =>
     ['learning_session', 'unit_progress', userId, unitId] as const,
+  unitLOProgressRoot: () => ['learning_session', 'unit_lo_progress'] as const,
+  unitLOProgress: (userId: string, unitId: string) =>
+    ['learning_session', 'unit_lo_progress', userId, unitId] as const,
   nextLessonToResume: (userId: string, unitId: string) =>
     ['learning_session', 'next_resume', userId, unitId] as const,
 };
@@ -175,6 +178,10 @@ export function useSyncSessions() {
           ''
         ),
       });
+
+      queryClient.invalidateQueries({
+        queryKey: learningSessionKeys.unitLOProgressRoot(),
+      });
     },
   });
 }
@@ -207,6 +214,22 @@ export function useStartSession() {
       queryClient.invalidateQueries({
         queryKey: learningSessionKeys.canStart(request.lessonId, cacheUserId),
       });
+
+      if (session.unitId) {
+        queryClient.invalidateQueries({
+          queryKey: learningSessionKeys.unitProgress(
+            cacheUserId,
+            session.unitId
+          ),
+        });
+
+        queryClient.invalidateQueries({
+          queryKey: learningSessionKeys.unitLOProgress(
+            cacheUserId,
+            session.unitId
+          ),
+        });
+      }
     },
   });
 }
@@ -259,6 +282,16 @@ export function useCompleteSession() {
       // queryClient.invalidateQueries({
       //   queryKey: learningSessionKeys.userStats(userId),
       // });
+
+      const userKey = request.userId ?? DEFAULT_ANONYMOUS_USER_ID;
+      if (results.unitId) {
+        queryClient.invalidateQueries({
+          queryKey: learningSessionKeys.unitProgress(userKey, results.unitId),
+        });
+        queryClient.invalidateQueries({
+          queryKey: learningSessionKeys.unitLOProgress(userKey, results.unitId),
+        });
+      }
     },
   });
 }
@@ -328,6 +361,20 @@ export function useUnitProgress(
     queryFn: () => learningSession.getUnitProgress(userId, unitId),
     enabled: options?.enabled ?? (!!userId && !!unitId),
     staleTime: options?.staleTime ?? 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useUnitLOProgress(
+  userId: string,
+  unitId: string,
+  options?: { enabled?: boolean; staleTime?: number }
+) {
+  return useQuery({
+    queryKey: learningSessionKeys.unitLOProgress(userId, unitId),
+    queryFn: () => learningSession.getUnitLOProgress(unitId, userId),
+    enabled: options?.enabled ?? (!!userId && !!unitId),
+    staleTime: options?.staleTime ?? 30 * 1000,
     refetchOnWindowFocus: false,
   });
 }

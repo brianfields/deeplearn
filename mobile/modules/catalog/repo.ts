@@ -291,6 +291,43 @@ export class CatalogRepo {
           continue;
         }
 
+        const canonicalObjectivesRaw =
+          unitDetail.unitPayload?.learning_objectives ?? null;
+        const canonicalObjectives = Array.isArray(canonicalObjectivesRaw)
+          ? canonicalObjectivesRaw
+              .map(item => {
+                if (typeof item === 'string') {
+                  return { id: item, text: item };
+                }
+                if (item && typeof item === 'object') {
+                  const id =
+                    typeof (item as { id?: unknown }).id === 'string'
+                      ? ((item as { id?: string }).id as string)
+                      : typeof (item as { lo_id?: unknown }).lo_id === 'string'
+                        ? ((item as { lo_id?: string }).lo_id as string)
+                        : null;
+                  const text =
+                    typeof (item as { text?: unknown }).text === 'string'
+                      ? ((item as { text?: string }).text as string)
+                      : typeof (item as { objective?: unknown }).objective ===
+                          'string'
+                        ? ((item as { objective?: string }).objective as string)
+                        : null;
+                  if (id && text) {
+                    return { id, text };
+                  }
+                }
+                return null;
+              })
+              .filter(
+                (value): value is { id: string; text: string } => value !== null
+              )
+          : [];
+        const loTextById = new Map<string, string>();
+        for (const objective of canonicalObjectives) {
+          loTextById.set(objective.id, objective.text);
+        }
+
         const cachedLesson = unitDetail.lessons.find(
           lesson => lesson.id === lessonId
         );
@@ -298,6 +335,26 @@ export class CatalogRepo {
         if (cachedLesson && (cachedLesson as { payload?: unknown }).payload) {
           const payload = (cachedLesson as { payload?: any }).payload || {};
           const lessonPackage = payload.package || {};
+          const unitLearningObjectiveIds = Array.isArray(
+            lessonPackage.unit_learning_objective_ids
+          )
+            ? lessonPackage.unit_learning_objective_ids.filter(
+                (value: unknown): value is string => typeof value === 'string'
+              )
+            : [];
+          const fallbackObjectives = Array.isArray(
+            lessonPackage.learning_objectives
+          )
+            ? lessonPackage.learning_objectives.filter(
+                (value: unknown): value is string => typeof value === 'string'
+              )
+            : [];
+          const learningObjectives =
+            unitLearningObjectiveIds.length > 0
+              ? unitLearningObjectiveIds.map(
+                  (id: string) => loTextById.get(id) ?? id
+                )
+              : fallbackObjectives;
 
           return {
             id: cachedLesson.id,
@@ -306,7 +363,7 @@ export class CatalogRepo {
               | 'beginner'
               | 'intermediate'
               | 'advanced',
-            learningObjectives: lessonPackage.objectives || [],
+            learningObjectives,
             keyConcepts: lessonPackage.key_concepts || [],
             miniLesson: lessonPackage.mini_lesson || '',
             exercises: lessonPackage.exercises || [],

@@ -11,9 +11,10 @@ import uuid
 
 import pytest
 
-from modules.content.package_models import LessonPackage, Meta, Objective
+from modules.content.package_models import LessonPackage, Meta
 from modules.content.public import LessonRead, UnitStatus
 from modules.content_creator.service import ContentCreatorService, CreateLessonRequest
+from modules.content_creator.steps import UnitLearningObjective
 
 
 class TestContentCreatorService:
@@ -27,7 +28,18 @@ class TestContentCreatorService:
         content = AsyncMock()
         service = ContentCreatorService(content)
 
-        request = CreateLessonRequest(topic="Test Lesson", unit_source_material="Test material content", learner_level="beginner", voice="Test voice", learning_objectives=["Learn X"], lesson_objective="Test objective")
+        request = CreateLessonRequest(
+            topic="Test Lesson",
+            unit_source_material="Test material content",
+            learner_level="beginner",
+            voice="Test voice",
+            learning_objective_ids=["lo_1", "lo_2"],
+            unit_learning_objectives=[
+                UnitLearningObjective(id="lo_1", text="Learn X"),
+                UnitLearningObjective(id="lo_2", text="Understand Y"),
+            ],
+            lesson_objective="Test objective",
+        )
 
         # Mock flow execution
         mock_flow = AsyncMock()
@@ -37,6 +49,7 @@ class TestContentCreatorService:
             "learner_level": "beginner",
             "voice": "Test voice",
             "learning_objectives": ["Learn X", "Understand Y"],
+            "learning_objective_ids": ["lo_1", "lo_2"],
             "misconceptions": [{"mc_id": "mc_1", "concept": "Test", "misbelief": "Wrong"}],
             "confusables": [{"concept_a": "A", "concept_b": "B", "distinction": "Different"}],
             "glossary": [{"id": "term_1", "term": "Test Term", "definition": "Test definition"}],
@@ -48,15 +61,25 @@ class TestContentCreatorService:
                         "id": "ex1",
                         "lo_id": "lo_1",
                         "stem": "What is X?",
-                        "options": [{"id": "ex1_a", "label": "A", "text": "Option A"}, {"id": "ex1_b", "label": "B", "text": "Option B"}, {"id": "ex1_c", "label": "C", "text": "Option C"}],
+                        "options": [
+                            {"id": "ex1_a", "label": "A", "text": "Option A"},
+                            {"id": "ex1_b", "label": "B", "text": "Option B"},
+                            {"id": "ex1_c", "label": "C", "text": "Option C"},
+                        ],
                         "answer_key": {"label": "A", "rationale_right": "Correct"},
+                        "learning_objectives_covered": ["lo_1"],
                     },
                     {
                         "id": "ex2",
                         "lo_id": "lo_2",
                         "stem": "What is Y?",
-                        "options": [{"id": "ex2_a", "label": "A", "text": "Option A"}, {"id": "ex2_b", "label": "B", "text": "Option B"}, {"id": "ex2_c", "label": "C", "text": "Option C"}],
+                        "options": [
+                            {"id": "ex2_a", "label": "A", "text": "Option A"},
+                            {"id": "ex2_b", "label": "B", "text": "Option B"},
+                            {"id": "ex2_c", "label": "C", "text": "Option C"},
+                        ],
                         "answer_key": {"label": "B", "rationale_right": "Correct"},
+                        "learning_objectives_covered": ["lo_2"],
                     },
                 ],
             },
@@ -67,7 +90,7 @@ class TestContentCreatorService:
         # Create a mock package
         mock_package = LessonPackage(
             meta=Meta(lesson_id="test-id", title="Test Lesson", learner_level="beginner"),
-            objectives=[Objective(id="lo_1", text="Learn X")],
+            unit_learning_objective_ids=["lo_1"],
             glossary={"terms": []},
             mini_lesson="Test explanation",
             exercises=[],
@@ -88,7 +111,17 @@ class TestContentCreatorService:
         # No more component calls - everything is in the package now
 
         # Verify flow was called with correct inputs
-        mock_flow.execute.assert_called_once_with({"topic": "Test Lesson", "unit_source_material": "Test material content", "learner_level": "beginner", "voice": "Test voice", "learning_objectives": ["Learn X"], "lesson_objective": "Test objective"})
+        mock_flow.execute.assert_called_once_with(
+            {
+                "topic": "Test Lesson",
+                "learner_level": "beginner",
+                "voice": "Test voice",
+                "learning_objectives": ["Learn X", "Understand Y"],
+                "learning_objective_ids": ["lo_1", "lo_2"],
+                "lesson_objective": "Test objective",
+                "unit_source_material": "Test material content",
+            }
+        )
 
     @pytest.mark.asyncio
     async def test_retry_unit_creation_success(self) -> None:

@@ -49,7 +49,6 @@ import { uiSystemProvider } from '../../ui_system/public';
 
 // Hooks
 import { useStartSession } from '../queries';
-import { catalogProvider } from '../../catalog/public';
 import {
   usePodcastPlayer,
   PodcastPlayer,
@@ -64,11 +63,10 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 type Props = NativeStackScreenProps<LearningStackParamList, 'LearningFlow'>;
 
 export default function LearningFlowScreen({ navigation, route }: Props) {
-  const { lesson } = route.params;
+  const { lesson, unitId: routeUnitId } = route.params;
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [unitTitle, setUnitTitle] = useState<string | null>(null);
-  const unitId = lesson.unitId ?? null;
+  const unitId = routeUnitId;
 
   const uiSystem = uiSystemProvider();
   const theme = uiSystem.getCurrentTheme();
@@ -80,6 +78,12 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
   const { pause } = usePodcastPlayer();
   const { currentTrack } = usePodcastState();
   const hasPlayer = Boolean(unitId && currentTrack?.unitId === unitId);
+
+  useEffect(() => {
+    if (!unitId) {
+      setError('Unit context is required to start this lesson');
+    }
+  }, [unitId]);
 
   // Create session on mount
   useEffect(() => {
@@ -106,8 +110,12 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
     async function createSession() {
       try {
         setError(null);
+        if (!unitId) {
+          throw new Error('Unit context is required to start this lesson');
+        }
         const session = await startSessionMutation.mutateAsync({
           lessonId: lesson.id,
+          unitId,
         });
         setSessionId(session.id);
       } catch (err) {
@@ -122,7 +130,7 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
 
     createSession();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lesson.id, sessionId]);
+  }, [lesson.id, sessionId, unitId]);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('blur', () => {
@@ -133,33 +141,10 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
     return unsubscribe;
   }, [currentTrack?.unitId, navigation, pause, unitId]);
 
-  // Lookup unit context for this lesson (best-effort)
-  useEffect(() => {
-    let cancelled = false;
-    setUnitTitle(null);
-    (async () => {
-      try {
-        const catalog = catalogProvider();
-        const list = await catalog.browseUnits({ limit: 100, offset: 0 });
-        for (const u of list) {
-          const detail = await catalog.getUnitDetail(u.id);
-          if (detail && detail.lessons.some(l => l.id === lesson.id)) {
-            if (!cancelled) setUnitTitle(detail.title);
-            break;
-          }
-        }
-      } catch {
-        // ignore; unit context is optional
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [lesson.id]);
-
   const handleComplete = (results: SessionResults) => {
     // Navigate to results screen
-    navigation.replace('Results', { results });
+    const resolvedUnitId = results.unitId ?? unitId;
+    navigation.replace('Results', { results, unitId: resolvedUnitId });
   };
 
   const handleBack = () => {
@@ -182,8 +167,12 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
         startedRef.current = null;
       }
       try {
+        if (!unitId) {
+          throw new Error('Unit context is required to start this lesson');
+        }
         const session = await startSessionMutation.mutateAsync({
           lessonId: lesson.id,
+          unitId,
         });
         setSessionId(session.id);
       } catch (err) {
@@ -204,9 +193,6 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
         <Text style={styles.loadingText}>
           Starting your learning session...
         </Text>
-        {unitTitle && (
-          <Text style={styles.loadingSubtext}>Unit: {unitTitle}</Text>
-        )}
         <View style={styles.loadingActions}>
           <Button
             title="Cancel"
@@ -272,9 +258,6 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
     <SafeAreaView style={styles.loadingContainer}>
       <ActivityIndicator size="large" color={theme.colors?.primary} />
       <Text style={styles.loadingText}>Preparing session...</Text>
-      {unitTitle && (
-        <Text style={styles.loadingSubtext}>Unit: {unitTitle}</Text>
-      )}
       <View style={styles.loadingActions}>
         <Button
           title="Cancel"
@@ -305,12 +288,6 @@ const createStyles = (theme: any) =>
       marginTop: 16,
       fontSize: 16,
       color: theme.colors.text,
-      textAlign: 'center',
-    },
-    loadingSubtext: {
-      marginTop: 8,
-      fontSize: 14,
-      color: theme.colors.textSecondary,
       textAlign: 'center',
     },
     loadingActions: {

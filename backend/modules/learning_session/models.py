@@ -36,8 +36,8 @@ class LearningSessionModel(Base):
     # Core fields matching frontend ApiLearningSession
     id: Mapped[str] = mapped_column(String, primary_key=True)
     lesson_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
-    # Optional association to a unit for unit-level progress tracking
-    unit_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    # Required association to a unit for unit-level progress tracking
+    unit_id: Mapped[str] = mapped_column(String, ForeignKey("units.id"), nullable=False, index=True)
     user_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)  # Optional for anonymous sessions
     status: Mapped[str] = mapped_column(String, nullable=False, default=SessionStatus.ACTIVE.value, index=True)
 
