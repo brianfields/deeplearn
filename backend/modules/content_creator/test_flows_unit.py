@@ -10,6 +10,7 @@ Covers:
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
@@ -140,10 +141,6 @@ class TestServiceFlows:
             voice="Plain",
             duration_seconds=120,
         )
-        content.save_unit_podcast_from_bytes_async = AsyncMock()
-        svc = ContentCreatorService(content, podcast_generator=podcast_generator)
-
-        # Unit plan will be provided by mocked UnitCreationFlow below
 
         # Return created unit (minimal attributes required by service)
         created_unit_obj = Mock()
@@ -151,8 +148,38 @@ class TestServiceFlows:
         created_unit_obj.title = "Unit T"
         content.create_unit.return_value = created_unit_obj
 
+        # Set up all async mocks before creating service
+        content.save_lesson = AsyncMock(return_value=Mock(id="l1"))
+        content.assign_lessons_to_unit = AsyncMock()
+        content.update_unit_metadata = AsyncMock()
+        content.update_unit_status = AsyncMock()
+        content.save_unit_podcast_from_bytes = AsyncMock()
+        # Mock get_unit_detail with iterable lessons to avoid TypeError in art generation
+        mock_lesson = Mock()
+        mock_lesson.key_concepts = ["concept1", "concept2"]
+        content.get_unit_detail = AsyncMock(return_value=Mock(title="Unit T", description="Description", learning_objectives=[], lessons=[mock_lesson]))
+        # Mock create_unit_art to avoid LLM calls
+
+        svc = ContentCreatorService(content, podcast_generator=podcast_generator)
+
         # We'll patch flows to return minimal shapes and call create_unit (foreground)
-        with patch("modules.content_creator.service.UnitCreationFlow") as mock_ucf_cls, patch("modules.content_creator.service.LessonCreationFlow") as mock_lcf_cls:
+        with (
+            patch("modules.content_creator.service.UnitCreationFlow") as mock_ucf_cls,
+            patch("modules.content_creator.service.LessonCreationFlow") as mock_lcf_cls,
+            patch.object(svc, "create_unit_art", new=AsyncMock()),
+            patch("modules.content_creator.service.content_provider", return_value=content),
+            patch("modules.content_creator.service.infrastructure_provider") as mock_infra_prov,
+        ):
+            # Mock infrastructure provider with proper async context manager
+            mock_infra = Mock()
+            mock_infra.initialize = Mock()
+
+            @asynccontextmanager
+            async def mock_session_context():
+                yield AsyncMock()
+
+            mock_infra.get_async_session_context = mock_session_context
+            mock_infra_prov.return_value = mock_infra
             mock_ucf = AsyncMock()
             mock_ucf.execute.return_value = {
                 "unit_title": "Unit T",
@@ -177,12 +204,6 @@ class TestServiceFlows:
             }
             mock_lcf_cls.return_value = mock_lcf
 
-            # Ensure save_lesson returns an object with a string id
-            content.save_lesson.return_value = Mock(id="l1")
-
-            # Add the missing method to the mock
-            content.assign_lessons_to_unit = AsyncMock()
-
             result = await svc.create_unit(topic="Topic", target_lesson_count=1, learner_level="beginner", background=False)
         assert result.title == "Unit T"
         content.save_lesson.assert_awaited()
@@ -202,18 +223,41 @@ class TestServiceFlows:
             duration_seconds=120,
         )
 
-        content.save_unit_podcast_from_bytes = AsyncMock()
+        # Set up all mocks before creating service
         created_unit_obj = Mock()
         created_unit_obj.id = "u2"
         created_unit_obj.title = "Unit B"
         content.create_unit.return_value = created_unit_obj
         content.get_unit.return_value = Mock(user_id=42)
-        content.save_lesson.return_value = Mock(id="lesson-1")
+        content.save_lesson = AsyncMock(return_value=Mock(id="lesson-1"))
         content.assign_lessons_to_unit = AsyncMock()
+        content.update_unit_metadata = AsyncMock()
+        content.update_unit_status = AsyncMock()
+        content.save_unit_podcast_from_bytes = AsyncMock()
+        # Mock get_unit_detail with iterable lessons to avoid TypeError in art generation
+        mock_lesson = Mock()
+        mock_lesson.key_concepts = ["concept1", "concept2"]
+        content.get_unit_detail = AsyncMock(return_value=Mock(title="Unit B", description="Description", learning_objectives=[], lessons=[mock_lesson]))
 
         svc = ContentCreatorService(content, podcast_generator=podcast_generator)
 
-        with patch("modules.content_creator.service.UnitCreationFlow") as mock_ucf_cls, patch("modules.content_creator.service.LessonCreationFlow") as mock_lcf_cls:
+        with (
+            patch("modules.content_creator.service.UnitCreationFlow") as mock_ucf_cls,
+            patch("modules.content_creator.service.LessonCreationFlow") as mock_lcf_cls,
+            patch.object(svc, "create_unit_art", new=AsyncMock()),
+            patch("modules.content_creator.service.content_provider", return_value=content),
+            patch("modules.content_creator.service.infrastructure_provider") as mock_infra_prov,
+        ):
+            # Mock infrastructure provider with proper async context manager
+            mock_infra = Mock()
+            mock_infra.initialize = Mock()
+
+            @asynccontextmanager
+            async def mock_session_context():
+                yield AsyncMock()
+
+            mock_infra.get_async_session_context = mock_session_context
+            mock_infra_prov.return_value = mock_infra
             mock_ucf = AsyncMock()
             mock_ucf.execute.return_value = {
                 "unit_title": "Unit B",

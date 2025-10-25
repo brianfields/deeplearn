@@ -55,14 +55,7 @@ class FlowRunRepo:
 
     def get_recent(self, limit: int = 50, offset: int = 0) -> list[FlowRunModel]:
         """Get recent flow runs with pagination."""
-        return list(
-            self.s.execute(
-                select(FlowRunModel)
-                .order_by(desc(FlowRunModel.created_at))
-                .limit(limit)
-                .offset(offset)
-            ).scalars()
-        )
+        return list(self.s.execute(select(FlowRunModel).order_by(desc(FlowRunModel.created_at)).limit(limit).offset(offset)).scalars())
 
     def list_by_filters(
         self,

@@ -15,10 +15,10 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from modules.shared_models import Base, PostgresUUID
 
-
 if "TaskModel" in Base.registry._class_registry:
     TaskModel = cast(type[Base], Base.registry._class_registry["TaskModel"])
 else:
+
     class TaskModel(Base):
         """Persisted record representing an ARQ task."""
 
@@ -44,7 +44,6 @@ else:
         worker_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
         flow_run_id: Mapped[uuid.UUID | None] = mapped_column(PostgresUUID(), nullable=True, index=True)
         unit_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
-
 
 
 class TaskStatusEnum(str, Enum):

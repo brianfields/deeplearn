@@ -1063,6 +1063,23 @@ class ContentService:
             raise ValueError("Unit not found")
         return await self._build_unit_read(updated)
 
+    async def update_unit_metadata(
+        self,
+        unit_id: str,
+        *,
+        title: str | None = None,
+        learning_objectives: list[Any] | None = None,
+    ) -> ContentService.UnitRead | None:
+        """Update unit metadata fields (title, learning_objectives)."""
+        updated = await self.repo.update_unit_metadata(
+            unit_id,
+            title=title,
+            learning_objectives=learning_objectives,
+        )
+        if updated is None:
+            return None
+        return await self._build_unit_read(updated)
+
     async def assign_unit_owner(self, unit_id: str, *, owner_user_id: int | None) -> ContentService.UnitRead:
         """Assign or clear ownership of a unit."""
         updated = await self.repo.set_unit_owner(unit_id, owner_user_id)

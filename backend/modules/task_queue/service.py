@@ -6,11 +6,12 @@ and worker health management. Returns DTOs for external consumption.
 """
 
 import asyncio
+from collections.abc import Awaitable, Callable
 import contextlib
 from datetime import UTC, datetime
 import logging
 import os
-from typing import Any, Awaitable, Callable, TypeVar
+from typing import Any, TypeVar
 from urllib.parse import urlparse
 import uuid
 
@@ -295,6 +296,7 @@ class TaskQueueService:
 
     async def update_task_progress(self, task_id: str, progress_percentage: float, current_step: str | None = None) -> None:
         """Update task progress (called from within tasks)."""
+
         def _apply(model: TaskModel) -> None:
             model.progress_percentage = progress_percentage
             if current_step is not None:
@@ -305,6 +307,7 @@ class TaskQueueService:
 
     async def mark_task_started(self, task_id: str, worker_id: str | None = None) -> None:
         """Mark task as started (called from worker)."""
+
         def _apply(model: TaskModel) -> None:
             model.status = TaskStatusEnum.IN_PROGRESS.value
             model.started_at = datetime.now(UTC)
@@ -317,6 +320,7 @@ class TaskQueueService:
 
     async def complete_task(self, task_id: str, outputs: dict[str, Any] | None = None, error_message: str | None = None) -> None:
         """Complete a task with success or failure."""
+
         def _apply(model: TaskModel) -> None:
             model.completed_at = datetime.now(UTC)
             model.progress_percentage = 100.0
@@ -373,11 +377,7 @@ class TaskQueueService:
 
     async def get_recent_tasks(self, limit: int = 50, queue_name: str | None = None) -> list[TaskStatus]:
         """Get recent task statuses."""
-        tasks = await self._with_task_repo(
-            lambda repo: repo.list_by_queue(queue_name, limit=limit)
-            if queue_name
-            else repo.list_tasks(limit=limit)
-        )
+        tasks = await self._with_task_repo(lambda repo: repo.list_by_queue(queue_name, limit=limit) if queue_name else repo.list_tasks(limit=limit))
         return [self._task_model_to_status(task) for task in tasks]
 
     async def get_queue_stats(self, queue_name: str = "default") -> QueueStats:

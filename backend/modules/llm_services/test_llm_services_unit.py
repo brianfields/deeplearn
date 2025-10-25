@@ -109,7 +109,7 @@ async def test_generate_response_assigns_user_context(db_session: Session, monke
     """The service should ensure requests persist the provided user identifier."""
 
     repo = LLMRequestRepo(db_session)
-    config = LLMConfig(provider=LLMProviderType.OPENAI, model="test-model", api_key="key")
+    config = LLMConfig(provider=LLMProviderType.OPENAI, model="gpt-4o-mini", api_key="key")
 
     provider_factory = _ProviderFactory(lambda cfg, session: _RecordingProvider(cfg, session))
 
@@ -126,7 +126,7 @@ async def test_generate_response_assigns_user_context(db_session: Session, monke
     response, request_id = await service.generate_response(
         messages=messages,
         user_id=user_id,
-        model="test-model",
+        model="gpt-4o-mini",
         temperature=0.7,
     )
 
@@ -175,6 +175,16 @@ class _StructuredDemoModel(BaseModel):
 async def test_anthropic_provider_generates_text_response(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
     """Anthropic provider should persist request metadata and return responses."""
 
+    # Mock SDK availability before creating provider
+    monkeypatch.setattr("modules.llm_services.providers.claude._ANTHROPIC_AVAILABLE", True)
+
+    # Create a mock AsyncAnthropic class
+    class MockAsyncAnthropic:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            pass
+
+    monkeypatch.setattr("modules.llm_services.providers.claude.AsyncAnthropic", MockAsyncAnthropic)
+
     config = LLMConfig(
         provider=LLMProviderType.ANTHROPIC,
         model="claude-haiku-4-5",
@@ -210,6 +220,16 @@ async def test_anthropic_provider_generates_text_response(db_session: Session, m
 @pytest.mark.asyncio()
 async def test_anthropic_provider_structured_output(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
     """Anthropic provider should parse structured JSON responses."""
+
+    # Mock SDK availability before creating provider
+    monkeypatch.setattr("modules.llm_services.providers.claude._ANTHROPIC_AVAILABLE", True)
+
+    # Create a mock AsyncAnthropic class
+    class MockAsyncAnthropic:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            pass
+
+    monkeypatch.setattr("modules.llm_services.providers.claude.AsyncAnthropic", MockAsyncAnthropic)
 
     config = LLMConfig(
         provider=LLMProviderType.ANTHROPIC,

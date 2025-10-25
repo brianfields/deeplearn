@@ -535,6 +535,15 @@ class ContentCreatorService:
 
         # Update unit metadata from plan
         final_title = str(unit_plan.get("unit_title") or f"{topic}")
+        learning_objectives = unit_plan.get("learning_objectives", [])
+
+        # Save the extracted title and learning objectives to the unit
+        await self.content.update_unit_metadata(
+            unit_id,
+            title=final_title,
+            learning_objectives=learning_objectives,
+        )
+
         await self.content.update_unit_status(unit_id, UnitStatus.IN_PROGRESS.value, creation_progress={"stage": "generating", "message": "Generating lessons..."})
 
         # Prepare look-up of unit-level LO texts by id

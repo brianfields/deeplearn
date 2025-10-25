@@ -20,6 +20,7 @@ try:
 except ImportError:
     REDIS_AVAILABLE = False
 
+
 class TaskQueueRepo:
     """Repository for task queue Redis operations."""
 
@@ -320,34 +321,17 @@ class TaskRepo:
         return await self.s.get(TaskModel, task_id)
 
     async def list_tasks(self, limit: int = 100, offset: int = 0) -> list[TaskModel]:
-        stmt = (
-            select(TaskModel)
-            .order_by(desc(TaskModel.created_at))
-            .offset(offset)
-            .limit(limit)
-        )
+        stmt = select(TaskModel).order_by(desc(TaskModel.created_at)).offset(offset).limit(limit)
         result = await self.s.execute(stmt)
         return list(result.scalars().all())
 
     async def list_by_status(self, status: str, limit: int = 100, offset: int = 0) -> list[TaskModel]:
-        stmt = (
-            select(TaskModel)
-            .where(TaskModel.status == status)
-            .order_by(desc(TaskModel.created_at))
-            .offset(offset)
-            .limit(limit)
-        )
+        stmt = select(TaskModel).where(TaskModel.status == status).order_by(desc(TaskModel.created_at)).offset(offset).limit(limit)
         result = await self.s.execute(stmt)
         return list(result.scalars().all())
 
     async def list_by_queue(self, queue_name: str, limit: int = 100, offset: int = 0) -> list[TaskModel]:
-        stmt = (
-            select(TaskModel)
-            .where(TaskModel.queue_name == queue_name)
-            .order_by(desc(TaskModel.created_at))
-            .offset(offset)
-            .limit(limit)
-        )
+        stmt = select(TaskModel).where(TaskModel.queue_name == queue_name).order_by(desc(TaskModel.created_at)).offset(offset).limit(limit)
         result = await self.s.execute(stmt)
         return list(result.scalars().all())
 

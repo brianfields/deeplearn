@@ -24,6 +24,7 @@ module.exports = {
     '^@react-native-async-storage/async-storage$':
       '<rootDir>/__mocks__/async-storage.js',
     '^@react-native-community/netinfo$': '<rootDir>/__mocks__/netinfo.js',
+    '^@react-native-community/slider$': '<rootDir>/__mocks__/slider.js',
     '^expo-haptics$': '<rootDir>/__mocks__/expo-haptics.js',
     '^expo-audio$': '<rootDir>/__mocks__/expo-audio.js',
     '^expo-sqlite$': '<rootDir>/__mocks__/expo-sqlite.js',

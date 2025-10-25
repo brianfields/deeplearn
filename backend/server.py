@@ -23,6 +23,7 @@ from modules.admin.routes import router as admin_router
 from modules.catalog.routes import router as catalog_router
 from modules.content.routes import router as content_router
 from modules.content_creator.routes import router as content_creator_router
+from modules.flow_engine.routes import router as flow_engine_router
 from modules.infrastructure.debug_routes import router as debug_router
 from modules.infrastructure.exception_handlers import (
     setup_error_middleware,
@@ -31,7 +32,6 @@ from modules.infrastructure.exception_handlers import (
 from modules.infrastructure.public import DatabaseSession, infrastructure_provider
 from modules.learning_coach.routes import router as learning_coach_router
 from modules.learning_session.routes import router as learning_session_router
-from modules.flow_engine.routes import router as flow_engine_router
 from modules.task_queue.routes import router as task_queue_router
 from modules.user.routes import router as user_router
 

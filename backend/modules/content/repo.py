@@ -182,6 +182,28 @@ class ContentRepo:
         await self.s.flush()
         return unit
 
+    async def update_unit_metadata(
+        self,
+        unit_id: str,
+        *,
+        title: str | None = None,
+        learning_objectives: list[Any] | None = None,
+    ) -> UnitModel | None:
+        """Update unit metadata fields (title, learning_objectives) and return the updated model, or None if not found."""
+        unit = await self.get_unit_by_id(unit_id)
+        if unit is None:
+            return None
+
+        if title is not None:
+            unit.title = title  # type: ignore[assignment]
+        if learning_objectives is not None:
+            unit.learning_objectives = learning_objectives  # type: ignore[assignment]
+
+        unit.updated_at = datetime.utcnow()  # type: ignore[assignment]
+        self.s.add(unit)
+        await self.s.flush()
+        return unit
+
     async def associate_lessons_with_unit(self, unit_id: str, lesson_ids: list[str]) -> UnitModel | None:
         """Associate the specified lessons with the unit and set the unit's lesson order.
 
