@@ -1,8 +1,8 @@
-"""Topic field length unrestrict
+"""admin improvements
 
-Revision ID: c0c59980549d
-Revises: 1827be4e1e9d
-Create Date: 2025-10-16 14:13:07.886974
+Revision ID: a9942a28677d
+Revises: bc0c2c39da95
+Create Date: 2025-10-24 20:46:06.110046
 
 """
 from typing import Sequence, Union
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'c0c59980549d'
-down_revision: Union[str, None] = '1827be4e1e9d'
+revision: str = 'a9942a28677d'
+down_revision: Union[str, None] = 'bc0c2c39da95'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

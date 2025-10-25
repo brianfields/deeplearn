@@ -47,8 +47,7 @@ export function Slider({
     return `${Math.round(val)}`;
   };
 
-  const effectiveMinLabel =
-    minimumLabel ?? formatLabel(minimumValue ?? 0);
+  const effectiveMinLabel = minimumLabel ?? formatLabel(minimumValue ?? 0);
   const effectiveMaxLabel = maximumLabel ?? formatLabel(maximumValue);
   const effectiveValueLabel = formatLabel(value);
 
@@ -71,13 +70,13 @@ export function Slider({
         testID={testID}
       />
       {showValueLabels && (
-        <View style={[styles.labelsRow, { marginTop: labelSpacing }]}> 
+        <View style={[styles.labelsRow, { marginTop: labelSpacing }]}>
           <Text variant="caption">{effectiveValueLabel}</Text>
           <Text variant="caption">{effectiveMaxLabel}</Text>
         </View>
       )}
       {!showValueLabels && (minimumLabel || maximumLabel) && (
-        <View style={[styles.labelsRow, { marginTop: labelSpacing }]}> 
+        <View style={[styles.labelsRow, { marginTop: labelSpacing }]}>
           <Text variant="caption">{effectiveMinLabel}</Text>
           <Text variant="caption">{effectiveMaxLabel}</Text>
         </View>

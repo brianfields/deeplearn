@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Alert,
   Pressable,
+  SafeAreaView,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../../user/public';
@@ -272,17 +273,47 @@ export function LearningCoachScreen({
 
   const isAccepting = acceptBrief.isPending || createUnit.isPending;
 
+  const handleCancel = () => {
+    Alert.alert(
+      'Leave Conversation?',
+      'Are you sure you want to go back? Your conversation will be saved.',
+      [
+        {
+          text: 'Stay',
+          style: 'cancel',
+        },
+        {
+          text: 'Leave',
+          onPress: () => navigation.navigate('LessonList'),
+        },
+      ]
+    );
+  };
+
   if (!sessionState) {
     return (
-      <View style={styles.loadingContainer}>
+      <SafeAreaView style={styles.loadingContainer}>
         <ActivityIndicator color={theme.colors.primary} size="large" />
         <Text style={styles.loadingText}>Connecting you with the coach…</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.screen}>
+    <SafeAreaView style={styles.screen}>
+      <View style={styles.header}>
+        <Pressable
+          onPress={handleCancel}
+          style={({ pressed }) => [
+            styles.backButton,
+            { opacity: pressed ? 0.6 : 1 },
+          ]}
+        >
+          <Text style={styles.backButtonText}>✕</Text>
+        </Pressable>
+        <Text style={styles.headerTitle}>Learning Coach</Text>
+        <View style={styles.headerSpacer} />
+      </View>
       <ConversationList messages={displayMessages} isLoading={isCoachLoading} />
       {sessionState.finalizedTopic && sessionState.learningObjectives ? (
         <View style={styles.finalizedContainer}>
@@ -339,7 +370,7 @@ export function LearningCoachScreen({
         replies={quickReplies}
       />
       <Composer onSend={handleSend} disabled={isCoachLoading || isAccepting} />
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -359,8 +390,39 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontSize: 16,
   },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: theme.colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border ?? 'rgba(0,0,0,0.1)',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 20,
+  },
+  backButtonText: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: theme.colors.text,
+  },
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: theme.colors.text,
+  },
+  headerSpacer: {
+    width: 40,
+  },
   finalizedContainer: {
     padding: 16,
+    paddingBottom: 20,
     backgroundColor: theme.colors.surface,
     borderTopWidth: 2,
     borderColor: theme.colors.primary,

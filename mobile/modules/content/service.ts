@@ -577,6 +577,10 @@ export class ContentService {
     const creationProgress = this.normalizeCreationProgress(
       payload?.creation_progress
     );
+
+    const podcastDurationSeconds =
+      (payload?.podcast_duration_seconds as NullableNumber) ?? null;
+
     return {
       id: cached.id,
       title: payload?.title ?? cached.title,
@@ -596,8 +600,7 @@ export class ContentService {
         payload?.updated_at ?? new Date(cached.updatedAt).toISOString(),
       has_podcast: payload?.has_podcast ?? false,
       podcast_voice: payload?.podcast_voice ?? null,
-      podcast_duration_seconds:
-        (payload?.podcast_duration_seconds as NullableNumber) ?? null,
+      podcast_duration_seconds: podcastDurationSeconds,
       art_image_url: payload?.art_image_url ?? null,
       art_image_description: payload?.art_image_description ?? null,
     };

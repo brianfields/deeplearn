@@ -11,9 +11,10 @@ __all__ = ["LLMConfig", "create_llm_config_from_env"]
 
 
 _CLAUDE_BEDROCK_MODEL_IDS = {
-    "claude-haiku-4-5": "anthropic.claude-haiku-4-5-v1:0",
-    "claude-sonnet-4-5": "anthropic.claude-sonnet-4-5-v1:0",
-    "claude-opus-4-1": "anthropic.claude-opus-4-1-v1:0",
+    # Claude 4.5 models require inference profiles (not direct model IDs)
+    "claude-haiku-4-5": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+    "claude-sonnet-4-5": "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+    "claude-opus-4-1": "us.anthropic.claude-opus-4-1-20250805-v1:0",
 }
 
 
