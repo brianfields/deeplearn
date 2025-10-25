@@ -10,6 +10,7 @@ import uuid
 from pydantic import BaseModel, ConfigDict, Field
 
 from .config import LLMConfig, create_llm_config_from_env
+from .exceptions import LLMAuthenticationError
 from .providers.base import LLMProvider, LLMProviderKwargs
 from .providers.factory import create_llm_provider
 from .repo import LLMRequestRepo
@@ -232,29 +233,34 @@ class LLMService:
         self._provider_cache: dict[LLMProviderType, LLMProvider] = {}
         self._provider_configs: dict[LLMProviderType, LLMConfig] = {}
         self._default_provider_type: LLMProviderType | None = None
+        self._logger = logging.getLogger(__name__)
         # Initialize default LLM provider
         try:
             default_config = create_llm_config_from_env()
             self._default_provider_type = default_config.provider
             self._provider_configs[default_config.provider] = default_config
+            self._logger.info(f"Initializing default LLM provider: {default_config.provider.value} (model: {default_config.model})")
             provider_instance = create_llm_provider(default_config, repo.s)
             self._provider_cache[default_config.provider] = provider_instance
             self.provider = provider_instance
+            self._logger.info(f"✓ Successfully initialized {default_config.provider.value} provider")
         except Exception as e:
-            logger = logging.getLogger(__name__)
-            logger.warning(f"Failed to initialize LLM provider: {e}")
+            self._logger.warning(f"Failed to initialize LLM provider: {e}")
             self.provider = None
             self._default_provider_type = None
 
     def _ensure_provider(self, provider_type: LLMProviderType) -> LLMProvider:
         if provider_type in self._provider_cache:
+            self._logger.debug(f"Using cached {provider_type.value} provider")
             return self._provider_cache[provider_type]
 
+        self._logger.info(f"Initializing {provider_type.value} provider on-demand")
         config = self._provider_configs.get(provider_type)
         if config is None:
             try:
                 config = create_llm_config_from_env(provider_override=provider_type)
             except Exception as exc:
+                self._logger.debug(f"Failed to configure {provider_type.value}: {exc}")
                 raise RuntimeError(f"Provider {provider_type.value} is not configured") from exc
             self._provider_configs[provider_type] = config
 
@@ -262,13 +268,31 @@ class LLMService:
         self._provider_cache[provider_type] = provider
         if self.provider is None and provider_type == self._default_provider_type:
             self.provider = provider
+        self._logger.info(f"✓ Successfully initialized {provider_type.value} provider")
         return provider
 
     def _select_provider(self, model: str | None) -> LLMProvider:
         if model and model.startswith("claude-"):
+            self._logger.debug(f"Selecting provider for Claude model: {model}")
+            # Try default provider first if it supports Claude
+            if self._default_provider_type in (LLMProviderType.ANTHROPIC, LLMProviderType.BEDROCK):
+                try:
+                    provider = self._ensure_provider(self._default_provider_type)
+                    self._logger.info(f"Using default {self._default_provider_type.value} provider for model: {model}")
+                    return provider
+                except (RuntimeError, LLMAuthenticationError) as e:
+                    self._logger.debug(f"Cannot use default provider {self._default_provider_type.value}: {e}")
+            # Fall back to trying all Claude providers
             for candidate in (LLMProviderType.ANTHROPIC, LLMProviderType.BEDROCK):
-                with contextlib.suppress(RuntimeError):
-                    return self._ensure_provider(candidate)
+                if candidate == self._default_provider_type:
+                    continue  # Already tried above
+                try:
+                    provider = self._ensure_provider(candidate)
+                    self._logger.info(f"Using {candidate.value} provider for model: {model}")
+                    return provider
+                except (RuntimeError, LLMAuthenticationError) as e:
+                    self._logger.debug(f"Cannot use {candidate.value} for Claude: {e}")
+                    continue
             raise RuntimeError("Claude provider is not configured")
 
         if (
@@ -286,6 +310,7 @@ class LLMService:
         if self._default_provider_type is None:
             raise RuntimeError("LLM provider not initialized")
 
+        self._logger.debug(f"Using default provider: {self._default_provider_type.value} for model: {model}")
         return self._ensure_provider(self._default_provider_type)
 
     def _ensure_request_user(self, request_id: uuid.UUID, user_id: int | None) -> None:

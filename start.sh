@@ -21,7 +21,7 @@ echo -e "${BLUE}Starting DeepLearn Platform...${NC}"
 
 # Defaults (can be overridden by CLI flags)
 ADMIN_ENABLED=1
-START_WEB=1
+START_WEB=0
 START_IOS=0
 PLATFORMS_SPECIFIED=0
 REDIS_ENABLED=1
@@ -112,8 +112,6 @@ kill_port() {
 echo -e "${BLUE}Checking for existing processes on required ports...${NC}"
 kill_port 8000  # Backend
 kill_port 3000  # Admin dashboard
-# kill_port 8081  # Mobile app
-# kill_port 8082  # Web app
 kill_port 6379  # Redis
 
 # Function to cleanup background processes on exit

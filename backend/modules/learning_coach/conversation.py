@@ -170,7 +170,7 @@ class LearningCoachConversation(BaseConversation):
         # Generate structured response using helper
         coach_response, request_id, raw_response = await self.generate_structured_reply(
             CoachResponse,
-            model="gpt-5-mini",
+            model="claude-haiku-4-5",
         )
 
         # Record the assistant message
