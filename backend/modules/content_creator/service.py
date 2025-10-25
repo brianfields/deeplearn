@@ -5,6 +5,7 @@ AI-powered content generation services.
 Uses LLM services to create educational content and stores it via content module.
 """
 
+import asyncio
 import logging
 from typing import Any
 import uuid
@@ -376,6 +377,129 @@ class ContentCreatorService:
             arq_task_id=None,
         )
 
+    async def _create_single_lesson(
+        self,
+        *,
+        lesson_plan: dict[str, Any],
+        lesson_index: int,
+        unit_los: dict[str, str],
+        unit_material: str,
+        learner_level: str,
+        arq_task_id: str | None,
+    ) -> tuple[str, PodcastLesson, str]:
+        """
+        Create a single lesson and return (lesson_id, podcast_lesson, voice).
+
+        This method is designed to be called in parallel for multiple lessons.
+        """
+        lesson_title = lesson_plan.get("title") or f"Lesson {lesson_index + 1}"
+        lesson_lo_ids: list[str] = list(lesson_plan.get("learning_objectives", []) or [])
+        lesson_lo_texts: list[str] = [unit_los.get(lid, lid) for lid in lesson_lo_ids]
+        lesson_objective_text: str = lesson_plan.get("lesson_objective", "")
+
+        logger.info(f"📝 Creating lesson {lesson_index + 1}: {lesson_title}")
+
+        # Execute flow
+        md_res = await LessonCreationFlow().execute(
+            {
+                "topic": lesson_title,
+                "learner_level": learner_level,
+                "voice": "Plain",
+                "learning_objectives": lesson_lo_texts,
+                "lesson_objective": lesson_objective_text,
+                "unit_source_material": unit_material,
+            },
+            arq_task_id=arq_task_id,
+        )
+
+        # Build package for lesson
+        db_lesson_id = str(uuid.uuid4())
+        meta = Meta(lesson_id=db_lesson_id, title=lesson_title, learner_level=learner_level, package_schema_version=1, content_version=1)
+
+        # Objectives for lesson
+        objectives: list[Objective] = []
+        for j, lo_text in enumerate(lesson_lo_texts):
+            objectives.append(Objective(id=f"lo_{j + 1}", text=str(lo_text)))
+
+        # Glossary
+        glossary_terms: list[GlossaryTerm] = []
+        for k, term in enumerate(md_res.get("glossary", []) or []):
+            glossary_terms.append(GlossaryTerm(id=f"term_{k + 1}", term=term.get("term", f"Term {k + 1}"), definition=term.get("definition", "")))
+        glossary = {"terms": glossary_terms}
+
+        # Mini lesson text
+        mini_lesson_text = str(md_res.get("mini_lesson") or "")
+        podcast_voice_label = str(md_res.get("voice") or "Plain")
+        podcast_lesson = PodcastLesson(title=lesson_title, mini_lesson=mini_lesson_text)
+
+        # MCQ exercises
+        exercises: list[MCQExercise] = []
+        # Flow returns either a dict { metadata, mcqs: [...] } or a bare list
+        mcqs_container = md_res.get("mcqs", {}) or {}
+        mcq_items = mcqs_container.get("mcqs", []) if isinstance(mcqs_container, dict) else (mcqs_container or [])
+        for idx, mcq in enumerate(mcq_items):
+            if not isinstance(mcq, dict):
+                # Skip malformed entries
+                continue
+            exercise_id = f"mcq_{idx + 1}"
+            options_with_ids: list[MCQOption] = []
+            option_id_map: dict[str, str] = {}
+            for opt in mcq.get("options", []):
+                opt_label = opt.get("label", "").upper()
+                gen_opt_id = f"{exercise_id}_{opt_label.lower()}"
+                option_id_map[opt_label] = gen_opt_id
+                options_with_ids.append(
+                    MCQOption(
+                        id=gen_opt_id,
+                        label=opt_label,
+                        text=opt.get("text", ""),
+                        rationale_wrong=opt.get("rationale_wrong"),
+                    )
+                )
+            ak = mcq.get("answer_key", {}) or {}
+            key_label = str(ak.get("label", "")).upper()
+            answer_key = MCQAnswerKey(
+                label=key_label,
+                option_id=option_id_map.get(key_label),
+                rationale_right=ak.get("rationale_right"),
+            )
+
+            exercises.append(
+                MCQExercise(
+                    id=exercise_id,
+                    exercise_type="mcq",
+                    lo_id=objectives[0].id if objectives else "lo_1",
+                    cognitive_level=None,
+                    estimated_difficulty=None,
+                    misconceptions_used=mcq.get("misconceptions_used", []),
+                    stem=mcq.get("stem", ""),
+                    options=options_with_ids,
+                    answer_key=answer_key,
+                )
+            )
+
+        lesson_package = LessonPackage(
+            meta=meta,
+            objectives=objectives,
+            glossary=glossary,
+            mini_lesson=mini_lesson_text,
+            exercises=exercises,
+            misconceptions=md_res.get("misconceptions", []),
+            confusables=md_res.get("confusables", []),
+        )
+
+        created_lesson = await self.content.save_lesson(
+            LessonCreate(
+                id=db_lesson_id,
+                title=lesson_title,
+                learner_level=learner_level,
+                package=lesson_package,
+            )
+        )
+
+        logger.info(f"✅ Completed lesson {lesson_index + 1}: {lesson_title}")
+        return (created_lesson.id, podcast_lesson, podcast_voice_label)
+
     async def _execute_unit_creation_pipeline(
         self,
         *,
@@ -417,121 +541,67 @@ class ContentCreatorService:
         unit_material: str = str(unit_plan.get("unit_source_material") or source_material or "")
         lessons_plan = unit_plan.get("lessons", []) or []
 
-        for i, lp in enumerate(lessons_plan):
-            lesson_title = lp.get("title") or f"Lesson {i + 1}"
-            lesson_lo_ids: list[str] = list(lp.get("learning_objectives", []) or [])
-            lesson_lo_texts: list[str] = [unit_los.get(lid, lid) for lid in lesson_lo_ids]
-            lesson_objective_text: str = lp.get("lesson_objective", "")
+        # Create lessons in parallel with batching to avoid overwhelming the system
+        logger.info(f"🚀 Creating {len(lessons_plan)} lessons in parallel (batch size: {MAX_PARALLEL_LESSONS})")
 
-            # Extract lesson metadata
-            md_res = await LessonCreationFlow().execute(
-                {
-                    "topic": lesson_title,
-                    "learner_level": learner_level,
-                    "voice": "Plain",
-                    "learning_objectives": lesson_lo_texts,
-                    "lesson_objective": lesson_objective_text,
-                    "unit_source_material": unit_material,
-                },
-                arq_task_id=arq_task_id,
-            )
+        for batch_start in range(0, len(lessons_plan), MAX_PARALLEL_LESSONS):
+            batch_end = min(batch_start + MAX_PARALLEL_LESSONS, len(lessons_plan))
+            batch = lessons_plan[batch_start:batch_end]
 
-            # Build package for lesson
-            db_lesson_id = str(uuid.uuid4())
-            meta = Meta(lesson_id=db_lesson_id, title=lesson_title, learner_level=learner_level, package_schema_version=1, content_version=1)
+            logger.info(f"📦 Processing batch {batch_start // MAX_PARALLEL_LESSONS + 1}: lessons {batch_start + 1}-{batch_end}")
 
-            # Objectives for lesson
-            objectives: list[Objective] = []
-            for j, lo_text in enumerate(lesson_lo_texts):
-                objectives.append(Objective(id=f"lo_{j + 1}", text=str(lo_text)))
-
-            # Glossary
-            glossary_terms: list[GlossaryTerm] = []
-            for k, term in enumerate(md_res.get("glossary", []) or []):
-                glossary_terms.append(GlossaryTerm(id=f"term_{k + 1}", term=term.get("term", f"Term {k + 1}"), definition=term.get("definition", "")))
-            glossary = {"terms": glossary_terms}
-
-            # Mini lesson text
-            mini_lesson_text = str(md_res.get("mini_lesson") or "")
-            if podcast_voice_label is None:
-                podcast_voice_label = str(md_res.get("voice") or "Plain")
-            podcast_lessons.append(PodcastLesson(title=lesson_title, mini_lesson=mini_lesson_text))
-
-            # MCQ exercises
-            exercises: list[MCQExercise] = []
-            # Flow returns either a dict { metadata, mcqs: [...] } or a bare list
-            mcqs_container = md_res.get("mcqs", {}) or {}
-            mcq_items = mcqs_container.get("mcqs", []) if isinstance(mcqs_container, dict) else (mcqs_container or [])
-            for idx, mcq in enumerate(mcq_items):
-                if not isinstance(mcq, dict):
-                    # Skip malformed entries
-                    continue
-                exercise_id = f"mcq_{idx + 1}"
-                options_with_ids: list[MCQOption] = []
-                option_id_map: dict[str, str] = {}
-                for opt in mcq.get("options", []):
-                    opt_label = opt.get("label", "").upper()
-                    gen_opt_id = f"{exercise_id}_{opt_label.lower()}"
-                    option_id_map[opt_label] = gen_opt_id
-                    options_with_ids.append(
-                        MCQOption(
-                            id=gen_opt_id,
-                            label=opt_label,
-                            text=opt.get("text", ""),
-                            rationale_wrong=opt.get("rationale_wrong"),
-                        )
-                    )
-                ak = mcq.get("answer_key", {}) or {}
-                key_label = str(ak.get("label", "")).upper()
-                answer_key = MCQAnswerKey(
-                    label=key_label,
-                    option_id=option_id_map.get(key_label),
-                    rationale_right=ak.get("rationale_right"),
-                )
-
-                exercises.append(
-                    MCQExercise(
-                        id=exercise_id,
-                        exercise_type="mcq",
-                        lo_id=objectives[0].id if objectives else "lo_1",
-                        cognitive_level=None,
-                        estimated_difficulty=None,
-                        misconceptions_used=mcq.get("misconceptions_used", []),
-                        stem=mcq.get("stem", ""),
-                        options=options_with_ids,
-                        answer_key=answer_key,
-                    )
-                )
-
-            lesson_package = LessonPackage(
-                meta=meta,
-                objectives=objectives,
-                glossary=glossary,
-                mini_lesson=mini_lesson_text,
-                exercises=exercises,
-                misconceptions=md_res.get("misconceptions", []),
-                confusables=md_res.get("confusables", []),
-            )
-
-            created_lesson = await self.content.save_lesson(
-                LessonCreate(
-                    id=db_lesson_id,
-                    title=lesson_title,
+            # Create tasks for parallel execution
+            tasks = [
+                self._create_single_lesson(
+                    lesson_plan=lp,
+                    lesson_index=i,
+                    unit_los=unit_los,
+                    unit_material=unit_material,
                     learner_level=learner_level,
-                    package=lesson_package,
+                    arq_task_id=arq_task_id,
                 )
-            )
-            lesson_ids.append(created_lesson.id)
+                for i, lp in enumerate(batch, start=batch_start)
+            ]
+
+            # Execute batch in parallel with error handling
+            batch_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            # Process results
+            for i, result in enumerate(batch_results):
+                lesson_num = batch_start + i + 1
+                if isinstance(result, Exception):
+                    logger.error(f"❌ Failed to create lesson {lesson_num}: {result}", exc_info=result)
+                    # Continue with other lessons - don't let one failure stop the whole unit
+                    continue
+
+                # Type narrowing: result is a tuple here, not an Exception
+                lesson_id, podcast_lesson, voice = result  # type: ignore[misc]
+                lesson_ids.append(lesson_id)
+                podcast_lessons.append(podcast_lesson)
+                if podcast_voice_label is None:
+                    podcast_voice_label = voice
+
+            # Update progress after each batch
+            progress_pct = (batch_end / len(lessons_plan)) * 100
+            await self.content.update_unit_status(unit_id, UnitStatus.IN_PROGRESS.value, creation_progress={"stage": "generating", "message": f"Generated {len(lesson_ids)}/{len(lessons_plan)} lessons ({progress_pct:.0f}%)..."})
+
+        logger.info(f"✅ Completed {len(lesson_ids)}/{len(lessons_plan)} lessons")
 
         # Associate lessons and complete
         if lesson_ids:
             await self.content.assign_lessons_to_unit(unit_id, lesson_ids)
 
-        if podcast_lessons:
+        # Generate podcast and art in parallel (both are independent post-processing tasks)
+        async def _generate_podcast() -> None:
+            """Generate podcast for the unit."""
+            if not podcast_lessons:
+                return
+
             generator = self.podcast_generator or UnitPodcastGenerator()
             # Cache the generator for future use to avoid repeated initialization
             self.podcast_generator = generator
             try:
+                logger.info("🎧 Generating unit podcast...")
                 summary_text = self._summarize_unit_plan(unit_plan, lessons_plan)
                 podcast = await generator.create_podcast(
                     unit_title=final_title,
@@ -539,35 +609,39 @@ class ContentCreatorService:
                     unit_summary=summary_text,
                     lessons=podcast_lessons,
                 )
+                if podcast.audio_bytes:
+                    await self.content.save_unit_podcast_from_bytes(
+                        unit_id,
+                        transcript=podcast.transcript,
+                        audio_bytes=podcast.audio_bytes,
+                        mime_type=podcast.mime_type,
+                        voice=podcast.voice,
+                    )
+                    logger.info("✅ Podcast generation completed")
             except Exception as exc:  # pragma: no cover - podcast generation should not block unit creation
                 logger.warning("🎧 Failed to generate podcast for unit %s: %s", unit_id, exc, exc_info=True)
-            else:
-                if podcast.audio_bytes:
-                    try:
-                        await self.content.save_unit_podcast_from_bytes(
-                            unit_id,
-                            transcript=podcast.transcript,
-                            audio_bytes=podcast.audio_bytes,
-                            mime_type=podcast.mime_type,
-                            voice=podcast.voice,
-                        )
-                    except Exception as exc:  # pragma: no cover - network/object store issues
-                        logger.warning(
-                            "🎧 Failed to persist podcast audio for unit %s: %s",
-                            unit_id,
-                            exc,
-                            exc_info=True,
-                        )
 
-        try:
-            await self.content.update_unit_status(
-                unit_id,
-                UnitStatus.IN_PROGRESS.value,
-                creation_progress={"stage": "artwork", "message": "Rendering hero artwork..."},
-            )
-            await self.create_unit_art(unit_id)
-        except Exception as exc:  # pragma: no cover - art generation should not block unit creation
-            logger.warning("🖼️ Failed to generate unit art for %s: %s", unit_id, exc, exc_info=True)
+        async def _generate_art() -> None:
+            """Generate artwork for the unit."""
+            try:
+                logger.info("🖼️ Generating unit artwork...")
+                await self.content.update_unit_status(
+                    unit_id,
+                    UnitStatus.IN_PROGRESS.value,
+                    creation_progress={"stage": "artwork", "message": "Rendering hero artwork..."},
+                )
+                await self.create_unit_art(unit_id)
+                logger.info("✅ Artwork generation completed")
+            except Exception as exc:  # pragma: no cover - art generation should not block unit creation
+                logger.warning("🖼️ Failed to generate unit art for %s: %s", unit_id, exc, exc_info=True)
+
+        # Run both post-processing tasks in parallel
+        logger.info("🎨 Starting post-processing (podcast + artwork)...")
+        await asyncio.gather(
+            _generate_podcast(),
+            _generate_art(),
+            return_exceptions=True,  # Don't let failures block completion
+        )
 
         await self.content.update_unit_status(unit_id, UnitStatus.COMPLETED.value, creation_progress={"stage": "completed", "message": "Unit creation completed"})
 
