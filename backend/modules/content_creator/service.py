@@ -352,7 +352,7 @@ class ContentCreatorService:
         if background:
             # Submit unified task to ARQ
             task_queue_service = task_queue_provider()
-            await task_queue_service.submit_flow_task(
+            task_result = await task_queue_service.submit_flow_task(
                 flow_name="content_creator.unit_creation",
                 flow_run_id=uuid.UUID(unit.id),
                 inputs={
@@ -363,6 +363,7 @@ class ContentCreatorService:
                     "learner_level": learner_level,
                 },
             )
+            await self.content.set_unit_task(unit.id, task_result.task_id)
             return self.MobileUnitCreationResult(unit_id=unit.id, title=unit.title, status=UnitStatus.IN_PROGRESS.value)
 
         # Foreground execution
@@ -372,6 +373,7 @@ class ContentCreatorService:
             source_material=source_material,
             target_lesson_count=target_lesson_count,
             learner_level=learner_level,
+            arq_task_id=None,
         )
 
     async def _execute_unit_creation_pipeline(
@@ -382,6 +384,7 @@ class ContentCreatorService:
         source_material: str | None,
         target_lesson_count: int | None,
         learner_level: str,
+        arq_task_id: str | None = None,
     ) -> "ContentCreatorService.UnitCreationResult":
         """Execute the end-to-end unit creation using the active prompt-aligned flows."""
         logger.info(f"🧱 Executing unit creation pipeline for unit {unit_id}")
@@ -394,7 +397,8 @@ class ContentCreatorService:
                 "unit_source_material": source_material,
                 "target_lesson_count": target_lesson_count,
                 "learner_level": learner_level,
-            }
+            },
+            arq_task_id=arq_task_id,
         )
 
         # Update unit metadata from plan
@@ -428,7 +432,8 @@ class ContentCreatorService:
                     "learning_objectives": lesson_lo_texts,
                     "lesson_objective": lesson_objective_text,
                     "unit_source_material": unit_material,
-                }
+                },
+                arq_task_id=arq_task_id,
             )
 
             # Build package for lesson
@@ -686,7 +691,7 @@ class ContentCreatorService:
 
         # Start background processing again via ARQ submission
         task_queue_service = task_queue_provider()
-        await task_queue_service.submit_flow_task(
+        task_result = await task_queue_service.submit_flow_task(
             flow_name="content_creator.unit_creation",
             flow_run_id=uuid.UUID(unit_id),
             inputs={
@@ -697,6 +702,8 @@ class ContentCreatorService:
                 "learner_level": learner_level,
             },
         )
+
+        await self.content.set_unit_task(unit_id, task_result.task_id)
 
         logger.info(f"✅ Unit retry initiated: unit_id={unit_id}")
 

@@ -16,6 +16,8 @@ import uuid
 
 from pydantic import BaseModel, ConfigDict
 
+from modules.flow_engine.public import FlowRunSummaryDTO, flow_engine_admin_provider
+from modules.infrastructure.public import infrastructure_provider
 from modules.object_store.public import AudioCreate, ImageCreate, ObjectStoreProvider
 
 from .models import LessonModel, UnitModel
@@ -289,6 +291,7 @@ class ContentService:
         lesson_order: list[str]
         user_id: int | None = None
         is_global: bool = False
+        arq_task_id: str | None = None
         # New fields
         learning_objectives: list[Any] | None = None
         target_lesson_count: int | None = None
@@ -1012,6 +1015,18 @@ class ContentService:
             return None
         return await self._build_unit_read(updated)
 
+    async def set_unit_task(
+        self,
+        unit_id: str,
+        arq_task_id: str | None,
+    ) -> ContentService.UnitRead | None:
+        """Update the ARQ task tracking identifier for a unit."""
+
+        updated = await self.repo.update_unit_arq_task(unit_id, arq_task_id)
+        if updated is None:
+            return None
+        return await self._build_unit_read(updated)
+
     async def create_unit(self, data: ContentService.UnitCreate) -> ContentService.UnitRead:
         unit_id = data.id or str(uuid.uuid4())
         model = UnitModel(
@@ -1032,6 +1047,15 @@ class ContentService:
         )
         created = await self.repo.add_unit(model)
         return await self._build_unit_read(created)
+
+    async def get_unit_flow_runs(self, unit_id: str) -> list[FlowRunSummaryDTO]:
+        """Retrieve flow runs associated with a unit for admin observability."""
+
+        infra = infrastructure_provider()
+        infra.initialize()
+        with infra.get_session_context() as session:
+            flow_service = flow_engine_admin_provider(session)
+            return flow_service.list_flow_runs(unit_id=unit_id)
 
     async def set_unit_lesson_order(self, unit_id: str, lesson_ids: list[str]) -> ContentService.UnitRead:
         updated = await self.repo.update_unit_lesson_order(unit_id, lesson_ids)

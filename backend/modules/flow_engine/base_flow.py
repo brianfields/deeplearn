@@ -71,10 +71,23 @@ def flow_execution(func: Callable[..., Any]) -> Callable[..., Any]:
             logger.info(f"🚀 Starting flow: {self.flow_name}")
             logger.debug(f"Flow inputs: {list(inputs.keys()) if isinstance(inputs, dict) else 'N/A'}")
 
-            flow_run_id = await service.create_flow_run_record(flow_name=self.flow_name, inputs=inputs, user_id=user_id)
+            arq_task_id = cast(str | None, kwargs.get("arq_task_id"))
+
+            flow_run_id = await service.create_flow_run_record(
+                flow_name=self.flow_name,
+                inputs=inputs,
+                user_id=user_id,
+                arq_task_id=arq_task_id,
+            )
 
             # Set up flow context
-            FlowContext.set(service=service, flow_run_id=flow_run_id, user_id=user_id, step_counter=0)
+            FlowContext.set(
+                service=service,
+                flow_run_id=flow_run_id,
+                user_id=user_id,
+                step_counter=0,
+                arq_task_id=arq_task_id,
+            )
 
             try:
                 # Execute the flow method
@@ -176,7 +189,12 @@ class BaseFlow(ABC):
             service = FlowEngineService(FlowRunRepo(db_session), FlowStepRunRepo(db_session), llm_services)
 
             # Create flow run record with ARQ execution mode
-            flow_run_id = await service.create_flow_run_record(flow_name=self.flow_name, inputs=inputs, user_id=user_id, execution_mode="arq")
+            flow_run_id = await service.create_flow_run_record(
+                flow_name=self.flow_name,
+                inputs=inputs,
+                user_id=user_id,
+                execution_mode="arq",
+            )
 
         # Submit task to ARQ queue
         task_result = await task_queue.submit_flow_task(
@@ -185,6 +203,14 @@ class BaseFlow(ABC):
             inputs=inputs,
             user_id=user_id,
         )
+
+        # Persist the task ID on the flow run record now that we have it
+        with infra.get_session_context() as db_session:
+            service = FlowEngineService(FlowRunRepo(db_session), FlowStepRunRepo(db_session), llm_services)
+            flow_run = service.flow_run_repo.by_id(flow_run_id)
+            if flow_run is not None:
+                flow_run.arq_task_id = task_result.task_id
+                service.flow_run_repo.save(flow_run)
 
         logger.info(f"✅ Flow task submitted to ARQ: {self.flow_name} (task_id={task_result.task_id})")
 

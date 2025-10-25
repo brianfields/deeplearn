@@ -19,6 +19,7 @@ from modules.content.repo import ContentRepo
 from modules.content.routes import get_content_service
 from modules.content.routes import router as content_router
 from modules.content.service import ContentService, LessonCreate
+from modules.flow_engine.public import FlowRunSummaryDTO
 
 pytestmark = pytest.mark.asyncio
 
@@ -168,6 +169,72 @@ class TestContentService:
         # Assert
         assert result is False
         repo.delete_unit.assert_awaited_once_with("nonexistent-unit")
+
+    async def test_get_unit_flow_runs_delegates_to_flow_engine(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Fetching unit flow runs should use infrastructure and flow engine providers."""
+
+        repo = AsyncMock(spec=ContentRepo)
+        service = ContentService(repo)
+
+        flow_runs = [
+            FlowRunSummaryDTO(
+                id="run-1",
+                flow_name="unit_creation",
+                status="completed",
+                execution_mode="async",
+                arq_task_id="task-123",
+                user_id="user-42",
+                created_at=datetime.now(UTC),
+                started_at=datetime.now(UTC),
+                completed_at=datetime.now(UTC),
+                execution_time_ms=1500,
+                total_tokens=1200,
+                total_cost=0.32,
+                step_count=7,
+                error_message=None,
+            )
+        ]
+
+        session_sentinel = object()
+
+        context_enter = Mock(return_value=session_sentinel)
+        context_exit = Mock(return_value=None)
+
+        class DummyContext:
+            def __enter__(self) -> object:
+                return context_enter()
+
+            def __exit__(self, exc_type, exc, traceback) -> None:
+                context_exit(exc_type, exc, traceback)
+
+        infra_mock = Mock()
+        infra_mock.initialize = Mock()
+        infra_mock.get_session_context = Mock(return_value=DummyContext())
+
+        infra_provider_mock = Mock(return_value=infra_mock)
+        monkeypatch.setattr("modules.content.service.infrastructure_provider", infra_provider_mock)
+
+        flow_service = Mock()
+        flow_service.list_flow_runs.return_value = flow_runs
+
+        def fake_flow_engine_admin_provider(session: object) -> Mock:
+            assert session is session_sentinel
+            return flow_service
+
+        monkeypatch.setattr(
+            "modules.content.service.flow_engine_admin_provider",
+            fake_flow_engine_admin_provider,
+        )
+
+        result = await service.get_unit_flow_runs("unit-42")
+
+        assert result == flow_runs
+        infra_provider_mock.assert_called_once_with()
+        infra_mock.initialize.assert_called_once_with()
+        infra_mock.get_session_context.assert_called_once_with()
+        context_enter.assert_called_once_with()
+        context_exit.assert_called_once()
+        flow_service.list_flow_runs.assert_called_once_with(unit_id="unit-42")
 
     async def test_save_unit_art_from_bytes_uploads_and_sets_fields(self) -> None:
         """Persisting artwork should upload image and update unit metadata."""

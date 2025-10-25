@@ -1,88 +1,183 @@
 /**
- * Units List Page
+ * Units Page
  *
- * Browse units with lesson counts.
+ * Accordion view of units with inline lesson summaries.
  */
 
 'use client';
 
 import Link from 'next/link';
-import { useUnits } from '@/modules/admin/queries';
+import { useState } from 'react';
+import { useUnit, useUnits } from '@/modules/admin/queries';
 import { LoadingSpinner } from '@/modules/admin/components/shared/LoadingSpinner';
 import { ErrorMessage } from '@/modules/admin/components/shared/ErrorMessage';
+import { ReloadButton } from '@/modules/admin/components/shared/ReloadButton';
+import { StatusBadge } from '@/modules/admin/components/shared/StatusBadge';
 import { formatDate } from '@/lib/utils';
+import type { UnitSummary } from '@/modules/admin/models';
+
+interface UnitAccordionItemProps {
+  unit: UnitSummary;
+  isExpanded: boolean;
+  onToggle: () => void;
+}
+
+function UnitAccordionItem({ unit, isExpanded, onToggle }: UnitAccordionItemProps) {
+  const {
+    data: detail,
+    isLoading,
+    error,
+    refetch,
+  } = useUnit(unit.id, { enabled: isExpanded });
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between px-5 py-4 text-left"
+        aria-expanded={isExpanded}
+      >
+        <div>
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-semibold text-gray-900">{unit.title}</h3>
+            {unit.status && <StatusBadge status={unit.status} size="sm" />}
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+            <span>{unit.learner_level}</span>
+            <span>Lessons: {unit.lesson_count}</span>
+            {unit.target_lesson_count !== null && <span>Target: {unit.target_lesson_count}</span>}
+            <span>{unit.flow_type === 'fast' ? 'Fast flow' : 'Standard flow'}</span>
+            {unit.generated_from_topic && <span>Topic-generated</span>}
+          </div>
+          <div className="mt-1 text-xs text-gray-400">
+            Updated {unit.updated_at ? formatDate(unit.updated_at) : '—'}
+          </div>
+        </div>
+        <svg
+          className={`h-5 w-5 text-gray-500 transition-transform ${isExpanded ? 'rotate-90' : 'rotate-0'}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
+      {isExpanded && (
+        <div className="border-t border-gray-200 px-5 py-4">
+          {isLoading && !detail && <LoadingSpinner size="sm" text="Loading unit…" />}
+          {error && (
+            <ErrorMessage
+              message="Failed to load unit details."
+              details={error instanceof Error ? error.message : undefined}
+              onRetry={() => refetch()}
+            />
+          )}
+          {detail && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-600">
+                  <span className="font-medium">Created:</span> {formatDate(unit.created_at)}
+                </div>
+                <ReloadButton onReload={() => refetch()} isLoading={isLoading} label="Reload unit" />
+              </div>
+              {detail.learning_objectives && detail.learning_objectives.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-900">Learning objectives</h4>
+                  <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-600">
+                    {detail.learning_objectives.map((objective) => (
+                      <li key={objective}>{objective}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <div>
+                <h4 className="text-sm font-semibold text-gray-900">Lessons</h4>
+                <ul className="mt-2 divide-y divide-gray-200 text-sm text-gray-700">
+                  {detail.lessons.map((lesson, index) => (
+                    <li key={lesson.id} className="py-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-gray-900">{index + 1}. {lesson.title}</p>
+                          <p className="text-xs text-gray-500">Level: {lesson.learner_level} • Exercises: {lesson.exercise_count}</p>
+                        </div>
+                        <Link
+                          href={`/units/${detail.id}?lesson=${lesson.id}`}
+                          className="text-xs text-blue-600 hover:text-blue-500"
+                        >
+                          View details
+                        </Link>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-gray-500">
+                <Link href={`/units/${detail.id}`} className="text-blue-600 hover:text-blue-500">
+                  Open full unit →
+                </Link>
+                {unit.arq_task_id && (
+                  <Link href={`/tasks?taskId=${unit.arq_task_id}`} className="text-blue-600 hover:text-blue-500">
+                    View task →
+                  </Link>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function UnitsPage() {
   const { data: units, isLoading, error, refetch } = useUnits();
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  if (isLoading) return <LoadingSpinner size="lg" text="Loading units..." />;
-  if (error)
+  const toggleUnit = (unitId: string) => {
+    setExpanded((current) => {
+      const next = new Set(current);
+      if (next.has(unitId)) {
+        next.delete(unitId);
+      } else {
+        next.add(unitId);
+      }
+      return next;
+    });
+  };
+
+  if (isLoading && !units) {
+    return <LoadingSpinner size="lg" text="Loading units…" />;
+  }
+
+  if (error) {
     return (
-      <ErrorMessage message="Failed to load units." onRetry={() => refetch()} />
+      <ErrorMessage
+        message="Failed to load units."
+        onRetry={() => refetch()}
+      />
     );
+  }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Units</h1>
-        <p className="text-gray-600 mt-2">Browse learning units and their lessons</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Units</h1>
+          <p className="mt-2 text-gray-600">Expand a unit to view its lessons inline.</p>
+        </div>
+        <ReloadButton onReload={() => refetch()} isLoading={isLoading} />
       </div>
 
-      <div className="bg-white shadow rounded-lg">
-        {(!units || units.length === 0) ? (
-          <div className="px-6 py-12 text-center text-gray-600">No units found.</div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
-            {units.map((u) => (
-              <Link key={u.id} href={`/units/${u.id}`} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <div className="text-lg font-medium text-blue-600 hover:text-blue-500 line-clamp-2">{u.title}</div>
-                    {u.description && (
-                      <p className="mt-1 text-sm text-gray-600 line-clamp-2">{u.description}</p>
-                    )}
-                    <div className="mt-3 flex items-center flex-wrap gap-2 text-sm text-gray-500">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                        {u.learner_level}
-                      </span>
-                      <span className="text-xs text-gray-400">{u.lesson_count} lessons</span>
-                      {typeof u.target_lesson_count === 'number' && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          Target: {u.target_lesson_count} lessons
-                        </span>
-                      )}
-                      <span
-                        data-testid={`flow-type-${u.id}`}
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${u.flow_type === 'fast' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-800'}`}
-                        title={`Flow: ${u.flow_type}`}
-                      >
-                        {u.flow_type === 'fast' ? 'Fast flow' : 'Standard flow'}
-                      </span>
-                      {u.generated_from_topic && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                          Topic-generated
-                        </span>
-                      )}
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${u.is_global ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-700'}`}
-                      >
-                        {u.is_global ? 'Global' : 'Personal'}
-                      </span>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-                        Owner #{u.user_id ?? '—'}
-                      </span>
-                    </div>
-                    <div className="mt-2 text-xs text-gray-400">
-                      <span>Created {formatDate(u.created_at)}</span>
-                      <span className="mx-2">•</span>
-                      <span>Updated {formatDate(u.updated_at)}</span>
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
+      <div className="space-y-3">
+        {(units ?? []).map((unit) => (
+          <UnitAccordionItem
+            key={unit.id}
+            unit={unit}
+            isExpanded={expanded.has(unit.id)}
+            onToggle={() => toggleUnit(unit.id)}
+          />
+        ))}
       </div>
     </div>
   );

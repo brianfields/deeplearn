@@ -64,6 +64,7 @@ class UnitModel(Base):
 
     # Ordered list of lesson IDs belonging to this unit
     lesson_order: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    arq_task_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
 
     # Ownership and sharing metadata
     user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True, index=True)

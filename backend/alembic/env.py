@@ -42,6 +42,7 @@ try:
     from modules.object_store.models import AudioModel, ImageModel  # noqa: F401
     from modules.shared_models import Base
     from modules.user.models import UserModel  # noqa: F401
+    from modules.task_queue.models import TaskModel  # noqa: F401
 
     target_metadata = Base.metadata
     print(f"✅ Successfully imported models. Found {len(Base.metadata.tables)} tables.")

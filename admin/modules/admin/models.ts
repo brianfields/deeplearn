@@ -12,6 +12,8 @@ export interface FlowRunSummary {
   flow_name: string;
   status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
   execution_mode: 'sync' | 'async' | 'background' | 'arq';
+  arq_task_id: string | null;
+  unit_id?: string | null;
   user_id: string | null;
   created_at: Date;
   started_at: Date | null;
@@ -46,6 +48,8 @@ export interface FlowRunDetails {
   flow_name: string;
   status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
   execution_mode: 'sync' | 'async' | 'background' | 'arq';
+  arq_task_id: string | null;
+  unit_id?: string | null;
   user_id: string | null;
   current_step: string | null;
   step_progress: number;
@@ -476,6 +480,10 @@ export interface UnitSummary {
   description: string | null;
   learner_level: string;
   lesson_count: number;
+  status?: string | null;
+  creation_progress?: Record<string, any> | null;
+  error_message?: string | null;
+  arq_task_id?: string | null;
   target_lesson_count: number | null;
   generated_from_topic: boolean;
   flow_type: 'standard' | 'fast';
@@ -525,6 +533,11 @@ export interface UnitDetail {
   podcast_audio_url: string | null;
   art_image_url: string | null;
   art_image_description: string | null;
+  status: string | null;
+  creation_progress: Record<string, any> | null;
+  error_message: string | null;
+  arq_task_id: string | null;
+  flow_runs: FlowRunSummary[];
 }
 
 export type LessonToUnitMap = Record<string, { unit_id: string; unit_title: string }>;
@@ -536,6 +549,8 @@ export interface ApiFlowRun {
   flow_name: string;
   status: string;
   execution_mode: string;
+  arq_task_id?: string | null;
+  unit_id?: string | null;
   user_id: string | null;
   created_at: string; // ISO string
   started_at: string | null;
@@ -552,6 +567,8 @@ export interface ApiFlowRunDetails {
   flow_name: string;
   status: string;
   execution_mode: string;
+  arq_task_id?: string | null;
+  unit_id?: string | null;
   user_id: string | null;
   current_step: string | null;
   step_progress: number;
@@ -661,6 +678,7 @@ export interface TaskStatus {
   task_id: string;
   status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
   submitted_at: Date;
+  created_at: Date;
   started_at: Date | null;
   completed_at: Date | null;
   retry_count: number;
@@ -668,8 +686,14 @@ export interface TaskStatus {
   result: Record<string, any> | null;
   queue_name: string;
   priority: number;
-  flow_name?: string;
-  flow_run_id?: string;
+  flow_name?: string | null;
+  task_type?: string | null;
+  progress_percentage?: number | null;
+  current_step?: string | null;
+  worker_id?: string | null;
+  user_id?: string | null;
+  flow_run_id?: string | null;
+  unit_id?: string | null;
 }
 
 export interface WorkerHealth {
@@ -710,6 +734,7 @@ export interface ApiTaskStatus {
   task_id: string;
   status: string;
   submitted_at: string;
+  created_at?: string;
   started_at: string | null;
   completed_at: string | null;
   retry_count: number;
@@ -717,8 +742,14 @@ export interface ApiTaskStatus {
   result: Record<string, any> | null;
   queue_name: string;
   priority: number;
-  flow_name?: string;
-  flow_run_id?: string;
+  flow_name?: string | null;
+  task_type?: string | null;
+  progress_percentage?: number | null;
+  current_step?: string | null;
+  worker_id?: string | null;
+  user_id?: string | null;
+  flow_run_id?: string | null;
+  unit_id?: string | null;
 }
 
 export interface ApiWorkerHealth {

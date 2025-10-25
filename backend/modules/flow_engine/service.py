@@ -19,6 +19,7 @@ class FlowRunSummaryDTO:
     flow_name: str
     status: str
     execution_mode: str
+    arq_task_id: str | None
     user_id: str | None
     created_at: datetime
     started_at: datetime | None
@@ -59,6 +60,7 @@ class FlowRunDetailsDTO:
     flow_name: str
     status: str
     execution_mode: str
+    arq_task_id: str | None
     user_id: str | None
     current_step: str | None
     step_progress: int
@@ -94,9 +96,25 @@ class FlowEngineService:
         self.step_run_repo = step_run_repo
         self.llm_services = llm_services
 
-    async def create_flow_run_record(self, flow_name: str, inputs: dict[str, Any], user_id: uuid.UUID | None = None, execution_mode: str = "sync") -> uuid.UUID:
+    async def create_flow_run_record(
+        self,
+        flow_name: str,
+        inputs: dict[str, Any],
+        user_id: uuid.UUID | None = None,
+        *,
+        execution_mode: str = "sync",
+        arq_task_id: str | None = None,
+    ) -> uuid.UUID:
         """Create a new flow run record (internal use)."""
-        flow_run = FlowRunModel(user_id=user_id, flow_name=flow_name, inputs=inputs, status="running" if execution_mode == "sync" else "pending", execution_mode=execution_mode, started_at=datetime.now(UTC) if execution_mode == "sync" else None)
+        flow_run = FlowRunModel(
+            user_id=user_id,
+            flow_name=flow_name,
+            inputs=inputs,
+            status="running" if execution_mode == "sync" else "pending",
+            execution_mode=execution_mode,
+            started_at=datetime.now(UTC) if execution_mode == "sync" else None,
+            arq_task_id=arq_task_id,
+        )
 
         created_run = self.flow_run_repo.create(flow_run)
         assert created_run.id is not None
@@ -243,6 +261,7 @@ class FlowRunQueryService:
             flow_name=flow_run.flow_name,
             status=flow_run.status,
             execution_mode=flow_run.execution_mode,
+            arq_task_id=flow_run.arq_task_id,
             user_id=str(flow_run.user_id) if flow_run.user_id else None,
             current_step=flow_run.current_step,
             step_progress=flow_run.step_progress,
@@ -319,6 +338,7 @@ class FlowRunQueryService:
                 flow_name=run.flow_name,
                 status=run.status,
                 execution_mode=run.execution_mode,
+                arq_task_id=run.arq_task_id,
                 user_id=str(run.user_id) if run.user_id else None,
                 created_at=run.created_at,
                 started_at=run.started_at,
@@ -335,3 +355,42 @@ class FlowRunQueryService:
     def count_flow_runs(self) -> int:
         """Get total count of flow runs. FOR ADMIN USE ONLY."""
         return self.flow_run_repo.count_all()
+
+    def list_flow_runs(
+        self,
+        *,
+        arq_task_id: str | None = None,
+        unit_id: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[FlowRunSummaryDTO]:
+        """List flow runs filtered by admin observability parameters."""
+
+        runs = self.flow_run_repo.list_by_filters(
+            arq_task_id=arq_task_id,
+            unit_id=unit_id,
+            limit=limit,
+            offset=offset,
+        )
+        result: list[FlowRunSummaryDTO] = []
+        for run in runs:
+            step_count = len(self.step_run_repo.by_flow_run_id(run.id))
+            result.append(
+                FlowRunSummaryDTO(
+                    id=str(run.id),
+                    flow_name=run.flow_name,
+                    status=run.status,
+                    execution_mode=run.execution_mode,
+                    arq_task_id=run.arq_task_id,
+                    user_id=str(run.user_id) if run.user_id else None,
+                    created_at=run.created_at,
+                    started_at=run.started_at,
+                    completed_at=run.completed_at,
+                    execution_time_ms=run.execution_time_ms,
+                    total_tokens=run.total_tokens or 0,
+                    total_cost=run.total_cost or 0.0,
+                    step_count=step_count,
+                    error_message=run.error_message,
+                )
+            )
+        return result

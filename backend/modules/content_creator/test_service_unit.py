@@ -7,11 +7,12 @@ Tests for the content creator service layer.
 from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
+import uuid
 
 import pytest
 
 from modules.content.package_models import LessonPackage, Meta, Objective
-from modules.content.public import LessonRead
+from modules.content.public import LessonRead, UnitStatus
 from modules.content_creator.service import ContentCreatorService, CreateLessonRequest
 
 
@@ -105,15 +106,21 @@ class TestContentCreatorService:
         mock_unit.generated_from_topic = True
         mock_unit.learner_level = "beginner"
         mock_unit.target_lesson_count = 3
+        mock_unit.source_material = "Original"
         content.get_unit.return_value = mock_unit
 
         # Mock update status call
         content.update_unit_status.return_value = mock_unit
+        content.set_unit_task = AsyncMock()
 
         # Mock task queue provider to avoid infrastructure initialization
         with patch("modules.content_creator.service.task_queue_provider") as mock_provider:
             tq = AsyncMock()
             mock_provider.return_value = tq
+            tq.submit_flow_task.return_value = SimpleNamespace(
+                task_id="task-789",
+                flow_run_id=uuid.UUID(valid_unit_id),
+            )
 
             # Act
             result = await service.retry_unit_creation(valid_unit_id)
@@ -126,6 +133,64 @@ class TestContentCreatorService:
 
         # Verify status was updated to in_progress
         content.update_unit_status.assert_awaited_once_with(unit_id=valid_unit_id, status="in_progress", error_message=None, creation_progress={"stage": "retrying", "message": "Retrying unit creation..."})
+        content.set_unit_task.assert_awaited_once_with(valid_unit_id, "task-789")
+        tq.submit_flow_task.assert_awaited_once_with(
+            flow_name="content_creator.unit_creation",
+            flow_run_id=uuid.UUID(valid_unit_id),
+            inputs={
+                "unit_id": valid_unit_id,
+                "topic": "Test Unit",
+                "source_material": mock_unit.source_material,
+                "target_lesson_count": mock_unit.target_lesson_count,
+                "learner_level": mock_unit.learner_level,
+            },
+        )
+        mock_provider.assert_called_once_with()
+
+    @pytest.mark.asyncio
+    async def test_create_unit_background_records_task(self) -> None:
+        """Background unit creation should persist the ARQ task identifier."""
+
+        content = AsyncMock()
+        content.set_unit_task = AsyncMock()
+        created_unit_id = str(uuid.uuid4())
+        content.create_unit.return_value = SimpleNamespace(id=created_unit_id, title="Draft Unit")
+
+        service = ContentCreatorService(content)
+
+        with patch("modules.content_creator.service.task_queue_provider") as mock_provider:
+            task_service = AsyncMock()
+            mock_provider.return_value = task_service
+            task_service.submit_flow_task.return_value = SimpleNamespace(
+                task_id="task-123",
+                flow_run_id=uuid.UUID(created_unit_id),
+            )
+
+            result = await service.create_unit(
+                topic="Interesting Topic",
+                source_material="source",
+                background=True,
+                target_lesson_count=2,
+                learner_level="advanced",
+                user_id=9,
+                unit_title="Draft Unit",
+            )
+
+        assert result.unit_id == created_unit_id
+        assert result.status == UnitStatus.IN_PROGRESS.value
+        content.set_unit_task.assert_awaited_once_with(created_unit_id, "task-123")
+        task_service.submit_flow_task.assert_awaited_once_with(
+            flow_name="content_creator.unit_creation",
+            flow_run_id=uuid.UUID(created_unit_id),
+            inputs={
+                "unit_id": created_unit_id,
+                "topic": "Interesting Topic",
+                "unit_source_material": "source",
+                "target_lesson_count": 2,
+                "learner_level": "advanced",
+            },
+        )
+        mock_provider.assert_called_once_with()
 
     @pytest.mark.asyncio
     async def test_retry_unit_creation_unit_not_found(self) -> None:

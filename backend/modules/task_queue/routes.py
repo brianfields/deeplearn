@@ -6,11 +6,13 @@ and queue statistics.
 """
 
 from collections.abc import Generator
+from typing import Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from ..infrastructure.public import infrastructure_provider
+from ..flow_engine.public import FlowRunQueryService, flow_engine_admin_provider
 from .public import TaskQueueProvider, task_queue_provider
 
 router = APIRouter(prefix="/api/v1/task-queue", tags=["task-queue"])
@@ -27,6 +29,12 @@ def get_session() -> Generator[Session, None, None]:
 async def get_task_queue_service() -> TaskQueueProvider:
     """Build TaskQueueService for this request."""
     return task_queue_provider()
+
+
+def get_flow_query_service(session: Session = Depends(get_session)) -> FlowRunQueryService:
+    """Build FlowRunQueryService for admin observability queries."""
+
+    return cast(FlowRunQueryService, flow_engine_admin_provider(session))
 
 
 @router.get("/status", summary="Get overall queue status")
@@ -100,6 +108,9 @@ async def get_recent_tasks(
                 "worker_id": task.worker_id,
                 "queue_name": task.queue_name,
                 "user_id": task.user_id,
+                "task_type": task.task_type,
+                "flow_run_id": str(task.flow_run_id) if task.flow_run_id else None,
+                "unit_id": task.unit_id,
             }
             for task in tasks
         ]
@@ -134,6 +145,9 @@ async def get_task_status(task_id: str, service: TaskQueueProvider = Depends(get
             "user_id": task.user_id,
             "inputs": task.inputs,
             "outputs": task.outputs,
+            "task_type": task.task_type,
+            "flow_run_id": str(task.flow_run_id) if task.flow_run_id else None,
+            "unit_id": task.unit_id,
         }
     except HTTPException:
         raise
@@ -209,6 +223,41 @@ async def get_queue_statistics(queue_name: str = Query(default="default", descri
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get queue stats: {e!s}") from e
+
+
+# Admin Observability
+@router.get("/tasks/{task_id}/flow-runs")
+async def get_task_flow_runs(
+    task_id: str,
+    service: TaskQueueProvider = Depends(get_task_queue_service),
+    flow_service: FlowRunQueryService = Depends(get_flow_query_service),
+) -> list[dict[str, Any]]:
+    """Get flow runs associated with a particular task."""
+
+    task = await service.get_task(task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    flow_runs = flow_service.list_flow_runs(arq_task_id=task_id)
+    return [
+        {
+            "id": flow_run.id,
+            "flow_name": flow_run.flow_name,
+            "status": flow_run.status,
+            "execution_mode": flow_run.execution_mode,
+            "arq_task_id": flow_run.arq_task_id,
+            "user_id": flow_run.user_id,
+            "created_at": flow_run.created_at.isoformat(),
+            "started_at": flow_run.started_at.isoformat() if flow_run.started_at else None,
+            "completed_at": flow_run.completed_at.isoformat() if flow_run.completed_at else None,
+            "execution_time_ms": flow_run.execution_time_ms,
+            "total_tokens": flow_run.total_tokens,
+            "total_cost": flow_run.total_cost,
+            "step_count": flow_run.step_count,
+            "error_message": flow_run.error_message,
+        }
+        for flow_run in flow_runs
+    ]
 
 
 # Health check endpoint for monitoring
