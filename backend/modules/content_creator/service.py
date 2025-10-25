@@ -25,7 +25,8 @@ from modules.content.package_models import (
     Meta,
     Objective,
 )
-from modules.content.public import ContentProvider, LessonCreate, UnitCreate, UnitRead, UnitStatus
+from modules.content.public import ContentProvider, LessonCreate, UnitCreate, UnitRead, UnitStatus, content_provider
+from modules.infrastructure.public import infrastructure_provider
 from modules.task_queue.public import task_queue_provider
 
 from .flows import LessonCreationFlow, UnitArtCreationFlow, UnitCreationFlow
@@ -391,6 +392,7 @@ class ContentCreatorService:
         Create a single lesson and return (lesson_id, podcast_lesson, voice).
 
         This method is designed to be called in parallel for multiple lessons.
+        Each invocation uses its own database session to avoid serialization.
         """
         lesson_title = lesson_plan.get("title") or f"Lesson {lesson_index + 1}"
         lesson_lo_ids: list[str] = list(lesson_plan.get("learning_objectives", []) or [])
@@ -399,7 +401,7 @@ class ContentCreatorService:
 
         logger.info(f"📝 Creating lesson {lesson_index + 1}: {lesson_title}")
 
-        # Execute flow
+        # Execute flow (creates its own session internally)
         md_res = await LessonCreationFlow().execute(
             {
                 "topic": lesson_title,
@@ -488,14 +490,19 @@ class ContentCreatorService:
             confusables=md_res.get("confusables", []),
         )
 
-        created_lesson = await self.content.save_lesson(
-            LessonCreate(
-                id=db_lesson_id,
-                title=lesson_title,
-                learner_level=learner_level,
-                package=lesson_package,
+        # Use a fresh async session for this parallel task to avoid serialization
+        infra = infrastructure_provider()
+        infra.initialize()
+        async with infra.get_async_session_context() as session:
+            content = content_provider(session)
+            created_lesson = await content.save_lesson(
+                LessonCreate(
+                    id=db_lesson_id,
+                    title=lesson_title,
+                    learner_level=learner_level,
+                    package=lesson_package,
+                )
             )
-        )
 
         logger.info(f"✅ Completed lesson {lesson_index + 1}: {lesson_title}")
         return (created_lesson.id, podcast_lesson, podcast_voice_label)

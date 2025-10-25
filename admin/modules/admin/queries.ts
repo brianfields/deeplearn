@@ -63,7 +63,8 @@ export function useFlowRuns(params?: FlowRunsQuery) {
   return useQuery({
     queryKey: adminKeys.flowsList(params),
     queryFn: () => service.getFlowRuns(params),
-    staleTime: 30 * 1000, // 30 seconds
+    staleTime: 2 * 1000, // 2 seconds - keep data fresh for real-time visibility
+    refetchInterval: 3 * 1000, // Poll every 3 seconds for running flows
   });
 }
 
@@ -72,7 +73,8 @@ export function useFlowRun(id: string, options?: { enabled?: boolean }) {
     queryKey: adminKeys.flowDetail(id),
     queryFn: () => service.getFlowRun(id),
     enabled: !!id && (options?.enabled ?? true),
-    staleTime: 60 * 1000, // 1 minute
+    staleTime: 2 * 1000, // 2 seconds - keep fresh for step-by-step monitoring
+    refetchInterval: 3 * 1000, // Poll every 3 seconds to see steps completing
   });
 }
 
@@ -91,7 +93,8 @@ export function useLLMRequests(params?: LLMRequestsQuery) {
   return useQuery<LLMRequestsListResponse>({
     queryKey: adminKeys.llmRequestsList(params),
     queryFn: () => service.getLLMRequests(params),
-    staleTime: 30 * 1000, // 30 seconds
+    staleTime: 2 * 1000, // 2 seconds - keep fresh for real-time visibility
+    refetchInterval: 3 * 1000, // Poll every 3 seconds during active flows
   });
 }
 
@@ -100,7 +103,7 @@ export function useLLMRequest(id: string) {
     queryKey: adminKeys.llmRequestDetail(id),
     queryFn: () => service.getLLMRequest(id),
     enabled: !!id,
-    staleTime: 60 * 1000, // 1 minute
+    staleTime: 5 * 1000, // 5 seconds - completed requests don't change
   });
 }
 
