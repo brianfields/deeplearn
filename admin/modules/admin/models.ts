@@ -139,6 +139,48 @@ export interface LLMRequestsListResponse {
   has_next: boolean;
 }
 
+// ---- Learning Coach Conversation Types ----
+
+export interface ConversationMessage {
+  id: string;
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+  created_at: Date;
+  metadata: Record<string, any>;
+  tokens_used: number | null;
+  cost_estimate: number | null;
+  llm_request_id: string | null;
+  message_order: number | null;
+}
+
+export interface ConversationDetail {
+  conversation_id: string;
+  messages: ConversationMessage[];
+  metadata: Record<string, any>;
+  proposed_brief: Record<string, any> | null;
+  accepted_brief: Record<string, any> | null;
+}
+
+export interface ConversationSummary {
+  id: string;
+  user_id: number | string | null;
+  title: string | null;
+  status: string;
+  message_count: number;
+  created_at: Date;
+  updated_at: Date;
+  last_message_at: Date | null;
+  metadata: Record<string, any>;
+}
+
+export interface ConversationsListResponse {
+  conversations: ConversationSummary[];
+  total_count: number;
+  page: number;
+  page_size: number;
+  has_next: boolean;
+}
+
 // ---- Lesson Types ----
 
 export interface LessonSummary {
@@ -205,6 +247,14 @@ export interface ApiUserLLMRequestSummary {
   tokens_used: number | null;
 }
 
+export interface ApiUserConversationSummary {
+  id: string;
+  title: string | null;
+  status: string;
+  message_count: number;
+  last_message_at: string | null;
+}
+
 export interface ApiUserSummary {
   id: number | string;
   email: string;
@@ -220,6 +270,7 @@ export interface ApiUserDetail extends ApiUserSummary {
   owned_units: ApiUserOwnedUnitSummary[];
   recent_sessions: ApiUserSessionSummary[];
   recent_llm_requests: ApiUserLLMRequestSummary[];
+  recent_conversations: ApiUserConversationSummary[];
 }
 
 export interface ApiUserListResponse {
@@ -269,6 +320,14 @@ export interface UserLLMRequestSummary {
   tokens_used: number | null;
 }
 
+export interface UserConversationSummary {
+  id: string;
+  title: string | null;
+  status: string;
+  message_count: number;
+  last_message_at: Date | null;
+}
+
 export interface UserSummary {
   id: number | string;
   email: string;
@@ -284,6 +343,7 @@ export interface UserDetail extends UserSummary {
   owned_units: UserOwnedUnitSummary[];
   recent_sessions: UserSessionSummary[];
   recent_llm_requests: UserLLMRequestSummary[];
+  recent_conversations: UserConversationSummary[];
 }
 
 export interface UserListResponse {
@@ -627,6 +687,46 @@ export interface ApiLLMRequest {
   error_message: string | null;
 }
 
+export interface ApiConversationMessage {
+  id: string;
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+  created_at: string;
+  metadata: Record<string, any> | null;
+  tokens_used: number | null;
+  cost_estimate: number | null;
+  llm_request_id: string | null;
+  message_order: number | null;
+}
+
+export interface ApiConversationDetail {
+  conversation_id: string;
+  messages: ApiConversationMessage[];
+  metadata: Record<string, any> | null;
+  proposed_brief?: Record<string, any> | null;
+  accepted_brief?: Record<string, any> | null;
+}
+
+export interface ApiConversationSummary {
+  id: string;
+  user_id: number | string | null;
+  title: string | null;
+  status: string;
+  message_count: number;
+  created_at: string;
+  updated_at: string;
+  last_message_at: string | null;
+  metadata: Record<string, any> | null;
+}
+
+export interface ApiConversationsListResponse {
+  conversations: ApiConversationSummary[];
+  total_count: number;
+  page: number;
+  page_size: number;
+  has_next: boolean;
+}
+
 export interface ApiSystemMetrics {
   total_flows: number;
   active_flows: number;
@@ -648,6 +748,13 @@ export interface FlowRunsQuery {
   user_id?: string;
   start_date?: Date;
   end_date?: Date;
+  page?: number;
+  page_size?: number;
+}
+
+export interface ConversationListQuery {
+  status?: string;
+  user_id?: string | number;
   page?: number;
   page_size?: number;
 }

@@ -20,6 +20,14 @@ interface AdminState {
     page_size?: number;
   };
 
+  // Conversation filters
+  conversationFilters: {
+    status?: string;
+    user_id?: string | number;
+    page?: number;
+    page_size?: number;
+  };
+
   // LLM request filters
   llmRequestFilters: {
     status?: string;
@@ -58,6 +66,10 @@ interface AdminActions {
   selectFlow: (id: string | null) => void;
   selectStep: (id: string | null) => void;
 
+  // Conversation actions
+  setConversationFilters: (filters: Partial<AdminState['conversationFilters']>) => void;
+  clearConversationFilters: () => void;
+
   // LLM request actions
   setLLMRequestFilters: (filters: Partial<AdminState['llmRequestFilters']>) => void;
   clearLLMRequestFilters: () => void;
@@ -83,6 +95,10 @@ export const useAdminStore = create<AdminState & AdminActions>((set, get) => ({
   flowFilters: {
     page: 1,
     page_size: 10,
+  },
+  conversationFilters: {
+    page: 1,
+    page_size: 50,
   },
   llmRequestFilters: {
     page: 1,
@@ -121,6 +137,20 @@ export const useAdminStore = create<AdminState & AdminActions>((set, get) => ({
     }),
 
   selectStep: (id) => set({ selectedStepId: id }),
+
+  // Conversation actions
+  setConversationFilters: (filters) =>
+    set((state) => ({
+      conversationFilters: { ...state.conversationFilters, ...filters },
+    })),
+
+  clearConversationFilters: () =>
+    set({
+      conversationFilters: {
+        page: 1,
+        page_size: 50,
+      },
+    }),
 
   // LLM request actions
   setLLMRequestFilters: (filters) =>
@@ -203,6 +233,8 @@ export const useFlowSelection = () => useAdminStore((state) => ({
   selectFlow: state.selectFlow,
   selectStep: state.selectStep,
 }));
+
+export const useConversationFilters = () => useAdminStore((state) => state.conversationFilters);
 
 export const useLLMRequestFilters = () => useAdminStore((state) => state.llmRequestFilters);
 export const useLLMRequestSelection = () => useAdminStore((state) => ({

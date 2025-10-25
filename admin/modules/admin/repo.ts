@@ -10,6 +10,8 @@ import type {
   ApiFlowRun,
   ApiFlowRunDetails,
   ApiFlowStepDetails,
+  ApiConversationDetail,
+  ApiConversationsListResponse,
   ApiLLMRequest,
   ApiSystemMetrics,
   ApiUnitBasic,
@@ -19,6 +21,7 @@ import type {
   ApiUserListResponse,
   ApiUserUpdateRequest,
   DailyMetrics,
+  ConversationListQuery,
   FlowMetrics,
   FlowRunsListResponse,
   FlowRunsQuery,
@@ -82,6 +85,33 @@ export const AdminRepo = {
 
     async byId(id: string): Promise<any> {
       const { data } = await apiClient.get(`${ADMIN_BASE}/llm-requests/${id}`);
+      return data;
+    },
+  },
+
+  // ---- Learning Coach Conversation Endpoints ----
+  conversations: {
+    async list(params?: ConversationListQuery): Promise<ApiConversationsListResponse> {
+      const queryParams = new URLSearchParams();
+
+      if (params?.status) queryParams.append('status', params.status);
+      if (params?.user_id !== undefined && params?.user_id !== null) {
+        queryParams.append('user_id', String(params.user_id));
+      }
+      if (params?.page) queryParams.append('page', params.page.toString());
+      if (params?.page_size) queryParams.append('page_size', params.page_size.toString());
+
+      const suffix = queryParams.toString() ? `?${queryParams.toString()}` : '';
+      const { data } = await apiClient.get<ApiConversationsListResponse>(
+        `${ADMIN_BASE}/learning-coach/conversations${suffix}`
+      );
+      return data;
+    },
+
+    async byId(conversationId: string): Promise<ApiConversationDetail> {
+      const { data } = await apiClient.get<ApiConversationDetail>(
+        `${ADMIN_BASE}/learning-coach/conversations/${conversationId}`
+      );
       return data;
     },
   },

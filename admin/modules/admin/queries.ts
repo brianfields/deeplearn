@@ -8,6 +8,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AdminService } from './service';
 import type {
+  ConversationDetail,
+  ConversationListQuery,
+  ConversationsListResponse,
   FlowRunsQuery,
   LLMRequestsQuery,
   LessonsQuery,
@@ -29,6 +32,10 @@ export const adminKeys = {
   flowsList: (params?: FlowRunsQuery) => [...adminKeys.flows(), 'list', params] as const,
   flowDetail: (id: string) => [...adminKeys.flows(), 'detail', id] as const,
   flowStepDetail: (flowId: string, stepId: string) => [...adminKeys.flows(), 'step', flowId, stepId] as const,
+  conversations: () => [...adminKeys.all, 'conversations'] as const,
+  conversationsList: (params?: ConversationListQuery) =>
+    [...adminKeys.conversations(), 'list', params ?? {}] as const,
+  conversationDetail: (id: string) => [...adminKeys.conversations(), 'detail', id] as const,
   llmRequests: () => [...adminKeys.all, 'llm-requests'] as const,
   llmRequestsList: (params?: LLMRequestsQuery) => [...adminKeys.llmRequests(), 'list', params] as const,
   llmRequestDetail: (id: string) => [...adminKeys.llmRequests(), 'detail', id] as const,
@@ -84,6 +91,27 @@ export function useFlowStepDetails(flowId: string, stepId: string) {
     queryFn: () => service.getFlowStepDetails(flowId, stepId),
     enabled: !!flowId && !!stepId,
     staleTime: 60 * 1000, // 1 minute
+  });
+}
+
+// ---- Conversation Hooks ----
+
+export function useConversations(params?: ConversationListQuery) {
+  return useQuery<ConversationsListResponse>({
+    queryKey: adminKeys.conversationsList(params),
+    queryFn: () => service.getConversations(params),
+    staleTime: 30 * 1000, // manual reload preferred but keep cache warm briefly
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useConversation(conversationId: string, options?: { enabled?: boolean }) {
+  return useQuery<ConversationDetail | null>({
+    queryKey: adminKeys.conversationDetail(conversationId),
+    queryFn: () => service.getConversation(conversationId),
+    enabled: !!conversationId && (options?.enabled ?? true),
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: false,
   });
 }
 

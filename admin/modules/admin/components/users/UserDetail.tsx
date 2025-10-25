@@ -12,6 +12,7 @@ import { useAdminUser, useUpdateAdminUser } from '../../queries';
 import { LoadingSpinner } from '../shared/LoadingSpinner';
 import { ErrorMessage } from '../shared/ErrorMessage';
 import { formatDate } from '@/lib/utils';
+import { StatusBadge } from '../shared/StatusBadge';
 
 interface UserDetailProps {
   userId: number | string;
@@ -36,6 +37,7 @@ export function UserDetail({ userId }: UserDetailProps) {
   const ownedUnits = user?.owned_units ?? [];
   const recentSessions = user?.recent_sessions ?? [];
   const recentRequests = user?.recent_llm_requests ?? [];
+  const recentConversations = user?.recent_conversations ?? [];
 
   const isUpdating = updateUser.isPending;
 
@@ -268,51 +270,107 @@ export function UserDetail({ userId }: UserDetailProps) {
         </div>
       </div>
 
-      <div className="bg-white shadow rounded-lg p-6 space-y-4">
-        <div>
-          <h2 className="text-lg font-medium text-gray-900">Recent LLM requests</h2>
-          <p className="text-sm text-gray-500">
-            Requests submitted by this user across LLM services.
-          </p>
-        </div>
-        {recentRequests.length === 0 ? (
-          <p className="text-sm text-gray-500">No recent requests.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Request
-                  </th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Model
-                  </th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Created
-                  </th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tokens
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 bg-white">
-                {recentRequests.map((request) => (
-                  <tr key={request.id}>
-                    <td className="px-4 py-2 text-sm text-gray-900">
-                      <Link href={`/llm-requests/${request.id}`} className="text-blue-600 hover:text-blue-500">
-                        {request.id}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-2 text-sm text-gray-900">{request.model}</td>
-                    <td className="px-4 py-2 text-sm text-gray-900">{formatDate(request.created_at)}</td>
-                    <td className="px-4 py-2 text-sm text-gray-900">{request.tokens_used ?? '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div className="bg-white shadow rounded-lg p-6 space-y-4">
+          <div>
+            <h2 className="text-lg font-medium text-gray-900">Recent conversations</h2>
+            <p className="text-sm text-gray-500">
+              Learning coach conversations started by this user.
+            </p>
           </div>
-        )}
+          {recentConversations.length === 0 ? (
+            <p className="text-sm text-gray-500">No recent conversations.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Conversation
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Last message
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Messages
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 bg-white">
+                  {recentConversations.map((conversation) => (
+                    <tr key={conversation.id}>
+                      <td className="px-4 py-2 text-sm text-gray-900">
+                        <Link
+                          href={`/conversations/${conversation.id}`}
+                          className="text-blue-600 hover:text-blue-500"
+                        >
+                          {conversation.title ?? conversation.id}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-2 text-sm text-gray-900">
+                        <StatusBadge status={conversation.status} size="sm" />
+                      </td>
+                      <td className="px-4 py-2 text-sm text-gray-900">
+                        {formatDate(conversation.last_message_at)}
+                      </td>
+                      <td className="px-4 py-2 text-sm text-gray-900">{conversation.message_count}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white shadow rounded-lg p-6 space-y-4">
+          <div>
+            <h2 className="text-lg font-medium text-gray-900">Recent LLM requests</h2>
+            <p className="text-sm text-gray-500">
+              Requests submitted by this user across LLM services.
+            </p>
+          </div>
+          {recentRequests.length === 0 ? (
+            <p className="text-sm text-gray-500">No recent requests.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Request
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Model
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Created
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Tokens
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 bg-white">
+                  {recentRequests.map((request) => (
+                    <tr key={request.id}>
+                      <td className="px-4 py-2 text-sm text-gray-900">
+                        <Link href={`/llm-requests/${request.id}`} className="text-blue-600 hover:text-blue-500">
+                          {request.id}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-2 text-sm text-gray-900">{request.model}</td>
+                      <td className="px-4 py-2 text-sm text-gray-900">{formatDate(request.created_at)}</td>
+                      <td className="px-4 py-2 text-sm text-gray-900">{request.tokens_used ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

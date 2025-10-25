@@ -7,6 +7,16 @@ const mocks = vi.hoisted(() => ({
   taskByIdMock: vi.fn<(taskId: string) => Promise<any>>(),
   taskFlowRunsMock: vi.fn<(taskId: string) => Promise<any[]>>(),
   unitFlowRunsMock: vi.fn<(unitId: string) => Promise<any[]>>(),
+  conversationListMock: vi.fn<(
+    params?: any
+  ) => Promise<{
+    conversations: any[];
+    total_count: number;
+    page: number;
+    page_size: number;
+    has_next: boolean;
+  }>>(),
+  conversationDetailMock: vi.fn<(conversationId: string) => Promise<any>>(),
 }));
 
 vi.mock('./repo', () => ({
@@ -18,6 +28,10 @@ vi.mock('./repo', () => ({
     },
     units: {
       flowRuns: mocks.unitFlowRunsMock,
+    },
+    conversations: {
+      list: mocks.conversationListMock,
+      byId: mocks.conversationDetailMock,
     },
   },
 }));
@@ -104,5 +118,70 @@ describe('AdminService task and flow mappings', () => {
 
     expect(mocks.unitFlowRunsMock).toHaveBeenCalledWith('unit-123');
     expect(runs).toEqual([]);
+  });
+
+  it('maps conversation summaries into DTOs with pagination metadata', async () => {
+    const summary = {
+      id: 'conv-1',
+      user_id: 42,
+      title: 'Algebra coaching',
+      status: 'active',
+      message_count: 5,
+      created_at: '2024-01-01T00:00:00Z',
+      updated_at: '2024-01-01T00:05:00Z',
+      last_message_at: '2024-01-01T00:04:00Z',
+      metadata: { topic: 'algebra' },
+    };
+
+    mocks.conversationListMock.mockResolvedValueOnce({
+      conversations: [summary],
+      total_count: 1,
+      page: 1,
+      page_size: 50,
+      has_next: false,
+    });
+
+    const result = await service.getConversations({ page: 1, page_size: 50 });
+
+    expect(mocks.conversationListMock).toHaveBeenCalledWith({ page: 1, page_size: 50 });
+    expect(result.total_count).toBe(1);
+    expect(result.page_size).toBe(50);
+    expect(result.conversations).toHaveLength(1);
+    expect(result.conversations[0].id).toBe('conv-1');
+    expect(result.conversations[0].created_at).toEqual(new Date('2024-01-01T00:00:00Z'));
+    expect(result.conversations[0].metadata.topic).toBe('algebra');
+  });
+
+  it('maps conversation detail with messages into DTO', async () => {
+    const detail = {
+      conversation_id: 'conv-1',
+      metadata: { topic: 'algebra' },
+      proposed_brief: null,
+      accepted_brief: null,
+      messages: [
+        {
+          id: 'msg-1',
+          role: 'user',
+          content: 'Hello',
+          created_at: '2024-01-01T00:00:00Z',
+          metadata: { source: 'student' },
+          tokens_used: 120,
+          cost_estimate: 0.0025,
+          llm_request_id: 'req-1',
+          message_order: 1,
+        },
+      ],
+    };
+
+    mocks.conversationDetailMock.mockResolvedValueOnce(detail);
+
+    const result = await service.getConversation('conv-1');
+
+    expect(mocks.conversationDetailMock).toHaveBeenCalledWith('conv-1');
+    expect(result).not.toBeNull();
+    expect(result?.conversation_id).toBe('conv-1');
+    expect(result?.messages).toHaveLength(1);
+    expect(result?.messages[0].tokens_used).toBe(120);
+    expect(result?.messages[0].metadata.source).toBe('student');
   });
 });

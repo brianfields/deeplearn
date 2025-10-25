@@ -58,17 +58,17 @@
 
 ### Acceptance Criteria
 
-- [ ] Admin can view paginated list of all learning coach conversations
-- [ ] Admin can expand a conversation to see full message transcript
-- [ ] Admin can click through to user detail page from conversation
-- [ ] Admin can click through to associated LLM requests from messages
-- [ ] User detail page shows recent conversations for that user
-- [ ] Navigation includes "Conversations" menu item
-- [ ] All messages (user, assistant, system) are visible in transcript
-- [ ] Message metadata (tokens, cost, timestamps) is displayed
-- [ ] Pagination works correctly (50 items per page)
-- [ ] Manual reload button refreshes data
-- [ ] UI follows existing admin dashboard patterns and styling
+- [x] Admin can view paginated list of all learning coach conversations
+- [x] Admin can expand a conversation to see full message transcript
+- [x] Admin can click through to user detail page from conversation
+- [x] Admin can click through to associated LLM requests from messages
+- [x] User detail page shows recent conversations for that user
+- [x] Navigation includes "Conversations" menu item
+- [x] All messages (user, assistant, system) are visible in transcript
+- [x] Message metadata (tokens, cost, timestamps) is displayed
+- [x] Pagination works correctly (50 items per page)
+- [x] Manual reload button refreshes data
+- [x] UI follows existing admin dashboard patterns and styling
 
 ---
 
@@ -160,7 +160,7 @@ The frontend currently has NO conversation-related code. All components, types, 
 
 ### Frontend Tasks
 
-- [ ] Add conversation types to `admin/modules/admin/models.ts`:
+- [x] Add conversation types to `admin/modules/admin/models.ts`:
   - `Conversation` interface (summary for list view) - map from `LearningCoachConversationSummaryAdmin`
   - `ConversationMessage` interface - map from `LearningCoachMessageAdmin`
   - `ConversationDetail` interface (with messages array) - map from `LearningCoachConversationDetail`
@@ -169,38 +169,38 @@ The frontend currently has NO conversation-related code. All components, types, 
   - Update `UserDetail` interface to include `recent_conversations: UserConversationSummary[]`
   - Add `ConversationFilters` type for store (page, page_size)
 
-- [ ] Add conversation HTTP methods to `admin/modules/admin/repo.ts`:
+- [x] Add conversation HTTP methods to `admin/modules/admin/repo.ts`:
   - `conversations.list(params)` - fetch paginated conversations from `/api/v1/admin/learning-coach/conversations`
   - `conversations.byId(id)` - fetch conversation detail from `/api/v1/admin/learning-coach/conversations/{id}`
 
-- [ ] Add conversation service methods to `admin/modules/admin/service.ts`:
+- [x] Add conversation service methods to `admin/modules/admin/service.ts`:
   - Map API responses to frontend DTOs
   - Handle conversation type filtering
   - Format dates and metadata
 
-- [ ] Add React Query hooks to `admin/modules/admin/queries.ts`:
+- [x] Add React Query hooks to `admin/modules/admin/queries.ts`:
   - `useConversations(filters)` - for list view with pagination
   - `useConversation(id)` - for detail view
 
-- [ ] Add conversation state to `admin/modules/admin/store.ts`:
+- [x] Add conversation state to `admin/modules/admin/store.ts`:
   - `conversationFilters` state (page, page_size)
   - `setConversationFilters` action
 
-- [ ] Create `admin/modules/admin/components/conversations/MessageTranscript.tsx`:
+- [x] Create `admin/modules/admin/components/conversations/MessageTranscript.tsx`:
   - Component to render message history
   - Display role badges (user/assistant/system)
   - Show message content with proper formatting
   - Display metadata (tokens, cost, timestamp)
   - Link to LLM requests when available
 
-- [ ] Create `admin/modules/admin/components/conversations/ConversationDetails.tsx`:
+- [x] Create `admin/modules/admin/components/conversations/ConversationDetails.tsx`:
   - Component for expanded conversation view
   - Display conversation metadata
   - Render MessageTranscript component
   - Links to user detail page
   - Show conversation status and timestamps
 
-- [ ] Create `admin/modules/admin/components/conversations/ConversationsList.tsx`:
+- [x] Create `admin/modules/admin/components/conversations/ConversationsList.tsx`:
   - Main list component following FlowRunsList pattern
   - Paginated table with expand/collapse rows
   - Columns: title, user (linked), status, message count, dates
@@ -208,26 +208,26 @@ The frontend currently has NO conversation-related code. All components, types, 
   - Pagination controls
   - Manual reload button
 
-- [ ] Create `admin/app/conversations/page.tsx`:
+- [x] Create `admin/app/conversations/page.tsx`:
   - Page wrapper for ConversationsList component
   - Page title and layout
 
-- [ ] Create `admin/app/conversations/[id]/page.tsx`:
+- [x] Create `admin/app/conversations/[id]/page.tsx`:
   - Full-page conversation detail view
   - Use ConversationDetails component
   - Breadcrumb navigation back to list
 
-- [ ] Update `admin/modules/admin/components/users/UserDetail.tsx`:
+- [x] Update `admin/modules/admin/components/users/UserDetail.tsx`:
   - Add "Recent Conversations" section
   - Display user's recent learning coach conversations
   - Link each conversation to detail page
   - Show conversation title, status, message count, last message date
 
-- [ ] Update `admin/modules/admin/components/shared/Navigation.tsx`:
+- [x] Update `admin/modules/admin/components/shared/Navigation.tsx`:
   - Add "Conversations" navigation link
   - Position between "Flows" and "LLM Requests" (or appropriate location)
 
-- [ ] Add unit tests to `admin/modules/admin/service.test.ts`:
+- [x] Add unit tests to `admin/modules/admin/service.test.ts`:
   - Test conversation service methods
   - Test DTO mapping for conversations and messages
 
