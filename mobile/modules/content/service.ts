@@ -6,6 +6,7 @@ import {
 import type {
   ApiUnitDetail,
   ApiUnitSummary,
+  ApiUnitLearningObjective,
   ContentError,
   Unit,
   UnitDetail,
@@ -603,6 +604,9 @@ export class ContentService {
       podcast_duration_seconds: podcastDurationSeconds,
       art_image_url: payload?.art_image_url ?? null,
       art_image_description: payload?.art_image_description ?? null,
+      learning_objectives: this.parseCachedLearningObjectives(
+        payload?.learning_objectives
+      ),
     };
   }
 
@@ -614,8 +618,15 @@ export class ContentService {
       (cached.unitPayload?.lesson_order as string[] | undefined) ??
       cached.lessons.map(lesson => lesson.id);
 
+    const canonicalObjectives =
+      this.parseCachedLearningObjectives(cached.unitPayload?.learning_objectives) ?? [];
+    const textByObjective = new Map<string, string>();
+    for (const objective of canonicalObjectives) {
+      textByObjective.set(objective.id, objective.text);
+    }
+
     const lessons: ApiUnitDetail['lessons'] = cached.lessons.map(lesson =>
-      this.buildApiLessonFromCached(lesson)
+      this.buildApiLessonFromCached(lesson, textByObjective)
     );
 
     return {
@@ -625,8 +636,7 @@ export class ContentService {
       learner_level: summary.learner_level,
       lesson_order: lessonOrder,
       lessons,
-      learning_objectives:
-        (cached.unitPayload?.learning_objectives as string[] | null) ?? null,
+      learning_objectives: canonicalObjectives,
       target_lesson_count: summary.target_lesson_count ?? null,
       source_material:
         (cached.unitPayload?.source_material as string | null) ?? null,
@@ -647,17 +657,31 @@ export class ContentService {
   }
 
   private buildApiLessonFromCached(
-    lesson: CachedUnitDetail['lessons'][number]
+    lesson: CachedUnitDetail['lessons'][number],
+    loTextById: Map<string, string>
   ): ApiUnitDetail['lessons'][number] {
     const payload = (lesson.payload ?? {}) as Record<string, any>;
     const packagePayload =
       payload && typeof payload === 'object' ? (payload.package ?? {}) : {};
 
-    const learningObjectives = Array.isArray(
+    const unitLearningObjectiveIds = Array.isArray(
+      packagePayload?.unit_learning_objective_ids
+    )
+      ? packagePayload.unit_learning_objective_ids.filter(
+          (value: unknown): value is string => typeof value === 'string'
+        )
+      : [];
+    const fallbackObjectives = Array.isArray(
       packagePayload?.learning_objectives
     )
-      ? packagePayload.learning_objectives
+      ? packagePayload.learning_objectives.filter(
+          (value: unknown): value is string => typeof value === 'string'
+        )
       : [];
+    const learningObjectives =
+      unitLearningObjectiveIds.length > 0
+        ? unitLearningObjectiveIds.map((id: string) => loTextById.get(id) ?? id)
+        : fallbackObjectives;
     const keyConcepts = Array.isArray(packagePayload?.key_concepts)
       ? packagePayload.key_concepts
       : [];
@@ -675,6 +699,7 @@ export class ContentService {
         (payload?.learner_level as string) ??
         (lesson.payload as Record<string, any> | undefined)?.learner_level ??
         'beginner',
+      learning_objective_ids: unitLearningObjectiveIds,
       learning_objectives: learningObjectives,
       key_concepts: keyConcepts,
       exercise_count: exerciseComponents.length,
@@ -769,6 +794,50 @@ export class ContentService {
         schema_version: 1,
       },
     };
+  }
+
+  private parseCachedLearningObjectives(
+    raw: unknown
+  ): ApiUnitLearningObjective[] | null {
+    if (!raw) {
+      return null;
+    }
+    if (typeof raw === 'string') {
+      return [{ id: raw, text: raw }];
+    }
+    if (!Array.isArray(raw)) {
+      return null;
+    }
+
+    const objectives: ApiUnitLearningObjective[] = [];
+    for (const entry of raw) {
+      if (!entry) {
+        continue;
+      }
+      if (typeof entry === 'string') {
+        objectives.push({ id: entry, text: entry });
+        continue;
+      }
+      if (typeof entry === 'object') {
+        const maybeId =
+          typeof (entry as { id?: unknown }).id === 'string'
+            ? ((entry as { id?: string }).id as string)
+            : typeof (entry as { lo_id?: unknown }).lo_id === 'string'
+              ? ((entry as { lo_id?: string }).lo_id as string)
+              : null;
+        const maybeText =
+          typeof (entry as { text?: unknown }).text === 'string'
+            ? ((entry as { text?: string }).text as string)
+            : typeof (entry as { objective?: unknown }).objective === 'string'
+              ? ((entry as { objective?: string }).objective as string)
+              : null;
+        if (maybeId && maybeText) {
+          objectives.push({ id: maybeId, text: maybeText });
+        }
+      }
+    }
+
+    return objectives.length > 0 ? objectives : null;
   }
 
   private normalizeCreationProgress(

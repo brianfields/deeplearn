@@ -8,6 +8,14 @@ from typing import Any
 
 
 @dataclass(slots=True)
+class LearningCoachObjective:
+    """Structured representation of a proposed learning objective."""
+
+    id: str
+    text: str
+
+
+@dataclass(slots=True)
 class LearningCoachMessage:
     """Serializable representation of a conversation message."""
 
@@ -27,7 +35,7 @@ class LearningCoachSessionState:
     metadata: dict[str, Any]
     finalized_topic: str | None
     unit_title: str | None
-    learning_objectives: list[str] | None
+    learning_objectives: list[LearningCoachObjective] | None
     suggested_lesson_count: int | None
     proposed_brief: dict[str, Any] | None  # Deprecated, will be removed
     accepted_brief: dict[str, Any] | None  # Deprecated, will be removed

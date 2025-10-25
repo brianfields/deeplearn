@@ -24,7 +24,6 @@ from modules.content.package_models import (
     MCQExercise,
     MCQOption,
     Meta,
-    Objective,
 )
 from modules.content.public import ContentProvider, LessonCreate, UnitCreate, UnitRead, UnitStatus, content_provider
 from modules.infrastructure.public import infrastructure_provider
@@ -32,6 +31,7 @@ from modules.task_queue.public import task_queue_provider
 
 from .flows import LessonCreationFlow, UnitArtCreationFlow, UnitCreationFlow
 from .podcast import PodcastLesson, UnitPodcastGenerator
+from .steps import UnitLearningObjective
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,8 @@ class CreateLessonRequest(BaseModel):
     unit_source_material: str
     learner_level: str = "intermediate"
     voice: str = "Plain"
-    learning_objectives: list[str]
+    learning_objective_ids: list[str]
+    unit_learning_objectives: list[UnitLearningObjective]
     lesson_objective: str
 
 
@@ -117,12 +118,23 @@ class ContentCreatorService:
         # Run lesson creation flow using new prompt-aligned inputs
         flow = LessonCreationFlow()
         logger.info("🔄 Starting %s...", flow.flow_name)
+        unit_lo_map: dict[str, str] = {
+            lo.id: lo.text for lo in request.unit_learning_objectives
+        }
+        unit_lo_text_lookup: dict[str, str] = {
+            str(text): lo_id for lo_id, text in unit_lo_map.items()
+        }
+        textual_learning_objectives = [
+            unit_lo_map.get(lo_id, lo_id) for lo_id in request.learning_objective_ids
+        ]
+
         flow_result = await flow.execute(
             {
                 "topic": request.topic,
                 "learner_level": request.learner_level,
                 "voice": request.voice,
-                "learning_objectives": request.learning_objectives,
+                "learning_objectives": textual_learning_objectives,
+                "learning_objective_ids": request.learning_objective_ids,
                 "lesson_objective": request.lesson_objective,
                 "unit_source_material": request.unit_source_material,
             }
@@ -137,10 +149,12 @@ class ContentCreatorService:
             content_version=1,
         )
 
-        # Build lesson-level objectives from request.learning_objectives (texts)
-        objectives: list[Objective] = []
-        for i, lo_text in enumerate(request.learning_objectives):
-            objectives.append(Objective(id=f"lo_{i + 1}", text=str(lo_text)))
+        lesson_lo_ids: list[str] = list(
+            flow_result.get("learning_objective_ids", []) or request.learning_objective_ids
+        )
+        if not lesson_lo_ids:
+            raise ValueError("Lesson flow did not return any learning objective ids")
+        lesson_lo_texts = [unit_lo_map.get(lo_id, lo_id) for lo_id in lesson_lo_ids]
 
         # Build glossary from flow result (list of terms)
         glossary_terms: list[GlossaryTerm] = []
@@ -182,8 +196,18 @@ class ContentCreatorService:
             ak = mcq.get("answer_key", {}) or {}
             key_label = str(ak.get("label", "")).upper()
             answer_key = MCQAnswerKey(label=key_label, option_id=option_id_map.get(key_label), rationale_right=ak.get("rationale_right"))
-            # Choose a primary LO id from lesson objectives (first)
-            lo_id = objectives[0].id if objectives else "lo_1"
+            covered = mcq.get("learning_objectives_covered", []) or []
+            lo_id: str | None = None
+            for entry in covered:
+                candidate = str(entry)
+                if candidate in unit_lo_map:
+                    lo_id = candidate
+                    break
+                if candidate in unit_lo_text_lookup:
+                    lo_id = unit_lo_text_lookup[candidate]
+                    break
+            if lo_id is None:
+                lo_id = lesson_lo_ids[0]
 
             exercises.append(
                 MCQExercise(
@@ -216,7 +240,7 @@ class ContentCreatorService:
 
         package = LessonPackage(
             meta=meta,
-            objectives=objectives,
+            unit_learning_objective_ids=lesson_lo_ids,
             glossary={"terms": glossary_terms},
             mini_lesson=mini_lesson_text,
             exercises=exercises,
@@ -237,8 +261,20 @@ class ContentCreatorService:
         logger.info("💾 Saving lesson with package to database...")
         await self.content.save_lesson(lesson_data)
 
-        logger.info(f"🎉 Lesson creation completed! Package contains {len(objectives)} objectives, {len(glossary_terms)} terms, {len(exercises)} exercises")
-        return LessonCreationResult(lesson_id=lesson_id, title=request.topic, package_version=1, objectives_count=len(objectives), glossary_terms_count=len(glossary_terms), mcqs_count=len(exercises))
+        logger.info(
+            "🎉 Lesson creation completed! Package references %s objectives, %s terms, %s exercises",
+            len(lesson_lo_ids),
+            len(glossary_terms),
+            len(exercises),
+        )
+        return LessonCreationResult(
+            lesson_id=lesson_id,
+            title=request.topic,
+            package_version=1,
+            objectives_count=len(lesson_lo_ids),
+            glossary_terms_count=len(glossary_terms),
+            mcqs_count=len(exercises),
+        )
 
     class UnitCreationResult(BaseModel):
         unit_id: str
@@ -262,7 +298,11 @@ class ContentCreatorService:
         if unit_detail is None:
             raise ValueError("Unit not found")
 
-        learning_objectives = list(getattr(unit_detail, "learning_objectives", []) or [])
+        raw_learning_objectives = list(getattr(unit_detail, "learning_objectives", []) or [])
+        learning_objectives = [
+            lo.get("text") if isinstance(lo, dict) else getattr(lo, "text", str(lo))
+            for lo in raw_learning_objectives
+        ]
         key_concepts = self._extract_key_concepts(unit_detail)
 
         flow_inputs = {
@@ -396,7 +436,7 @@ class ContentCreatorService:
         Each invocation uses its own database session to avoid serialization.
         """
         lesson_title = lesson_plan.get("title") or f"Lesson {lesson_index + 1}"
-        lesson_lo_ids: list[str] = list(lesson_plan.get("learning_objectives", []) or [])
+        lesson_lo_ids: list[str] = list(lesson_plan.get("learning_objective_ids", []) or [])
         lesson_lo_texts: list[str] = [unit_los.get(lid, lid) for lid in lesson_lo_ids]
         lesson_objective_text: str = lesson_plan.get("lesson_objective", "")
 
@@ -409,6 +449,7 @@ class ContentCreatorService:
                 "learner_level": learner_level,
                 "voice": "Plain",
                 "learning_objectives": lesson_lo_texts,
+                "learning_objective_ids": lesson_lo_ids,
                 "lesson_objective": lesson_objective_text,
                 "unit_source_material": unit_material,
             },
@@ -418,11 +459,6 @@ class ContentCreatorService:
         # Build package for lesson
         db_lesson_id = str(uuid.uuid4())
         meta = Meta(lesson_id=db_lesson_id, title=lesson_title, learner_level=learner_level, package_schema_version=1, content_version=1)
-
-        # Objectives for lesson
-        objectives: list[Objective] = []
-        for j, lo_text in enumerate(lesson_lo_texts):
-            objectives.append(Objective(id=f"lo_{j + 1}", text=str(lo_text)))
 
         # Glossary
         glossary_terms: list[GlossaryTerm] = []
@@ -466,12 +502,14 @@ class ContentCreatorService:
                 option_id=option_id_map.get(key_label),
                 rationale_right=ak.get("rationale_right"),
             )
+            lo_candidates = mcq.get("learning_objectives_covered", []) or lesson_lo_ids
+            lo_id = str(lo_candidates[0]) if lo_candidates else (lesson_lo_ids[0] if lesson_lo_ids else "lo_1")
 
             exercises.append(
                 MCQExercise(
                     id=exercise_id,
                     exercise_type="mcq",
-                    lo_id=objectives[0].id if objectives else "lo_1",
+                    lo_id=lo_id,
                     cognitive_level=None,
                     estimated_difficulty=None,
                     misconceptions_used=mcq.get("misconceptions_used", []),
@@ -483,7 +521,7 @@ class ContentCreatorService:
 
         lesson_package = LessonPackage(
             meta=meta,
-            objectives=objectives,
+            unit_learning_objective_ids=lesson_lo_ids,
             glossary=glossary,
             mini_lesson=mini_lesson_text,
             exercises=exercises,
@@ -535,22 +573,29 @@ class ContentCreatorService:
 
         # Update unit metadata from plan
         final_title = str(unit_plan.get("unit_title") or f"{topic}")
-        learning_objectives = unit_plan.get("learning_objectives", [])
+        raw_unit_learning_objectives = unit_plan.get("learning_objectives", []) or []
+        unit_learning_objectives: list[UnitLearningObjective] = []
+        for item in raw_unit_learning_objectives:
+            if isinstance(item, UnitLearningObjective):
+                unit_learning_objectives.append(item)
+            elif isinstance(item, dict):
+                unit_learning_objectives.append(UnitLearningObjective.model_validate(item))
+            else:
+                unit_learning_objectives.append(
+                    UnitLearningObjective(id=str(item), text=str(item))
+                )
 
         # Save the extracted title and learning objectives to the unit
         await self.content.update_unit_metadata(
             unit_id,
             title=final_title,
-            learning_objectives=learning_objectives,
+            learning_objectives=unit_learning_objectives,
         )
 
         await self.content.update_unit_status(unit_id, UnitStatus.IN_PROGRESS.value, creation_progress={"stage": "generating", "message": "Generating lessons..."})
 
         # Prepare look-up of unit-level LO texts by id
-        unit_los: dict[str, str] = {}
-        for lo in unit_plan.get("learning_objectives", []) or []:
-            if isinstance(lo, dict):
-                unit_los[lo.get("lo_id", "")] = lo.get("text", "")
+        unit_los: dict[str, str] = {lo.id: lo.text for lo in unit_learning_objectives}
 
         lesson_ids: list[str] = []
         podcast_lessons: list[PodcastLesson] = []

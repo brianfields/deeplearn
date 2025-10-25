@@ -11,6 +11,7 @@ import type { SessionUIState, ExerciseState } from './models';
 interface LearningSessionState {
   // Current session UI state
   currentSessionId: string | null;
+  currentUnitId: string | null;
   uiState: SessionUIState;
 
   // Exercise interaction state
@@ -34,7 +35,8 @@ interface LearningSessionState {
   exerciseStartTimes: Record<string, number>; // exerciseId -> timestamp
 
   // Actions
-  setCurrentSession: (sessionId: string | null) => void;
+  setCurrentSession: (sessionId: string | null, unitId?: string | null) => void;
+  setCurrentUnit: (unitId: string | null) => void;
   updateUIState: (updates: Partial<SessionUIState>) => void;
   setCurrentExercise: (index: number) => void;
   updateExerciseState: (
@@ -73,6 +75,7 @@ export const useLearningSessionStore = create<LearningSessionState>(
   (set, get) => ({
     // Initial state
     currentSessionId: null,
+    currentUnitId: null,
     uiState: {
       currentExerciseIndex: 0,
       showResults: false,
@@ -95,13 +98,14 @@ export const useLearningSessionStore = create<LearningSessionState>(
     exerciseStartTimes: {},
 
     // Actions
-    setCurrentSession: sessionId => {
+    setCurrentSession: (sessionId, unitId) => {
       set(state => {
         // Reset session-specific state when changing sessions
         if (state.currentSessionId !== sessionId) {
           return {
             ...state,
             currentSessionId: sessionId,
+            currentUnitId: unitId ?? null,
             currentExerciseIndex: 0,
             exerciseStates: {},
             sessionNotes: {},
@@ -115,8 +119,18 @@ export const useLearningSessionStore = create<LearningSessionState>(
             },
           };
         }
-        return { ...state, currentSessionId: sessionId };
+        const nextUnitId =
+          unitId !== undefined
+            ? unitId
+            : sessionId === null
+              ? null
+              : state.currentUnitId;
+        return { ...state, currentSessionId: sessionId, currentUnitId: nextUnitId };
       });
+    },
+
+    setCurrentUnit: unitId => {
+      set(state => ({ ...state, currentUnitId: unitId }));
     },
 
     updateUIState: updates => {

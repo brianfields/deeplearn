@@ -187,7 +187,7 @@ class ContentRepo:
         unit_id: str,
         *,
         title: str | None = None,
-        learning_objectives: list[Any] | None = None,
+        learning_objectives: list[dict[str, Any]] | None = None,
     ) -> UnitModel | None:
         """Update unit metadata fields (title, learning_objectives) and return the updated model, or None if not found."""
         unit = await self.get_unit_by_id(unit_id)
@@ -197,7 +197,7 @@ class ContentRepo:
         if title is not None:
             unit.title = title  # type: ignore[assignment]
         if learning_objectives is not None:
-            unit.learning_objectives = learning_objectives  # type: ignore[assignment]
+            unit.learning_objectives = list(learning_objectives)  # type: ignore[assignment]
 
         unit.updated_at = datetime.utcnow()  # type: ignore[assignment]
         self.s.add(unit)

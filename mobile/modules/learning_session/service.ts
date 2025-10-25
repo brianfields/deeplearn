@@ -14,6 +14,7 @@ import type {
   SessionResults,
   UnitProgress,
   UnitLessonProgress,
+  UnitLOProgress,
   StartSessionRequest,
   UpdateProgressRequest,
   CompleteSessionRequest,
@@ -60,11 +61,22 @@ export class LearningSessionService {
    */
   async startSession(request: StartSessionRequest): Promise<LearningSession> {
     try {
+      if (!request.unitId?.trim()) {
+        throw new Error('unitId is required to start a learning session');
+      }
       // Validate lesson exists and get lesson details
       const lessonDetail = await this.catalog.getLessonDetail(request.lessonId);
       if (!lessonDetail) {
         throw new Error(`Lesson ${request.lessonId} not found`);
       }
+
+      if (
+        lessonDetail.unitId &&
+        lessonDetail.unitId !== request.unitId
+      ) {
+        throw new Error('Lesson does not belong to the provided unit');
+      }
+      const unitId = lessonDetail.unitId ?? request.unitId;
 
       const userId = await this.resolveUserId(request.userId);
 
@@ -78,6 +90,7 @@ export class LearningSessionService {
       const session: LearningSession = {
         id: sessionId,
         lessonId: request.lessonId,
+        unitId,
         lessonTitle: lessonDetail.title,
         userId,
         status: 'active',
@@ -164,14 +177,45 @@ export class LearningSessionService {
       progressUpdates
     );
 
+    const session = await this.getSession(request.sessionId);
+    let unitProgress: UnitLOProgress | undefined;
+
+    if (session?.unitId) {
+      try {
+        const outcome = await this.buildSessionOutcome(
+          session,
+          progressUpdates
+        );
+        if (outcome) {
+          await this.repo.saveSessionOutcome(outcome as any);
+        }
+      } catch (error) {
+        console.warn('Failed to persist session outcome for LO progress:', error);
+      }
+
+      try {
+        unitProgress = await this.repo.computeUnitLOProgress(
+          session.unitId,
+          userId
+        );
+      } catch (error) {
+        console.warn('Failed to compute unit LO progress:', error);
+      }
+    }
+
     // Build optimistic results (no network call)
     const results = await this.buildOptimisticResults(request.sessionId);
-    await this.markSessionCompleted(request.sessionId, results);
+    const enrichedResults: SessionResults = {
+      ...results,
+      unitId: session?.unitId ?? results.unitId,
+      unitLOProgress: unitProgress,
+    };
+    await this.markSessionCompleted(request.sessionId, enrichedResults);
 
     // Clean up local progress data
     await this.clearSessionProgressData(request.sessionId);
 
-    return results;
+    return enrichedResults;
   }
 
   /**
@@ -545,6 +589,7 @@ export class LearningSessionService {
     return {
       sessionId,
       lessonId: session?.lessonId ?? '',
+      unitId: session?.unitId ?? '',
       totalExercises,
       completedExercises,
       correctExercises,
@@ -555,6 +600,7 @@ export class LearningSessionService {
       grade,
       timeDisplay,
       performanceSummary: `You got ${correctExercises} out of ${totalExercises} correct.`,
+      unitLOProgress: undefined,
     };
   }
 
@@ -608,6 +654,73 @@ export class LearningSessionService {
       is_correct: progress.isCorrect,
       time_spent_seconds: progress.timeSpentSeconds,
     }));
+  }
+
+  private async buildSessionOutcome(
+    session: LearningSession,
+    progressUpdates: Array<{
+      exercise_id: string;
+      is_correct: boolean | undefined;
+    }>
+  ): Promise<
+    | {
+        sessionId: string;
+        unitId: string;
+        lessonId: string;
+        completedAt: string;
+        loStats: Record<string, { attempted: number; correct: number }>;
+      }
+    | null
+  > {
+    try {
+      const lessonDetail = await this.catalog.getLessonDetail(session.lessonId);
+      if (!lessonDetail) {
+        return null;
+      }
+
+      const exerciseToLo = new Map<string, string>();
+      for (const exercise of lessonDetail.exercises ?? []) {
+        const exerciseId = (exercise as { id?: unknown }).id;
+        const loId = (exercise as { lo_id?: unknown }).lo_id;
+        if (typeof exerciseId === 'string' && typeof loId === 'string') {
+          exerciseToLo.set(exerciseId, loId);
+        }
+      }
+
+      if (exerciseToLo.size === 0) {
+        return null;
+      }
+
+      const loStats = new Map<string, { attempted: number; correct: number }>();
+      for (const update of progressUpdates) {
+        const loId = exerciseToLo.get(update.exercise_id);
+        if (!loId) {
+          continue;
+        }
+        const bucket = loStats.get(loId) ?? { attempted: 0, correct: 0 };
+        bucket.attempted += 1;
+        if (update.is_correct === true) {
+          bucket.correct += 1;
+        }
+        loStats.set(loId, bucket);
+      }
+
+      const serializedStats: Record<string, { attempted: number; correct: number }> = {};
+      for (const [loId, stats] of loStats.entries()) {
+        serializedStats[loId] = stats;
+      }
+
+      return {
+        sessionId: session.id,
+        unitId: session.unitId,
+        lessonId: session.lessonId,
+        completedAt: new Date().toISOString(),
+        loStats: serializedStats,
+      };
+    } catch (error) {
+      console.warn('Failed to build session outcome summary:', error);
+      return null;
+    }
   }
 
   /**
@@ -687,6 +800,21 @@ export class LearningSessionService {
       };
     } catch (error) {
       throw this.handleServiceError(error, 'Failed to get unit progress');
+    }
+  }
+
+  async getUnitLOProgress(
+    unitId: string,
+    userId?: string
+  ): Promise<UnitLOProgress> {
+    try {
+      const resolvedUserId = await this.resolveUserId(userId);
+      return await this.repo.computeUnitLOProgress(unitId, resolvedUserId);
+    } catch (error) {
+      throw this.handleServiceError(
+        error,
+        'Failed to compute unit learning objective progress'
+      );
     }
   }
 

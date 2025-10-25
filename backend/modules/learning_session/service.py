@@ -5,9 +5,11 @@ Minimal business logic to support existing frontend functionality.
 This is a migration, not new feature development.
 """
 
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 import logging
+from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -28,6 +30,7 @@ class LearningSession:
 
     id: str
     lesson_id: str
+    unit_id: str
     user_id: str | None
     status: str
     started_at: str
@@ -83,6 +86,7 @@ class SessionResults:
 
     session_id: str
     lesson_id: str
+    unit_id: str
     total_exercises: int
     completed_exercises: int
     correct_exercises: int
@@ -115,12 +119,41 @@ class UnitProgress:
     lessons: list[UnitLessonProgress]
 
 
+class LearningObjectiveStatus(str, Enum):
+    """Lifecycle state for a learning objective."""
+
+    COMPLETED = "completed"
+    PARTIAL = "partial"
+    NOT_STARTED = "not_started"
+
+
+@dataclass
+class LearningObjectiveProgressItem:
+    """Progress summary for a single learning objective."""
+
+    lo_id: str
+    lo_text: str
+    exercises_total: int
+    exercises_attempted: int
+    exercises_correct: int
+    status: LearningObjectiveStatus
+
+
+@dataclass
+class UnitLearningObjectiveProgress:
+    """Aggregated learning objective progress for a unit."""
+
+    unit_id: str
+    items: list[LearningObjectiveProgressItem]
+
+
 @dataclass
 class StartSessionRequest:
     """Request DTO for starting a session"""
 
     lesson_id: str
     user_id: str
+    unit_id: str
     session_id: str | None = None
 
 
@@ -187,11 +220,15 @@ class LearningSessionService:
         """Start a new learning session"""
         if not request.user_id:
             raise ValueError("User identifier is required to start a session")
+        if not request.unit_id:
+            raise ValueError("Unit identifier is required to start a session")
 
         # If client provided a session_id, check if it already exists (idempotency)
         if request.session_id:
             existing_session = await self.repo.get_session_by_id(request.session_id)
             if existing_session:
+                if existing_session.unit_id != request.unit_id:
+                    raise ValueError("Existing session belongs to a different unit")
                 logger.info(f"Session {request.session_id} already exists, returning it (idempotent)")
                 existing_session = await self._ensure_session_user(existing_session, request.user_id)
                 return self._to_session_dto(existing_session)
@@ -201,10 +238,18 @@ class LearningSessionService:
         if not lesson_content:
             raise ValueError(f"Lesson {request.lesson_id} not found")
 
+        lesson_unit_id = getattr(lesson_content, "unit_id", None)
+        if not lesson_unit_id:
+            raise ValueError(f"Lesson {request.lesson_id} is missing unit context")
+        if lesson_unit_id != request.unit_id:
+            raise ValueError("Lesson does not belong to the provided unit")
+
         # Check for existing active session for this user/lesson combo (if no session_id provided)
         if not request.session_id:
             existing_session = await self.repo.get_active_session_for_user_and_lesson(request.user_id, request.lesson_id)
             if existing_session:
+                if existing_session.unit_id != request.unit_id:
+                    raise ValueError("Existing session belongs to a different unit")
                 # Ensure the session is bound to the requesting user (for legacy records)
                 existing_session = await self._ensure_session_user(existing_session, request.user_id)
                 return self._to_session_dto(existing_session)
@@ -214,6 +259,7 @@ class LearningSessionService:
         # Create new session (use client-provided ID if available for offline-first support)
         session = await self.repo.create_session(
             lesson_id=request.lesson_id,
+            unit_id=request.unit_id,
             user_id=request.user_id,
             total_exercises=total_exercises,
             session_id=request.session_id,
@@ -222,10 +268,7 @@ class LearningSessionService:
         # If user and unit context exist, ensure a unit session is created
         try:
             # Determine unit for this lesson using the lesson_content we already fetched
-            unit_id = getattr(lesson_content, "unit_id", None) if lesson_content else None
-            if unit_id:
-                # Ensure unit session exists
-                await self.content.get_or_create_unit_session(user_id=request.user_id, unit_id=unit_id)
+            await self.content.get_or_create_unit_session(user_id=request.user_id, unit_id=request.unit_id)
         except Exception as e:
             logger.warning(f"Failed to create unit session: {e}")
             # Non-fatal; proceed even if unit session cannot be created
@@ -364,10 +407,14 @@ class LearningSessionService:
                 raise ValueError(f"Lesson {request.lesson_id} not found")
 
             total_exercises = len(lesson_content.package.exercises) if lesson_content else 0
+            lesson_unit_id = getattr(lesson_content, "unit_id", None)
+            if not lesson_unit_id:
+                raise ValueError(f"Lesson {request.lesson_id} is missing unit context")
 
             # Create the session with the client-provided ID
             session = await self.repo.create_session(
                 lesson_id=request.lesson_id,
+                unit_id=lesson_unit_id,
                 user_id=request.user_id,
                 total_exercises=total_exercises,
                 session_id=request.session_id,
@@ -505,6 +552,90 @@ class LearningSessionService:
             lessons=lesson_progress_list,
         )
 
+    async def get_unit_lo_progress(self, user_id: str, unit_id: str) -> UnitLearningObjectiveProgress:
+        """Aggregate learning objective progress for a user within a unit."""
+
+        if not user_id:
+            raise ValueError("User identifier is required to compute learning objective progress")
+
+        unit = await self.content.get_unit(unit_id)
+        if not unit:
+            raise ValueError(f"Unit {unit_id} not found")
+
+        objective_order, objective_lookup = self._normalize_unit_objectives(getattr(unit, "learning_objectives", None))
+
+        lessons = await self.content.get_lessons_by_unit(unit_id)
+        exercise_to_objective: dict[str, str] = {}
+        totals_by_objective: defaultdict[str, int] = defaultdict(int)
+
+        for lesson in lessons:
+            package = getattr(lesson, "package", None)
+            if not package:
+                continue
+            for exercise in getattr(package, "exercises", []) or []:
+                lo_id = getattr(exercise, "lo_id", None)
+                if not lo_id:
+                    continue
+                exercise_to_objective[exercise.id] = lo_id
+                totals_by_objective[lo_id] += 1
+
+        sessions = await self.repo.get_sessions_for_user_and_lessons(user_id, [lesson.id for lesson in lessons])
+        attempted_exercises: set[str] = set()
+        correct_exercises: set[str] = set()
+
+        for session in sessions:
+            answers = (session.session_data or {}).get("exercise_answers", {}) or {}
+            for exercise_id, answer_data in answers.items():
+                if exercise_id not in exercise_to_objective:
+                    continue
+                attempted_exercises.add(exercise_id)
+                if bool(answer_data.get("has_been_answered_correctly") or answer_data.get("is_correct")):
+                    correct_exercises.add(exercise_id)
+
+        attempted_counts: defaultdict[str, int] = defaultdict(int)
+        for exercise_id in attempted_exercises:
+            lo_id = exercise_to_objective.get(exercise_id)
+            if lo_id:
+                attempted_counts[lo_id] += 1
+
+        correct_counts: defaultdict[str, int] = defaultdict(int)
+        for exercise_id in correct_exercises:
+            lo_id = exercise_to_objective.get(exercise_id)
+            if lo_id:
+                correct_counts[lo_id] += 1
+
+        ordered_ids: list[str] = list(objective_order)
+        seen_ids: set[str] = set(ordered_ids)
+        for lo_id in exercise_to_objective.values():
+            if lo_id not in seen_ids:
+                ordered_ids.append(lo_id)
+                seen_ids.add(lo_id)
+
+        items: list[LearningObjectiveProgressItem] = []
+        for lo_id in ordered_ids:
+            total = totals_by_objective.get(lo_id, 0)
+            attempted = attempted_counts.get(lo_id, 0)
+            correct = correct_counts.get(lo_id, 0)
+            if total > 0 and correct >= total:
+                status = LearningObjectiveStatus.COMPLETED
+            elif attempted > 0:
+                status = LearningObjectiveStatus.PARTIAL
+            else:
+                status = LearningObjectiveStatus.NOT_STARTED
+
+            items.append(
+                LearningObjectiveProgressItem(
+                    lo_id=lo_id,
+                    lo_text=objective_lookup.get(lo_id, lo_id),
+                    exercises_total=total,
+                    exercises_attempted=attempted,
+                    exercises_correct=correct,
+                    status=status,
+                )
+            )
+
+        return UnitLearningObjectiveProgress(unit_id=unit_id, items=items)
+
     async def _unit_all_lessons_completed(self, user_id: str, unit_id: str, total_lessons: int) -> bool:
         """Check if all lessons in a unit are completed for a user based on unit session."""
         try:
@@ -586,6 +717,7 @@ class LearningSessionService:
         return LearningSession(
             id=session.id,
             lesson_id=session.lesson_id,
+            unit_id=session.unit_id,
             user_id=session.user_id,
             status=session.status,
             started_at=session.started_at.isoformat() if session.started_at else "",
@@ -634,6 +766,7 @@ class LearningSessionService:
         return SessionResults(
             session_id=session.id,
             lesson_id=session.lesson_id,
+            unit_id=session.unit_id,
             total_exercises=total_exercises,
             completed_exercises=completed_exercises,
             correct_exercises=correct_exercises,
@@ -642,3 +775,27 @@ class LearningSessionService:
             score_percentage=score_percentage,
             achievements=achievements,
         )
+
+    def _normalize_unit_objectives(
+        self,
+        raw_objectives: Any | None,
+    ) -> tuple[list[str], dict[str, str]]:
+        """Return ordered identifiers and lookup mapping for unit learning objectives."""
+
+        ordered_ids: list[str] = []
+        lookup: dict[str, str] = {}
+
+        objectives = raw_objectives or []
+        for index, objective in enumerate(objectives):
+            if isinstance(objective, dict):
+                lo_id = str(objective.get("id") or f"lo_{index + 1}")
+                lo_text = str(objective.get("text") or objective.get("description") or lo_id)
+            else:
+                lo_id = f"lo_{index + 1}"
+                lo_text = str(objective)
+
+            if lo_id not in lookup:
+                ordered_ids.append(lo_id)
+            lookup[lo_id] = lo_text
+
+        return ordered_ids, lookup

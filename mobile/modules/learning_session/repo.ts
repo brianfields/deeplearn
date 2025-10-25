@@ -17,6 +17,9 @@ import type {
   CompleteSessionRequest,
   SessionFilters,
   LearningSessionError,
+  UnitLOProgress,
+  LOProgressItem,
+  LOStatus,
 } from './models';
 import type { OutboxRequest } from '../offline_cache/public';
 
@@ -24,6 +27,7 @@ import type { OutboxRequest } from '../offline_cache/public';
 interface ApiLearningSession {
   id: string;
   lesson_id: string;
+  unit_id: string;
   user_id?: string;
   status: 'active' | 'completed' | 'paused' | 'abandoned';
   started_at: string;
@@ -49,6 +53,7 @@ interface ApiSessionProgress {
 interface ApiSessionResults {
   session_id: string;
   lesson_id: string;
+  unit_id: string;
   total_exercises: number;
   completed_exercises: number;
   correct_exercises: number;
@@ -67,6 +72,21 @@ interface SaveSessionOptions {
   enqueueOutbox?: boolean;
   idempotencyKey?: string;
   updateIndex?: boolean;
+}
+
+interface StoredSessionOutcome {
+  sessionId: string;
+  unitId: string;
+  lessonId: string;
+  completedAt: string;
+  loStats: Record<string, { attempted: number; correct: number }>;
+}
+
+interface StoredUnitLOSnapshot {
+  unitId: string;
+  userId: string;
+  items: Array<{ loId: string; status: LOStatus }>;
+  computedAt: string;
 }
 
 type CompletionProgressPayload = {
@@ -105,6 +125,14 @@ export class LearningSessionRepo {
 
   private getUserSessionIndexKey(userId: string): string {
     return `user_session_index_${userId}`;
+  }
+
+  private getSessionOutcomeKey(sessionId: string): string {
+    return `session_outcome_${sessionId}`;
+  }
+
+  private getUnitLOSnapshotKey(unitId: string, userId: string): string {
+    return `unit_lo_snapshot_${unitId}_${userId}`;
   }
 
   private async readJson<T>(key: string): Promise<T | null> {
@@ -154,6 +182,7 @@ export class LearningSessionRepo {
       headers: { 'Content-Type': 'application/json' },
       payload: {
         lesson_id: session.lessonId,
+        unit_id: session.unitId,
         user_id: session.userId,
         session_id: session.id,
       },
@@ -320,6 +349,18 @@ export class LearningSessionRepo {
     await this.writeJson(this.getSessionResultsKey(sessionId), results);
   }
 
+  async saveSessionOutcome(outcome: StoredSessionOutcome): Promise<void> {
+    await this.writeJson(this.getSessionOutcomeKey(outcome.sessionId), outcome);
+  }
+
+  async getSessionOutcome(
+    sessionId: string
+  ): Promise<StoredSessionOutcome | null> {
+    return this.readJson<StoredSessionOutcome>(
+      this.getSessionOutcomeKey(sessionId)
+    );
+  }
+
   async enqueueSessionCompletion(
     sessionId: string,
     userId: string | null,
@@ -329,6 +370,7 @@ export class LearningSessionRepo {
     // Look up session locally to get lesson_id for backend
     const session = await this.getSession(sessionId);
     const lessonId = session?.lessonId ?? null;
+    const unitId = session?.unitId ?? null;
 
     const outbox = this.buildCompletionOutbox(
       sessionId,
@@ -337,6 +379,9 @@ export class LearningSessionRepo {
       progressUpdates,
       idempotencyKey
     );
+    if (unitId) {
+      (outbox.payload as Record<string, unknown>).unit_id = unitId;
+    }
     await this.offlineCache.enqueueOutbox(outbox);
   }
 
@@ -369,6 +414,7 @@ export class LearningSessionRepo {
     return {
       id: api.id,
       lessonId: api.lesson_id,
+      unitId: api.unit_id,
       userId: api.user_id,
       status: api.status,
       startedAt: api.started_at,
@@ -406,6 +452,7 @@ export class LearningSessionRepo {
           },
           body: JSON.stringify({
             lesson_id: request.lessonId,
+            unit_id: request.unitId,
             user_id: request.userId,
           }),
         }
@@ -560,6 +607,95 @@ export class LearningSessionRepo {
     }
   }
 
+  async computeUnitLOProgress(
+    unitId: string,
+    userId: string,
+    _justCompletedLessonId?: string
+  ): Promise<UnitLOProgress> {
+    const unitDetail = await this.offlineCache.getUnitDetail(unitId);
+    if (!unitDetail) {
+      return { unitId, items: [] };
+    }
+
+    const canonicalLOs = this.parseUnitLearningObjectives(
+      unitDetail.unitPayload?.learning_objectives
+    );
+    if (canonicalLOs.length === 0) {
+      return { unitId, items: [] };
+    }
+
+    const totals = new Map<string, { text: string; total: number }>();
+    for (const lo of canonicalLOs) {
+      totals.set(lo.id, { text: lo.text, total: 0 });
+    }
+
+    for (const lesson of unitDetail.lessons) {
+      const lessonPackage = this.resolveLessonPackage(lesson.payload);
+      const exercises = Array.isArray(lessonPackage?.exercises)
+        ? lessonPackage.exercises
+        : [];
+      for (const exercise of exercises) {
+        const loId = typeof exercise?.lo_id === 'string' ? exercise.lo_id : null;
+        if (!loId || !totals.has(loId)) {
+          continue;
+        }
+        const entry = totals.get(loId)!;
+        entry.total += 1;
+      }
+    }
+
+    const aggregated = new Map<string, { attempted: number; correct: number }>();
+    for (const loId of totals.keys()) {
+      aggregated.set(loId, { attempted: 0, correct: 0 });
+    }
+
+    const outcomes = await this.listSessionOutcomesForUnit(unitId, userId);
+    for (const outcome of outcomes) {
+      for (const [loId, stats] of Object.entries(outcome.loStats)) {
+        if (!aggregated.has(loId)) {
+          aggregated.set(loId, { attempted: 0, correct: 0 });
+        }
+        const bucket = aggregated.get(loId)!;
+        bucket.attempted += stats.attempted;
+        bucket.correct += stats.correct;
+      }
+    }
+
+    const previousSnapshot = await this.getUnitLOSnapshot(unitId, userId);
+
+    const items: LOProgressItem[] = canonicalLOs.map(lo => {
+      const total = totals.get(lo.id)?.total ?? 0;
+      const bucket = aggregated.get(lo.id) ?? { attempted: 0, correct: 0 };
+
+      let status: LOStatus = 'not_started';
+      if (total > 0 && bucket.correct >= total) {
+        status = 'completed';
+      } else if (bucket.attempted > 0 || bucket.correct > 0) {
+        status = 'partial';
+      }
+
+      const previousStatus = previousSnapshot?.items.find(
+        item => item.loId === lo.id
+      )?.status;
+      const newlyCompletedInSession =
+        previousStatus !== 'completed' && status === 'completed';
+
+      return {
+        loId: lo.id,
+        loText: lo.text,
+        exercisesTotal: total,
+        exercisesAttempted: bucket.attempted,
+        exercisesCorrect: bucket.correct,
+        status,
+        newlyCompletedInSession,
+      } satisfies LOProgressItem;
+    });
+
+    await this.saveUnitLOSnapshot(unitId, userId, items);
+
+    return { unitId, items };
+  }
+
   // ================================
   // HTTP Helpers
   // ================================
@@ -619,5 +755,101 @@ export class LearningSessionRepo {
       message: defaultMessage,
       details: error,
     };
+  }
+
+  private async listSessionOutcomesForUnit(
+    unitId: string,
+    userId: string
+  ): Promise<StoredSessionOutcome[]> {
+    const sessionIds = await this.getUserSessionIds(userId);
+    const outcomes: StoredSessionOutcome[] = [];
+
+    for (const sessionId of sessionIds) {
+      const session = await this.getSession(sessionId);
+      if (!session || session.unitId !== unitId) {
+        continue;
+      }
+      const outcome = await this.getSessionOutcome(sessionId);
+      if (outcome) {
+        outcomes.push(outcome);
+      }
+    }
+
+    return outcomes.sort((a, b) =>
+      new Date(a.completedAt).getTime() - new Date(b.completedAt).getTime()
+    );
+  }
+
+  private async getUnitLOSnapshot(
+    unitId: string,
+    userId: string
+  ): Promise<StoredUnitLOSnapshot | null> {
+    return this.readJson<StoredUnitLOSnapshot>(
+      this.getUnitLOSnapshotKey(unitId, userId)
+    );
+  }
+
+  private async saveUnitLOSnapshot(
+    unitId: string,
+    userId: string,
+    items: LOProgressItem[]
+  ): Promise<void> {
+    const snapshot: StoredUnitLOSnapshot = {
+      unitId,
+      userId,
+      items: items.map(item => ({
+        loId: item.loId,
+        status: item.status,
+      })),
+      computedAt: new Date().toISOString(),
+    };
+    await this.writeJson(this.getUnitLOSnapshotKey(unitId, userId), snapshot);
+  }
+
+  private parseUnitLearningObjectives(
+    raw: unknown
+  ): Array<{ id: string; text: string }> {
+    if (!Array.isArray(raw)) {
+      return [];
+    }
+    const result: Array<{ id: string; text: string }> = [];
+    for (const entry of raw) {
+      if (!entry) {
+        continue;
+      }
+      if (typeof entry === 'string') {
+        result.push({ id: entry, text: entry });
+        continue;
+      }
+      if (typeof entry === 'object') {
+        const maybeId =
+          typeof (entry as { id?: unknown }).id === 'string'
+            ? ((entry as { id?: string }).id as string)
+            : typeof (entry as { lo_id?: unknown }).lo_id === 'string'
+              ? ((entry as { lo_id?: string }).lo_id as string)
+              : null;
+        const maybeText =
+          typeof (entry as { text?: unknown }).text === 'string'
+            ? ((entry as { text?: string }).text as string)
+            : typeof (entry as { objective?: unknown }).objective === 'string'
+              ? ((entry as { objective?: string }).objective as string)
+              : null;
+        if (maybeId && maybeText) {
+          result.push({ id: maybeId, text: maybeText });
+        }
+      }
+    }
+    return result;
+  }
+
+  private resolveLessonPackage(payload: unknown): any {
+    if (!payload || typeof payload !== 'object') {
+      return null;
+    }
+    const packagePayload = (payload as { package?: unknown }).package;
+    if (packagePayload && typeof packagePayload === 'object') {
+      return packagePayload;
+    }
+    return payload;
   }
 }

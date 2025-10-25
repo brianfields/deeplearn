@@ -39,6 +39,10 @@ describe('ContentService (offline cache integration)', () => {
       lesson_order: ['lesson-1'],
       status: 'completed',
       updated_at: new Date().toISOString(),
+      learning_objectives: [
+        { id: 'lo-1', text: 'Objective 1' },
+        { id: 'lo-2', text: 'Objective 2' },
+      ],
     },
   };
 
@@ -140,12 +144,18 @@ describe('ContentService (offline cache integration)', () => {
       downloadStatus: 'idle',
       syncedAt: expect.any(Number),
     });
+    expect(units[0].learningObjectives).toEqual([
+      { id: 'lo-1', text: 'Objective 1' },
+      { id: 'lo-2', text: 'Objective 2' },
+    ]);
     expect(repo.listUnits).not.toHaveBeenCalled();
   });
 
   it('returns cached unit detail when available', async () => {
     const cachedDetail: CachedUnitDetail = {
       ...baseUnit,
+      cacheMode: 'full',
+      downloadStatus: 'completed',
       lessons: [
         {
           id: 'lesson-1',
@@ -154,7 +164,17 @@ describe('ContentService (offline cache integration)', () => {
           position: 1,
           payload: {
             learner_level: 'beginner',
-            package: { components: [{ id: 'exercise-1' }] },
+            package: {
+              unit_learning_objective_ids: ['lo-1'],
+              exercises: [
+                {
+                  id: 'exercise-1',
+                  exercise_type: 'mcq',
+                  lo_id: 'lo-1',
+                },
+              ],
+              key_concepts: [],
+            },
           },
           updatedAt: Date.now(),
           schemaVersion: 1,
@@ -170,7 +190,15 @@ describe('ContentService (offline cache integration)', () => {
     expect(detail).toMatchObject({
       id: 'unit-1',
       lessons: expect.any(Array),
-      cacheMode: 'minimal',
+      cacheMode: 'full',
+    });
+    expect(detail?.learningObjectives).toEqual([
+      { id: 'lo-1', text: 'Objective 1' },
+      { id: 'lo-2', text: 'Objective 2' },
+    ]);
+    expect(detail?.lessons[0]).toMatchObject({
+      learningObjectiveIds: ['lo-1'],
+      learningObjectives: ['Objective 1'],
     });
     expect(repo.getUnitDetail).not.toHaveBeenCalled();
   });

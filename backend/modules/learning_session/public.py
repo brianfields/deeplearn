@@ -19,10 +19,13 @@ from .service import (
     CompleteSessionRequest,
     LearningSession,
     LearningSessionService,
+    LearningObjectiveProgressItem,
+    LearningObjectiveStatus,
     SessionListResponse,
     SessionProgress,
     SessionResults,
     StartSessionRequest,
+    UnitLearningObjectiveProgress,
     UnitLessonProgress,
     UnitProgress,
     UpdateProgressRequest,
@@ -84,6 +87,15 @@ class LearningSessionProvider(Protocol):
         """Get aggregated progress for a user across all lessons in a unit"""
         ...
 
+    @abstractmethod
+    async def get_unit_lo_progress(
+        self,
+        user_id: str,
+        unit_id: str,
+    ) -> UnitLearningObjectiveProgress:
+        """Compute learning objective progress for a user within a unit."""
+        ...
+
 
 def learning_session_provider(
     session: AsyncSession,
@@ -126,10 +138,13 @@ __all__ = [
     "LearningSessionAnalyticsProvider",
     "LearningSessionProvider",
     "LearningSessionService",
+    "LearningObjectiveProgressItem",
+    "LearningObjectiveStatus",
     "SessionListResponse",
     "SessionProgress",
     "SessionResults",
     "StartSessionRequest",
+    "UnitLearningObjectiveProgress",
     "UnitLessonProgress",
     "UnitProgress",
     "UpdateProgressRequest",

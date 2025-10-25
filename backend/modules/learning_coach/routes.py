@@ -26,6 +26,13 @@ class LearningCoachMessageModel(BaseModel):
     metadata: dict[str, Any]
 
 
+class LearningObjectiveModel(BaseModel):
+    """Response model for a unit learning objective."""
+
+    id: str
+    text: str
+
+
 class LearningCoachSessionStateModel(BaseModel):
     """Response model for the conversation state."""
 
@@ -34,7 +41,7 @@ class LearningCoachSessionStateModel(BaseModel):
     metadata: dict[str, Any]
     finalized_topic: str | None = None
     unit_title: str | None = None
-    learning_objectives: list[str] | None = None
+    learning_objectives: list[LearningObjectiveModel] | None = None
     suggested_lesson_count: int | None = None
     proposed_brief: dict[str, Any] | None = None
     accepted_brief: dict[str, Any] | None = None
@@ -136,7 +143,12 @@ def _serialize_state(state: LearningCoachSessionState) -> LearningCoachSessionSt
         metadata=state.metadata,
         finalized_topic=state.finalized_topic,
         unit_title=state.unit_title,
-        learning_objectives=state.learning_objectives,
+        learning_objectives=[
+            LearningObjectiveModel(id=obj.id, text=obj.text)
+            for obj in state.learning_objectives or []
+        ]
+        if state.learning_objectives
+        else None,
         suggested_lesson_count=state.suggested_lesson_count,
         proposed_brief=state.proposed_brief,
         accepted_brief=state.accepted_brief,

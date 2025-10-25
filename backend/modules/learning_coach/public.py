@@ -9,6 +9,7 @@ from modules.infrastructure.public import InfrastructureProvider, infrastructure
 from .dtos import (
     LearningCoachConversationSummary,
     LearningCoachMessage,
+    LearningCoachObjective,
     LearningCoachSessionState,
 )
 from .service import LearningCoachService
@@ -75,6 +76,7 @@ def learning_coach_provider(
 __all__ = [
     "LearningCoachConversationSummary",
     "LearningCoachMessage",
+    "LearningCoachObjective",
     "LearningCoachProvider",
     "LearningCoachService",
     "LearningCoachSessionState",

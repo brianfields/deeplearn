@@ -17,11 +17,12 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from modules.content.package_models import LessonPackage, Meta, Objective
+from modules.content.package_models import LessonPackage, Meta
 from modules.content.public import LessonRead
 from modules.content_creator.flows import UnitCreationFlow
 from modules.content_creator.podcast import UnitPodcast
 from modules.content_creator.service import ContentCreatorService, CreateLessonRequest
+from modules.content_creator.steps import UnitLearningObjective
 
 # Deprecated test removed - used old step classes that no longer exist
 
@@ -87,9 +88,8 @@ class TestServiceFlows:
             "topic": "T",
             "learner_level": "beginner",
             "voice": "Test voice",
-            "learning_objectives": [
-                {"lo_id": "lo_1", "text": "A"},
-            ],
+            "learning_objectives": ["A"],
+            "learning_objective_ids": ["lo_1"],
             "misconceptions": [],
             "confusables": [],
             "glossary": [],
@@ -107,6 +107,7 @@ class TestServiceFlows:
                             {"id": "ex1_c", "label": "C", "text": "C"},
                         ],
                         "answer_key": {"label": "A", "rationale_right": "Correct"},
+                        "learning_objectives_covered": ["lo_1"],
                     }
                 ],
             },
@@ -118,14 +119,22 @@ class TestServiceFlows:
         # Mock content save
         mock_package = LessonPackage(
             meta=Meta(lesson_id="id", title="T", learner_level="beginner"),
-            objectives=[Objective(id="lo_1", text="A")],
+            unit_learning_objective_ids=["lo_1"],
             glossary={"terms": []},
             mini_lesson="x",
             exercises=[],
         )
         content.save_lesson.return_value = LessonRead(id="id", title="T", learner_level="beginner", package=mock_package, package_version=1, created_at=datetime(2024, 1, 1), updated_at=datetime(2024, 1, 1))
 
-        req = CreateLessonRequest(topic="T", unit_source_material="S", learner_level="beginner", voice="Test voice", learning_objectives=["Learn A"], lesson_objective="Test objective")
+        req = CreateLessonRequest(
+            topic="T",
+            unit_source_material="S",
+            learner_level="beginner",
+            voice="Test voice",
+            learning_objective_ids=["lo_1"],
+            unit_learning_objectives=[UnitLearningObjective(id="lo_1", text="Learn A")],
+            lesson_objective="Test objective",
+        )
 
         await svc.create_lesson_from_source_material(req)
         mock_flow_cls.return_value.execute.assert_awaited()
@@ -183,8 +192,14 @@ class TestServiceFlows:
             mock_ucf = AsyncMock()
             mock_ucf.execute.return_value = {
                 "unit_title": "Unit T",
-                "learning_objectives": [{"lo_id": "u_lo_1", "text": "Understand the topic"}],
-                "lessons": [{"title": "L1", "learning_objectives": ["lo_1"], "lesson_objective": "Learn about L1"}],
+                "learning_objectives": [{"id": "u_lo_1", "text": "Understand the topic"}],
+                "lessons": [
+                    {
+                        "title": "L1",
+                        "learning_objective_ids": ["lo_1"],
+                        "lesson_objective": "Learn about L1",
+                    }
+                ],
                 "lesson_count": 1,
                 "unit_source_material": "S",
             }
@@ -196,6 +211,7 @@ class TestServiceFlows:
                 "learner_level": "beginner",
                 "voice": "Plain",
                 "learning_objectives": ["Learn about A"],
+                "learning_objective_ids": ["lo_1"],
                 "misconceptions": [],
                 "confusables": [],
                 "glossary": [],
@@ -261,8 +277,14 @@ class TestServiceFlows:
             mock_ucf = AsyncMock()
             mock_ucf.execute.return_value = {
                 "unit_title": "Unit B",
-                "learning_objectives": [{"lo_id": "u_lo_1", "text": "Understand the topic"}],
-                "lessons": [{"title": "L1", "learning_objectives": ["lo_1"], "lesson_objective": "Learn about L1"}],
+                "learning_objectives": [{"id": "u_lo_1", "text": "Understand the topic"}],
+                "lessons": [
+                    {
+                        "title": "L1",
+                        "learning_objective_ids": ["lo_1"],
+                        "lesson_objective": "Learn about L1",
+                    }
+                ],
             }
             mock_ucf_cls.return_value = mock_ucf
 
@@ -272,6 +294,7 @@ class TestServiceFlows:
                 "learner_level": "beginner",
                 "voice": "Plain",
                 "learning_objectives": ["Learn about A"],
+                "learning_objective_ids": ["lo_1"],
                 "misconceptions": [],
                 "confusables": [],
                 "glossary": [],

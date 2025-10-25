@@ -73,6 +73,7 @@ async def start_session(request: StartSessionRequestModel, service: LearningSess
         start_request = StartSessionRequest(
             lesson_id=request.lesson_id,
             user_id=request.user_id,
+            unit_id=request.unit_id,
         )
 
         session = await service.start_session(start_request)
@@ -91,6 +92,7 @@ async def start_session(request: StartSessionRequestModel, service: LearningSess
     start_request = StartSessionRequest(
         lesson_id=request.lesson_id,
         user_id=request.user_id,
+        unit_id=request.unit_id,
     )
 
     session = await service.start_session(start_request)
