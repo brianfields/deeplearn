@@ -15,14 +15,15 @@ import pytest
 from modules.admin.models import (
     FlowRunsListResponse,
     FlowRunSummary,
+    UserConversationSummary,
     UserUpdateRequest,
 )
 from modules.admin.service import AdminService
 from modules.flow_engine.models import FlowRunModel, FlowStepRunModel
-from modules.learning_coach.dtos import (
-    LearningCoachConversationSummary,
-    LearningCoachMessage,
-    LearningCoachSessionState,
+from modules.conversation_engine.public import (
+    ConversationDetailDTO,
+    ConversationMessageDTO,
+    ConversationSummaryDTO,
 )
 from modules.learning_session.service import LearningSession, SessionListResponse
 from modules.llm_services.service import LLMRequest
@@ -133,52 +134,90 @@ class TestAdminService:
         return mock
 
     @pytest.fixture
-    def mock_learning_coach_provider(self) -> SimpleNamespace:
-        """Mock LearningCoachProvider with deterministic data."""
+    def mock_conversation_engine_provider(self) -> AsyncMock:
+        """Mock conversation engine provider returning deterministic data."""
 
-        conversation_id = str(uuid.uuid4())
         now = datetime.now(UTC)
+        conversation_id = str(uuid.uuid4())
 
-        summary = LearningCoachConversationSummary(
+        summary = ConversationSummaryDTO(
             id=conversation_id,
             user_id=42,
+            conversation_type="learning_coach",
             title="Exploring Algebra",
+            status="active",
+            metadata={
+                "topic": "algebra",
+                "proposed_brief": {"outline": "Plan"},
+                "accepted_brief": {"outline": "Accepted"},
+            },
+            message_count=3,
             created_at=now,
             updated_at=now,
             last_message_at=now,
-            message_count=3,
-            metadata={"topic": "algebra"},
         )
 
-        message = LearningCoachMessage(
+        message = ConversationMessageDTO(
             id=str(uuid.uuid4()),
+            conversation_id=conversation_id,
             role="assistant",
             content="Let's map out your algebra goals.",
+            message_order=1,
+            llm_request_id=str(uuid.uuid4()),
+            metadata={"tone": "supportive"},
+            tokens_used=12,
+            cost_estimate=0.05,
             created_at=now,
-            metadata={},
         )
 
-        state = LearningCoachSessionState(
-            conversation_id=conversation_id,
-            messages=[message],
+        detail = ConversationDetailDTO(
+            id=summary.id,
+            user_id=summary.user_id,
+            conversation_type=summary.conversation_type,
+            title=summary.title,
+            status=summary.status,
             metadata=summary.metadata,
-            finalized_topic=None,
-            unit_title=None,
-            learning_objectives=None,
-            suggested_lesson_count=None,
-            proposed_brief=None,
-            accepted_brief=None,
+            message_count=summary.message_count,
+            created_at=summary.created_at,
+            updated_at=summary.updated_at,
+            last_message_at=summary.last_message_at,
+            messages=[message],
         )
 
-        provider = SimpleNamespace()
-        provider.list_conversations = AsyncMock(return_value=[summary])
-        provider.get_session_state = AsyncMock(return_value=state)
-        provider.start_session = AsyncMock()
-        provider.submit_learner_turn = AsyncMock()
-        provider.accept_brief = AsyncMock()
-        provider.restart_session = AsyncMock()
+        async def list_by_type(
+            conversation_type: str,
+            *,
+            limit: int,
+            offset: int,
+            status: str | None = None,
+        ) -> list[ConversationSummaryDTO]:
+            if offset > 0:
+                return []
+            return [summary][: max(0, min(limit, 1))]
+
+        async def list_for_user(
+            user_id: int,
+            *,
+            limit: int,
+            offset: int,
+            conversation_type: str,
+            status: str | None = None,
+        ) -> list[ConversationSummaryDTO]:
+            if user_id != summary.user_id or offset > 0:
+                return []
+            return [summary][: max(0, min(limit, 1))]
+
+        async def get_conversation(conversation_uuid: uuid.UUID) -> ConversationDetailDTO | None:
+            if str(conversation_uuid) == conversation_id:
+                return detail
+            return None
+
+        provider = AsyncMock()
+        provider.list_conversations_by_type.side_effect = list_by_type
+        provider.list_conversations_for_user.side_effect = list_for_user
+        provider.get_conversation.side_effect = get_conversation
         provider.sample_summary = summary
-        provider.sample_state = state
+        provider.sample_detail = detail
         return provider
 
     @pytest.fixture
@@ -202,7 +241,7 @@ class TestAdminService:
         )
 
     @pytest.fixture
-    def admin_service_with_learning_coach(
+    def admin_service_with_conversations(
         self,
         mock_flow_engine_admin: Mock,
         mock_llm_services_admin: Mock,
@@ -210,9 +249,9 @@ class TestAdminService:
         mock_content_provider: Mock,
         mock_user_provider: Mock,
         mock_learning_sessions_provider: Mock,
-        mock_learning_coach_provider: SimpleNamespace,
+        mock_conversation_engine_provider: AsyncMock,
     ) -> AdminService:
-        """Admin service including learning coach provider."""
+        """Admin service including conversation engine provider."""
 
         return AdminService(
             flow_engine_admin=mock_flow_engine_admin,
@@ -221,7 +260,7 @@ class TestAdminService:
             content=mock_content_provider,
             users=mock_user_provider,
             learning_sessions=mock_learning_sessions_provider,
-            learning_coach=mock_learning_coach_provider,
+            conversation_engine=mock_conversation_engine_provider,
         )
 
     @pytest.mark.asyncio
@@ -283,36 +322,88 @@ class TestAdminService:
     @pytest.mark.asyncio
     async def test_list_learning_coach_conversations(
         self,
-        admin_service_with_learning_coach: AdminService,
-        mock_learning_coach_provider: SimpleNamespace,
+        admin_service_with_conversations: AdminService,
+        mock_conversation_engine_provider: AsyncMock,
     ) -> None:
-        """Ensure learning coach conversations are surfaced via admin service."""
+        """Ensure learning coach conversations are surfaced with pagination metadata."""
 
-        response = await admin_service_with_learning_coach.list_learning_coach_conversations(limit=5, offset=0)
+        response = await admin_service_with_conversations.list_learning_coach_conversations(page=1, page_size=1)
 
-        assert response.limit == 5
+        assert response.page == 1
+        assert response.page_size == 1
+        assert response.total_count == 1
+        assert not response.has_next
         assert len(response.conversations) == 1
-        assert response.conversations[0].id == mock_learning_coach_provider.sample_summary.id
-        mock_learning_coach_provider.list_conversations.assert_awaited_once_with(limit=5, offset=0)
+
+        conversation = response.conversations[0]
+        assert conversation.id == mock_conversation_engine_provider.sample_summary.id
+        assert conversation.status == "active"
+        assert conversation.metadata["topic"] == "algebra"
+
+        calls = mock_conversation_engine_provider.list_conversations_by_type.await_args_list
+        assert any(call.kwargs.get("limit") == 2 and call.kwargs.get("offset") == 0 for call in calls)
 
     @pytest.mark.asyncio
     async def test_get_learning_coach_conversation(
         self,
-        admin_service_with_learning_coach: AdminService,
-        mock_learning_coach_provider: SimpleNamespace,
+        admin_service_with_conversations: AdminService,
+        mock_conversation_engine_provider: AsyncMock,
     ) -> None:
         """Ensure the admin service returns learning coach transcript detail."""
 
-        summary = mock_learning_coach_provider.sample_summary
-        detail = await admin_service_with_learning_coach.get_learning_coach_conversation(summary.id)
+        summary = mock_conversation_engine_provider.sample_summary
+        detail = await admin_service_with_conversations.get_learning_coach_conversation(summary.id)
 
         assert detail is not None
         assert detail.conversation_id == summary.id
-        assert detail.messages[0].role == "assistant"
-        mock_learning_coach_provider.get_session_state.assert_awaited_once_with(
-            summary.id,
-            include_system_messages=True,
-        )
+        assert detail.metadata["topic"] == "algebra"
+        assert detail.proposed_brief == {"outline": "Plan"}
+        assert detail.accepted_brief == {"outline": "Accepted"}
+
+        message = detail.messages[0]
+        assert message.role == "assistant"
+        assert message.tokens_used == 12
+        assert message.llm_request_id is not None
+        assert message.message_order == 1
+
+    @pytest.mark.asyncio
+    async def test_get_learning_coach_conversation_invalid_id(
+        self,
+        admin_service_with_conversations: AdminService,
+    ) -> None:
+        """Invalid identifiers should return None without raising."""
+
+        detail = await admin_service_with_conversations.get_learning_coach_conversation("not-a-uuid")
+
+        assert detail is None
+
+    @pytest.mark.asyncio
+    async def test_get_user_conversations_returns_recent(
+        self,
+        admin_service_with_conversations: AdminService,
+        mock_conversation_engine_provider: AsyncMock,
+    ) -> None:
+        """Recent conversations for a user are surfaced from the conversation engine."""
+
+        results = await admin_service_with_conversations.get_user_conversations(42)
+
+        assert len(results) == 1
+        assert results[0].status == "active"
+        mock_conversation_engine_provider.list_conversations_for_user.assert_awaited()
+
+    @pytest.mark.asyncio
+    async def test_get_user_conversations_when_absent(
+        self,
+        admin_service_with_conversations: AdminService,
+        mock_conversation_engine_provider: AsyncMock,
+    ) -> None:
+        """Returns an empty list when the user has no conversations."""
+
+        results = await admin_service_with_conversations.get_user_conversations(99)
+
+        assert results == []
+        # Ensure the provider was queried with the requested user id
+        assert any(call.args[0] == 99 for call in mock_conversation_engine_provider.list_conversations_for_user.await_args_list)
 
     @pytest.mark.asyncio
     async def test_get_users_returns_associations(
@@ -367,7 +458,7 @@ class TestAdminService:
     @pytest.mark.asyncio
     async def test_get_user_detail_includes_recent_data(
         self,
-        admin_service: AdminService,
+        admin_service_with_conversations: AdminService,
         mock_content_provider: Mock,
         mock_learning_sessions_provider: Mock,
         mock_llm_services_admin: Mock,
@@ -411,8 +502,18 @@ class TestAdminService:
         mock_llm_services_admin.get_request_count_by_user.return_value = 1
         mock_llm_services_admin.get_user_requests.return_value = [req]
 
+        conversation_summary = UserConversationSummary(
+            id="conv-1",
+            title="Exploring Algebra",
+            status="active",
+            message_count=3,
+            last_message_at=datetime.now(UTC),
+        )
+
+        admin_service_with_conversations.get_user_conversations = AsyncMock(return_value=[conversation_summary])
+
         user_uuid = uuid.uuid4()
-        admin_service.users.get_profile.return_value = UserRead.model_construct(
+        admin_service_with_conversations.users.get_profile.return_value = UserRead.model_construct(
             id=str(user_uuid),
             email="user@example.com",
             name="Test User",
@@ -422,13 +523,17 @@ class TestAdminService:
             updated_at=datetime.now(UTC),
         )
 
-        detail = await admin_service.get_user_detail(42)
+        admin_service_with_conversations._coerce_user_int = Mock(return_value=42)
+
+        detail = await admin_service_with_conversations.get_user_detail(42)
 
         assert detail is not None
         assert len(detail.owned_units) == 1
         assert len(detail.recent_sessions) == 1
         assert len(detail.recent_llm_requests) == 1
+        assert len(detail.recent_conversations) == 1
         mock_llm_services_admin.get_user_requests.assert_called_once()
+        admin_service_with_conversations.get_user_conversations.assert_awaited_once_with(42)
 
     @pytest.mark.asyncio
     async def test_update_user_returns_none_when_missing(
