@@ -142,3 +142,31 @@ async def dismiss_unit(
     except Exception as exc:  # pragma: no cover - defensive logging
         logger.error("❌ Unexpected error in unit dismissal: %s", exc)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to dismiss unit") from exc
+
+
+@router.post("/units/check-timeouts")
+async def check_unit_timeouts(
+    timeout_seconds: int = Query(3600, ge=60, le=86400, description="Timeout threshold in seconds (default: 1 hour)"),
+    service: ContentCreatorService = Depends(get_content_creator_service),
+) -> dict[str, int]:
+    """
+    Check for stale units stuck in 'in_progress' status and mark them as failed.
+
+    This endpoint checks all in_progress units and marks them as failed if:
+    - Their associated task has failed
+    - They have been in_progress for longer than the timeout threshold
+
+    This can be called periodically by clients or by a background job.
+    """
+    try:
+        logger.info("🔍 Checking for stale units (timeout: %s seconds)", timeout_seconds)
+
+        timed_out_count = await service.check_and_timeout_stale_units(timeout_seconds)
+
+        logger.info("✅ Timeout check completed: %s units marked as failed", timed_out_count)
+
+        return {"timed_out_count": timed_out_count}
+
+    except Exception as exc:  # pragma: no cover - defensive logging
+        logger.error("❌ Unexpected error checking unit timeouts: %s", exc)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to check unit timeouts") from exc

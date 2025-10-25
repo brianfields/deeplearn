@@ -502,6 +502,8 @@ export interface UnitLessonSummary {
   id: string;
   title: string;
   learner_level: string;
+  learning_objectives: string[];
+  key_concepts: string[];
   exercise_count: number;
 }
 
@@ -538,6 +540,8 @@ export interface UnitDetail {
   error_message: string | null;
   arq_task_id: string | null;
   flow_runs: FlowRunSummary[];
+  created_at: Date | null;
+  updated_at: Date | null;
 }
 
 export type LessonToUnitMap = Record<string, { unit_id: string; unit_title: string }>;

@@ -637,6 +637,8 @@ export class AdminService {
           id: l.id,
           title: l.title,
           learner_level: l.learner_level,
+          learning_objectives: l.learning_objectives ?? [],
+          key_concepts: l.key_concepts ?? [],
           exercise_count: l.exercise_count,
         })),
         learning_objectives: detail.learning_objectives ?? null,
@@ -657,6 +659,8 @@ export class AdminService {
         error_message: (detail as Record<string, any>).error_message ?? null,
         arq_task_id: (detail as Record<string, any>).arq_task_id ?? null,
         flow_runs: flowRuns.map(flowRunToDTO),
+        created_at: (detail as any).created_at ? new Date((detail as any).created_at) : null,
+        updated_at: (detail as any).updated_at ? new Date((detail as any).updated_at) : null,
       };
     } catch (error) {
       console.error('Failed to fetch unit detail:', error);

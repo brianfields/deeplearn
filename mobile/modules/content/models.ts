@@ -115,6 +115,8 @@ export interface Unit {
   readonly downloadStatus?: DownloadStatus;
   readonly downloadedAt?: number | null;
   readonly syncedAt?: number | null;
+  readonly createdAt?: string | null;
+  readonly updatedAt?: string | null;
 }
 
 export interface UnitDetail {
@@ -218,6 +220,8 @@ export function toUnitDTO(
     podcastDurationSeconds: api.podcast_duration_seconds ?? null,
     artImageUrl: api.art_image_url ?? null,
     artImageDescription: api.art_image_description ?? null,
+    createdAt: api.created_at ?? null,
+    updatedAt: api.updated_at ?? null,
   };
 }
 

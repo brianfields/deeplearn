@@ -45,6 +45,21 @@ export function UnitCard({
   const theme = ui.getCurrentTheme();
   const { trigger } = useHaptics();
 
+  // Check if unit has been creating for too long (1 hour = 3600 seconds)
+  const isStaleCreation = React.useMemo(() => {
+    if (unit.status !== 'in_progress' || !unit.updatedAt) {
+      return false;
+    }
+    try {
+      const updatedTime = new Date(unit.updatedAt).getTime();
+      const now = Date.now();
+      const elapsedSeconds = (now - updatedTime) / 1000;
+      return elapsedSeconds > 3600; // 1 hour timeout
+    } catch {
+      return false;
+    }
+  }, [unit.status, unit.updatedAt]);
+
   const isDisabled = !unit.isInteractive;
   const showFailedActions: boolean =
     unit.status === 'failed' && !!(onRetry || onDismiss);
@@ -193,6 +208,7 @@ export function UnitCard({
                   status={unit.status}
                   progress={unit.creationProgress}
                   errorMessage={unit.errorMessage}
+                  isStale={isStaleCreation}
                 />
               </View>
             )}

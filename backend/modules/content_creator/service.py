@@ -6,6 +6,7 @@ Uses LLM services to create educational content and stores it via content module
 """
 
 import asyncio
+from datetime import UTC, datetime, timedelta
 import logging
 from typing import Any
 import uuid
@@ -815,3 +816,78 @@ class ContentCreatorService:
             logger.warning(f"Delete method not available, marking unit as dismissed: unit_id={unit_id}")
             result = await self.content.update_unit_status(unit_id=unit_id, status="dismissed", error_message=None, creation_progress={"stage": "dismissed", "message": "Unit dismissed by user"})
             return result is not None
+
+    async def check_and_timeout_stale_units(self, timeout_seconds: int = 3600) -> int:
+        """
+        Check for units stuck in 'in_progress' status and mark them as failed if they've timed out.
+
+        This method:
+        1. Finds all units with status='in_progress'
+        2. Checks if their associated task has failed or doesn't exist
+        3. Checks if the unit has been in_progress for longer than timeout_seconds
+        4. Marks timed-out units as failed
+
+        Args:
+            timeout_seconds: Maximum time a unit can be in_progress (default: 1 hour)
+
+        Returns:
+            Number of units that were marked as failed
+        """
+        logger.info("🔍 Checking for stale in_progress units (timeout: %s seconds)", timeout_seconds)
+
+        # Get all units with in_progress status
+        in_progress_units = await self.content.get_units_by_status(UnitStatus.IN_PROGRESS.value, limit=1000)
+
+        if not in_progress_units:
+            logger.debug("No in_progress units found")
+            return 0
+
+        timeout_threshold = datetime.now(UTC) - timedelta(seconds=timeout_seconds)
+        timed_out_count = 0
+        task_queue_service = task_queue_provider()
+
+        for unit in in_progress_units:
+            try:
+                # Check if unit has been in_progress too long
+                # Use updated_at as the reference time (when it was last updated)
+                unit_age = datetime.now(UTC) - unit.updated_at.replace(tzinfo=UTC)
+
+                # Check task status if we have an arq_task_id
+                task_failed = False
+                if unit.arq_task_id:
+                    task_status = await task_queue_service.get_task_status(unit.arq_task_id)
+                    if task_status:
+                        if task_status.status == "failed":
+                            task_failed = True
+                            logger.warning("Unit %s has failed task %s", unit.id, unit.arq_task_id)
+                    else:
+                        # Task doesn't exist in Redis anymore, likely expired
+                        logger.warning("Unit %s has non-existent task %s", unit.id, unit.arq_task_id)
+                        if unit_age.total_seconds() > 300:  # Only fail if it's been > 5 minutes
+                            task_failed = True
+
+                # Mark as failed if task failed or unit is too old
+                should_timeout = task_failed or (unit.updated_at.replace(tzinfo=UTC) < timeout_threshold)
+
+                if should_timeout:
+                    error_reason = "Associated task failed" if task_failed else f"Unit creation exceeded timeout ({timeout_seconds} seconds)"
+                    logger.warning("⏰ Timing out unit %s: %s (age: %s seconds)", unit.id, error_reason, unit_age.total_seconds())
+
+                    await self.content.update_unit_status(
+                        unit_id=unit.id,
+                        status=UnitStatus.FAILED.value,
+                        error_message=f"Creation timed out: {error_reason}",
+                        creation_progress={"stage": "failed", "message": "Creation timed out"},
+                    )
+                    timed_out_count += 1
+
+            except Exception as e:
+                logger.error("Error checking unit %s: %s", unit.id, str(e), exc_info=True)
+                continue
+
+        if timed_out_count > 0:
+            logger.info("✅ Marked %s stale unit(s) as failed", timed_out_count)
+        else:
+            logger.debug("No stale units found")
+
+        return timed_out_count

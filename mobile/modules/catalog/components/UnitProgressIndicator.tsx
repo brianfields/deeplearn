@@ -14,6 +14,7 @@ interface UnitProgressIndicatorProps {
   progress?: UnitCreationProgress | null;
   errorMessage?: string | null;
   size?: 'small' | 'large';
+  isStale?: boolean;
 }
 
 export function UnitProgressIndicator({
@@ -21,6 +22,7 @@ export function UnitProgressIndicator({
   progress,
   errorMessage,
   size = 'small',
+  isStale = false,
 }: UnitProgressIndicatorProps) {
   const ui = uiSystemProvider();
   const theme = ui.getCurrentTheme();
@@ -65,6 +67,9 @@ export function UnitProgressIndicator({
       case 'draft':
         return 'Unit is being prepared';
       case 'in_progress':
+        if (isStale) {
+          return 'Creation is taking longer than expected. Please refresh to check status.';
+        }
         return progress?.message || 'Creating unit content...';
       case 'completed':
         return 'Ready to learn';
@@ -80,7 +85,7 @@ export function UnitProgressIndicator({
       case 'draft':
         return theme.colors.textSecondary;
       case 'in_progress':
-        return theme.colors.primary;
+        return isStale ? theme.colors.warning : theme.colors.primary;
       case 'completed':
         return theme.colors.success;
       case 'failed':
@@ -96,10 +101,10 @@ export function UnitProgressIndicator({
         {renderStatusIcon()}
         <View style={styles.textContainer}>
           <Text style={[styles.statusLabel, { color: getStatusColor() }]}>
-            {getStatusLabel(status)}
+            {getStatusLabel(status, isStale)}
           </Text>
           <Text style={styles.statusMessage}>{getStatusMessage()}</Text>
-          {status === 'in_progress' && progress?.stage && (
+          {status === 'in_progress' && progress?.stage && !isStale && (
             <Text style={styles.stageText}>Stage: {progress.stage}</Text>
           )}
         </View>
@@ -111,13 +116,16 @@ export function UnitProgressIndicator({
     <View style={styles.container}>
       {renderStatusIcon()}
       <Text style={[styles.statusLabel, { color: getStatusColor() }]}>
-        {getStatusLabel(status)}
+        {getStatusLabel(status, isStale)}
       </Text>
     </View>
   );
 }
 
-function getStatusLabel(status: UnitStatus): string {
+function getStatusLabel(status: UnitStatus, isStale?: boolean): string {
+  if (status === 'in_progress' && isStale) {
+    return 'Taking longer than expected...';
+  }
   const statusMap: Record<UnitStatus, string> = {
     draft: 'Draft',
     in_progress: 'Creating...',

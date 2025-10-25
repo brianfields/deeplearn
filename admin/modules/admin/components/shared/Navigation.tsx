@@ -18,21 +18,6 @@ const navigationItems = [
     description: 'Overview and system metrics',
   },
   {
-    name: 'Flow Runs',
-    href: '/flows',
-    description: 'Monitor flow executions',
-  },
-  {
-    name: 'Tasks',
-    href: '/tasks',
-    description: 'Track background tasks and workers',
-  },
-  {
-    name: 'LLM Requests',
-    href: '/llm-requests',
-    description: 'View LLM request details',
-  },
-  {
     name: 'Users',
     href: '/users',
     description: 'Manage learners and administrators',
@@ -41,6 +26,21 @@ const navigationItems = [
     name: 'Units',
     href: '/units',
     description: 'Browse units and their lessons',
+  },
+  {
+    name: 'Tasks',
+    href: '/tasks',
+    description: 'Track background tasks and workers',
+  },
+  {
+    name: 'Flow Runs',
+    href: '/flows',
+    description: 'Monitor flow executions',
+  },
+  {
+    name: 'LLM Requests',
+    href: '/llm-requests',
+    description: 'View LLM request details',
   },
 ];
 
@@ -55,7 +55,7 @@ export function Navigation() {
           {/* Logo/Brand */}
           <div className="flex items-center space-x-4">
             <Link href="/" className="text-xl font-bold text-gray-900">
-              DeepLearn Admin
+              Lantern Room Admin
             </Link>
           </div>
 

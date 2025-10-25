@@ -142,6 +142,24 @@ export function LessonListScreen() {
     return () => clearInterval(interval);
   }, [cacheOverview, loadCacheOverview]);
 
+  // Poll for units that are being created to detect when they're done
+  useEffect(() => {
+    const hasCreatingUnits = allUnits.some(
+      unit => unit.status === 'in_progress'
+    );
+
+    if (!hasCreatingUnits) {
+      return;
+    }
+
+    // Poll every 5 seconds when there are units being created
+    const interval = setInterval(() => {
+      refetch();
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [allUnits, refetch]);
+
   // Handle pull-to-refresh by forcing a full sync
   const handleRefresh = useCallback(async () => {
     try {
