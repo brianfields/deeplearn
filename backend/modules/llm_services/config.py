@@ -27,6 +27,7 @@ class LLMConfig(BaseModel):
     base_url: str | None = Field(default=None, description="Custom base URL for API calls")
     anthropic_api_key: str | None = Field(default=None, description="Anthropic API key")
     anthropic_model: str | None = Field(default=None, description="Default Claude model name")
+    claude_provider: str | None = Field(default=None, description="Claude provider: 'anthropic' or 'bedrock'")
     aws_access_key_id: str | None = Field(default=None, description="AWS access key for Bedrock")
     aws_secret_access_key: str | None = Field(default=None, description="AWS secret key for Bedrock")
     aws_session_token: str | None = Field(default=None, description="AWS session token for Bedrock")
@@ -115,12 +116,27 @@ def create_llm_config_from_env(
     """
     Create LLM configuration from environment variables.
 
-    Reads the following environment variables:
-    - OPENAI_API_KEY: OpenAI API key
-    - OPENAI_MODEL: Model name (default: gpt-5)
+    Provider Selection:
+    - When a model is requested (e.g., "gpt-5-mini", "claude-haiku-4-5"), the provider
+      is automatically selected based on the model prefix.
+    - GPT models (gpt-*) use OpenAI or Azure OpenAI
+    - Claude models (claude-*) use the provider specified by CLAUDE_PROVIDER:
+      - 'anthropic' (default): Direct Anthropic API
+      - 'bedrock': AWS Bedrock
+    - NO FALLBACKS: If the required provider isn't configured, requests will fail explicitly
+
+    Environment Variables:
+    - OPENAI_API_KEY: OpenAI API key (required for GPT models)
+    - OPENAI_MODEL: Default model name (default: gpt-5)
     - OPENAI_BASE_URL: Custom base URL
     - AZURE_OPENAI_API_KEY: Azure OpenAI API key
     - AZURE_OPENAI_ENDPOINT: Azure OpenAI endpoint
+    - ANTHROPIC_API_KEY: Anthropic API key (required for Claude models with CLAUDE_PROVIDER=anthropic)
+    - ANTHROPIC_MODEL: Default Claude model (default: claude-haiku-4-5)
+    - CLAUDE_PROVIDER: Choose 'anthropic' or 'bedrock' for Claude models (default: anthropic)
+    - AWS_ACCESS_KEY_ID: AWS access key (required for CLAUDE_PROVIDER=bedrock)
+    - AWS_SECRET_ACCESS_KEY: AWS secret key (required for CLAUDE_PROVIDER=bedrock)
+    - AWS_REGION: AWS region (default: us-west-2)
     - TEMPERATURE: Generation temperature (default: 0.7)
     - MAX_OUTPUT_TOKENS: Maximum output tokens
     - REQUEST_TIMEOUT: Request timeout (default: 180)
@@ -151,6 +167,7 @@ def create_llm_config_from_env(
     anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
     anthropic_model = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5")
     anthropic_base_url = os.getenv("ANTHROPIC_BASE_URL", "https://api.anthropic.com")
+    claude_provider = os.getenv("CLAUDE_PROVIDER", "anthropic").lower()  # 'anthropic' or 'bedrock'
 
     aws_access_key_id = os.getenv("AWS_ACCESS_KEY_ID")
     aws_secret_access_key = os.getenv("AWS_SECRET_ACCESS_KEY")
@@ -261,6 +278,7 @@ def create_llm_config_from_env(
         base_url=base_url,
         anthropic_api_key=anthropic_api_key,
         anthropic_model=anthropic_model,
+        claude_provider=claude_provider,
         aws_access_key_id=aws_access_key_id,
         aws_secret_access_key=aws_secret_access_key,
         aws_session_token=aws_session_token,

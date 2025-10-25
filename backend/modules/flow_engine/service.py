@@ -96,6 +96,16 @@ class FlowEngineService:
         self.step_run_repo = step_run_repo
         self.llm_services = llm_services
 
+    def _commit_changes(self) -> None:
+        """
+        Commit pending changes to make them visible to other database sessions.
+
+        This is critical for real-time visibility in the admin dashboard during
+        long-running flows executed in ARQ tasks.
+        """
+        # Access the session through the repo
+        self.flow_run_repo.s.commit()
+
     async def create_flow_run_record(
         self,
         flow_name: str,
@@ -118,6 +128,10 @@ class FlowEngineService:
 
         created_run = self.flow_run_repo.create(flow_run)
         assert created_run.id is not None
+
+        # Commit immediately so the flow run is visible in admin dashboard
+        self._commit_changes()
+
         return created_run.id
 
     async def create_step_run_record(self, flow_run_id: uuid.UUID, step_name: str, step_order: int, inputs: dict[str, Any]) -> uuid.UUID:
@@ -126,6 +140,10 @@ class FlowEngineService:
 
         created_step = self.step_run_repo.create(step_run)
         assert created_step.id is not None
+
+        # Commit immediately so the step is visible in admin dashboard
+        self._commit_changes()
+
         return created_step.id
 
     async def update_step_run_success(self, step_run_id: uuid.UUID, outputs: dict[str, Any], tokens_used: int, cost_estimate: float, execution_time_ms: int, llm_request_id: uuid.UUID | None = None) -> None:
@@ -141,6 +159,9 @@ class FlowEngineService:
             step_run.completed_at = datetime.now(UTC)
             self.step_run_repo.save(step_run)
 
+            # Commit immediately so step completion is visible in admin dashboard
+            self._commit_changes()
+
     async def update_step_run_error(self, step_run_id: uuid.UUID, error_message: str, execution_time_ms: int) -> None:
         """Update step run with error data (internal use)."""
         step_run = self.step_run_repo.by_id(step_run_id)
@@ -150,6 +171,9 @@ class FlowEngineService:
             step_run.status = "failed"
             step_run.completed_at = datetime.now(UTC)
             self.step_run_repo.save(step_run)
+
+            # Commit immediately so step failure is visible in admin dashboard
+            self._commit_changes()
 
     async def update_flow_progress(self, flow_run_id: uuid.UUID, current_step: str, step_progress: int, progress_percentage: float | None = None) -> None:
         """Update flow run progress (internal use)."""
@@ -165,6 +189,9 @@ class FlowEngineService:
                 flow_run.progress_percentage = min(100.0, (step_progress / flow_run.total_steps) * 100)
 
             self.flow_run_repo.save(flow_run)
+
+            # Commit immediately so progress updates are visible in admin dashboard
+            self._commit_changes()
 
     async def complete_flow_run(self, flow_run_id: uuid.UUID, outputs: dict[str, Any]) -> None:
         """Complete a flow run (internal use)."""
@@ -191,6 +218,9 @@ class FlowEngineService:
 
             self.flow_run_repo.save(flow_run)
 
+            # Commit immediately so completion is visible in admin dashboard
+            self._commit_changes()
+
     async def fail_flow_run(self, flow_run_id: uuid.UUID, error_message: str) -> None:
         """Mark a flow run as failed (internal use)."""
         flow_run = self.flow_run_repo.by_id(flow_run_id)
@@ -206,6 +236,9 @@ class FlowEngineService:
                 flow_run.execution_time_ms = int((completed_at - started_at).total_seconds() * 1000)
 
             self.flow_run_repo.save(flow_run)
+
+            # Commit immediately so failure is visible in admin dashboard
+            self._commit_changes()
 
     def get_llm_services(self) -> LLMServicesProvider:
         """Get LLM services provider (internal use)."""

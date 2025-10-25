@@ -1,8 +1,8 @@
 """initial_schema
 
-Revision ID: 3da76456f20e
+Revision ID: 9cb0b78b0c16
 Revises: 
-Create Date: 2025-10-24 08:37:40.970344
+Create Date: 2025-10-24 20:58:32.719603
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '3da76456f20e'
+revision: str = '9cb0b78b0c16'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -24,6 +24,7 @@ def upgrade() -> None:
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('user_id', sa.UUID(), nullable=True),
     sa.Column('flow_name', sa.String(length=100), nullable=False),
+    sa.Column('arq_task_id', sa.String(length=255), nullable=True),
     sa.Column('status', sa.String(length=50), nullable=False),
     sa.Column('execution_mode', sa.String(length=20), nullable=False),
     sa.Column('current_step', sa.String(length=200), nullable=True),
@@ -44,6 +45,7 @@ def upgrade() -> None:
     sa.Column('error_message', sa.Text(), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_index(op.f('ix_flow_runs_arq_task_id'), 'flow_runs', ['arq_task_id'], unique=False)
     op.create_index(op.f('ix_flow_runs_flow_name'), 'flow_runs', ['flow_name'], unique=False)
     op.create_index(op.f('ix_flow_runs_status'), 'flow_runs', ['status'], unique=False)
     op.create_index(op.f('ix_flow_runs_user_id'), 'flow_runs', ['user_id'], unique=False)
@@ -105,6 +107,35 @@ def upgrade() -> None:
     op.create_index(op.f('ix_llm_requests_provider_response_id'), 'llm_requests', ['provider_response_id'], unique=False)
     op.create_index(op.f('ix_llm_requests_status'), 'llm_requests', ['status'], unique=False)
     op.create_index(op.f('ix_llm_requests_user_id'), 'llm_requests', ['user_id'], unique=False)
+    op.create_table('tasks',
+    sa.Column('id', sa.String(length=255), nullable=False),
+    sa.Column('task_name', sa.String(length=255), nullable=False),
+    sa.Column('status', sa.String(length=50), nullable=False),
+    sa.Column('queue_name', sa.String(length=100), nullable=False),
+    sa.Column('task_type', sa.String(length=255), nullable=True),
+    sa.Column('inputs', sa.JSON(), nullable=False),
+    sa.Column('result', sa.JSON(), nullable=True),
+    sa.Column('error_message', sa.Text(), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('started_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('completed_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('progress_percentage', sa.Float(), nullable=False),
+    sa.Column('current_step', sa.String(length=200), nullable=True),
+    sa.Column('retry_count', sa.Integer(), nullable=False),
+    sa.Column('max_retries', sa.Integer(), nullable=False),
+    sa.Column('priority', sa.Integer(), nullable=False),
+    sa.Column('user_id', sa.UUID(), nullable=True),
+    sa.Column('worker_id', sa.String(length=255), nullable=True),
+    sa.Column('flow_run_id', sa.UUID(), nullable=True),
+    sa.Column('unit_id', sa.String(length=36), nullable=True),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_tasks_flow_run_id'), 'tasks', ['flow_run_id'], unique=False)
+    op.create_index(op.f('ix_tasks_status'), 'tasks', ['status'], unique=False)
+    op.create_index(op.f('ix_tasks_task_name'), 'tasks', ['task_name'], unique=False)
+    op.create_index(op.f('ix_tasks_task_type'), 'tasks', ['task_type'], unique=False)
+    op.create_index(op.f('ix_tasks_unit_id'), 'tasks', ['unit_id'], unique=False)
+    op.create_index(op.f('ix_tasks_user_id'), 'tasks', ['user_id'], unique=False)
     op.create_table('users',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('email', sa.String(length=255), nullable=False),
@@ -222,6 +253,7 @@ def upgrade() -> None:
     sa.Column('description', sa.Text(), nullable=True),
     sa.Column('learner_level', sa.String(length=50), nullable=False),
     sa.Column('lesson_order', sa.JSON(), nullable=False),
+    sa.Column('arq_task_id', sa.String(length=255), nullable=True),
     sa.Column('user_id', sa.Integer(), nullable=True),
     sa.Column('is_global', sa.Boolean(), nullable=False),
     sa.Column('learning_objectives', sa.JSON(), nullable=True),
@@ -245,6 +277,7 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_index(op.f('ix_units_arq_task_id'), 'units', ['arq_task_id'], unique=False)
     op.create_index(op.f('ix_units_art_image_id'), 'units', ['art_image_id'], unique=False)
     op.create_index(op.f('ix_units_user_id'), 'units', ['user_id'], unique=False)
     op.create_table('lessons',
@@ -295,6 +328,7 @@ def downgrade() -> None:
     op.drop_table('lessons')
     op.drop_index(op.f('ix_units_user_id'), table_name='units')
     op.drop_index(op.f('ix_units_art_image_id'), table_name='units')
+    op.drop_index(op.f('ix_units_arq_task_id'), table_name='units')
     op.drop_table('units')
     op.drop_index(op.f('ix_conversation_messages_role'), table_name='conversation_messages')
     op.drop_index(op.f('ix_conversation_messages_llm_request_id'), table_name='conversation_messages')
@@ -317,6 +351,13 @@ def downgrade() -> None:
     op.drop_table('audios')
     op.drop_index(op.f('ix_users_email'), table_name='users')
     op.drop_table('users')
+    op.drop_index(op.f('ix_tasks_user_id'), table_name='tasks')
+    op.drop_index(op.f('ix_tasks_unit_id'), table_name='tasks')
+    op.drop_index(op.f('ix_tasks_task_type'), table_name='tasks')
+    op.drop_index(op.f('ix_tasks_task_name'), table_name='tasks')
+    op.drop_index(op.f('ix_tasks_status'), table_name='tasks')
+    op.drop_index(op.f('ix_tasks_flow_run_id'), table_name='tasks')
+    op.drop_table('tasks')
     op.drop_index(op.f('ix_llm_requests_user_id'), table_name='llm_requests')
     op.drop_index(op.f('ix_llm_requests_status'), table_name='llm_requests')
     op.drop_index(op.f('ix_llm_requests_provider_response_id'), table_name='llm_requests')
@@ -333,5 +374,6 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_flow_runs_user_id'), table_name='flow_runs')
     op.drop_index(op.f('ix_flow_runs_status'), table_name='flow_runs')
     op.drop_index(op.f('ix_flow_runs_flow_name'), table_name='flow_runs')
+    op.drop_index(op.f('ix_flow_runs_arq_task_id'), table_name='flow_runs')
     op.drop_table('flow_runs')
     # ### end Alembic commands ###

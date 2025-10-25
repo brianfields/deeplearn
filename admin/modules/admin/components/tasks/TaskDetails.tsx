@@ -33,6 +33,9 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
     refetch: refetchFlows,
   } = useTaskFlowRuns(taskId);
 
+  // All hooks must be called before any conditional returns
+  const flowSummary = useMemo(() => flowRuns ?? [], [flowRuns]);
+
   const isLoading = taskLoading && !task;
 
   const handleReload = () => {
@@ -77,8 +80,6 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
           : Date.now() - task.started_at.getTime(),
       )
     : '—';
-
-  const flowSummary = useMemo(() => flowRuns ?? [], [flowRuns]);
 
   return (
     <div className="space-y-6">
@@ -160,18 +161,6 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
             <div className="flex items-center justify-between">
               <dt>Flow name</dt>
               <dd>{task.flow_name ?? '—'}</dd>
-            </div>
-            <div className="flex items-center justify-between">
-              <dt>Flow run</dt>
-              <dd>
-                {task.flow_run_id ? (
-                  <Link href={`/flows/${task.flow_run_id}`} className="text-blue-600 hover:text-blue-500">
-                    {task.flow_run_id}
-                  </Link>
-                ) : (
-                  '—'
-                )}
-              </dd>
             </div>
             <div className="flex items-center justify-between">
               <dt>Unit</dt>
