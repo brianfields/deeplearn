@@ -2,6 +2,7 @@
  * Mock for @react-native-community/slider
  */
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const React = require('react');
 
 const Slider = React.forwardRef((props, ref) => {

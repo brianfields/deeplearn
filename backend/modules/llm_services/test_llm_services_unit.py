@@ -193,7 +193,7 @@ async def test_anthropic_provider_generates_text_response(db_session: Session, m
     )
     provider = AnthropicProvider(config, db_session)
 
-    async def _fake_execute(self: AnthropicProvider, **_: Any) -> ClaudeRequestResult:  # noqa: ARG001
+    async def _fake_execute(self: AnthropicProvider, **_: Any) -> ClaudeRequestResult:
         return ClaudeRequestResult(
             text="Hello from Claude",
             input_tokens=120,
@@ -239,7 +239,7 @@ async def test_anthropic_provider_structured_output(db_session: Session, monkeyp
     )
     provider = AnthropicProvider(config, db_session)
 
-    async def _fake_execute(self: AnthropicProvider, **_: Any) -> ClaudeRequestResult:  # noqa: ARG001
+    async def _fake_execute(self: AnthropicProvider, **_: Any) -> ClaudeRequestResult:
         return ClaudeRequestResult(
             text=json.dumps({"title": "Structured"}),
             input_tokens=150,

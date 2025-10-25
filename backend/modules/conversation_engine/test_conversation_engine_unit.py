@@ -16,6 +16,7 @@ from .service import (
     ConversationEngineService,
     ConversationMessageDTO,
     ConversationSummaryDTO,
+    PaginatedConversationsDTO,
 )
 
 
@@ -158,6 +159,139 @@ class TestService:
 
         titled = await service.update_conversation_title(conversation.id, "Advanced Algebra Projects")
         assert titled.title == "Advanced Algebra Projects"
+
+    @pytest.mark.asyncio
+    async def test_list_conversations_by_type_paginated(self) -> None:
+        conversation_repo = MagicMock()
+        message_repo = MagicMock()
+        llm_services = MagicMock()
+
+        # Create mock conversations
+        conversations = []
+        for i in range(3):
+            conv = ConversationModel(conversation_type="learning_coach", conversation_metadata={})
+            conv.id = uuid.uuid4()
+            conv.status = "active"
+            conv.message_count = i + 1
+            conv.created_at = datetime.now(UTC)
+            conv.updated_at = datetime.now(UTC)
+            conv.last_message_at = datetime.now(UTC)
+            conversations.append(conv)
+
+        conversation_repo.list_for_type.return_value = conversations[:2]  # First page with 2 items
+        conversation_repo.count_for_type.return_value = 3  # Total count
+
+        service = ConversationEngineService(conversation_repo, message_repo, llm_services)
+
+        result = await service.list_conversations_by_type_paginated(
+            "learning_coach",
+            page=1,
+            page_size=2,
+            status="active",
+        )
+
+        assert isinstance(result, PaginatedConversationsDTO)
+        assert len(result.conversations) == 2
+        assert result.total_count == 3
+        assert result.page == 1
+        assert result.page_size == 2
+        assert result.has_next is True
+
+        conversation_repo.list_for_type.assert_called_once_with(
+            "learning_coach",
+            limit=2,
+            offset=0,
+            status="active",
+        )
+        conversation_repo.count_for_type.assert_called_once_with(
+            "learning_coach",
+            status="active",
+        )
+
+    @pytest.mark.asyncio
+    async def test_list_conversations_for_user_paginated(self) -> None:
+        conversation_repo = MagicMock()
+        message_repo = MagicMock()
+        llm_services = MagicMock()
+
+        # Create mock conversations for user
+        conversations = []
+        for i in range(5):
+            conv = ConversationModel(conversation_type="learning_coach", conversation_metadata={})
+            conv.id = uuid.uuid4()
+            conv.user_id = 123
+            conv.status = "active"
+            conv.message_count = i + 1
+            conv.created_at = datetime.now(UTC)
+            conv.updated_at = datetime.now(UTC)
+            conv.last_message_at = datetime.now(UTC)
+            conversations.append(conv)
+
+        conversation_repo.list_for_user.return_value = conversations[2:4]  # Second page (2 items)
+        conversation_repo.count_for_user.return_value = 5  # Total count
+
+        service = ConversationEngineService(conversation_repo, message_repo, llm_services)
+
+        result = await service.list_conversations_for_user_paginated(
+            user_id=123,
+            page=2,
+            page_size=2,
+            conversation_type="learning_coach",
+        )
+
+        assert isinstance(result, PaginatedConversationsDTO)
+        assert len(result.conversations) == 2
+        assert result.total_count == 5
+        assert result.page == 2
+        assert result.page_size == 2
+        assert result.has_next is True
+
+        conversation_repo.list_for_user.assert_called_once_with(
+            123,
+            limit=2,
+            offset=2,  # (page-1) * page_size = (2-1) * 2 = 2
+            conversation_type="learning_coach",
+            status=None,
+        )
+        conversation_repo.count_for_user.assert_called_once_with(
+            123,
+            conversation_type="learning_coach",
+            status=None,
+        )
+
+    @pytest.mark.asyncio
+    async def test_list_conversations_paginated_last_page(self) -> None:
+        """Test that has_next is False on the last page."""
+        conversation_repo = MagicMock()
+        message_repo = MagicMock()
+        llm_services = MagicMock()
+
+        # Create mock conversations
+        conversations = []
+        for i in range(2):
+            conv = ConversationModel(conversation_type="learning_coach", conversation_metadata={})
+            conv.id = uuid.uuid4()
+            conv.status = "active"
+            conv.message_count = i + 1
+            conv.created_at = datetime.now(UTC)
+            conv.updated_at = datetime.now(UTC)
+            conv.last_message_at = datetime.now(UTC)
+            conversations.append(conv)
+
+        conversation_repo.list_for_type.return_value = conversations  # Last page
+        conversation_repo.count_for_type.return_value = 7  # Total count
+
+        service = ConversationEngineService(conversation_repo, message_repo, llm_services)
+
+        result = await service.list_conversations_by_type_paginated(
+            "learning_coach",
+            page=3,
+            page_size=3,
+        )
+
+        assert result.total_count == 7
+        assert result.page == 3
+        assert result.has_next is False  # No more pages after this
 
 
 class TestBaseConversation:

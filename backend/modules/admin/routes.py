@@ -13,8 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from modules.catalog.public import catalog_provider
 from modules.content.public import content_provider
-from modules.flow_engine.public import flow_engine_admin_provider
 from modules.conversation_engine.public import conversation_engine_provider
+from modules.flow_engine.public import flow_engine_admin_provider
 from modules.infrastructure.public import infrastructure_provider
 from modules.learning_coach.public import learning_coach_provider
 from modules.learning_session.public import (

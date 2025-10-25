@@ -328,6 +328,7 @@ from .service import (
     ConversationEngineService,
     ConversationMessageDTO,
     ConversationSummaryDTO,
+    PaginatedConversationsDTO,
 )
 
 __all__ = [
@@ -340,6 +341,7 @@ __all__ = [
     "ConversationEngineProvider",
     "ConversationMessageDTO",
     "ConversationSummaryDTO",
+    "PaginatedConversationsDTO",
     "conversation_engine_provider",
     "conversation_session",
 ]
@@ -398,6 +400,29 @@ class ConversationEngineProvider(Protocol):
         status: str | None = None,
     ) -> list[ConversationSummaryDTO]:
         """List conversations filtered by type."""
+        ...
+
+    async def list_conversations_for_user_paginated(
+        self,
+        user_id: int,
+        *,
+        page: int = 1,
+        page_size: int = 50,
+        conversation_type: str | None = None,
+        status: str | None = None,
+    ) -> PaginatedConversationsDTO:
+        """List conversations for a user with pagination metadata."""
+        ...
+
+    async def list_conversations_by_type_paginated(
+        self,
+        conversation_type: str,
+        *,
+        page: int = 1,
+        page_size: int = 50,
+        status: str | None = None,
+    ) -> PaginatedConversationsDTO:
+        """List conversations filtered by type with pagination metadata."""
         ...
 
     async def update_conversation_status(self, conversation_id: uuid.UUID, status: str) -> ConversationSummaryDTO:

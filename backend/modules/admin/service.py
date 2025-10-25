@@ -7,12 +7,12 @@ Returns DTOs for all admin functionality.
 """
 
 from datetime import datetime
-import uuid
 from typing import Any
+import uuid
 
 from modules.catalog.public import CatalogProvider
-from modules.conversation_engine.public import ConversationEngineProvider
 from modules.content.public import ContentProvider
+from modules.conversation_engine.public import ConversationEngineProvider
 from modules.flow_engine.public import FlowEngineAdminProvider
 from modules.learning_coach.public import LearningCoachProvider
 from modules.learning_session.public import LearningSessionProvider
@@ -35,16 +35,15 @@ from .models import (
     LLMRequestsListResponse,
     LLMRequestSummary,
     UserAssociationSummary,
+    UserConversationSummary,
     UserDetail,
     UserListResponse,
     UserLLMRequestSummary,
-    UserConversationSummary,
     UserOwnedUnitSummary,
     UserSessionSummary,
     UserSummary,
     UserUpdateRequest,
 )
-
 
 LEARNING_COACH_CONVERSATION_TYPE = "learning_coach"
 
@@ -141,11 +140,7 @@ class AdminService:
         recent_sessions = await self._get_recent_sessions(user)
         recent_llm_requests = self._get_recent_llm_requests(user)
         user_id_int = self._coerce_user_int(user)
-        recent_conversations = (
-            await self.get_user_conversations(user_id_int)
-            if user_id_int is not None
-            else []
-        )
+        recent_conversations = await self.get_user_conversations(user_id_int) if user_id_int is not None else []
 
         return UserDetail(
             id=user.id,

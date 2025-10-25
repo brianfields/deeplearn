@@ -16,6 +16,7 @@ __all__ = [
     "ConversationEngineService",
     "ConversationMessageDTO",
     "ConversationSummaryDTO",
+    "PaginatedConversationsDTO",
 ]
 
 
@@ -56,6 +57,17 @@ class ConversationDetailDTO(ConversationSummaryDTO):
     """DTO representing full conversation details including history."""
 
     messages: list[ConversationMessageDTO]
+
+
+@dataclass(slots=True)
+class PaginatedConversationsDTO:
+    """DTO representing a paginated list of conversations with metadata."""
+
+    conversations: list[ConversationSummaryDTO]
+    total_count: int
+    page: int
+    page_size: int
+    has_next: bool
 
 
 class ConversationEngineService:
@@ -140,6 +152,85 @@ class ConversationEngineService:
             status=status,
         )
         return [self._to_summary_dto(conv) for conv in conversations]
+
+    async def list_conversations_for_user_paginated(
+        self,
+        user_id: int,
+        *,
+        page: int = 1,
+        page_size: int = 50,
+        conversation_type: str | None = None,
+        status: str | None = None,
+    ) -> PaginatedConversationsDTO:
+        """Return paginated conversations for a user with metadata."""
+
+        # Calculate offset from page number
+        offset = (page - 1) * page_size
+
+        # Get conversations for this page
+        conversations = self.conversation_repo.list_for_user(
+            user_id,
+            limit=page_size,
+            offset=offset,
+            conversation_type=conversation_type,
+            status=status,
+        )
+
+        # Get total count
+        total_count = self.conversation_repo.count_for_user(
+            user_id,
+            conversation_type=conversation_type,
+            status=status,
+        )
+
+        # Calculate if there are more pages
+        has_next = (offset + len(conversations)) < total_count
+
+        return PaginatedConversationsDTO(
+            conversations=[self._to_summary_dto(conv) for conv in conversations],
+            total_count=total_count,
+            page=page,
+            page_size=page_size,
+            has_next=has_next,
+        )
+
+    async def list_conversations_by_type_paginated(
+        self,
+        conversation_type: str,
+        *,
+        page: int = 1,
+        page_size: int = 50,
+        status: str | None = None,
+    ) -> PaginatedConversationsDTO:
+        """Return paginated conversations filtered by type with metadata."""
+
+        # Calculate offset from page number
+        offset = (page - 1) * page_size
+
+        # Get conversations for this page
+        conversations = self.conversation_repo.list_for_type(
+            conversation_type,
+            limit=page_size,
+            offset=offset,
+            status=status,
+        )
+
+        # Get total count
+        total_count = self.conversation_repo.count_for_type(
+            conversation_type,
+            status=status,
+        )
+
+        # Calculate if there are more pages
+        has_next = (offset + len(conversations)) < total_count
+
+        return PaginatedConversationsDTO(
+            conversations=[self._to_summary_dto(conv) for conv in conversations],
+            total_count=total_count,
+            page=page,
+            page_size=page_size,
+            has_next=has_next,
+        )
 
     async def record_user_message(
         self,
