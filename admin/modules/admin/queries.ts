@@ -48,10 +48,13 @@ export const adminKeys = {
   taskQueue: () => [...adminKeys.all, 'task-queue'] as const,
   queueStatus: () => [...adminKeys.taskQueue(), 'status'] as const,
   queueStats: () => [...adminKeys.taskQueue(), 'stats'] as const,
-  queueTasks: (limit?: number) => [...adminKeys.taskQueue(), 'tasks', limit] as const,
-  taskDetail: (taskId: string) => [...adminKeys.taskQueue(), 'task', taskId] as const,
   workers: () => [...adminKeys.taskQueue(), 'workers'] as const,
   queueHealth: () => [...adminKeys.taskQueue(), 'health'] as const,
+  tasks: () => [...adminKeys.all, 'tasks'] as const,
+  taskList: (limit?: number, queueName?: string) => [...adminKeys.tasks(), 'list', limit, queueName] as const,
+  taskDetail: (taskId: string) => [...adminKeys.tasks(), 'detail', taskId] as const,
+  taskFlowRuns: (taskId: string) => [...adminKeys.tasks(), 'flow-runs', taskId] as const,
+  unitFlowRuns: (unitId: string) => [...adminKeys.units(), 'flow-runs', unitId] as const,
 };
 
 // ---- Flow Hooks ----
@@ -64,11 +67,11 @@ export function useFlowRuns(params?: FlowRunsQuery) {
   });
 }
 
-export function useFlowRun(id: string) {
+export function useFlowRun(id: string, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: adminKeys.flowDetail(id),
     queryFn: () => service.getFlowRun(id),
-    enabled: !!id,
+    enabled: !!id && (options?.enabled ?? true),
     staleTime: 60 * 1000, // 1 minute
   });
 }
@@ -168,11 +171,11 @@ export function useUnits() {
   });
 }
 
-export function useUnit(unitId: string) {
+export function useUnit(unitId: string, options?: { enabled?: boolean }) {
   return useQuery<UnitDetail | null>({
     queryKey: adminKeys.unitDetail(unitId),
     queryFn: () => service.getUnitDetail(unitId),
-    enabled: !!unitId,
+    enabled: !!unitId && (options?.enabled ?? true),
     staleTime: 60 * 1000,
   });
 }
@@ -231,25 +234,6 @@ export function useQueueStats() {
   });
 }
 
-export function useQueueTasks(limit: number = 50) {
-  return useQuery({
-    queryKey: adminKeys.queueTasks(limit),
-    queryFn: () => service.getQueueTasks(limit),
-    staleTime: 5 * 1000, // 5 seconds
-    refetchInterval: 10 * 1000, // Auto-refresh every 10 seconds
-  });
-}
-
-export function useTaskStatus(taskId: string) {
-  return useQuery({
-    queryKey: adminKeys.taskDetail(taskId),
-    queryFn: () => service.getTaskStatus(taskId),
-    enabled: !!taskId,
-    staleTime: 5 * 1000, // 5 seconds
-    refetchInterval: 10 * 1000, // Auto-refresh every 10 seconds
-  });
-}
-
 export function useWorkers() {
   return useQuery({
     queryKey: adminKeys.workers(),
@@ -268,14 +252,53 @@ export function useQueueHealth() {
   });
 }
 
-// ---- Flow-Task Integration Hooks ----
+// ---- Background Task Hooks ----
 
-export function useFlowTaskStatus(flowId: string) {
+export function useTasks(limit: number = 50, queueName?: string) {
   return useQuery({
-    queryKey: [...adminKeys.flows(), 'task-status', flowId],
-    queryFn: () => service.getFlowTaskStatus(flowId),
-    enabled: !!flowId,
-    staleTime: 10 * 1000, // 10 seconds
-    refetchInterval: 15 * 1000, // Auto-refresh every 15 seconds
+    queryKey: adminKeys.taskList(limit, queueName),
+    queryFn: () => service.getTasks(limit, queueName),
+    staleTime: 5 * 1000,
+    refetchInterval: 10 * 1000,
+  });
+}
+
+export function useTask(taskId: string | null) {
+  return useQuery({
+    queryKey: adminKeys.taskDetail(taskId ?? 'unknown'),
+    queryFn: () => (taskId ? service.getTask(taskId) : Promise.resolve(null)),
+    enabled: !!taskId,
+    staleTime: 5 * 1000,
+    refetchInterval: 10 * 1000,
+  });
+}
+
+export function useTaskFlowRuns(taskId: string | null) {
+  return useQuery({
+    queryKey: adminKeys.taskFlowRuns(taskId ?? 'unknown'),
+    queryFn: () => (taskId ? service.getTaskFlowRuns(taskId) : Promise.resolve([])),
+    enabled: !!taskId,
+    staleTime: 10 * 1000,
+    refetchInterval: 15 * 1000,
+  });
+}
+
+export function useUnitFlowRuns(unitId: string | null) {
+  return useQuery({
+    queryKey: adminKeys.unitFlowRuns(unitId ?? 'unknown'),
+    queryFn: () => (unitId ? service.getUnitFlowRuns(unitId) : Promise.resolve([])),
+    enabled: !!unitId,
+    staleTime: 10 * 1000,
+  });
+}
+
+export function useRetryUnit() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (unitId: string) => service.retryUnit(unitId),
+    onSuccess: (_data, unitId) => {
+      queryClient.invalidateQueries({ queryKey: adminKeys.unitDetail(unitId) });
+      queryClient.invalidateQueries({ queryKey: adminKeys.unitFlowRuns(unitId) });
+    },
   });
 }

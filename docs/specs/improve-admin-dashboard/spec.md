@@ -272,150 +272,150 @@ class TaskModel(Base):
 
 #### Database & Models
 
-- [ ] Create `TaskModel` in `backend/modules/task_queue/models.py`
-- [ ] Add `arq_task_id` field to `FlowRunModel` in `backend/modules/flow_engine/models.py`
-- [ ] Add `arq_task_id` field to `UnitModel` in `backend/modules/content/models.py`
-- [ ] Generate Alembic migration for new `tasks` table and new columns
-- [ ] Run Alembic migration to update database schema
+- [x] Create `TaskModel` in `backend/modules/task_queue/models.py`
+- [x] Add `arq_task_id` field to `FlowRunModel` in `backend/modules/flow_engine/models.py`
+- [x] Add `arq_task_id` field to `UnitModel` in `backend/modules/content/models.py`
+- [x] Generate Alembic migration for new `tasks` table and new columns
+- [x] Run Alembic migration to update database schema
 
 #### task_queue Module
 
-- [ ] Implement `TaskRepo` in `backend/modules/task_queue/repo.py` with CRUD operations
-- [ ] Update `TaskQueueService` in `backend/modules/task_queue/service.py` to create task records when submitting tasks
-- [ ] Update `task_queue_provider` in `backend/modules/task_queue/public.py` to expose `get_task()` method
-- [ ] Update `backend/modules/task_queue/routes.py` to query from database instead of ARQ directly:
-  - [ ] Update existing `GET /api/v1/task-queue/tasks` to query from TaskModel
-  - [ ] Update existing `GET /api/v1/task-queue/tasks/{task_id}` to query from TaskModel
-  - [ ] Add new `GET /api/v1/task-queue/tasks/{task_id}/flow-runs` - Get flow runs for task (delegates to flow_engine)
-- [ ] Update unit tests in `backend/modules/task_queue/test_task_queue_unit.py`
+- [x] Implement `TaskRepo` in `backend/modules/task_queue/repo.py` with CRUD operations
+- [x] Update `TaskQueueService` in `backend/modules/task_queue/service.py` to create task records when submitting tasks
+- [x] Update `task_queue_provider` in `backend/modules/task_queue/public.py` to expose `get_task()` method
+- [x] Update `backend/modules/task_queue/routes.py` to query from database instead of ARQ directly:
+  - [x] Update existing `GET /api/v1/task-queue/tasks` to query from TaskModel
+  - [x] Update existing `GET /api/v1/task-queue/tasks/{task_id}` to query from TaskModel
+  - [x] Add new `GET /api/v1/task-queue/tasks/{task_id}/flow-runs` - Get flow runs for task (delegates to flow_engine)
+- [x] Update unit tests in `backend/modules/task_queue/test_task_queue_unit.py`
 
 #### flow_engine Module
 
-- [ ] Update `FlowRunRepo` in `backend/modules/flow_engine/repo.py` to support querying by `arq_task_id` and filtering by unit_id in inputs
-- [ ] Update `FlowEngineService` in `backend/modules/flow_engine/service.py` to accept and store `arq_task_id`
-- [ ] Update `flow_execution` decorator in `backend/modules/flow_engine/base_flow.py` to accept `arq_task_id` parameter
-- [ ] Create `backend/modules/flow_engine/routes.py` with admin observability endpoints:
-  - [ ] `GET /api/v1/flow-engine/runs` - List flow runs with optional filters (arq_task_id, unit_id)
-  - [ ] `GET /api/v1/flow-engine/runs/{id}` - Get single flow run with steps inline
-- [ ] Register the new router in `backend/server.py`
-- [ ] Update unit tests in `backend/modules/flow_engine/test_flow_engine_unit.py`
+- [x] Update `FlowRunRepo` in `backend/modules/flow_engine/repo.py` to support querying by `arq_task_id` and filtering by unit_id in inputs
+- [x] Update `FlowEngineService` in `backend/modules/flow_engine/service.py` to accept and store `arq_task_id`
+- [x] Update `flow_execution` decorator in `backend/modules/flow_engine/base_flow.py` to accept `arq_task_id` parameter
+- [x] Create `backend/modules/flow_engine/routes.py` with admin observability endpoints:
+  - [x] `GET /api/v1/flow-engine/runs` - List flow runs with optional filters (arq_task_id, unit_id)
+  - [x] `GET /api/v1/flow-engine/runs/{id}` - Get single flow run with steps inline
+- [x] Register the new router in `backend/server.py`
+- [x] Update unit tests in `backend/modules/flow_engine/test_flow_engine_unit.py`
 
 #### content Module
 
-- [ ] Update `ContentRepo` in `backend/modules/content/repo.py` to handle `arq_task_id`
-- [ ] Update DTOs in `backend/modules/content/service.py` to include `arq_task_id`
-- [ ] Add method to get flow runs for unit in `backend/modules/content/service.py`
-- [ ] Add admin observability routes in `backend/modules/content/routes.py`:
-  - [ ] Update `GET /api/v1/content/units/{id}` to return `arq_task_id`
-  - [ ] Add `GET /api/v1/content/units/{id}/flow-runs` - Get flow runs for unit
-- [ ] Update unit tests in `backend/modules/content/test_content_unit.py`
+- [x] Update `ContentRepo` in `backend/modules/content/repo.py` to handle `arq_task_id`
+- [x] Update DTOs in `backend/modules/content/service.py` to include `arq_task_id`
+- [x] Add method to get flow runs for unit in `backend/modules/content/service.py`
+- [x] Add admin observability routes in `backend/modules/content/routes.py`:
+  - [x] Update `GET /api/v1/content/units/{id}` to return `arq_task_id`
+  - [x] Add `GET /api/v1/content/units/{id}/flow-runs` - Get flow runs for unit
+- [x] Update unit tests in `backend/modules/content/test_content_unit.py`
 
 #### content_creator Module
 
-- [ ] Update `create_unit()` in `backend/modules/content_creator/service.py` to store task ID
-- [ ] Update `_execute_unit_creation_pipeline()` to pass `arq_task_id` to all flow executions
-- [ ] Update ARQ task handler in `backend/modules/content_creator/public.py` to create task record
-- [ ] Update `POST /api/v1/content-creator/units/{id}/retry` in `backend/modules/content_creator/routes.py` to create new task
-- [ ] Update unit tests in `backend/modules/content_creator/test_service_unit.py`
+- [x] Update `create_unit()` in `backend/modules/content_creator/service.py` to store task ID
+- [x] Update `_execute_unit_creation_pipeline()` to pass `arq_task_id` to all flow executions
+- [x] Update ARQ task handler in `backend/modules/content_creator/public.py` to create task record
+- [x] Update `POST /api/v1/content-creator/units/{id}/retry` in `backend/modules/content_creator/routes.py` to create new task
+- [x] Update unit tests in `backend/modules/content_creator/test_service_unit.py`
 
 #### Backend Testing
 
 - [ ] Update existing integration tests to handle new fields (nullable, so should be backward compatible)
-- [ ] Ensure unit tests pass: `backend/scripts/run_unit.py`
+- [x] Ensure unit tests pass: `backend/scripts/run_unit.py`
 - [ ] Ensure integration tests pass: `backend/scripts/run_integration.py`
 
 ### Frontend Tasks
 
 #### Admin Module - Data Layer
 
-- [ ] Add `Task` type to `admin/modules/admin/models.ts`
-- [ ] Update `Unit` type to include `arq_task_id` field
-- [ ] Update `FlowRun` type to include `arq_task_id` and `steps` array
-- [ ] Add task API calls to `admin/modules/admin/repo.ts`:
-  - [ ] `getTasks()` - List all tasks
-  - [ ] `getTask(taskId)` - Get task details
-  - [ ] `getTaskFlowRuns(taskId)` - Get flow runs for task
-- [ ] Add flow run API calls to `admin/modules/admin/repo.ts`:
-  - [ ] `getFlowRunsByTaskId(taskId)` - Get flow runs by task
-  - [ ] `getFlowRunsByUnitId(unitId)` - Get flow runs by unit
-- [ ] Add unit API calls to `admin/modules/admin/repo.ts`:
-  - [ ] `getUnitFlowRuns(unitId)` - Get flow runs for unit
-  - [ ] `retryUnit(unitId)` - Retry failed unit
-- [ ] Add business logic to `admin/modules/admin/service.ts` for task/flow run queries
-- [ ] Add React Query hooks to `admin/modules/admin/queries.ts`:
-  - [ ] `useTasks()` - Query all tasks
-  - [ ] `useTask(taskId)` - Query single task
-  - [ ] `useTaskFlowRuns(taskId)` - Query flow runs for task
-  - [ ] `useUnitFlowRuns(unitId)` - Query flow runs for unit
-  - [ ] `useRetryUnit()` - Mutation for retrying unit
+- [x] Add `Task` type to `admin/modules/admin/models.ts`
+- [x] Update `Unit` type to include `arq_task_id` field
+- [x] Update `FlowRun` type to include `arq_task_id` and `steps` array
+- [x] Add task API calls to `admin/modules/admin/repo.ts`:
+  - [x] `getTasks()` - List all tasks
+  - [x] `getTask(taskId)` - Get task details
+  - [x] `getTaskFlowRuns(taskId)` - Get flow runs for task
+- [x] Add flow run API calls to `admin/modules/admin/repo.ts`:
+  - [x] `getFlowRunsByTaskId(taskId)` - Get flow runs by task
+  - [x] `getFlowRunsByUnitId(unitId)` - Get flow runs by unit
+- [x] Add unit API calls to `admin/modules/admin/repo.ts`:
+  - [x] `getUnitFlowRuns(unitId)` - Get flow runs for unit
+  - [x] `retryUnit(unitId)` - Retry failed unit
+- [x] Add business logic to `admin/modules/admin/service.ts` for task/flow run queries
+- [x] Add React Query hooks to `admin/modules/admin/queries.ts`:
+  - [x] `useTasks()` - Query all tasks
+  - [x] `useTask(taskId)` - Query single task
+  - [x] `useTaskFlowRuns(taskId)` - Query flow runs for task
+  - [x] `useUnitFlowRuns(unitId)` - Query flow runs for unit
+  - [x] `useRetryUnit()` - Mutation for retrying unit
 
 #### Admin Module - Shared Components
 
-- [ ] Create `admin/modules/admin/components/shared/ReloadButton.tsx` - Reusable reload button
-- [ ] Update `admin/modules/admin/components/shared/StatusBadge.tsx` to support task statuses
-- [ ] Update `admin/modules/admin/components/shared/Navigation.tsx`:
-  - [ ] Remove "Task Queue", "Workers", "Lessons" from navigation items
-  - [ ] Add "Tasks" to navigation items
-  - [ ] Update navigation order
+- [x] Create `admin/modules/admin/components/shared/ReloadButton.tsx` - Reusable reload button
+- [x] Update `admin/modules/admin/components/shared/StatusBadge.tsx` to support task statuses
+- [x] Update `admin/modules/admin/components/shared/Navigation.tsx`:
+  - [x] Remove "Task Queue", "Workers", "Lessons" from navigation items
+  - [x] Add "Tasks" to navigation items
+  - [x] Update navigation order
 
 #### Admin Module - Tasks Components
 
-- [ ] Create `admin/modules/admin/components/tasks/TasksList.tsx`:
-  - [ ] Table showing: Task ID, Task Type, Status, Started, Duration, Associated Entity
-  - [ ] Links to task details and related entities
-  - [ ] Add reload button
-- [ ] Create `admin/modules/admin/components/tasks/TaskDetails.tsx`:
-  - [ ] Task metadata display
-  - [ ] Flow runs list for this task
-  - [ ] Links to related entities
+- [x] Create `admin/modules/admin/components/tasks/TasksList.tsx`:
+  - [x] Table showing: Task ID, Task Type, Status, Started, Duration, Associated Entity
+  - [x] Links to task details and related entities
+  - [x] Add reload button
+- [x] Create `admin/modules/admin/components/tasks/TaskDetails.tsx`:
+  - [x] Task metadata display
+  - [x] Flow runs list for this task
+  - [x] Links to related entities
 
 #### Admin Module - Units Components
 
-- [ ] Update `admin/modules/admin/components/units/UnitDetails.tsx`:
-  - [ ] Add flow runs section showing all related flow runs
-  - [ ] Display flow run status, current step, progress, errors, timing
-  - [ ] Add retry button for failed units
-  - [ ] Add reload button
-- [ ] Update `admin/app/units/page.tsx`:
-  - [ ] Implement accordion-style expandable lessons within each unit
-  - [ ] Add reload button
+- [x] Update `admin/modules/admin/components/units/UnitDetails.tsx`:
+  - [x] Add flow runs section showing all related flow runs
+  - [x] Display flow run status, current step, progress, errors, timing
+  - [x] Add retry button for failed units
+  - [x] Add reload button
+- [x] Update `admin/app/units/page.tsx`:
+  - [x] Implement accordion-style expandable lessons within each unit
+  - [x] Add reload button
 
 #### Admin Module - Flows Components
 
-- [ ] Update `admin/modules/admin/components/flows/FlowRunsList.tsx`:
-  - [ ] Add expandable sections for each flow run to show steps inline
-  - [ ] Display step status, timing, and LLM request link
-  - [ ] Add reload button
-- [ ] Update `admin/modules/admin/components/flows/FlowRunDetails.tsx`:
-  - [ ] Update to show steps inline by default
-  - [ ] Add links to LLM requests from steps
+- [x] Update `admin/modules/admin/components/flows/FlowRunsList.tsx`:
+  - [x] Add expandable sections for each flow run to show steps inline
+  - [x] Display step status, timing, and LLM request link
+  - [x] Add reload button
+- [x] Update `admin/modules/admin/components/flows/FlowRunDetails.tsx`:
+  - [x] Update to show steps inline by default
+  - [x] Add links to LLM requests from steps
 
 #### Admin Module - Pages
 
-- [ ] Create `admin/app/tasks/page.tsx` - New tasks page
-- [ ] Update `admin/app/units/[id]/page.tsx` - Add flow runs section and retry button
-- [ ] Update `admin/app/flows/page.tsx` - Support expandable steps
-- [ ] Delete `admin/app/queue/page.tsx`
-- [ ] Delete `admin/app/workers/page.tsx`
-- [ ] Delete `admin/app/lessons/page.tsx`
-- [ ] Delete `admin/app/lessons/[id]/page.tsx`
+- [x] Create `admin/app/tasks/page.tsx` - New tasks page
+- [x] Update `admin/app/units/[id]/page.tsx` - Add flow runs section and retry button
+- [x] Update `admin/app/flows/page.tsx` - Support expandable steps
+- [x] Delete `admin/app/queue/page.tsx`
+- [x] Delete `admin/app/workers/page.tsx`
+- [x] Delete `admin/app/lessons/page.tsx`
+- [x] Delete `admin/app/lessons/[id]/page.tsx`
 
 #### Admin Module - Component Cleanup
 
-- [ ] Delete `admin/modules/admin/components/queue/QueueMonitoring.tsx`
-- [ ] Delete `admin/modules/admin/components/queue/QueueOverviewCards.tsx`
-- [ ] Delete `admin/modules/admin/components/queue/QueueStatsChart.tsx`
-- [ ] Delete `admin/modules/admin/components/queue/QueueTasksList.tsx`
-- [ ] Delete `admin/modules/admin/components/workers/WorkersList.tsx`
-- [ ] Delete `admin/modules/admin/components/workers/WorkersMonitoring.tsx`
-- [ ] Delete `admin/modules/admin/components/workers/WorkersOverview.tsx`
-- [ ] Delete `admin/modules/admin/components/workers/WorkersPerformance.tsx`
-- [ ] Delete `admin/modules/admin/components/lessons/LessonsList.tsx`
+- [x] Delete `admin/modules/admin/components/queue/QueueMonitoring.tsx`
+- [x] Delete `admin/modules/admin/components/queue/QueueOverviewCards.tsx`
+- [x] Delete `admin/modules/admin/components/queue/QueueStatsChart.tsx`
+- [x] Delete `admin/modules/admin/components/queue/QueueTasksList.tsx`
+- [x] Delete `admin/modules/admin/components/workers/WorkersList.tsx`
+- [x] Delete `admin/modules/admin/components/workers/WorkersMonitoring.tsx`
+- [x] Delete `admin/modules/admin/components/workers/WorkersOverview.tsx`
+- [x] Delete `admin/modules/admin/components/workers/WorkersPerformance.tsx`
+- [x] Delete `admin/modules/admin/components/lessons/LessonsList.tsx`
 
 #### Frontend Testing
 
-- [ ] Update existing component tests if needed
-- [ ] Ensure unit tests pass: `cd admin && npm run test`
+- [x] Update existing component tests if needed
+- [x] Ensure unit tests pass: `cd admin && npm run test`
 
 ### Seed Data
 

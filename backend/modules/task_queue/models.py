@@ -7,8 +7,44 @@ DTOs for task queue operations, including task status tracking and worker health
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 import uuid
+
+from sqlalchemy import JSON, DateTime, Float, Integer, String, Text, func
+from sqlalchemy.orm import Mapped, mapped_column
+
+from modules.shared_models import Base, PostgresUUID
+
+
+if "TaskModel" in Base.registry._class_registry:
+    TaskModel = cast(type[Base], Base.registry._class_registry["TaskModel"])
+else:
+    class TaskModel(Base):
+        """Persisted record representing an ARQ task."""
+
+        __tablename__ = "tasks"
+
+        id: Mapped[str] = mapped_column(String(255), primary_key=True)
+        task_name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+        status: Mapped[str] = mapped_column(String(50), nullable=False, default="pending", index=True)
+        queue_name: Mapped[str] = mapped_column(String(100), nullable=False, default="default")
+        task_type: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+        inputs: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+        result: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+        error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+        created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+        started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+        completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+        progress_percentage: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+        current_step: Mapped[str | None] = mapped_column(String(200), nullable=True)
+        retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+        max_retries: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+        priority: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+        user_id: Mapped[uuid.UUID | None] = mapped_column(PostgresUUID(), nullable=True, index=True)
+        worker_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+        flow_run_id: Mapped[uuid.UUID | None] = mapped_column(PostgresUUID(), nullable=True, index=True)
+        unit_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+
 
 
 class TaskStatusEnum(str, Enum):
@@ -53,6 +89,9 @@ class TaskStatus:
     worker_id: str | None = None
     queue_name: str = "default"
     priority: int = 0
+    task_type: str | None = None
+    flow_run_id: uuid.UUID | None = None
+    unit_id: str | None = None
 
 
 @dataclass

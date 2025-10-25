@@ -159,6 +159,19 @@ class ContentRepo:
         await self.s.flush()
         return unit
 
+    async def update_unit_arq_task(self, unit_id: str, arq_task_id: str | None) -> UnitModel | None:
+        """Update the ARQ task identifier associated with a unit."""
+
+        unit = await self.get_unit_by_id(unit_id)
+        if unit is None:
+            return None
+
+        unit.arq_task_id = arq_task_id  # type: ignore[assignment]
+        unit.updated_at = datetime.utcnow()  # type: ignore[assignment]
+        self.s.add(unit)
+        await self.s.flush()
+        return unit
+
     async def update_unit_lesson_order(self, unit_id: str, lesson_ids: list[str]) -> UnitModel | None:
         """Update lesson order for the given unit and return the updated model, or None if not found."""
         unit = await self.get_unit_by_id(unit_id)

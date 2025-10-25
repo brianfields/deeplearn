@@ -70,16 +70,23 @@ const parseDate = (dateString: string | null): Date | null => {
 const taskStatusToDTO = (apiTask: ApiTaskStatus): TaskStatus => ({
   task_id: apiTask.task_id,
   status: apiTask.status as 'pending' | 'running' | 'completed' | 'failed' | 'cancelled',
-  submitted_at: new Date(apiTask.submitted_at),
+  submitted_at: new Date(apiTask.submitted_at ?? apiTask.created_at ?? new Date().toISOString()),
+  created_at: new Date(apiTask.created_at ?? apiTask.submitted_at ?? new Date().toISOString()),
   started_at: parseDate(apiTask.started_at),
   completed_at: parseDate(apiTask.completed_at),
-  retry_count: apiTask.retry_count,
-  error_message: apiTask.error_message,
-  result: apiTask.result,
+  retry_count: apiTask.retry_count ?? 0,
+  error_message: apiTask.error_message ?? null,
+  result: apiTask.result ?? null,
   queue_name: apiTask.queue_name,
-  priority: apiTask.priority,
-  flow_name: apiTask.flow_name,
-  flow_run_id: apiTask.flow_run_id,
+  priority: apiTask.priority ?? 0,
+  flow_name: apiTask.flow_name ?? null,
+  task_type: apiTask.task_type ?? null,
+  progress_percentage: apiTask.progress_percentage ?? null,
+  current_step: apiTask.current_step ?? null,
+  worker_id: apiTask.worker_id ?? null,
+  user_id: apiTask.user_id ?? null,
+  flow_run_id: apiTask.flow_run_id ?? null,
+  unit_id: apiTask.unit_id ?? null,
 });
 
 const workerHealthToDTO = (apiWorker: ApiWorkerHealth): WorkerHealth => ({
@@ -98,6 +105,8 @@ const flowRunToDTO = (apiFlow: ApiFlowRun): FlowRunSummary => ({
   flow_name: apiFlow.flow_name,
   status: apiFlow.status as FlowRunSummary['status'],
   execution_mode: apiFlow.execution_mode as FlowRunSummary['execution_mode'],
+  arq_task_id: apiFlow.arq_task_id ?? null,
+  unit_id: (apiFlow as Record<string, any>).unit_id ?? null,
   user_id: apiFlow.user_id,
   created_at: new Date(apiFlow.created_at),
   started_at: parseDate(apiFlow.started_at),
@@ -114,6 +123,8 @@ const flowRunDetailsToDTO = (apiFlow: ApiFlowRunDetails): FlowRunDetails => ({
   flow_name: apiFlow.flow_name,
   status: apiFlow.status as FlowRunDetails['status'],
   execution_mode: apiFlow.execution_mode as FlowRunDetails['execution_mode'],
+  arq_task_id: apiFlow.arq_task_id ?? null,
+  unit_id: (apiFlow as Record<string, any>).unit_id ?? null,
   user_id: apiFlow.user_id,
   current_step: apiFlow.current_step,
   step_progress: apiFlow.step_progress,
@@ -302,7 +313,7 @@ export class AdminService {
 
   async getFlowRun(id: string): Promise<FlowRunDetails | null> {
     try {
-      const apiFlow = await AdminRepo.flows.byId(id);
+      const apiFlow = await AdminRepo.flowEngine.byId(id);
       return flowRunDetailsToDTO(apiFlow);
     } catch (error) {
       console.error('Failed to fetch flow run:', error);
@@ -590,6 +601,10 @@ export class AdminService {
       description: u.description,
       learner_level: u.learner_level,
       lesson_count: u.lesson_count ?? (u.lesson_order ? u.lesson_order.length : 0),
+      status: (u as Record<string, any>).status ?? null,
+      creation_progress: (u as Record<string, any>).creation_progress ?? null,
+      error_message: (u as Record<string, any>).error_message ?? null,
+      arq_task_id: (u as Record<string, any>).arq_task_id ?? null,
       target_lesson_count: u.target_lesson_count ?? null,
       generated_from_topic: Boolean(u.generated_from_topic),
       flow_type: (u.flow_type as UnitSummary['flow_type']) ?? 'standard',
@@ -607,29 +622,44 @@ export class AdminService {
 
   async getUnitDetail(unitId: string): Promise<UnitDetail | null> {
     try {
-      const d = await AdminRepo.units.detail(unitId);
+      const [detail, flowRuns] = await Promise.all([
+        AdminRepo.units.detail(unitId),
+        AdminRepo.units.flowRuns(unitId).catch(() => [] as ApiFlowRun[]),
+      ]);
+
       return {
-        id: d.id,
-        title: d.title,
-        description: d.description,
-        learner_level: d.learner_level,
-        lesson_order: d.lesson_order,
-        lessons: d.lessons.map((l) => ({ id: l.id, title: l.title, learner_level: l.learner_level, exercise_count: l.exercise_count })),
-        learning_objectives: d.learning_objectives ?? null,
-        target_lesson_count: d.target_lesson_count ?? null,
-        source_material: d.source_material ?? null,
-        generated_from_topic: Boolean(d.generated_from_topic),
-        flow_type: (d.flow_type as UnitDetail['flow_type']) ?? 'standard',
-        learning_objective_progress: d.learning_objective_progress ?? null,
-        has_podcast: Boolean(d.has_podcast),
-        podcast_voice: d.podcast_voice ?? null,
-        podcast_duration_seconds: d.podcast_duration_seconds ?? null,
-        podcast_transcript: d.podcast_transcript ?? null,
-        podcast_audio_url: d.podcast_audio_url ?? null,
-        art_image_url: d.art_image_url ?? null,
-        art_image_description: d.art_image_description ?? null,
+        id: detail.id,
+        title: detail.title,
+        description: detail.description,
+        learner_level: detail.learner_level,
+        lesson_order: detail.lesson_order,
+        lessons: detail.lessons.map((l) => ({
+          id: l.id,
+          title: l.title,
+          learner_level: l.learner_level,
+          exercise_count: l.exercise_count,
+        })),
+        learning_objectives: detail.learning_objectives ?? null,
+        target_lesson_count: detail.target_lesson_count ?? null,
+        source_material: detail.source_material ?? null,
+        generated_from_topic: Boolean(detail.generated_from_topic),
+        flow_type: (detail.flow_type as UnitDetail['flow_type']) ?? 'standard',
+        learning_objective_progress: detail.learning_objective_progress ?? null,
+        has_podcast: Boolean(detail.has_podcast),
+        podcast_voice: detail.podcast_voice ?? null,
+        podcast_duration_seconds: detail.podcast_duration_seconds ?? null,
+        podcast_transcript: detail.podcast_transcript ?? null,
+        podcast_audio_url: detail.podcast_audio_url ?? null,
+        art_image_url: detail.art_image_url ?? null,
+        art_image_description: detail.art_image_description ?? null,
+        status: (detail as Record<string, any>).status ?? null,
+        creation_progress: (detail as Record<string, any>).creation_progress ?? null,
+        error_message: (detail as Record<string, any>).error_message ?? null,
+        arq_task_id: (detail as Record<string, any>).arq_task_id ?? null,
+        flow_runs: flowRuns.map(flowRunToDTO),
       };
-    } catch {
+    } catch (error) {
+      console.error('Failed to fetch unit detail:', error);
       return null;
     }
   }
@@ -651,44 +681,86 @@ export class AdminService {
     }
   }
 
-  // ---- Task Queue Methods ----
+  // ---- Task Queue & Background Tasks ----
 
-  async getQueueStatus(): Promise<QueueStatus[]> {
-    const data = await AdminRepo.taskQueue.status();
-    return data.map((queue: any) => ({
-      queue_name: queue.queue_name,
-      status: queue.status as 'healthy' | 'degraded' | 'down',
-      pending_count: queue.pending_count,
-      running_count: queue.running_count,
-      worker_count: queue.worker_count,
-      oldest_pending_minutes: queue.oldest_pending_minutes,
-    }));
+  async getQueueStatus(queueName?: string): Promise<QueueStatus[]> {
+    const data = await AdminRepo.taskQueue.status(queueName);
+    if (!data) {
+      return [];
+    }
+
+    const stats = data.stats ?? {};
+    return [
+      {
+        queue_name: data.queue_name ?? queueName ?? 'default',
+        status: (data.status ?? 'healthy') as QueueStatus['status'],
+        pending_count: stats.pending_tasks ?? 0,
+        running_count: stats.in_progress_tasks ?? 0,
+        worker_count: data.workers?.total ?? 0,
+        oldest_pending_minutes: stats.oldest_pending_minutes ?? null,
+      },
+    ];
   }
 
-  async getQueueStats(): Promise<QueueStats[]> {
-    const data = await AdminRepo.taskQueue.stats();
-    return data.map((stats: any) => ({
-      queue_name: stats.queue_name,
-      pending_count: stats.pending_count,
-      running_count: stats.running_count,
-      completed_count: stats.completed_count,
-      failed_count: stats.failed_count,
-      total_processed: stats.total_processed,
-      workers_count: stats.workers_count,
-      workers_busy: stats.workers_busy,
-      oldest_pending_task: stats.oldest_pending_task ? new Date(stats.oldest_pending_task) : null,
-      avg_processing_time_ms: stats.avg_processing_time_ms,
-    }));
+  async getQueueStats(queueName?: string): Promise<QueueStats[]> {
+    const stats = await AdminRepo.taskQueue.stats(queueName);
+    if (!stats) {
+      return [];
+    }
+
+    return [
+      {
+        queue_name: stats.queue_name ?? queueName ?? 'default',
+        pending_count: stats.pending_tasks ?? 0,
+        running_count: stats.in_progress_tasks ?? 0,
+        completed_count: stats.completed_tasks ?? 0,
+        failed_count: stats.failed_tasks ?? 0,
+        total_processed: (stats.completed_tasks ?? 0) + (stats.failed_tasks ?? 0),
+        workers_count: stats.total_workers ?? 0,
+        workers_busy: stats.in_progress_tasks ?? 0,
+        oldest_pending_task: stats.last_updated ? new Date(stats.last_updated) : null,
+        avg_processing_time_ms: stats.average_task_duration_ms ?? null,
+      },
+    ];
   }
 
-  async getQueueTasks(limit: number = 50): Promise<TaskStatus[]> {
-    const data = await AdminRepo.taskQueue.tasks(limit);
+  async getTasks(limit: number = 50, queueName?: string): Promise<TaskStatus[]> {
+    const data = await AdminRepo.taskQueue.tasks(limit, queueName);
     return data.map(taskStatusToDTO);
   }
 
-  async getTaskStatus(taskId: string): Promise<TaskStatus> {
-    const data = await AdminRepo.taskQueue.taskById(taskId);
-    return taskStatusToDTO(data);
+  async getTask(taskId: string): Promise<TaskStatus | null> {
+    try {
+      const data = await AdminRepo.taskQueue.taskById(taskId);
+      return taskStatusToDTO(data);
+    } catch (error) {
+      console.error('Failed to fetch task:', error);
+      return null;
+    }
+  }
+
+  async getTaskFlowRuns(taskId: string): Promise<FlowRunSummary[]> {
+    try {
+      const runs = await AdminRepo.taskQueue.flowRuns(taskId);
+      return runs.map(flowRunToDTO);
+    } catch (error) {
+      console.error('Failed to fetch task flow runs:', error);
+      return [];
+    }
+  }
+
+  async getUnitFlowRuns(unitId: string): Promise<FlowRunSummary[]> {
+    try {
+      const runs = await AdminRepo.units.flowRuns(unitId);
+      return runs.map(flowRunToDTO);
+    } catch (error) {
+      console.error('Failed to fetch unit flow runs:', error);
+      return [];
+    }
+  }
+
+  async retryUnit(unitId: string): Promise<void> {
+    await AdminRepo.contentCreator.retryUnit(unitId);
   }
 
   async getWorkers(): Promise<WorkerHealth[]> {
@@ -698,19 +770,5 @@ export class AdminService {
 
   async getQueueHealth(): Promise<{ status: string; details: Record<string, any> }> {
     return await AdminRepo.taskQueue.health();
-  }
-
-  // ---- Flow-Task Integration Methods ----
-
-  async getFlowTaskStatus(flowId: string): Promise<TaskStatus | null> {
-    try {
-      // This would query tasks by flow_run_id
-      const tasks = await AdminRepo.taskQueue.tasks(100);
-      const flowTask = tasks.find((task: any) => task.flow_run_id === flowId);
-      return flowTask ? taskStatusToDTO(flowTask) : null;
-    } catch (error) {
-      console.warn('Failed to get flow task status:', error);
-      return null;
-    }
   }
 }

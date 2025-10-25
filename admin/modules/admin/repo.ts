@@ -30,6 +30,10 @@ import type {
 } from './models';
 
 const ADMIN_BASE = '/admin';
+const FLOW_ENGINE_BASE = '/flow-engine';
+const TASK_QUEUE_BASE = '/task-queue';
+const CONTENT_BASE = '/content';
+const CONTENT_CREATOR_BASE = '/content-creator';
 
 export const AdminRepo = {
   // ---- Flow Endpoints ----
@@ -154,15 +158,19 @@ export const AdminRepo = {
       if (params?.limit) query.append('limit', params.limit.toString());
       if (params?.offset) query.append('offset', params.offset.toString());
       const suffix = query.toString() ? `?${query.toString()}` : '';
-      const { data } = await apiClient.get<ApiUnitSummary[]>(`/content/units${suffix}`);
+      const { data } = await apiClient.get<ApiUnitSummary[]>(`${CONTENT_BASE}/units${suffix}`);
       return data;
     },
     async detail(unitId: string): Promise<ApiUnitDetail> {
-      const { data } = await apiClient.get<ApiUnitDetail>(`/catalog/units/${unitId}`);
+      const { data } = await apiClient.get<ApiUnitDetail>(`${CONTENT_BASE}/units/${unitId}`);
       return data;
     },
     async basics(): Promise<ApiUnitBasic[]> {
       const { data } = await apiClient.get<ApiUnitBasic[]>(`/units`);
+      return data;
+    },
+    async flowRuns(unitId: string): Promise<ApiFlowRun[]> {
+      const { data } = await apiClient.get<ApiFlowRun[]>(`${CONTENT_BASE}/units/${unitId}/flow-runs`);
       return data;
     },
   },
@@ -192,34 +200,70 @@ export const AdminRepo = {
 
   // ---- Task Queue Endpoints ----
   taskQueue: {
-    async status(): Promise<any[]> {
-      const { data } = await apiClient.get('/task-queue/status');
-      return Array.isArray(data) ? data : [data];
+    async status(queueName?: string): Promise<any> {
+      const query = queueName ? `?queue_name=${encodeURIComponent(queueName)}` : '';
+      const { data } = await apiClient.get(`${TASK_QUEUE_BASE}/status${query}`);
+      return data;
     },
 
-    async stats(): Promise<any[]> {
-      const { data } = await apiClient.get('/task-queue/stats');
-      return Array.isArray(data) ? data : [data];
+    async stats(queueName?: string): Promise<any> {
+      const query = queueName ? `?queue_name=${encodeURIComponent(queueName)}` : '';
+      const { data } = await apiClient.get(`${TASK_QUEUE_BASE}/stats${query}`);
+      return data;
     },
 
-    async tasks(limit: number = 50): Promise<any[]> {
-      const { data } = await apiClient.get(`/task-queue/tasks?limit=${limit}`);
+    async tasks(limit: number = 50, queueName?: string): Promise<any[]> {
+      const params = new URLSearchParams({ limit: limit.toString() });
+      if (queueName) {
+        params.append('queue_name', queueName);
+      }
+      const suffix = params.toString() ? `?${params.toString()}` : '';
+      const { data } = await apiClient.get(`${TASK_QUEUE_BASE}/tasks${suffix}`);
       return data;
     },
 
     async taskById(taskId: string): Promise<any> {
-      const { data } = await apiClient.get(`/task-queue/tasks/${taskId}`);
+      const { data } = await apiClient.get(`${TASK_QUEUE_BASE}/tasks/${taskId}`);
       return data;
     },
 
     async workers(): Promise<any[]> {
-      const { data } = await apiClient.get('/task-queue/workers');
+      const { data } = await apiClient.get(`${TASK_QUEUE_BASE}/workers`);
       return data;
     },
 
     async health(): Promise<{ status: string; details: Record<string, any> }> {
-      const { data } = await apiClient.get('/task-queue/health');
+      const { data } = await apiClient.get(`${TASK_QUEUE_BASE}/health`);
       return data;
+    },
+
+    async flowRuns(taskId: string): Promise<ApiFlowRun[]> {
+      const { data } = await apiClient.get<ApiFlowRun[]>(`${TASK_QUEUE_BASE}/tasks/${taskId}/flow-runs`);
+      return data;
+    },
+  },
+
+  flowEngine: {
+    async list(params?: { arq_task_id?: string; unit_id?: string; limit?: number; offset?: number }): Promise<ApiFlowRun[]> {
+      const query = new URLSearchParams();
+      if (params?.arq_task_id) query.append('arq_task_id', params.arq_task_id);
+      if (params?.unit_id) query.append('unit_id', params.unit_id);
+      if (params?.limit) query.append('limit', params.limit.toString());
+      if (params?.offset) query.append('offset', params.offset.toString());
+      const suffix = query.toString() ? `?${query.toString()}` : '';
+      const { data } = await apiClient.get<ApiFlowRun[]>(`${FLOW_ENGINE_BASE}/runs${suffix}`);
+      return data;
+    },
+
+    async byId(flowRunId: string): Promise<ApiFlowRunDetails> {
+      const { data } = await apiClient.get<ApiFlowRunDetails>(`${FLOW_ENGINE_BASE}/runs/${flowRunId}`);
+      return data;
+    },
+  },
+
+  contentCreator: {
+    async retryUnit(unitId: string): Promise<void> {
+      await apiClient.post(`${CONTENT_CREATOR_BASE}/units/${unitId}/retry`);
     },
   },
 };

@@ -55,7 +55,33 @@ class FlowRunRepo:
 
     def get_recent(self, limit: int = 50, offset: int = 0) -> list[FlowRunModel]:
         """Get recent flow runs with pagination."""
-        return list(self.s.execute(select(FlowRunModel).order_by(desc(FlowRunModel.created_at)).limit(limit).offset(offset)).scalars())
+        return list(
+            self.s.execute(
+                select(FlowRunModel)
+                .order_by(desc(FlowRunModel.created_at))
+                .limit(limit)
+                .offset(offset)
+            ).scalars()
+        )
+
+    def list_by_filters(
+        self,
+        *,
+        arq_task_id: str | None = None,
+        unit_id: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[FlowRunModel]:
+        """List flow runs filtered by ARQ task ID or embedded unit identifier."""
+
+        stmt = select(FlowRunModel)
+        if arq_task_id:
+            stmt = stmt.where(FlowRunModel.arq_task_id == arq_task_id)
+        if unit_id:
+            stmt = stmt.where(FlowRunModel.inputs["unit_id"].astext == unit_id)
+
+        stmt = stmt.order_by(desc(FlowRunModel.created_at)).limit(limit).offset(offset)
+        return list(self.s.execute(stmt).scalars())
 
     def count_all(self) -> int:
         """Count all flow runs."""

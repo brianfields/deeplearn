@@ -48,6 +48,7 @@ async def _handle_unit_creation(payload: dict) -> None:
     infra.initialize()
     inputs = payload.get("inputs") or {}
     unit_id = str(payload.get("unit_id") or inputs.get("unit_id") or "")
+    arq_task_id = str(payload.get("task_id") or inputs.get("task_id") or "") or None
     topic = str(payload.get("topic") or inputs.get("topic") or "")
     source_material = inputs.get("source_material")
     learner_level = str(payload.get("learner_level") or inputs.get("learner_level") or "beginner")
@@ -62,6 +63,7 @@ async def _handle_unit_creation(payload: dict) -> None:
             source_material=source_material,
             target_lesson_count=target,
             learner_level=learner_level,
+            arq_task_id=arq_task_id,
         )
 
 

@@ -213,6 +213,10 @@ class TestFlows:
             mock_service = MagicMock()
             mock_flow_run_id = uuid.uuid4()
             mock_service.create_flow_run_record = AsyncMock(return_value=mock_flow_run_id)
+            mock_flow_repo = MagicMock()
+            mock_flow_run = MagicMock()
+            mock_flow_repo.by_id.return_value = mock_flow_run
+            mock_service.flow_run_repo = mock_flow_repo
 
             with patch("modules.flow_engine.base_flow.FlowEngineService", return_value=mock_service):
                 # Execute ARQ flow
@@ -236,6 +240,11 @@ class TestFlows:
                 assert task_call_args[1]["flow_name"] == "test_arq_flow"
                 assert task_call_args[1]["flow_run_id"] == mock_flow_run_id
                 assert task_call_args[1]["inputs"] == {"data": "test input"}
+
+                # Verify arq_task_id persisted on flow run
+                mock_flow_repo.by_id.assert_called_once_with(mock_flow_run_id)
+                assert mock_flow_run.arq_task_id == mock_task_result.task_id
+                mock_flow_repo.save.assert_called_once_with(mock_flow_run)
 
     @pytest.mark.asyncio
     async def test_execute_arq_with_input_validation(self) -> None:
@@ -277,6 +286,10 @@ class TestFlows:
 
             mock_service = MagicMock()
             mock_service.create_flow_run_record = AsyncMock(return_value=uuid.uuid4())
+            mock_flow_repo = MagicMock()
+            mock_flow_run = MagicMock()
+            mock_flow_repo.by_id.return_value = mock_flow_run
+            mock_service.flow_run_repo = mock_flow_repo
 
             with patch("modules.flow_engine.base_flow.FlowEngineService", return_value=mock_service):
                 # Execute with valid inputs
@@ -289,3 +302,4 @@ class TestFlows:
                 # Should have default value filled in
                 assert submitted_inputs["required_field"] == "test"
                 assert submitted_inputs["optional_field"] == 42
+                mock_flow_repo.save.assert_called_once_with(mock_flow_run)

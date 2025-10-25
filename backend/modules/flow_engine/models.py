@@ -38,6 +38,7 @@ class FlowRunModel(Base):
     id: Mapped[uuid.UUID] = mapped_column(PostgresUUID(), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID | None] = mapped_column(PostgresUUID(), nullable=True, index=True)
     flow_name: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    arq_task_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
 
     # Execution tracking
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="pending", index=True)  # pending, running, completed, failed, cancelled

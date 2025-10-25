@@ -27,6 +27,7 @@ class FlowContext:
     service: "FlowEngineService"
     flow_run_id: uuid.UUID
     user_id: uuid.UUID | None = None
+    arq_task_id: str | None = None
 
     # Execution state
     step_counter: int = 0
@@ -91,6 +92,7 @@ class FlowContext:
         return {
             "flow_run_id": str(self.flow_run_id),
             "user_id": str(self.user_id) if self.user_id else None,
+            "arq_task_id": self.arq_task_id,
             "step_counter": self.step_counter,
             "last_tokens_used": self.last_tokens_used,
             "last_cost_estimate": self.last_cost_estimate,
