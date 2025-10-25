@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from modules.catalog.public import catalog_provider
 from modules.content.public import content_provider
+from modules.conversation_engine.public import conversation_engine_provider
 from modules.flow_engine.public import flow_engine_admin_provider
 from modules.infrastructure.public import infrastructure_provider
 from modules.learning_coach.public import learning_coach_provider
@@ -90,6 +91,7 @@ async def get_admin_service(
     users = user_provider(sync_session)
     learning_sessions = learning_session_provider(async_session, content)
     learning_coach = learning_coach_provider()
+    conversations = conversation_engine_provider(sync_session)
 
     # Create admin service with all dependencies
     return AdminService(
@@ -100,6 +102,7 @@ async def get_admin_service(
         users=users,
         learning_sessions=learning_sessions,
         learning_coach=learning_coach,
+        conversation_engine=conversations,
     )
 
 
@@ -221,13 +224,13 @@ async def get_llm_request_details(
     response_model=LearningCoachConversationsListResponse,
 )
 async def list_learning_coach_conversations(
-    limit: int = Query(50, ge=1, le=200, description="Maximum conversations to return"),
-    offset: int = Query(0, ge=0, description="Offset into the conversations list"),
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(50, ge=1, le=200, description="Items per page"),
     admin_service: AdminService = Depends(get_admin_service),
 ) -> LearningCoachConversationsListResponse:
     """List learning coach conversations for admin review."""
 
-    return await admin_service.list_learning_coach_conversations(limit=limit, offset=offset)
+    return await admin_service.list_learning_coach_conversations(page=page, page_size=page_size)
 
 
 @router.get(

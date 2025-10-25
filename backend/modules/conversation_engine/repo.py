@@ -76,6 +76,39 @@ class ConversationRepo:
         query = query.order_by(desc(ConversationModel.last_message_at), desc(ConversationModel.created_at)).limit(limit).offset(offset)
         return list(self.s.execute(query).scalars())
 
+    def count_for_user(
+        self,
+        user_id: int,
+        *,
+        conversation_type: str | None = None,
+        status: str | None = None,
+    ) -> int:
+        """Return total count of conversations for a user."""
+
+        query: Select[tuple[ConversationModel]] = select(ConversationModel).where(ConversationModel.user_id == user_id)
+
+        if conversation_type:
+            query = query.where(ConversationModel.conversation_type == conversation_type)
+        if status:
+            query = query.where(ConversationModel.status == status)
+
+        return len(list(self.s.execute(query).scalars()))
+
+    def count_for_type(
+        self,
+        conversation_type: str,
+        *,
+        status: str | None = None,
+    ) -> int:
+        """Return total count of conversations filtered by type."""
+
+        query: Select[tuple[ConversationModel]] = select(ConversationModel).where(ConversationModel.conversation_type == conversation_type)
+
+        if status:
+            query = query.where(ConversationModel.status == status)
+
+        return len(list(self.s.execute(query).scalars()))
+
 
 class ConversationMessageRepo:
     """Data access helpers for conversation messages."""

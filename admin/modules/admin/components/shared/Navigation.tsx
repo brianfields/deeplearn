@@ -38,6 +38,11 @@ const navigationItems = [
     description: 'Monitor flow executions',
   },
   {
+    name: 'Conversations',
+    href: '/conversations',
+    description: 'Review learning coach conversations',
+  },
+  {
     name: 'LLM Requests',
     href: '/llm-requests',
     description: 'View LLM request details',

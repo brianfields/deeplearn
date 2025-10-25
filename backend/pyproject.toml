@@ -56,11 +56,13 @@ ignore = [
     "ANN",    # Don't require type annotations in tests
     "S101",   # Allow asserts in tests
     "PLR2004", # Allow magic values in tests
+    "ARG001", # Allow unused function arguments in tests
 ]
 "modules/**/test_*.py" = [
     "ANN",    # Don't require type annotations in tests
     "S101",   # Allow asserts in tests
     "PLR2004", # Allow magic values in tests
+    "ARG001", # Allow unused function arguments in tests
 ]
 
 [tool.ruff.lint.isort]
