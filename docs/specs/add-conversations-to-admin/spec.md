@@ -133,26 +133,26 @@ The frontend currently has NO conversation-related code. All components, types, 
 
 ### Backend Tasks
 
-- [ ] Update conversation DTOs in `backend/modules/admin/models.py`:
+- [x] Update conversation DTOs in `backend/modules/admin/models.py`:
   - Update `LearningCoachMessageAdmin` to include `tokens_used`, `cost_estimate`, `llm_request_id`, and `message_order` fields
   - Update `LearningCoachConversationSummaryAdmin` to include `status` field
   - Update `LearningCoachConversationsListResponse` to include pagination fields: `total_count`, `page`, `page_size`, `has_next`
   - Add `UserConversationSummary` DTO for recent conversations on user detail page
   - Update `UserDetail` to include `recent_conversations: list[UserConversationSummary]` field
 
-- [ ] Update conversation methods in `backend/modules/admin/service.py`:
+- [x] Update conversation methods in `backend/modules/admin/service.py`:
   - Update `list_learning_coach_conversations()` to support pagination (page/page_size instead of limit/offset)
   - Update `list_learning_coach_conversations()` to return total count and pagination metadata
   - Update `get_learning_coach_conversation()` to include message metadata (tokens, cost, llm_request_id)
   - Add `get_user_conversations(user_id, limit)` method to get recent conversations for a user
   - Update `get_user_detail()` to include recent conversations in the response
 
-- [ ] Update conversation routes in `backend/modules/admin/routes.py`:
+- [x] Update conversation routes in `backend/modules/admin/routes.py`:
   - Update `GET /api/v1/admin/learning-coach/conversations` to use page/page_size query params (instead of limit/offset)
   - Routes already exist for list and detail - just need to update to match new pagination format
   - Update `GET /api/v1/admin/users/{user_id}` response to include recent conversations
 
-- [ ] Add unit tests to `backend/modules/admin/test_admin_unit.py`:
+- [x] Add unit tests to `backend/modules/admin/test_admin_unit.py`:
   - Test `get_conversations()` with pagination
   - Test `get_conversation_detail()` with valid and invalid IDs
   - Test `get_user_conversations()` for user with and without conversations

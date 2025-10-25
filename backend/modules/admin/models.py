@@ -149,6 +149,10 @@ class LearningCoachMessageAdmin(BaseModel):
     content: str
     created_at: datetime
     metadata: dict[str, Any]
+    tokens_used: int | None = None
+    cost_estimate: float | None = None
+    llm_request_id: str | None = None
+    message_order: int | None = None
 
 
 class LearningCoachConversationDetail(BaseModel):
@@ -163,6 +167,7 @@ class LearningCoachConversationSummaryAdmin(BaseModel):
     id: str
     user_id: int | None
     title: str | None
+    status: str
     message_count: int
     created_at: datetime
     updated_at: datetime
@@ -172,8 +177,18 @@ class LearningCoachConversationSummaryAdmin(BaseModel):
 
 class LearningCoachConversationsListResponse(BaseModel):
     conversations: list[LearningCoachConversationSummaryAdmin]
-    limit: int
-    offset: int
+    total_count: int
+    page: int
+    page_size: int
+    has_next: bool
+
+
+class UserConversationSummary(BaseModel):
+    id: str
+    title: str | None
+    status: str
+    message_count: int
+    last_message_at: datetime | None
 
 
 # ---- Lesson Management DTOs ----
@@ -259,6 +274,7 @@ class UserDetail(UserSummary):
     owned_units: list[UserOwnedUnitSummary]
     recent_sessions: list[UserSessionSummary]
     recent_llm_requests: list[UserLLMRequestSummary]
+    recent_conversations: list[UserConversationSummary]
 
 
 class UserUpdateRequest(BaseModel):
