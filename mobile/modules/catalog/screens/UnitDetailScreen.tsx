@@ -241,20 +241,76 @@ export function UnitDetailScreen() {
           return;
         }
 
+        // Log all assets for diagnostics
+        console.info('[UnitDetail] Unit detail assets', {
+          unitId: unit.id,
+          assetCount: unitDetail.assets.length,
+          assets: unitDetail.assets.map(a => ({
+            id: a.id,
+            type: a.type,
+            status: a.status,
+            hasLocalPath: Boolean(a.localPath),
+            localPath: a.localPath,
+            remoteUri: a.remoteUri,
+            downloadedAt: a.downloadedAt,
+          })),
+        });
+
         // Find the audio asset (podcast)
         const audioAsset = unitDetail.assets.find(
           asset => asset.type === 'audio'
         );
-        if (audioAsset?.localPath) {
-          console.info('[UnitDetail] Resolved podcast to local path', {
-            unitId: unit.id,
-            localPath: audioAsset.localPath,
-          });
-          setResolvedPodcastUrl(audioAsset.localPath);
+
+        if (audioAsset) {
+          if (audioAsset.localPath) {
+            console.info('[UnitDetail] Resolved podcast to local path', {
+              unitId: unit.id,
+              localPath: audioAsset.localPath,
+            });
+            setResolvedPodcastUrl(audioAsset.localPath);
+          } else {
+            // Asset exists but no local path - try to download it on-demand
+            console.warn('[UnitDetail] Audio asset found without local path', {
+              unitId: unit.id,
+              assetId: audioAsset.id,
+              assetStatus: audioAsset.status,
+              remoteUri: audioAsset.remoteUri,
+              downloadedAt: audioAsset.downloadedAt,
+            });
+
+            console.info('[UnitDetail] Attempting on-demand download', {
+              unitId: unit.id,
+              assetId: audioAsset.id,
+            });
+            const resolvedAsset = await offlineCache.resolveAsset(
+              audioAsset.id
+            );
+            if (resolvedAsset?.localPath) {
+              console.info('[UnitDetail] Downloaded podcast on-demand', {
+                unitId: unit.id,
+                localPath: resolvedAsset.localPath,
+              });
+              setResolvedPodcastUrl(resolvedAsset.localPath);
+            } else {
+              console.warn(
+                '[UnitDetail] Failed to download podcast on-demand, using remote URL',
+                {
+                  unitId: unit.id,
+                  resolvedAsset: resolvedAsset
+                    ? {
+                        status: resolvedAsset.status,
+                        localPath: resolvedAsset.localPath,
+                      }
+                    : null,
+                }
+              );
+              setResolvedPodcastUrl(podcastAudioUrl);
+            }
+          }
         } else {
-          console.warn('[UnitDetail] No local audio asset found', {
+          console.warn('[UnitDetail] No audio asset found in unit detail', {
             unitId: unit.id,
-            audioAsset,
+            availableAssetTypes: unitDetail.assets.map(a => a.type),
           });
           setResolvedPodcastUrl(podcastAudioUrl);
         }
