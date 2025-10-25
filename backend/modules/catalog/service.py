@@ -165,6 +165,7 @@ class CatalogService:
         self.content = content
         self.units = units
         self.learning_sessions = learning_sessions
+        self._unit_objective_cache: dict[str, dict[str, str]] = {}
 
     async def browse_lessons(
         self,
@@ -187,16 +188,19 @@ class CatalogService:
         # Convert to summary DTOs (exercise-aligned)
         summaries = []
         for lesson in lessons:
-            # Extract data from package
-            objectives = [obj.text for obj in lesson.package.objectives]
-            exercise_count = len(lesson.package.exercises)
+            package = lesson.package
+            objective_ids = self._extract_lesson_objective_ids(package)
+            objective_texts = await self._map_objective_ids_to_text(getattr(lesson, "unit_id", None), objective_ids)
+            if not objective_texts:
+                objective_texts = objective_ids
+            exercise_count = len(package.exercises)
 
             summaries.append(
                 LessonSummary(
                     id=lesson.id,
                     title=lesson.title,
                     learner_level=lesson.learner_level,
-                    learning_objectives=objectives,
+                    learning_objectives=objective_texts,
                     key_concepts=[],  # Key concepts are now in glossary terms
                     exercise_count=exercise_count,
                 )
@@ -240,9 +244,15 @@ class CatalogService:
                     }
                 )
 
-        glossary_terms = [{"id": term.id, "term": term.term, "definition": term.definition} for term in lesson.package.glossary.get("terms", [])]
+        glossary_terms = [
+            {"id": term.id, "term": term.term, "definition": term.definition}
+            for term in lesson.package.glossary.get("terms", [])
+        ]
 
-        objectives = [obj.text for obj in lesson.package.objectives]
+        objective_ids = self._extract_lesson_objective_ids(lesson.package)
+        objectives = await self._map_objective_ids_to_text(lesson.unit_id, objective_ids)
+        if not objectives:
+            objectives = objective_ids
 
         return LessonDetail(
             id=lesson.id,
@@ -289,10 +299,13 @@ class CatalogService:
         # Convert to summary DTOs (exercise-aligned)
         summaries = []
         for lesson in lessons:
-            # Extract data from package
-            objectives = [obj.text for obj in lesson.package.objectives]
-            key_concepts = [term.term for term in lesson.package.glossary.get("terms", [])]
-            exercise_count = len(lesson.package.exercises)
+            package = lesson.package
+            objective_ids = self._extract_lesson_objective_ids(package)
+            objectives = await self._map_objective_ids_to_text(getattr(lesson, "unit_id", None), objective_ids)
+            if not objectives:
+                objectives = objective_ids
+            key_concepts = [term.term for term in package.glossary.get("terms", [])]
+            exercise_count = len(package.exercises)
 
             summaries.append(
                 LessonSummary(
@@ -441,6 +454,11 @@ class CatalogService:
         if not detail:
             return None
 
+        objective_ids, objective_lookup = self._normalize_unit_objectives(
+            getattr(detail, "learning_objectives", None)
+        )
+        unit_objective_texts = [objective_lookup.get(lo_id, lo_id) for lo_id in objective_ids]
+
         lessons = [
             LessonSummary(
                 id=lesson.id,
@@ -462,7 +480,7 @@ class CatalogService:
             learner_level=detail.learner_level,
             lesson_order=detail.lesson_order,
             lessons=lessons,
-            learning_objectives=detail.learning_objectives,
+            learning_objectives=unit_objective_texts,
             target_lesson_count=detail.target_lesson_count,
             source_material=detail.source_material,
             generated_from_topic=detail.generated_from_topic,
@@ -533,6 +551,101 @@ class CatalogService:
             )
         return summaries
 
+    @staticmethod
+    def _extract_lesson_objective_ids(package: Any) -> list[str]:
+        """Return ordered, de-duplicated objective IDs referenced by a lesson package."""
+
+        raw_ids = list(getattr(package, "unit_learning_objective_ids", []) or [])
+        if not raw_ids:
+            exercises = getattr(package, "exercises", []) or []
+            for exercise in exercises:
+                lo_id = getattr(exercise, "lo_id", None)
+                if lo_id:
+                    raw_ids.append(lo_id)
+
+        seen: set[str] = set()
+        ordered_ids: list[str] = []
+        for lo_id in raw_ids:
+            if not lo_id or lo_id in seen:
+                continue
+            seen.add(lo_id)
+            ordered_ids.append(lo_id)
+
+        return ordered_ids
+
+    @staticmethod
+    def _normalize_unit_objectives(raw: Any) -> tuple[list[str], dict[str, str]]:
+        """Normalize unit-level learning objectives into ordered IDs and lookup map."""
+
+        ordered_ids: list[str] = []
+        lookup: dict[str, str] = {}
+
+        if not raw:
+            return ordered_ids, lookup
+
+        for item in raw:
+            lo_id: str | None = None
+            lo_text: str | None = None
+
+            if isinstance(item, dict):
+                lo_id = item.get("id")
+                lo_text = item.get("text")
+            else:
+                lo_id = getattr(item, "id", None)
+                lo_text = getattr(item, "text", None)
+                if lo_id is None and isinstance(item, str):
+                    lo_id = item
+                if lo_text is None and isinstance(item, str):
+                    lo_text = item
+
+            if lo_id is None:
+                lo_id = str(item)
+
+            if lo_text is None:
+                lo_text = str(lo_id)
+
+            if lo_id not in lookup:
+                ordered_ids.append(lo_id)
+
+            lookup[lo_id] = lo_text
+
+        return ordered_ids, lookup
+
+    async def _get_unit_objective_lookup(self, unit_id: str | None) -> dict[str, str]:
+        """Return a cached lookup of objective ID → text for the given unit."""
+
+        if not unit_id:
+            return {}
+
+        if unit_id in self._unit_objective_cache:
+            return self._unit_objective_cache[unit_id]
+
+        lookup: dict[str, str] = {}
+        try:
+            unit = await self.units.get_unit(unit_id)
+        except Exception:
+            unit = None
+
+        if unit and getattr(unit, "learning_objectives", None):
+            _, lookup = self._normalize_unit_objectives(unit.learning_objectives)
+
+        self._unit_objective_cache[unit_id] = lookup
+        return lookup
+
+    async def _map_objective_ids_to_text(
+        self,
+        unit_id: str | None,
+        objective_ids: Iterable[str],
+    ) -> list[str]:
+        """Map objective IDs to display text using unit metadata when available."""
+
+        ids = [lo_id for lo_id in objective_ids if lo_id]
+        if not ids:
+            return []
+
+        lookup = await self._get_unit_objective_lookup(unit_id)
+        return [lookup.get(lo_id, lo_id) for lo_id in ids]
+
     async def _build_learning_objective_progress(
         self,
         unit_id: str,
@@ -551,53 +664,80 @@ class CatalogService:
         if not lessons:
             return None
 
+        detail_ids, detail_lookup = self._normalize_unit_objectives(getattr(detail, "learning_objectives", None))
+
+        lesson_objective_ids: set[str] = set()
         exercise_to_objective: dict[str, str] = {}
-        totals = defaultdict(int)
+        totals_by_objective: defaultdict[str, int] = defaultdict(int)
 
         for lesson in lessons:
             package = getattr(lesson, "package", None)
             if not package:
                 continue
 
-            objective_lookup = {obj.id: obj.text for obj in getattr(package, "objectives", [])}
+            lesson_ids = self._extract_lesson_objective_ids(package)
+            lesson_objective_ids.update(lesson_ids)
 
             for exercise in getattr(package, "exercises", []) or []:
-                objective_text = objective_lookup.get(exercise.lo_id) or exercise.lo_id
-                exercise_to_objective[exercise.id] = objective_text
-                totals[objective_text] += 1
+                lo_id = getattr(exercise, "lo_id", None)
+                if not lo_id:
+                    continue
+                exercise_to_objective[exercise.id] = lo_id
+                totals_by_objective[lo_id] += 1
 
-        if not exercise_to_objective:
+        correctness_records: list[Any] = []
+        if exercise_to_objective:
+            try:
+                correctness_records = await self.learning_sessions.get_exercise_correctness(
+                    [lesson.id for lesson in lessons]
+                )
+            except Exception:
+                correctness_records = []
+
+        correct_counts: defaultdict[str, int] = defaultdict(int)
+        for record in correctness_records:
+            if (
+                record.exercise_id in exercise_to_objective
+                and getattr(record, "has_been_answered_correctly", False)
+            ):
+                lo_id = exercise_to_objective[record.exercise_id]
+                correct_counts[lo_id] += 1
+
+        lookup = dict(detail_lookup)
+        missing_ids = [lo_id for lo_id in lesson_objective_ids if lo_id not in lookup]
+        if missing_ids:
+            unit_lookup = await self._get_unit_objective_lookup(unit_id)
+            for lo_id in missing_ids:
+                if lo_id in unit_lookup:
+                    lookup[lo_id] = unit_lookup[lo_id]
+
+        ordered_ids: list[str] = list(detail_ids)
+        seen_ids: set[str] = set(ordered_ids)
+        for lo_id in lesson_objective_ids:
+            if lo_id not in seen_ids:
+                ordered_ids.append(lo_id)
+                seen_ids.add(lo_id)
+        for lo_id in totals_by_objective:
+            if lo_id not in seen_ids:
+                ordered_ids.append(lo_id)
+                seen_ids.add(lo_id)
+
+        if not ordered_ids:
             return None
 
-        try:
-            correctness = await self.learning_sessions.get_exercise_correctness([lesson.id for lesson in lessons])
-        except Exception:
-            correctness = []
-
-        correct_exercises: set[str] = {record.exercise_id for record in correctness if record.exercise_id in exercise_to_objective and record.has_been_answered_correctly}
-
-        objective_texts = list(getattr(detail, "learning_objectives", []) or [])
         progress_results: list[LearningObjectiveProgress] = []
-        seen: set[str] = set()
-
-        def build_entry(objective_text: str) -> LearningObjectiveProgress:
-            total = totals.get(objective_text, 0)
-            correct = sum(1 for exercise_id, lo_text in exercise_to_objective.items() if lo_text == objective_text and exercise_id in correct_exercises)
+        for lo_id in ordered_ids:
+            total = totals_by_objective.get(lo_id, 0)
+            correct = correct_counts.get(lo_id, 0)
             percentage = (correct / total * 100.0) if total else 0.0
-            return LearningObjectiveProgress(
-                objective=objective_text,
-                exercises_total=total,
-                exercises_correct=correct,
-                progress_percentage=round(percentage, 2),
+            objective_text = lookup.get(lo_id, lo_id)
+            progress_results.append(
+                LearningObjectiveProgress(
+                    objective=objective_text,
+                    exercises_total=total,
+                    exercises_correct=correct,
+                    progress_percentage=round(percentage, 2),
+                )
             )
-
-        for objective_text in objective_texts:
-            progress_results.append(build_entry(objective_text))
-            seen.add(objective_text)
-
-        for remaining_objective in totals:
-            if remaining_objective in seen:
-                continue
-            progress_results.append(build_entry(remaining_objective))
 
         return progress_results

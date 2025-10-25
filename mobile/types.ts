@@ -16,17 +16,18 @@ export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
   Dashboard: undefined;
-  Learning: { lessonId: string };
-  LessonDetail: { lessonId: string; lesson: LessonDetail };
+  Learning: { lessonId: string; unitId: string };
+  LessonDetail: { lessonId: string; lesson: LessonDetail; unitId: string };
 };
 
 export type LearningStackParamList = {
   LessonList: undefined;
   LearningCoach: { topic?: string; conversationId?: string } | undefined;
-  LearningFlow: { lessonId: string; lesson: LessonDetail };
+  LearningFlow: { lessonId: string; lesson: LessonDetail; unitId: string };
   UnitDetail: { unitId: string };
   CacheManagement: undefined;
   Results: {
     results: SessionResults;
+    unitId: string;
   };
 };

@@ -109,7 +109,8 @@ async def start_session(request: StartSessionRequest) -> SessionResponse:
         # Add specific context before re-raising
         logger.warning(f"Invalid session request: {request.lesson_id}", extra={
             "user_id": request.user_id,
-            "lesson_id": request.lesson_id
+            "lesson_id": request.lesson_id,
+            "unit_id": request.unit_id,
         })
         raise e  # Global handler will add stack trace and request context
 ```

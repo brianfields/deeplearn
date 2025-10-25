@@ -43,6 +43,7 @@ class LessonCreationFlow(BaseFlow):
         learner_level: str
         voice: str
         learning_objectives: list[str]
+        learning_objective_ids: list[str]
         lesson_objective: str
         unit_source_material: str
 
@@ -56,6 +57,7 @@ class LessonCreationFlow(BaseFlow):
                 "learner_level": inputs["learner_level"],
                 "voice": inputs["voice"],
                 "learning_objectives": inputs["learning_objectives"],
+                "learning_objective_ids": inputs["learning_objective_ids"],
                 "lesson_objective": inputs["lesson_objective"],
                 "unit_source_material": inputs["unit_source_material"],
             }
@@ -83,6 +85,7 @@ class LessonCreationFlow(BaseFlow):
             "learner_level": lesson_md.learner_level,
             "voice": lesson_md.voice,
             "learning_objectives": list(lesson_md.learning_objectives),
+            "learning_objective_ids": list(lesson_md.learning_objective_ids),
             "misconceptions": [m.model_dump() for m in lesson_md.misconceptions],
             "confusables": [c.model_dump() for c in lesson_md.confusables],
             "glossary": [g.model_dump() for g in lesson_md.glossary],

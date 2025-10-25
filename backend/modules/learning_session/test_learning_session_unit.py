@@ -11,7 +11,13 @@ import pytest
 
 from .models import LearningSessionModel, SessionStatus
 from .repo import LearningSessionRepo
-from .service import CompleteSessionRequest, LearningSessionService, StartSessionRequest, UpdateProgressRequest
+from .service import (
+    CompleteSessionRequest,
+    LearningObjectiveStatus,
+    LearningSessionService,
+    StartSessionRequest,
+    UpdateProgressRequest,
+)
 
 
 class TestLearningSessionService:
@@ -30,7 +36,7 @@ class TestLearningSessionService:
     async def test_start_session_success(self) -> None:
         """Test successful session start"""
         # Arrange
-        request = StartSessionRequest(lesson_id="test-lesson", user_id="test-user")
+        request = StartSessionRequest(lesson_id="test-lesson", user_id="test-user", unit_id="unit-1")
 
         # Mock content with package structure (lesson exists)
         mock_content = Mock()
@@ -38,6 +44,7 @@ class TestLearningSessionService:
         mock_package.exercises = [1, 2]  # 2 exercises
         mock_package.glossary.get.return_value = []  # 0 glossary terms
         mock_content.package = mock_package
+        mock_content.unit_id = "unit-1"
         self.mock_content_provider.get_lesson.return_value = mock_content
 
         # Mock no existing session
@@ -47,6 +54,7 @@ class TestLearningSessionService:
         mock_session = LearningSessionModel(
             id="session-123",
             lesson_id="test-lesson",
+            unit_id="unit-1",
             user_id="test-user",
             status=SessionStatus.ACTIVE.value,
             started_at=datetime.utcnow(),
@@ -65,18 +73,21 @@ class TestLearningSessionService:
         # Assert
         assert result.id == "session-123"
         assert result.lesson_id == "test-lesson"
+        assert result.unit_id == "unit-1"
         assert result.user_id == "test-user"
         assert result.status == SessionStatus.ACTIVE.value
         assert result.total_exercises == 2
 
         self.mock_content_provider.get_lesson.assert_awaited_once_with("test-lesson")
         self.mock_repo.create_session.assert_awaited_once()
+        kwargs = self.mock_repo.create_session.await_args.kwargs
+        assert kwargs["unit_id"] == "unit-1"
 
     @pytest.mark.asyncio
     async def test_start_session_lesson_not_found(self) -> None:
         """Test session start with non-existent lesson"""
         # Arrange
-        request = StartSessionRequest(lesson_id="nonexistent-lesson", user_id="user-1")
+        request = StartSessionRequest(lesson_id="nonexistent-lesson", user_id="user-1", unit_id="unit-1")
         # Content returns no lesson
         self.mock_content_provider.get_lesson.return_value = None
 
@@ -88,11 +99,35 @@ class TestLearningSessionService:
     async def test_start_session_requires_user(self) -> None:
         """Ensure user context is required for starting a session."""
 
-        request = StartSessionRequest(lesson_id="lesson-1", user_id="")
+        request = StartSessionRequest(lesson_id="lesson-1", user_id="", unit_id="unit-1")
         # Content returns some lesson object
-        self.mock_content_provider.get_lesson.return_value = Mock(package=Mock(exercises=[]))
+        lesson = Mock(package=Mock(exercises=[]))
+        lesson.unit_id = "unit-1"
+        self.mock_content_provider.get_lesson.return_value = lesson
 
         with pytest.raises(ValueError, match="User identifier is required"):
+            await self.service.start_session(request)
+
+    @pytest.mark.asyncio
+    async def test_start_session_requires_unit(self) -> None:
+        """Ensure unit context is required for starting a session."""
+
+        request = StartSessionRequest(lesson_id="lesson-1", user_id="user-1", unit_id="")
+        self.mock_content_provider.get_lesson.return_value = Mock()
+
+        with pytest.raises(ValueError, match="Unit identifier is required"):
+            await self.service.start_session(request)
+
+    @pytest.mark.asyncio
+    async def test_start_session_rejects_unit_mismatch(self) -> None:
+        """Starting with mismatched unit should raise a validation error."""
+
+        request = StartSessionRequest(lesson_id="lesson-1", user_id="user-1", unit_id="unit-1")
+        lesson = Mock(package=Mock(exercises=[]))
+        lesson.unit_id = "unit-2"
+        self.mock_content_provider.get_lesson.return_value = lesson
+
+        with pytest.raises(ValueError, match="Lesson does not belong to the provided unit"):
             await self.service.start_session(request)
 
     @pytest.mark.asyncio
@@ -102,6 +137,7 @@ class TestLearningSessionService:
         mock_session = LearningSessionModel(
             id="session-123",
             lesson_id="test-lesson",
+            unit_id="unit-1",
             user_id="test-user",
             status=SessionStatus.ACTIVE.value,
             started_at=datetime.utcnow(),
@@ -130,6 +166,7 @@ class TestLearningSessionService:
         mock_session = LearningSessionModel(
             id="session-123",
             lesson_id="test-lesson",
+            unit_id="unit-1",
             user_id="owner-user",
             status=SessionStatus.ACTIVE.value,
             started_at=datetime.utcnow(),
@@ -173,6 +210,7 @@ class TestLearningSessionService:
         mock_session = LearningSessionModel(
             id="session-123",
             lesson_id="test-lesson",
+            unit_id="unit-1",
             user_id="test-user",
             status=SessionStatus.ACTIVE.value,
             current_exercise_index=0,
@@ -217,6 +255,7 @@ class TestLearningSessionService:
         session = LearningSessionModel(
             id="session-abc",
             lesson_id="lesson-1",
+            unit_id="unit-1",
             user_id="test-user",
             status=SessionStatus.ACTIVE.value,
             started_at=datetime.utcnow(),
@@ -282,6 +321,7 @@ class TestLearningSessionService:
         mock_session = LearningSessionModel(
             id="session-123",
             lesson_id="test-lesson",
+            unit_id="unit-1",
             user_id="owner-user",
             status=SessionStatus.ACTIVE.value,
             current_exercise_index=0,
@@ -305,6 +345,7 @@ class TestLearningSessionService:
         mock_session = LearningSessionModel(
             id="session-123",
             lesson_id="test-lesson",
+            unit_id="unit-1",
             user_id="test-user",
             status=SessionStatus.ACTIVE.value,
             current_exercise_index=2,  # Completed 2 exercises
@@ -317,6 +358,15 @@ class TestLearningSessionService:
         self.mock_repo.get_session_by_id.return_value = mock_session
         self.mock_repo.update_session_status.return_value = mock_session
 
+        lesson = Mock()
+        lesson.unit_id = "unit-1"
+        lesson.package = Mock(exercises=[Mock(), Mock()])
+        self.mock_content_provider.get_lesson.return_value = lesson
+        self.mock_content_provider.get_lessons_by_unit.return_value = [lesson]
+        unit_session = Mock(completed_lesson_ids=[])
+        self.mock_content_provider.get_or_create_unit_session.return_value = unit_session
+        self.mock_content_provider.update_unit_session_progress.return_value = unit_session
+
         # Act
         result = await self.service.complete_session(request)
 
@@ -326,6 +376,57 @@ class TestLearningSessionService:
         assert result.achievements == ["Session Complete", "Perfect Score"]
 
         self.mock_repo.update_session_status.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_get_unit_lo_progress(self) -> None:
+        """Aggregating learning objective progress should honor canonical ordering."""
+
+        unit = Mock()
+        unit.learning_objectives = [
+            {"id": "lo_1", "text": "Understand topic"},
+            {"id": "lo_2", "text": "Apply topic"},
+        ]
+        self.mock_content_provider.get_unit.return_value = unit
+
+        exercise_a = Mock()
+        exercise_a.id = "ex_a"
+        exercise_a.lo_id = "lo_1"
+        exercise_b = Mock()
+        exercise_b.id = "ex_b"
+        exercise_b.lo_id = "lo_2"
+        lesson = Mock()
+        lesson.id = "lesson-1"
+        lesson.package = Mock(exercises=[exercise_a, exercise_b])
+        self.mock_content_provider.get_lessons_by_unit.return_value = [lesson]
+
+        session = Mock()
+        session.lesson_id = "lesson-1"
+        session.session_data = {
+            "exercise_answers": {
+                "ex_a": {"has_been_answered_correctly": True},
+                "ex_b": {"has_been_answered_correctly": False, "is_correct": False},
+            }
+        }
+        self.mock_repo.get_sessions_for_user_and_lessons.return_value = [session]
+
+        progress = await self.service.get_unit_lo_progress("user-1", "unit-1")
+
+        assert progress.unit_id == "unit-1"
+        assert len(progress.items) == 2
+        item_lookup = {item.lo_id: item for item in progress.items}
+        assert item_lookup["lo_1"].status is LearningObjectiveStatus.COMPLETED
+        assert item_lookup["lo_1"].exercises_correct == 1
+        assert item_lookup["lo_2"].status is LearningObjectiveStatus.PARTIAL
+        assert item_lookup["lo_2"].exercises_attempted == 1
+
+    @pytest.mark.asyncio
+    async def test_get_unit_lo_progress_unit_missing(self) -> None:
+        """Missing unit should raise a ValueError."""
+
+        self.mock_content_provider.get_unit.return_value = None
+
+        with pytest.raises(ValueError, match="Unit unit-1 not found"):
+            await self.service.get_unit_lo_progress("user-1", "unit-1")
 
     @pytest.mark.asyncio
     async def test_check_health(self) -> None:

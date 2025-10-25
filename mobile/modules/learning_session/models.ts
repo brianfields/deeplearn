@@ -12,6 +12,7 @@
 interface ApiLearningSession {
   id: string;
   lesson_id: string;
+  unit_id: string;
   user_id?: string;
   status: 'active' | 'completed' | 'paused' | 'abandoned';
   started_at: string;
@@ -45,6 +46,7 @@ interface ApiSessionProgress {
 interface ApiSessionResults {
   session_id: string;
   lesson_id: string;
+  unit_id: string;
   total_exercises: number;
   completed_exercises: number;
   correct_exercises: number;
@@ -61,6 +63,7 @@ interface ApiSessionResults {
 export interface LearningSession {
   readonly id: string;
   readonly lessonId: string;
+  readonly unitId: string;
   readonly lessonTitle?: string; // Lesson title for display
   readonly userId?: string;
   readonly status: 'active' | 'completed' | 'paused' | 'abandoned';
@@ -100,6 +103,7 @@ export interface SessionProgress {
 export interface SessionResults {
   readonly sessionId: string;
   readonly lessonId: string;
+  readonly unitId: string;
   readonly totalExercises: number;
   readonly completedExercises: number;
   readonly correctExercises: number;
@@ -110,6 +114,7 @@ export interface SessionResults {
   readonly grade: 'A' | 'B' | 'C' | 'D' | 'F'; // Calculated
   readonly timeDisplay: string; // Formatted time
   readonly performanceSummary: string; // Calculated summary
+  readonly unitLOProgress?: UnitLOProgress;
 }
 
 // ================================
@@ -131,6 +136,27 @@ export interface UnitProgress {
   readonly lessonsCompleted: number;
   readonly progressPercentage: number; // average of lesson progress (0-100)
   readonly lessons: UnitLessonProgress[];
+}
+
+// ================================
+// Learning Objective Progress DTOs
+// ================================
+
+export type LOStatus = 'completed' | 'partial' | 'not_started';
+
+export interface LOProgressItem {
+  readonly loId: string;
+  readonly loText: string;
+  readonly exercisesTotal: number;
+  readonly exercisesAttempted: number;
+  readonly exercisesCorrect: number;
+  readonly status: LOStatus;
+  readonly newlyCompletedInSession: boolean;
+}
+
+export interface UnitLOProgress {
+  readonly unitId: string;
+  readonly items: LOProgressItem[];
 }
 
 // ================================
@@ -194,6 +220,7 @@ export interface SessionExercise {
 
 export interface StartSessionRequest {
   lessonId: string;
+  unitId: string;
   userId?: string;
 }
 
@@ -268,6 +295,7 @@ export function toLearningSessionDTO(
   return {
     id: api.id,
     lessonId: api.lesson_id,
+    unitId: api.unit_id,
     lessonTitle,
     userId: api.user_id,
     status: api.status,
@@ -330,6 +358,7 @@ export function toSessionResultsDTO(api: ApiSessionResults): SessionResults {
   return {
     sessionId: api.session_id,
     lessonId: api.lesson_id,
+    unitId: api.unit_id,
     totalExercises: api.total_exercises,
     completedExercises: api.completed_exercises,
     correctExercises: api.correct_exercises,
@@ -340,6 +369,7 @@ export function toSessionResultsDTO(api: ApiSessionResults): SessionResults {
     grade,
     timeDisplay,
     performanceSummary,
+    unitLOProgress: undefined,
   };
 }
 

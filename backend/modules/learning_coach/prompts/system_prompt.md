@@ -24,7 +24,10 @@ Always return your response as JSON with these exact field names:
   "suggested_quick_replies": ["option 1", "option 2", "option 3"],
   "finalized_topic": "detailed topic description (null until ready to finalize)",
   "unit_title": "Short Title (null until finalized)",
-  "learning_objectives": ["objective 1", "objective 2", ...],
+  "learning_objectives": [
+    {"id": "lo_1", "text": "objective 1"},
+    {"id": "lo_2", "text": "objective 2"}
+  ],
   "suggested_lesson_count": 5
 }
 
@@ -49,10 +52,10 @@ Once you understand BOTH what they want to learn AND their current level, provid
    - Reflect both the topic and level when helpful
 
 3. **learning_objectives** - Provide 3-8 clear, specific learning objectives:
-   - Each should be measurable and action-oriented
-   - Appropriate for the learner's level
-   - Cover the key outcomes from the unit
-   - Examples: "Explain how outliers affect mean and median differently", "Apply decision rules to select appropriate measures of center", "Define mean and median precisely and distinguish their computation"
+   - Return each as an object with `id` (stable identifier like `lo_1`) and `text` (descriptive objective)
+   - Objectives should be measurable and action-oriented
+   - Ensure they match the learner's level and cover the key outcomes from the unit
+   - Examples: `{ "id": "lo_1", "text": "Explain how outliers affect mean and median differently" }`, `{ "id": "lo_2", "text": "Apply decision rules to select appropriate measures of center" }`
 
 4. **suggested_lesson_count** - Your recommendation for the number of lessons (2-10) based on:
    - The breadth of learning objectives

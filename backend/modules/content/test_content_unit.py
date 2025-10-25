@@ -14,7 +14,7 @@ from httpx import ASGITransport, AsyncClient
 import pytest
 
 from modules.content.models import LessonModel, UnitModel
-from modules.content.package_models import GlossaryTerm, LessonPackage, MCQAnswerKey, MCQExercise, MCQOption, Meta, Objective
+from modules.content.package_models import GlossaryTerm, LessonPackage, MCQAnswerKey, MCQExercise, MCQOption, Meta
 from modules.content.repo import ContentRepo
 from modules.content.routes import get_content_service
 from modules.content.routes import router as content_router
@@ -49,7 +49,7 @@ class TestContentService:
         # Create a sample package
         package = LessonPackage(
             meta=Meta(lesson_id="test-id", title="Test Lesson", learner_level="beginner"),
-            objectives=[Objective(id="lo_1", text="Learn X")],
+            unit_learning_objective_ids=["lo_1"],
             glossary={"terms": [GlossaryTerm(id="term_1", term="Test Term", definition="Test Definition")]},
             mini_lesson="Test explanation",
             exercises=[
@@ -57,7 +57,11 @@ class TestContentService:
                     id="mcq_1",
                     lo_id="lo_1",
                     stem="What is X?",
-                    options=[MCQOption(id="opt_a", label="A", text="Option A"), MCQOption(id="opt_b", label="B", text="Option B"), MCQOption(id="opt_c", label="C", text="Option C")],
+                    options=[
+                        MCQOption(id="opt_a", label="A", text="Option A"),
+                        MCQOption(id="opt_b", label="B", text="Option B"),
+                        MCQOption(id="opt_c", label="C", text="Option C"),
+                    ],
                     answer_key=MCQAnswerKey(label="A"),
                 )
             ],
@@ -77,9 +81,8 @@ class TestContentService:
         assert result.id == "test-id"
         assert result.title == "Test Lesson"
         assert result.package_version == 1
-        assert len(result.package.objectives) == 1
         assert len(result.package.exercises) == 1
-        assert result.package.objectives[0].text == "Learn X"
+        assert result.package.unit_learning_objective_ids == ["lo_1"]
 
         repo.get_lesson_by_id.assert_awaited_once_with("test-id")
 
@@ -92,7 +95,7 @@ class TestContentService:
         # Create a sample package
         package = LessonPackage(
             meta=Meta(lesson_id="test-id", title="Test Lesson", learner_level="beginner"),
-            objectives=[Objective(id="lo_1", text="Learn X")],
+            unit_learning_objective_ids=["lo_1"],
             glossary={"terms": []},
             mini_lesson="Test explanation",
             exercises=[],
@@ -111,7 +114,7 @@ class TestContentService:
         assert result.id == "test-id"
         assert result.title == "Test Lesson"
         assert result.package_version == 1
-        assert len(result.package.objectives) == 1
+        assert result.package.unit_learning_objective_ids == ["lo_1"]
         repo.save_lesson.assert_awaited_once()
 
     async def test_lesson_exists_returns_true_when_exists(self) -> None:
@@ -612,7 +615,7 @@ class TestContentService:
             lesson_order=[lesson_id],
             user_id=5,
             is_global=False,
-            learning_objectives=None,
+            learning_objectives=[{"id": "lo_1", "text": "Objective"}],
             target_lesson_count=None,
             source_material=None,
             generated_from_topic=False,
@@ -632,7 +635,7 @@ class TestContentService:
 
         package = LessonPackage(
             meta=Meta(lesson_id=lesson_id, title="Lesson", learner_level="beginner"),
-            objectives=[Objective(id="obj-1", text="Objective")],
+            unit_learning_objective_ids=["lo_1"],
             glossary={"terms": []},
             mini_lesson="Mini lesson",
             exercises=[],
@@ -696,7 +699,7 @@ class TestContentService:
             lesson_order=[],
             user_id=None,
             is_global=False,
-            learning_objectives=None,
+            learning_objectives=[],
             target_lesson_count=None,
             source_material=None,
             generated_from_topic=False,

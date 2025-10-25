@@ -30,7 +30,7 @@ export default function LearningFlow({
   sessionId,
   onComplete,
   onBack,
-  unitId: _unitId,
+  unitId: initialUnitId,
   hasPlayer = false,
 }: LearningFlowProps) {
   const uiSystem = uiSystemProvider();
@@ -69,11 +69,12 @@ export default function LearningFlow({
 
   // Initialize session in store
   useEffect(() => {
-    setCurrentSession(sessionId);
+    const resolvedUnitId = session?.unitId ?? initialUnitId ?? null;
+    setCurrentSession(sessionId, resolvedUnitId);
     return () => {
       // Don't reset session on unmount - user might navigate back
     };
-  }, [sessionId, setCurrentSession]);
+  }, [sessionId, session?.unitId, initialUnitId, setCurrentSession]);
 
   // Current exercise data
   const currentExercise = useMemo(() => {

@@ -5,7 +5,7 @@ Pydantic models for the structured lesson package format.
 These models define the comprehensive content structure stored in the JSON package field.
 """
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 # ---- Core value objects ----
 
@@ -19,14 +19,6 @@ class Meta(BaseModel):
     # Two versions on purpose: schema vs content
     package_schema_version: int = 1
     content_version: int = 1
-
-
-class Objective(BaseModel):
-    """Learning objective for the lesson."""
-
-    id: str
-    text: str
-    bloom_level: str | None = None  # e.g., "Apply"
 
 
 class GlossaryTerm(BaseModel):
@@ -63,7 +55,7 @@ class Exercise(BaseModel):
     lo_id: str
     cognitive_level: str | None = None
     estimated_difficulty: str | None = None  # "Easy" | "Medium" | "Hard"
-    misconceptions_used: list[str] = []
+    misconceptions_used: list[str] = Field(default_factory=list)
 
 
 class MCQExercise(Exercise):
@@ -96,21 +88,24 @@ class LessonPackage(BaseModel):
     """Complete lesson package containing all educational content."""
 
     meta: Meta
-    objectives: list[Objective]
+    unit_learning_objective_ids: list[str]
     glossary: dict[str, list[GlossaryTerm]]
     mini_lesson: str  # Single lesson-wide explanation
     exercises: list[MCQExercise]  # For now, only MCQ exercises are supported
-    misconceptions: list[dict[str, str]] = []  # keep loose; can tighten later
-    confusables: list[dict[str, str]] = []
+    misconceptions: list[dict[str, str]] = Field(default_factory=list)
+    confusables: list[dict[str, str]] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _cross_checks(self) -> "LessonPackage":
         """Validate cross-references between package components."""
-        lo_ids = {o.id for o in self.objectives}
+        allowed_lo_ids = set(self.unit_learning_objective_ids)
+        if not allowed_lo_ids:
+            raise ValueError("unit_learning_objective_ids must include at least one learning objective id")
 
-        # every exercise lo_id must exist
         for exercise in self.exercises:
-            if exercise.lo_id not in lo_ids:
-                raise ValueError(f"Exercise '{exercise.id}' references unknown lo_id '{exercise.lo_id}'")
+            if exercise.lo_id not in allowed_lo_ids:
+                raise ValueError(
+                    f"Exercise '{exercise.id}' references unknown lo_id '{exercise.lo_id}'"
+                )
 
         return self

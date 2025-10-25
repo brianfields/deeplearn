@@ -59,13 +59,25 @@ appId: host.exp.Exponent
 - tapOn:
     id: 'mcq-continue-button'
 
-# Step 6: Verify results screen appears with score
+# Step 6: Verify LO-based results screen elements
 - assertVisible:
-    id: 'results-score-percentage'
+    id: 'results-summary'
+- assertVisible:
+    text: 'Learning Objective Progress'
+- assertVisible:
+    id: 'results-lo-progress-list'
+- assertVisible:
+    id: 'results-lo-progress-list-item-0'
+- assertVisible:
+    id: 'results-summary-mastered'
+- assertVisible:
+    id: 'results-retry-button'
+- assertVisible:
+    id: 'results-back-button'
 
 # Step 7: Return to lesson catalog
 - tapOn:
-    id: 'results-continue-button'
+    id: 'results-back-button'
 
 # Step 8: Verify we're back at the lesson catalog
 - assertVisible:

@@ -35,6 +35,7 @@ class StartSessionRequestModel(BaseModel):
 
     lesson_id: str = Field(..., description="ID of the lesson to start learning")
     user_id: str = Field(..., min_length=1, description="Authenticated user ID for tracking")
+    unit_id: str = Field(..., min_length=1, description="ID of the unit that owns the lesson")
     session_id: str | None = Field(None, description="Optional client-generated session ID for offline-first support")
 
 
@@ -54,6 +55,7 @@ class SessionResponseModel(BaseModel):
 
     id: str
     lesson_id: str
+    unit_id: str
     user_id: str | None
     status: str
     started_at: str
@@ -108,6 +110,7 @@ class SessionResultsResponseModel(BaseModel):
 
     session_id: str
     lesson_id: str
+    unit_id: str
     total_exercises: int
     completed_exercises: int
     correct_exercises: int
@@ -173,6 +176,7 @@ async def start_session(
     start_request = StartSessionRequest(
         lesson_id=request.lesson_id,
         user_id=request.user_id,
+        unit_id=request.unit_id,
         session_id=request.session_id,
     )
 
@@ -181,6 +185,7 @@ async def start_session(
     return SessionResponseModel(
         id=session.id,
         lesson_id=session.lesson_id,
+        unit_id=session.unit_id,
         user_id=session.user_id,
         status=session.status,
         started_at=session.started_at,
@@ -207,6 +212,7 @@ async def get_session(
     return SessionResponseModel(
         id=session.id,
         lesson_id=session.lesson_id,
+        unit_id=session.unit_id,
         user_id=session.user_id,
         status=session.status,
         started_at=session.started_at,
@@ -284,6 +290,7 @@ async def complete_session(
     return SessionResultsResponseModel(
         session_id=results.session_id,
         lesson_id=results.lesson_id,
+        unit_id=results.unit_id,
         total_exercises=results.total_exercises,
         completed_exercises=results.completed_exercises,
         correct_exercises=results.correct_exercises,
@@ -309,6 +316,7 @@ async def pause_session(
     return SessionResponseModel(
         id=session.id,
         lesson_id=session.lesson_id,
+        unit_id=session.unit_id,
         user_id=session.user_id,
         status=session.status,
         started_at=session.started_at,
@@ -342,6 +350,7 @@ async def get_user_sessions(
         SessionResponseModel(
             id=session.id,
             lesson_id=session.lesson_id,
+            unit_id=session.unit_id,
             user_id=session.user_id,
             status=session.status,
             started_at=session.started_at,

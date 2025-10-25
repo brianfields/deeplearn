@@ -14,7 +14,14 @@ from modules.conversation_engine.public import (
     conversation_session,
 )
 
-from .dtos import LearningCoachMessage, LearningCoachSessionState
+from .dtos import LearningCoachMessage, LearningCoachObjective, LearningCoachSessionState
+
+
+class CoachLearningObjective(BaseModel):
+    """Learning objective emitted by the structured coach response."""
+
+    id: str = Field(..., min_length=1, description="Stable identifier for the unit learning objective")
+    text: str = Field(..., min_length=1, description="Human-readable description of the objective")
 
 
 class CoachResponse(BaseModel):
@@ -39,13 +46,12 @@ class CoachResponse(BaseModel):
             "'Web API Design Basics'. Update if the learner requests changes."
         ),
     )
-    learning_objectives: list[str] | None = Field(
+    learning_objectives: list[CoachLearningObjective] | None = Field(
         default=None,
         description=(
-            "When finalizing the topic, provide 3-8 clear, specific learning objectives. Each should be "
-            "measurable, action-oriented, and appropriate for the learner's level. Examples: 'Explain how "
-            "outliers affect mean and median differently', 'Apply decision rules to select appropriate "
-            "measures of center'. Update if the learner requests changes."
+            "When finalizing the topic, provide 3-8 clear, specific learning objectives. Each must include "
+            "a stable identifier (e.g., 'lo_1') and descriptive text. Objectives should be measurable, "
+            "action-oriented, and appropriate for the learner's level. Update if the learner requests changes."
         ),
     )
     suggested_lesson_count: int | None = Field(
@@ -140,7 +146,7 @@ class LearningCoachConversation(BaseConversation):
             metadata=metadata,
             finalized_topic=metadata.get("finalized_topic"),
             unit_title=metadata.get("unit_title"),
-            learning_objectives=metadata.get("learning_objectives"),
+            learning_objectives=self._parse_learning_objectives(metadata.get("learning_objectives")),
             suggested_lesson_count=metadata.get("suggested_lesson_count"),
             proposed_brief=self._dict_or_none(metadata.get("proposed_brief")),
             accepted_brief=self._dict_or_none(metadata.get("accepted_brief")),
@@ -163,6 +169,26 @@ class LearningCoachConversation(BaseConversation):
         if isinstance(value, dict):
             return value
         return None
+
+    def _parse_learning_objectives(
+        self,
+        value: Any,
+    ) -> list[LearningCoachObjective] | None:
+        """Convert stored metadata into typed learning objectives."""
+
+        if not isinstance(value, list):
+            return None
+
+        objectives: list[LearningCoachObjective] = []
+        for entry in value:
+            if not isinstance(entry, dict):
+                continue
+            lo_id = str(entry.get("id") or "").strip()
+            lo_text = str(entry.get("text") or "").strip()
+            if lo_id and lo_text:
+                objectives.append(LearningCoachObjective(id=lo_id, text=lo_text))
+
+        return objectives or None
 
     async def _generate_structured_reply(self) -> None:
         """Generate a structured coach response and persist it."""
@@ -196,7 +222,9 @@ class LearningCoachConversation(BaseConversation):
             if coach_response.unit_title is not None:
                 metadata_update["unit_title"] = coach_response.unit_title
             if coach_response.learning_objectives is not None:
-                metadata_update["learning_objectives"] = coach_response.learning_objectives
+                metadata_update["learning_objectives"] = [
+                    objective.model_dump() for objective in coach_response.learning_objectives
+                ]
             if coach_response.suggested_lesson_count is not None:
                 metadata_update["suggested_lesson_count"] = coach_response.suggested_lesson_count
             await self.update_conversation_metadata(metadata_update)

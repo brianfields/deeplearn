@@ -386,6 +386,7 @@ class TestAdminService:
         session = LearningSession(
             id="session-1",
             lesson_id="lesson-1",
+            unit_id="unit-1",
             user_id="user",
             status="active",
             started_at="2024-01-01T00:00:00Z",

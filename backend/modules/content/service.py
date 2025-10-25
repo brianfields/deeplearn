@@ -75,6 +75,15 @@ class LessonCreate(BaseModel):
     flow_run_id: uuid.UUID | None = None
 
 
+class UnitLearningObjective(BaseModel):
+    """Structured representation of a unit-level learning objective."""
+
+    id: str
+    text: str
+    bloom_level: str | None = None
+    evidence_of_mastery: str | None = None
+
+
 class ContentService:
     """Service for content operations."""
 
@@ -293,7 +302,7 @@ class ContentService:
         is_global: bool = False
         arq_task_id: str | None = None
         # New fields
-        learning_objectives: list[Any] | None = None
+        learning_objectives: list[UnitLearningObjective] | None = None
         target_lesson_count: int | None = None
         source_material: str | None = None
         generated_from_topic: bool = False
@@ -322,12 +331,13 @@ class ContentService:
         id: str
         title: str
         learner_level: str
+        learning_objective_ids: list[str]
         learning_objectives: list[str]
         key_concepts: list[str]
         exercise_count: int
 
     class UnitDetailRead(UnitRead):
-        learning_objectives: list[str] | None = None
+        learning_objectives: list[UnitLearningObjective] | None = None
         lessons: list[ContentService.UnitLessonSummary]
         podcast_transcript: str | None = None
         podcast_audio_url: str | None = None
@@ -371,7 +381,7 @@ class ContentService:
         lesson_order: list[str] = []
         user_id: int | None = None
         is_global: bool = False
-        learning_objectives: list[Any] | None = None
+        learning_objectives: list[UnitLearningObjective] | None = None
         target_lesson_count: int | None = None
         source_material: str | None = None
         generated_from_topic: bool = False
@@ -392,6 +402,10 @@ class ContentService:
         include_audio_metadata: bool = True,
     ) -> ContentService.UnitRead:
         unit_read = self.UnitRead.model_validate(unit)
+        parsed_learning_objectives = self._parse_unit_learning_objectives(
+            getattr(unit, "learning_objectives", None)
+        )
+        unit_read.learning_objectives = parsed_learning_objectives or None
         unit_read.schema_version = getattr(unit, "schema_version", 1)
         await self._apply_podcast_metadata(
             unit_read,
@@ -772,6 +786,10 @@ class ContentService:
 
         lesson_models = await self.repo.get_lessons_by_unit(unit_id=unit_id)
         lesson_summaries: dict[str, ContentService.UnitLessonSummary] = {}
+        unit_learning_objectives = self._parse_unit_learning_objectives(
+            getattr(unit, "learning_objectives", None)
+        )
+        lo_text_by_id = {lo.id: lo.text for lo in unit_learning_objectives}
 
         for lesson in lesson_models:
             try:
@@ -785,7 +803,10 @@ class ContentService:
                 )
                 continue
 
-            objectives = [obj.text for obj in package.objectives]
+            lesson_lo_ids = list(package.unit_learning_objective_ids)
+            if not lesson_lo_ids:
+                lesson_lo_ids = sorted({exercise.lo_id for exercise in package.exercises})
+            objectives = [lo_text_by_id.get(lo_id, lo_id) for lo_id in lesson_lo_ids]
             glossary_terms = package.glossary.get("terms", []) if package.glossary else []
             key_concepts: list[str] = []
             for term in glossary_terms:
@@ -800,6 +821,7 @@ class ContentService:
                 id=lesson.id,
                 title=lesson.title,
                 learner_level=lesson.learner_level,
+                learning_objective_ids=lesson_lo_ids,
                 learning_objectives=objectives,
                 key_concepts=key_concepts,
                 exercise_count=len(package.exercises),
@@ -836,7 +858,11 @@ class ContentService:
         detail_dict = unit_summary.model_dump()
         detail_dict["lesson_order"] = ordered_ids
         detail_dict["lessons"] = [lesson.model_dump() for lesson in ordered_lessons]
-        detail_dict["learning_objectives"] = self._normalize_unit_learning_objectives(getattr(unit, "learning_objectives", None))
+        detail_dict["learning_objectives"] = (
+            [lo.model_dump() for lo in unit_learning_objectives]
+            if unit_learning_objectives
+            else None
+        )
         transcript = getattr(unit, "podcast_transcript", None)
         if not transcript and audio_meta is not None:
             transcript = getattr(audio_meta, "transcript", None)
@@ -1029,6 +1055,11 @@ class ContentService:
 
     async def create_unit(self, data: ContentService.UnitCreate) -> ContentService.UnitRead:
         unit_id = data.id or str(uuid.uuid4())
+        los_payload = (
+            [lo.model_dump() for lo in data.learning_objectives]
+            if data.learning_objectives is not None
+            else []
+        )
         model = UnitModel(
             id=unit_id,
             title=data.title,
@@ -1037,7 +1068,7 @@ class ContentService:
             lesson_order=list(data.lesson_order or []),
             user_id=data.user_id,
             is_global=bool(data.is_global),
-            learning_objectives=list(data.learning_objectives or []) if data.learning_objectives is not None else None,
+            learning_objectives=los_payload,
             target_lesson_count=data.target_lesson_count,
             source_material=data.source_material,
             generated_from_topic=bool(data.generated_from_topic),
@@ -1068,13 +1099,18 @@ class ContentService:
         unit_id: str,
         *,
         title: str | None = None,
-        learning_objectives: list[Any] | None = None,
+        learning_objectives: list[UnitLearningObjective] | None = None,
     ) -> ContentService.UnitRead | None:
         """Update unit metadata fields (title, learning_objectives)."""
+        los_payload = (
+            [lo.model_dump() for lo in learning_objectives]
+            if learning_objectives is not None
+            else None
+        )
         updated = await self.repo.update_unit_metadata(
             unit_id,
             title=title,
-            learning_objectives=learning_objectives,
+            learning_objectives=los_payload,
         )
         if updated is None:
             return None
@@ -1088,25 +1124,52 @@ class ContentService:
         return await self._build_unit_read(updated)
 
     @staticmethod
-    def _normalize_unit_learning_objectives(raw: list[Any] | None) -> list[str] | None:
-        if raw is None:
-            return None
+    def _parse_unit_learning_objectives(
+        raw: list[Any] | None,
+    ) -> list[UnitLearningObjective]:
+        if not raw:
+            return []
 
-        normalized: list[str] = []
-        for item in list(raw):
-            try:
-                if isinstance(item, str):
-                    normalized.append(item)
-                elif isinstance(item, dict):
-                    text = item.get("text") or item.get("lo_text") or item.get("label")
-                    normalized.append(str(text) if text else str(item))
-                else:
-                    text_attr = getattr(item, "text", None)
-                    normalized.append(str(text_attr) if text_attr else str(item))
-            except Exception:  # pragma: no cover - fall back to string conversion
-                normalized.append(str(item))
+        parsed: list[UnitLearningObjective] = []
+        for item in raw:
+            if isinstance(item, UnitLearningObjective):
+                parsed.append(item)
+                continue
 
-        return normalized
+            if isinstance(item, str):
+                parsed.append(UnitLearningObjective(id=item, text=item))
+                continue
+
+            lo_id: str | None = None
+            lo_text: str | None = None
+            bloom_level: str | None = None
+            evidence_of_mastery: str | None = None
+
+            if isinstance(item, dict):
+                lo_id = item.get("id") or item.get("lo_id")
+                lo_text = item.get("text") or item.get("lo_text")
+                bloom_level = item.get("bloom_level")
+                evidence_of_mastery = item.get("evidence_of_mastery")
+            else:
+                lo_id = getattr(item, "id", None) or getattr(item, "lo_id", None)
+                lo_text = getattr(item, "text", None) or getattr(item, "lo_text", None)
+                bloom_level = getattr(item, "bloom_level", None)
+                evidence_of_mastery = getattr(item, "evidence_of_mastery", None)
+
+            if lo_id is None:
+                raise ValueError("Unit learning objective is missing an id")
+
+            lo_text = lo_text or lo_id
+            parsed.append(
+                UnitLearningObjective(
+                    id=str(lo_id),
+                    text=str(lo_text),
+                    bloom_level=bloom_level if isinstance(bloom_level, str) else None,
+                    evidence_of_mastery=evidence_of_mastery if isinstance(evidence_of_mastery, str) else None,
+                )
+            )
+
+        return parsed
 
     async def set_unit_sharing(
         self,
