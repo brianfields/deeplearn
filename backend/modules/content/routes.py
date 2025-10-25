@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
-from typing import cast
+from typing import Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import RedirectResponse
@@ -132,6 +132,35 @@ async def get_unit_detail(
     if unit is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unit not found")
     return unit
+
+
+@router.get("/units/{unit_id}/flow-runs")
+async def get_unit_flow_runs(
+    unit_id: str,
+    service: ContentService = Depends(get_content_service),
+) -> list[dict[str, Any]]:
+    """Admin Observability: return flow runs associated with a unit."""
+
+    runs = await service.get_unit_flow_runs(unit_id)
+    return [
+        {
+            "id": flow_run.id,
+            "flow_name": flow_run.flow_name,
+            "status": flow_run.status,
+            "execution_mode": flow_run.execution_mode,
+            "arq_task_id": flow_run.arq_task_id,
+            "user_id": flow_run.user_id,
+            "created_at": flow_run.created_at.isoformat(),
+            "started_at": flow_run.started_at.isoformat() if flow_run.started_at else None,
+            "completed_at": flow_run.completed_at.isoformat() if flow_run.completed_at else None,
+            "execution_time_ms": flow_run.execution_time_ms,
+            "total_tokens": flow_run.total_tokens,
+            "total_cost": flow_run.total_cost,
+            "step_count": flow_run.step_count,
+            "error_message": flow_run.error_message,
+        }
+        for flow_run in runs
+    ]
 
 
 @router.get("/units/{unit_id}/podcast/audio", response_model=None)

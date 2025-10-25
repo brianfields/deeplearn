@@ -19,6 +19,7 @@ class FlowRunSummaryDTO:
     flow_name: str
     status: str
     execution_mode: str
+    arq_task_id: str | None
     user_id: str | None
     created_at: datetime
     started_at: datetime | None
@@ -59,6 +60,7 @@ class FlowRunDetailsDTO:
     flow_name: str
     status: str
     execution_mode: str
+    arq_task_id: str | None
     user_id: str | None
     current_step: str | None
     step_progress: int
@@ -94,12 +96,42 @@ class FlowEngineService:
         self.step_run_repo = step_run_repo
         self.llm_services = llm_services
 
-    async def create_flow_run_record(self, flow_name: str, inputs: dict[str, Any], user_id: uuid.UUID | None = None, execution_mode: str = "sync") -> uuid.UUID:
+    def _commit_changes(self) -> None:
+        """
+        Commit pending changes to make them visible to other database sessions.
+
+        This is critical for real-time visibility in the admin dashboard during
+        long-running flows executed in ARQ tasks.
+        """
+        # Access the session through the repo
+        self.flow_run_repo.s.commit()
+
+    async def create_flow_run_record(
+        self,
+        flow_name: str,
+        inputs: dict[str, Any],
+        user_id: uuid.UUID | None = None,
+        *,
+        execution_mode: str = "sync",
+        arq_task_id: str | None = None,
+    ) -> uuid.UUID:
         """Create a new flow run record (internal use)."""
-        flow_run = FlowRunModel(user_id=user_id, flow_name=flow_name, inputs=inputs, status="running" if execution_mode == "sync" else "pending", execution_mode=execution_mode, started_at=datetime.now(UTC) if execution_mode == "sync" else None)
+        flow_run = FlowRunModel(
+            user_id=user_id,
+            flow_name=flow_name,
+            inputs=inputs,
+            status="running" if execution_mode == "sync" else "pending",
+            execution_mode=execution_mode,
+            started_at=datetime.now(UTC) if execution_mode == "sync" else None,
+            arq_task_id=arq_task_id,
+        )
 
         created_run = self.flow_run_repo.create(flow_run)
         assert created_run.id is not None
+
+        # Commit immediately so the flow run is visible in admin dashboard
+        self._commit_changes()
+
         return created_run.id
 
     async def create_step_run_record(self, flow_run_id: uuid.UUID, step_name: str, step_order: int, inputs: dict[str, Any]) -> uuid.UUID:
@@ -108,6 +140,10 @@ class FlowEngineService:
 
         created_step = self.step_run_repo.create(step_run)
         assert created_step.id is not None
+
+        # Commit immediately so the step is visible in admin dashboard
+        self._commit_changes()
+
         return created_step.id
 
     async def update_step_run_success(self, step_run_id: uuid.UUID, outputs: dict[str, Any], tokens_used: int, cost_estimate: float, execution_time_ms: int, llm_request_id: uuid.UUID | None = None) -> None:
@@ -123,6 +159,9 @@ class FlowEngineService:
             step_run.completed_at = datetime.now(UTC)
             self.step_run_repo.save(step_run)
 
+            # Commit immediately so step completion is visible in admin dashboard
+            self._commit_changes()
+
     async def update_step_run_error(self, step_run_id: uuid.UUID, error_message: str, execution_time_ms: int) -> None:
         """Update step run with error data (internal use)."""
         step_run = self.step_run_repo.by_id(step_run_id)
@@ -132,6 +171,9 @@ class FlowEngineService:
             step_run.status = "failed"
             step_run.completed_at = datetime.now(UTC)
             self.step_run_repo.save(step_run)
+
+            # Commit immediately so step failure is visible in admin dashboard
+            self._commit_changes()
 
     async def update_flow_progress(self, flow_run_id: uuid.UUID, current_step: str, step_progress: int, progress_percentage: float | None = None) -> None:
         """Update flow run progress (internal use)."""
@@ -147,6 +189,9 @@ class FlowEngineService:
                 flow_run.progress_percentage = min(100.0, (step_progress / flow_run.total_steps) * 100)
 
             self.flow_run_repo.save(flow_run)
+
+            # Commit immediately so progress updates are visible in admin dashboard
+            self._commit_changes()
 
     async def complete_flow_run(self, flow_run_id: uuid.UUID, outputs: dict[str, Any]) -> None:
         """Complete a flow run (internal use)."""
@@ -173,6 +218,9 @@ class FlowEngineService:
 
             self.flow_run_repo.save(flow_run)
 
+            # Commit immediately so completion is visible in admin dashboard
+            self._commit_changes()
+
     async def fail_flow_run(self, flow_run_id: uuid.UUID, error_message: str) -> None:
         """Mark a flow run as failed (internal use)."""
         flow_run = self.flow_run_repo.by_id(flow_run_id)
@@ -188,6 +236,9 @@ class FlowEngineService:
                 flow_run.execution_time_ms = int((completed_at - started_at).total_seconds() * 1000)
 
             self.flow_run_repo.save(flow_run)
+
+            # Commit immediately so failure is visible in admin dashboard
+            self._commit_changes()
 
     def get_llm_services(self) -> LLMServicesProvider:
         """Get LLM services provider (internal use)."""
@@ -243,6 +294,7 @@ class FlowRunQueryService:
             flow_name=flow_run.flow_name,
             status=flow_run.status,
             execution_mode=flow_run.execution_mode,
+            arq_task_id=flow_run.arq_task_id,
             user_id=str(flow_run.user_id) if flow_run.user_id else None,
             current_step=flow_run.current_step,
             step_progress=flow_run.step_progress,
@@ -319,6 +371,7 @@ class FlowRunQueryService:
                 flow_name=run.flow_name,
                 status=run.status,
                 execution_mode=run.execution_mode,
+                arq_task_id=run.arq_task_id,
                 user_id=str(run.user_id) if run.user_id else None,
                 created_at=run.created_at,
                 started_at=run.started_at,
@@ -335,3 +388,42 @@ class FlowRunQueryService:
     def count_flow_runs(self) -> int:
         """Get total count of flow runs. FOR ADMIN USE ONLY."""
         return self.flow_run_repo.count_all()
+
+    def list_flow_runs(
+        self,
+        *,
+        arq_task_id: str | None = None,
+        unit_id: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[FlowRunSummaryDTO]:
+        """List flow runs filtered by admin observability parameters."""
+
+        runs = self.flow_run_repo.list_by_filters(
+            arq_task_id=arq_task_id,
+            unit_id=unit_id,
+            limit=limit,
+            offset=offset,
+        )
+        result: list[FlowRunSummaryDTO] = []
+        for run in runs:
+            step_count = len(self.step_run_repo.by_flow_run_id(run.id))
+            result.append(
+                FlowRunSummaryDTO(
+                    id=str(run.id),
+                    flow_name=run.flow_name,
+                    status=run.status,
+                    execution_mode=run.execution_mode,
+                    arq_task_id=run.arq_task_id,
+                    user_id=str(run.user_id) if run.user_id else None,
+                    created_at=run.created_at,
+                    started_at=run.started_at,
+                    completed_at=run.completed_at,
+                    execution_time_ms=run.execution_time_ms,
+                    total_tokens=run.total_tokens or 0,
+                    total_cost=run.total_cost or 0.0,
+                    step_count=step_count,
+                    error_message=run.error_message,
+                )
+            )
+        return result

@@ -8,15 +8,17 @@ from datetime import UTC, datetime
 import json
 from typing import Any
 
+from sqlalchemy import desc, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from .models import QueueStats, TaskModel, TaskStatus, TaskStatusEnum, WorkerHealth, WorkerStatusEnum
+
 try:
     import redis.asyncio as redis_async
 
     REDIS_AVAILABLE = True
 except ImportError:
     REDIS_AVAILABLE = False
-
-from .models import QueueStats, TaskStatus, TaskStatusEnum, WorkerHealth, WorkerStatusEnum
-
 
 class TaskQueueRepo:
     """Repository for task queue Redis operations."""
@@ -301,3 +303,55 @@ class TaskQueueRepo:
         # This is handled automatically by Redis TTL, but we can implement explicit cleanup if needed
         # For now, just return 0 as Redis handles TTL automatically
         return 0
+
+
+class TaskRepo:
+    """Database repository for persisted ARQ task records."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self.s = session
+
+    async def create(self, task: TaskModel) -> TaskModel:
+        self.s.add(task)
+        await self.s.flush()
+        return task
+
+    async def get_by_id(self, task_id: str) -> TaskModel | None:
+        return await self.s.get(TaskModel, task_id)
+
+    async def list_tasks(self, limit: int = 100, offset: int = 0) -> list[TaskModel]:
+        stmt = (
+            select(TaskModel)
+            .order_by(desc(TaskModel.created_at))
+            .offset(offset)
+            .limit(limit)
+        )
+        result = await self.s.execute(stmt)
+        return list(result.scalars().all())
+
+    async def list_by_status(self, status: str, limit: int = 100, offset: int = 0) -> list[TaskModel]:
+        stmt = (
+            select(TaskModel)
+            .where(TaskModel.status == status)
+            .order_by(desc(TaskModel.created_at))
+            .offset(offset)
+            .limit(limit)
+        )
+        result = await self.s.execute(stmt)
+        return list(result.scalars().all())
+
+    async def list_by_queue(self, queue_name: str, limit: int = 100, offset: int = 0) -> list[TaskModel]:
+        stmt = (
+            select(TaskModel)
+            .where(TaskModel.queue_name == queue_name)
+            .order_by(desc(TaskModel.created_at))
+            .offset(offset)
+            .limit(limit)
+        )
+        result = await self.s.execute(stmt)
+        return list(result.scalars().all())
+
+    async def save(self, task: TaskModel) -> TaskModel:
+        self.s.add(task)
+        await self.s.flush()
+        return task

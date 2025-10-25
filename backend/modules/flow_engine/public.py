@@ -251,6 +251,17 @@ class FlowEngineAdminProvider(Protocol):
         """Get total count of flow runs. FOR ADMIN USE ONLY."""
         ...
 
+    def list_flow_runs(
+        self,
+        *,
+        arq_task_id: str | None = None,
+        unit_id: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[FlowRunSummaryDTO]:
+        """List flow runs filtered by admin observability parameters."""
+        ...
+
     def get_flow_run_by_id(self, flow_run_id: uuid.UUID) -> FlowRunDetailsDTO | None:
         """Get flow run by ID. FOR ADMIN USE ONLY."""
         ...

@@ -25,6 +25,10 @@ class TaskQueueProvider(Protocol):
         """Get current status of a task."""
         ...
 
+    async def get_task(self, task_id: str) -> TaskStatus | None:
+        """Get current status of a task (alias)."""
+        ...
+
     async def update_task_progress(self, task_id: str, progress_percentage: float, current_step: str | None = None) -> None:
         """Update task progress."""
         ...

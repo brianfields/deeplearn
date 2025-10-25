@@ -13,14 +13,45 @@ import { ErrorMessage } from '../shared/ErrorMessage';
 import { StatusBadge } from '../shared/StatusBadge';
 import { JSONViewer } from '../shared/JSONViewer';
 import { FlowStepsList } from './FlowStepsList';
+import { ReloadButton } from '../shared/ReloadButton';
 import { ArqTaskStatus } from './ArqTaskStatus';
 import {
   formatDate,
   formatExecutionTime,
   formatCost,
   formatTokens,
-  formatPercentage
+  formatPercentage,
 } from '@/lib/utils';
+
+function deriveUnitId(flow: ReturnType<typeof useFlowRun>['data']): string | null {
+  if (!flow) {
+    return null;
+  }
+
+  if (flow.unit_id) {
+    return flow.unit_id;
+  }
+
+  const candidateKeys = ['unit_id', 'unitId', 'unit'];
+  for (const key of candidateKeys) {
+    const fromInputs = (flow.inputs as Record<string, unknown>)[key];
+    if (typeof fromInputs === 'string' && fromInputs.trim().length > 0) {
+      return fromInputs;
+    }
+  }
+
+  const metadata = flow.flow_metadata as Record<string, unknown> | null;
+  if (metadata) {
+    for (const key of candidateKeys) {
+      const value = metadata[key];
+      if (typeof value === 'string' && value.trim().length > 0) {
+        return value;
+      }
+    }
+  }
+
+  return null;
+}
 
 interface FlowRunDetailsProps {
   flowId: string;
@@ -59,6 +90,8 @@ export function FlowRunDetails({ flowId }: FlowRunDetailsProps) {
     );
   }
 
+  const unitId = deriveUnitId(flow);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -88,31 +121,28 @@ export function FlowRunDetails({ flowId }: FlowRunDetailsProps) {
                 User {flow.user_id}
               </Link>
             )}
+            {flow.arq_task_id && (
+              <Link
+                href={`/tasks?taskId=${flow.arq_task_id}`}
+                className="text-sm text-blue-600 hover:text-blue-500"
+              >
+                Task {flow.arq_task_id.slice(0, 8)}…
+              </Link>
+            )}
+            {unitId && (
+              <Link
+                href={`/units/${unitId}`}
+                className="text-sm text-blue-600 hover:text-blue-500"
+              >
+                Unit {unitId}
+              </Link>
+            )}
           </div>
         </div>
 
         {/* Reload Button */}
         <div className="flex items-center space-x-2">
-          <button
-            onClick={() => refetch()}
-            disabled={isLoading}
-            className="inline-flex items-center space-x-2 px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <svg
-              className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-            <span>{isLoading ? 'Reloading...' : 'Reload Flow'}</span>
-          </button>
+          <ReloadButton onReload={() => refetch()} isLoading={isLoading} label="Reload flow" />
 
           {/* Auto-refresh indicator for running flows */}
           {flow.status === 'running' && (
@@ -125,10 +155,9 @@ export function FlowRunDetails({ flowId }: FlowRunDetailsProps) {
       </div>
 
       {/* ARQ Task Status */}
-      <ArqTaskStatus 
-        flowId={flow.id}
+      <ArqTaskStatus
+        taskId={flow.arq_task_id ?? null}
         executionMode={flow.execution_mode}
-        flowStatus={flow.status}
       />
 
       {/* Overview Cards */}

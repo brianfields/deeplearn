@@ -7,9 +7,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useUnit } from '@/modules/admin/queries';
+import { useUnit, useUnitFlowRuns, useRetryUnit } from '@/modules/admin/queries';
 import { LoadingSpinner } from '@/modules/admin/components/shared/LoadingSpinner';
 import { ErrorMessage } from '@/modules/admin/components/shared/ErrorMessage';
+import { ReloadButton } from '@/modules/admin/components/shared/ReloadButton';
+import { StatusBadge } from '@/modules/admin/components/shared/StatusBadge';
+import { formatDate, formatExecutionTime, formatTokens, formatCost } from '@/lib/utils';
 
 interface UnitDetailsPageProps {
   params: { id: string };
@@ -29,6 +32,13 @@ function computeInitials(title: string): string {
 
 export default function UnitDetailsPage({ params }: UnitDetailsPageProps) {
   const { data: unit, isLoading, error, refetch } = useUnit(params.id);
+  const {
+    data: flowRuns,
+    isLoading: flowsLoading,
+    error: flowsError,
+    refetch: refetchFlows,
+  } = useUnitFlowRuns(params.id);
+  const retryUnit = useRetryUnit();
 
   if (isLoading) return <LoadingSpinner size="lg" text="Loading unit..." />;
   if (error) return <ErrorMessage message="Failed to load unit." onRetry={() => refetch()} />;
@@ -42,12 +52,30 @@ export default function UnitDetailsPage({ params }: UnitDetailsPageProps) {
       </div>
     );
 
+  const unitFlowRuns = flowRuns ?? unit.flow_runs ?? [];
+  const isRetrying = retryUnit.isPending;
+
+  const handleRetry = () => {
+    if (retryUnit.isPending) {
+      return;
+    }
+    retryUnit.mutate(unit.id, {
+      onSuccess: () => {
+        void refetch();
+        void refetchFlows();
+      },
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <Link href="/units" className="text-sm text-gray-500 hover:text-gray-700">← Back to units</Link>
-          <h1 className="mt-2 text-3xl font-bold text-gray-900">{unit.title}</h1>
+          <div className="mt-2 flex items-center gap-3">
+            <h1 className="text-3xl font-bold text-gray-900">{unit.title}</h1>
+            {unit.status && <StatusBadge status={unit.status} size="sm" />}
+          </div>
           <div className="mt-2 flex items-center flex-wrap gap-2">
             <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">{unit.learner_level}</span>
             <span className="text-sm text-gray-500">{unit.lessons.length} lessons</span>
@@ -67,10 +95,13 @@ export default function UnitDetailsPage({ params }: UnitDetailsPageProps) {
           </div>
           {unit.description && <p className="mt-3 text-gray-700 max-w-3xl">{unit.description}</p>}
         </div>
-        <button onClick={() => refetch()} className="inline-flex items-center space-x-2 px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:text-gray-900">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-          <span>Reload</span>
-        </button>
+        <ReloadButton
+          onReload={() => {
+            void refetch();
+            void refetchFlows();
+          }}
+          isLoading={isLoading || flowsLoading || isRetrying}
+        />
       </div>
 
       <div className="bg-white rounded-lg shadow">
@@ -105,6 +136,52 @@ export default function UnitDetailsPage({ params }: UnitDetailsPageProps) {
               <p className="text-sm text-gray-500">No generation prompt provided.</p>
             )}
           </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <p className="text-xs uppercase text-gray-500">Status</p>
+          <div className="mt-2 flex items-center gap-2 text-sm text-gray-700">
+            <StatusBadge status={unit.status ?? 'unknown'} size="sm" />
+            <span>{unit.status ?? 'unknown'}</span>
+          </div>
+          <p className="mt-2 text-xs text-gray-500">Last updated {formatDate(unit.updated_at)}</p>
+          {unit.status === 'failed' && (
+            <button
+              type="button"
+              onClick={handleRetry}
+              disabled={isRetrying}
+              className="mt-3 inline-flex items-center rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isRetrying ? 'Retrying…' : 'Retry unit'}
+            </button>
+          )}
+          {unit.arq_task_id && (
+            <Link href={`/tasks?taskId=${unit.arq_task_id}`} className="mt-2 inline-block text-xs text-blue-600 hover:text-blue-500">
+              View creation task →
+            </Link>
+          )}
+        </div>
+
+        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <p className="text-xs uppercase text-gray-500">Creation progress</p>
+          {unit.creation_progress ? (
+            <div className="mt-2 text-sm text-gray-700">
+              <p className="font-medium">Stage: {unit.creation_progress.stage ?? '—'}</p>
+              {unit.creation_progress.message && (
+                <p className="mt-1 text-xs text-gray-500">{unit.creation_progress.message}</p>
+              )}
+            </div>
+          ) : (
+            <p className="mt-2 text-sm text-gray-500">No progress metadata recorded.</p>
+          )}
+        </div>
+
+        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <p className="text-xs uppercase text-gray-500">Flow runs</p>
+          <p className="mt-2 text-sm text-gray-700">{unitFlowRuns.length} associated flow runs</p>
+          <p className="mt-2 text-xs text-gray-500">Creation started {formatDate(unit.created_at)}</p>
         </div>
       </div>
 
@@ -172,6 +249,12 @@ export default function UnitDetailsPage({ params }: UnitDetailsPageProps) {
         </div>
       )}
 
+      {unit.error_message && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {unit.error_message}
+        </div>
+      )}
+
       <div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-medium text-gray-900">Lessons</h2>
@@ -191,6 +274,70 @@ export default function UnitDetailsPage({ params }: UnitDetailsPageProps) {
             </li>
           ))}
         </ul>
+      </div>
+
+      <div className="bg-white rounded-lg shadow">
+        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+          <div>
+            <h2 className="text-lg font-medium text-gray-900">Associated flow runs</h2>
+            <p className="text-sm text-gray-600">Background flow executions linked to this unit.</p>
+          </div>
+          <ReloadButton onReload={() => refetchFlows()} isLoading={flowsLoading} label="Reload flows" />
+        </div>
+        {flowsLoading && unitFlowRuns.length === 0 && (
+          <div className="px-6 py-6">
+            <LoadingSpinner size="sm" text="Loading flow runs…" />
+          </div>
+        )}
+        {flowsError && (
+          <ErrorMessage
+            message="Failed to load flow runs for this unit."
+            details={flowsError instanceof Error ? flowsError.message : undefined}
+            onRetry={() => refetchFlows()}
+          />
+        )}
+        {!flowsLoading && unitFlowRuns.length === 0 && (
+          <div className="px-6 py-6 text-sm text-gray-500">No flow runs recorded yet.</div>
+        )}
+        {unitFlowRuns.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+                <tr>
+                  <th className="px-6 py-3 text-left font-medium">Flow</th>
+                  <th className="px-6 py-3 text-left font-medium">Status</th>
+                  <th className="px-6 py-3 text-left font-medium">Started</th>
+                  <th className="px-6 py-3 text-left font-medium">Duration</th>
+                  <th className="px-6 py-3 text-left font-medium">Tokens</th>
+                  <th className="px-6 py-3 text-left font-medium">Cost</th>
+                  <th className="px-6 py-3 text-right font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 bg-white text-sm text-gray-700">
+                {unitFlowRuns.map((run) => (
+                  <tr key={run.id}>
+                    <td className="px-6 py-3">
+                      <div className="font-medium text-gray-900">{run.flow_name}</div>
+                      <div className="text-xs text-gray-500">{run.execution_mode}</div>
+                    </td>
+                    <td className="px-6 py-3">
+                      <StatusBadge status={run.status} size="sm" />
+                    </td>
+                    <td className="px-6 py-3">{formatDate(run.started_at)}</td>
+                    <td className="px-6 py-3">{formatExecutionTime(run.execution_time_ms)}</td>
+                    <td className="px-6 py-3">{formatTokens(run.total_tokens)}</td>
+                    <td className="px-6 py-3">{formatCost(run.total_cost)}</td>
+                    <td className="px-6 py-3 text-right">
+                      <Link href={`/flows/${run.id}`} className="text-blue-600 hover:text-blue-500">
+                        View flow
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

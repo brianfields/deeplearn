@@ -31,6 +31,7 @@ from modules.infrastructure.exception_handlers import (
 from modules.infrastructure.public import DatabaseSession, infrastructure_provider
 from modules.learning_coach.routes import router as learning_coach_router
 from modules.learning_session.routes import router as learning_session_router
+from modules.flow_engine.routes import router as flow_engine_router
 from modules.task_queue.routes import router as task_queue_router
 from modules.user.routes import router as user_router
 
@@ -142,6 +143,7 @@ app.include_router(content_router, tags=["Content"])
 app.include_router(user_router, tags=["Users"])
 app.include_router(admin_router, tags=["Admin"])
 app.include_router(task_queue_router, tags=["Task Queue"])
+app.include_router(flow_engine_router, tags=["Flow Engine"])
 app.include_router(debug_router, tags=["Debug"])  # Only active in DEBUG mode
 app.include_router(learning_coach_router, tags=["Learning Coach"])
 

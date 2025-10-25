@@ -10,7 +10,7 @@ import contextlib
 from datetime import UTC, datetime
 import logging
 import os
-from typing import Any
+from typing import Any, Awaitable, Callable, TypeVar
 from urllib.parse import urlparse
 import uuid
 
@@ -33,17 +33,20 @@ except ImportError:
 from ..infrastructure.public import InfrastructureProvider
 from .models import (
     QueueStats,
+    TaskModel,
     TaskStatus,
     TaskStatusEnum,
     TaskSubmissionResult,
     WorkerHealth,
     WorkerStatusEnum,
 )
-from .repo import TaskQueueRepo
+from .repo import TaskQueueRepo, TaskRepo
 
 logger = logging.getLogger(__name__)
 
 __all__ = ["TaskQueueError", "TaskQueueService", "WorkerManager"]
+
+T = TypeVar("T")
 
 
 class TaskQueueError(Exception):
@@ -98,6 +101,97 @@ class TaskQueueService:
                 password=redis_config.password,
                 database=redis_config.db,
             )
+
+    async def _with_task_repo(self, func: Callable[[TaskRepo], Awaitable[T]]) -> T:
+        """Execute a coroutine with a request-scoped TaskRepo."""
+
+        self.infrastructure.initialize()
+        async with self.infrastructure.get_async_session_context() as session:
+            repo = TaskRepo(session)
+            return await func(repo)
+
+    async def _create_task_record(
+        self,
+        *,
+        task_id: str,
+        flow_name: str,
+        flow_run_id: uuid.UUID,
+        inputs: dict[str, Any],
+        user_id: uuid.UUID | None,
+        priority: int,
+        task_type: str | None,
+    ) -> TaskModel:
+        """Persist a new task record in the database."""
+
+        unit_id_value = inputs.get("unit_id")
+        unit_id_str = str(unit_id_value) if unit_id_value is not None else None
+
+        async def _create(repo: TaskRepo) -> TaskModel:
+            model = TaskModel(
+                id=task_id,
+                task_name=flow_name,
+                status=TaskStatusEnum.PENDING.value,
+                queue_name="default",
+                task_type=task_type,
+                inputs=inputs,
+                result=None,
+                error_message=None,
+                progress_percentage=0.0,
+                current_step=None,
+                retry_count=0,
+                max_retries=1,
+                priority=priority,
+                user_id=user_id,
+                worker_id=None,
+                flow_run_id=flow_run_id,
+                unit_id=unit_id_str,
+            )
+            return await repo.create(model)
+
+        return await self._with_task_repo(_create)
+
+    def _task_model_to_status(self, task: TaskModel) -> TaskStatus:
+        """Convert persisted task model to DTO."""
+
+        return TaskStatus(
+            task_id=task.id,
+            flow_name=task.task_name,
+            status=TaskStatusEnum(task.status),
+            created_at=task.created_at,
+            started_at=task.started_at,
+            completed_at=task.completed_at,
+            progress_percentage=task.progress_percentage,
+            current_step=task.current_step,
+            error_message=task.error_message,
+            retry_count=task.retry_count,
+            max_retries=task.max_retries,
+            inputs=task.inputs,
+            outputs=task.result,
+            user_id=str(task.user_id) if task.user_id else None,
+            worker_id=task.worker_id,
+            queue_name=task.queue_name,
+            priority=task.priority,
+            task_type=task.task_type,
+            flow_run_id=task.flow_run_id,
+            unit_id=task.unit_id,
+        )
+
+    async def _update_task(
+        self,
+        task_id: str,
+        updater: Callable[[TaskModel], None],
+    ) -> TaskModel | None:
+        """Load, mutate, and persist a task record."""
+
+        async def _apply(repo: TaskRepo) -> TaskModel | None:
+            model = await repo.get_by_id(task_id)
+            if model is None:
+                return None
+            updater(model)
+            await repo.save(model)
+            return model
+
+        return await self._with_task_repo(_apply)
 
     async def get_arq_pool(self) -> "arq.ArqRedis":
         """Get or create ARQ connection pool."""
@@ -163,6 +257,16 @@ class TaskQueueService:
 
             await self.repo.store_task_status(task_status)
 
+            await self._create_task_record(
+                task_id=task_id,
+                flow_name=flow_name,
+                flow_run_id=flow_run_id,
+                inputs=inputs,
+                user_id=user_id,
+                priority=priority,
+                task_type=task_payload.get("task_type"),
+            )
+
             logger.info(f"Submitted flow task: {flow_name} (task_id={task_id}, flow_run_id={flow_run_id})")
 
             return TaskSubmissionResult(
@@ -179,24 +283,55 @@ class TaskQueueService:
 
     async def get_task_status(self, task_id: str) -> TaskStatus | None:
         """Get current status of a task."""
-        return await self.repo.get_task_status(task_id)
+        task = await self._with_task_repo(lambda repo: repo.get_by_id(task_id))
+        if task is None:
+            return None
+        return self._task_model_to_status(task)
+
+    async def get_task(self, task_id: str) -> TaskStatus | None:
+        """Alias for compatibility with public provider expectations."""
+
+        return await self.get_task_status(task_id)
 
     async def update_task_progress(self, task_id: str, progress_percentage: float, current_step: str | None = None) -> None:
         """Update task progress (called from within tasks)."""
+        def _apply(model: TaskModel) -> None:
+            model.progress_percentage = progress_percentage
+            if current_step is not None:
+                model.current_step = current_step
+
+        await self._update_task(task_id, _apply)
         await self.repo.update_task_progress(task_id, progress_percentage, current_step)
 
     async def mark_task_started(self, task_id: str, worker_id: str | None = None) -> None:
         """Mark task as started (called from worker)."""
-        task_status = await self.repo.get_task_status(task_id)
-        if task_status:
-            task_status.status = TaskStatusEnum.IN_PROGRESS
-            task_status.started_at = datetime.now(UTC)
-            task_status.worker_id = worker_id
+        def _apply(model: TaskModel) -> None:
+            model.status = TaskStatusEnum.IN_PROGRESS.value
+            model.started_at = datetime.now(UTC)
+            model.worker_id = worker_id
+
+        updated = await self._update_task(task_id, _apply)
+        if updated:
+            task_status = self._task_model_to_status(updated)
             await self.repo.store_task_status(task_status)
 
     async def complete_task(self, task_id: str, outputs: dict[str, Any] | None = None, error_message: str | None = None) -> None:
         """Complete a task with success or failure."""
-        await self.repo.complete_task(task_id, outputs, error_message)
+        def _apply(model: TaskModel) -> None:
+            model.completed_at = datetime.now(UTC)
+            model.progress_percentage = 100.0
+            if error_message:
+                model.status = TaskStatusEnum.FAILED.value
+                model.error_message = error_message
+                model.result = None
+            else:
+                model.status = TaskStatusEnum.COMPLETED.value
+                model.result = outputs
+                model.error_message = None
+
+        updated = await self._update_task(task_id, _apply)
+        if updated:
+            await self.repo.complete_task(task_id, outputs, error_message)
 
     async def cancel_task(self, task_id: str) -> bool:
         """
@@ -205,7 +340,7 @@ class TaskQueueService:
         Returns:
             True if task was cancelled, False if already running/completed
         """
-        task_status = await self.repo.get_task_status(task_id)
+        task_status = await self.get_task_status(task_id)
         if not task_status:
             return False
 
@@ -220,9 +355,13 @@ class TaskQueueService:
                 await job.abort()
 
                 # Update status
-                task_status.status = TaskStatusEnum.CANCELLED
-                task_status.completed_at = datetime.now(UTC)
-                await self.repo.store_task_status(task_status)
+                def _apply(model: TaskModel) -> None:
+                    model.status = TaskStatusEnum.CANCELLED.value
+                    model.completed_at = datetime.now(UTC)
+
+                updated = await self._update_task(task_id, _apply)
+                if updated:
+                    await self.repo.store_task_status(self._task_model_to_status(updated))
 
                 logger.info(f"Cancelled task: {task_id}")
                 return True
@@ -234,7 +373,12 @@ class TaskQueueService:
 
     async def get_recent_tasks(self, limit: int = 50, queue_name: str | None = None) -> list[TaskStatus]:
         """Get recent task statuses."""
-        return await self.repo.get_recent_tasks(limit, queue_name)
+        tasks = await self._with_task_repo(
+            lambda repo: repo.list_by_queue(queue_name, limit=limit)
+            if queue_name
+            else repo.list_tasks(limit=limit)
+        )
+        return [self._task_model_to_status(task) for task in tasks]
 
     async def get_queue_stats(self, queue_name: str = "default") -> QueueStats:
         """Get queue statistics."""

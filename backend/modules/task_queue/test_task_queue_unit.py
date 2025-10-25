@@ -245,7 +245,12 @@ class TestTaskQueueService:
             self.redis_settings = MagicMock()
 
         with patch.object(TaskQueueService, "__init__", mock_init):
-            return TaskQueueService(mock_infrastructure)
+            svc = TaskQueueService(mock_infrastructure)
+            svc._create_task_record = AsyncMock()
+            svc._with_task_repo = AsyncMock()
+            svc._task_model_to_status = MagicMock()
+            svc._update_task = AsyncMock(return_value=None)
+            return svc
 
     @pytest.mark.asyncio
     async def test_submit_flow_task_success(self, service, mock_arq_pool):
@@ -283,23 +288,25 @@ class TestTaskQueueService:
 
         # Verify task status was stored
         service.repo.store_task_status.assert_called_once()
+        service._create_task_record.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_get_task_status(self, service):
         """Test retrieving task status."""
-        # Mock repo response
         expected_status = TaskStatus(
             task_id="test-123",
             flow_name="test_flow",
             status=TaskStatusEnum.COMPLETED,
             created_at=datetime.now(UTC),
         )
-        service.repo.get_task_status = AsyncMock(return_value=expected_status)
+        service._with_task_repo = AsyncMock(return_value=MagicMock())
+        service._task_model_to_status = MagicMock(return_value=expected_status)
 
         result = await service.get_task_status("test-123")
 
         assert result == expected_status
-        service.repo.get_task_status.assert_called_once_with("test-123")
+        service._with_task_repo.assert_awaited()
+        service._task_model_to_status.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_cancel_task_success(self, service, mock_arq_pool):
@@ -314,7 +321,9 @@ class TestTaskQueueService:
             status=TaskStatusEnum.PENDING,
             created_at=datetime.now(UTC),
         )
-        service.repo.get_task_status = AsyncMock(return_value=task_status)
+        service.get_task_status = AsyncMock(return_value=task_status)
+        service._update_task = AsyncMock(return_value=MagicMock())
+        service._task_model_to_status = MagicMock(return_value=task_status)
         service.repo.store_task_status = AsyncMock()
 
         result = await service.cancel_task("test-123")
@@ -322,6 +331,7 @@ class TestTaskQueueService:
         assert result is True
         # The job abort should be called via the pool mock
         service.repo.store_task_status.assert_called_once()
+        service._update_task.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_cancel_task_already_running(self, service):
@@ -333,7 +343,7 @@ class TestTaskQueueService:
             status=TaskStatusEnum.IN_PROGRESS,
             created_at=datetime.now(UTC),
         )
-        service.repo.get_task_status = AsyncMock(return_value=task_status)
+        service.get_task_status = AsyncMock(return_value=task_status)
 
         result = await service.cancel_task("test-123")
 

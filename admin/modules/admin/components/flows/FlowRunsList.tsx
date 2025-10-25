@@ -7,19 +7,153 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
-import { useFlowRuns } from '../../queries';
+import { Fragment, useState } from 'react';
+import { useFlowRun, useFlowRuns } from '../../queries';
 import { useFlowFilters, useAdminStore } from '../../store';
 import { LoadingSpinner } from '../shared/LoadingSpinner';
 import { ErrorMessage } from '../shared/ErrorMessage';
 import { StatusBadge } from '../shared/StatusBadge';
-import { formatDate, formatExecutionTime, formatCost, formatTokens } from '@/lib/utils';
+import { ReloadButton } from '../shared/ReloadButton';
+import { FlowStepsList } from './FlowStepsList';
+import {
+  formatDate,
+  formatExecutionTime,
+  formatCost,
+  formatTokens,
+  formatPercentage,
+} from '@/lib/utils';
+import type { FlowRunDetails } from '../../models';
+
+function deriveUnitId(flow: FlowRunDetails | undefined): string | null {
+  if (!flow) {
+    return null;
+  }
+
+  if (flow.unit_id) {
+    return flow.unit_id;
+  }
+
+  const candidateKeys = ['unit_id', 'unitId', 'unit'];
+  for (const key of candidateKeys) {
+    const fromInputs = (flow.inputs as Record<string, unknown>)[key];
+    if (typeof fromInputs === 'string' && fromInputs.trim().length > 0) {
+      return fromInputs;
+    }
+  }
+
+  const metadata = flow.flow_metadata as Record<string, unknown> | null;
+  if (metadata) {
+    for (const key of candidateKeys) {
+      const value = metadata[key];
+      if (typeof value === 'string' && value.trim().length > 0) {
+        return value;
+      }
+    }
+  }
+
+  return null;
+}
+
+function FlowRunExpandedRow({ flowId }: { flowId: string }) {
+  const {
+    data: flow,
+    isLoading,
+    error,
+    refetch,
+  } = useFlowRun(flowId, { enabled: true });
+
+  if (isLoading && !flow) {
+    return (
+      <div className="flex items-center justify-center py-6">
+        <LoadingSpinner size="md" text="Loading flow details..." />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <ErrorMessage
+        message="Failed to load flow details."
+        details={error instanceof Error ? error.message : undefined}
+        onRetry={() => refetch()}
+      />
+    );
+  }
+
+  if (!flow) {
+    return (
+      <div className="py-6 text-sm text-gray-500">Flow details unavailable.</div>
+    );
+  }
+
+  const unitId = deriveUnitId(flow);
+
+  return (
+    <div className="space-y-4 rounded-md border border-gray-200 bg-gray-50 p-4">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600">
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-gray-700">Progress:</span>
+            <span>{formatPercentage(flow.progress_percentage)}</span>
+            <span className="text-gray-400">·</span>
+            <span>
+              Step {flow.step_progress} / {flow.total_steps ?? '?'}
+            </span>
+          </div>
+          {flow.current_step && (
+            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+              Current step: {flow.current_step}
+            </span>
+          )}
+          {flow.arq_task_id && (
+            <Link
+              href={`/tasks?taskId=${flow.arq_task_id}`}
+              className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-500"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              View task
+            </Link>
+          )}
+          {unitId && (
+            <Link
+              href={`/units/${unitId}`}
+              className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-500"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7l9-4 9 4-9 4-9-4zm0 6l9 4 9-4" />
+              </svg>
+              View unit
+            </Link>
+          )}
+        </div>
+        <ReloadButton onReload={() => refetch()} isLoading={isLoading} label="Reload flow" />
+      </div>
+
+      <FlowStepsList steps={flow.steps} flowId={flow.id} />
+    </div>
+  );
+}
 
 export function FlowRunsList() {
   const filters = useFlowFilters();
   const { setFlowFilters } = useAdminStore();
 
   const { data, isLoading, error, refetch } = useFlowRuns(filters);
+  const [expandedFlows, setExpandedFlows] = useState<Set<string>>(new Set());
+
+  const toggleExpanded = (flowId: string) => {
+    setExpandedFlows((current) => {
+      const next = new Set(current);
+      if (next.has(flowId)) {
+        next.delete(flowId);
+      } else {
+        next.add(flowId);
+      }
+      return next;
+    });
+  };
 
   const handlePageChange = (newPage: number) => {
     setFlowFilters({ page: newPage });
@@ -57,26 +191,7 @@ export function FlowRunsList() {
           <p className="text-sm text-gray-700">
             Showing {flows.length} of {totalCount} flow runs
           </p>
-          <button
-            onClick={() => refetch()}
-            disabled={isLoading}
-            className="inline-flex items-center space-x-1 px-3 py-1 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <svg
-              className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-            <span>{isLoading ? 'Reloading...' : 'Reload'}</span>
-          </button>
+          <ReloadButton onReload={() => refetch()} isLoading={isLoading} />
         </div>
         <div className="flex items-center space-x-2">
           <label htmlFor="pageSize" className="text-sm text-gray-700">
@@ -152,20 +267,34 @@ export function FlowRunsList() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {flows.map((flow) => (
-                  <tr key={flow.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {flow.flow_name}
+                {flows.map((flow) => {
+                  const isExpanded = expandedFlows.has(flow.id);
+                  return (
+                    <Fragment key={flow.id}>
+                      <tr className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center space-x-3">
+                            <button
+                              type="button"
+                              onClick={() => toggleExpanded(flow.id)}
+                              className="rounded-full border border-gray-200 p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                              aria-label={isExpanded ? 'Collapse flow run details' : 'Expand flow run details'}
+                            >
+                              <svg
+                                className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-90' : 'rotate-0'}`}
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
+                            </button>
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">{flow.flow_name}</div>
+                              <div className="text-sm text-gray-500">{flow.execution_mode}</div>
+                            </div>
                           </div>
-                          <div className="text-sm text-gray-500">
-                            {flow.execution_mode}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
+                        </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {flow.user_id ? (
                         <Link href={`/users/${flow.user_id}`} className="text-blue-600 hover:text-blue-900">
@@ -193,16 +322,22 @@ export function FlowRunsList() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {formatCost(flow.total_cost)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <Link
-                        href={`/flows/${flow.id}`}
-                        className="text-blue-600 hover:text-blue-900"
-                      >
-                        View details
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <Link href={`/flows/${flow.id}`} className="text-blue-600 hover:text-blue-900">
+                            View details
+                          </Link>
+                        </td>
+                      </tr>
+                      {isExpanded && (
+                        <tr>
+                          <td colSpan={9} className="px-6 pb-6 pt-2">
+                            <FlowRunExpandedRow flowId={flow.id} />
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>

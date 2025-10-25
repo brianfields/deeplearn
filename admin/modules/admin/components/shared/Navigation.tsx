@@ -23,24 +23,14 @@ const navigationItems = [
     description: 'Monitor flow executions',
   },
   {
-    name: 'Task Queue',
-    href: '/queue',
-    description: 'Monitor ARQ task queue status',
-  },
-  {
-    name: 'Workers',
-    href: '/workers',
-    description: 'Monitor ARQ worker health',
+    name: 'Tasks',
+    href: '/tasks',
+    description: 'Track background tasks and workers',
   },
   {
     name: 'LLM Requests',
     href: '/llm-requests',
     description: 'View LLM request details',
-  },
-  {
-    name: 'Lessons',
-    href: '/lessons',
-    description: 'Browse lesson catalog and packages',
   },
   {
     name: 'Users',

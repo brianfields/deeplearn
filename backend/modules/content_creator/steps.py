@@ -229,6 +229,6 @@ class GenerateUnitArtImageStep(ImageStep):
 
     class Inputs(BaseModel):
         prompt: str
-        size: str = "1024x1024"
+        size: str = "256x256"
         quality: str = "standard"
         style: str | None = "natural"

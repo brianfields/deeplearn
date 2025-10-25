@@ -54,13 +54,17 @@ except Exception:  # pragma: no cover - guard when SDK missing
 try:  # pragma: no cover - optional dependency
     _boto3 = importlib.import_module("boto3")
     _botocore_exceptions = importlib.import_module("botocore.exceptions")
+    _botocore_config = importlib.import_module("botocore.config")
     Boto3ClientError = getattr(_botocore_exceptions, "ClientError", Exception)
     Boto3BotoCoreError = getattr(_botocore_exceptions, "BotoCoreError", Exception)
+    BotocoreConfig = getattr(_botocore_config, "Config", None)
     _BOTO3_AVAILABLE = True
 except Exception:  # pragma: no cover
     _boto3 = None
+    _botocore_config = None
     Boto3ClientError = Exception
     Boto3BotoCoreError = Exception
+    BotocoreConfig = None
     _BOTO3_AVAILABLE = False
 
 
@@ -508,6 +512,18 @@ class BedrockProvider(ClaudeProviderBase):
             client_kwargs: dict[str, Any] = {
                 "region_name": self.config.aws_region or "us-west-2",
             }
+
+            # Configure adaptive retry mode for better throttling handling
+            if BotocoreConfig is not None:
+                retry_config = BotocoreConfig(
+                    retries={
+                        "max_attempts": 10,  # More retry attempts for throttling
+                        "mode": "adaptive",  # Adaptive mode learns from throttling patterns
+                    }
+                )
+                client_kwargs["config"] = retry_config
+                logger.info("Bedrock client configured with adaptive retry mode (max 10 attempts)")
+
             if self.config.aws_access_key_id and self.config.aws_secret_access_key:
                 client_kwargs["aws_access_key_id"] = self.config.aws_access_key_id
                 client_kwargs["aws_secret_access_key"] = self.config.aws_secret_access_key

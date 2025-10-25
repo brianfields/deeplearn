@@ -57,6 +57,48 @@ __all__ = [
 ]
 
 
+# Explicit model-to-provider mapping
+# If a model is not in this dictionary, it cannot be used.
+# To add a new model, simply add it to this dictionary with its provider type.
+#
+# For Claude models:
+#   - Always map to LLMProviderType.ANTHROPIC in this dictionary
+#   - The actual provider (Anthropic vs Bedrock) is determined by CLAUDE_PROVIDER env var
+#   - CLAUDE_PROVIDER='anthropic' (default) uses direct Anthropic API
+#   - CLAUDE_PROVIDER='bedrock' uses AWS Bedrock
+MODEL_PROVIDER_MAP: dict[str, LLMProviderType] = {
+    # OpenAI GPT models
+    "gpt-4o": LLMProviderType.OPENAI,
+    "gpt-4o-mini": LLMProviderType.OPENAI,
+    "gpt-4-turbo": LLMProviderType.OPENAI,
+    "gpt-4": LLMProviderType.OPENAI,
+    "gpt-3.5-turbo": LLMProviderType.OPENAI,
+    # OpenAI o1 models
+    "o1": LLMProviderType.OPENAI,
+    "o1-mini": LLMProviderType.OPENAI,
+    "o1-preview": LLMProviderType.OPENAI,
+    # OpenAI GPT-5 models (when available)
+    "gpt-5": LLMProviderType.OPENAI,
+    "gpt-5-mini": LLMProviderType.OPENAI,
+    # OpenAI TTS (Text-to-Speech) models
+    "tts-1": LLMProviderType.OPENAI,
+    "tts-1-hd": LLMProviderType.OPENAI,
+    "gpt-4o-mini-tts": LLMProviderType.OPENAI,  # Alias for tts-1-hd
+    # OpenAI DALL-E (Image Generation) models
+    "dall-e-2": LLMProviderType.OPENAI,
+    "dall-e-3": LLMProviderType.OPENAI,
+    # Claude models (actual provider determined by CLAUDE_PROVIDER env var)
+    "claude-opus-4-1": LLMProviderType.ANTHROPIC,
+    "claude-sonnet-4-5": LLMProviderType.ANTHROPIC,
+    "claude-haiku-4-5": LLMProviderType.ANTHROPIC,
+    "claude-3-5-sonnet-20241022": LLMProviderType.ANTHROPIC,
+    "claude-3-5-sonnet-20240620": LLMProviderType.ANTHROPIC,
+    "claude-3-opus-20240229": LLMProviderType.ANTHROPIC,
+    "claude-3-sonnet-20240229": LLMProviderType.ANTHROPIC,
+    "claude-3-haiku-20240307": LLMProviderType.ANTHROPIC,
+}
+
+
 # DTOs for external interface
 class LLMMessage(BaseModel):
     """DTO for LLM conversation messages."""
@@ -272,46 +314,68 @@ class LLMService:
         return provider
 
     def _select_provider(self, model: str | None) -> LLMProvider:
-        if model and model.startswith("claude-"):
-            self._logger.debug(f"Selecting provider for Claude model: {model}")
-            # Try default provider first if it supports Claude
-            if self._default_provider_type in (LLMProviderType.ANTHROPIC, LLMProviderType.BEDROCK):
-                try:
-                    provider = self._ensure_provider(self._default_provider_type)
-                    self._logger.info(f"Using default {self._default_provider_type.value} provider for model: {model}")
-                    return provider
-                except (RuntimeError, LLMAuthenticationError) as e:
-                    self._logger.debug(f"Cannot use default provider {self._default_provider_type.value}: {e}")
-            # Fall back to trying all Claude providers
-            for candidate in (LLMProviderType.ANTHROPIC, LLMProviderType.BEDROCK):
-                if candidate == self._default_provider_type:
-                    continue  # Already tried above
-                try:
-                    provider = self._ensure_provider(candidate)
-                    self._logger.info(f"Using {candidate.value} provider for model: {model}")
-                    return provider
-                except (RuntimeError, LLMAuthenticationError) as e:
-                    self._logger.debug(f"Cannot use {candidate.value} for Claude: {e}")
-                    continue
-            raise RuntimeError("Claude provider is not configured")
+        """
+        Select the appropriate provider based on the model name.
 
-        if (
-            model
-            and model.startswith("gpt-")
-            and self._default_provider_type
-            not in {
-                LLMProviderType.OPENAI,
-                LLMProviderType.AZURE_OPENAI,
-            }
-        ):
-            with contextlib.suppress(RuntimeError):
-                return self._ensure_provider(LLMProviderType.OPENAI)
+        Uses MODEL_PROVIDER_MAP to explicitly map models to providers.
+        If a model is not in the map, an exception is raised.
+        NO FALLBACKS: If the required provider isn't configured, fail explicitly.
+        """
+        if not model:
+            if self._default_provider_type is None:
+                raise RuntimeError("No model specified and no default provider initialized")
+            self._logger.debug(f"No model specified, using default provider: {self._default_provider_type.value}")
+            return self._ensure_provider(self._default_provider_type)
 
-        if self._default_provider_type is None:
-            raise RuntimeError("LLM provider not initialized")
+        # Check if model is in the explicit model map
+        if model not in MODEL_PROVIDER_MAP:
+            available_models = ", ".join(sorted(MODEL_PROVIDER_MAP.keys()))
+            raise ValueError(f"Model '{model}' is not supported. Supported models: {available_models}")
 
-        self._logger.debug(f"Using default provider: {self._default_provider_type.value} for model: {model}")
-        return self._ensure_provider(self._default_provider_type)
+        # Get the base provider type for this model
+        base_provider_type = MODEL_PROVIDER_MAP[model]
+
+        # For Claude models, check CLAUDE_PROVIDER setting to determine actual provider
+        if base_provider_type == LLMProviderType.ANTHROPIC:
+            # Check CLAUDE_PROVIDER setting
+            claude_provider = None
+            for config in self._provider_configs.values():
+                if hasattr(config, "claude_provider") and config.claude_provider:
+                    claude_provider = config.claude_provider
+                    break
+
+            # Default to anthropic if not specified
+            if claude_provider is None:
+                claude_provider = "anthropic"
+
+            if claude_provider == "bedrock":
+                provider_type = LLMProviderType.BEDROCK
+                self._logger.debug(f"Model '{model}' will use Bedrock (CLAUDE_PROVIDER=bedrock)")
+            elif claude_provider == "anthropic":
+                provider_type = LLMProviderType.ANTHROPIC
+                self._logger.debug(f"Model '{model}' will use Anthropic (CLAUDE_PROVIDER=anthropic)")
+            else:
+                raise ValueError(f"Invalid CLAUDE_PROVIDER value: '{claude_provider}'. Must be 'anthropic' or 'bedrock'")
+        else:
+            provider_type = base_provider_type
+
+        # Initialize and return the provider
+        try:
+            provider = self._ensure_provider(provider_type)
+            self._logger.info(f"Using {provider_type.value} provider for model: {model}")
+            return provider
+        except (RuntimeError, LLMAuthenticationError) as e:
+            # Provide helpful error messages based on provider type
+            if provider_type == LLMProviderType.OPENAI:
+                raise RuntimeError(f"Model '{model}' requires OpenAI provider, but it's not configured. Please set OPENAI_API_KEY environment variable.") from e
+            elif provider_type == LLMProviderType.ANTHROPIC:
+                raise RuntimeError(f"Model '{model}' requires Anthropic provider (CLAUDE_PROVIDER=anthropic), but it's not configured. Please set ANTHROPIC_API_KEY environment variable or change CLAUDE_PROVIDER to 'bedrock'.") from e
+            elif provider_type == LLMProviderType.BEDROCK:
+                raise RuntimeError(f"Model '{model}' requires Bedrock provider (CLAUDE_PROVIDER=bedrock), but it's not configured. Please set AWS credentials or change CLAUDE_PROVIDER to 'anthropic'.") from e
+            elif provider_type == LLMProviderType.AZURE_OPENAI:
+                raise RuntimeError(f"Model '{model}' requires Azure OpenAI provider, but it's not configured. Please set AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT environment variables.") from e
+            else:
+                raise RuntimeError(f"Model '{model}' requires {provider_type.value} provider, but it's not configured.") from e
 
     def _ensure_request_user(self, request_id: uuid.UUID, user_id: int | None) -> None:
         """Persist the user association for the given LLM request when provided."""
