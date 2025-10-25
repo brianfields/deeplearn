@@ -103,7 +103,7 @@ class FlowEngineService:
         This is critical for real-time visibility in the admin dashboard during
         long-running flows executed in ARQ tasks.
         """
-        # Access the session through the repo
+        # Access the session through the repo (sync commit for immediate visibility)
         self.flow_run_repo.s.commit()
 
     async def create_flow_run_record(

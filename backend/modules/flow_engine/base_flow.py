@@ -37,6 +37,7 @@ def flow_execution(func: Callable[..., Any]) -> Callable[..., Any]:
         llm_services = llm_services_provider()
 
         # Keep the entire flow execution within a managed DB session so writes commit
+        # Note: Using sync session context even in async flow - this is intentional for immediate commits
         with infra.get_session_context() as db_session:
             service = FlowEngineService(FlowRunRepo(db_session), FlowStepRunRepo(db_session), llm_services)
 
