@@ -11,14 +11,23 @@ import type {
   ApiFlowRun,
   ApiFlowRunDetails,
   ApiFlowStepDetails,
+  ApiConversationDetail,
+  ApiConversationMessage,
+  ApiConversationSummary,
+  ApiConversationsListResponse,
   ApiLLMRequest,
   ApiSystemMetrics,
   ApiUserDetail,
   ApiUserListResponse,
   ApiUserSummary,
   ApiUserUpdateRequest,
+  ApiUserConversationSummary,
 
   // DTO types
+  ConversationDetail,
+  ConversationMessage,
+  ConversationSummary,
+  ConversationsListResponse,
   DailyMetrics,
   FlowMetrics,
   FlowRunDetails,
@@ -40,14 +49,17 @@ import type {
   UserSummary,
   UserUpdatePayload,
   UserLLMRequestSummary,
+  UserConversationSummary,
 
   // Query types
+  ConversationListQuery,
   FlowRunsQuery,
   LLMRequestsQuery,
   LessonsQuery,
   MetricsQuery,
 
   // Response types
+  ConversationsListResponse,
   FlowRunsListResponse,
   LLMRequestsListResponse,
   LessonsListResponse,
@@ -179,6 +191,57 @@ const llmRequestToDTO = (apiRequest: ApiLLMRequest): LLMRequestSummary => ({
   error_message: apiRequest.error_message,
 });
 
+const normalizeMetadata = (metadata: Record<string, any> | null | undefined): Record<string, any> => {
+  if (!metadata) {
+    return {};
+  }
+  return { ...metadata };
+};
+
+const conversationMessageToDTO = (message: ApiConversationMessage): ConversationMessage => ({
+  id: message.id,
+  role: message.role,
+  content: message.content,
+  created_at: new Date(message.created_at),
+  metadata: normalizeMetadata(message.metadata),
+  tokens_used: message.tokens_used ?? null,
+  cost_estimate: message.cost_estimate ?? null,
+  llm_request_id: message.llm_request_id ?? null,
+  message_order: message.message_order ?? null,
+});
+
+const conversationSummaryToDTO = (summary: ApiConversationSummary): ConversationSummary => ({
+  id: summary.id,
+  user_id: summary.user_id ?? null,
+  title: summary.title ?? null,
+  status: summary.status,
+  message_count: summary.message_count,
+  created_at: new Date(summary.created_at),
+  updated_at: new Date(summary.updated_at),
+  last_message_at: summary.last_message_at ? new Date(summary.last_message_at) : null,
+  metadata: normalizeMetadata(summary.metadata),
+});
+
+const conversationDetailToDTO = (detail: ApiConversationDetail): ConversationDetail => ({
+  conversation_id: detail.conversation_id,
+  messages: detail.messages.map(conversationMessageToDTO),
+  metadata: normalizeMetadata(detail.metadata),
+  proposed_brief: detail.proposed_brief ?? null,
+  accepted_brief: detail.accepted_brief ?? null,
+});
+
+const userConversationToDTO = (
+  conversation: ApiUserConversationSummary
+): UserConversationSummary => ({
+  id: conversation.id,
+  title: conversation.title ?? null,
+  status: conversation.status,
+  message_count: conversation.message_count,
+  last_message_at: conversation.last_message_at
+    ? new Date(conversation.last_message_at)
+    : null,
+});
+
 const systemMetricsToDTO = (apiMetrics: ApiSystemMetrics): SystemMetrics => ({
   total_flows: apiMetrics.total_flows,
   active_flows: apiMetrics.active_flows,
@@ -241,6 +304,7 @@ const userDetailToDTO = (user: ApiUserDetail): UserDetail => ({
   owned_units: user.owned_units.map(userOwnedUnitToDTO),
   recent_sessions: user.recent_sessions.map(userSessionToDTO),
   recent_llm_requests: user.recent_llm_requests.map(userRequestToDTO),
+  recent_conversations: (user.recent_conversations ?? []).map(userConversationToDTO),
 });
 
 // ---- Service Implementation ----
@@ -458,6 +522,49 @@ export class AdminService {
         page_size: 50,
         has_next: false,
       };
+    }
+  }
+
+  // ---- Learning Coach Conversations ----
+
+  async getConversations(
+    params?: ConversationListQuery
+  ): Promise<ConversationsListResponse> {
+    try {
+      const response: ApiConversationsListResponse = await AdminRepo.conversations.list(params);
+
+      return {
+        conversations: response.conversations.map(conversationSummaryToDTO),
+        total_count: response.total_count,
+        page: response.page,
+        page_size: response.page_size,
+        has_next: response.has_next,
+      };
+    } catch (error) {
+      console.error('Failed to fetch learning coach conversations:', error);
+      const page = params?.page ?? 1;
+      const pageSize = params?.page_size ?? 50;
+      return {
+        conversations: [],
+        total_count: 0,
+        page,
+        page_size: pageSize,
+        has_next: false,
+      };
+    }
+  }
+
+  async getConversation(conversationId: string): Promise<ConversationDetail | null> {
+    if (!conversationId) {
+      return null;
+    }
+
+    try {
+      const detail = await AdminRepo.conversations.byId(conversationId);
+      return conversationDetailToDTO(detail);
+    } catch (error) {
+      console.error('Failed to fetch learning coach conversation detail:', error);
+      return null;
     }
   }
 
