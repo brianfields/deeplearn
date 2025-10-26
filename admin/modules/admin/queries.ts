@@ -12,6 +12,8 @@ import type {
   ConversationListQuery,
   ConversationsListResponse,
   FlowRunsQuery,
+  LearningSessionsListResponse,
+  LearningSessionsQuery,
   LLMRequestsQuery,
   LessonsQuery,
   MetricsQuery,
@@ -36,6 +38,10 @@ export const adminKeys = {
   conversationsList: (params?: ConversationListQuery) =>
     [...adminKeys.conversations(), 'list', params ?? {}] as const,
   conversationDetail: (id: string) => [...adminKeys.conversations(), 'detail', id] as const,
+  learningSessions: () => [...adminKeys.all, 'learning-sessions'] as const,
+  learningSessionsList: (params?: LearningSessionsQuery) =>
+    [...adminKeys.learningSessions(), 'list', params ?? {}] as const,
+  learningSessionDetail: (id: string) => [...adminKeys.learningSessions(), 'detail', id] as const,
   llmRequests: () => [...adminKeys.all, 'llm-requests'] as const,
   llmRequestsList: (params?: LLMRequestsQuery) => [...adminKeys.llmRequests(), 'list', params] as const,
   llmRequestDetail: (id: string) => [...adminKeys.llmRequests(), 'detail', id] as const,
@@ -101,6 +107,25 @@ export function useConversations(params?: ConversationListQuery) {
     queryKey: adminKeys.conversationsList(params),
     queryFn: () => service.getConversations(params),
     staleTime: 30 * 1000, // manual reload preferred but keep cache warm briefly
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useLearningSessions(params?: LearningSessionsQuery) {
+  return useQuery<LearningSessionsListResponse>({
+    queryKey: adminKeys.learningSessionsList(params),
+    queryFn: () => service.getLearningSessions(params),
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useLearningSession(sessionId: string, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: adminKeys.learningSessionDetail(sessionId),
+    queryFn: () => service.getLearningSession(sessionId),
+    enabled: !!sessionId && (options?.enabled ?? true),
+    staleTime: 30 * 1000,
     refetchOnWindowFocus: false,
   });
 }

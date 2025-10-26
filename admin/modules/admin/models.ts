@@ -77,6 +77,28 @@ export interface FlowRunsListResponse {
   has_next: boolean;
 }
 
+export interface LearningSessionSummary {
+  id: string;
+  lesson_id: string;
+  unit_id: string | null;
+  user_id: string | null;
+  status: string;
+  started_at: Date;
+  completed_at: Date | null;
+  current_exercise_index: number;
+  total_exercises: number;
+  progress_percentage: number;
+  session_data: Record<string, any>;
+}
+
+export interface LearningSessionsListResponse {
+  sessions: LearningSessionSummary[];
+  total_count: number;
+  page: number;
+  page_size: number;
+  has_next: boolean;
+}
+
 // ---- LLM Request Types ----
 
 export interface LLMRequestSummary {
@@ -744,6 +766,28 @@ export interface ApiConversationsListResponse {
   has_next: boolean;
 }
 
+export interface ApiLearningSession {
+  id: string;
+  lesson_id: string;
+  unit_id: string | null;
+  user_id: string | null;
+  status: string;
+  started_at: string;
+  completed_at: string | null;
+  current_exercise_index: number;
+  total_exercises: number;
+  progress_percentage: number;
+  session_data: Record<string, any>;
+}
+
+export interface ApiLearningSessionsListResponse {
+  sessions: ApiLearningSession[];
+  total_count: number;
+  page: number;
+  page_size: number;
+  has_next: boolean;
+}
+
 export interface ApiSystemMetrics {
   total_flows: number;
   active_flows: number;
@@ -772,6 +816,14 @@ export interface FlowRunsQuery {
 export interface ConversationListQuery {
   status?: string;
   user_id?: string | number;
+  page?: number;
+  page_size?: number;
+}
+
+export interface LearningSessionsQuery {
+  status?: string;
+  user_id?: string;
+  lesson_id?: string;
   page?: number;
   page_size?: number;
 }

@@ -17,6 +17,16 @@ const mocks = vi.hoisted(() => ({
     has_next: boolean;
   }>>(),
   conversationDetailMock: vi.fn<(conversationId: string) => Promise<any>>(),
+  learningSessionListMock: vi.fn<(
+    params?: any
+  ) => Promise<{
+    sessions: any[];
+    total_count: number;
+    page: number;
+    page_size: number;
+    has_next: boolean;
+  }>>(),
+  learningSessionDetailMock: vi.fn<(sessionId: string) => Promise<any>>(),
 }));
 
 vi.mock('./repo', () => ({
@@ -32,6 +42,10 @@ vi.mock('./repo', () => ({
     conversations: {
       list: mocks.conversationListMock,
       byId: mocks.conversationDetailMock,
+    },
+    learningSessions: {
+      list: mocks.learningSessionListMock,
+      byId: mocks.learningSessionDetailMock,
     },
   },
 }));
@@ -183,5 +197,48 @@ describe('AdminService task and flow mappings', () => {
     expect(result?.messages).toHaveLength(1);
     expect(result?.messages[0].tokens_used).toBe(120);
     expect(result?.messages[0].metadata.source).toBe('student');
+  });
+
+  it('maps learning sessions into DTOs', async () => {
+    const response = {
+      sessions: [
+        {
+          id: 'session-1',
+          lesson_id: 'lesson-1',
+          unit_id: 'unit-1',
+          user_id: 'user-1',
+          status: 'completed',
+          started_at: '2024-01-01T00:00:00Z',
+          completed_at: '2024-01-01T00:30:00Z',
+          current_exercise_index: 3,
+          total_exercises: 5,
+          progress_percentage: 60,
+          session_data: { exercise_answers: {} },
+        },
+      ],
+      total_count: 1,
+      page: 1,
+      page_size: 25,
+      has_next: false,
+    };
+
+    mocks.learningSessionListMock.mockResolvedValueOnce(response);
+
+    const result = await service.getLearningSessions({ page: 1, page_size: 25 });
+
+    expect(mocks.learningSessionListMock).toHaveBeenCalledWith({ page: 1, page_size: 25 });
+    expect(result.sessions).toHaveLength(1);
+    expect(result.total_count).toBe(1);
+    expect(result.sessions[0].id).toBe('session-1');
+    expect(result.sessions[0].started_at).toEqual(new Date('2024-01-01T00:00:00Z'));
+  });
+
+  it('returns null when learning session detail fetch fails', async () => {
+    mocks.learningSessionDetailMock.mockRejectedValueOnce(new Error('network error'));
+
+    const detail = await service.getLearningSession('session-1');
+
+    expect(mocks.learningSessionDetailMock).toHaveBeenCalledWith('session-1');
+    expect(detail).toBeNull();
   });
 });

@@ -141,6 +141,25 @@ class LearningSessionRepo:
 
         return sessions, total
 
+    async def get_sessions(
+        self,
+        *,
+        user_id: str | None = None,
+        status: str | None = None,
+        lesson_id: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[LearningSessionModel], int]:
+        """Return learning sessions for administrative views."""
+
+        return await self.get_user_sessions(
+            user_id=user_id,
+            status=status,
+            lesson_id=lesson_id,
+            limit=limit,
+            offset=offset,
+        )
+
     async def get_active_session_for_user_and_lesson(self, user_id: str, lesson_id: str) -> LearningSessionModel | None:
         """Get active session for user and lesson (if any)"""
         stmt = (

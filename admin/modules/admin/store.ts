@@ -28,6 +28,15 @@ interface AdminState {
     page_size?: number;
   };
 
+  // Learning session filters
+  learningSessionFilters: {
+    status?: string;
+    user_id?: string;
+    lesson_id?: string;
+    page?: number;
+    page_size?: number;
+  };
+
   // LLM request filters
   llmRequestFilters: {
     status?: string;
@@ -70,6 +79,10 @@ interface AdminActions {
   setConversationFilters: (filters: Partial<AdminState['conversationFilters']>) => void;
   clearConversationFilters: () => void;
 
+  // Learning session actions
+  setLearningSessionFilters: (filters: Partial<AdminState['learningSessionFilters']>) => void;
+  clearLearningSessionFilters: () => void;
+
   // LLM request actions
   setLLMRequestFilters: (filters: Partial<AdminState['llmRequestFilters']>) => void;
   clearLLMRequestFilters: () => void;
@@ -99,6 +112,10 @@ export const useAdminStore = create<AdminState & AdminActions>((set, get) => ({
   conversationFilters: {
     page: 1,
     page_size: 50,
+  },
+  learningSessionFilters: {
+    page: 1,
+    page_size: 25,
   },
   llmRequestFilters: {
     page: 1,
@@ -149,6 +166,20 @@ export const useAdminStore = create<AdminState & AdminActions>((set, get) => ({
       conversationFilters: {
         page: 1,
         page_size: 50,
+      },
+    }),
+
+  // Learning session actions
+  setLearningSessionFilters: (filters) =>
+    set((state) => ({
+      learningSessionFilters: { ...state.learningSessionFilters, ...filters },
+    })),
+
+  clearLearningSessionFilters: () =>
+    set({
+      learningSessionFilters: {
+        page: 1,
+        page_size: 25,
       },
     }),
 
@@ -235,6 +266,7 @@ export const useFlowSelection = () => useAdminStore((state) => ({
 }));
 
 export const useConversationFilters = () => useAdminStore((state) => state.conversationFilters);
+export const useLearningSessionFilters = () => useAdminStore((state) => state.learningSessionFilters);
 
 export const useLLMRequestFilters = () => useAdminStore((state) => state.llmRequestFilters);
 export const useLLMRequestSelection = () => useAdminStore((state) => ({
