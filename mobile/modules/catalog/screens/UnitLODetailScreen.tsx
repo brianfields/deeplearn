@@ -49,22 +49,20 @@ export function UnitLODetailScreen(): React.ReactElement {
   const unitTitle = route.params?.unitTitle ?? '';
   const userKey = user?.id ? String(user.id) : 'anonymous';
 
-  const { data: progress, isLoading, isFetching } = useUnitLOProgress(
-    userKey,
-    unitId,
-    {
-      enabled: Boolean(unitId && userKey),
-      staleTime: 60 * 1000,
-    }
+  const {
+    data: progress,
+    isLoading,
+    isFetching,
+  } = useUnitLOProgress(userKey, unitId, {
+    enabled: Boolean(unitId && userKey),
+    staleTime: 60 * 1000,
+  });
+
+  const statusMeta = useMemo(
+    () => createStatusMeta(theme.colors),
+    [theme.colors]
   );
-
-  const statusMeta = useMemo(() => createStatusMeta(theme.colors), [theme.colors]);
   const items = progress?.items ?? [];
-
-  const handleHeaderBack = () => {
-    haptics.trigger('light');
-    navigation.goBack();
-  };
 
   return (
     <SafeAreaView
@@ -77,9 +75,12 @@ export function UnitLODetailScreen(): React.ReactElement {
       >
         <Box p="lg" pb="sm">
           <TouchableOpacity
-            onPress={handleHeaderBack}
+            onPress={() => {
+              haptics.trigger('light');
+              navigation.navigate('UnitDetail', { unitId });
+            }}
             accessibilityRole="button"
-            accessibilityLabel="Go back"
+            accessibilityLabel="Go back to unit"
             style={{ paddingVertical: 6, paddingRight: 12 }}
           >
             <Text variant="body" color={theme.colors.primary}>
@@ -126,7 +127,12 @@ export function UnitLODetailScreen(): React.ReactElement {
               : 0;
 
           return (
-            <Box key={item.loId} px="lg" mt="md" testID={`unit-lo-detail-${item.loId}`}>
+            <Box
+              key={item.loId}
+              px="lg"
+              mt="md"
+              testID={`unit-lo-detail-${item.loId}`}
+            >
               <Card variant="outlined" style={{ margin: 0 }}>
                 <View style={styles.itemHeader}>
                   <View
@@ -135,12 +141,16 @@ export function UnitLODetailScreen(): React.ReactElement {
                       { backgroundColor: meta.background },
                     ]}
                   >
-                    <Text style={[styles.statusIconText, { color: meta.color }]}> 
+                    <Text
+                      style={[styles.statusIconText, { color: meta.color }]}
+                    >
                       {meta.icon}
                     </Text>
                   </View>
                   <View style={styles.headerText}>
-                    <Text style={[styles.itemTitle, { color: theme.colors.text }]}>
+                    <Text
+                      style={[styles.itemTitle, { color: theme.colors.text }]}
+                    >
                       {item.title}
                     </Text>
                     <Text
@@ -159,7 +169,10 @@ export function UnitLODetailScreen(): React.ReactElement {
                       {meta.label}
                     </Text>
                     <Text
-                      style={{ color: theme.colors.textSecondary, marginTop: 2 }}
+                      style={{
+                        color: theme.colors.textSecondary,
+                        marginTop: 2,
+                      }}
                     >
                       {`${item.exercisesCorrect}/${item.exercisesTotal} correct`}
                     </Text>
@@ -181,7 +194,7 @@ export function UnitLODetailScreen(): React.ReactElement {
           <Button
             title="Back to Unit"
             variant="secondary"
-            onPress={() => navigation.goBack()}
+            onPress={() => navigation.navigate('UnitDetail', { unitId })}
           />
         </Box>
       </ScrollView>

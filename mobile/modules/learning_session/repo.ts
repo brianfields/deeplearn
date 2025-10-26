@@ -302,12 +302,16 @@ export class LearningSessionRepo {
       (session.sessionData && typeof session.sessionData === 'object'
         ? session.sessionData
         : {}) ?? {};
-    const answers: Record<string, StoredExerciseAnswer> = (
+    const answers: Record<string, StoredExerciseAnswer> =
       existingData.exercise_answers &&
       typeof existingData.exercise_answers === 'object'
-    )
-      ? { ...(existingData.exercise_answers as Record<string, StoredExerciseAnswer>) }
-      : {};
+        ? {
+            ...(existingData.exercise_answers as Record<
+              string,
+              StoredExerciseAnswer
+            >),
+          }
+        : {};
 
     const attemptHistory = (progress.attemptHistory ?? []).map(entry => ({
       attempt_number: entry.attemptNumber,
@@ -320,7 +324,8 @@ export class LearningSessionRepo {
     answers[exerciseId] = {
       attempt_history: attemptHistory,
       has_been_answered_correctly:
-        progress.hasBeenAnsweredCorrectly === true || progress.isCorrect === true,
+        progress.hasBeenAnsweredCorrectly === true ||
+        progress.isCorrect === true,
     } satisfies StoredExerciseAnswer;
 
     const nextSession: LearningSession = {
@@ -411,7 +416,8 @@ export class LearningSessionRepo {
         (existing?.timeSpentSeconds ?? 0) + (progress.timeSpentSeconds || 0),
       isCorrect: progress.isCorrect,
       hasBeenAnsweredCorrectly:
-        existing?.hasBeenAnsweredCorrectly === true || progress.isCorrect === true,
+        existing?.hasBeenAnsweredCorrectly === true ||
+        progress.isCorrect === true,
       accuracy:
         attemptHistory.length > 0
           ? totalCorrectAttempts / attemptHistory.length
@@ -498,7 +504,8 @@ export class LearningSessionRepo {
     }
 
     return sessions.sort(
-      (a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime()
+      (a, b) =>
+        new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime()
     );
   }
 
@@ -1026,7 +1033,8 @@ export class LearningSessionRepo {
     if (!Array.isArray(raw)) {
       return [];
     }
-    const result: Array<{ id: string; title: string; description: string }> = [];
+    const result: Array<{ id: string; title: string; description: string }> =
+      [];
     for (const entry of raw) {
       if (!entry) {
         continue;

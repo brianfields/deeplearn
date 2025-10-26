@@ -314,20 +314,27 @@ export class CatalogRepo {
                         : null;
                   const description =
                     typeof (item as { description?: unknown }).description ===
-                        'string'
-                      ? ((item as { description?: string }).description as string)
+                    'string'
+                      ? ((item as { description?: string })
+                          .description as string)
                       : typeof (item as { text?: unknown }).text === 'string'
                         ? ((item as { text?: string }).text as string)
                         : typeof (item as { objective?: unknown }).objective ===
                             'string'
-                          ? ((item as { objective?: string }).objective as string)
+                          ? ((item as { objective?: string })
+                              .objective as string)
                           : null;
                   if (id && (title || description)) {
-                    const normalizedDescription = (description ?? title ?? '').trim();
+                    const normalizedDescription = (
+                      description ??
+                      title ??
+                      ''
+                    ).trim();
                     if (normalizedDescription) {
                       return {
                         id,
-                        title: (title ?? normalizedDescription).trim() ||
+                        title:
+                          (title ?? normalizedDescription).trim() ||
                           normalizedDescription,
                         description: normalizedDescription,
                       };
@@ -339,8 +346,11 @@ export class CatalogRepo {
               .filter(
                 (
                   value
-                ): value is { id: string; title: string; description: string } =>
-                  value !== null
+                ): value is {
+                  id: string;
+                  title: string;
+                  description: string;
+                } => value !== null
               )
           : [];
         const loDescriptionById = new Map<

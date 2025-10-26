@@ -101,9 +101,12 @@ export function UnitObjectiveSummaryList({
                 {objective.title}
               </UiText>
               <UiText
-                style={[styles.objectiveSubtitle, {
-                  color: theme.colors.textSecondary,
-                }]}
+                style={[
+                  styles.objectiveSubtitle,
+                  {
+                    color: theme.colors.textSecondary,
+                  },
+                ]}
               >
                 {progressLabel}
               </UiText>

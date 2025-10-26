@@ -58,9 +58,11 @@ export class LearningSessionService {
       });
     }
 
-    const rawUnitObjectives = (lessonPackage as {
-      unit_learning_objectives?: unknown;
-    }).unit_learning_objectives;
+    const rawUnitObjectives = (
+      lessonPackage as {
+        unit_learning_objectives?: unknown;
+      }
+    ).unit_learning_objectives;
     if (Array.isArray(rawUnitObjectives)) {
       for (const entry of rawUnitObjectives) {
         if (!entry || typeof entry !== 'object') {
@@ -145,7 +147,8 @@ export class LearningSessionService {
   ): Map<string, { attempted: boolean; isCorrect: boolean }> {
     const answersRaw =
       session.sessionData && typeof session.sessionData === 'object'
-        ? (session.sessionData as { exercise_answers?: unknown }).exercise_answers
+        ? (session.sessionData as { exercise_answers?: unknown })
+            .exercise_answers
         : null;
     if (!answersRaw || typeof answersRaw !== 'object') {
       return new Map();
@@ -174,11 +177,15 @@ export class LearningSessionService {
       return null;
     }
 
-    const historyRaw = (answerData as { attempt_history?: unknown }).attempt_history ??
+    const historyRaw =
+      (answerData as { attempt_history?: unknown }).attempt_history ??
       (answerData as { attemptHistory?: unknown }).attemptHistory;
     const history = Array.isArray(historyRaw) ? historyRaw : [];
     if (history.length > 0) {
-      const lastAttempt = history[history.length - 1] as Record<string, unknown>;
+      const lastAttempt = history[history.length - 1] as Record<
+        string,
+        unknown
+      >;
       const isCorrect =
         (typeof lastAttempt.is_correct === 'boolean'
           ? (lastAttempt.is_correct as boolean)
@@ -188,20 +195,20 @@ export class LearningSessionService {
       return { attempted: true, isCorrect };
     }
 
-    if (typeof (answerData as { is_correct?: unknown }).is_correct === 'boolean') {
+    if (
+      typeof (answerData as { is_correct?: unknown }).is_correct === 'boolean'
+    ) {
       return {
         attempted: true,
-        isCorrect: Boolean(
-          (answerData as { is_correct?: boolean }).is_correct
-        ),
+        isCorrect: Boolean((answerData as { is_correct?: boolean }).is_correct),
       };
     }
-    if (typeof (answerData as { isCorrect?: unknown }).isCorrect === 'boolean') {
+    if (
+      typeof (answerData as { isCorrect?: unknown }).isCorrect === 'boolean'
+    ) {
       return {
         attempted: true,
-        isCorrect: Boolean(
-          (answerData as { isCorrect?: boolean }).isCorrect
-        ),
+        isCorrect: Boolean((answerData as { isCorrect?: boolean }).isCorrect),
       };
     }
 
@@ -1016,9 +1023,8 @@ export class LearningSessionService {
       const exerciseToLo = new Map<string, string>();
       const exercisesByLo = new Map<string, string[]>();
       const totalsByLo = new Map<string, number>();
-      const objectiveMetadata = this.normalizeLessonObjectiveMetadata(
-        lessonPackage
-      );
+      const objectiveMetadata =
+        this.normalizeLessonObjectiveMetadata(lessonPackage);
 
       for (const exercise of lessonPackage.exercises ?? []) {
         const exerciseId =
@@ -1062,9 +1068,14 @@ export class LearningSessionService {
       );
 
       const buildState = (
-        snapshots: Array<Map<string, { attempted: boolean; isCorrect: boolean }>>
+        snapshots: Array<
+          Map<string, { attempted: boolean; isCorrect: boolean }>
+        >
       ): Map<string, { attempted: boolean; isCorrect: boolean }> => {
-        const state = new Map<string, { attempted: boolean; isCorrect: boolean }>();
+        const state = new Map<
+          string,
+          { attempted: boolean; isCorrect: boolean }
+        >();
         for (const snapshot of snapshots) {
           for (const [exerciseId, info] of snapshot.entries()) {
             state.set(exerciseId, { ...info });

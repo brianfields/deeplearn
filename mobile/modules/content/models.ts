@@ -216,9 +216,7 @@ export function toUnitDTO(
     ownerUserId && currentUserId && ownerUserId === currentUserId
   );
 
-  const learningObjectives = mapApiLearningObjectives(
-    api.learning_objectives
-  );
+  const learningObjectives = mapApiLearningObjectives(api.learning_objectives);
 
   return {
     id: api.id,
@@ -271,9 +269,7 @@ export function toUnitDetailDTO(
     ? [...lessonOrder]
     : lessons.map(lesson => lesson.id);
 
-  const learningObjectives = mapApiLearningObjectives(
-    api.learning_objectives
-  );
+  const learningObjectives = mapApiLearningObjectives(api.learning_objectives);
 
   return {
     id: api.id,
@@ -390,14 +386,14 @@ function mapApiLearningObjectives(
 
   const objectives = raw
     .map(objective => normalizeLearningObjective(objective as unknown))
-    .filter(
-      (value): value is UnitLearningObjective => value !== null
-    );
+    .filter((value): value is UnitLearningObjective => value !== null);
 
   return objectives.length > 0 ? objectives : null;
 }
 
-function normalizeLearningObjective(objective: unknown): UnitLearningObjective | null {
+function normalizeLearningObjective(
+  objective: unknown
+): UnitLearningObjective | null {
   if (!objective || typeof objective !== 'object') {
     return null;
   }
