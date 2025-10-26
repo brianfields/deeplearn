@@ -194,6 +194,28 @@ async def test_submit_learner_turn_appends_message() -> None:
     mock_llm_services.generate_structured_response.assert_awaited_once()
 
 
+def test_parse_learning_objectives_includes_titles() -> None:
+    """Structured metadata should yield objectives with titles and descriptions."""
+
+    service = LearningCoachService()
+    objectives = service._parse_learning_objectives(
+        [
+            {
+                "id": "lo_1",
+                "title": "Summarize Key Topic",
+                "description": "Summarize the key aspects of the topic in detail.",
+            }
+        ]
+    )
+
+    assert objectives is not None
+    assert len(objectives) == 1
+    objective = objectives[0]
+    assert objective.id == "lo_1"
+    assert objective.title == "Summarize Key Topic"
+    assert objective.description == "Summarize the key aspects of the topic in detail."
+
+
 @pytest.mark.asyncio
 async def test_accept_brief_updates_metadata() -> None:
     """Accepting a brief should merge metadata and surface the accepted payload."""

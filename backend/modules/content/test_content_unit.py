@@ -615,7 +615,13 @@ class TestContentService:
             lesson_order=[lesson_id],
             user_id=5,
             is_global=False,
-            learning_objectives=[{"id": "lo_1", "text": "Objective"}],
+            learning_objectives=[
+                {
+                    "id": "lo_1",
+                    "title": "Objective",
+                    "description": "Objective",
+                }
+            ],
             target_lesson_count=None,
             source_material=None,
             generated_from_topic=False,

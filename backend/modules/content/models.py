@@ -72,7 +72,7 @@ class UnitModel(Base):
     is_global: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     # New fields for unit-level generation and metadata
-    # JSON structure: list of unit-level learning objective objects {id, text, ...}
+    # JSON structure: list of unit-level learning objective objects {id, title, description, ...}
     learning_objectives: Mapped[list[dict[str, Any]]] = mapped_column(
         JSON,
         nullable=False,

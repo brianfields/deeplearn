@@ -21,7 +21,16 @@ class CoachLearningObjective(BaseModel):
     """Learning objective emitted by the structured coach response."""
 
     id: str = Field(..., min_length=1, description="Stable identifier for the unit learning objective")
-    text: str = Field(..., min_length=1, description="Human-readable description of the objective")
+    title: str = Field(
+        ...,
+        min_length=3,
+        description="Short 3-8 word title that summarizes the learning objective",
+    )
+    description: str = Field(
+        ...,
+        min_length=1,
+        description="Full explanation of the learning objective for learner-facing surfaces",
+    )
 
 
 class CoachResponse(BaseModel):
@@ -50,8 +59,8 @@ class CoachResponse(BaseModel):
         default=None,
         description=(
             "When finalizing the topic, provide 3-8 clear, specific learning objectives. Each must include "
-            "a stable identifier (e.g., 'lo_1') and descriptive text. Objectives should be measurable, "
-            "action-oriented, and appropriate for the learner's level. Update if the learner requests changes."
+            "a stable identifier (e.g., 'lo_1'), a short 3-8 word title, and a full description. Objectives "
+            "should be measurable, action-oriented, and appropriate for the learner's level. Update if the learner requests changes."
         ),
     )
     suggested_lesson_count: int | None = Field(
@@ -184,9 +193,23 @@ class LearningCoachConversation(BaseConversation):
             if not isinstance(entry, dict):
                 continue
             lo_id = str(entry.get("id") or "").strip()
-            lo_text = str(entry.get("text") or "").strip()
-            if lo_id and lo_text:
-                objectives.append(LearningCoachObjective(id=lo_id, text=lo_text))
+            title = str(entry.get("title") or entry.get("short_title") or "").strip()
+            description = str(
+                entry.get("description")
+                or entry.get("text")
+                or entry.get("lo_text")
+                or title
+            ).strip()
+            if not title and description:
+                title = description[:50]
+            if lo_id and title and description:
+                objectives.append(
+                    LearningCoachObjective(
+                        id=lo_id,
+                        title=title,
+                        description=description,
+                    )
+                )
 
         return objectives or None
 
