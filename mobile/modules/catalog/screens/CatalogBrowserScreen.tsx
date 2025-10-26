@@ -45,7 +45,10 @@ export function CatalogBrowserScreen(): React.ReactElement {
     error: collectionsError,
   } = useUserUnitCollections(currentUserId, { includeGlobal: true });
 
-  const { data: myUnits, isLoading: isMyUnitsLoading } = useCatalogUnits({
+  const {
+    data: catalogUnits = [],
+    isLoading: isCatalogLoading,
+  } = useCatalogUnits({
     currentUserId,
   });
 
@@ -60,16 +63,15 @@ export function CatalogBrowserScreen(): React.ReactElement {
 
   const myUnitIds = useMemo(() => {
     const ids = new Set<string>();
-    for (const unit of myUnits ?? []) {
+    for (const unit of collections?.units ?? []) {
       ids.add(unit.id);
     }
     return ids;
-  }, [myUnits]);
+  }, [collections]);
 
   const globalUnits = useMemo(() => {
-    const units = collections?.units ?? [];
-    return units.filter(unit => unit.isGlobal);
-  }, [collections]);
+    return catalogUnits.filter(unit => unit.isGlobal);
+  }, [catalogUnits]);
 
   const filteredUnits = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -81,7 +83,7 @@ export function CatalogBrowserScreen(): React.ReactElement {
     );
   }, [globalUnits, searchQuery]);
 
-  const isLoading = isCollectionsLoading || isMyUnitsLoading;
+  const isLoading = isCollectionsLoading || isCatalogLoading;
 
   const handleClose = useCallback(() => {
     navigation.goBack();
