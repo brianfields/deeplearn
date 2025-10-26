@@ -23,6 +23,50 @@ import type {
 } from './models';
 import type { OutboxRequest } from '../offline_cache/public';
 
+type AttemptHistoryEntry = {
+  readonly attemptNumber: number;
+  readonly isCorrect?: boolean;
+  readonly userAnswer?: any;
+  readonly timeSpentSeconds: number;
+  readonly submittedAt: string;
+};
+
+type StoredExerciseAnswer = {
+  attempt_history: Array<{
+    attempt_number: number;
+    is_correct?: boolean;
+    user_answer?: any;
+    time_spent_seconds: number;
+    submitted_at: string;
+  }>;
+  has_been_answered_correctly?: boolean;
+};
+
+export interface LessonPackage {
+  readonly exercises?: Array<{
+    id?: string;
+    lo_id?: string;
+    [key: string]: unknown;
+  }>;
+  readonly unit_learning_objective_ids?: string[];
+  readonly learning_objectives?:
+    | string[]
+    | Array<{
+        id?: string;
+        lo_id?: string;
+        title?: string;
+        description?: string;
+        text?: string;
+      }>;
+  readonly [key: string]: unknown;
+  readonly __unitId?: string;
+  readonly __canonicalObjectives?: Array<{
+    id: string;
+    title: string;
+    description: string;
+  }>;
+}
+
 // API wire types (matching future backend)
 interface ApiLearningSession {
   id: string;
@@ -244,21 +288,149 @@ export class LearningSessionRepo {
     }
   }
 
+  private async updateSessionExerciseAnswers(
+    sessionId: string,
+    exerciseId: string,
+    progress: SessionProgress
+  ): Promise<void> {
+    const session = await this.getSession(sessionId);
+    if (!session) {
+      return;
+    }
+
+    const existingData =
+      (session.sessionData && typeof session.sessionData === 'object'
+        ? session.sessionData
+        : {}) ?? {};
+    const answers: Record<string, StoredExerciseAnswer> = (
+      existingData.exercise_answers &&
+      typeof existingData.exercise_answers === 'object'
+    )
+      ? { ...(existingData.exercise_answers as Record<string, StoredExerciseAnswer>) }
+      : {};
+
+    const attemptHistory = (progress.attemptHistory ?? []).map(entry => ({
+      attempt_number: entry.attemptNumber,
+      is_correct: entry.isCorrect,
+      user_answer: entry.userAnswer,
+      time_spent_seconds: entry.timeSpentSeconds,
+      submitted_at: entry.submittedAt,
+    }));
+
+    answers[exerciseId] = {
+      attempt_history: attemptHistory,
+      has_been_answered_correctly:
+        progress.hasBeenAnsweredCorrectly === true || progress.isCorrect === true,
+    } satisfies StoredExerciseAnswer;
+
+    const nextSession: LearningSession = {
+      ...session,
+      sessionData: {
+        ...existingData,
+        exercise_answers: answers,
+      },
+    };
+
+    await this.saveSession(nextSession, {
+      enqueueOutbox: false,
+      updateIndex: false,
+    });
+  }
+
   async getSession(sessionId: string): Promise<LearningSession | null> {
     return this.readJson<LearningSession>(this.getSessionKey(sessionId));
+  }
+
+  async getLocalLessonPackage(lessonId: string): Promise<LessonPackage | null> {
+    const trimmedId = lessonId?.trim();
+    if (!trimmedId) {
+      return null;
+    }
+
+    const units = await this.offlineCache.listUnits();
+    for (const unit of units) {
+      const detail = await this.offlineCache.getUnitDetail(unit.id);
+      if (!detail) {
+        continue;
+      }
+
+      const lesson = detail.lessons.find(entry => entry.id === trimmedId);
+      if (!lesson) {
+        continue;
+      }
+
+      const packagePayload = this.resolveLessonPackage(lesson.payload);
+      if (!packagePayload || typeof packagePayload !== 'object') {
+        continue;
+      }
+
+      const canonicalObjectives = this.parseUnitLearningObjectives(
+        detail.unitPayload?.learning_objectives
+      );
+
+      return {
+        ...(packagePayload as LessonPackage),
+        __unitId: unit.id,
+        __canonicalObjectives: canonicalObjectives,
+      } satisfies LessonPackage;
+    }
+
+    return null;
   }
 
   async saveProgress(
     sessionId: string,
     progress: SessionProgress
   ): Promise<void> {
+    const existing = await this.getProgress(sessionId, progress.exerciseId);
+
+    const attemptHistory: AttemptHistoryEntry[] = Array.isArray(
+      existing?.attemptHistory
+    )
+      ? existing!.attemptHistory.map(entry => ({ ...entry }))
+      : [];
+
+    const nextAttemptNumber = attemptHistory.length + 1;
+    const submittedAt = progress.completedAt ?? progress.startedAt;
+    attemptHistory.push({
+      attemptNumber: nextAttemptNumber,
+      isCorrect: progress.isCorrect,
+      userAnswer: progress.userAnswer,
+      timeSpentSeconds: progress.timeSpentSeconds,
+      submittedAt,
+    });
+
+    const totalCorrectAttempts = attemptHistory.filter(
+      entry => entry.isCorrect === true
+    ).length;
+    const mergedProgress: SessionProgress = {
+      ...progress,
+      attempts: attemptHistory.length,
+      attemptHistory,
+      timeSpentSeconds:
+        (existing?.timeSpentSeconds ?? 0) + (progress.timeSpentSeconds || 0),
+      isCorrect: progress.isCorrect,
+      hasBeenAnsweredCorrectly:
+        existing?.hasBeenAnsweredCorrectly === true || progress.isCorrect === true,
+      accuracy:
+        attemptHistory.length > 0
+          ? totalCorrectAttempts / attemptHistory.length
+          : progress.accuracy,
+    };
+
     await this.writeJson(
       this.getProgressKey(sessionId, progress.exerciseId),
-      progress
+      mergedProgress
     );
     await this.updateIndex(
       this.getProgressIndexKey(sessionId),
       progress.exerciseId
+    );
+
+    await this.updateSessionExerciseAnswers(
+      sessionId,
+      progress.exerciseId,
+      mergedProgress
     );
   }
 
@@ -298,6 +470,35 @@ export class LearningSessionRepo {
   async getUserSessionIds(userId: string): Promise<string[]> {
     return (
       (await this.readJson<string[]>(this.getUserSessionIndexKey(userId))) ?? []
+    );
+  }
+
+  async getLocalSessionsForLesson(
+    lessonId: string,
+    userId: string
+  ): Promise<LearningSession[]> {
+    const trimmedLessonId = lessonId?.trim();
+    const trimmedUserId = userId?.trim();
+    if (!trimmedLessonId || !trimmedUserId) {
+      return [];
+    }
+
+    const sessionIds = await this.getUserSessionIds(trimmedUserId);
+    const sessions: LearningSession[] = [];
+
+    for (const sessionId of sessionIds) {
+      const session = await this.getSession(sessionId);
+      if (!session || session.lessonId !== trimmedLessonId) {
+        continue;
+      }
+      if (session.userId && session.userId !== trimmedUserId) {
+        continue;
+      }
+      sessions.push(session);
+    }
+
+    return sessions.sort(
+      (a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime()
     );
   }
 
@@ -624,9 +825,16 @@ export class LearningSessionRepo {
       return { unitId, items: [] };
     }
 
-    const totals = new Map<string, { text: string; total: number }>();
+    const totals = new Map<
+      string,
+      { title: string; description: string; total: number }
+    >();
     for (const lo of canonicalLOs) {
-      totals.set(lo.id, { text: lo.text, total: 0 });
+      totals.set(lo.id, {
+        title: lo.title,
+        description: lo.description,
+        total: 0,
+      });
     }
 
     for (const lesson of unitDetail.lessons) {
@@ -686,7 +894,8 @@ export class LearningSessionRepo {
 
       return {
         loId: lo.id,
-        loText: lo.text,
+        title: lo.title,
+        description: lo.description,
         exercisesTotal: total,
         exercisesAttempted: bucket.attempted,
         exercisesCorrect: bucket.correct,
@@ -813,17 +1022,20 @@ export class LearningSessionRepo {
 
   private parseUnitLearningObjectives(
     raw: unknown
-  ): Array<{ id: string; text: string }> {
+  ): Array<{ id: string; title: string; description: string }> {
     if (!Array.isArray(raw)) {
       return [];
     }
-    const result: Array<{ id: string; text: string }> = [];
+    const result: Array<{ id: string; title: string; description: string }> = [];
     for (const entry of raw) {
       if (!entry) {
         continue;
       }
       if (typeof entry === 'string') {
-        result.push({ id: entry, text: entry });
+        const value = entry.trim();
+        if (value) {
+          result.push({ id: value, title: value, description: value });
+        }
         continue;
       }
       if (typeof entry === 'object') {
@@ -833,14 +1045,26 @@ export class LearningSessionRepo {
             : typeof (entry as { lo_id?: unknown }).lo_id === 'string'
               ? ((entry as { lo_id?: string }).lo_id as string)
               : null;
-        const maybeText =
-          typeof (entry as { text?: unknown }).text === 'string'
-            ? ((entry as { text?: string }).text as string)
-            : typeof (entry as { objective?: unknown }).objective === 'string'
-              ? ((entry as { objective?: string }).objective as string)
+        const maybeTitle =
+          typeof (entry as { title?: unknown }).title === 'string'
+            ? ((entry as { title?: string }).title as string)
+            : typeof (entry as { text?: unknown }).text === 'string'
+              ? ((entry as { text?: string }).text as string)
               : null;
-        if (maybeId && maybeText) {
-          result.push({ id: maybeId, text: maybeText });
+        const maybeDescription =
+          typeof (entry as { description?: unknown }).description === 'string'
+            ? ((entry as { description?: string }).description as string)
+            : typeof (entry as { text?: unknown }).text === 'string'
+              ? ((entry as { text?: string }).text as string)
+              : typeof (entry as { objective?: unknown }).objective === 'string'
+                ? ((entry as { objective?: string }).objective as string)
+                : null;
+        if (maybeId && (maybeTitle || maybeDescription)) {
+          const title = (maybeTitle ?? maybeDescription ?? '').trim();
+          const description = (maybeDescription ?? maybeTitle ?? '').trim();
+          if (title && description) {
+            result.push({ id: maybeId, title, description });
+          }
         }
       }
     }

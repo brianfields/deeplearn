@@ -435,21 +435,21 @@ This phase updates frontend models and DTOs to match the new backend structure. 
 
 #### Content Module
 
-- [ ] Update `ApiUnitDetail`, `UnitDetail`, and `LearningObjective` interfaces in `mobile/modules/content/models.ts` to add `title: string` and rename `text` to `description: string`
-- [ ] Update DTO mapping in `mobile/modules/content/service.ts` to handle title/description
-- [ ] Update tests in `mobile/modules/content/test_content_service_unit.ts`
+- [x] Update `ApiUnitDetail`, `UnitDetail`, and `LearningObjective` interfaces in `mobile/modules/content/models.ts` to add `title: string` and rename `text` to `description: string`
+- [x] Update DTO mapping in `mobile/modules/content/service.ts` to handle title/description
+- [x] Update tests in `mobile/modules/content/test_content_service_unit.ts`
 
 #### Learning Session Module - Models Only
-- [ ] Update `LOProgressItem` interface in `mobile/modules/learning_session/models.ts` to add `title: string` and rename `loText` to `description: string`
+- [x] Update `LOProgressItem` interface in `mobile/modules/learning_session/models.ts` to add `title: string` and rename `loText` to `description: string`
 
 #### Catalog Module - Models Only
-- [ ] Update `LearningObjective` interface in `mobile/modules/catalog/models.ts` to add `title: string` and rename `text` to `description: string`
+- [x] Update `LearningObjective` interface in `mobile/modules/catalog/models.ts` to add `title: string` and rename `text` to `description: string`
 
 #### Learning Coach Module - Models Only
-- [ ] Update `LearningObjective` interface in `mobile/modules/learning_coach/models.ts` to add `title: string` and rename `text` to `description: string`
+- [x] Update `LearningObjective` interface in `mobile/modules/learning_coach/models.ts` to add `title: string` and rename `text` to `description: string`
 
 #### Phase 3 Verification
-- [ ] Ensure all mobile unit tests pass: `cd mobile && npm run test`
+- [x] Ensure all mobile unit tests pass: `cd mobile && npm run test`
 
 ---
 
@@ -458,19 +458,19 @@ This phase updates frontend models and DTOs to match the new backend structure. 
 This phase implements the offline-first LO progress calculation in the frontend.
 
 #### Learning Session Module - Local Calculation
-- [ ] Add `getLocalLessonPackage()` in `mobile/modules/learning_session/repo.ts`
-- [ ] Add `getLocalSessionsForLesson()` in `mobile/modules/learning_session/repo.ts`
-- [ ] Add `computeLessonLOProgressLocal()` method in `mobile/modules/learning_session/service.ts` for offline calculation
-- [ ] Implement last-attempt logic in local calculation (check last item in `attempt_history`)
-- [ ] Add `useLessonLOProgress()` hook in `mobile/modules/learning_session/queries.ts`
-- [ ] Add tests in `mobile/modules/learning_session/test_learning_session_unit.ts` for last-attempt logic and local calculation
+- [x] Add `getLocalLessonPackage()` in `mobile/modules/learning_session/repo.ts`
+- [x] Add `getLocalSessionsForLesson()` in `mobile/modules/learning_session/repo.ts`
+- [x] Add `computeLessonLOProgressLocal()` method in `mobile/modules/learning_session/service.ts` for offline calculation
+- [x] Implement last-attempt logic in local calculation (check last item in `attempt_history`)
+- [x] Add `useLessonLOProgress()` hook in `mobile/modules/learning_session/queries.ts`
+- [x] Add tests in `mobile/modules/learning_session/test_learning_session_unit.ts` for last-attempt logic and local calculation
 
 #### Catalog Module - Local Calculation
-- [ ] Add `computeUnitLOProgressLocal()` in `mobile/modules/catalog/service.ts` for offline calculation of unit-wide LO progress
-- [ ] Update tests in `mobile/modules/catalog/test_catalog_unit.ts`
+- [x] Add `computeUnitLOProgressLocal()` in `mobile/modules/catalog/service.ts` for offline calculation of unit-wide LO progress
+- [x] Update tests in `mobile/modules/catalog/test_catalog_unit.ts`
 
 #### Phase 4 Verification
-- [ ] Ensure all mobile unit tests pass: `cd mobile && npm run test`
+- [x] Ensure all mobile unit tests pass: `cd mobile && npm run test`
 
 ---
 
@@ -479,10 +479,10 @@ This phase implements the offline-first LO progress calculation in the frontend.
 This phase updates the Results screen and LO display components.
 
 #### Learning Session Module - UI Updates
-- [ ] Update `LOProgressItem.tsx` to show title (bold) and description (secondary) in two-line layout
-- [ ] Update `ResultsScreen.tsx` to remove summary box (delete summary metrics UI at lines ~227-246 and ~291-310)
-- [ ] Update `ResultsScreen.tsx` to use lesson LO progress instead of unit LO progress (call `useLessonLOProgress()`)
-- [ ] Update `ResultsScreen.tsx` to display title and description for each LO
+- [x] Update `LOProgressItem.tsx` to show title (bold) and description (secondary) in two-line layout
+- [x] Update `ResultsScreen.tsx` to remove summary box (delete summary metrics UI at lines ~227-246 and ~291-310)
+- [x] Update `ResultsScreen.tsx` to use lesson LO progress instead of unit LO progress (call `useLessonLOProgress()`)
+- [x] Update `ResultsScreen.tsx` to display title and description for each LO
 
 #### Phase 5 Verification
 - [ ] Test Results screen manually with multiple lesson attempts to verify correct counts
@@ -496,21 +496,21 @@ This phase updates the Results screen and LO display components.
 This phase updates the unit detail screen and creates the new detailed LO progress screen.
 
 #### Catalog Module - UI Updates
-- [ ] Update `UnitProgress.tsx` to use `title` field instead of full text
-- [ ] Update `UnitDetailScreen.tsx` to show compact LO list (titles + status icons only, no descriptions)
-- [ ] Add "View Detailed Progress" button in `UnitDetailScreen.tsx` that navigates to UnitLODetail screen
-- [ ] Create new file `mobile/modules/catalog/screens/UnitLODetailScreen.tsx` with detailed LO progress view (title, description, fine-grained progress)
-- [ ] Add `UnitLODetail` route to the main navigation stack in `mobile/types.ts` (LearningStackParamList)
+- [x] Update `UnitProgress.tsx` to use `title` field instead of full text
+- [x] Update `UnitDetailScreen.tsx` to show compact LO list (titles + status icons only, no descriptions)
+- [x] Add "View Detailed Progress" button in `UnitDetailScreen.tsx` that navigates to UnitLODetail screen
+- [x] Create new file `mobile/modules/catalog/screens/UnitLODetailScreen.tsx` with detailed LO progress view (title, description, fine-grained progress)
+- [x] Add `UnitLODetail` route to the main navigation stack in `mobile/types.ts` (LearningStackParamList)
 
 #### Learning Coach Module - UI Updates
-- [ ] Update `LearningCoachScreen.tsx` to handle new LO structure (display titles if shown)
-- [ ] Update tests in `mobile/modules/learning_coach/test_learning_coach_unit.ts`
+- [x] Update `LearningCoachScreen.tsx` to handle new LO structure (display titles if shown)
+- [x] Update tests in `mobile/modules/learning_coach/test_learning_coach_unit.ts`
 
 #### Phase 6 Verification
 - [ ] Test unit detail screen manually to verify compact display
 - [ ] Test new LO detail screen navigation and display
 - [ ] Verify all screens work offline
-- [ ] Ensure all mobile unit tests pass: `cd mobile && npm run test`
+- [x] Ensure all mobile unit tests pass: `cd mobile && npm run test`
 - [ ] Update maestro e2e tests in `mobile/e2e/` if needed, adding testID attributes where necessary
 - [ ] Run maestro tests to ensure they pass
 
@@ -521,13 +521,13 @@ This phase updates the unit detail screen and creates the new detailed LO progre
 This phase updates the admin web interface to display the new LO structure.
 
 #### Admin Module
-- [ ] Update `UnitDetail` and LO interfaces in `admin/modules/admin/models.ts` to add `title: string` and rename `text` to `description: string`
-- [ ] Update `admin/app/units/[id]/page.tsx` to display both title and description for LOs
-- [ ] Update `admin/app/units/page.tsx` to show titles and descriptions in LO lists
+- [x] Update `UnitDetail` and LO interfaces in `admin/modules/admin/models.ts` to add `title: string` and rename `text` to `description: string`
+- [x] Update `admin/app/units/[id]/page.tsx` to display both title and description for LOs
+- [x] Update `admin/app/units/page.tsx` to show titles and descriptions in LO lists
 
 #### Phase 7 Verification
 - [ ] Test admin interface manually to verify LO display
-- [ ] Ensure admin displays both titles and descriptions for debugging
+- [x] Ensure admin displays both titles and descriptions for debugging
 
 ---
 
@@ -536,19 +536,19 @@ This phase updates the admin web interface to display the new LO structure.
 This phase ensures terminology consistency and verifies the entire implementation.
 
 #### Terminology Consistency
-- [ ] Search codebase for `lo_text` and rename to `description` (backend and frontend)
-- [ ] Search codebase for `loText` and rename to `description` (frontend)
-- [ ] Search for any hardcoded references to "text" field in LO context and update to "description"
-- [ ] Ensure all LO-related DTOs, interfaces, and models use consistent `title` and `description` naming
+- [x] Search codebase for `lo_text` and rename to `description` (backend and frontend) *(Phase 8: Removed all runtime references; only documentation entries remain.)*
+- [x] Search codebase for `loText` and rename to `description` (frontend) *(Phase 8: Confirmed no lingering camelCase usages.)*
+- [x] Search for any hardcoded references to "text" field in LO context and update to "description" *(Phase 8: Audited modules; remaining `text` accesses exist only as defensive fallbacks for malformed data.)*
+- [x] Ensure all LO-related DTOs, interfaces, and models use consistent `title` and `description` naming *(Phase 8: Verified DTOs across backend/mobile share the same fields.)*
 
 #### Final Verification Tasks
-- [ ] Ensure lint passes: `./format_code.sh` runs clean
-- [ ] Ensure unit tests pass: (in backend) `scripts/run_unit.py` and (in mobile) `npm run test` both run clean
-- [ ] Ensure integration tests pass: (in backend) `scripts/run_integration.py` runs clean
-- [ ] Follow the instructions in `codegen/prompts/trace.md` to ensure the user story is implemented correctly
-- [ ] Fix any issues documented during the tracing of the user story in `docs/specs/refine-los/trace.md`
-- [ ] Follow the instructions in `codegen/prompts/modulecheck.md` to ensure the new code is following the modular architecture correctly
-- [ ] Examine all new code that has been created and make sure all of it is being used; there is no dead code
+- [x] Ensure lint passes: `./format_code.sh` runs clean *(Phase 8: Script completed after provisioning backend venv.)*
+- [x] Ensure unit tests pass: (in backend) `scripts/run_unit.py` and (in mobile) `npm run test` both run clean *(Phase 8: Executed in fresh environments; noted existing Jest open-handle warning.)*
+- [x] Ensure integration tests pass: (in backend) `scripts/run_integration.py` runs clean *(Phase 8: Integration suite skipped external calls as expected.)*
+- [x] Follow the instructions in `codegen/prompts/trace.md` to ensure the user story is implemented correctly *(Phase 8: Authored `docs/specs/refine-los/trace.md`.)*
+- [x] Fix any issues documented during the tracing of the user story in `docs/specs/refine-los/trace.md` *(Phase 8: Trace recorded no outstanding concerns.)*
+- [x] Follow the instructions in `codegen/prompts/modulecheck.md` to ensure the new code is following the modular architecture correctly *(Phase 8: Updated backend/frontend architecture checklists with verification notes.)*
+- [x] Examine all new code that has been created and make sure all of it is being used; there is no dead code *(Phase 8: Reviewed recent modules to ensure every helper and component remains referenced.)*
 
 ---
 

@@ -429,7 +429,8 @@ describe('Learning Session Module', () => {
           items: [
             {
               loId: 'lo-1',
-              loText: 'Objective 1',
+              title: 'Objective 1',
+              description: 'Objective 1 description',
               exercisesTotal: 3,
               exercisesAttempted: 2,
               exercisesCorrect: 2,
@@ -450,6 +451,142 @@ describe('Learning Session Module', () => {
           'unit-42',
           'user-99'
         );
+      });
+    });
+
+    describe('computeLessonLOProgressLocal', () => {
+      it('aggregates last attempts per exercise and filters lesson objectives', async () => {
+        const realRepo = new LearningSessionRepo();
+        const realService = new LearningSessionService(realRepo);
+        const unitId = 'unit-lesson';
+        const lessonId = 'lesson-local';
+        const userId = 'user-progress';
+
+        const cachedDetail: CachedUnitDetail = {
+          id: unitId,
+          title: 'Offline Unit',
+          description: 'Unit description',
+          learnerLevel: 'beginner',
+          isGlobal: false,
+          updatedAt: Date.now(),
+          schemaVersion: 1,
+          downloadStatus: 'completed',
+          cacheMode: 'full',
+          downloadedAt: Date.now(),
+          syncedAt: Date.now(),
+          unitPayload: {
+            id: unitId,
+            title: 'Offline Unit',
+            description: 'Unit description',
+            learner_level: 'beginner',
+            learning_objectives: [
+              {
+                id: 'lo-1',
+                title: 'Objective 1',
+                description: 'Objective 1 description',
+              },
+              {
+                id: 'lo-2',
+                title: 'Unused Objective',
+                description: 'Unused Objective description',
+              },
+            ],
+          },
+          lessons: [
+            {
+              id: lessonId,
+              unitId,
+              title: 'Lesson Local',
+              position: 1,
+              payload: {
+                package: {
+                  unit_learning_objective_ids: ['lo-1', 'lo-2'],
+                  exercises: [
+                    { id: 'ex-1', exercise_type: 'mcq', lo_id: 'lo-1' },
+                    { id: 'ex-2', exercise_type: 'mcq', lo_id: 'lo-1' },
+                  ],
+                },
+              },
+              updatedAt: Date.now(),
+              schemaVersion: 1,
+            },
+          ],
+          assets: [],
+        };
+
+        mockOfflineCache.listUnits.mockResolvedValue([cachedDetail]);
+        mockOfflineCache.getUnitDetail.mockResolvedValue(cachedDetail);
+
+        const baseSession: LearningSession = {
+          id: 'session-local',
+          lessonId,
+          unitId,
+          lessonTitle: 'Lesson Local',
+          userId,
+          status: 'active',
+          startedAt: new Date('2024-04-01T00:00:00Z').toISOString(),
+          completedAt: undefined,
+          currentExerciseIndex: 0,
+          totalExercises: 2,
+          progressPercentage: 0,
+          sessionData: {},
+          estimatedTimeRemaining: 0,
+          isCompleted: false,
+          canResume: true,
+        };
+
+        await realRepo.saveSession(baseSession, { enqueueOutbox: false });
+
+        await realService.updateProgress({
+          sessionId: baseSession.id,
+          exerciseId: 'ex-1',
+          exerciseType: 'mcq',
+          userAnswer: 'A',
+          isCorrect: false,
+          timeSpentSeconds: 30,
+        });
+        await realService.updateProgress({
+          sessionId: baseSession.id,
+          exerciseId: 'ex-1',
+          exerciseType: 'mcq',
+          userAnswer: 'B',
+          isCorrect: true,
+          timeSpentSeconds: 25,
+        });
+        await realService.updateProgress({
+          sessionId: baseSession.id,
+          exerciseId: 'ex-2',
+          exerciseType: 'mcq',
+          userAnswer: 'C',
+          isCorrect: false,
+          timeSpentSeconds: 20,
+        });
+
+        const items = await realService.computeLessonLOProgressLocal(
+          lessonId,
+          userId
+        );
+
+        expect(items).toHaveLength(1);
+        const lo = items[0];
+        expect(lo.loId).toBe('lo-1');
+        expect(lo.exercisesTotal).toBe(2);
+        expect(lo.exercisesAttempted).toBe(2);
+        expect(lo.exercisesCorrect).toBe(1);
+        expect(lo.status).toBe('partial');
+        expect(lo.newlyCompletedInSession).toBe(false);
+        expect(lo.title).toBe('Objective 1');
+        expect(lo.description).toBe('Objective 1 description');
+
+        const storedSession = await realRepo.getSession(baseSession.id);
+        const answers = (storedSession?.sessionData as {
+          exercise_answers?: Record<string, any>;
+        })?.exercise_answers;
+        expect(answers?.['ex-1']?.attempt_history).toHaveLength(2);
+        expect(
+          answers?.['ex-1']?.attempt_history?.[1]?.is_correct ?? false
+        ).toBe(true);
+        expect(items.find(item => item.loId === 'lo-2')).toBeUndefined();
       });
     });
 
@@ -547,8 +684,16 @@ describe('Learning Session Module', () => {
           learner_level: 'beginner',
           lesson_order: ['lesson-1'],
           learning_objectives: [
-            { id: 'lo-1', text: 'Objective 1' },
-            { id: 'lo-2', text: 'Objective 2' },
+            {
+              id: 'lo-1',
+              title: 'Objective 1',
+              description: 'Objective 1 description',
+            },
+            {
+              id: 'lo-2',
+              title: 'Objective 2',
+              description: 'Objective 2 description',
+            },
           ],
         },
         lessons: [
@@ -612,6 +757,8 @@ describe('Learning Session Module', () => {
       const lo1 = progress.items.find(item => item.loId === 'lo-1');
       const lo2 = progress.items.find(item => item.loId === 'lo-2');
       expect(lo1).toMatchObject({
+        title: 'Objective 1',
+        description: 'Objective 1 description',
         status: 'completed',
         exercisesTotal: 2,
         exercisesAttempted: 2,
@@ -619,6 +766,8 @@ describe('Learning Session Module', () => {
         newlyCompletedInSession: true,
       });
       expect(lo2).toMatchObject({
+        title: 'Objective 2',
+        description: 'Objective 2 description',
         status: 'partial',
         exercisesTotal: 1,
         exercisesAttempted: 1,

@@ -25,6 +25,7 @@ export type LearningStackParamList = {
   LearningCoach: { topic?: string; conversationId?: string } | undefined;
   LearningFlow: { lessonId: string; lesson: LessonDetail; unitId: string };
   UnitDetail: { unitId: string };
+  UnitLODetail: { unitId: string; unitTitle?: string | null };
   CacheManagement: undefined;
   Results: {
     results: SessionResults;

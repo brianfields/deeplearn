@@ -16,13 +16,19 @@ export interface LearningCoachBrief {
   readonly level?: string | null;
 }
 
+export interface LearningCoachLearningObjective {
+  readonly id: string;
+  readonly title: string;
+  readonly description: string;
+}
+
 export interface LearningCoachSessionState {
   readonly conversationId: string;
   readonly messages: LearningCoachMessage[];
   readonly metadata: Record<string, any>;
   readonly finalizedTopic?: string | null;
   readonly unitTitle?: string | null;
-  readonly learningObjectives?: string[] | null;
+  readonly learningObjectives?: LearningCoachLearningObjective[] | null;
   readonly suggestedLessonCount?: number | null;
   readonly proposedBrief?: LearningCoachBrief | null; // Deprecated
   readonly acceptedBrief?: LearningCoachBrief | null; // Deprecated

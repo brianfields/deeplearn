@@ -197,8 +197,8 @@ class ContentCreatorService:
                 if candidate in unit_lo_map:
                     lo_id = candidate
                     break
-                if candidate in unit_lo_text_lookup:
-                    lo_id = unit_lo_text_lookup[candidate]
+                if candidate in objective_lookup_by_text:
+                    lo_id = objective_lookup_by_text[candidate]
                     break
             if lo_id is None:
                 lo_id = lesson_lo_ids[0]
@@ -428,7 +428,7 @@ class ContentCreatorService:
         """
         lesson_title = lesson_plan.get("title") or f"Lesson {lesson_index + 1}"
         lesson_lo_ids: list[str] = list(lesson_plan.get("learning_objective_ids", []) or [])
-        lesson_lo_texts: list[str] = [unit_los.get(lid, lid) for lid in lesson_lo_ids]
+        lesson_lo_descriptions: list[str] = [unit_los.get(lid, lid) for lid in lesson_lo_ids]
         lesson_objective_text: str = lesson_plan.get("lesson_objective", "")
 
         logger.info(f"📝 Creating lesson {lesson_index + 1}: {lesson_title}")
@@ -439,7 +439,7 @@ class ContentCreatorService:
                 "topic": lesson_title,
                 "learner_level": learner_level,
                 "voice": "Plain",
-                "learning_objectives": lesson_lo_texts,
+                "learning_objectives": lesson_lo_descriptions,
                 "learning_objective_ids": lesson_lo_ids,
                 "lesson_objective": lesson_objective_text,
                 "unit_source_material": unit_material,

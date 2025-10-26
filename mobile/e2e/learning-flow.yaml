@@ -61,15 +61,13 @@ appId: host.exp.Exponent
 
 # Step 6: Verify LO-based results screen elements
 - assertVisible:
-    id: 'results-summary'
-- assertVisible:
     text: 'Learning Objective Progress'
+- assertVisible:
+    text: 'Lesson Complete!'
 - assertVisible:
     id: 'results-lo-progress-list'
 - assertVisible:
     id: 'results-lo-progress-list-item-0'
-- assertVisible:
-    id: 'results-summary-mastered'
 - assertVisible:
     id: 'results-retry-button'
 - assertVisible:

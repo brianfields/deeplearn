@@ -84,9 +84,21 @@ function UnitAccordionItem({ unit, isExpanded, onToggle }: UnitAccordionItemProp
               {detail.learning_objectives && detail.learning_objectives.length > 0 && (
                 <div>
                   <h4 className="text-sm font-semibold text-gray-900">Learning objectives</h4>
-                  <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-600">
+                  <ul className="mt-2 space-y-3">
                     {detail.learning_objectives.map((objective) => (
-                      <li key={objective}>{objective}</li>
+                      <li key={objective.id} className="border-l-2 border-blue-200 pl-3">
+                        <p className="text-sm font-medium text-gray-900">
+                          {objective.title || objective.description || objective.id}
+                        </p>
+                        {objective.description && (
+                          <p className="mt-0.5 text-xs text-gray-600">{objective.description}</p>
+                        )}
+                        {objective.bloom_level && (
+                          <p className="mt-0.5 text-[11px] uppercase tracking-wide text-gray-400">
+                            Bloom level: {objective.bloom_level}
+                          </p>
+                        )}
+                      </li>
                     ))}
                   </ul>
                 </div>
