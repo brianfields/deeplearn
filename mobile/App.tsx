@@ -19,6 +19,7 @@ import { LearningCoachScreen } from './modules/learning_coach/screens/LearningCo
 import LearningFlowScreen from './modules/learning_session/screens/LearningFlowScreen';
 import ResultsScreen from './modules/learning_session/screens/ResultsScreen';
 import { UnitDetailScreen } from './modules/catalog/screens/UnitDetailScreen';
+import { UnitLODetailScreen } from './modules/catalog/screens/UnitLODetailScreen';
 import LoginScreen from './modules/user/screens/LoginScreen';
 import RegisterScreen from './modules/user/screens/RegisterScreen';
 import CacheManagementScreen from './modules/offline_cache/screens/CacheManagementScreen';
@@ -80,6 +81,13 @@ function LearningStackNavigator(): React.ReactElement {
         component={UnitDetailScreen}
         options={{
           title: 'Unit',
+        }}
+      />
+      <LearningStack.Screen
+        name="UnitLODetail"
+        component={UnitLODetailScreen}
+        options={{
+          title: 'Learning Objectives',
         }}
       />
       <LearningStack.Screen

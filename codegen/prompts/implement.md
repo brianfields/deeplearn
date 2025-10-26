@@ -7,9 +7,8 @@ Backend architecture reference: {BACKEND_ARCH}
 Frontend architecture reference: {FRONTEND_ARCH}
 
 Instructions:
-- Read {SPEC_PATH}. Implement the next highest-priority unchecked item(s).
+- Read {SPEC_PATH}. Implement Phase 1 tasks.
 - Make minimal, high-quality edits only where needed. Do not add public interfaces or routes without need.
-- Do backend tasks first and get *backend* *unit* tests to pass before doing frontend tasks. Do not run integration tests.
 - Use our modular architecture:
   - Follow all the rules in {BACKEND_ARCH} and {FRONTEND_ARCH}.
   - Keep names consistent across backend/frontend/mobile.

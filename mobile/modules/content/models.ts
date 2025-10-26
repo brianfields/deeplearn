@@ -9,7 +9,8 @@ import type { CacheMode, DownloadStatus } from '../offline_cache/public';
 // Backend API wire types (private to module)
 export interface ApiUnitLearningObjective {
   id: string;
-  text: string;
+  title: string;
+  description: string;
 }
 
 export interface ApiUnitSummary {
@@ -96,7 +97,8 @@ export interface UnitLessonSummary {
 
 export interface UnitLearningObjective {
   readonly id: string;
-  readonly text: string;
+  readonly title: string;
+  readonly description: string;
 }
 
 export interface Unit {
@@ -204,14 +206,7 @@ export function toUnitDTO(
     ownerUserId && currentUserId && ownerUserId === currentUserId
   );
 
-  const learningObjectives = Array.isArray(api.learning_objectives)
-    ? api.learning_objectives
-        .filter(
-          (lo): lo is ApiUnitLearningObjective =>
-            !!lo && typeof lo.id === 'string' && typeof lo.text === 'string'
-        )
-        .map(lo => ({ id: lo.id, text: lo.text }))
-    : null;
+  const learningObjectives = mapApiLearningObjectives(api.learning_objectives);
 
   return {
     id: api.id,
@@ -264,14 +259,7 @@ export function toUnitDetailDTO(
     ? [...lessonOrder]
     : lessons.map(lesson => lesson.id);
 
-  const learningObjectives = Array.isArray(api.learning_objectives)
-    ? api.learning_objectives
-        .filter(
-          (lo): lo is ApiUnitLearningObjective =>
-            !!lo && typeof lo.id === 'string' && typeof lo.text === 'string'
-        )
-        .map(lo => ({ id: lo.id, text: lo.text }))
-    : null;
+  const learningObjectives = mapApiLearningObjectives(api.learning_objectives);
 
   return {
     id: api.id,
@@ -377,4 +365,54 @@ function formatOwnershipLabel(
     return 'My Unit';
   }
   return 'Personal';
+}
+
+function mapApiLearningObjectives(
+  raw: ApiUnitLearningObjective[] | null | undefined
+): UnitLearningObjective[] | null {
+  if (!Array.isArray(raw)) {
+    return null;
+  }
+
+  const objectives = raw
+    .map(objective => normalizeLearningObjective(objective as unknown))
+    .filter((value): value is UnitLearningObjective => value !== null);
+
+  return objectives.length > 0 ? objectives : null;
+}
+
+function normalizeLearningObjective(
+  objective: unknown
+): UnitLearningObjective | null {
+  if (!objective || typeof objective !== 'object') {
+    return null;
+  }
+
+  const candidate = objective as Record<string, unknown>;
+  const id = typeof candidate.id === 'string' ? candidate.id : null;
+  const rawTitle = candidate.title;
+  const rawDescription = candidate.description;
+  const fallbackText = candidate.text;
+
+  const description =
+    typeof rawDescription === 'string' && rawDescription.trim().length > 0
+      ? rawDescription
+      : typeof fallbackText === 'string' && fallbackText.trim().length > 0
+        ? fallbackText
+        : null;
+
+  if (!id || !description) {
+    return null;
+  }
+
+  const title =
+    typeof rawTitle === 'string' && rawTitle.trim().length > 0
+      ? rawTitle
+      : description;
+
+  return {
+    id,
+    title,
+    description,
+  };
 }

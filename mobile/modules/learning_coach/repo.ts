@@ -6,6 +6,7 @@ import type {
   LearningCoachSessionState,
   LearningCoachMessage,
   LearningCoachBrief,
+  LearningCoachLearningObjective,
   LearningCoachError,
 } from './models';
 
@@ -25,10 +26,17 @@ interface ApiSessionState {
   readonly metadata: Record<string, any>;
   readonly finalized_topic?: string | null;
   readonly unit_title?: string | null;
-  readonly learning_objectives?: string[] | null;
+  readonly learning_objectives?: ApiLearningObjective[] | null;
   readonly suggested_lesson_count?: number | null;
   readonly proposed_brief?: Record<string, any> | null;
   readonly accepted_brief?: Record<string, any> | null;
+}
+
+interface ApiLearningObjective {
+  readonly id?: string;
+  readonly title?: string;
+  readonly description?: string;
+  readonly text?: string;
 }
 
 function toMessage(dto: ApiMessage): LearningCoachMessage {
@@ -66,11 +74,63 @@ function toSessionState(dto: ApiSessionState): LearningCoachSessionState {
     metadata: dto.metadata ?? {},
     finalizedTopic: dto.finalized_topic ?? null,
     unitTitle: dto.unit_title ?? null,
-    learningObjectives: dto.learning_objectives ?? null,
+    learningObjectives: normalizeLearningObjectives(dto.learning_objectives),
     suggestedLessonCount: dto.suggested_lesson_count ?? null,
     proposedBrief: normalizeBrief(dto.proposed_brief),
     acceptedBrief: normalizeBrief(dto.accepted_brief),
   };
+}
+
+function normalizeLearningObjectives(
+  objectives: ApiSessionState['learning_objectives']
+): LearningCoachLearningObjective[] | null {
+  if (!Array.isArray(objectives)) {
+    return null;
+  }
+
+  const normalized = objectives
+    .map(objective => {
+      if (!objective || typeof objective !== 'object') {
+        return null;
+      }
+
+      const id = typeof objective.id === 'string' ? objective.id : null;
+      const rawTitle =
+        typeof objective.title === 'string'
+          ? objective.title
+          : typeof objective.text === 'string'
+            ? objective.text
+            : null;
+      const rawDescription =
+        typeof objective.description === 'string'
+          ? objective.description
+          : typeof objective.text === 'string'
+            ? objective.text
+            : null;
+
+      if (!id || (!rawTitle && !rawDescription)) {
+        return null;
+      }
+
+      const title = (rawTitle ?? rawDescription ?? '').trim();
+      const description = (rawDescription ?? rawTitle ?? '').trim();
+
+      if (!title || !description) {
+        return null;
+      }
+
+      return {
+        id,
+        title,
+        description,
+      } satisfies LearningCoachLearningObjective;
+    })
+    .filter(
+      (objective): objective is LearningCoachLearningObjective =>
+        objective !== null
+    );
+
+  return normalized.length > 0 ? normalized : null;
 }
 
 export class LearningCoachRepo {

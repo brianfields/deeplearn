@@ -13,16 +13,11 @@ import Animated, { FadeIn, Easing } from 'react-native-reanimated';
 
 import { reducedMotion } from '../../ui_system/utils/motion';
 import { animationTimings } from '../../ui_system/utils/animations';
-import {
-  Button,
-  Card,
-  uiSystemProvider,
-  useHaptics,
-} from '../../ui_system/public';
+import { Button, uiSystemProvider, useHaptics } from '../../ui_system/public';
 import { LOProgressList } from '../components/LOProgressList';
 import { catalogProvider } from '../../catalog/public';
 import { DEFAULT_ANONYMOUS_USER_ID, useAuth } from '../../user/public';
-import { useUnitLOProgress, useNextLessonToResume } from '../queries';
+import { useLessonLOProgress, useNextLessonToResume } from '../queries';
 import type { LearningStackParamList } from '../../../types';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { LOProgressItem as LOProgressRecord } from '../models';
@@ -56,9 +51,9 @@ export default function ResultsScreen({ navigation, route }: Props) {
     haptics.trigger('success');
   }, [haptics]);
 
-  const { data: latestProgress, isFetching: isProgressFetching } =
-    useUnitLOProgress(userKey, unitId, {
-      enabled: Boolean(unitId),
+  const { data: lessonProgress, isFetching: isLessonProgressFetching } =
+    useLessonLOProgress(results.lessonId, userKey, {
+      enabled: Boolean(results.lessonId),
       staleTime: 30 * 1000,
     });
 
@@ -68,23 +63,13 @@ export default function ResultsScreen({ navigation, route }: Props) {
       staleTime: 60 * 1000,
     });
 
-  const newlyCompletedSet = useMemo(() => {
-    const fromResults = results.unitLOProgress?.items ?? [];
-    return new Set(
-      fromResults
-        .filter(item => item.newlyCompletedInSession)
-        .map(item => item.loId)
-    );
-  }, [results.unitLOProgress]);
-
   const progressItems: LOProgressRecord[] = useMemo(() => {
-    const sourceItems =
-      latestProgress?.items ?? results.unitLOProgress?.items ?? [];
-    return sourceItems.map(item => ({
-      ...item,
-      newlyCompletedInSession: newlyCompletedSet.has(item.loId),
-    }));
-  }, [latestProgress?.items, newlyCompletedSet, results.unitLOProgress]);
+    const fallbackItems = results.unitLOProgress?.items ?? [];
+    if (lessonProgress) {
+      return lessonProgress;
+    }
+    return fallbackItems;
+  }, [lessonProgress, results.unitLOProgress]);
 
   const summary: SummaryMetrics = useMemo(() => {
     const total = progressItems.length;
@@ -224,26 +209,6 @@ export default function ResultsScreen({ navigation, route }: Props) {
           color: colors.textSecondary,
           textAlign: 'center',
         },
-        summaryCard: {
-          marginBottom: spacing.lg,
-          gap: spacing.sm,
-        },
-        summaryMetrics: {
-          flexDirection: 'row',
-          flexWrap: 'wrap',
-          gap: spacing.sm,
-        },
-        metricPill: {
-          paddingHorizontal: spacing.md,
-          paddingVertical: spacing.xs,
-          borderRadius: 999,
-          backgroundColor: `${colors.primary}14`,
-        },
-        metricText: {
-          color: colors.primary,
-          fontSize: 14,
-          fontWeight: '600',
-        },
         sectionTitle: {
           fontSize: typography.heading3.fontSize,
           lineHeight: typography.heading3.lineHeight,
@@ -297,48 +262,12 @@ export default function ResultsScreen({ navigation, route }: Props) {
                   .easing(Easing.bezier(0.2, 0.8, 0.2, 1))
           }
         >
-          <Card style={contentStyles.summaryCard} testID="results-summary">
-            <Text
-              style={contentStyles.sectionTitle}
-              testID="results-summary-mastered"
-            >
-              {summaryHeadline}
-            </Text>
-            <View style={contentStyles.summaryMetrics}>
-              <View style={contentStyles.metricPill}>
-                <Text style={contentStyles.metricText}>
-                  {summary.completed} mastered
-                </Text>
-              </View>
-              <View style={contentStyles.metricPill}>
-                <Text style={contentStyles.metricText}>
-                  {summary.partial} in progress
-                </Text>
-              </View>
-              <View style={contentStyles.metricPill}>
-                <Text style={contentStyles.metricText}>
-                  {summary.notStarted} not started
-                </Text>
-              </View>
-            </View>
-          </Card>
-        </Animated.View>
-
-        <Animated.View
-          entering={
-            reducedMotion.enabled
-              ? undefined
-              : FadeIn.delay(240)
-                  .duration(animationTimings.ui)
-                  .easing(Easing.bezier(0.2, 0.8, 0.2, 1))
-          }
-        >
           <Text style={contentStyles.sectionTitle}>
             Learning Objective Progress
           </Text>
           <LOProgressList
             items={progressItems}
-            isLoading={isProgressFetching}
+            isLoading={isLessonProgressFetching}
             testID="results-lo-progress-list"
           />
         </Animated.View>

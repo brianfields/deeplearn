@@ -203,5 +203,6 @@ project.xcworkspace/
 ehthumbs.db
 Thumbs.db
 
-mobile/ios/
-mobile/android/
+mobile/ios/Pods/
+mobile/ios/build/
+mobile/ios/*.xcworkspace/

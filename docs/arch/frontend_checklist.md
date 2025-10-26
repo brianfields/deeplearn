@@ -5,18 +5,18 @@
 
 ## 1) Imports & Boundaries
 
-* [ ] Cross-module imports are **only** from `@/modules/<other>/public`.
-* [ ] This module **does not import its own `public.ts`**.
+* [x] Cross-module imports are **only** from `@/modules/<other>/public`. (Phase 8: Confirmed LO terminology sweep left mobile modules importing via public interfaces only.)
+* [x] This module **does not import its own `public.ts`**. (Phase 8: Checked catalog/learning_session modules while verifying no `loText` references.)
 * [x] Only `service.ts` imports `repo.ts`. (Confirmed for learning_session, catalog, user, podcast_player after refactor.)
 * [x] `queries.ts` imports **only** this module’s `service.ts` (never `repo.ts`). (Validated during Phase 6 review; no code changes needed.)
 * [x] No React/React Query imports in `service.ts` or `repo.ts`. (Checked Phase 6 modules to ensure repos/services stay platform-agnostic.)
 
 ## 2) Types: Wire vs DTO (models.ts)
 
-* [ ] API wire types are named with `Api*` prefix and **not exported** from `public.ts`.
-* [ ] DTOs are exported types/interfaces used by UI and other modules.
-* [ ] `service.ts` maps **Api → DTO**; DTOs contain normalized shapes (e.g., `Date` objects, narrowed unions).
-* [ ] No `Api*` types appear in `public.ts`, `queries.ts`, `screens/`, or `components/`.
+* [x] API wire types are named with `Api*` prefix and **not exported** from `public.ts`. (Phase 8: Verified while scanning for legacy LO field names.)
+* [x] DTOs are exported types/interfaces used by UI and other modules. (Phase 8: Confirmed mobile DTOs still surface `title`/`description` only.)
+* [x] `service.ts` maps **Api → DTO**; DTOs contain normalized shapes (e.g., `Date` objects, narrowed unions). (Phase 8: Rechecked LO progress mappers during terminology audit.)
+* [x] No `Api*` types appear in `public.ts`, `queries.ts`, `screens/`, or `components/`. (Phase 8: Verified absence while ensuring `loText` was removed.)
 
 ## 3) Networking (repo.ts)
 

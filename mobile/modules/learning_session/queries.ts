@@ -50,6 +50,8 @@ export const learningSessionKeys = {
   unitLOProgressRoot: () => ['learning_session', 'unit_lo_progress'] as const,
   unitLOProgress: (userId: string, unitId: string) =>
     ['learning_session', 'unit_lo_progress', userId, unitId] as const,
+  lessonLOProgress: (lessonId: string, userId: string) =>
+    ['learning_session', 'lesson_lo_progress', lessonId, userId] as const,
   nextLessonToResume: (userId: string, unitId: string) =>
     ['learning_session', 'next_resume', userId, unitId] as const,
 };
@@ -182,6 +184,10 @@ export function useSyncSessions() {
       queryClient.invalidateQueries({
         queryKey: learningSessionKeys.unitLOProgressRoot(),
       });
+      queryClient.invalidateQueries({
+        queryKey: ['learning_session', 'lesson_lo_progress'],
+        exact: false,
+      });
     },
   });
 }
@@ -231,6 +237,21 @@ export function useStartSession() {
         });
       }
     },
+  });
+}
+
+export function useLessonLOProgress(
+  lessonId: string,
+  userId: string,
+  options?: { enabled?: boolean; staleTime?: number }
+) {
+  return useQuery({
+    queryKey: learningSessionKeys.lessonLOProgress(lessonId, userId),
+    queryFn: () =>
+      learningSession.computeLessonLOProgressLocal(lessonId, userId),
+    enabled: options?.enabled ?? Boolean(lessonId && userId),
+    staleTime: options?.staleTime ?? 30 * 1000,
+    refetchOnWindowFocus: false,
   });
 }
 

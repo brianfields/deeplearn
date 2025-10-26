@@ -6,6 +6,7 @@
  */
 
 import { LearningSessionRepo } from './repo';
+import type { LessonPackage } from './repo';
 import { catalogProvider } from '../catalog/public';
 import { userIdentityProvider } from '../user/public';
 import type {
@@ -15,6 +16,7 @@ import type {
   UnitProgress,
   UnitLessonProgress,
   UnitLOProgress,
+  LOProgressItem,
   StartSessionRequest,
   UpdateProgressRequest,
   CompleteSessionRequest,
@@ -36,6 +38,207 @@ export class LearningSessionService {
   // ================================
   // Private Helper Methods (defined first for use throughout)
   // ================================
+
+  private normalizeLessonObjectiveMetadata(
+    lessonPackage: LessonPackage
+  ): Map<string, { title: string; description: string }> {
+    const metadata = new Map<string, { title: string; description: string }>();
+
+    for (const entry of lessonPackage.__canonicalObjectives ?? []) {
+      const id = entry.id?.trim();
+      const title = entry.title?.trim();
+      const description = entry.description?.trim();
+      if (!id) {
+        continue;
+      }
+      const fallback = title || description || id;
+      metadata.set(id, {
+        title: title || fallback,
+        description: description || fallback,
+      });
+    }
+
+    const rawUnitObjectives = (
+      lessonPackage as {
+        unit_learning_objectives?: unknown;
+      }
+    ).unit_learning_objectives;
+    if (Array.isArray(rawUnitObjectives)) {
+      for (const entry of rawUnitObjectives) {
+        if (!entry || typeof entry !== 'object') {
+          continue;
+        }
+        const id =
+          typeof (entry as { id?: unknown }).id === 'string'
+            ? ((entry as { id?: string }).id as string).trim()
+            : typeof (entry as { lo_id?: unknown }).lo_id === 'string'
+              ? ((entry as { lo_id?: string }).lo_id as string).trim()
+              : null;
+        if (!id) {
+          continue;
+        }
+        const title =
+          typeof (entry as { title?: unknown }).title === 'string'
+            ? ((entry as { title?: string }).title as string).trim()
+            : null;
+        const description =
+          typeof (entry as { description?: unknown }).description === 'string'
+            ? ((entry as { description?: string }).description as string).trim()
+            : typeof (entry as { text?: unknown }).text === 'string'
+              ? ((entry as { text?: string }).text as string).trim()
+              : null;
+        const fallback = title || description || id;
+        if (!metadata.has(id)) {
+          metadata.set(id, {
+            title: title || fallback,
+            description: description || fallback,
+          });
+        }
+      }
+    }
+
+    if (Array.isArray(lessonPackage.learning_objectives)) {
+      for (const entry of lessonPackage.learning_objectives) {
+        if (typeof entry === 'string') {
+          const id = entry.trim();
+          if (id && !metadata.has(id)) {
+            metadata.set(id, { title: id, description: id });
+          }
+          continue;
+        }
+        if (!entry || typeof entry !== 'object') {
+          continue;
+        }
+        const id =
+          typeof (entry as { id?: unknown }).id === 'string'
+            ? ((entry as { id?: string }).id as string).trim()
+            : typeof (entry as { lo_id?: unknown }).lo_id === 'string'
+              ? ((entry as { lo_id?: string }).lo_id as string).trim()
+              : null;
+        if (!id) {
+          continue;
+        }
+        const title =
+          typeof (entry as { title?: unknown }).title === 'string'
+            ? ((entry as { title?: string }).title as string).trim()
+            : null;
+        const description =
+          typeof (entry as { description?: unknown }).description === 'string'
+            ? ((entry as { description?: string }).description as string).trim()
+            : typeof (entry as { text?: unknown }).text === 'string'
+              ? ((entry as { text?: string }).text as string).trim()
+              : null;
+        const fallback = title || description || id;
+        if (!metadata.has(id)) {
+          metadata.set(id, {
+            title: title || fallback,
+            description: description || fallback,
+          });
+        }
+      }
+    }
+
+    return metadata;
+  }
+
+  private extractExerciseStateFromSession(
+    session: LearningSession,
+    exerciseToLo: Map<string, string>
+  ): Map<string, { attempted: boolean; isCorrect: boolean }> {
+    const answersRaw =
+      session.sessionData && typeof session.sessionData === 'object'
+        ? (session.sessionData as { exercise_answers?: unknown })
+            .exercise_answers
+        : null;
+    if (!answersRaw || typeof answersRaw !== 'object') {
+      return new Map();
+    }
+
+    const state = new Map<string, { attempted: boolean; isCorrect: boolean }>();
+    for (const [exerciseId, answerData] of Object.entries(
+      answersRaw as Record<string, unknown>
+    )) {
+      if (!exerciseToLo.has(exerciseId)) {
+        continue;
+      }
+      const resolved = this.resolveAnswerResult(answerData);
+      if (!resolved) {
+        continue;
+      }
+      state.set(exerciseId, resolved);
+    }
+    return state;
+  }
+
+  private resolveAnswerResult(
+    answerData: unknown
+  ): { attempted: boolean; isCorrect: boolean } | null {
+    if (!answerData || typeof answerData !== 'object') {
+      return null;
+    }
+
+    const historyRaw =
+      (answerData as { attempt_history?: unknown }).attempt_history ??
+      (answerData as { attemptHistory?: unknown }).attemptHistory;
+    const history = Array.isArray(historyRaw) ? historyRaw : [];
+    if (history.length > 0) {
+      const lastAttempt = history[history.length - 1] as Record<
+        string,
+        unknown
+      >;
+      const isCorrect =
+        (typeof lastAttempt.is_correct === 'boolean'
+          ? (lastAttempt.is_correct as boolean)
+          : typeof lastAttempt.isCorrect === 'boolean'
+            ? (lastAttempt.isCorrect as boolean)
+            : false) === true;
+      return { attempted: true, isCorrect };
+    }
+
+    if (
+      typeof (answerData as { is_correct?: unknown }).is_correct === 'boolean'
+    ) {
+      return {
+        attempted: true,
+        isCorrect: Boolean((answerData as { is_correct?: boolean }).is_correct),
+      };
+    }
+    if (
+      typeof (answerData as { isCorrect?: unknown }).isCorrect === 'boolean'
+    ) {
+      return {
+        attempted: true,
+        isCorrect: Boolean((answerData as { isCorrect?: boolean }).isCorrect),
+      };
+    }
+
+    if (
+      typeof (answerData as { has_been_answered_correctly?: unknown })
+        .has_been_answered_correctly === 'boolean'
+    ) {
+      return {
+        attempted: true,
+        isCorrect: Boolean(
+          (answerData as { has_been_answered_correctly?: boolean })
+            .has_been_answered_correctly
+        ),
+      };
+    }
+    if (
+      typeof (answerData as { hasBeenAnsweredCorrectly?: unknown })
+        .hasBeenAnsweredCorrectly === 'boolean'
+    ) {
+      return {
+        attempted: true,
+        isCorrect: Boolean(
+          (answerData as { hasBeenAnsweredCorrectly?: boolean })
+            .hasBeenAnsweredCorrectly
+        ),
+      };
+    }
+
+    return null;
+  }
 
   private generateSessionId(): string {
     // Generate a proper UUID v4
@@ -800,6 +1003,152 @@ export class LearningSessionService {
       };
     } catch (error) {
       throw this.handleServiceError(error, 'Failed to get unit progress');
+    }
+  }
+
+  async computeLessonLOProgressLocal(
+    lessonId: string,
+    userId: string
+  ): Promise<LOProgressItem[]> {
+    try {
+      const [lessonPackage, sessions] = await Promise.all([
+        this.repo.getLocalLessonPackage(lessonId),
+        this.repo.getLocalSessionsForLesson(lessonId, userId),
+      ]);
+
+      if (!lessonPackage) {
+        return [];
+      }
+
+      const exerciseToLo = new Map<string, string>();
+      const exercisesByLo = new Map<string, string[]>();
+      const totalsByLo = new Map<string, number>();
+      const objectiveMetadata =
+        this.normalizeLessonObjectiveMetadata(lessonPackage);
+
+      for (const exercise of lessonPackage.exercises ?? []) {
+        const exerciseId =
+          typeof (exercise as { id?: unknown }).id === 'string'
+            ? ((exercise as { id?: string }).id as string)
+            : null;
+        const loId =
+          typeof (exercise as { lo_id?: unknown }).lo_id === 'string'
+            ? ((exercise as { lo_id?: string }).lo_id as string)
+            : null;
+        if (!exerciseId || !loId) {
+          continue;
+        }
+
+        exerciseToLo.set(exerciseId, loId);
+        const bucket = exercisesByLo.get(loId) ?? [];
+        bucket.push(exerciseId);
+        exercisesByLo.set(loId, bucket);
+        totalsByLo.set(loId, bucket.length);
+
+        if (!objectiveMetadata.has(loId)) {
+          objectiveMetadata.set(loId, {
+            title: loId,
+            description: loId,
+          });
+        }
+      }
+
+      if (exerciseToLo.size === 0) {
+        return [];
+      }
+
+      const orderedSessions = [...sessions].sort((a, b) => {
+        const timeA = new Date(a.completedAt ?? a.startedAt).getTime();
+        const timeB = new Date(b.completedAt ?? b.startedAt).getTime();
+        return timeA - timeB;
+      });
+
+      const sessionStates = orderedSessions.map(session =>
+        this.extractExerciseStateFromSession(session, exerciseToLo)
+      );
+
+      const buildState = (
+        snapshots: Array<
+          Map<string, { attempted: boolean; isCorrect: boolean }>
+        >
+      ): Map<string, { attempted: boolean; isCorrect: boolean }> => {
+        const state = new Map<
+          string,
+          { attempted: boolean; isCorrect: boolean }
+        >();
+        for (const snapshot of snapshots) {
+          for (const [exerciseId, info] of snapshot.entries()) {
+            state.set(exerciseId, { ...info });
+          }
+        }
+        return state;
+      };
+
+      const finalState = buildState(sessionStates);
+      const previousState = buildState(sessionStates.slice(0, -1));
+
+      const summarize = (
+        state: Map<string, { attempted: boolean; isCorrect: boolean }>,
+        loId: string
+      ) => {
+        const exerciseIds = exercisesByLo.get(loId) ?? [];
+        let attempted = 0;
+        let correct = 0;
+        for (const exerciseId of exerciseIds) {
+          const result = state.get(exerciseId);
+          if (result?.attempted) {
+            attempted += 1;
+          }
+          if (result?.isCorrect) {
+            correct += 1;
+          }
+        }
+        return { attempted, correct } as const;
+      };
+
+      const items: LOProgressItem[] = [];
+      for (const [loId, exerciseIds] of exercisesByLo.entries()) {
+        const total = totalsByLo.get(loId) ?? exerciseIds.length;
+        if (total === 0) {
+          continue;
+        }
+
+        const metadata = objectiveMetadata.get(loId) ?? {
+          title: loId,
+          description: loId,
+        };
+
+        const finalSummary = summarize(finalState, loId);
+        const previousSummary = summarize(previousState, loId);
+
+        let status: LOProgressItem['status'] = 'not_started';
+        if (finalSummary.correct >= total && total > 0) {
+          status = 'completed';
+        } else if (finalSummary.attempted > 0 || finalSummary.correct > 0) {
+          status = 'partial';
+        }
+
+        const newlyCompletedInSession =
+          previousSummary.correct < total && status === 'completed';
+
+        items.push({
+          loId,
+          title: metadata.title,
+          description: metadata.description,
+          exercisesTotal: total,
+          exercisesAttempted: finalSummary.attempted,
+          exercisesCorrect: finalSummary.correct,
+          status,
+          newlyCompletedInSession,
+        });
+      }
+
+      return items;
+    } catch (error) {
+      throw this.handleServiceError(
+        error,
+        'Failed to compute lesson learning objective progress'
+      );
     }
   }
 

@@ -49,7 +49,8 @@ class GenerateUnitSourceMaterialStep(UnstructuredStep):
 # ---------- 2) Extract Unit Metadata ----------
 class UnitLearningObjective(BaseModel):
     id: str
-    text: str
+    title: str
+    description: str
     bloom_level: str | None = None
     evidence_of_mastery: str | None = None
 

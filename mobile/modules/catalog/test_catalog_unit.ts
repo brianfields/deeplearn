@@ -18,6 +18,8 @@ import type {
   UnitCreationRequest,
   UnitCreationResponse,
 } from '../content_creator/public';
+import type { UnitLOProgress } from '../learning_session/models';
+import { LearningSessionRepo } from '../learning_session/repo';
 
 // Mock the repo - lesson endpoints are handled directly here
 jest.mock('./repo');
@@ -27,6 +29,7 @@ describe('CatalogService', () => {
   let mockRepo: jest.Mocked<CatalogRepo>;
   let mockContent: jest.Mocked<ContentProvider>;
   let mockContentCreator: jest.Mocked<ContentCreatorProvider>;
+  let mockLearningSessionRepo: jest.Mocked<LearningSessionRepo>;
 
   beforeEach(() => {
     mockRepo = new CatalogRepo() as jest.Mocked<CatalogRepo>;
@@ -49,10 +52,18 @@ describe('CatalogService', () => {
       dismissUnit: jest.fn(),
     } as unknown as jest.Mocked<ContentCreatorProvider>;
 
-    service = new CatalogService(mockRepo, {
-      content: mockContent,
-      contentCreator: mockContentCreator,
-    });
+    mockLearningSessionRepo = {
+      computeUnitLOProgress: jest.fn(),
+    } as unknown as jest.Mocked<LearningSessionRepo>;
+
+    service = new CatalogService(
+      mockRepo,
+      {
+        content: mockContent,
+        contentCreator: mockContentCreator,
+      },
+      mockLearningSessionRepo
+    );
 
     jest.clearAllMocks();
   });
@@ -121,6 +132,31 @@ describe('CatalogService', () => {
     });
   });
 
+  describe('computeUnitLOProgressLocal', () => {
+    it('delegates to learning session repo with trimmed identifiers', async () => {
+      const progress: UnitLOProgress = { unitId: 'unit-7', items: [] };
+      mockLearningSessionRepo.computeUnitLOProgress.mockResolvedValue(progress);
+
+      const result = await service.computeUnitLOProgressLocal(
+        ' unit-7 ',
+        ' user-4 '
+      );
+
+      expect(result).toEqual(progress);
+      expect(
+        mockLearningSessionRepo.computeUnitLOProgress
+      ).toHaveBeenCalledWith('unit-7', 'user-4');
+    });
+
+    it('returns empty progress when identifiers are missing', async () => {
+      const result = await service.computeUnitLOProgressLocal('', '   ');
+      expect(result).toEqual({ unitId: '', items: [] });
+      expect(
+        mockLearningSessionRepo.computeUnitLOProgress
+      ).not.toHaveBeenCalled();
+    });
+  });
+
   describe('browseUnits', () => {
     it('returns units from content provider', async () => {
       const mockUnits: Unit[] = [
@@ -132,8 +168,16 @@ describe('CatalogService', () => {
           lessonCount: 3,
           difficultyLabel: 'Beginner',
           learningObjectives: [
-            { id: 'lo-1', text: 'Objective 1' },
-            { id: 'lo-2', text: 'Objective 2' },
+            {
+              id: 'lo-1',
+              title: 'Objective 1',
+              description: 'Objective 1 description',
+            },
+            {
+              id: 'lo-2',
+              title: 'Objective 2',
+              description: 'Objective 2 description',
+            },
           ],
           status: 'completed',
           creationProgress: null,
@@ -194,7 +238,13 @@ describe('CatalogService', () => {
         difficulty: 'intermediate',
         lessonIds: [],
         lessons: [],
-        learningObjectives: [{ id: 'lo-1', text: 'Explore detail objective' }],
+        learningObjectives: [
+          {
+            id: 'lo-1',
+            title: 'Explore detail objective',
+            description: 'Explore detail objective description',
+          },
+        ],
         targetLessonCount: null,
         sourceMaterial: null,
         generatedFromTopic: false,

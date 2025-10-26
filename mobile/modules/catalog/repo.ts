@@ -306,26 +306,62 @@ export class CatalogRepo {
                       : typeof (item as { lo_id?: unknown }).lo_id === 'string'
                         ? ((item as { lo_id?: string }).lo_id as string)
                         : null;
-                  const text =
-                    typeof (item as { text?: unknown }).text === 'string'
-                      ? ((item as { text?: string }).text as string)
-                      : typeof (item as { objective?: unknown }).objective ===
-                          'string'
-                        ? ((item as { objective?: string }).objective as string)
+                  const title =
+                    typeof (item as { title?: unknown }).title === 'string'
+                      ? ((item as { title?: string }).title as string)
+                      : typeof (item as { text?: unknown }).text === 'string'
+                        ? ((item as { text?: string }).text as string)
                         : null;
-                  if (id && text) {
-                    return { id, text };
+                  const description =
+                    typeof (item as { description?: unknown }).description ===
+                    'string'
+                      ? ((item as { description?: string })
+                          .description as string)
+                      : typeof (item as { text?: unknown }).text === 'string'
+                        ? ((item as { text?: string }).text as string)
+                        : typeof (item as { objective?: unknown }).objective ===
+                            'string'
+                          ? ((item as { objective?: string })
+                              .objective as string)
+                          : null;
+                  if (id && (title || description)) {
+                    const normalizedDescription = (
+                      description ??
+                      title ??
+                      ''
+                    ).trim();
+                    if (normalizedDescription) {
+                      return {
+                        id,
+                        title:
+                          (title ?? normalizedDescription).trim() ||
+                          normalizedDescription,
+                        description: normalizedDescription,
+                      };
+                    }
                   }
                 }
                 return null;
               })
               .filter(
-                (value): value is { id: string; text: string } => value !== null
+                (
+                  value
+                ): value is {
+                  id: string;
+                  title: string;
+                  description: string;
+                } => value !== null
               )
           : [];
-        const loTextById = new Map<string, string>();
+        const loDescriptionById = new Map<
+          string,
+          { title: string; description: string }
+        >();
         for (const objective of canonicalObjectives) {
-          loTextById.set(objective.id, objective.text);
+          loDescriptionById.set(objective.id, {
+            title: objective.title,
+            description: objective.description,
+          });
         }
 
         const cachedLesson = unitDetail.lessons.find(
@@ -351,9 +387,13 @@ export class CatalogRepo {
             : [];
           const learningObjectives =
             unitLearningObjectiveIds.length > 0
-              ? unitLearningObjectiveIds.map(
-                  (id: string) => loTextById.get(id) ?? id
-                )
+              ? unitLearningObjectiveIds.map((id: string) => {
+                  const objective = loDescriptionById.get(id);
+                  if (!objective) {
+                    return id;
+                  }
+                  return objective.description || objective.title;
+                })
               : fallbackObjectives;
 
           return {

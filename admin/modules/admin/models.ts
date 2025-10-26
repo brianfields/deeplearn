@@ -378,8 +378,18 @@ export interface Meta {
 
 export interface Objective {
   id: string;
-  text: string;
+  title: string;
+  description: string;
   bloom_level: string | null;
+  text?: string; // legacy support while cached data updates
+}
+
+export interface UnitLearningObjective {
+  id: string;
+  title: string;
+  description: string;
+  bloom_level?: string | null;
+  evidence_of_mastery?: string | null;
 }
 
 export interface GlossaryTerm {

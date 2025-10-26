@@ -79,7 +79,8 @@ class UnitLearningObjective(BaseModel):
     """Structured representation of a unit-level learning objective."""
 
     id: str
-    text: str
+    title: str
+    description: str
     bloom_level: str | None = None
     evidence_of_mastery: str | None = None
 
@@ -785,7 +786,7 @@ class ContentService:
         lesson_models = await self.repo.get_lessons_by_unit(unit_id=unit_id)
         lesson_summaries: dict[str, ContentService.UnitLessonSummary] = {}
         unit_learning_objectives = self._parse_unit_learning_objectives(getattr(unit, "learning_objectives", None))
-        lo_text_by_id = {lo.id: lo.text for lo in unit_learning_objectives}
+        lo_lookup = {lo.id: lo for lo in unit_learning_objectives}
 
         for lesson in lesson_models:
             try:
@@ -802,7 +803,7 @@ class ContentService:
             lesson_lo_ids = list(package.unit_learning_objective_ids)
             if not lesson_lo_ids:
                 lesson_lo_ids = sorted({exercise.lo_id for exercise in package.exercises})
-            objectives = [lo_text_by_id.get(lo_id, lo_id) for lo_id in lesson_lo_ids]
+            objectives = [(lo_lookup.get(lo_id).description if lo_lookup.get(lo_id) else lo_id) for lo_id in lesson_lo_ids]
             glossary_terms = package.glossary.get("terms", []) if package.glossary else []
             key_concepts: list[str] = []
             for term in glossary_terms:
@@ -1121,33 +1122,38 @@ class ContentService:
                 continue
 
             if isinstance(item, str):
-                parsed.append(UnitLearningObjective(id=item, text=item))
+                parsed.append(UnitLearningObjective(id=item, title=item, description=item))
                 continue
 
-            lo_id: str | None = None
-            lo_text: str | None = None
-            bloom_level: str | None = None
-            evidence_of_mastery: str | None = None
-
             if isinstance(item, dict):
-                lo_id = item.get("id") or item.get("lo_id")
-                lo_text = item.get("text") or item.get("lo_text")
-                bloom_level = item.get("bloom_level")
-                evidence_of_mastery = item.get("evidence_of_mastery")
+                payload = dict(item)
             else:
-                lo_id = getattr(item, "id", None) or getattr(item, "lo_id", None)
-                lo_text = getattr(item, "text", None) or getattr(item, "lo_text", None)
-                bloom_level = getattr(item, "bloom_level", None)
-                evidence_of_mastery = getattr(item, "evidence_of_mastery", None)
+                payload = {
+                    "id": getattr(item, "id", None) or getattr(item, "lo_id", None),
+                    "title": getattr(item, "title", None) or getattr(item, "short_title", None),
+                    "description": getattr(item, "description", None),
+                    "bloom_level": getattr(item, "bloom_level", None),
+                    "evidence_of_mastery": getattr(item, "evidence_of_mastery", None),
+                }
 
+            lo_id = payload.get("id") or payload.get("lo_id")
             if lo_id is None:
                 raise ValueError("Unit learning objective is missing an id")
 
-            lo_text = lo_text or lo_id
+            title = payload.get("title") or payload.get("short_title")
+            description = payload.get("description")
+            if title is None:
+                title = description or str(lo_id)
+            if description is None:
+                description = title
+
+            bloom_level = payload.get("bloom_level")
+            evidence_of_mastery = payload.get("evidence_of_mastery")
             parsed.append(
                 UnitLearningObjective(
                     id=str(lo_id),
-                    text=str(lo_text),
+                    title=str(title),
+                    description=str(description),
                     bloom_level=bloom_level if isinstance(bloom_level, str) else None,
                     evidence_of_mastery=evidence_of_mastery if isinstance(evidence_of_mastery, str) else None,
                 )

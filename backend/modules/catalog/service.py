@@ -580,29 +580,29 @@ class CatalogService:
 
         for item in raw:
             lo_id: str | None = None
-            lo_text: str | None = None
+            lo_description: str | None = None
 
             if isinstance(item, dict):
                 lo_id = item.get("id")
-                lo_text = item.get("text")
+                lo_description = item.get("description") or item.get("title")
             else:
                 lo_id = getattr(item, "id", None)
-                lo_text = getattr(item, "text", None)
+                lo_description = getattr(item, "description", None) or getattr(item, "title", None)
                 if lo_id is None and isinstance(item, str):
                     lo_id = item
-                if lo_text is None and isinstance(item, str):
-                    lo_text = item
+                if lo_description is None and isinstance(item, str):
+                    lo_description = item
 
             if lo_id is None:
                 lo_id = str(item)
 
-            if lo_text is None:
-                lo_text = str(lo_id)
+            if lo_description is None:
+                lo_description = str(lo_id)
 
             if lo_id not in lookup:
                 ordered_ids.append(lo_id)
 
-            lookup[lo_id] = lo_text
+            lookup[lo_id] = lo_description
 
         return ordered_ids, lookup
 

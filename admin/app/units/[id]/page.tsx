@@ -76,11 +76,22 @@ function LessonExpandedDetails({ lessonId }: { lessonId: string }) {
             <h3 className="text-xs font-semibold text-gray-700 uppercase mb-1.5">
               Learning Objectives ({lesson.package.objectives.length})
             </h3>
-            <ul className="space-y-1 text-xs">
+            <ul className="space-y-2 text-xs">
               {lesson.package.objectives.map((obj) => (
-                <li key={obj.id} className="text-gray-700 flex items-start">
-                  <span className="text-blue-500 mr-1.5 flex-shrink-0">•</span>
-                  <span>{obj.text}</span>
+                <li key={obj.id} className="text-gray-700">
+                  <p className="font-semibold text-gray-800">
+                    {obj.title || obj.text || obj.description || obj.id}
+                  </p>
+                  {(obj.description || obj.text) && (
+                    <p className="mt-0.5 text-gray-600">
+                      {obj.description || obj.text}
+                    </p>
+                  )}
+                  {obj.bloom_level && (
+                    <p className="mt-0.5 text-gray-400 uppercase tracking-wide">
+                      Bloom level: {obj.bloom_level}
+                    </p>
+                  )}
                 </li>
               ))}
             </ul>
@@ -380,12 +391,25 @@ export default function UnitDetailsPage({ params }: UnitDetailsPageProps) {
             <p className="text-sm text-gray-600">Learning objectives and source material</p>
           </div>
           <div className="px-6 py-4 grid grid-cols-1 md:grid-cols-2 gap-6">
-            {unit.learning_objectives && (
+            {unit.learning_objectives && unit.learning_objectives.length > 0 && (
               <div>
                 <h3 className="text-sm font-semibold text-gray-700 mb-2">Learning Objectives</h3>
-                <ul className="list-disc list-inside space-y-1">
+                <ul className="space-y-3">
                   {unit.learning_objectives.map((lo) => (
-                    <li key={lo.id} className="text-sm text-gray-700">{lo.text}</li>
+                    <li key={lo.id} className="rounded-md border border-gray-200 p-3">
+                      <p className="text-sm font-semibold text-gray-900">
+                        {lo.title || lo.description || lo.id}
+                      </p>
+                      {lo.description && (
+                        <p className="mt-0.5 text-sm text-gray-600">{lo.description}</p>
+                      )}
+                      {(lo.bloom_level || lo.evidence_of_mastery) && (
+                        <div className="mt-1 space-y-0.5 text-xs text-gray-500">
+                          {lo.bloom_level && <p>Bloom level: {lo.bloom_level}</p>}
+                          {lo.evidence_of_mastery && <p>Evidence: {lo.evidence_of_mastery}</p>}
+                        </div>
+                      )}
+                    </li>
                   ))}
                 </ul>
               </div>

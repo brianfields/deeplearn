@@ -7,17 +7,23 @@ import {
   TouchableOpacity,
   Alert,
   Switch,
+  ActivityIndicator,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useCatalogUnitDetail, useToggleUnitSharing } from '../queries';
-import { UnitProgressView } from '../components/UnitProgress';
+import {
+  UnitObjectiveSummaryList,
+  UnitProgressView,
+  type UnitObjectiveSummary,
+} from '../components/UnitProgress';
 import type { LearningStackParamList } from '../../../types';
 import {
   useUnitProgress as useUnitProgressLS,
   useNextLessonToResume,
+  useUnitLOProgress,
 } from '../../learning_session/queries';
 import { catalogProvider } from '../public';
 import { contentProvider } from '../../content/public';
@@ -38,6 +44,7 @@ import {
   type DownloadStatus,
 } from '../../offline_cache/public';
 import { DownloadPrompt } from '../components/DownloadPrompt';
+import type { LOProgressItem } from '../../learning_session/models';
 
 type UnitDetailScreenNavigationProp = NativeStackNavigationProp<
   LearningStackParamList,
@@ -78,6 +85,10 @@ export function UnitDetailScreen() {
 
   const { data: progressLS } = useUnitProgressLS(userKey, unit?.id || '', {
     enabled: !!unit?.id && isDownloaded,
+    staleTime: 60 * 1000,
+  });
+  const unitLOProgressQuery = useUnitLOProgress(userKey, unit?.id || '', {
+    enabled: Boolean(unit?.id && isDownloaded),
     staleTime: 60 * 1000,
   });
 
@@ -194,6 +205,37 @@ export function UnitDetailScreen() {
     if (!unit || !nextLessonId || !isDownloaded) return null;
     return unit.lessons.find(l => l.id === nextLessonId)?.title ?? null;
   }, [isDownloaded, nextLessonId, unit]);
+
+  const loProgressById = useMemo(() => {
+    const items = unitLOProgressQuery.data?.items ?? [];
+    const map = new Map<string, LOProgressItem>();
+    for (const item of items) {
+      map.set(item.loId, item);
+    }
+    return map;
+  }, [unitLOProgressQuery.data?.items]);
+
+  const compactObjectives = useMemo<UnitObjectiveSummary[]>(() => {
+    const objectives = unit?.learningObjectives ?? [];
+    if (!Array.isArray(objectives) || objectives.length === 0) {
+      return [];
+    }
+
+    return objectives.map(objective => {
+      const progressItem = loProgressById.get(objective.id);
+      return {
+        id: objective.id,
+        title: objective.title,
+        status: progressItem?.status ?? 'not_started',
+        progress: progressItem
+          ? {
+              exercisesCorrect: progressItem.exercisesCorrect,
+              exercisesTotal: progressItem.exercisesTotal,
+            }
+          : null,
+      };
+    });
+  }, [loProgressById, unit?.learningObjectives]);
 
   // Resolve absolute podcast URL against API base if backend returned a relative path
   const infra = infrastructureProvider();
@@ -470,6 +512,8 @@ export function UnitDetailScreen() {
 
   const lessonCountForPrompt = unit?.lessonIds?.length ?? unit.lessons.length;
 
+  const showLoSection = compactObjectives.length > 0;
+
   if (!isDownloaded) {
     return (
       <SafeAreaView
@@ -484,14 +528,14 @@ export function UnitDetailScreen() {
             <TouchableOpacity
               onPress={() => {
                 haptics.trigger('light');
-                navigation.goBack();
+                navigation.navigate('LessonList');
               }}
               accessibilityRole="button"
-              accessibilityLabel="Go back"
+              accessibilityLabel="Go to unit list"
               style={{ paddingVertical: 6, paddingRight: 12 }}
             >
               <Text variant="body" color={theme.colors.primary}>
-                {'‹ Back'}
+                {'‹ Units'}
               </Text>
             </TouchableOpacity>
             <Text variant="h1" style={{ marginTop: 8, fontWeight: 'normal' }}>
@@ -522,7 +566,7 @@ export function UnitDetailScreen() {
               onCancel={
                 isDownloadInProgress
                   ? handleCancelDownload
-                  : () => navigation.goBack()
+                  : () => navigation.navigate('LessonList')
               }
               isDownloadActionPending={isDownloadActionPending}
               isCancelPending={isCancelPending}
@@ -556,14 +600,14 @@ export function UnitDetailScreen() {
           <TouchableOpacity
             onPress={() => {
               haptics.trigger('light');
-              navigation.goBack();
+              navigation.navigate('LessonList');
             }}
             accessibilityRole="button"
-            accessibilityLabel="Go back"
+            accessibilityLabel="Go to unit list"
             style={{ paddingVertical: 6, paddingRight: 12 }}
           >
             <Text variant="body" color={theme.colors.primary}>
-              {'‹ Back'}
+              {'‹ Units'}
             </Text>
           </TouchableOpacity>
           <Text variant="h1" style={{ marginTop: 8, fontWeight: 'normal' }}>
@@ -622,6 +666,54 @@ export function UnitDetailScreen() {
             </Card>
           </Box>
         )}
+
+        {showLoSection ? (
+          <Box px="lg" mt="lg">
+            <Card variant="outlined" style={styles.loCard}>
+              <Text
+                variant="title"
+                style={[styles.loSectionTitle, { color: theme.colors.text }]}
+              >
+                Learning Objectives
+              </Text>
+              {unitLOProgressQuery.isLoading ? (
+                <View style={styles.loLoadingRow}>
+                  <ActivityIndicator
+                    color={theme.colors.primary}
+                    size="small"
+                  />
+                  <Text
+                    style={[
+                      styles.loLoadingText,
+                      { color: theme.colors.textSecondary },
+                    ]}
+                  >
+                    Updating progress…
+                  </Text>
+                </View>
+              ) : null}
+              <UnitObjectiveSummaryList
+                objectives={compactObjectives}
+                testIDPrefix="unit-lo-compact"
+              />
+              <Button
+                title="View Detailed Progress"
+                variant="secondary"
+                onPress={() => {
+                  if (!unit?.id) {
+                    return;
+                  }
+                  navigation.navigate('UnitLODetail', {
+                    unitId: unit.id,
+                    unitTitle: unit.title,
+                  });
+                }}
+                style={styles.loDetailButton}
+                testID="view-detailed-progress"
+              />
+            </Card>
+          </Box>
+        ) : null}
 
         <Box px="lg" mt="lg">
           <Text variant="title" style={{ marginBottom: 8 }}>
@@ -798,6 +890,20 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollView: { flex: 1 },
   scrollContent: { paddingBottom: 96 }, // Extra padding for podcast player
+  loCard: { margin: 0 },
+  loSectionTitle: { marginBottom: 12 },
+  loLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  loLoadingText: {
+    fontSize: 14,
+    marginLeft: 8,
+  },
+  loDetailButton: {
+    marginTop: 16,
+  },
   lessonRight: { alignItems: 'flex-end' },
   lessonRowInner: {
     flexDirection: 'row',
