@@ -5,8 +5,9 @@ import TrackPlayer from 'react-native-track-player';
 
 import App from './App';
 
-TrackPlayer.registerPlaybackService(() =>
-  require('./modules/podcast_player/trackPlayerBackgroundService').default
+TrackPlayer.registerPlaybackService(
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  () => require('./modules/podcast_player/trackPlayerBackgroundService').default
 );
 
 // registerRootComponent calls AppRegistry.registerComponent('main', () => App);

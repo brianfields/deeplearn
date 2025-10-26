@@ -11,12 +11,15 @@ export default async function trackPlayerBackgroundService(): Promise<void> {
   });
 
   TrackPlayer.addEventListener(Event.RemoteStop, () => {
-    void TrackPlayer.destroy();
+    void getPodcastPlayerService().pause();
   });
 
-  TrackPlayer.addEventListener(Event.RemoteSeek, (event: { position?: number }) => {
-    void getPodcastPlayerService().seekTo(event.position ?? 0);
-  });
+  TrackPlayer.addEventListener(
+    Event.RemoteSeek,
+    (event: { position?: number }) => {
+      void getPodcastPlayerService().seekTo(event.position ?? 0);
+    }
+  );
 
   TrackPlayer.addEventListener(Event.RemotePrevious, () => {
     void getPodcastPlayerService().seekTo(0);
