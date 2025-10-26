@@ -79,7 +79,7 @@ function UnitAccordionItem({ unit, isExpanded, onToggle }: UnitAccordionItemProp
                 <div className="text-sm text-gray-600">
                   <span className="font-medium">Created:</span> {formatDate(unit.created_at)}
                 </div>
-                <ReloadButton onReload={() => refetch()} isLoading={isLoading} label="Reload unit" />
+                <ReloadButton onReload={() => void refetch()} isLoading={isLoading} label="Reload unit" />
               </div>
               {detail.learning_objectives && detail.learning_objectives.length > 0 && (
                 <div>
@@ -178,7 +178,7 @@ export default function UnitsPage() {
           <h1 className="text-3xl font-bold text-gray-900">Units</h1>
           <p className="mt-2 text-gray-600">Expand a unit to view its lessons inline.</p>
         </div>
-        <ReloadButton onReload={() => refetch()} isLoading={isLoading} />
+        <ReloadButton onReload={() => void refetch()} isLoading={isLoading} />
       </div>
 
       <div className="space-y-3">
