@@ -32,7 +32,9 @@ jest.mock('../infrastructure/public', () => {
   };
 });
 
-import TrackPlayer, { State as TrackPlayerState } from 'react-native-track-player';
+import TrackPlayer, {
+  State as TrackPlayerState,
+} from 'react-native-track-player';
 import {
   __resetPodcastPlayerServiceForTests,
   getPodcastPlayerService,
@@ -42,7 +44,9 @@ import type { PodcastTrack } from './models';
 import { infrastructureProvider } from '../infrastructure/public';
 
 type TrackPlayerTestMock = typeof TrackPlayer & {
-  __setProgress: (progress: Partial<{ position: number; duration: number }>) => void;
+  __setProgress: (
+    progress: Partial<{ position: number; duration: number }>
+  ) => void;
   __setPlaybackState: (state: TrackPlayerState) => void;
   __resetMock: () => void;
   setupPlayer: jest.Mock;
@@ -121,7 +125,11 @@ describe('PodcastPlayerService', () => {
     );
     expect(usePodcastStore.getState().currentTrack?.unitId).toBe('unit-1');
 
+    // Simulate progress update by updating both TrackPlayer mock and store
     trackPlayerMock.__setProgress({ position: 42, duration: 300 });
+    usePodcastStore
+      .getState()
+      .updatePlaybackState({ position: 42, duration: 300 });
 
     const secondTrack = createTrack({ unitId: 'unit-2', title: 'Unit 2' });
     await service.loadTrack(secondTrack);
