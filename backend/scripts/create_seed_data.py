@@ -8,9 +8,9 @@ Summary of created artifacts:
   • Admin — Eylem Ozaslan (eylem.ozaslan@gmail.com) / password: epsilon
   • Learner — Epsilon cat (epsilon.cat@example.com) / password: epsilon
   • Learner — Nova cat (nova.cat@example.com) / password: epsilon
-- 1 completed global unit about "Street Kittens of Istanbul" shared by Eylem with two packaged lessons, including
-  podcast transcript and audio, and unit artwork.
+- 2 completed global units ("Street Kittens of Istanbul" and "Community First Aid Playbook") shared by Eylem with packaged lessons, artwork descriptions, and supporting assets.
 - 1 completed private unit about "Gradient Descent Mastery" owned by Brian with two packaged lessons.
+- Seeded "My Units" memberships so learners have curated catalog items out of the box.
 - Per-lesson flow runs, step runs, and LLM request records mirroring the lesson generation pipeline.
 - Learning sessions and unit sessions for the learners so UI dashboards have ready-made progress data.
 - Sample images and audio files linked to the units.
@@ -38,9 +38,12 @@ import uuid
 # Add the backend directory to the path so we can import modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from sqlalchemy import delete
+
 from modules.content.models import (
     LessonModel,
     UnitModel,  # Import UnitModel so SQLAlchemy knows about the units table
+    UserMyUnitModel,
 )
 from modules.content.package_models import GlossaryTerm, LessonPackage, MCQAnswerKey, MCQExercise, MCQOption, Meta
 from modules.flow_engine.models import FlowRunModel, FlowStepRunModel
@@ -457,6 +460,7 @@ async def main() -> None:
     personal_units_count = 0
     learning_session_statuses: list[str] = []
     unit_session_statuses: list[str] = []
+    my_units_memberships_summary: list[tuple[str, str]] = []
 
     try:
         infra = infrastructure_provider()
@@ -945,6 +949,106 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                         },
                     ],
                 },
+                {
+                    "id": "3b6caa92-0c83-4d5d-bdff-7f1df59fe2f2",
+                    "title": "Community First Aid Playbook",
+                    "description": "Scenario-based first aid skills for community response teams covering scene safety, stabilization, and escalation decisions.",
+                    "learner_level": "beginner",
+                    "learning_objectives": [
+                        {
+                            "id": "first_aid_lo_1",
+                            "text": "Stabilize a conscious patient while awaiting emergency services",
+                            "bloom_level": "Apply",
+                        },
+                        {
+                            "id": "first_aid_lo_2",
+                            "text": "Decide when to escalate to advanced medical support",
+                            "bloom_level": "Analyze",
+                        },
+                        {
+                            "id": "first_aid_lo_3",
+                            "text": "Communicate a concise hand-off to first responders",
+                            "bloom_level": "Apply",
+                        },
+                    ],
+                    "target_lesson_count": 1,
+                    "source_material": "Community emergency response drills, FEMA ICS pocket guides, and field debrief notes.",
+                    "generated_from_topic": True,
+                    "is_global": True,
+                    "owner_key": "eylem",
+                    "lessons": [
+                        {
+                            "title": "Stabilize and Signal",
+                            "learner_level": "beginner",
+                            "source_material": "Annotated community drill checklists and EMS communication templates.",
+                            "objectives": [
+                                {
+                                    "id": "first_aid_lo_1",
+                                    "text": "Perform a rapid primary assessment and stabilize airway, breathing, and circulation",
+                                    "bloom_level": "Apply",
+                                },
+                                {
+                                    "id": "first_aid_lo_2",
+                                    "text": "Determine escalation triggers using SAMPLE history and vital cues",
+                                    "bloom_level": "Analyze",
+                                },
+                                {
+                                    "id": "first_aid_lo_3",
+                                    "text": "Prepare a concise radio hand-off using the MIST format",
+                                    "bloom_level": "Apply",
+                                },
+                            ],
+                            "glossary_terms": [
+                                {"term": "SAMPLE", "definition": "Patient history acronym: Symptoms, Allergies, Medications, Past history, Last intake, Events."},
+                                {"term": "MIST", "definition": "Medical hand-off format: Mechanism, Injuries, Signs, Treatments."},
+                                {"term": "Primary Survey", "definition": "Rapid ABC check to find and treat immediate life threats."},
+                            ],
+                            "mini_lesson": "Scene size-up keeps volunteers safe: scan hazards, don PPE, and enlist bystanders. The primary survey follows ABC—airway, breathing, circulation—before moving patients. Stabilize the cervical spine only when mechanism suggests injury and you have adequate help. Use SAMPLE to gather clues and track changes. Escalate when airway is compromised, breathing is labored, bleeding is uncontrolled, or mental status worsens. When EMS arrives, hand off with MIST so responders get the essentials in under 30 seconds.",
+                            "mcqs": [
+                                {
+                                    "stem": "Which observation is an immediate trigger to escalate to advanced medical support?",
+                                    "options": [
+                                        {"text": "Patient becomes disoriented and cannot state their name"},
+                                        {"text": "Minor scrape on forearm", "rationale_wrong": "Surface abrasions can be treated on scene without escalation."},
+                                        {"text": "Patient reports mild thirst", "rationale_wrong": "Thirst alone is not an escalation trigger."},
+                                    ],
+                                    "correct_index": 0,
+                                    "cognitive_level": "Analyze",
+                                    "difficulty": "Easy",
+                                    "misconceptions": ["wait_for_visible_bleeding"],
+                                    "correct_rationale": "Altered mental status signals compromised perfusion and needs advanced care.",
+                                },
+                                {
+                                    "stem": 'What information belongs in the "M" section of a MIST hand-off?',
+                                    "options": [
+                                        {"text": "Mechanism of injury"},
+                                        {"text": "Medication allergies", "rationale_wrong": "Allergies appear in the SAMPLE history, not MIST's M."},
+                                        {"text": "Treatment en route", "rationale_wrong": "Treatments are documented in the T component."},
+                                    ],
+                                    "correct_index": 0,
+                                    "cognitive_level": "Understand",
+                                    "difficulty": "Easy",
+                                    "misconceptions": ["mist_sections_interchangeable"],
+                                    "correct_rationale": "MIST starts with the mechanism so responders anticipate likely injuries.",
+                                },
+                            ],
+                            "misconceptions": [
+                                {
+                                    "id": "wait_for_visible_bleeding",
+                                    "misbelief": "Only visible bleeding demands EMS escalation.",
+                                    "why_plausible": "External bleeding is tangible, while mental status changes seem mild.",
+                                    "correction": "Altered consciousness, airway compromise, or labored breathing require immediate escalation even without bleeding.",
+                                },
+                                {
+                                    "id": "mist_sections_interchangeable",
+                                    "misbelief": "MIST sections are interchangeable and order is optional.",
+                                    "why_plausible": "Volunteers focus on content over structure.",
+                                    "correction": "The standardized order keeps radio traffic predictable for incoming responders.",
+                                },
+                            ],
+                        },
+                    ],
+                },
             ]
 
             for unit_spec in units_spec:
@@ -978,6 +1082,8 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
 
             bucket_name = os.getenv("OBJECT_STORE_BUCKET", "lantern-room")
 
+            seed_timestamp = datetime.now(UTC)
+
             sample_images = [
                 ImageModel(
                     id=cat_unit_image_id,
@@ -991,6 +1097,8 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                     height=1024,
                     alt_text="Ear‑tipped street kitten on a crate in a petrol‑blue, rain‑slick Istanbul alley under a tight spotlight; thin gilt lines indicate care stations and an open humane trap.",
                     description="Cinematic realism: petrol‑blue, rain‑slick Istanbul alley; ear‑tipped kitten, tiny gauze wrap, on a lacquered crate in a tight spotlight. Hairline gilt lines map care points and humane trap; Art‑Deco geometry, 3% grain.",
+                    created_at=seed_timestamp,
+                    updated_at=seed_timestamp,
                 ),
                 ImageModel(
                     user_id=None,
@@ -1003,6 +1111,8 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                     height=768,
                     alt_text="Contour plot illustrating gradient descent steps",
                     description="System-wide reference image for optimization lessons.",
+                    created_at=seed_timestamp,
+                    updated_at=seed_timestamp,
                 ),
             ]
 
@@ -1019,6 +1129,8 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                     bitrate_kbps=None,
                     sample_rate_hz=None,
                     transcript=units_spec[0].get("podcast_transcript"),
+                    created_at=seed_timestamp,
+                    updated_at=seed_timestamp,
                 ),
                 AudioModel(
                     user_id=brian_admin_id,
@@ -1031,6 +1143,8 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                     bitrate_kbps=192,
                     sample_rate_hz=44_100,
                     transcript="Welcome to Gradient Descent Mastery. In this lesson we explore step sizes and convergence.",
+                    created_at=seed_timestamp,
+                    updated_at=seed_timestamp,
                 ),
             ]
 
@@ -1046,7 +1160,6 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                     if args.verbose:
                         print(f"   • Deleting existing unit: {existing_unit.title}")
                     # Delete associated lessons first
-                    from sqlalchemy import delete  # noqa: PLC0415
 
                     await db_session.execute(delete(LessonModel).where(LessonModel.unit_id == unit_spec["id"]))
                     await db_session.delete(existing_unit)
@@ -1155,14 +1268,39 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                     )
 
             await db_session.flush()
+
+            if args.verbose:
+                print("🧾  Seeding My Units memberships for learners...")
+
+            learner_member_ids = [epsilon_learner_id, nova_learner_id]
+            await db_session.execute(delete(UserMyUnitModel).where(UserMyUnitModel.user_id.in_(learner_member_ids)))
+            await db_session.flush()
+
+            street_kittens_unit_id = units_spec[0]["id"]
+            street_kittens_title = units_spec[0]["title"]
+            community_unit_id = next(unit["id"] for unit in units_spec if unit["title"] == "Community First Aid Playbook")
+            community_unit_title = next(unit["title"] for unit in units_spec if unit["id"] == community_unit_id)
+
+            membership_rows = [
+                UserMyUnitModel(user_id=epsilon_learner_id, unit_id=street_kittens_unit_id),
+                UserMyUnitModel(user_id=nova_learner_id, unit_id=community_unit_id),
+            ]
+            db_session.add_all(membership_rows)
+            await db_session.flush()
+
+            my_units_memberships_summary.extend(
+                [
+                    (user_snapshots["epsilon"]["name"], street_kittens_title),
+                    (user_snapshots["nova"]["name"], community_unit_title),
+                ]
+            )
+
             await db_session.commit()
 
             if args.verbose:
                 print("📈 Creating learning sessions and unit sessions for sample progress...")
 
             # Clean up existing learning sessions and unit sessions for these users and units
-            from sqlalchemy import delete  # noqa: PLC0415
-
             cat_unit_id = units_spec[0]["id"]
             grad_unit_id = units_spec[1]["id"]
 
@@ -1298,6 +1436,10 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
     print(f"   • Global units: {global_units_count}; Private units: {personal_units_count}")
     print(f"   • Learning sessions: {len(learning_session_statuses)} ({', '.join(learning_session_statuses)})")
     print(f"   • Unit sessions: {len(unit_session_statuses)} ({', '.join(unit_session_statuses)})")
+    if my_units_memberships_summary:
+        print("   • Sample My Units memberships:")
+        for member_name, unit_title in my_units_memberships_summary:
+            print(f"     - {member_name} → {unit_title}")
 
     if args.output:
         summary = {
@@ -1320,6 +1462,7 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                 }
                 for unit_entry in units_output
             ],
+            "my_units_memberships": [{"user": member_name, "unit": unit_title} for member_name, unit_title in my_units_memberships_summary],
         }
 
         with Path(args.output).open("w") as f:

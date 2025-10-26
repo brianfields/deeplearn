@@ -121,3 +121,13 @@ class UnitModel(Base):
 """
 UnitSessionModel moved to modules.learning_session.models
 """
+
+
+class UserMyUnitModel(Base):
+    """Tracks which global units a user has added to "My Units"."""
+
+    __tablename__ = "user_my_units"
+
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), primary_key=True)
+    unit_id: Mapped[str] = mapped_column(String(36), ForeignKey("units.id"), primary_key=True)
+    added_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
