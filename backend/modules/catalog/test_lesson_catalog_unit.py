@@ -155,7 +155,7 @@ class TestCatalogService:
                 learner_level="beginner",
                 lesson_order=["lesson-1"],
                 lessons=[detail_lesson],
-                learning_objectives=[{"id": "lo_1", "text": "Understand A"}],
+                learning_objectives=[{"id": "lo_1", "title": "Understand A", "description": "Understand A"}],
                 target_lesson_count=None,
                 source_material=None,
                 generated_from_topic=False,

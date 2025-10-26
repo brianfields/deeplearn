@@ -803,10 +803,7 @@ class ContentService:
             lesson_lo_ids = list(package.unit_learning_objective_ids)
             if not lesson_lo_ids:
                 lesson_lo_ids = sorted({exercise.lo_id for exercise in package.exercises})
-            objectives = [
-                (lo_lookup.get(lo_id).description if lo_lookup.get(lo_id) else lo_id)
-                for lo_id in lesson_lo_ids
-            ]
+            objectives = [(lo_lookup[lo_id].description if lo_id in lo_lookup else lo_id) for lo_id in lesson_lo_ids]
             glossary_terms = package.glossary.get("terms", []) if package.glossary else []
             key_concepts: list[str] = []
             for term in glossary_terms:
@@ -1192,30 +1189,30 @@ class ContentService:
                 parsed.append(UnitLearningObjective(id=item, title=item, description=item))
                 continue
 
-            lo_id: str | None = None
-            title: str | None = None
-            description: str | None = None
-            bloom_level: str | None = None
-            evidence_of_mastery: str | None = None
-
             if isinstance(item, dict):
-                lo_id = item.get("id") or item.get("lo_id")
-                title = item.get("title") or item.get("short_title")
-                description = item.get("description") or item.get("text")
-                bloom_level = item.get("bloom_level")
-                evidence_of_mastery = item.get("evidence_of_mastery")
+                payload = dict(item)
             else:
-                lo_id = getattr(item, "id", None) or getattr(item, "lo_id", None)
-                title = getattr(item, "title", None) or getattr(item, "short_title", None)
-                description = getattr(item, "description", None) or getattr(item, "text", None)
-                bloom_level = getattr(item, "bloom_level", None)
-                evidence_of_mastery = getattr(item, "evidence_of_mastery", None)
+                payload = {
+                    "id": getattr(item, "id", None) or getattr(item, "lo_id", None),
+                    "title": getattr(item, "title", None) or getattr(item, "short_title", None),
+                    "description": getattr(item, "description", None),
+                    "bloom_level": getattr(item, "bloom_level", None),
+                    "evidence_of_mastery": getattr(item, "evidence_of_mastery", None),
+                }
 
+            lo_id = payload.get("id") or payload.get("lo_id")
             if lo_id is None:
                 raise ValueError("Unit learning objective is missing an id")
 
-            description = description or title or str(lo_id)
-            title = title or description
+            title = payload.get("title") or payload.get("short_title")
+            description = payload.get("description")
+            if title is None:
+                title = description or str(lo_id)
+            if description is None:
+                description = title
+
+            bloom_level = payload.get("bloom_level")
+            evidence_of_mastery = payload.get("evidence_of_mastery")
             parsed.append(
                 UnitLearningObjective(
                     id=str(lo_id),

@@ -597,9 +597,7 @@ class LearningSessionService:
                     last_attempt = attempt_history[-1]
                     last_attempt_correct = bool(last_attempt.get("is_correct"))
                 else:
-                    last_attempt_correct = bool(
-                        answer_data.get("has_been_answered_correctly") or answer_data.get("is_correct")
-                    )
+                    last_attempt_correct = bool(answer_data.get("has_been_answered_correctly") or answer_data.get("is_correct"))
 
                 if last_attempt_correct:
                     correct_exercises.add(exercise_id)
@@ -802,13 +800,25 @@ class LearningSessionService:
         objectives = raw_objectives or []
         for index, objective in enumerate(objectives):
             if isinstance(objective, dict):
-                lo_id = str(objective.get("id") or f"lo_{index + 1}")
-                lo_title = str(objective.get("title") or objective.get("short_title") or lo_id)
-                lo_description = str(objective.get("description") or objective.get("text") or lo_title)
-            else:
+                payload = dict(objective)
+            elif isinstance(objective, str):
                 lo_id = f"lo_{index + 1}"
-                lo_title = str(getattr(objective, "title", objective))
-                lo_description = str(getattr(objective, "description", None) or getattr(objective, "text", None) or lo_title)
+                lo_title = str(objective)
+                lo_description = lo_title
+                if lo_id not in lookup:
+                    ordered_ids.append(lo_id)
+                lookup[lo_id] = {"title": lo_title, "description": lo_description}
+                continue
+            else:
+                payload = {
+                    "id": getattr(objective, "id", None) or getattr(objective, "lo_id", None),
+                    "title": getattr(objective, "title", None) or getattr(objective, "short_title", None),
+                    "description": getattr(objective, "description", None),
+                }
+
+            lo_id = str(payload.get("id") or payload.get("lo_id") or f"lo_{index + 1}")
+            lo_title = str(payload.get("title") or payload.get("short_title") or payload.get("description") or lo_id)
+            lo_description = str(payload.get("description") or lo_title)
 
             if lo_id not in lookup:
                 ordered_ids.append(lo_id)

@@ -119,17 +119,10 @@ class ContentCreatorService:
         flow = LessonCreationFlow()
         logger.info("🔄 Starting %s...", flow.flow_name)
         unit_lo_map: dict[str, str] = {lo.id: lo.description for lo in request.unit_learning_objectives}
-<<<<<<< HEAD
-        objective_lookup_by_text: dict[str, str] = {}
-        for lo in request.unit_learning_objectives:
-            objective_lookup_by_text[str(lo.description)] = lo.id
-            objective_lookup_by_text[str(lo.title)] = lo.id
-=======
         unit_lo_text_lookup: dict[str, str] = {}
         for lo in request.unit_learning_objectives:
             unit_lo_text_lookup[str(lo.description)] = lo.id
             unit_lo_text_lookup[str(lo.title)] = lo.id
->>>>>>> 824044c (feat: refine lo backend logic for phase 2)
         textual_learning_objectives = [unit_lo_map.get(lo_id, lo_id) for lo_id in request.learning_objective_ids]
 
         flow_result = await flow.execute(
@@ -204,8 +197,8 @@ class ContentCreatorService:
                 if candidate in unit_lo_map:
                     lo_id = candidate
                     break
-                if candidate in objective_lookup_by_text:
-                    lo_id = objective_lookup_by_text[candidate]
+                if candidate in unit_lo_text_lookup:
+                    lo_id = unit_lo_text_lookup[candidate]
                     break
             if lo_id is None:
                 lo_id = lesson_lo_ids[0]
@@ -300,7 +293,13 @@ class ContentCreatorService:
             raise ValueError("Unit not found")
 
         raw_learning_objectives = list(getattr(unit_detail, "learning_objectives", []) or [])
-        learning_objectives = [lo.get("text") if isinstance(lo, dict) else getattr(lo, "text", str(lo)) for lo in raw_learning_objectives]
+        learning_objectives: list[str] = []
+        for lo in raw_learning_objectives:
+            if isinstance(lo, dict):
+                description = lo.get("description") or lo.get("title")
+            else:
+                description = getattr(lo, "description", None) or getattr(lo, "title", None) or str(lo)
+            learning_objectives.append(str(description or ""))
         key_concepts = self._extract_key_concepts(unit_detail)
 
         flow_inputs = {
@@ -426,9 +425,9 @@ class ContentCreatorService:
         unit_material: str,
         learner_level: str,
         arq_task_id: str | None,
-    ) -> tuple[str, PodcastLesson, str]:
+    ) -> tuple[str, PodcastLesson, str, set[str]]:
         """
-        Create a single lesson and return (lesson_id, podcast_lesson, voice).
+        Create a single lesson and return (lesson_id, podcast_lesson, voice, covered_lo_ids).
 
         This method is designed to be called in parallel for multiple lessons.
         Each invocation uses its own database session to avoid serialization.
@@ -583,29 +582,15 @@ class ContentCreatorService:
                 raw_id = payload.get("id") or payload.get("lo_id")
                 inferred_title = payload.get("title") or payload.get("short_title")
                 if inferred_title is None:
-                    inferred_title = payload.get("text") or payload.get("description") or str(raw_id or f"lo_{len(unit_learning_objectives) + 1}")
-<<<<<<< HEAD
-                inferred_description = payload.get("description") or payload.get("text") or inferred_title
-=======
-                inferred_description = (
-                    payload.get("description")
-                    or payload.get("text")
-                    or payload.get("lo_text")
-                    or inferred_title
-                )
->>>>>>> 824044c (feat: refine lo backend logic for phase 2)
+                    inferred_title = payload.get("description") or raw_id or f"lo_{len(unit_learning_objectives) + 1}"
+                inferred_description = payload.get("description") or inferred_title
+                payload.setdefault("id", str(raw_id or f"lo_{len(unit_learning_objectives) + 1}"))
                 payload.setdefault("title", str(inferred_title))
                 payload.setdefault("description", str(inferred_description))
                 unit_learning_objectives.append(UnitLearningObjective.model_validate(payload))
             else:
                 text_value = str(item)
-<<<<<<< HEAD
                 unit_learning_objectives.append(UnitLearningObjective(id=str(item), title=text_value, description=text_value))
-=======
-                unit_learning_objectives.append(
-                    UnitLearningObjective(id=str(item), title=text_value, description=text_value)
-                )
->>>>>>> 824044c (feat: refine lo backend logic for phase 2)
 
         # Save the extracted title and learning objectives to the unit
         await self.content.update_unit_metadata(
@@ -675,13 +660,7 @@ class ContentCreatorService:
 
         # Remove any unit learning objectives that never received an exercise
         if unit_learning_objectives and lesson_ids:
-<<<<<<< HEAD
             filtered_learning_objectives = [lo for lo in unit_learning_objectives if lo.id in covered_lo_ids]
-=======
-            filtered_learning_objectives = [
-                lo for lo in unit_learning_objectives if lo.id in covered_lo_ids
-            ]
->>>>>>> 824044c (feat: refine lo backend logic for phase 2)
             if len(filtered_learning_objectives) != len(unit_learning_objectives):
                 unit_learning_objectives = filtered_learning_objectives
                 await self.content.update_unit_metadata(
@@ -767,13 +746,13 @@ class ContentCreatorService:
         objective_texts: list[str] = []
         for objective in unit_plan.get("learning_objectives", []) or []:
             if isinstance(objective, dict):
-                text = objective.get("text") or objective.get("summary")
+                text = objective.get("description") or objective.get("title") or objective.get("summary")
                 if text:
                     objective_texts.append(str(text))
             elif isinstance(objective, str):
                 objective_texts.append(objective)
             else:
-                text_attr = getattr(objective, "text", None)
+                text_attr = getattr(objective, "description", None) or getattr(objective, "title", None)
                 if text_attr:
                     objective_texts.append(str(text_attr))
 
