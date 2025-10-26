@@ -125,6 +125,12 @@ class ContentCreatorService:
             unit_lo_text_lookup[str(lo.title)] = lo.id
         textual_learning_objectives = [unit_lo_map.get(lo_id, lo_id) for lo_id in request.learning_objective_ids]
 
+        # Create reverse lookup: description -> ID and title -> ID
+        objective_lookup_by_text: dict[str, str] = {lo.description: lo.id for lo in request.unit_learning_objectives}
+        # Also add title lookups for flexibility
+        for lo in request.unit_learning_objectives:
+            objective_lookup_by_text[lo.title] = lo.id
+
         flow_result = await flow.execute(
             {
                 "topic": request.topic,
@@ -295,10 +301,7 @@ class ContentCreatorService:
         raw_learning_objectives = list(getattr(unit_detail, "learning_objectives", []) or [])
         learning_objectives: list[str] = []
         for lo in raw_learning_objectives:
-            if isinstance(lo, dict):
-                description = lo.get("description") or lo.get("title")
-            else:
-                description = getattr(lo, "description", None) or getattr(lo, "title", None) or str(lo)
+            description = lo.get("description") or lo.get("title") if isinstance(lo, dict) else getattr(lo, "description", None) or getattr(lo, "title", None) or str(lo)
             learning_objectives.append(str(description or ""))
         key_concepts = self._extract_key_concepts(unit_detail)
 
