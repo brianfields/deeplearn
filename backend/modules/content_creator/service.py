@@ -119,10 +119,6 @@ class ContentCreatorService:
         flow = LessonCreationFlow()
         logger.info("🔄 Starting %s...", flow.flow_name)
         unit_lo_map: dict[str, str] = {lo.id: lo.description for lo in request.unit_learning_objectives}
-        unit_lo_text_lookup: dict[str, str] = {}
-        for lo in request.unit_learning_objectives:
-            unit_lo_text_lookup[str(lo.description)] = lo.id
-            unit_lo_text_lookup[str(lo.title)] = lo.id
         textual_learning_objectives = [unit_lo_map.get(lo_id, lo_id) for lo_id in request.learning_objective_ids]
 
         # Create reverse lookup: description -> ID and title -> ID
@@ -203,8 +199,8 @@ class ContentCreatorService:
                 if candidate in unit_lo_map:
                     lo_id = candidate
                     break
-                if candidate in unit_lo_text_lookup:
-                    lo_id = unit_lo_text_lookup[candidate]
+                if candidate in objective_lookup_by_text:
+                    lo_id = objective_lookup_by_text[candidate]
                     break
             if lo_id is None:
                 lo_id = lesson_lo_ids[0]
@@ -586,10 +582,10 @@ class ContentCreatorService:
                 inferred_title = payload.get("title") or payload.get("short_title")
                 if inferred_title is None:
                     inferred_title = payload.get("description") or raw_id or f"lo_{len(unit_learning_objectives) + 1}"
-                inferred_description = payload.get("description") or inferred_title
+                description = payload.get("description") or inferred_title
                 payload.setdefault("id", str(raw_id or f"lo_{len(unit_learning_objectives) + 1}"))
-                payload.setdefault("title", str(inferred_title))
-                payload.setdefault("description", str(inferred_description))
+                payload["title"] = str(inferred_title)
+                payload["description"] = str(description)
                 unit_learning_objectives.append(UnitLearningObjective.model_validate(payload))
             else:
                 text_value = str(item)

@@ -803,7 +803,7 @@ class ContentService:
             lesson_lo_ids = list(package.unit_learning_objective_ids)
             if not lesson_lo_ids:
                 lesson_lo_ids = sorted({exercise.lo_id for exercise in package.exercises})
-            objectives = [(lo_lookup[lo_id].description if lo_id in lo_lookup else lo_id) for lo_id in lesson_lo_ids]
+            objectives = [(lo_obj.description if (lo_obj := lo_lookup.get(lo_id)) else lo_id) for lo_id in lesson_lo_ids]
             glossary_terms = package.glossary.get("terms", []) if package.glossary else []
             key_concepts: list[str] = []
             for term in glossary_terms:
