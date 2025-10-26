@@ -23,6 +23,8 @@ export interface ContentProvider {
     request: UpdateUnitSharingRequest,
     currentUserId?: number | null
   ): Promise<Unit>;
+  addUnitToMyUnits(userId: number, unitId: string): Promise<void>;
+  removeUnitFromMyUnits(userId: number, unitId: string): Promise<void>;
   requestUnitDownload(unitId: string): Promise<void>;
   removeUnitDownload(unitId: string): Promise<void>;
   resolveAsset(assetId: string): Promise<CachedAsset | null>;
@@ -47,6 +49,8 @@ export function contentProvider(): ContentProvider {
     getUnitDetail: service.getUnitDetail.bind(service),
     getUserUnitCollections: service.getUserUnitCollections.bind(service),
     updateUnitSharing: service.updateUnitSharing.bind(service),
+    addUnitToMyUnits: service.addUnitToMyUnits.bind(service),
+    removeUnitFromMyUnits: service.removeUnitFromMyUnits.bind(service),
     requestUnitDownload: service.requestUnitDownload.bind(service),
     removeUnitDownload: service.removeUnitDownload.bind(service),
     resolveAsset: service.resolveAsset.bind(service),

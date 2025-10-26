@@ -266,7 +266,7 @@ class TestCatalogService:
             error_message=None,
         )
 
-        units.list_units_for_user = AsyncMock(return_value=[personal_unit])
+        units.list_units_for_user_including_my_units = AsyncMock(return_value=[personal_unit])
         units.list_global_units = AsyncMock(return_value=[duplicated_global, other_global])
         content.get_lessons_by_unit = AsyncMock(return_value=["lesson-a", "lesson-b"])
 
@@ -278,15 +278,18 @@ class TestCatalogService:
         assert result.global_units[0].lesson_count == 2
 
         content.get_lessons_by_unit.assert_awaited_once_with("unit-2")
+        units.list_units_for_user_including_my_units.assert_awaited_once_with(user_id=42, limit=100, offset=0)
 
         # When global units are excluded, ensure the global provider is not queried
         content.get_lessons_by_unit.reset_mock()
         units.list_global_units.reset_mock()
+        units.list_units_for_user_including_my_units.reset_mock()
 
         second = await service.browse_units_for_user(user_id=42, include_global=False)
         assert second.global_units == []
         units.list_global_units.assert_not_called()
         content.get_lessons_by_unit.assert_not_called()
+        units.list_units_for_user_including_my_units.assert_awaited_once_with(user_id=42, limit=100, offset=0)
 
     def test_lesson_summary_matches_learner_level(self) -> None:
         """Test LessonSummary.matches_learner_level method."""

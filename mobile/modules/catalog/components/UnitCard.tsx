@@ -1,6 +1,7 @@
 import React from 'react';
-import { ActivityIndicator, View } from 'react-native';
-import { Download } from 'lucide-react-native';
+import { ActivityIndicator, Alert, TouchableOpacity, View } from 'react-native';
+import { Download, Trash2 } from 'lucide-react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import type { Unit } from '../../content/public';
 import type { DownloadStatus } from '../../offline_cache/public';
 import { UnitProgressIndicator } from './UnitProgressIndicator';
@@ -26,6 +27,9 @@ interface Props {
   storageBytes?: number;
   onDownload?: (unitId: string) => void;
   isDownloadActionPending?: boolean;
+  canRemoveFromMyUnits?: boolean;
+  onRemoveFromMyUnits?: (unit: Unit) => void;
+  isRemoveActionPending?: boolean;
 }
 
 export function UnitCard({
@@ -40,10 +44,14 @@ export function UnitCard({
   storageBytes,
   onDownload,
   isDownloadActionPending,
+  canRemoveFromMyUnits = false,
+  onRemoveFromMyUnits,
+  isRemoveActionPending = false,
 }: Props): React.ReactElement {
   const ui = uiSystemProvider();
   const theme = ui.getCurrentTheme();
   const { trigger } = useHaptics();
+  const swipeableRef = React.useRef<Swipeable | null>(null);
 
   // Check if unit has been creating for too long (1 hour = 3600 seconds)
   const isStaleCreation = React.useMemo(() => {
@@ -130,6 +138,59 @@ export function UnitCard({
     onDismiss(unit.id);
   };
 
+  const closeSwipe = (): void => {
+    swipeableRef.current?.close();
+  };
+
+  const handleRemoveFromMyUnits = (): void => {
+    if (!onRemoveFromMyUnits || isRemoveActionPending) {
+      return;
+    }
+    Alert.alert(
+      'Remove from My Units',
+      `Remove "${unit.title}" from My Units?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+          onPress: closeSwipe,
+        },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () => {
+            trigger('medium');
+            onRemoveFromMyUnits(unit);
+            closeSwipe();
+          },
+        },
+      ]
+    );
+  };
+
+  const renderRemoveAction = (): React.ReactElement => (
+    <TouchableOpacity
+      onPress={handleRemoveFromMyUnits}
+      style={{
+        width: ui.getSpacing('xl') * 2,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: theme.colors.error,
+      }}
+      disabled={isRemoveActionPending}
+      testID={
+        index !== undefined
+          ? `unit-remove-swipe-${index}`
+          : 'unit-remove-swipe'
+      }
+    >
+      <Trash2 size={20} color={theme.colors.surface} />
+      <Text variant="caption" color={theme.colors.surface}>
+        Remove
+      </Text>
+    </TouchableOpacity>
+  );
+
   const handleDownload = (): void => {
     if (!onDownload || !canDownload) {
       return;
@@ -140,43 +201,39 @@ export function UnitCard({
   const downloadButtonTestId =
     index !== undefined ? `download-button-${index}` : undefined;
 
-  return (
-    <Box
-      testID={index !== undefined ? `unit-card-${index}` : undefined}
-      mb="sm"
+  const cardContent = (
+    <Card
+      variant="default"
+      onPress={handlePress}
+      disabled={isDisabled}
+      style={[
+        unit.status === 'failed'
+          ? { borderLeftWidth: 4, borderLeftColor: theme.colors.error }
+          : null,
+      ]}
     >
-      <Card
-        variant="default"
-        onPress={handlePress}
-        disabled={isDisabled}
-        style={[
-          unit.status === 'failed'
-            ? { borderLeftWidth: 4, borderLeftColor: theme.colors.error }
-            : null,
-        ]}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'flex-start',
+          columnGap: ui.getSpacing('md'),
+        }}
       >
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'flex-start',
-            columnGap: ui.getSpacing('md'),
-          }}
-        >
-          <ArtworkImage
-            title={unit.title}
-            imageUrl={unit.artImageUrl ?? undefined}
-            description={unit.artImageDescription ?? undefined}
-            variant="thumbnail"
-            style={{ flexShrink: 0 }}
-            testID={index !== undefined ? `unit-art-${index}` : undefined}
-          />
+        <ArtworkImage
+          title={unit.title}
+          imageUrl={unit.artImageUrl ?? undefined}
+          description={unit.artImageDescription ?? undefined}
+          variant="thumbnail"
+          style={{ flexShrink: 0 }}
+          testID={index !== undefined ? `unit-art-${index}` : undefined}
+        />
 
-          <View style={{ flex: 1 }}>
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'flex-start',
-                justifyContent: 'space-between',
+        <View style={{ flex: 1 }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
                 marginBottom: ui.getSpacing('sm'),
               }}
             >
@@ -305,7 +362,27 @@ export function UnitCard({
             </View>
           </View>
         </View>
-      </Card>
+      </View>
+    </Card>
+  );
+
+  return (
+    <Box
+      testID={index !== undefined ? `unit-card-${index}` : undefined}
+      mb="sm"
+    >
+      {canRemoveFromMyUnits && onRemoveFromMyUnits ? (
+        <Swipeable
+          ref={swipeableRef}
+          friction={2}
+          rightThreshold={40}
+          renderRightActions={renderRemoveAction}
+        >
+          {cardContent}
+        </Swipeable>
+      ) : (
+        cardContent
+      )}
     </Box>
   );
 }

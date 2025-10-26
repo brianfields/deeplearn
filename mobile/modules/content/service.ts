@@ -12,6 +12,8 @@ import type {
   UnitDetail,
   UpdateUnitSharingRequest,
   UserUnitCollections,
+  AddToMyUnitsRequest,
+  RemoveFromMyUnitsRequest,
 } from './models';
 import { toUnitDTO, toUnitDetailDTO } from './models';
 import {
@@ -96,7 +98,7 @@ export class ContentService {
     userId: number,
     options?: { includeGlobal?: boolean; limit?: number; offset?: number }
   ): Promise<UserUnitCollections> {
-    if (!Number.isFinite(userId) || userId <= 0) {
+    if (!Number.isInteger(userId) || userId <= 0) {
       return { units: [], ownedUnitIds: [] };
     }
 
@@ -210,6 +212,68 @@ export class ContentService {
       return toUnitDTO(updated, currentUserId);
     } catch (error) {
       throw this.handleError(error, 'Failed to update unit sharing');
+    }
+  }
+
+  async addUnitToMyUnits(userId: number, unitId: string): Promise<void> {
+    if (!Number.isInteger(userId) || userId <= 0) {
+      throw this.handleError(
+        new Error('Valid user ID is required'),
+        'Valid user ID is required'
+      );
+    }
+
+    const trimmedUnitId = unitId?.trim();
+    if (!trimmedUnitId) {
+      throw this.handleError(
+        new Error('Unit ID is required'),
+        'Unit ID is required'
+      );
+    }
+
+    const request: AddToMyUnitsRequest = {
+      userId,
+      unitId: trimmedUnitId,
+    };
+
+    try {
+      const response = await this.repo.addUnitToMyUnits(request);
+      await this.offlineCache.cacheMinimalUnits([
+        this.toOfflineUnitPayloadFromSummary(response.unit),
+      ]);
+    } catch (error) {
+      throw this.handleError(error, 'Failed to add unit to My Units');
+    }
+  }
+
+  async removeUnitFromMyUnits(userId: number, unitId: string): Promise<void> {
+    if (!Number.isInteger(userId) || userId <= 0) {
+      throw this.handleError(
+        new Error('Valid user ID is required'),
+        'Valid user ID is required'
+      );
+    }
+
+    const trimmedUnitId = unitId?.trim();
+    if (!trimmedUnitId) {
+      throw this.handleError(
+        new Error('Unit ID is required'),
+        'Unit ID is required'
+      );
+    }
+
+    const request: RemoveFromMyUnitsRequest = {
+      userId,
+      unitId: trimmedUnitId,
+    };
+
+    try {
+      const response = await this.repo.removeUnitFromMyUnits(request);
+      await this.offlineCache.cacheMinimalUnits([
+        this.toOfflineUnitPayloadFromSummary(response.unit),
+      ]);
+    } catch (error) {
+      throw this.handleError(error, 'Failed to remove unit from My Units');
     }
   }
 

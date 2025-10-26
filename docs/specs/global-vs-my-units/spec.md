@@ -241,50 +241,50 @@ Each phase includes verification steps to ensure quality before moving forward.
 ### Phase 1: Backend Foundation (Database & Core Logic)
 
 #### Database & Models
-- [ ] Create Alembic migration for `user_my_units` table
-- [ ] Add `UserMyUnitModel` to `backend/modules/content/models.py`
+- [x] Create Alembic migration for `user_my_units` table
+- [x] Add `UserMyUnitModel` to `backend/modules/content/models.py`
 - [ ] Run migration to create table in database
 
 #### Content Module - Repository Layer
-- [ ] Add `add_unit_to_my_units()` to `backend/modules/content/repo.py`
-- [ ] Add `remove_unit_from_my_units()` to `backend/modules/content/repo.py`
-- [ ] Add `is_unit_in_my_units()` to `backend/modules/content/repo.py`
-- [ ] Add `list_my_units_unit_ids()` to `backend/modules/content/repo.py`
-- [ ] Add `list_units_for_user_including_my_units()` to `backend/modules/content/repo.py`
+- [x] Add `add_unit_to_my_units()` to `backend/modules/content/repo.py`
+- [x] Add `remove_unit_from_my_units()` to `backend/modules/content/repo.py`
+- [x] Add `is_unit_in_my_units()` to `backend/modules/content/repo.py`
+- [x] Add `list_my_units_unit_ids()` to `backend/modules/content/repo.py`
+- [x] Add `list_units_for_user_including_my_units()` to `backend/modules/content/repo.py`
 
 #### Content Module - Service Layer
-- [ ] Add `add_unit_to_my_units()` to `backend/modules/content/service.py` with validation
-- [ ] Add `remove_unit_from_my_units()` to `backend/modules/content/service.py` with validation
-- [ ] Ensure validation: unit must exist and be global to add
-- [ ] Ensure validation: unit must not be owned by user to remove
+- [x] Add `add_unit_to_my_units()` to `backend/modules/content/service.py` with validation
+- [x] Add `remove_unit_from_my_units()` to `backend/modules/content/service.py` with validation
+- [x] Ensure validation: unit must exist and be global to add
+- [x] Ensure validation: unit must not be owned by user to remove
 
 #### Content Module - Public Interface
-- [ ] Add `add_unit_to_my_units()` to `ContentProvider` protocol in `backend/modules/content/public.py`
-- [ ] Add `remove_unit_from_my_units()` to `ContentProvider` protocol in `backend/modules/content/public.py`
-- [ ] Update `content_provider()` function to expose new methods
+- [x] Add `add_unit_to_my_units()` to `ContentProvider` protocol in `backend/modules/content/public.py`
+- [x] Add `remove_unit_from_my_units()` to `ContentProvider` protocol in `backend/modules/content/public.py`
+- [x] Update `content_provider()` function to expose new methods
 
 #### Content Module - Routes
-- [ ] Add `POST /api/v1/content/units/my-units/add` endpoint to `backend/modules/content/routes.py`
-- [ ] Add `POST /api/v1/content/units/my-units/remove` endpoint to `backend/modules/content/routes.py`
-- [ ] Add request/response models for endpoints
-- [ ] Add proper error handling (404 if unit not found, 403 if not global, etc.)
+- [x] Add `POST /api/v1/content/units/my-units/add` endpoint to `backend/modules/content/routes.py`
+- [x] Add `POST /api/v1/content/units/my-units/remove` endpoint to `backend/modules/content/routes.py`
+- [x] Add request/response models for endpoints
+- [x] Add proper error handling (404 if unit not found, 403 if not global, etc.)
 
 #### Catalog Module - Service Layer
-- [ ] Update `browse_units_for_user()` in `backend/modules/catalog/service.py` to use new filtering logic
-- [ ] Ensure `personal_units` includes owned + My Units
-- [ ] Ensure `global_units` excludes owned + My Units
+- [x] Update `browse_units_for_user()` in `backend/modules/catalog/service.py` to use new filtering logic
+- [x] Ensure `personal_units` includes owned + My Units
+- [x] Ensure `global_units` excludes owned + My Units
 
 #### Phase 1 Backend Tests
-- [ ] Add unit tests for repo `add_unit_to_my_units()` in `backend/modules/content/test_content_unit.py`
-- [ ] Add unit tests for repo `remove_unit_from_my_units()` in `backend/modules/content/test_content_unit.py`
-- [ ] Add unit tests for service `add_unit_to_my_units()` validation in `backend/modules/content/test_content_unit.py`
-- [ ] Add unit tests for service `remove_unit_from_my_units()` validation in `backend/modules/content/test_content_unit.py`
-- [ ] Update catalog service tests in `backend/modules/catalog/test_lesson_catalog_unit.py` for new filtering
-- [ ] Review and update existing integration tests in `backend/tests/` if they rely on old unit filtering behavior
+- [x] Add unit tests for repo `add_unit_to_my_units()` in `backend/modules/content/test_content_unit.py`
+- [x] Add unit tests for repo `remove_unit_from_my_units()` in `backend/modules/content/test_content_unit.py`
+- [x] Add unit tests for service `add_unit_to_my_units()` validation in `backend/modules/content/test_content_unit.py`
+- [x] Add unit tests for service `remove_unit_from_my_units()` validation in `backend/modules/content/test_content_unit.py`
+- [x] Update catalog service tests in `backend/modules/catalog/test_lesson_catalog_unit.py` for new filtering
+- [x] Review and update existing integration tests in `backend/tests/` if they rely on old unit filtering behavior
 
 #### Phase 1 Verification
 - [ ] Verify backend lint passes: `./format_code.sh`
-- [ ] Verify backend unit tests pass: `cd backend && scripts/run_unit.py`
+- [x] Verify backend unit tests pass: `cd backend && scripts/run_unit.py`
 - [ ] Verify backend integration tests pass: `cd backend && scripts/run_integration.py`
 
 ---
@@ -292,74 +292,74 @@ Each phase includes verification steps to ensure quality before moving forward.
 ### Phase 2: Frontend Foundation (Models, Repo, Service)
 
 #### Content Module - Models & Types
-- [ ] Add `AddToMyUnitsRequest` type to `mobile/modules/content/models.ts`
-- [ ] Add `RemoveFromMyUnitsRequest` type to `mobile/modules/content/models.ts`
+- [x] Add `AddToMyUnitsRequest` type to `mobile/modules/content/models.ts`
+- [x] Add `RemoveFromMyUnitsRequest` type to `mobile/modules/content/models.ts`
 
 #### Content Module - Repository Layer
-- [ ] Add `addUnitToMyUnits()` HTTP call to `mobile/modules/content/repo.ts`
-- [ ] Add `removeUnitFromMyUnits()` HTTP call to `mobile/modules/content/repo.ts`
+- [x] Add `addUnitToMyUnits()` HTTP call to `mobile/modules/content/repo.ts`
+- [x] Add `removeUnitFromMyUnits()` HTTP call to `mobile/modules/content/repo.ts`
 
 #### Content Module - Service Layer
-- [ ] Add `addUnitToMyUnits()` to `mobile/modules/content/service.ts`
-- [ ] Add `removeUnitFromMyUnits()` to `mobile/modules/content/service.ts`
-- [ ] Add error handling for both methods
+- [x] Add `addUnitToMyUnits()` to `mobile/modules/content/service.ts`
+- [x] Add `removeUnitFromMyUnits()` to `mobile/modules/content/service.ts`
+- [x] Add error handling for both methods
 
 #### Content Module - Public Interface
-- [ ] Add `addUnitToMyUnits()` to `ContentProvider` interface in `mobile/modules/content/public.ts`
-- [ ] Add `removeUnitFromMyUnits()` to `ContentProvider` interface in `mobile/modules/content/public.ts`
-- [ ] Update `contentProvider()` function to expose new methods
+- [x] Add `addUnitToMyUnits()` to `ContentProvider` interface in `mobile/modules/content/public.ts`
+- [x] Add `removeUnitFromMyUnits()` to `ContentProvider` interface in `mobile/modules/content/public.ts`
+- [x] Update `contentProvider()` function to expose new methods
 
 #### Phase 2 Tests
-- [ ] Add unit tests for `addUnitToMyUnits()` in `mobile/modules/content/test_content_service_unit.ts`
-- [ ] Add unit tests for `removeUnitFromMyUnits()` in `mobile/modules/content/test_content_service_unit.ts`
+- [x] Add unit tests for `addUnitToMyUnits()` in `mobile/modules/content/test_content_service_unit.ts`
+- [x] Add unit tests for `removeUnitFromMyUnits()` in `mobile/modules/content/test_content_service_unit.ts`
 
 #### Phase 2 Verification
 - [ ] Verify frontend lint passes: `./format_code.sh`
-- [ ] Verify frontend unit tests pass: `cd mobile && npm run test`
+- [x] Verify frontend unit tests pass: `cd mobile && npm run test`
 
 ---
 
 ### Phase 3: Frontend UI (Catalog Browser & Unit List Updates)
 
 #### Catalog Module - Queries
-- [ ] Add `useAddUnitToMyUnits()` mutation hook to `mobile/modules/catalog/queries.ts`
-- [ ] Add `useRemoveUnitFromMyUnits()` mutation hook to `mobile/modules/catalog/queries.ts`
-- [ ] Ensure mutations invalidate `userUnitCollections` query on success
-- [ ] Add optimistic updates to mutations for instant UI feedback
+- [x] Add `useAddUnitToMyUnits()` mutation hook to `mobile/modules/catalog/queries.ts`
+- [x] Add `useRemoveUnitFromMyUnits()` mutation hook to `mobile/modules/catalog/queries.ts`
+- [x] Ensure mutations invalidate `userUnitCollections` query on success
+- [x] Add optimistic updates to mutations for instant UI feedback
 
 #### Catalog Module - Components
-- [ ] Create `mobile/modules/catalog/components/CatalogUnitCard.tsx`
-- [ ] Add "In My Units" badge to `CatalogUnitCard`
-- [ ] Add "Add to My Units" / "Remove from My Units" button to `CatalogUnitCard`
-- [ ] Update `mobile/modules/catalog/components/UnitCard.tsx` to support remove action
-- [ ] Add swipe-to-delete gesture to `UnitCard` for catalog-added units
-- [ ] Add confirmation alert before removing unit
+- [x] Create `mobile/modules/catalog/components/CatalogUnitCard.tsx`
+- [x] Add "In My Units" badge to `CatalogUnitCard`
+- [x] Add "Add to My Units" / "Remove from My Units" button to `CatalogUnitCard`
+- [x] Update `mobile/modules/catalog/components/UnitCard.tsx` to support remove action
+- [x] Add swipe-to-delete gesture to `UnitCard` for catalog-added units
+- [x] Add confirmation alert before removing unit
 
 #### Catalog Module - Screens
-- [ ] Create `mobile/modules/catalog/screens/CatalogBrowserScreen.tsx`
-- [ ] Add full-screen modal presentation with swipe-to-dismiss
-- [ ] Add search bar with title filtering (client-side)
-- [ ] Add list of global units using `useUserUnitCollections` with `includeGlobal: true`
-- [ ] Integrate `CatalogUnitCard` component
-- [ ] Add loading and error states
-- [ ] Update `mobile/modules/catalog/screens/UnitListScreen.tsx` to add "Browse Catalog" button
-- [ ] Add navigation to `CatalogBrowserScreen` from "Browse Catalog" button
-- [ ] Update `UnitListScreen` to show only "My Units" (backend now filters)
-- [ ] Add testID attributes for e2e testing
+- [x] Create `mobile/modules/catalog/screens/CatalogBrowserScreen.tsx`
+- [x] Add full-screen modal presentation with swipe-to-dismiss
+- [x] Add search bar with title filtering (client-side)
+- [x] Add list of global units using `useUserUnitCollections` with `includeGlobal: true`
+- [x] Integrate `CatalogUnitCard` component
+- [x] Add loading and error states
+- [x] Update `mobile/modules/catalog/screens/UnitListScreen.tsx` to add "Browse Catalog" button
+- [x] Add navigation to `CatalogBrowserScreen` from "Browse Catalog" button
+- [x] Update `UnitListScreen` to show only "My Units" (backend now filters)
+- [x] Add testID attributes for e2e testing
 
 #### Catalog Module - Navigation
-- [ ] Add `CatalogBrowser` route to catalog navigation stack (if needed)
-- [ ] Ensure modal presentation style for `CatalogBrowserScreen`
+- [x] Add `CatalogBrowser` route to catalog navigation stack (if needed)
+- [x] Ensure modal presentation style for `CatalogBrowserScreen`
 
 #### Phase 3 Tests
-- [ ] Add component tests for `CatalogUnitCard` if complex behavior
-- [ ] Update catalog tests in `mobile/modules/catalog/test_catalog_unit.ts` for new behavior
+- [x] Add component tests for `CatalogUnitCard` if complex behavior
+- [x] Update catalog tests in `mobile/modules/catalog/test_catalog_unit.ts` for new behavior
 - [ ] Fix any existing maestro e2e tests in `mobile/e2e` that may be affected
-- [ ] Add testID attributes to new components for e2e testing
+- [x] Add testID attributes to new components for e2e testing
 
 #### Phase 3 Verification
 - [ ] Verify frontend lint passes: `./format_code.sh`
-- [ ] Verify frontend unit tests pass: `cd mobile && npm run test`
+- [x] Verify frontend unit tests pass: `cd mobile && npm run test`
 - [ ] Manually test catalog browser screen (search, add/remove)
 - [ ] Manually test unit list screen (browse catalog button, remove action)
 
@@ -368,9 +368,9 @@ Each phase includes verification steps to ensure quality before moving forward.
 ### Phase 4: Seed Data & Final Verification
 
 #### Seed Data
-- [ ] Update `backend/scripts/create_seed_data.py` to create sample global units
-- [ ] Update `backend/scripts/create_seed_data.py` to add some units to test user's My Units
-- [ ] Run seed data script to populate test data
+- [x] Update `backend/scripts/create_seed_data.py` to create sample global units
+- [x] Update `backend/scripts/create_seed_data.py` to add some units to test user's My Units
+- [x] Run seed data script to populate test data
 
 #### Final Verification
 - [ ] Ensure lint passes across entire codebase: `./format_code.sh` runs clean

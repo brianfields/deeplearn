@@ -10,10 +10,10 @@ from datetime import datetime
 from typing import Any
 import uuid
 
-from sqlalchemy import and_, desc, select
+from sqlalchemy import and_, desc, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .models import LessonModel, UnitModel
+from .models import LessonModel, UnitModel, UserMyUnitModel
 
 
 class ContentRepo:
@@ -96,6 +96,68 @@ class ContentRepo:
         stmt = select(UnitModel).filter(UnitModel.user_id == user_id).order_by(desc(UnitModel.updated_at)).offset(offset).limit(limit)
         result = await self.s.execute(stmt)
         return list(result.scalars().all())
+
+    async def add_unit_to_my_units(self, user_id: int, unit_id: str) -> UserMyUnitModel:
+        """Create a membership record linking the user to a catalog unit."""
+
+        membership = UserMyUnitModel(user_id=user_id, unit_id=unit_id)
+        self.s.add(membership)
+        await self.s.flush()
+        return membership
+
+    async def remove_unit_from_my_units(self, user_id: int, unit_id: str) -> bool:
+        """Remove a membership record if present."""
+
+        membership = await self.s.get(
+            UserMyUnitModel,
+            {"user_id": user_id, "unit_id": unit_id},
+        )
+        if membership is None:
+            return False
+
+        await self.s.delete(membership)
+        await self.s.flush()
+        return True
+
+    async def is_unit_in_my_units(self, user_id: int, unit_id: str) -> bool:
+        """Return True when the unit is already in the user's My Units collection."""
+
+        stmt = select(UserMyUnitModel.unit_id).where(
+            UserMyUnitModel.user_id == user_id,
+            UserMyUnitModel.unit_id == unit_id,
+        )
+        result = await self.s.execute(stmt)
+        return result.scalar_one_or_none() is not None
+
+    async def list_my_units_unit_ids(self, user_id: int) -> list[str]:
+        """Return the identifiers for units the user added to My Units."""
+
+        stmt = select(UserMyUnitModel.unit_id).where(UserMyUnitModel.user_id == user_id)
+        result = await self.s.execute(stmt)
+        return list(result.scalars().all())
+
+    async def list_units_for_user_including_my_units(
+        self,
+        user_id: int,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[UnitModel]:
+        """Return units owned by the user plus catalog units they added to My Units."""
+
+        my_unit_ids = await self.list_my_units_unit_ids(user_id)
+        conditions = [UnitModel.user_id == user_id]
+        if my_unit_ids:
+            conditions.append(UnitModel.id.in_(my_unit_ids))
+
+        stmt = (
+            select(UnitModel)
+            .where(or_(*conditions))
+            .order_by(desc(UnitModel.updated_at))
+            .offset(offset)
+            .limit(limit)
+        )
+        result = await self.s.execute(stmt)
+        return list(result.scalars().unique().all())
 
     async def list_global_units(self, limit: int = 100, offset: int = 0) -> list[UnitModel]:
         """Return globally shared units ordered by most recently updated."""

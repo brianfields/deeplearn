@@ -15,6 +15,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 // Screens (using new modular structure)
 import { LessonListScreen } from './modules/catalog/screens/UnitListScreen';
+import { CatalogBrowserScreen } from './modules/catalog/screens/CatalogBrowserScreen';
 import { LearningCoachScreen } from './modules/learning_coach/screens/LearningCoachScreen';
 import LearningFlowScreen from './modules/learning_session/screens/LearningFlowScreen';
 import ResultsScreen from './modules/learning_session/screens/ResultsScreen';
@@ -66,6 +67,16 @@ function LearningStackNavigator(): React.ReactElement {
         component={LessonListScreen}
         options={{
           title: 'Learning Lessons',
+        }}
+      />
+      <LearningStack.Screen
+        name="CatalogBrowser"
+        component={CatalogBrowserScreen}
+        options={{
+          presentation: 'modal',
+          animation: reducedMotion.enabled ? 'none' : 'slide_from_bottom',
+          gestureDirection: 'vertical',
+          headerShown: false,
         }}
       />
       <LearningStack.Screen

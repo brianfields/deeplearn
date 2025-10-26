@@ -22,7 +22,7 @@ import {
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { reducedMotion } from '../../ui_system/utils/motion';
 import { animationTimings } from '../../ui_system/utils/animations';
-import { HardDrive, Plus, Search } from 'lucide-react-native';
+import { BookOpen, HardDrive, Plus, Search } from 'lucide-react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -31,6 +31,7 @@ import {
   useUserUnitCollections,
   useRetryUnitCreation,
   useDismissUnit,
+  useRemoveUnitFromMyUnits,
 } from '../queries';
 import type { Unit } from '../public';
 import type { LearningStackParamList } from '../../../types';
@@ -77,6 +78,7 @@ export function LessonListScreen() {
   } = useUserUnitCollections(currentUserId, { includeGlobal: true });
   const retryUnitMutation = useRetryUnitCreation();
   const dismissUnitMutation = useDismissUnit();
+  const removeUnitMutation = useRemoveUnitFromMyUnits();
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const ui = uiSystemProvider();
   const theme = ui.getCurrentTheme();
@@ -90,10 +92,17 @@ export function LessonListScreen() {
   const [pendingDownloadId, setPendingDownloadId] = useState<string | null>(
     null
   );
+  const [pendingRemoveUnitId, setPendingRemoveUnitId] = useState<string | null>(
+    null
+  );
   const hasLoadedCacheRef = useRef(false);
 
   const allUnits = collections?.units ?? [];
   const totalUnits = allUnits.length;
+  const ownedUnitIds = useMemo(
+    () => new Set(collections?.ownedUnitIds ?? []),
+    [collections]
+  );
 
   const loadCacheOverview = useCallback(
     async (options?: { showLoading?: boolean }) => {
@@ -274,6 +283,11 @@ export function LessonListScreen() {
     navigation.navigate('CacheManagement');
   }, [navigation, haptics]);
 
+  const handleBrowseCatalog = useCallback(() => {
+    haptics.trigger('light');
+    navigation.navigate('CatalogBrowser');
+  }, [navigation, haptics]);
+
   const handleRetryUnit = useCallback(
     (unitId: string) => {
       if (!currentUserId) {
@@ -300,6 +314,22 @@ export function LessonListScreen() {
     [dismissUnitMutation, currentUserId, refetch]
   );
 
+  const handleRemoveFromMyUnits = useCallback(
+    (unit: Unit) => {
+      if (!currentUserId) {
+        return;
+      }
+      setPendingRemoveUnitId(unit.id);
+      removeUnitMutation.mutate(
+        { userId: currentUserId, unit },
+        {
+          onSettled: () => setPendingRemoveUnitId(null),
+        }
+      );
+    },
+    [currentUserId, removeUnitMutation]
+  );
+
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: theme.colors.background }]}
@@ -312,7 +342,7 @@ export function LessonListScreen() {
             testID="units-title"
             style={{ fontWeight: 'normal' }}
           >
-            Units
+            My Units
           </Text>
           <Text variant="secondary" color={theme.colors.textSecondary}>
             {totalUnits} available
@@ -378,6 +408,17 @@ export function LessonListScreen() {
         </View>
         <TouchableOpacity
           style={[
+            styles.catalogButton,
+            { backgroundColor: theme.colors.secondary },
+            ui.getDesignSystem().shadows.medium as any,
+          ]}
+          onPress={handleBrowseCatalog}
+          testID="browse-catalog-button"
+        >
+          <BookOpen size={20} color={theme.colors.surface} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
             styles.createButton,
             { backgroundColor: theme.colors.primary },
             ui.getDesignSystem().shadows.medium as any,
@@ -396,6 +437,8 @@ export function LessonListScreen() {
         renderItem={({ item, index, section }) => {
           const overallIndex =
             section.kind === 'available' ? downloadedCount + index : index;
+          const isCatalogMembership =
+            !ownedUnitIds.has(item.unit.id) && item.unit.status === 'completed';
           return (
             <Animated.View
               entering={
@@ -419,6 +462,14 @@ export function LessonListScreen() {
                 assetCount={item.assetCount}
                 onDownload={handleDownloadUnit}
                 isDownloadActionPending={pendingDownloadId === item.unit.id}
+                canRemoveFromMyUnits={isCatalogMembership}
+                onRemoveFromMyUnits={
+                  isCatalogMembership ? handleRemoveFromMyUnits : undefined
+                }
+                isRemoveActionPending={
+                  pendingRemoveUnitId === item.unit.id &&
+                  removeUnitMutation.isPending
+                }
               />
             </Animated.View>
           );
@@ -510,6 +561,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   createButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  catalogButton: {
     width: 48,
     height: 48,
     borderRadius: 12,
