@@ -597,7 +597,9 @@ class LearningSessionService:
                     last_attempt = attempt_history[-1]
                     last_attempt_correct = bool(last_attempt.get("is_correct"))
                 else:
-                    last_attempt_correct = bool(answer_data.get("has_been_answered_correctly") or answer_data.get("is_correct"))
+                    last_attempt_correct = bool(
+                        answer_data.get("has_been_answered_correctly") or answer_data.get("is_correct")
+                    )
 
                 if last_attempt_correct:
                     correct_exercises.add(exercise_id)
