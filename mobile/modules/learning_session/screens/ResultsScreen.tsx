@@ -6,19 +6,8 @@
  * progress aggregation.
  */
 
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  ScrollView,
-} from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView } from 'react-native';
 import { CheckCircle } from 'lucide-react-native';
 import Animated, { FadeIn, Easing } from 'react-native-reanimated';
 
@@ -32,14 +21,8 @@ import {
 } from '../../ui_system/public';
 import { LOProgressList } from '../components/LOProgressList';
 import { catalogProvider } from '../../catalog/public';
-import {
-  DEFAULT_ANONYMOUS_USER_ID,
-  useAuth,
-} from '../../user/public';
-import {
-  useUnitLOProgress,
-  useNextLessonToResume,
-} from '../queries';
+import { DEFAULT_ANONYMOUS_USER_ID, useAuth } from '../../user/public';
+import { useUnitLOProgress, useNextLessonToResume } from '../queries';
 import type { LearningStackParamList } from '../../../types';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { LOProgressItem as LOProgressRecord } from '../models';
@@ -95,7 +78,8 @@ export default function ResultsScreen({ navigation, route }: Props) {
   }, [results.unitLOProgress]);
 
   const progressItems: LOProgressRecord[] = useMemo(() => {
-    const sourceItems = latestProgress?.items ?? results.unitLOProgress?.items ?? [];
+    const sourceItems =
+      latestProgress?.items ?? results.unitLOProgress?.items ?? [];
     return sourceItems.map(item => ({
       ...item,
       newlyCompletedInSession: newlyCompletedSet.has(item.loId),
@@ -104,9 +88,15 @@ export default function ResultsScreen({ navigation, route }: Props) {
 
   const summary: SummaryMetrics = useMemo(() => {
     const total = progressItems.length;
-    const completed = progressItems.filter(item => item.status === 'completed').length;
-    const partial = progressItems.filter(item => item.status === 'partial').length;
-    const notStarted = progressItems.filter(item => item.status === 'not_started').length;
+    const completed = progressItems.filter(
+      item => item.status === 'completed'
+    ).length;
+    const partial = progressItems.filter(
+      item => item.status === 'partial'
+    ).length;
+    const notStarted = progressItems.filter(
+      item => item.status === 'not_started'
+    ).length;
     const newlyCompleted = progressItems.filter(
       item => item.newlyCompletedInSession
     ).length;
@@ -308,7 +298,10 @@ export default function ResultsScreen({ navigation, route }: Props) {
           }
         >
           <Card style={contentStyles.summaryCard} testID="results-summary">
-            <Text style={contentStyles.sectionTitle} testID="results-summary-mastered">
+            <Text
+              style={contentStyles.sectionTitle}
+              testID="results-summary-mastered"
+            >
               {summaryHeadline}
             </Text>
             <View style={contentStyles.summaryMetrics}>
@@ -340,7 +333,9 @@ export default function ResultsScreen({ navigation, route }: Props) {
                   .easing(Easing.bezier(0.2, 0.8, 0.2, 1))
           }
         >
-          <Text style={contentStyles.sectionTitle}>Learning Objective Progress</Text>
+          <Text style={contentStyles.sectionTitle}>
+            Learning Objective Progress
+          </Text>
           <LOProgressList
             items={progressItems}
             isLoading={isProgressFetching}

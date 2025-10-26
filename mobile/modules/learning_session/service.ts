@@ -70,10 +70,7 @@ export class LearningSessionService {
         throw new Error(`Lesson ${request.lessonId} not found`);
       }
 
-      if (
-        lessonDetail.unitId &&
-        lessonDetail.unitId !== request.unitId
-      ) {
+      if (lessonDetail.unitId && lessonDetail.unitId !== request.unitId) {
         throw new Error('Lesson does not belong to the provided unit');
       }
       const unitId = lessonDetail.unitId ?? request.unitId;
@@ -190,7 +187,10 @@ export class LearningSessionService {
           await this.repo.saveSessionOutcome(outcome as any);
         }
       } catch (error) {
-        console.warn('Failed to persist session outcome for LO progress:', error);
+        console.warn(
+          'Failed to persist session outcome for LO progress:',
+          error
+        );
       }
 
       try {
@@ -662,16 +662,13 @@ export class LearningSessionService {
       exercise_id: string;
       is_correct: boolean | undefined;
     }>
-  ): Promise<
-    | {
-        sessionId: string;
-        unitId: string;
-        lessonId: string;
-        completedAt: string;
-        loStats: Record<string, { attempted: number; correct: number }>;
-      }
-    | null
-  > {
+  ): Promise<{
+    sessionId: string;
+    unitId: string;
+    lessonId: string;
+    completedAt: string;
+    loStats: Record<string, { attempted: number; correct: number }>;
+  } | null> {
     try {
       const lessonDetail = await this.catalog.getLessonDetail(session.lessonId);
       if (!lessonDetail) {
@@ -705,7 +702,10 @@ export class LearningSessionService {
         loStats.set(loId, bucket);
       }
 
-      const serializedStats: Record<string, { attempted: number; correct: number }> = {};
+      const serializedStats: Record<
+        string,
+        { attempted: number; correct: number }
+      > = {};
       for (const [loId, stats] of loStats.entries()) {
         serializedStats[loId] = stats;
       }

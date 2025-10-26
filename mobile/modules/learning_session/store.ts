@@ -125,7 +125,11 @@ export const useLearningSessionStore = create<LearningSessionState>(
             : sessionId === null
               ? null
               : state.currentUnitId;
-        return { ...state, currentSessionId: sessionId, currentUnitId: nextUnitId };
+        return {
+          ...state,
+          currentSessionId: sessionId,
+          currentUnitId: nextUnitId,
+        };
       });
     },
 

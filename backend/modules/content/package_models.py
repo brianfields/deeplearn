@@ -104,8 +104,6 @@ class LessonPackage(BaseModel):
 
         for exercise in self.exercises:
             if exercise.lo_id not in allowed_lo_ids:
-                raise ValueError(
-                    f"Exercise '{exercise.id}' references unknown lo_id '{exercise.lo_id}'"
-                )
+                raise ValueError(f"Exercise '{exercise.id}' references unknown lo_id '{exercise.lo_id}'")
 
         return self

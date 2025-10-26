@@ -88,25 +88,26 @@ const createSyncStatus = () => ({
   lastSyncError: null,
 });
 
-const createOfflineCacheMock = (): jest.Mocked<OfflineCacheProvider> => ({
-  listUnits: jest.fn(async () => []),
-  getUnitDetail: jest.fn(async () => null),
-  cacheMinimalUnits: jest.fn(async () => undefined),
-  cacheFullUnit: jest.fn(async () => undefined),
-  setUnitCacheMode: jest.fn(async () => undefined),
-  resolveAsset: jest.fn(async () => null),
-  downloadUnitAssets: jest.fn(async () => undefined),
-  deleteUnit: jest.fn(async () => undefined),
-  clearAll: jest.fn(async () => undefined),
-  enqueueOutbox: jest.fn(async () => undefined),
-  processOutbox: jest.fn(async () => ({ processed: 0, remaining: 0 })),
-  runSyncCycle: jest.fn(async () => createSyncStatus()),
-  getSyncStatus: jest.fn(async () => createSyncStatus()),
-  getCacheOverview: jest.fn(async () => ({
-    totalStorageBytes: 0,
-    syncStatus: createSyncStatus(),
-  })),
-}) as unknown as jest.Mocked<OfflineCacheProvider>;
+const createOfflineCacheMock = (): jest.Mocked<OfflineCacheProvider> =>
+  ({
+    listUnits: jest.fn(async () => []),
+    getUnitDetail: jest.fn(async () => null),
+    cacheMinimalUnits: jest.fn(async () => undefined),
+    cacheFullUnit: jest.fn(async () => undefined),
+    setUnitCacheMode: jest.fn(async () => undefined),
+    resolveAsset: jest.fn(async () => null),
+    downloadUnitAssets: jest.fn(async () => undefined),
+    deleteUnit: jest.fn(async () => undefined),
+    clearAll: jest.fn(async () => undefined),
+    enqueueOutbox: jest.fn(async () => undefined),
+    processOutbox: jest.fn(async () => ({ processed: 0, remaining: 0 })),
+    runSyncCycle: jest.fn(async () => createSyncStatus()),
+    getSyncStatus: jest.fn(async () => createSyncStatus()),
+    getCacheOverview: jest.fn(async () => ({
+      totalStorageBytes: 0,
+      syncStatus: createSyncStatus(),
+    })),
+  }) as unknown as jest.Mocked<OfflineCacheProvider>;
 
 const createInfrastructureMock = (): TestInfrastructureProvider => {
   const storage = new Map<string, string>();
@@ -137,8 +138,8 @@ const createInfrastructureMock = (): TestInfrastructureProvider => {
     clearStorage: jest.fn(async () => {
       storage.clear();
     }),
-    createSQLiteProvider: jest.fn(async () => ({} as any)),
-    getFileSystem: jest.fn(() => ({} as any)),
+    createSQLiteProvider: jest.fn(async () => ({}) as any),
+    getFileSystem: jest.fn(() => ({}) as any),
   } as unknown as TestInfrastructureProvider;
   mock.__storage = storage;
   return mock;
@@ -438,7 +439,9 @@ describe('Learning Session Module', () => {
           ],
         };
 
-        mockRepo.computeUnitLOProgress.mockResolvedValue(progressResponse as any);
+        mockRepo.computeUnitLOProgress.mockResolvedValue(
+          progressResponse as any
+        );
 
         const result = await service.getUnitLOProgress('unit-42', 'user-99');
 
@@ -492,10 +495,10 @@ describe('Learning Session Module', () => {
       });
     });
 
-  describe('checkHealth', () => {
-    it('should return health status from repository', async () => {
-      // Arrange
-      mockRepo.checkHealth.mockResolvedValue(true);
+    describe('checkHealth', () => {
+      it('should return health status from repository', async () => {
+        // Arrange
+        mockRepo.checkHealth.mockResolvedValue(true);
 
         // Act
         const result = await service.checkHealth();
@@ -513,9 +516,9 @@ describe('Learning Session Module', () => {
         const result = await service.checkHealth();
 
         // Assert
-      expect(result).toBe(false);
+        expect(result).toBe(false);
+      });
     });
-  });
   });
 
   describe('LearningSessionRepo', () => {
@@ -632,7 +635,10 @@ describe('Learning Session Module', () => {
     it('returns empty items when cached unit detail is unavailable', async () => {
       mockOfflineCache.getUnitDetail.mockResolvedValue(null);
       const repo = new LearningSessionRepo();
-      const progress = await repo.computeUnitLOProgress('missing-unit', 'user-1');
+      const progress = await repo.computeUnitLOProgress(
+        'missing-unit',
+        'user-1'
+      );
       expect(progress).toEqual({ unitId: 'missing-unit', items: [] });
     });
   });

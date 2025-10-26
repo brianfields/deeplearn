@@ -222,9 +222,7 @@ class LearningCoachConversation(BaseConversation):
             if coach_response.unit_title is not None:
                 metadata_update["unit_title"] = coach_response.unit_title
             if coach_response.learning_objectives is not None:
-                metadata_update["learning_objectives"] = [
-                    objective.model_dump() for objective in coach_response.learning_objectives
-                ]
+                metadata_update["learning_objectives"] = [objective.model_dump() for objective in coach_response.learning_objectives]
             if coach_response.suggested_lesson_count is not None:
                 metadata_update["suggested_lesson_count"] = coach_response.suggested_lesson_count
             await self.update_conversation_metadata(metadata_update)

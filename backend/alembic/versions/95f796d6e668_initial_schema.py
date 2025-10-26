@@ -1,8 +1,8 @@
 """initial_schema
 
-Revision ID: 9cb0b78b0c16
+Revision ID: 95f796d6e668
 Revises: 
-Create Date: 2025-10-24 20:58:32.719603
+Create Date: 2025-10-25 14:59:05.905039
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '9cb0b78b0c16'
+revision: str = '95f796d6e668'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -49,26 +49,6 @@ def upgrade() -> None:
     op.create_index(op.f('ix_flow_runs_flow_name'), 'flow_runs', ['flow_name'], unique=False)
     op.create_index(op.f('ix_flow_runs_status'), 'flow_runs', ['status'], unique=False)
     op.create_index(op.f('ix_flow_runs_user_id'), 'flow_runs', ['user_id'], unique=False)
-    op.create_table('learning_sessions',
-    sa.Column('id', sa.String(), nullable=False),
-    sa.Column('lesson_id', sa.String(), nullable=False),
-    sa.Column('unit_id', sa.String(), nullable=True),
-    sa.Column('user_id', sa.String(), nullable=True),
-    sa.Column('status', sa.String(), nullable=False),
-    sa.Column('started_at', sa.DateTime(), nullable=False),
-    sa.Column('completed_at', sa.DateTime(), nullable=True),
-    sa.Column('current_exercise_index', sa.Integer(), nullable=False),
-    sa.Column('total_exercises', sa.Integer(), nullable=False),
-    sa.Column('exercises_completed', sa.Integer(), nullable=False),
-    sa.Column('exercises_correct', sa.Integer(), nullable=False),
-    sa.Column('progress_percentage', sa.Float(), nullable=False),
-    sa.Column('session_data', sa.JSON(), nullable=False),
-    sa.PrimaryKeyConstraint('id')
-    )
-    op.create_index(op.f('ix_learning_sessions_lesson_id'), 'learning_sessions', ['lesson_id'], unique=False)
-    op.create_index(op.f('ix_learning_sessions_status'), 'learning_sessions', ['status'], unique=False)
-    op.create_index(op.f('ix_learning_sessions_unit_id'), 'learning_sessions', ['unit_id'], unique=False)
-    op.create_index(op.f('ix_learning_sessions_user_id'), 'learning_sessions', ['user_id'], unique=False)
     op.create_table('llm_requests',
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=True),
@@ -256,7 +236,7 @@ def upgrade() -> None:
     sa.Column('arq_task_id', sa.String(length=255), nullable=True),
     sa.Column('user_id', sa.Integer(), nullable=True),
     sa.Column('is_global', sa.Boolean(), nullable=False),
-    sa.Column('learning_objectives', sa.JSON(), nullable=True),
+    sa.Column('learning_objectives', sa.JSON(), nullable=False),
     sa.Column('target_lesson_count', sa.Integer(), nullable=True),
     sa.Column('source_material', sa.Text(), nullable=True),
     sa.Column('generated_from_topic', sa.Boolean(), nullable=False),
@@ -280,6 +260,27 @@ def upgrade() -> None:
     op.create_index(op.f('ix_units_arq_task_id'), 'units', ['arq_task_id'], unique=False)
     op.create_index(op.f('ix_units_art_image_id'), 'units', ['art_image_id'], unique=False)
     op.create_index(op.f('ix_units_user_id'), 'units', ['user_id'], unique=False)
+    op.create_table('learning_sessions',
+    sa.Column('id', sa.String(), nullable=False),
+    sa.Column('lesson_id', sa.String(), nullable=False),
+    sa.Column('unit_id', sa.String(), nullable=False),
+    sa.Column('user_id', sa.String(), nullable=True),
+    sa.Column('status', sa.String(), nullable=False),
+    sa.Column('started_at', sa.DateTime(), nullable=False),
+    sa.Column('completed_at', sa.DateTime(), nullable=True),
+    sa.Column('current_exercise_index', sa.Integer(), nullable=False),
+    sa.Column('total_exercises', sa.Integer(), nullable=False),
+    sa.Column('exercises_completed', sa.Integer(), nullable=False),
+    sa.Column('exercises_correct', sa.Integer(), nullable=False),
+    sa.Column('progress_percentage', sa.Float(), nullable=False),
+    sa.Column('session_data', sa.JSON(), nullable=False),
+    sa.ForeignKeyConstraint(['unit_id'], ['units.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_learning_sessions_lesson_id'), 'learning_sessions', ['lesson_id'], unique=False)
+    op.create_index(op.f('ix_learning_sessions_status'), 'learning_sessions', ['status'], unique=False)
+    op.create_index(op.f('ix_learning_sessions_unit_id'), 'learning_sessions', ['unit_id'], unique=False)
+    op.create_index(op.f('ix_learning_sessions_user_id'), 'learning_sessions', ['user_id'], unique=False)
     op.create_table('lessons',
     sa.Column('id', sa.String(length=36), nullable=False),
     sa.Column('title', sa.String(length=255), nullable=False),
@@ -326,6 +327,11 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_lessons_unit_id'), table_name='lessons')
     op.drop_index(op.f('ix_lessons_flow_run_id'), table_name='lessons')
     op.drop_table('lessons')
+    op.drop_index(op.f('ix_learning_sessions_user_id'), table_name='learning_sessions')
+    op.drop_index(op.f('ix_learning_sessions_unit_id'), table_name='learning_sessions')
+    op.drop_index(op.f('ix_learning_sessions_status'), table_name='learning_sessions')
+    op.drop_index(op.f('ix_learning_sessions_lesson_id'), table_name='learning_sessions')
+    op.drop_table('learning_sessions')
     op.drop_index(op.f('ix_units_user_id'), table_name='units')
     op.drop_index(op.f('ix_units_art_image_id'), table_name='units')
     op.drop_index(op.f('ix_units_arq_task_id'), table_name='units')
@@ -366,11 +372,6 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_llm_requests_cached'), table_name='llm_requests')
     op.drop_index(op.f('ix_llm_requests_api_variant'), table_name='llm_requests')
     op.drop_table('llm_requests')
-    op.drop_index(op.f('ix_learning_sessions_user_id'), table_name='learning_sessions')
-    op.drop_index(op.f('ix_learning_sessions_unit_id'), table_name='learning_sessions')
-    op.drop_index(op.f('ix_learning_sessions_status'), table_name='learning_sessions')
-    op.drop_index(op.f('ix_learning_sessions_lesson_id'), table_name='learning_sessions')
-    op.drop_table('learning_sessions')
     op.drop_index(op.f('ix_flow_runs_user_id'), table_name='flow_runs')
     op.drop_index(op.f('ix_flow_runs_status'), table_name='flow_runs')
     op.drop_index(op.f('ix_flow_runs_flow_name'), table_name='flow_runs')

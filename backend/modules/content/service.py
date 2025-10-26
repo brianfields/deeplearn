@@ -402,9 +402,7 @@ class ContentService:
         include_audio_metadata: bool = True,
     ) -> ContentService.UnitRead:
         unit_read = self.UnitRead.model_validate(unit)
-        parsed_learning_objectives = self._parse_unit_learning_objectives(
-            getattr(unit, "learning_objectives", None)
-        )
+        parsed_learning_objectives = self._parse_unit_learning_objectives(getattr(unit, "learning_objectives", None))
         unit_read.learning_objectives = parsed_learning_objectives or None
         unit_read.schema_version = getattr(unit, "schema_version", 1)
         await self._apply_podcast_metadata(
@@ -786,9 +784,7 @@ class ContentService:
 
         lesson_models = await self.repo.get_lessons_by_unit(unit_id=unit_id)
         lesson_summaries: dict[str, ContentService.UnitLessonSummary] = {}
-        unit_learning_objectives = self._parse_unit_learning_objectives(
-            getattr(unit, "learning_objectives", None)
-        )
+        unit_learning_objectives = self._parse_unit_learning_objectives(getattr(unit, "learning_objectives", None))
         lo_text_by_id = {lo.id: lo.text for lo in unit_learning_objectives}
 
         for lesson in lesson_models:
@@ -858,11 +854,7 @@ class ContentService:
         detail_dict = unit_summary.model_dump()
         detail_dict["lesson_order"] = ordered_ids
         detail_dict["lessons"] = [lesson.model_dump() for lesson in ordered_lessons]
-        detail_dict["learning_objectives"] = (
-            [lo.model_dump() for lo in unit_learning_objectives]
-            if unit_learning_objectives
-            else None
-        )
+        detail_dict["learning_objectives"] = [lo.model_dump() for lo in unit_learning_objectives] if unit_learning_objectives else None
         transcript = getattr(unit, "podcast_transcript", None)
         if not transcript and audio_meta is not None:
             transcript = getattr(audio_meta, "transcript", None)
@@ -1055,11 +1047,7 @@ class ContentService:
 
     async def create_unit(self, data: ContentService.UnitCreate) -> ContentService.UnitRead:
         unit_id = data.id or str(uuid.uuid4())
-        los_payload = (
-            [lo.model_dump() for lo in data.learning_objectives]
-            if data.learning_objectives is not None
-            else []
-        )
+        los_payload = [lo.model_dump() for lo in data.learning_objectives] if data.learning_objectives is not None else []
         model = UnitModel(
             id=unit_id,
             title=data.title,
@@ -1102,11 +1090,7 @@ class ContentService:
         learning_objectives: list[UnitLearningObjective] | None = None,
     ) -> ContentService.UnitRead | None:
         """Update unit metadata fields (title, learning_objectives)."""
-        los_payload = (
-            [lo.model_dump() for lo in learning_objectives]
-            if learning_objectives is not None
-            else None
-        )
+        los_payload = [lo.model_dump() for lo in learning_objectives] if learning_objectives is not None else None
         updated = await self.repo.update_unit_metadata(
             unit_id,
             title=title,

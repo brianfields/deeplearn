@@ -619,7 +619,9 @@ export class ContentService {
       cached.lessons.map(lesson => lesson.id);
 
     const canonicalObjectives =
-      this.parseCachedLearningObjectives(cached.unitPayload?.learning_objectives) ?? [];
+      this.parseCachedLearningObjectives(
+        cached.unitPayload?.learning_objectives
+      ) ?? [];
     const textByObjective = new Map<string, string>();
     for (const objective of canonicalObjectives) {
       textByObjective.set(objective.id, objective.text);

@@ -17,10 +17,10 @@ from .analytics import ExerciseCorrectness, LearningSessionAnalyticsService
 from .repo import LearningSessionRepo
 from .service import (
     CompleteSessionRequest,
-    LearningSession,
-    LearningSessionService,
     LearningObjectiveProgressItem,
     LearningObjectiveStatus,
+    LearningSession,
+    LearningSessionService,
     SessionListResponse,
     SessionProgress,
     SessionResults,
@@ -134,12 +134,12 @@ def learning_session_analytics_provider(session: AsyncSession) -> LearningSessio
 __all__ = [
     "CompleteSessionRequest",
     "ExerciseCorrectness",
+    "LearningObjectiveProgressItem",
+    "LearningObjectiveStatus",
     "LearningSession",
     "LearningSessionAnalyticsProvider",
     "LearningSessionProvider",
     "LearningSessionService",
-    "LearningObjectiveProgressItem",
-    "LearningObjectiveStatus",
     "SessionListResponse",
     "SessionProgress",
     "SessionResults",

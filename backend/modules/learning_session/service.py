@@ -8,8 +8,8 @@ This is a migration, not new feature development.
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
-import logging
 from enum import Enum
+import logging
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:

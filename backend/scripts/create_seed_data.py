@@ -179,15 +179,8 @@ def create_sample_flow_run(
     now = datetime.now(UTC)
     package = lesson_data["package"]
     raw_unit_objectives = lesson_data.get("unit_learning_objectives", []) or []
-    objectives = [
-        obj.get("text") if isinstance(obj, dict) else str(obj)
-        for obj in raw_unit_objectives
-    ]
-    objective_ids = [
-        obj.get("id")
-        for obj in raw_unit_objectives
-        if isinstance(obj, dict) and obj.get("id") is not None
-    ]
+    objectives = [obj.get("text") if isinstance(obj, dict) else str(obj) for obj in raw_unit_objectives]
+    objective_ids = [obj.get("id") for obj in raw_unit_objectives if isinstance(obj, dict) and obj.get("id") is not None]
     key_terms = [term["term"] for term in package.get("glossary", {}).get("terms", [])]
     total_mcqs = len(package.get("exercises", []))
     lo_coverage = len({exercise["lo_id"] for exercise in package.get("exercises", [])}) if total_mcqs else 0
@@ -246,15 +239,8 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, lesson_data: dict[str, Any])
     now = datetime.now(UTC)
     package = lesson_data["package"]
     raw_unit_objectives = lesson_data.get("unit_learning_objectives", []) or []
-    objectives = [
-        obj.get("text") if isinstance(obj, dict) else str(obj)
-        for obj in raw_unit_objectives
-    ]
-    objective_ids = [
-        obj.get("id")
-        for obj in raw_unit_objectives
-        if isinstance(obj, dict) and obj.get("id") is not None
-    ]
+    objectives = [obj.get("text") if isinstance(obj, dict) else str(obj) for obj in raw_unit_objectives]
+    objective_ids = [obj.get("id") for obj in raw_unit_objectives if isinstance(obj, dict) and obj.get("id") is not None]
     key_terms = [term["term"] for term in package.get("glossary", {}).get("terms", [])]
     exercises = package.get("exercises", [])
     misconceptions = package.get("misconceptions", [])
@@ -726,12 +712,12 @@ This map plus rationale guides shelter placement and trap cycles while respectin
                             "title": "From Triage to TNR: Integrated Care and Control Plan",
                             "learner_level": "intermediate",
                             "source_material": None,
-                              "objectives": [
-                                  {"id": "lo_3", "text": "Sequence triage for kittens using the warmth–hydration–respiration–nutrition order and assign cases to urgent, priority, or routine categories.", "bloom_level": None},
-                                  {"id": "lo_4", "text": "Specify age-appropriate feeding, micro-shelter features, and a basic vaccination and parasite-control schedule for a given kitten profile.", "bloom_level": None},
-                                  {"id": "lo_5", "text": "Design a Trap–Neuter–Return (TNR) workflow aligned to seasonality, including ear-tipping, return-to-territory, and simple record-keeping.", "bloom_level": None},
-                                  {"id": "lo_6", "text": "Identify edge cases (e.g., lactating queens, late pregnancy, panleukopenia outbreaks, heatwaves/winter) and specify the operational adjustment required.", "bloom_level": None},
-                              ],
+                            "objectives": [
+                                {"id": "lo_3", "text": "Sequence triage for kittens using the warmth–hydration–respiration–nutrition order and assign cases to urgent, priority, or routine categories.", "bloom_level": None},
+                                {"id": "lo_4", "text": "Specify age-appropriate feeding, micro-shelter features, and a basic vaccination and parasite-control schedule for a given kitten profile.", "bloom_level": None},
+                                {"id": "lo_5", "text": "Design a Trap–Neuter–Return (TNR) workflow aligned to seasonality, including ear-tipping, return-to-territory, and simple record-keeping.", "bloom_level": None},
+                                {"id": "lo_6", "text": "Identify edge cases (e.g., lactating queens, late pregnancy, panleukopenia outbreaks, heatwaves/winter) and specify the operational adjustment required.", "bloom_level": None},
+                            ],
                             "glossary_terms": [
                                 {"term": "Triage", "definition": "A prioritization sequence: warmth, hydration, respiration, then nutrition."},
                                 {"term": "Kitten Milk Replacer (KMR)", "definition": "Formula designed to substitute for queen's milk."},
@@ -1132,11 +1118,7 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                         unit_learning_objectives=lesson_spec["objectives"],
                     )
 
-                    lesson_db_dict = {
-                        key: value
-                        for key, value in lesson_data.items()
-                        if key != "unit_learning_objectives"
-                    }
+                    lesson_db_dict = {key: value for key, value in lesson_data.items() if key != "unit_learning_objectives"}
                     lesson_db_dict["unit_id"] = unit_spec["id"]
                     flow_run_data = create_sample_flow_run(
                         lesson_spec["flow_run_id"],

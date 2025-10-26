@@ -635,7 +635,8 @@ export class LearningSessionRepo {
         ? lessonPackage.exercises
         : [];
       for (const exercise of exercises) {
-        const loId = typeof exercise?.lo_id === 'string' ? exercise.lo_id : null;
+        const loId =
+          typeof exercise?.lo_id === 'string' ? exercise.lo_id : null;
         if (!loId || !totals.has(loId)) {
           continue;
         }
@@ -644,7 +645,10 @@ export class LearningSessionRepo {
       }
     }
 
-    const aggregated = new Map<string, { attempted: number; correct: number }>();
+    const aggregated = new Map<
+      string,
+      { attempted: number; correct: number }
+    >();
     for (const loId of totals.keys()) {
       aggregated.set(loId, { attempted: 0, correct: 0 });
     }
@@ -775,8 +779,9 @@ export class LearningSessionRepo {
       }
     }
 
-    return outcomes.sort((a, b) =>
-      new Date(a.completedAt).getTime() - new Date(b.completedAt).getTime()
+    return outcomes.sort(
+      (a, b) =>
+        new Date(a.completedAt).getTime() - new Date(b.completedAt).getTime()
     );
   }
 

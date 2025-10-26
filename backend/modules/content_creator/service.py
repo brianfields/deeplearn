@@ -118,15 +118,9 @@ class ContentCreatorService:
         # Run lesson creation flow using new prompt-aligned inputs
         flow = LessonCreationFlow()
         logger.info("🔄 Starting %s...", flow.flow_name)
-        unit_lo_map: dict[str, str] = {
-            lo.id: lo.text for lo in request.unit_learning_objectives
-        }
-        unit_lo_text_lookup: dict[str, str] = {
-            str(text): lo_id for lo_id, text in unit_lo_map.items()
-        }
-        textual_learning_objectives = [
-            unit_lo_map.get(lo_id, lo_id) for lo_id in request.learning_objective_ids
-        ]
+        unit_lo_map: dict[str, str] = {lo.id: lo.text for lo in request.unit_learning_objectives}
+        unit_lo_text_lookup: dict[str, str] = {str(text): lo_id for lo_id, text in unit_lo_map.items()}
+        textual_learning_objectives = [unit_lo_map.get(lo_id, lo_id) for lo_id in request.learning_objective_ids]
 
         flow_result = await flow.execute(
             {
@@ -149,12 +143,9 @@ class ContentCreatorService:
             content_version=1,
         )
 
-        lesson_lo_ids: list[str] = list(
-            flow_result.get("learning_objective_ids", []) or request.learning_objective_ids
-        )
+        lesson_lo_ids: list[str] = list(flow_result.get("learning_objective_ids", []) or request.learning_objective_ids)
         if not lesson_lo_ids:
             raise ValueError("Lesson flow did not return any learning objective ids")
-        lesson_lo_texts = [unit_lo_map.get(lo_id, lo_id) for lo_id in lesson_lo_ids]
 
         # Build glossary from flow result (list of terms)
         glossary_terms: list[GlossaryTerm] = []
@@ -299,10 +290,7 @@ class ContentCreatorService:
             raise ValueError("Unit not found")
 
         raw_learning_objectives = list(getattr(unit_detail, "learning_objectives", []) or [])
-        learning_objectives = [
-            lo.get("text") if isinstance(lo, dict) else getattr(lo, "text", str(lo))
-            for lo in raw_learning_objectives
-        ]
+        learning_objectives = [lo.get("text") if isinstance(lo, dict) else getattr(lo, "text", str(lo)) for lo in raw_learning_objectives]
         key_concepts = self._extract_key_concepts(unit_detail)
 
         flow_inputs = {
@@ -581,9 +569,7 @@ class ContentCreatorService:
             elif isinstance(item, dict):
                 unit_learning_objectives.append(UnitLearningObjective.model_validate(item))
             else:
-                unit_learning_objectives.append(
-                    UnitLearningObjective(id=str(item), text=str(item))
-                )
+                unit_learning_objectives.append(UnitLearningObjective(id=str(item), text=str(item)))
 
         # Save the extracted title and learning objectives to the unit
         await self.content.update_unit_metadata(

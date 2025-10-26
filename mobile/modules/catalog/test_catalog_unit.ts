@@ -194,9 +194,7 @@ describe('CatalogService', () => {
         difficulty: 'intermediate',
         lessonIds: [],
         lessons: [],
-        learningObjectives: [
-          { id: 'lo-1', text: 'Explore detail objective' },
-        ],
+        learningObjectives: [{ id: 'lo-1', text: 'Explore detail objective' }],
         targetLessonCount: null,
         sourceMaterial: null,
         generatedFromTopic: false,

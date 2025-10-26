@@ -244,10 +244,7 @@ class CatalogService:
                     }
                 )
 
-        glossary_terms = [
-            {"id": term.id, "term": term.term, "definition": term.definition}
-            for term in lesson.package.glossary.get("terms", [])
-        ]
+        glossary_terms = [{"id": term.id, "term": term.term, "definition": term.definition} for term in lesson.package.glossary.get("terms", [])]
 
         objective_ids = self._extract_lesson_objective_ids(lesson.package)
         objectives = await self._map_objective_ids_to_text(lesson.unit_id, objective_ids)
@@ -454,9 +451,7 @@ class CatalogService:
         if not detail:
             return None
 
-        objective_ids, objective_lookup = self._normalize_unit_objectives(
-            getattr(detail, "learning_objectives", None)
-        )
+        objective_ids, objective_lookup = self._normalize_unit_objectives(getattr(detail, "learning_objectives", None))
         unit_objective_texts = [objective_lookup.get(lo_id, lo_id) for lo_id in objective_ids]
 
         lessons = [
@@ -688,18 +683,13 @@ class CatalogService:
         correctness_records: list[Any] = []
         if exercise_to_objective:
             try:
-                correctness_records = await self.learning_sessions.get_exercise_correctness(
-                    [lesson.id for lesson in lessons]
-                )
+                correctness_records = await self.learning_sessions.get_exercise_correctness([lesson.id for lesson in lessons])
             except Exception:
                 correctness_records = []
 
         correct_counts: defaultdict[str, int] = defaultdict(int)
         for record in correctness_records:
-            if (
-                record.exercise_id in exercise_to_objective
-                and getattr(record, "has_been_answered_correctly", False)
-            ):
+            if record.exercise_id in exercise_to_objective and getattr(record, "has_been_answered_correctly", False):
                 lo_id = exercise_to_objective[record.exercise_id]
                 correct_counts[lo_id] += 1
 

@@ -346,9 +346,14 @@ export function UnitDetailScreen() {
         Alert.alert('Lesson not found', 'Unable to open this lesson.');
         return;
       }
+      if (!unitId) {
+        Alert.alert('Error', 'Unit context is required to start a lesson.');
+        return;
+      }
       navigation.navigate('LearningFlow', {
         lessonId: detail.id,
         lesson: detail,
+        unitId,
       });
     } catch {
       Alert.alert('Unable to open lesson', 'Please try again.');
