@@ -41,8 +41,16 @@ describe('ContentService (offline cache integration)', () => {
       status: 'completed',
       updated_at: new Date().toISOString(),
       learning_objectives: [
-        { id: 'lo-1', text: 'Objective 1' },
-        { id: 'lo-2', text: 'Objective 2' },
+        {
+          id: 'lo-1',
+          title: 'Objective 1',
+          description: 'Objective 1 description',
+        },
+        {
+          id: 'lo-2',
+          title: 'Objective 2',
+          description: 'Objective 2 description',
+        },
       ],
     },
   };
@@ -148,8 +156,16 @@ describe('ContentService (offline cache integration)', () => {
       syncedAt: expect.any(Number),
     });
     expect(units[0].learningObjectives).toEqual([
-      { id: 'lo-1', text: 'Objective 1' },
-      { id: 'lo-2', text: 'Objective 2' },
+      {
+        id: 'lo-1',
+        title: 'Objective 1',
+        description: 'Objective 1 description',
+      },
+      {
+        id: 'lo-2',
+        title: 'Objective 2',
+        description: 'Objective 2 description',
+      },
     ]);
     expect(repo.listUnits).not.toHaveBeenCalled();
   });
@@ -196,12 +212,20 @@ describe('ContentService (offline cache integration)', () => {
       cacheMode: 'full',
     });
     expect(detail?.learningObjectives).toEqual([
-      { id: 'lo-1', text: 'Objective 1' },
-      { id: 'lo-2', text: 'Objective 2' },
+      {
+        id: 'lo-1',
+        title: 'Objective 1',
+        description: 'Objective 1 description',
+      },
+      {
+        id: 'lo-2',
+        title: 'Objective 2',
+        description: 'Objective 2 description',
+      },
     ]);
     expect(detail?.lessons[0]).toMatchObject({
       learningObjectiveIds: ['lo-1'],
-      learningObjectives: ['Objective 1'],
+      learningObjectives: ['Objective 1 description'],
     });
     expect(repo.getUnitDetail).not.toHaveBeenCalled();
   });

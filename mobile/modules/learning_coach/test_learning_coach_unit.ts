@@ -26,6 +26,13 @@ describe('LearningCoachRepo', () => {
           metadata: {},
         },
       ],
+      learning_objectives: [
+        {
+          id: 'lo-1',
+          title: 'Objective 1',
+          description: 'Objective 1 description',
+        },
+      ],
       proposed_brief: {
         title: 'Algebra Foundations',
         description: 'Master key concepts',
@@ -42,6 +49,13 @@ describe('LearningCoachRepo', () => {
     expect(state.conversationId).toBe('abc-123');
     expect(state.metadata).toEqual({ topic: 'algebra' });
     expect(state.messages).toHaveLength(1);
+    expect(state.learningObjectives).toEqual([
+      {
+        id: 'lo-1',
+        title: 'Objective 1',
+        description: 'Objective 1 description',
+      },
+    ]);
     expect(state.proposedBrief).toEqual({
       title: 'Algebra Foundations',
       description: 'Master key concepts',

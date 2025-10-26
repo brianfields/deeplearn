@@ -20,6 +20,7 @@ from .repo import LearningSessionRepo
 from .service import (
     CompleteSessionRequest,
     ExerciseProgressUpdate,
+    LearningObjectiveStatus,
     LearningSessionService,
     StartSessionRequest,
     UpdateProgressRequest,
@@ -80,6 +81,25 @@ class ProgressResponseModel(BaseModel):
     attempts: int
     attempt_history: list[dict[str, Any]]
     has_been_answered_correctly: bool
+
+
+class LearningObjectiveProgressItemModel(BaseModel):
+    """Response model for learning objective progress entries."""
+
+    lo_id: str
+    title: str
+    description: str
+    exercises_total: int
+    exercises_attempted: int
+    exercises_correct: int
+    status: LearningObjectiveStatus
+
+
+class UnitLearningObjectiveProgressResponseModel(BaseModel):
+    """Response model for unit learning objective progress."""
+
+    unit_id: str
+    items: list[LearningObjectiveProgressItemModel]
 
 
 class ExerciseProgressUpdateModel(BaseModel):

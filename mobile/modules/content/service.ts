@@ -686,13 +686,16 @@ export class ContentService {
       this.parseCachedLearningObjectives(
         cached.unitPayload?.learning_objectives
       ) ?? [];
-    const textByObjective = new Map<string, string>();
+    const objectiveById = new Map<string, { title: string; description: string }>();
     for (const objective of canonicalObjectives) {
-      textByObjective.set(objective.id, objective.text);
+      objectiveById.set(objective.id, {
+        title: objective.title,
+        description: objective.description,
+      });
     }
 
     const lessons: ApiUnitDetail['lessons'] = cached.lessons.map(lesson =>
-      this.buildApiLessonFromCached(lesson, textByObjective)
+      this.buildApiLessonFromCached(lesson, objectiveById)
     );
 
     return {
@@ -724,7 +727,7 @@ export class ContentService {
 
   private buildApiLessonFromCached(
     lesson: CachedUnitDetail['lessons'][number],
-    loTextById: Map<string, string>
+    objectivesById: Map<string, { title: string; description: string }>
   ): ApiUnitDetail['lessons'][number] {
     const payload = (lesson.payload ?? {}) as Record<string, any>;
     const packagePayload =
@@ -746,7 +749,13 @@ export class ContentService {
       : [];
     const learningObjectives =
       unitLearningObjectiveIds.length > 0
-        ? unitLearningObjectiveIds.map((id: string) => loTextById.get(id) ?? id)
+        ? unitLearningObjectiveIds.map((id: string) => {
+            const objective = objectivesById.get(id);
+            if (!objective) {
+              return id;
+            }
+            return objective.description || objective.title;
+          })
         : fallbackObjectives;
     const keyConcepts = Array.isArray(packagePayload?.key_concepts)
       ? packagePayload.key_concepts
@@ -869,7 +878,17 @@ export class ContentService {
       return null;
     }
     if (typeof raw === 'string') {
-      return [{ id: raw, text: raw }];
+      const value = raw.trim();
+      if (!value) {
+        return null;
+      }
+      return [
+        {
+          id: value,
+          title: value,
+          description: value,
+        },
+      ];
     }
     if (!Array.isArray(raw)) {
       return null;
@@ -881,7 +900,10 @@ export class ContentService {
         continue;
       }
       if (typeof entry === 'string') {
-        objectives.push({ id: entry, text: entry });
+        const value = entry.trim();
+        if (value) {
+          objectives.push({ id: value, title: value, description: value });
+        }
         continue;
       }
       if (typeof entry === 'object') {
@@ -891,14 +913,32 @@ export class ContentService {
             : typeof (entry as { lo_id?: unknown }).lo_id === 'string'
               ? ((entry as { lo_id?: string }).lo_id as string)
               : null;
-        const maybeText =
-          typeof (entry as { text?: unknown }).text === 'string'
-            ? ((entry as { text?: string }).text as string)
-            : typeof (entry as { objective?: unknown }).objective === 'string'
-              ? ((entry as { objective?: string }).objective as string)
-              : null;
-        if (maybeId && maybeText) {
-          objectives.push({ id: maybeId, text: maybeText });
+        const maybeTitle =
+          typeof (entry as { title?: unknown }).title === 'string'
+            ? ((entry as { title?: string }).title as string)
+            : typeof (entry as { short_title?: unknown }).short_title === 'string'
+              ? ((entry as { short_title?: string }).short_title as string)
+              : typeof (entry as { text?: unknown }).text === 'string'
+                ? ((entry as { text?: string }).text as string)
+                : null;
+        const maybeDescription =
+          typeof (entry as { description?: unknown }).description === 'string'
+            ? ((entry as { description?: string }).description as string)
+            : typeof (entry as { text?: unknown }).text === 'string'
+              ? ((entry as { text?: string }).text as string)
+              : typeof (entry as { objective?: unknown }).objective === 'string'
+                ? ((entry as { objective?: string }).objective as string)
+                : null;
+        if (maybeId && (maybeTitle || maybeDescription)) {
+          const title = (maybeTitle ?? maybeDescription ?? '').trim();
+          const description = (maybeDescription ?? maybeTitle ?? '').trim();
+          if (title && description) {
+            objectives.push({
+              id: maybeId,
+              title,
+              description,
+            });
+          }
         }
       }
     }

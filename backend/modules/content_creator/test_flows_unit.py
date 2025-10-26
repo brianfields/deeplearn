@@ -132,7 +132,13 @@ class TestServiceFlows:
             learner_level="beginner",
             voice="Test voice",
             learning_objective_ids=["lo_1"],
-            unit_learning_objectives=[UnitLearningObjective(id="lo_1", text="Learn A")],
+            unit_learning_objectives=[
+                UnitLearningObjective(
+                    id="lo_1",
+                    title="Learn A",
+                    description="Learn A",
+                )
+            ],
             lesson_objective="Test objective",
         )
 
@@ -192,7 +198,13 @@ class TestServiceFlows:
             mock_ucf = AsyncMock()
             mock_ucf.execute.return_value = {
                 "unit_title": "Unit T",
-                "learning_objectives": [{"id": "u_lo_1", "text": "Understand the topic"}],
+                "learning_objectives": [
+                    {
+                        "id": "u_lo_1",
+                        "title": "Understand the Topic",
+                        "description": "Understand the topic",
+                    }
+                ],
                 "lessons": [
                     {
                         "title": "L1",
@@ -277,7 +289,13 @@ class TestServiceFlows:
             mock_ucf = AsyncMock()
             mock_ucf.execute.return_value = {
                 "unit_title": "Unit B",
-                "learning_objectives": [{"id": "u_lo_1", "text": "Understand the topic"}],
+                "learning_objectives": [
+                    {
+                        "id": "u_lo_1",
+                        "title": "Understand the Topic",
+                        "description": "Understand the topic",
+                    }
+                ],
                 "lessons": [
                     {
                         "title": "L1",

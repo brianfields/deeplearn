@@ -748,7 +748,14 @@ export class AdminService {
           key_concepts: l.key_concepts ?? [],
           exercise_count: l.exercise_count,
         })),
-        learning_objectives: detail.learning_objectives ?? null,
+        learning_objectives:
+          detail.learning_objectives?.map((lo) => ({
+            id: lo.id,
+            title: lo.title ?? (lo as Record<string, any>).text ?? lo.description ?? lo.id,
+            description: lo.description ?? (lo as Record<string, any>).text ?? '',
+            bloom_level: lo.bloom_level ?? null,
+            evidence_of_mastery: lo.evidence_of_mastery ?? null,
+          })) ?? null,
         target_lesson_count: detail.target_lesson_count ?? null,
         source_material: detail.source_material ?? null,
         generated_from_topic: Boolean(detail.generated_from_topic),

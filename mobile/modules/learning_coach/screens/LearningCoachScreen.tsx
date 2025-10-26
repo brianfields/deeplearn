@@ -325,7 +325,7 @@ export function LearningCoachScreen({
             {sessionState.learningObjectives.map((objective, idx) => (
               <View key={idx} style={styles.objectiveItem}>
                 <Text style={styles.objectiveBullet}>•</Text>
-                <Text style={styles.objectiveText}>{objective}</Text>
+                <Text style={styles.objectiveText}>{objective.title}</Text>
               </View>
             ))}
           </View>
