@@ -888,9 +888,19 @@ class ContentService:
 
         units = await self.repo.get_units_updated_since(since, limit=limit)
 
-        # Filter units to only those the user can access (owned by user OR global)
+        memberships: set[str] = set()
+
+        def _user_can_access(unit: UnitModel) -> bool:
+            if user_id is None:
+                return True
+            if getattr(unit, "user_id", None) == user_id:
+                return True
+            return unit.id in memberships
+
         if user_id is not None:
-            units = [unit for unit in units if unit.user_id == user_id or unit.is_global]
+            membership_ids = await self.repo.list_my_units_unit_ids(user_id)
+            memberships = set(membership_ids)
+            units = [unit for unit in units if _user_can_access(unit)]
 
         unit_by_id: dict[str, UnitModel] = {unit.id: unit for unit in units}
 
@@ -913,9 +923,11 @@ class ContentService:
                     continue
                 if lesson.unit_id not in unit_by_id:
                     unit = await self.repo.get_unit_by_id(lesson.unit_id)
-                    if unit is not None:
+                    if unit is not None and _user_can_access(unit):
                         unit_by_id[unit.id] = unit
                         units.append(unit)
+                    else:
+                        continue
                 bucket = lessons_by_unit.setdefault(lesson.unit_id, {})
                 existing = bucket.get(lesson.id)
                 if existing is None or existing.updated_at < lesson.updated_at:

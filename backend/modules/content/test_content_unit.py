@@ -836,6 +836,108 @@ class TestContentService:
         assert {asset.type for asset in entry.assets} == {"image"}
         assert response.cursor == now
 
+    async def test_get_units_since_filters_by_my_units_membership(self) -> None:
+        """Only owned units or units in My Units should be returned for a user."""
+
+        repo = AsyncMock(spec=ContentRepo)
+        object_store = AsyncMock()
+        object_store.get_audio = AsyncMock(return_value=None)
+        object_store.get_image = AsyncMock(return_value=None)
+        service = ContentService(repo, object_store=object_store)
+
+        now = datetime.now(UTC)
+        learner_id = 7
+
+        owned_unit = UnitModel(
+            id="owned-unit",
+            title="Owned",
+            description="",
+            learner_level="beginner",
+            lesson_order=[],
+            user_id=learner_id,
+            is_global=False,
+            learning_objectives=[],
+            target_lesson_count=None,
+            source_material=None,
+            generated_from_topic=False,
+            flow_type="standard",
+            status="completed",
+            creation_progress=None,
+            error_message=None,
+            podcast_transcript=None,
+            podcast_voice=None,
+            podcast_audio_object_id=None,
+            podcast_generated_at=now,
+            art_image_id=None,
+            art_image_description=None,
+            created_at=now,
+            updated_at=now,
+        )
+
+        my_unit = UnitModel(
+            id="my-unit",
+            title="Catalog",
+            description="",
+            learner_level="beginner",
+            lesson_order=[],
+            user_id=21,
+            is_global=True,
+            learning_objectives=[],
+            target_lesson_count=None,
+            source_material=None,
+            generated_from_topic=False,
+            flow_type="standard",
+            status="completed",
+            creation_progress=None,
+            error_message=None,
+            podcast_transcript=None,
+            podcast_voice=None,
+            podcast_audio_object_id=None,
+            podcast_generated_at=now,
+            art_image_id=None,
+            art_image_description=None,
+            created_at=now,
+            updated_at=now,
+        )
+
+        other_global = UnitModel(
+            id="other-unit",
+            title="Other",
+            description="",
+            learner_level="beginner",
+            lesson_order=[],
+            user_id=22,
+            is_global=True,
+            learning_objectives=[],
+            target_lesson_count=None,
+            source_material=None,
+            generated_from_topic=False,
+            flow_type="standard",
+            status="completed",
+            creation_progress=None,
+            error_message=None,
+            podcast_transcript=None,
+            podcast_voice=None,
+            podcast_audio_object_id=None,
+            podcast_generated_at=now,
+            art_image_id=None,
+            art_image_description=None,
+            created_at=now,
+            updated_at=now,
+        )
+
+        repo.get_units_updated_since.return_value = [owned_unit, my_unit, other_global]
+        repo.list_my_units_unit_ids.return_value = [my_unit.id]
+        repo.get_lessons_for_unit_ids.return_value = []
+        repo.get_lessons_updated_since.return_value = []
+
+        response = await service.get_units_since(since=None, limit=10, user_id=learner_id)
+
+        repo.list_my_units_unit_ids.assert_awaited_once_with(learner_id)
+        returned_ids = {entry.unit.id for entry in response.units}
+        assert returned_ids == {owned_unit.id, my_unit.id}
+        assert other_global.id not in returned_ids
+
 
 class _StubSyncService:
     """Minimal stub to capture sync calls from the FastAPI route."""
