@@ -32,25 +32,9 @@ jest.mock('../infrastructure/public', () => {
   };
 });
 
-jest.mock('expo-audio', () => {
-  const mockPlayer = {
-    playing: false,
-    currentTime: 0,
-    duration: 0,
-    isBuffering: false,
-    play: jest.fn(),
-    pause: jest.fn(),
-    seekTo: jest.fn().mockResolvedValue(undefined),
-    setPlaybackRate: jest.fn(),
-    remove: jest.fn(),
-  };
-  return {
-    createAudioPlayer: jest.fn(() => mockPlayer),
-    setAudioModeAsync: jest.fn(),
-  };
-});
-
-import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
+import TrackPlayer, {
+  State as TrackPlayerState,
+} from 'react-native-track-player';
 import {
   __resetPodcastPlayerServiceForTests,
   getPodcastPlayerService,
@@ -59,11 +43,28 @@ import { usePodcastStore } from './store';
 import type { PodcastTrack } from './models';
 import { infrastructureProvider } from '../infrastructure/public';
 
+type TrackPlayerTestMock = typeof TrackPlayer & {
+  __setProgress: (
+    progress: Partial<{ position: number; duration: number }>
+  ) => void;
+  __setPlaybackState: (state: TrackPlayerState) => void;
+  __resetMock: () => void;
+  setupPlayer: jest.Mock;
+  updateOptions: jest.Mock;
+  setRepeatMode: jest.Mock;
+  reset: jest.Mock;
+  add: jest.Mock;
+  setRate: jest.Mock;
+};
+
+const trackPlayerMock = TrackPlayer as unknown as TrackPlayerTestMock;
+
 describe('PodcastPlayerService', () => {
   const infraMock = infrastructureProvider as unknown as jest.Mock;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    trackPlayerMock.__resetMock();
     const storageState = (infraMock as any).__storageState as {
       map: Map<string, string>;
     };
@@ -97,12 +98,14 @@ describe('PodcastPlayerService', () => {
     const service = getPodcastPlayerService();
     await service.initialize();
 
-    expect(setAudioModeAsync).toHaveBeenCalledWith(
+    expect(trackPlayerMock.setupPlayer).toHaveBeenCalled();
+    expect(trackPlayerMock.updateOptions).toHaveBeenCalledWith(
       expect.objectContaining({
-        playsInSilentMode: true,
-        shouldPlayInBackground: true,
+        progressUpdateEventInterval: 1,
       })
     );
+    expect(trackPlayerMock.setRepeatMode).toHaveBeenCalled();
+    expect(trackPlayerMock.setRate).toHaveBeenCalledWith(1.5);
     expect(usePodcastStore.getState().globalSpeed).toBe(1.5);
   });
 
@@ -112,11 +115,18 @@ describe('PodcastPlayerService', () => {
     const firstTrack = createTrack({ unitId: 'unit-1', title: 'Unit 1' });
     await service.loadTrack(firstTrack);
 
-    expect(createAudioPlayer).toHaveBeenCalledWith({
-      uri: firstTrack.audioUrl,
-    });
+    expect(trackPlayerMock.reset).toHaveBeenCalled();
+    expect(trackPlayerMock.add).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: firstTrack.unitId,
+        url: firstTrack.audioUrl,
+        title: firstTrack.title,
+      })
+    );
     expect(usePodcastStore.getState().currentTrack?.unitId).toBe('unit-1');
 
+    // Simulate progress update by updating both TrackPlayer mock and store
+    trackPlayerMock.__setProgress({ position: 42, duration: 300 });
     usePodcastStore
       .getState()
       .updatePlaybackState({ position: 42, duration: 300 });

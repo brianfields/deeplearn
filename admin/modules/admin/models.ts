@@ -466,6 +466,13 @@ export interface DailyMetrics {
 
 // ---- Units Types ----
 
+export interface UnitLearningObjective {
+  id: string;
+  text: string;
+  bloom_level: string | null;
+  evidence_of_mastery: string | null;
+}
+
 // API wire formats
 export interface ApiUnitSummary {
   id: string;
@@ -507,7 +514,7 @@ export interface ApiUnitDetail {
   lesson_order: string[];
   lessons: ApiUnitLessonSummary[];
   // New fields from backend
-  learning_objectives?: string[] | null;
+  learning_objectives?: UnitLearningObjective[] | null;
   target_lesson_count?: number | null;
   source_material?: string | null;
   generated_from_topic?: boolean;
@@ -582,7 +589,7 @@ export interface UnitDetail {
   lesson_order: string[];
   lessons: UnitLessonSummary[];
   // New fields for admin detail UI
-  learning_objectives: string[] | null;
+  learning_objectives: UnitLearningObjective[] | null;
   target_lesson_count: number | null;
   source_material: string | null;
   generated_from_topic: boolean;

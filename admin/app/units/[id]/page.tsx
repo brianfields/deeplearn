@@ -384,8 +384,8 @@ export default function UnitDetailsPage({ params }: UnitDetailsPageProps) {
               <div>
                 <h3 className="text-sm font-semibold text-gray-700 mb-2">Learning Objectives</h3>
                 <ul className="list-disc list-inside space-y-1">
-                  {unit.learning_objectives.map((lo, idx) => (
-                    <li key={idx} className="text-sm text-gray-700">{lo}</li>
+                  {unit.learning_objectives.map((lo) => (
+                    <li key={lo.id} className="text-sm text-gray-700">{lo.text}</li>
                   ))}
                 </ul>
               </div>

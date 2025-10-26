@@ -86,7 +86,7 @@ function UnitAccordionItem({ unit, isExpanded, onToggle }: UnitAccordionItemProp
                   <h4 className="text-sm font-semibold text-gray-900">Learning objectives</h4>
                   <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-600">
                     {detail.learning_objectives.map((objective) => (
-                      <li key={objective}>{objective}</li>
+                      <li key={objective.id}>{objective.text}</li>
                     ))}
                   </ul>
                 </div>
