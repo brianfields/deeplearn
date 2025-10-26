@@ -597,7 +597,9 @@ class LearningSessionService:
                     last_attempt = attempt_history[-1]
                     last_attempt_correct = bool(last_attempt.get("is_correct"))
                 else:
-                    last_attempt_correct = bool(answer_data.get("has_been_answered_correctly") or answer_data.get("is_correct"))
+                    last_attempt_correct = bool(
+                        answer_data.get("has_been_answered_correctly") or answer_data.get("is_correct")
+                    )
 
                 if last_attempt_correct:
                     correct_exercises.add(exercise_id)
@@ -802,11 +804,21 @@ class LearningSessionService:
             if isinstance(objective, dict):
                 lo_id = str(objective.get("id") or f"lo_{index + 1}")
                 lo_title = str(objective.get("title") or objective.get("short_title") or lo_id)
-                lo_description = str(objective.get("description") or objective.get("text") or lo_title)
+                lo_description = str(
+                    objective.get("description")
+                    or objective.get("text")
+                    or objective.get("lo_text")
+                    or lo_title
+                )
             else:
                 lo_id = f"lo_{index + 1}"
                 lo_title = str(getattr(objective, "title", objective))
-                lo_description = str(getattr(objective, "description", None) or getattr(objective, "text", None) or lo_title)
+                lo_description = str(
+                    getattr(objective, "description", None)
+                    or getattr(objective, "text", None)
+                    or getattr(objective, "lo_text", None)
+                    or lo_title
+                )
 
             if lo_id not in lookup:
                 ordered_ids.append(lo_id)

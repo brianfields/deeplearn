@@ -803,7 +803,10 @@ class ContentService:
             lesson_lo_ids = list(package.unit_learning_objective_ids)
             if not lesson_lo_ids:
                 lesson_lo_ids = sorted({exercise.lo_id for exercise in package.exercises})
-            objectives = [(lo_lookup.get(lo_id).description if lo_lookup.get(lo_id) else lo_id) for lo_id in lesson_lo_ids]
+            objectives = [
+                (lo_lookup.get(lo_id).description if lo_lookup.get(lo_id) else lo_id)
+                for lo_id in lesson_lo_ids
+            ]
             glossary_terms = package.glossary.get("terms", []) if package.glossary else []
             key_concepts: list[str] = []
             for term in glossary_terms:
@@ -1134,13 +1137,21 @@ class ContentService:
             if isinstance(item, dict):
                 lo_id = item.get("id") or item.get("lo_id")
                 title = item.get("title") or item.get("short_title")
-                description = item.get("description") or item.get("text")
+                description = (
+                    item.get("description")
+                    or item.get("text")
+                    or item.get("lo_text")
+                )
                 bloom_level = item.get("bloom_level")
                 evidence_of_mastery = item.get("evidence_of_mastery")
             else:
                 lo_id = getattr(item, "id", None) or getattr(item, "lo_id", None)
                 title = getattr(item, "title", None) or getattr(item, "short_title", None)
-                description = getattr(item, "description", None) or getattr(item, "text", None)
+                description = (
+                    getattr(item, "description", None)
+                    or getattr(item, "text", None)
+                    or getattr(item, "lo_text", None)
+                )
                 bloom_level = getattr(item, "bloom_level", None)
                 evidence_of_mastery = getattr(item, "evidence_of_mastery", None)
 

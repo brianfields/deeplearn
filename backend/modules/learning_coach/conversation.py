@@ -194,7 +194,12 @@ class LearningCoachConversation(BaseConversation):
                 continue
             lo_id = str(entry.get("id") or "").strip()
             title = str(entry.get("title") or entry.get("short_title") or "").strip()
-            description = str(entry.get("description") or entry.get("text") or title).strip()
+            description = str(
+                entry.get("description")
+                or entry.get("text")
+                or entry.get("lo_text")
+                or title
+            ).strip()
             if not title and description:
                 title = description[:50]
             if lo_id and title and description:

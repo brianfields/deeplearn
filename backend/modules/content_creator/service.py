@@ -119,10 +119,10 @@ class ContentCreatorService:
         flow = LessonCreationFlow()
         logger.info("🔄 Starting %s...", flow.flow_name)
         unit_lo_map: dict[str, str] = {lo.id: lo.description for lo in request.unit_learning_objectives}
-        objective_lookup_by_text: dict[str, str] = {}
+        unit_lo_text_lookup: dict[str, str] = {}
         for lo in request.unit_learning_objectives:
-            objective_lookup_by_text[str(lo.description)] = lo.id
-            objective_lookup_by_text[str(lo.title)] = lo.id
+            unit_lo_text_lookup[str(lo.description)] = lo.id
+            unit_lo_text_lookup[str(lo.title)] = lo.id
         textual_learning_objectives = [unit_lo_map.get(lo_id, lo_id) for lo_id in request.learning_objective_ids]
 
         flow_result = await flow.execute(
@@ -577,13 +577,20 @@ class ContentCreatorService:
                 inferred_title = payload.get("title") or payload.get("short_title")
                 if inferred_title is None:
                     inferred_title = payload.get("text") or payload.get("description") or str(raw_id or f"lo_{len(unit_learning_objectives) + 1}")
-                inferred_description = payload.get("description") or payload.get("text") or inferred_title
+                inferred_description = (
+                    payload.get("description")
+                    or payload.get("text")
+                    or payload.get("lo_text")
+                    or inferred_title
+                )
                 payload.setdefault("title", str(inferred_title))
                 payload.setdefault("description", str(inferred_description))
                 unit_learning_objectives.append(UnitLearningObjective.model_validate(payload))
             else:
                 text_value = str(item)
-                unit_learning_objectives.append(UnitLearningObjective(id=str(item), title=text_value, description=text_value))
+                unit_learning_objectives.append(
+                    UnitLearningObjective(id=str(item), title=text_value, description=text_value)
+                )
 
         # Save the extracted title and learning objectives to the unit
         await self.content.update_unit_metadata(
@@ -653,7 +660,9 @@ class ContentCreatorService:
 
         # Remove any unit learning objectives that never received an exercise
         if unit_learning_objectives and lesson_ids:
-            filtered_learning_objectives = [lo for lo in unit_learning_objectives if lo.id in covered_lo_ids]
+            filtered_learning_objectives = [
+                lo for lo in unit_learning_objectives if lo.id in covered_lo_ids
+            ]
             if len(filtered_learning_objectives) != len(unit_learning_objectives):
                 unit_learning_objectives = filtered_learning_objectives
                 await self.content.update_unit_metadata(
