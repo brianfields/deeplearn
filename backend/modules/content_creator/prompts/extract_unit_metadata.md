@@ -21,7 +21,8 @@ You are an expert instructional designer. Extract a **structured unit plan** fro
 1) Derive a **concise, specific unit title** that clearly reflects the TOPIC and intended ramp to `{{learner_level}}`.
 2) Define **3–8 unit-level learning objectives**. For each, include:
    - `lo_id` in the form **"UO1"**, **"UO2"** … (sequential, no gaps)
-   - `text` (precise, observable outcome)
+   - `title` (3–8 word, scannable headline)
+   - `description` (precise, observable outcome written for learners)
    - `bloom_level` (one of: **Remember, Understand, Apply, Analyze, Evaluate, Create**)
    - `evidence_of_mastery` (short, concrete indicator; may be omitted only if truly redundant)
 3) Propose an **ordered list of 1–20 lessons** (use `{{target_lesson_count}}` if provided; otherwise 5–10) that **coherently covers the unit**. For each lesson, provide:
@@ -43,7 +44,8 @@ Top-level keys in this **exact order**:
   "learning_objectives": [
    {
       "lo_id": "UO1",
-      "text": "string",
+      "title": "3-8 word title",
+      "description": "string",
       "bloom_level": "Understand",
       "evidence_of_mastery": "string"
    }
@@ -61,7 +63,7 @@ Top-level keys in this **exact order**:
 # Field Definitions & Rules
 
 * **unit\_title:** Short, specific, aligned to TOPIC and `{{learner_level}}` outcome.
-* **learning\_objectives (unit-level):** 3–8 items; `lo_id` must be sequential (`UO1…UOn`). `bloom_level` ∈ (Remember, Understand, Apply, Analyze, Evaluate, Create). `text` is action-oriented and measurable.
+* **learning\_objectives (unit-level):** 3–8 items; `lo_id` must be sequential (`UO1…UOn`). `title` is a concise 3–8 word phrase. `description` is action-oriented and measurable. `bloom_level` ∈ (Remember, Understand, Apply, Analyze, Evaluate, Create).
 * **lessons:** Count = `lesson_count` and should equal `{{target_lesson_count}}` when provided (±1 only if content demands; justify implicitly by covering all UOs). Each lesson:
 
   * **title:** Unique and concrete; implies the core skill/knowledge.

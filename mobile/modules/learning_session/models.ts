@@ -146,7 +146,8 @@ export type LOStatus = 'completed' | 'partial' | 'not_started';
 
 export interface LOProgressItem {
   readonly loId: string;
-  readonly loText: string;
+  readonly title: string;
+  readonly description: string;
   readonly exercisesTotal: number;
   readonly exercisesAttempted: number;
   readonly exercisesCorrect: number;

@@ -378,8 +378,18 @@ export interface Meta {
 
 export interface Objective {
   id: string;
-  text: string;
+  title: string;
+  description: string;
   bloom_level: string | null;
+  text?: string; // legacy support while cached data updates
+}
+
+export interface UnitLearningObjective {
+  id: string;
+  title: string;
+  description: string;
+  bloom_level?: string | null;
+  evidence_of_mastery?: string | null;
 }
 
 export interface GlossaryTerm {
@@ -507,7 +517,7 @@ export interface ApiUnitDetail {
   lesson_order: string[];
   lessons: ApiUnitLessonSummary[];
   // New fields from backend
-  learning_objectives?: string[] | null;
+  learning_objectives?: UnitLearningObjective[] | null;
   target_lesson_count?: number | null;
   source_material?: string | null;
   generated_from_topic?: boolean;
@@ -582,7 +592,7 @@ export interface UnitDetail {
   lesson_order: string[];
   lessons: UnitLessonSummary[];
   // New fields for admin detail UI
-  learning_objectives: string[] | null;
+  learning_objectives: UnitLearningObjective[] | null;
   target_lesson_count: number | null;
   source_material: string | null;
   generated_from_topic: boolean;

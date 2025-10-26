@@ -132,7 +132,8 @@ class LearningObjectiveProgressItem:
     """Progress summary for a single learning objective."""
 
     lo_id: str
-    lo_text: str
+    title: str
+    description: str
     exercises_total: int
     exercises_attempted: int
     exercises_correct: int
@@ -589,7 +590,16 @@ class LearningSessionService:
                 if exercise_id not in exercise_to_objective:
                     continue
                 attempted_exercises.add(exercise_id)
-                if bool(answer_data.get("has_been_answered_correctly") or answer_data.get("is_correct")):
+
+                attempt_history = answer_data.get("attempt_history") or []
+                last_attempt_correct = False
+                if attempt_history:
+                    last_attempt = attempt_history[-1]
+                    last_attempt_correct = bool(last_attempt.get("is_correct"))
+                else:
+                    last_attempt_correct = bool(answer_data.get("has_been_answered_correctly") or answer_data.get("is_correct"))
+
+                if last_attempt_correct:
                     correct_exercises.add(exercise_id)
 
         attempted_counts: defaultdict[str, int] = defaultdict(int)
@@ -623,10 +633,12 @@ class LearningSessionService:
             else:
                 status = LearningObjectiveStatus.NOT_STARTED
 
+            lookup_entry = objective_lookup.get(lo_id, {"title": lo_id, "description": lo_id})
             items.append(
                 LearningObjectiveProgressItem(
                     lo_id=lo_id,
-                    lo_text=objective_lookup.get(lo_id, lo_id),
+                    title=str(lookup_entry.get("title") or lo_id),
+                    description=str(lookup_entry.get("description") or lookup_entry.get("title") or lo_id),
                     exercises_total=total,
                     exercises_attempted=attempted,
                     exercises_correct=correct,
@@ -779,23 +791,25 @@ class LearningSessionService:
     def _normalize_unit_objectives(
         self,
         raw_objectives: Any | None,
-    ) -> tuple[list[str], dict[str, str]]:
+    ) -> tuple[list[str], dict[str, dict[str, str]]]:
         """Return ordered identifiers and lookup mapping for unit learning objectives."""
 
         ordered_ids: list[str] = []
-        lookup: dict[str, str] = {}
+        lookup: dict[str, dict[str, str]] = {}
 
         objectives = raw_objectives or []
         for index, objective in enumerate(objectives):
             if isinstance(objective, dict):
                 lo_id = str(objective.get("id") or f"lo_{index + 1}")
-                lo_text = str(objective.get("text") or objective.get("description") or lo_id)
+                lo_title = str(objective.get("title") or objective.get("short_title") or lo_id)
+                lo_description = str(objective.get("description") or objective.get("text") or lo_title)
             else:
                 lo_id = f"lo_{index + 1}"
-                lo_text = str(objective)
+                lo_title = str(getattr(objective, "title", objective))
+                lo_description = str(getattr(objective, "description", None) or getattr(objective, "text", None) or lo_title)
 
             if lo_id not in lookup:
                 ordered_ids.append(lo_id)
-            lookup[lo_id] = lo_text
+            lookup[lo_id] = {"title": lo_title, "description": lo_description}
 
         return ordered_ids, lookup

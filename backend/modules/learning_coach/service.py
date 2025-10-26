@@ -182,9 +182,18 @@ class LearningCoachService:
             if not isinstance(entry, dict):
                 continue
             lo_id = str(entry.get("id") or "").strip()
-            lo_text = str(entry.get("text") or "").strip()
-            if lo_id and lo_text:
-                objectives.append(LearningCoachObjective(id=lo_id, text=lo_text))
+            title = str(entry.get("title") or entry.get("short_title") or "").strip()
+            description = str(entry.get("description") or entry.get("text") or title).strip()
+            if not title and description:
+                title = description[:50]
+            if lo_id and title and description:
+                objectives.append(
+                    LearningCoachObjective(
+                        id=lo_id,
+                        title=title,
+                        description=description,
+                    )
+                )
 
         return objectives or None
 

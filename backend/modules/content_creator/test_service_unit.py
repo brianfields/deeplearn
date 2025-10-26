@@ -13,6 +13,7 @@ import pytest
 
 from modules.content.package_models import LessonPackage, Meta
 from modules.content.public import LessonRead, UnitStatus
+from modules.content_creator.podcast import PodcastLesson
 from modules.content_creator.service import ContentCreatorService, CreateLessonRequest
 from modules.content_creator.steps import UnitLearningObjective
 
@@ -35,8 +36,8 @@ class TestContentCreatorService:
             voice="Test voice",
             learning_objective_ids=["lo_1", "lo_2"],
             unit_learning_objectives=[
-                UnitLearningObjective(id="lo_1", text="Learn X"),
-                UnitLearningObjective(id="lo_2", text="Understand Y"),
+                UnitLearningObjective(id="lo_1", title="Learn X", description="Learn X"),
+                UnitLearningObjective(id="lo_2", title="Understand Y", description="Understand Y"),
             ],
             lesson_objective="Test objective",
         )
@@ -122,6 +123,94 @@ class TestContentCreatorService:
                 "unit_source_material": "Test material content",
             }
         )
+
+    @pytest.mark.asyncio
+    @patch("modules.content_creator.service.UnitCreationFlow")
+    async def test_execute_unit_creation_removes_uncovered_los(
+        self,
+        mock_flow_class: Mock,
+    ) -> None:
+        """Learning objectives without exercises should be removed after lesson generation."""
+
+        content = AsyncMock()
+        content.update_unit_metadata = AsyncMock()
+        content.update_unit_status = AsyncMock()
+        content.assign_lessons_to_unit = AsyncMock()
+        content.save_unit_podcast_from_bytes = AsyncMock()
+
+        service = ContentCreatorService(content)
+        service.create_unit_art = AsyncMock()
+
+        unit_plan = {
+            "unit_title": "Test Unit",
+            "learning_objectives": [
+                {
+                    "id": "UO1",
+                    "title": "Covered Objective",
+                    "description": "Learner will cover UO1",
+                },
+                {
+                    "id": "UO2",
+                    "title": "Uncovered Objective",
+                    "description": "Learner will skip UO2",
+                },
+            ],
+            "lessons": [
+                {
+                    "title": "Lesson 1",
+                    "lesson_objective": "Do something",
+                    "learning_objectives": ["UO1"],
+                }
+            ],
+            "lesson_count": 1,
+        }
+
+        mock_flow = AsyncMock()
+        mock_flow.execute.return_value = unit_plan
+        mock_flow_class.return_value = mock_flow
+
+        podcast_generator = Mock()
+        podcast_generator.create_podcast = AsyncMock(
+            return_value=SimpleNamespace(
+                transcript="Transcript",
+                audio_bytes=b"",
+                mime_type="audio/mpeg",
+                voice="Plain",
+            )
+        )
+        service.podcast_generator = podcast_generator
+
+        service._create_single_lesson = AsyncMock(
+            return_value=(
+                "lesson-1",
+                PodcastLesson(title="Lesson 1", mini_lesson="Body"),
+                "Plain",
+                {"UO1"},
+            )
+        )
+
+        result = await service._execute_unit_creation_pipeline(
+            unit_id="unit-1",
+            topic="Topic",
+            source_material="Source",
+            target_lesson_count=None,
+            learner_level="beginner",
+        )
+
+        assert result.unit_id == "unit-1"
+        assert result.lesson_count == 1
+
+        # First call persists original objectives; second call removes uncovered ones
+        assert content.update_unit_metadata.await_count >= 2
+        first_call = content.update_unit_metadata.await_args_list[0]
+        second_call = content.update_unit_metadata.await_args_list[-1]
+
+        original_los = first_call.kwargs.get("learning_objectives")
+        filtered_los = second_call.kwargs.get("learning_objectives")
+
+        assert original_los is not None and len(original_los) == 2
+        assert filtered_los is not None and len(filtered_los) == 1
+        assert filtered_los[0].id == "UO1"
 
     @pytest.mark.asyncio
     async def test_retry_unit_creation_success(self) -> None:

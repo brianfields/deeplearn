@@ -118,8 +118,11 @@ class ContentCreatorService:
         # Run lesson creation flow using new prompt-aligned inputs
         flow = LessonCreationFlow()
         logger.info("🔄 Starting %s...", flow.flow_name)
-        unit_lo_map: dict[str, str] = {lo.id: lo.text for lo in request.unit_learning_objectives}
-        unit_lo_text_lookup: dict[str, str] = {str(text): lo_id for lo_id, text in unit_lo_map.items()}
+        unit_lo_map: dict[str, str] = {lo.id: lo.description for lo in request.unit_learning_objectives}
+        objective_lookup_by_text: dict[str, str] = {}
+        for lo in request.unit_learning_objectives:
+            objective_lookup_by_text[str(lo.description)] = lo.id
+            objective_lookup_by_text[str(lo.title)] = lo.id
         textual_learning_objectives = [unit_lo_map.get(lo_id, lo_id) for lo_id in request.learning_objective_ids]
 
         flow_result = await flow.execute(
@@ -194,8 +197,8 @@ class ContentCreatorService:
                 if candidate in unit_lo_map:
                     lo_id = candidate
                     break
-                if candidate in unit_lo_text_lookup:
-                    lo_id = unit_lo_text_lookup[candidate]
+                if candidate in objective_lookup_by_text:
+                    lo_id = objective_lookup_by_text[candidate]
                     break
             if lo_id is None:
                 lo_id = lesson_lo_ids[0]
@@ -425,7 +428,7 @@ class ContentCreatorService:
         """
         lesson_title = lesson_plan.get("title") or f"Lesson {lesson_index + 1}"
         lesson_lo_ids: list[str] = list(lesson_plan.get("learning_objective_ids", []) or [])
-        lesson_lo_texts: list[str] = [unit_los.get(lid, lid) for lid in lesson_lo_ids]
+        lesson_lo_descriptions: list[str] = [unit_los.get(lid, lid) for lid in lesson_lo_ids]
         lesson_objective_text: str = lesson_plan.get("lesson_objective", "")
 
         logger.info(f"📝 Creating lesson {lesson_index + 1}: {lesson_title}")
@@ -436,7 +439,7 @@ class ContentCreatorService:
                 "topic": lesson_title,
                 "learner_level": learner_level,
                 "voice": "Plain",
-                "learning_objectives": lesson_lo_texts,
+                "learning_objectives": lesson_lo_descriptions,
                 "learning_objective_ids": lesson_lo_ids,
                 "lesson_objective": lesson_objective_text,
                 "unit_source_material": unit_material,
@@ -531,8 +534,10 @@ class ContentCreatorService:
                 )
             )
 
+        covered_lo_ids = {str(exercise.lo_id) for exercise in exercises if getattr(exercise, "lo_id", None)}
+
         logger.info(f"✅ Completed lesson {lesson_index + 1}: {lesson_title}")
-        return (created_lesson.id, podcast_lesson, podcast_voice_label)
+        return (created_lesson.id, podcast_lesson, podcast_voice_label, covered_lo_ids)
 
     async def _execute_unit_creation_pipeline(
         self,
@@ -567,9 +572,18 @@ class ContentCreatorService:
             if isinstance(item, UnitLearningObjective):
                 unit_learning_objectives.append(item)
             elif isinstance(item, dict):
-                unit_learning_objectives.append(UnitLearningObjective.model_validate(item))
+                payload = dict(item)
+                raw_id = payload.get("id") or payload.get("lo_id")
+                inferred_title = payload.get("title") or payload.get("short_title")
+                if inferred_title is None:
+                    inferred_title = payload.get("text") or payload.get("description") or str(raw_id or f"lo_{len(unit_learning_objectives) + 1}")
+                inferred_description = payload.get("description") or payload.get("text") or inferred_title
+                payload.setdefault("title", str(inferred_title))
+                payload.setdefault("description", str(inferred_description))
+                unit_learning_objectives.append(UnitLearningObjective.model_validate(payload))
             else:
-                unit_learning_objectives.append(UnitLearningObjective(id=str(item), text=str(item)))
+                text_value = str(item)
+                unit_learning_objectives.append(UnitLearningObjective(id=str(item), title=text_value, description=text_value))
 
         # Save the extracted title and learning objectives to the unit
         await self.content.update_unit_metadata(
@@ -581,13 +595,14 @@ class ContentCreatorService:
         await self.content.update_unit_status(unit_id, UnitStatus.IN_PROGRESS.value, creation_progress={"stage": "generating", "message": "Generating lessons..."})
 
         # Prepare look-up of unit-level LO texts by id
-        unit_los: dict[str, str] = {lo.id: lo.text for lo in unit_learning_objectives}
+        unit_los: dict[str, str] = {lo.id: lo.description for lo in unit_learning_objectives}
 
         lesson_ids: list[str] = []
         podcast_lessons: list[PodcastLesson] = []
         podcast_voice_label: str | None = None
         unit_material: str = str(unit_plan.get("unit_source_material") or source_material or "")
         lessons_plan = unit_plan.get("lessons", []) or []
+        covered_lo_ids: set[str] = set()
 
         # Create lessons in parallel with batching to avoid overwhelming the system
         logger.info(f"🚀 Creating {len(lessons_plan)} lessons in parallel (batch size: {MAX_PARALLEL_LESSONS})")
@@ -623,17 +638,28 @@ class ContentCreatorService:
                     continue
 
                 # Type narrowing: result is a tuple here, not an Exception
-                lesson_id, podcast_lesson, voice = result  # type: ignore[misc]
+                lesson_id, podcast_lesson, voice, lesson_covered_los = result  # type: ignore[misc]
                 lesson_ids.append(lesson_id)
                 podcast_lessons.append(podcast_lesson)
                 if podcast_voice_label is None:
                     podcast_voice_label = voice
+                covered_lo_ids.update(lesson_covered_los)
 
             # Update progress after each batch
             progress_pct = (batch_end / len(lessons_plan)) * 100
             await self.content.update_unit_status(unit_id, UnitStatus.IN_PROGRESS.value, creation_progress={"stage": "generating", "message": f"Generated {len(lesson_ids)}/{len(lessons_plan)} lessons ({progress_pct:.0f}%)..."})
 
         logger.info(f"✅ Completed {len(lesson_ids)}/{len(lessons_plan)} lessons")
+
+        # Remove any unit learning objectives that never received an exercise
+        if unit_learning_objectives and lesson_ids:
+            filtered_learning_objectives = [lo for lo in unit_learning_objectives if lo.id in covered_lo_ids]
+            if len(filtered_learning_objectives) != len(unit_learning_objectives):
+                unit_learning_objectives = filtered_learning_objectives
+                await self.content.update_unit_metadata(
+                    unit_id,
+                    learning_objectives=filtered_learning_objectives,
+                )
 
         # Associate lessons and complete
         if lesson_ids:

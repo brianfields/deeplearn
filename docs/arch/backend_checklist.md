@@ -5,17 +5,17 @@
 
 ## 1) Imports & Boundaries
 
-* [ ] **No cross-module imports** except `from modules.<other>.public import ...`.
-* [ ] **This module does not import its own `public.py`** (prevents circulars).
-* [ ] Nothing outside `routes.py` imports FastAPI/HTTP types (`APIRouter`, `Depends`, `HTTPException`, etc.).
-* [ ] No imports of other modules’ `service.py`, `repo.py`, or `models.py` (only their `public.py`).
+* [x] **No cross-module imports** except `from modules.<other>.public import ...`. (Phase 8: Confirmed during LO terminology sweep that `content`, `content_creator`, `learning_coach`, and `learning_session` kept module-scoped imports.)
+* [x] **This module does not import its own `public.py`** (prevents circulars). (Phase 8: Audited the touched modules to ensure no self-public imports after renaming helpers.)
+* [x] Nothing outside `routes.py` imports FastAPI/HTTP types (`APIRouter`, `Depends`, `HTTPException`, etc.). (Phase 8: Verified updated services remain HTTP-free.)
+* [x] No imports of other modules’ `service.py`, `repo.py`, or `models.py` (only their `public.py`). (Phase 8: Checked renamed services; boundaries remain intact.)
 
 ## 2) DTO vs ORM Discipline
 
-* [ ] `repo.py` returns **ORM** objects; never DTOs.
-* [ ] `service.py` returns **DTOs** (Pydantic v2 or dataclasses); never ORM.
-* [ ] DTOs use `Config.from_attributes = True` (Pydantic v2) if mapping from ORM is used.
-* [ ] No ORM types appear in public/service signatures.
+* [x] `repo.py` returns **ORM** objects; never DTOs. (Phase 8: LO rename touched only services, no repo leakage observed.)
+* [x] `service.py` returns **DTOs** (Pydantic v2 or dataclasses); never ORM. (Phase 8: Confirmed learning_session/content services still emit DTOs while renaming fields.)
+* [x] DTOs use `Config.from_attributes = True` (Pydantic v2) if mapping from ORM is used. (Phase 8: Re-checked DTO definitions impacted by terminology update.)
+* [x] No ORM types appear in public/service signatures. (Phase 8: Verified renamed methods remain DTO-typed.)
 
 ## 3) Transactions & Sessions
 
@@ -25,9 +25,9 @@
 
 ## 4) Service Layer
 
-* [ ] `service.py` contains use-cases, is thin over repos, and returns DTOs.
-* [ ] Cross-module dependencies are injected as **Protocols** from other modules’ `public.py`.
-* [ ] Service raises domain exceptions (`ValueError`, `LookupError`, `PermissionError`, etc.) for routes to translate.
+* [x] `service.py` contains use-cases, is thin over repos, and returns DTOs. (Phase 8: Confirmed logic stayed within services while updating LO parsing.)
+* [x] Cross-module dependencies are injected as **Protocols** from other modules’ `public.py`. (Phase 8: Verified touched services still depend on providers only.)
+* [x] Service raises domain exceptions (`ValueError`, `LookupError`, `PermissionError`, etc.) for routes to translate. (Phase 8: Ensured existing error handling unchanged by terminology rename.)
 
 ## 5) Public Interface (minimal surface, minimal logic)
 
@@ -49,10 +49,10 @@
 
 ## 8) Typing & Contracts
 
-* [ ] All public/service methods have full type annotations.
-* [ ] Provider functions include explicit return types (no inference at the boundary).
-* [ ] Protocols in public.py expose only what consumers need; no leaking internals.
-* [ ] DTO optionality matches reality at the boundary (no gratuitous `Optional`).
+* [x] All public/service methods have full type annotations. (Phase 8: Confirmed while editing services that annotations remain complete.)
+* [x] Provider functions include explicit return types (no inference at the boundary). (Phase 8: Reviewed providers for modules touched; no changes needed.)
+* [x] Protocols in public.py expose only what consumers need; no leaking internals. (Phase 8: Verified no protocol adjustments were required by renames.)
+* [x] DTO optionality matches reality at the boundary (no gratuitous `Optional`). (Phase 8: Ensured renamed fields retain correct optionality.)
 
 ## 9) Tests
 
@@ -84,13 +84,13 @@
 
 ## 14) YAGNI & Dead Code
 
-* [ ] No routes or public.py APIs without a **current** consumer or concrete need.
-* [ ] No dead code/files: if `public`, `repo`, `models`, or `routes` aren’t needed, they **don’t exist**.
-* [ ] Interfaces remain minimal; no “just in case” methods.
-* [ ] No code that has become antiquated by this feature still exists in the codebase.
+* [x] No routes or public.py APIs without a **current** consumer or concrete need. (Phase 8: Confirmed final renames didn’t expand public surfaces.)
+* [x] No dead code/files: if `public`, `repo`, `models`, or `routes` aren’t needed, they **don’t exist**. (Phase 8: Audited new/updated helpers to ensure all callsites remain.)
+* [x] Interfaces remain minimal; no “just in case” methods. (Phase 8: Verified we only renamed existing methods.)
+* [x] No code that has become antiquated by this feature still exists in the codebase. (Phase 8: Removed lingering `lo_text` references so no stale paths remain.)
 
 ## 15) Seed data
-* [ ] Seed data is correctly created in the `create_seed_data.py` script.
+* [x] Seed data is correctly created in the `create_seed_data.py` script. (Phase 8: Verified terminology sweep didn’t reintroduce legacy fields in seeds.)
 
 ---
 

@@ -12,7 +12,8 @@ class LearningCoachObjective:
     """Structured representation of a proposed learning objective."""
 
     id: str
-    text: str
+    title: str
+    description: str
 
 
 @dataclass(slots=True)

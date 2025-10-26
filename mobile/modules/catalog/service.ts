@@ -6,6 +6,7 @@
  */
 
 import { CatalogRepo } from './repo';
+import { LearningSessionRepo } from '../learning_session/repo';
 import type {
   LessonSummary,
   LessonDetail,
@@ -30,6 +31,7 @@ import {
   type UnitCreationRequest,
   type UnitCreationResponse,
 } from '../content_creator/public';
+import type { UnitLOProgress } from '../learning_session/models';
 
 interface CatalogServiceDeps {
   readonly content: ContentProvider;
@@ -46,7 +48,8 @@ function createDefaultDeps(): CatalogServiceDeps {
 export class CatalogService {
   constructor(
     private repo: CatalogRepo,
-    private deps: CatalogServiceDeps = createDefaultDeps()
+    private deps: CatalogServiceDeps = createDefaultDeps(),
+    private learningSessionRepo: LearningSessionRepo = new LearningSessionRepo()
   ) {}
 
   /**
@@ -305,6 +308,30 @@ export class CatalogService {
       });
     } catch (error) {
       throw this.handleServiceError(error, `Failed to get unit ${unitId}`);
+    }
+  }
+
+  async computeUnitLOProgressLocal(
+    unitId: string,
+    userId: string
+  ): Promise<UnitLOProgress> {
+    const trimmedUnitId = unitId?.trim();
+    const trimmedUserId = userId?.trim();
+
+    if (!trimmedUnitId || !trimmedUserId) {
+      return { unitId: trimmedUnitId ?? unitId ?? '', items: [] };
+    }
+
+    try {
+      return await this.learningSessionRepo.computeUnitLOProgress(
+        trimmedUnitId,
+        trimmedUserId
+      );
+    } catch (error) {
+      throw this.handleServiceError(
+        error,
+        'Failed to compute unit learning objective progress locally'
+      );
     }
   }
 

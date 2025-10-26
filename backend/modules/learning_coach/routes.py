@@ -30,7 +30,8 @@ class LearningObjectiveModel(BaseModel):
     """Response model for a unit learning objective."""
 
     id: str
-    text: str
+    title: str
+    description: str
 
 
 class LearningCoachSessionStateModel(BaseModel):
@@ -143,7 +144,12 @@ def _serialize_state(state: LearningCoachSessionState) -> LearningCoachSessionSt
         metadata=state.metadata,
         finalized_topic=state.finalized_topic,
         unit_title=state.unit_title,
-        learning_objectives=[LearningObjectiveModel(id=obj.id, text=obj.text) for obj in state.learning_objectives or []] if state.learning_objectives else None,
+        learning_objectives=[
+            LearningObjectiveModel(id=obj.id, title=obj.title, description=obj.description)
+            for obj in state.learning_objectives or []
+        ]
+        if state.learning_objectives
+        else None,
         suggested_lesson_count=state.suggested_lesson_count,
         proposed_brief=state.proposed_brief,
         accepted_brief=state.accepted_brief,

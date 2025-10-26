@@ -67,7 +67,14 @@ export function LOProgressItem({ item, testID }: Props): JSX.Element {
         </View>
         <View style={styles.content}>
           <Text style={[styles.title, { color: theme.colors.text }]}>
-            {item.loText}
+            {item.title}
+          </Text>
+          <Text
+            style={[styles.description, { color: theme.colors.textSecondary }]}
+            numberOfLines={2}
+            ellipsizeMode="tail"
+          >
+            {item.description}
           </Text>
           <View style={styles.metaRow}>
             <Text
@@ -132,13 +139,18 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 4,
+  },
+  description: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 2,
   },
   metaRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     columnGap: 12,
     rowGap: 4,
+    marginTop: 8,
   },
   status: {
     fontSize: 14,
