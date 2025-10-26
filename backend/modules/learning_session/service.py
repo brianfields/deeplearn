@@ -597,9 +597,7 @@ class LearningSessionService:
                     last_attempt = attempt_history[-1]
                     last_attempt_correct = bool(last_attempt.get("is_correct"))
                 else:
-                    last_attempt_correct = bool(
-                        answer_data.get("has_been_answered_correctly") or answer_data.get("is_correct")
-                    )
+                    last_attempt_correct = bool(answer_data.get("has_been_answered_correctly") or answer_data.get("is_correct"))
 
                 if last_attempt_correct:
                     correct_exercises.add(exercise_id)
@@ -819,13 +817,8 @@ class LearningSessionService:
                 }
 
             lo_id = str(payload.get("id") or payload.get("lo_id") or f"lo_{index + 1}")
-            lo_title = str(
-                payload.get("title")
-                or payload.get("short_title")
-                or payload.get("description")
-                or lo_id
-            )
-            lo_description = str((payload.get("description") or lo_title))
+            lo_title = str(payload.get("title") or payload.get("short_title") or payload.get("description") or lo_id)
+            lo_description = str(payload.get("description") or lo_title)
 
             if lo_id not in lookup:
                 ordered_ids.append(lo_id)

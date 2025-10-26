@@ -56,10 +56,14 @@ describe('CatalogService', () => {
       computeUnitLOProgress: jest.fn(),
     } as unknown as jest.Mocked<LearningSessionRepo>;
 
-    service = new CatalogService(mockRepo, {
-      content: mockContent,
-      contentCreator: mockContentCreator,
-    }, mockLearningSessionRepo);
+    service = new CatalogService(
+      mockRepo,
+      {
+        content: mockContent,
+        contentCreator: mockContentCreator,
+      },
+      mockLearningSessionRepo
+    );
 
     jest.clearAllMocks();
   });
@@ -139,16 +143,17 @@ describe('CatalogService', () => {
       );
 
       expect(result).toEqual(progress);
-      expect(mockLearningSessionRepo.computeUnitLOProgress).toHaveBeenCalledWith(
-        'unit-7',
-        'user-4'
-      );
+      expect(
+        mockLearningSessionRepo.computeUnitLOProgress
+      ).toHaveBeenCalledWith('unit-7', 'user-4');
     });
 
     it('returns empty progress when identifiers are missing', async () => {
       const result = await service.computeUnitLOProgressLocal('', '   ');
       expect(result).toEqual({ unitId: '', items: [] });
-      expect(mockLearningSessionRepo.computeUnitLOProgress).not.toHaveBeenCalled();
+      expect(
+        mockLearningSessionRepo.computeUnitLOProgress
+      ).not.toHaveBeenCalled();
     });
   });
 

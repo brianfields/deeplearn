@@ -1040,10 +1040,7 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
             for unit_spec in units_spec:
                 owner_key = unit_spec["owner_key"]
                 unit_spec["owner_id"] = user_snapshots[owner_key]["id"]
-                objectives_preview = ", ".join([
-                    obj.get("title", obj.get("description", "objective"))
-                    for obj in unit_spec["learning_objectives"][:2]
-                ]) if unit_spec.get("learning_objectives") else "its core learning journey"
+                objectives_preview = ", ".join([obj.get("title", obj.get("description", "objective")) for obj in unit_spec["learning_objectives"][:2]]) if unit_spec.get("learning_objectives") else "its core learning journey"
                 unit_spec["art_image_description"] = f"Weimar Edge illustration of {unit_spec['title']} highlighting {objectives_preview} with petrol blue geometry and gilt accents."
 
             # Set up IDs for the real Istanbul unit's image and audio

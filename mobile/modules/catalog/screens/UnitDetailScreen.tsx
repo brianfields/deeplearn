@@ -528,14 +528,14 @@ export function UnitDetailScreen() {
             <TouchableOpacity
               onPress={() => {
                 haptics.trigger('light');
-                navigation.goBack();
+                navigation.navigate('LessonList');
               }}
               accessibilityRole="button"
-              accessibilityLabel="Go back"
+              accessibilityLabel="Go to unit list"
               style={{ paddingVertical: 6, paddingRight: 12 }}
             >
               <Text variant="body" color={theme.colors.primary}>
-                {'‹ Back'}
+                {'‹ Units'}
               </Text>
             </TouchableOpacity>
             <Text variant="h1" style={{ marginTop: 8, fontWeight: 'normal' }}>
@@ -566,7 +566,7 @@ export function UnitDetailScreen() {
               onCancel={
                 isDownloadInProgress
                   ? handleCancelDownload
-                  : () => navigation.goBack()
+                  : () => navigation.navigate('LessonList')
               }
               isDownloadActionPending={isDownloadActionPending}
               isCancelPending={isCancelPending}
@@ -600,14 +600,14 @@ export function UnitDetailScreen() {
           <TouchableOpacity
             onPress={() => {
               haptics.trigger('light');
-              navigation.goBack();
+              navigation.navigate('LessonList');
             }}
             accessibilityRole="button"
-            accessibilityLabel="Go back"
+            accessibilityLabel="Go to unit list"
             style={{ paddingVertical: 6, paddingRight: 12 }}
           >
             <Text variant="body" color={theme.colors.primary}>
-              {'‹ Back'}
+              {'‹ Units'}
             </Text>
           </TouchableOpacity>
           <Text variant="h1" style={{ marginTop: 8, fontWeight: 'normal' }}>
@@ -678,7 +678,10 @@ export function UnitDetailScreen() {
               </Text>
               {unitLOProgressQuery.isLoading ? (
                 <View style={styles.loLoadingRow}>
-                  <ActivityIndicator color={theme.colors.primary} size="small" />
+                  <ActivityIndicator
+                    color={theme.colors.primary}
+                    size="small"
+                  />
                   <Text
                     style={[
                       styles.loLoadingText,

@@ -247,7 +247,8 @@ export function useLessonLOProgress(
 ) {
   return useQuery({
     queryKey: learningSessionKeys.lessonLOProgress(lessonId, userId),
-    queryFn: () => learningSession.computeLessonLOProgressLocal(lessonId, userId),
+    queryFn: () =>
+      learningSession.computeLessonLOProgressLocal(lessonId, userId),
     enabled: options?.enabled ?? Boolean(lessonId && userId),
     staleTime: options?.staleTime ?? 30 * 1000,
     refetchOnWindowFocus: false,

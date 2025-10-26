@@ -579,9 +579,11 @@ describe('Learning Session Module', () => {
         expect(lo.description).toBe('Objective 1 description');
 
         const storedSession = await realRepo.getSession(baseSession.id);
-        const answers = (storedSession?.sessionData as {
-          exercise_answers?: Record<string, any>;
-        })?.exercise_answers;
+        const answers = (
+          storedSession?.sessionData as {
+            exercise_answers?: Record<string, any>;
+          }
+        )?.exercise_answers;
         expect(answers?.['ex-1']?.attempt_history).toHaveLength(2);
         expect(
           answers?.['ex-1']?.attempt_history?.[1]?.is_correct ?? false

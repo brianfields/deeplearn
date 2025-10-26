@@ -21,10 +21,10 @@ from sqlalchemy import select
 from modules.content.public import content_provider
 from modules.content_creator.public import content_creator_provider
 from modules.content_creator.service import ContentCreatorService
-from modules.content_creator.steps import ExtractLessonMetadataStep, ExtractUnitMetadataStep, GenerateMCQStep
+from modules.content_creator.steps import ExtractLessonMetadataStep, ExtractUnitMetadataStep, GenerateMCQStep, GenerateUnitArtDescriptionStep
 from modules.flow_engine.models import FlowRunModel
 from modules.infrastructure.public import infrastructure_provider
-from modules.llm_services.public import AudioResponse, LLMResponse
+from modules.llm_services.public import AudioResponse, ImageResponse, LLMResponse
 
 
 class TestLessonCreationIntegration:
@@ -208,12 +208,12 @@ def _maybe_mock_llm() -> Generator[None, None, None]:
                 payload = {
                     "unit_title": "Mocked",
                     "learning_objectives": [
-                        {"lo_id": "lo_1", "text": "Understand concept A", "bloom_level": "Understand"},
-                        {"lo_id": "lo_2", "text": "Apply concept B", "bloom_level": "Apply"},
+                        {"id": "lo_1", "title": "Understand Concept A", "description": "Understand concept A", "bloom_level": "Understand"},
+                        {"id": "lo_2", "title": "Apply Concept B", "description": "Apply concept B", "bloom_level": "Apply"},
                     ],
                     "lessons": [
-                        {"title": "Lesson 1", "lesson_objective": "Intro to A", "learning_objectives": ["Understand concept A"]},
-                        {"title": "Lesson 2", "lesson_objective": "Intro to B", "learning_objectives": ["Apply concept B"]},
+                        {"title": "Lesson 1", "lesson_objective": "Intro to A", "learning_objective_ids": ["lo_1"]},
+                        {"title": "Lesson 2", "lesson_objective": "Intro to B", "learning_objective_ids": ["lo_2"]},
                     ],
                     "lesson_count": 2,
                 }
@@ -225,6 +225,7 @@ def _maybe_mock_llm() -> Generator[None, None, None]:
                     "learner_level": "beginner",
                     "voice": "Plain",
                     "learning_objectives": ["Understand concept A"],
+                    "learning_objective_ids": ["lo_1"],
                     "misconceptions": [{"id": "m1", "misbelief": "A is always B", "why_plausible": "Overgeneralization", "correction": "A can be C too"}],
                     "confusables": [{"id": "c1", "a": "term1", "b": "term2", "contrast": "Different contexts"}],
                     "glossary": [{"term": "Entropy", "definition": "Measure of uncertainty", "micro_check": None}],
@@ -245,12 +246,20 @@ def _maybe_mock_llm() -> Generator[None, None, None]:
                                 {"label": "D", "text": "Option D"},
                             ],
                             "answer_key": {"label": "A", "rationale_right": "Because it's correct"},
-                            "learning_objectives_covered": ["Understand concept A"],
+                            "learning_objectives_covered": ["lo_1"],
                             "misconceptions_used": [],
                             "confusables_used": [],
                             "glossary_terms_used": [],
                         }
                     ],
+                }
+                return response_model.model_validate(payload), None, usage
+
+            if response_model is GenerateUnitArtDescriptionStep.Outputs:
+                payload = {
+                    "prompt": "A geometric abstract representation of learning concepts",
+                    "alt_text": "Abstract geometric shapes representing learning",
+                    "palette": ["#FF6B6B", "#4ECDC4", "#45B7D1"],
                 }
                 return response_model.model_validate(payload), None, usage
 
@@ -262,6 +271,18 @@ def _maybe_mock_llm() -> Generator[None, None, None]:
         async def generate_audio(self, _text: str, voice: str, _user_id: Any | None = None, model: str | None = None, _audio_format: str = "mp3", _speed: float | None = None, **_kwargs: Any) -> tuple[AudioResponse, uuid.UUID | None]:
             audio_base64 = base64.b64encode(b"FAKEAUDIO").decode()
             dto = AudioResponse(audio_base64=audio_base64, mime_type="audio/mpeg", voice=voice, model=model or "mock-tts", cost_estimate=0.0, duration_seconds=8.5)
+            return dto, None
+
+        async def generate_image(self, prompt: str, _user_id: Any | None = None, _size: str = "1024x1024", _quality: str = "standard", _style: str | None = None, **_kwargs: Any) -> tuple[Any, uuid.UUID | None]:
+            """Mock generate_image for testing."""
+            # Return a minimal image response with a fake data URL
+            image_base64 = base64.b64encode(b"FAKEIMAGE").decode()
+            dto = ImageResponse(
+                image_url=f"data:image/png;base64,{image_base64}",
+                revised_prompt=prompt,
+                size=_size,
+                cost_estimate=0.0,
+            )
             return dto, None
 
     with patch("modules.flow_engine.base_flow.llm_services_provider", new=lambda: _FakeLLMService()):

@@ -622,7 +622,10 @@ export class ContentService {
       this.parseCachedLearningObjectives(
         cached.unitPayload?.learning_objectives
       ) ?? [];
-    const objectiveById = new Map<string, { title: string; description: string }>();
+    const objectiveById = new Map<
+      string,
+      { title: string; description: string }
+    >();
     for (const objective of canonicalObjectives) {
       objectiveById.set(objective.id, {
         title: objective.title,
@@ -852,7 +855,8 @@ export class ContentService {
         const maybeTitle =
           typeof (entry as { title?: unknown }).title === 'string'
             ? ((entry as { title?: string }).title as string)
-            : typeof (entry as { short_title?: unknown }).short_title === 'string'
+            : typeof (entry as { short_title?: unknown }).short_title ===
+                'string'
               ? ((entry as { short_title?: string }).short_title as string)
               : typeof (entry as { text?: unknown }).text === 'string'
                 ? ((entry as { text?: string }).text as string)

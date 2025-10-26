@@ -126,9 +126,8 @@ function normalizeLearningObjectives(
       } satisfies LearningCoachLearningObjective;
     })
     .filter(
-      (
-        objective
-      ): objective is LearningCoachLearningObjective => objective !== null
+      (objective): objective is LearningCoachLearningObjective =>
+        objective !== null
     );
 
   return normalized.length > 0 ? normalized : null;
