@@ -9,7 +9,6 @@ export function useTrackPlayer(): void {
       console.warn('[PodcastPlayer] Failed to initialize', error);
     });
 
-    // expo-av handles status updates via the callback in service
-    // No need for additional event listeners
+    // The service wires TrackPlayer events to the store, so no extra listeners here
   }, []);
 }
