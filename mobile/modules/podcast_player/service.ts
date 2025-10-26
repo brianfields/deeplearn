@@ -8,7 +8,6 @@
 import TrackPlayer, {
   AppKilledPlaybackBehavior,
   Capability,
-  Event,
   RepeatMode,
   State as TrackPlayerState,
 } from 'react-native-track-player';
@@ -47,37 +46,57 @@ export class PodcastPlayerService {
   }
 
   async initialize(): Promise<void> {
+    console.log('[PodcastPlayerService] 🔧 Initialize called');
     if (this.isInitialized) {
+      console.log('[PodcastPlayerService] ✅ Already initialized');
       return;
     }
     if (this.initializationPromise) {
+      console.log(
+        '[PodcastPlayerService] ⏳ Initialization in progress, waiting...'
+      );
       return this.initializationPromise;
     }
 
+    console.log('[PodcastPlayerService] 🚀 Starting initialization...');
     this.initializationPromise = (async () => {
-      await TrackPlayer.setupPlayer();
-      await TrackPlayer.updateOptions({
-        capabilities: [
-          Capability.Play,
-          Capability.Pause,
-          Capability.SeekTo,
-          Capability.Stop,
-        ],
-        compactCapabilities: [
-          Capability.Play,
-          Capability.Pause,
-          Capability.SeekTo,
-        ],
-        progressUpdateEventInterval: 1,
-        android: {
-          appKilledPlaybackBehavior:
-            AppKilledPlaybackBehavior.StopPlaybackAndRemoveNotification,
-        },
-      });
-      await TrackPlayer.setRepeatMode(RepeatMode.Off);
-      this.attachEventListeners();
-      await this.hydrateGlobalSpeed();
-      this.isInitialized = true;
+      try {
+        console.log('[PodcastPlayerService] 📱 Setting up TrackPlayer...');
+        await TrackPlayer.setupPlayer();
+        console.log('[PodcastPlayerService] ⚙️ Updating player options...');
+        await TrackPlayer.updateOptions({
+          capabilities: [
+            Capability.Play,
+            Capability.Pause,
+            Capability.SeekTo,
+            Capability.Stop,
+          ],
+          compactCapabilities: [
+            Capability.Play,
+            Capability.Pause,
+            Capability.SeekTo,
+          ],
+          progressUpdateEventInterval: 1,
+          android: {
+            appKilledPlaybackBehavior:
+              AppKilledPlaybackBehavior.StopPlaybackAndRemoveNotification,
+          },
+        });
+        console.log('[PodcastPlayerService] 🔁 Setting repeat mode...');
+        await TrackPlayer.setRepeatMode(RepeatMode.Off);
+        console.log('[PodcastPlayerService] 📡 Attaching event listeners...');
+        this.attachEventListeners();
+        console.log('[PodcastPlayerService] 💾 Hydrating global speed...');
+        await this.hydrateGlobalSpeed();
+        this.isInitialized = true;
+        console.log('[PodcastPlayerService] ✅ Initialization complete!');
+      } catch (error) {
+        console.error(
+          '[PodcastPlayerService] ❌ Initialization failed:',
+          error
+        );
+        throw error;
+      }
     })();
 
     try {
@@ -88,32 +107,38 @@ export class PodcastPlayerService {
   }
 
   private attachEventListeners(): void {
-    if (!this.progressSubscription) {
-      this.progressSubscription = TrackPlayer.addEventListener(
-        Event.PlaybackProgressUpdated,
-        this.handlePlaybackProgress
-      );
-    }
-
-    if (!this.stateSubscription) {
-      this.stateSubscription = TrackPlayer.addEventListener(
-        Event.PlaybackState,
-        this.handlePlaybackState
-      );
-    }
+    // Note: Event listeners are now handled in useTrackPlayer hook using useTrackPlayerEvents
+    // This ensures proper React lifecycle management and prevents the "no listeners registered" warning
+    console.log(
+      '[PodcastPlayerService] ℹ️ Event listeners managed by useTrackPlayer hook'
+    );
   }
 
   async loadTrack(track: PodcastTrack): Promise<void> {
+    console.log('[PodcastPlayerService] 🎵 loadTrack called');
+    console.log('[PodcastPlayerService] Track details:', {
+      unitId: track.unitId,
+      title: track.title,
+      audioUrl: track.audioUrl,
+      durationSeconds: track.durationSeconds,
+    });
+
     await this.initialize();
     const store = getPodcastStoreState();
     const { playbackState } = store;
 
+    console.log('[PodcastPlayerService] 📝 Setting loading state...');
     store.updatePlaybackState({ isLoading: true });
 
     if (this.currentTrackId && this.currentTrackId !== track.unitId) {
+      console.log('[PodcastPlayerService] 💾 Saving previous track position:', {
+        trackId: this.currentTrackId,
+        position: playbackState.position,
+      });
       await this.savePosition(this.currentTrackId, playbackState.position);
     }
 
+    console.log('[PodcastPlayerService] 🔄 Resetting TrackPlayer...');
     await TrackPlayer.reset();
 
     this.currentTrackId = track.unitId;
@@ -125,28 +150,46 @@ export class PodcastPlayerService {
       isPlaying: false,
     });
 
+    console.log('[PodcastPlayerService] 📖 Loading persisted state...');
     const persistedState = await this.getPersistedUnitState(track.unitId);
     const startPosition = clamp(
       persistedState?.position ?? 0,
       0,
       track.durationSeconds || Number.MAX_SAFE_INTEGER
     );
+    console.log('[PodcastPlayerService] Start position:', startPosition);
 
-    await TrackPlayer.add({
+    console.log('[PodcastPlayerService] ➕ Adding track to player...');
+    const trackToAdd = {
       id: track.unitId,
       url: track.audioUrl,
       title: track.title,
       artist: DEFAULT_ARTIST,
       duration: track.durationSeconds,
-    });
+    };
+    console.log('[PodcastPlayerService] Track object:', trackToAdd);
+
+    try {
+      await TrackPlayer.add(trackToAdd);
+      console.log('[PodcastPlayerService] ✅ Track added successfully');
+    } catch (error) {
+      console.error('[PodcastPlayerService] ❌ Failed to add track:', error);
+      throw error;
+    }
 
     const speed = store.globalSpeed;
+    console.log('[PodcastPlayerService] ⚡ Setting playback rate:', speed);
     await TrackPlayer.setRate(speed);
 
     if (startPosition > 0) {
+      console.log(
+        '[PodcastPlayerService] ⏩ Seeking to position:',
+        startPosition
+      );
       await TrackPlayer.seekTo(startPosition);
     }
 
+    console.log('[PodcastPlayerService] ✅ Updating final state...');
     store.updatePlaybackState({
       position: startPosition,
       duration: track.durationSeconds,
@@ -154,32 +197,59 @@ export class PodcastPlayerService {
       isPlaying: false,
       isLoading: false,
     });
+    console.log('[PodcastPlayerService] ✅ loadTrack complete');
   }
 
   async play(): Promise<void> {
+    console.log('[PodcastPlayerService] ▶️ play() called');
     await this.initialize();
     if (!this.currentTrackId) {
-      console.warn('[PodcastPlayer] Cannot play: no active track');
+      console.warn('[PodcastPlayerService] ⚠️ Cannot play: no active track');
       return;
     }
 
+    console.log(
+      '[PodcastPlayerService] Current track ID:',
+      this.currentTrackId
+    );
+
     try {
+      console.log('[PodcastPlayerService] 📊 Getting current progress...');
       const progress = await TrackPlayer.getProgress();
+      console.log('[PodcastPlayerService] Progress:', progress);
+
       const duration = progress.duration ?? 0;
       const position = progress.position ?? 0;
 
+      console.log(
+        '[PodcastPlayerService] Duration:',
+        duration,
+        'Position:',
+        position
+      );
+
       if (duration > 0 && position >= duration - 1) {
+        console.log(
+          '[PodcastPlayerService] ⏪ At end of track, seeking to start'
+        );
         await TrackPlayer.seekTo(0);
       }
 
+      console.log('[PodcastPlayerService] ▶️ Calling TrackPlayer.play()...');
       await TrackPlayer.play();
+      console.log('[PodcastPlayerService] ✅ TrackPlayer.play() completed');
 
       usePodcastStore.getState().updatePlaybackState({
         isPlaying: true,
         isLoading: false,
       });
+      console.log('[PodcastPlayerService] ✅ Play state updated');
     } catch (error) {
-      console.error('[PodcastPlayer] Play failed:', error);
+      console.error('[PodcastPlayerService] ❌ Play failed:', error);
+      console.error(
+        '[PodcastPlayerService] Error details:',
+        JSON.stringify(error, null, 2)
+      );
       usePodcastStore.getState().updatePlaybackState({
         isPlaying: false,
         isLoading: false,
@@ -188,11 +258,15 @@ export class PodcastPlayerService {
   }
 
   async pause(): Promise<void> {
+    console.log('[PodcastPlayerService] ⏸️ pause() called');
     await this.initialize();
+    console.log('[PodcastPlayerService] ⏸️ Calling TrackPlayer.pause()...');
     await TrackPlayer.pause();
+    console.log('[PodcastPlayerService] ✅ TrackPlayer.pause() completed');
     usePodcastStore.getState().updatePlaybackState({
       isPlaying: false,
     });
+    console.log('[PodcastPlayerService] ✅ Pause state updated');
   }
 
   async pauseCurrentTrack(): Promise<void> {
@@ -288,6 +362,15 @@ export class PodcastPlayerService {
     const fallbackDuration = currentTrack?.durationSeconds ?? 0;
     const duration = eventDuration > 0 ? eventDuration : fallbackDuration;
 
+    // Log every 10 seconds to avoid spam
+    if (Math.floor(position) % 10 === 0) {
+      console.log('[PodcastPlayerService] 📊 Progress update:', {
+        position: position.toFixed(1),
+        duration,
+        buffered,
+      });
+    }
+
     store.updatePlaybackState({
       position,
       buffered,
@@ -300,8 +383,10 @@ export class PodcastPlayerService {
   };
 
   private handlePlaybackState = (event: { state?: TrackPlayerState }): void => {
+    console.log('[PodcastPlayerService] 🎵 State change event:', event);
     const state = event.state;
     if (!state) {
+      console.log('[PodcastPlayerService] ⚠️ State event with no state');
       return;
     }
 
@@ -310,12 +395,19 @@ export class PodcastPlayerService {
       state === TrackPlayerState.Buffering ||
       state === TrackPlayerState.Connecting;
 
+    console.log('[PodcastPlayerService] State interpreted as:', {
+      rawState: state,
+      isPlaying,
+      isLoading,
+    });
+
     usePodcastStore.getState().updatePlaybackState({
       isPlaying,
       isLoading,
     });
 
     if (state === TrackPlayerState.Stopped || state === TrackPlayerState.None) {
+      console.log('[PodcastPlayerService] ⏹️ Playback stopped or none');
       usePodcastStore.getState().updatePlaybackState({ isPlaying: false });
     }
   };

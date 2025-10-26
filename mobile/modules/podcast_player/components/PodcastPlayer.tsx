@@ -13,6 +13,12 @@ import {
   PanResponder,
 } from 'react-native';
 import {
+  Event,
+  useProgress,
+  usePlaybackState,
+  useTrackPlayerEvents,
+} from 'react-native-track-player';
+import {
   Text,
   ArtworkImage,
   uiSystemProvider,
@@ -22,7 +28,7 @@ import {
 import { usePodcastPlayer } from '../hooks/usePodcastPlayer';
 import { usePodcastState } from '../hooks/usePodcastState';
 import type { PodcastTrack } from '../models';
-import { PLAYBACK_SPEEDS } from '../store';
+import { PLAYBACK_SPEEDS, usePodcastStore } from '../store';
 
 interface PodcastPlayerProps {
   readonly track: PodcastTrack;
@@ -73,6 +79,69 @@ export function PodcastPlayer({
       console.warn('[PodcastPlayer] Failed to load track', error);
     });
   }, [isCurrentTrack, loadTrack, track]);
+
+  // Use built-in hooks from react-native-track-player for real-time updates
+  const trackProgress = useProgress(1000); // Poll every 1 second
+  const trackPlaybackState = usePlaybackState();
+
+  // Sync TrackPlayer progress to our store
+  useEffect(() => {
+    if (!isCurrentTrack) {
+      return;
+    }
+
+    console.log('[PodcastPlayer] 📊 Progress from useProgress hook:', {
+      position: trackProgress.position.toFixed(1),
+      duration: trackProgress.duration,
+      buffered: trackProgress.buffered,
+    });
+
+    const store = usePodcastStore.getState();
+    const fallbackDuration = track.durationSeconds ?? 0;
+    const duration =
+      trackProgress.duration > 0 ? trackProgress.duration : fallbackDuration;
+
+    store.updatePlaybackState({
+      position: trackProgress.position,
+      buffered: trackProgress.buffered,
+      duration,
+    });
+  }, [
+    trackProgress.position,
+    trackProgress.duration,
+    trackProgress.buffered,
+    isCurrentTrack,
+    track.durationSeconds,
+  ]);
+
+  // Sync TrackPlayer playback state to our store
+  useEffect(() => {
+    if (!isCurrentTrack) {
+      return;
+    }
+
+    console.log(
+      '[PodcastPlayer] 🎵 State from usePlaybackState hook:',
+      trackPlaybackState
+    );
+
+    const isPlaying = trackPlaybackState.state === 'playing';
+    const isLoading =
+      trackPlaybackState.state === 'buffering' ||
+      trackPlaybackState.state === 'loading';
+
+    usePodcastStore.getState().updatePlaybackState({
+      isPlaying,
+      isLoading,
+    });
+  }, [trackPlaybackState, isCurrentTrack]);
+
+  // Listen for errors
+  useTrackPlayerEvents([Event.PlaybackError], async event => {
+    if (event.type === Event.PlaybackError) {
+      console.error('[PodcastPlayer] 🚨 Playback error:', event);
+    }
+  });
 
   const isPlaying = playbackState.isPlaying;
   const position = playbackState.position ?? 0;
