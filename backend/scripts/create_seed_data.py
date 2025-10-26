@@ -546,12 +546,42 @@ async def main() -> None:
                     "description": "A learning unit about Street Kittens of Istanbul",
                     "learner_level": "intermediate",
                     "learning_objectives": [
-                        {"id": "lo_1", "text": "Explain the managed-commons context for Istanbul's street kittens, distinguishing stray vs. feral statuses, kitten life-stage bands, key actors, and seasonality.", "bloom_level": None},
-                        {"id": "lo_2", "text": "Map a 50–100 m urban microhabitat to identify food sources, shelters, risks, and human–cat interfaces, and recommend placements for shelters and trap sites.", "bloom_level": None},
-                        {"id": "lo_3", "text": "Sequence kitten triage in warmth–hydration–respiration–nutrition order and classify cases into urgent, priority, or routine pathways.", "bloom_level": None},
-                        {"id": "lo_4", "text": "Specify age-appropriate feeding, micro-shelter features, and a basic vaccination and parasite-control schedule for a given kitten profile.", "bloom_level": None},
-                        {"id": "lo_5", "text": "Design a Trap–Neuter–Return (TNR) workflow aligned to seasonality, including ear-tipping, return-to-territory, and simple record-keeping.", "bloom_level": None},
-                        {"id": "lo_6", "text": "Identify edge cases such as lactating queens, late pregnancy, panleukopenia outbreaks, or seasonal extremes and specify the required operational adjustments.", "bloom_level": None},
+                        {
+                            "id": "lo_1",
+                            "title": "Understand Kitten Commons",
+                            "description": "Explain the managed-commons context for Istanbul's street kittens, distinguishing stray vs. feral statuses, kitten life-stage bands, key actors, and seasonality.",
+                            "bloom_level": None,
+                        },
+                        {
+                            "id": "lo_2",
+                            "title": "Map Urban Microhabitats",
+                            "description": "Map a 50–100 m urban microhabitat to identify food sources, shelters, risks, and human–cat interfaces, and recommend placements for shelters and trap sites.",
+                            "bloom_level": None,
+                        },
+                        {
+                            "id": "lo_3",
+                            "title": "Sequence Kitten Triage",
+                            "description": "Sequence kitten triage in warmth–hydration–respiration–nutrition order and classify cases into urgent, priority, or routine pathways.",
+                            "bloom_level": None,
+                        },
+                        {
+                            "id": "lo_4",
+                            "title": "Plan Age-Based Care",
+                            "description": "Specify age-appropriate feeding, micro-shelter features, and a basic vaccination and parasite-control schedule for a given kitten profile.",
+                            "bloom_level": None,
+                        },
+                        {
+                            "id": "lo_5",
+                            "title": "Design Seasonal TNR",
+                            "description": "Design a Trap–Neuter–Return (TNR) workflow aligned to seasonality, including ear-tipping, return-to-territory, and simple record-keeping.",
+                            "bloom_level": None,
+                        },
+                        {
+                            "id": "lo_6",
+                            "title": "Handle Critical Edge Cases",
+                            "description": "Identify edge cases such as lactating queens, late pregnancy, panleukopenia outbreaks, or seasonal extremes and specify the required operational adjustments.",
+                            "bloom_level": None,
+                        },
                     ],
                     "target_lesson_count": 2,
                     "source_material": None,
@@ -582,8 +612,18 @@ So here's your charge. Map one microhabitat. Place one shelter right. Set one cl
                             "learner_level": "intermediate",
                             "source_material": None,
                             "objectives": [
-                                {"id": "lo_1", "text": "Explain the managed-commons context for Istanbul's street kittens, distinguishing stray vs. feral statuses, kitten life-stage bands, key actors, and seasonality.", "bloom_level": None},
-                                {"id": "lo_2", "text": "Map a 50–100 m urban microhabitat to identify food sources, shelters, risks, and human–cat interfaces, and recommend placements for shelters and trap sites.", "bloom_level": None},
+                                {
+                                    "id": "lo_1",
+                                    "title": "Understand Kitten Commons",
+                                    "description": "Explain the managed-commons context for Istanbul's street kittens, distinguishing stray vs. feral statuses, kitten life-stage bands, key actors, and seasonality.",
+                                    "bloom_level": None,
+                                },
+                                {
+                                    "id": "lo_2",
+                                    "title": "Map Urban Microhabitats",
+                                    "description": "Map a 50–100 m urban microhabitat to identify food sources, shelters, risks, and human–cat interfaces, and recommend placements for shelters and trap sites.",
+                                    "bloom_level": None,
+                                },
                             ],
                             "glossary_terms": [
                                 {"term": "Managed commons", "definition": "A shared urban space where cats persist through community care and municipal services under social norms."},
@@ -713,10 +753,30 @@ This map plus rationale guides shelter placement and trap cycles while respectin
                             "learner_level": "intermediate",
                             "source_material": None,
                             "objectives": [
-                                {"id": "lo_3", "text": "Sequence triage for kittens using the warmth–hydration–respiration–nutrition order and assign cases to urgent, priority, or routine categories.", "bloom_level": None},
-                                {"id": "lo_4", "text": "Specify age-appropriate feeding, micro-shelter features, and a basic vaccination and parasite-control schedule for a given kitten profile.", "bloom_level": None},
-                                {"id": "lo_5", "text": "Design a Trap–Neuter–Return (TNR) workflow aligned to seasonality, including ear-tipping, return-to-territory, and simple record-keeping.", "bloom_level": None},
-                                {"id": "lo_6", "text": "Identify edge cases (e.g., lactating queens, late pregnancy, panleukopenia outbreaks, heatwaves/winter) and specify the operational adjustment required.", "bloom_level": None},
+                                {
+                                    "id": "lo_3",
+                                    "title": "Sequence Kitten Triage",
+                                    "description": "Sequence triage for kittens using the warmth–hydration–respiration–nutrition order and assign cases to urgent, priority, or routine categories.",
+                                    "bloom_level": None,
+                                },
+                                {
+                                    "id": "lo_4",
+                                    "title": "Plan Age-Based Care",
+                                    "description": "Specify age-appropriate feeding, micro-shelter features, and a basic vaccination and parasite-control schedule for a given kitten profile.",
+                                    "bloom_level": None,
+                                },
+                                {
+                                    "id": "lo_5",
+                                    "title": "Design Seasonal TNR",
+                                    "description": "Design a Trap–Neuter–Return (TNR) workflow aligned to seasonality, including ear-tipping, return-to-territory, and simple record-keeping.",
+                                    "bloom_level": None,
+                                },
+                                {
+                                    "id": "lo_6",
+                                    "title": "Handle Critical Edge Cases",
+                                    "description": "Identify edge cases (e.g., lactating queens, late pregnancy, panleukopenia outbreaks, heatwaves/winter) and specify the operational adjustment required.",
+                                    "bloom_level": None,
+                                },
                             ],
                             "glossary_terms": [
                                 {"term": "Triage", "definition": "A prioritization sequence: warmth, hydration, respiration, then nutrition."},
@@ -848,8 +908,18 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                     "description": "A focused look at optimization fundamentals for machine learning practitioners.",
                     "learner_level": "intermediate",
                     "learning_objectives": [
-                        {"id": "grad_unit_lo_1", "text": "Explain how gradient descent updates parameters", "bloom_level": "Understand"},
-                        {"id": "grad_unit_lo_2", "text": "Compare batch, stochastic, and mini-batch strategies", "bloom_level": "Analyze"},
+                        {
+                            "id": "grad_unit_lo_1",
+                            "title": "Explain Gradient Updates",
+                            "description": "Explain how gradient descent updates parameters",
+                            "bloom_level": "Understand",
+                        },
+                        {
+                            "id": "grad_unit_lo_2",
+                            "title": "Compare Descent Strategies",
+                            "description": "Compare batch, stochastic, and mini-batch strategies",
+                            "bloom_level": "Analyze",
+                        },
                     ],
                     "target_lesson_count": 2,
                     "source_material": "Lecture notes on convex optimization, annotated Python notebooks, and practical training logs.",
@@ -862,8 +932,18 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                             "learner_level": "intermediate",
                             "source_material": "Walk-through of loss landscape intuition with quadratic examples and contour diagrams.",
                             "objectives": [
-                                {"id": "grad_unit_lo_1", "text": "State the gradient descent update rule", "bloom_level": "Remember"},
-                                {"id": "grad_unit_lo_1", "text": "Interpret learning rate effects on convergence", "bloom_level": "Analyze"},
+                                {
+                                    "id": "grad_unit_lo_1",
+                                    "title": "State Update Rule",
+                                    "description": "State the gradient descent update rule",
+                                    "bloom_level": "Remember",
+                                },
+                                {
+                                    "id": "grad_unit_lo_1",
+                                    "title": "Interpret Learning Rates",
+                                    "description": "Interpret learning rate effects on convergence",
+                                    "bloom_level": "Analyze",
+                                },
                             ],
                             "glossary_terms": [
                                 {"term": "Learning Rate", "definition": "Scalar that scales the gradient step during optimization."},
@@ -905,8 +985,18 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                             "learner_level": "intermediate",
                             "source_material": "Case study comparing batch, stochastic, and mini-batch training on image classifiers.",
                             "objectives": [
-                                {"id": "grad_unit_lo_2", "text": "Differentiate stochastic and mini-batch gradient descent", "bloom_level": "Analyze"},
-                                {"id": "grad_unit_lo_2", "text": "Select batch sizes to balance speed and noise", "bloom_level": "Apply"},
+                                {
+                                    "id": "grad_unit_lo_2",
+                                    "title": "Differentiate Descent Variants",
+                                    "description": "Differentiate stochastic and mini-batch gradient descent",
+                                    "bloom_level": "Analyze",
+                                },
+                                {
+                                    "id": "grad_unit_lo_2",
+                                    "title": "Select Effective Batch Sizes",
+                                    "description": "Select batch sizes to balance speed and noise",
+                                    "bloom_level": "Apply",
+                                },
                             ],
                             "glossary_terms": [
                                 {"term": "Batch Gradient Descent", "definition": "Optimization that uses the full dataset each update."},
@@ -950,7 +1040,10 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
             for unit_spec in units_spec:
                 owner_key = unit_spec["owner_key"]
                 unit_spec["owner_id"] = user_snapshots[owner_key]["id"]
-                objectives_preview = ", ".join([obj["text"] for obj in unit_spec["learning_objectives"][:2]]) if unit_spec.get("learning_objectives") else "its core learning journey"
+                objectives_preview = ", ".join([
+                    obj.get("title", obj.get("description", "objective"))
+                    for obj in unit_spec["learning_objectives"][:2]
+                ]) if unit_spec.get("learning_objectives") else "its core learning journey"
                 unit_spec["art_image_description"] = f"Weimar Edge illustration of {unit_spec['title']} highlighting {objectives_preview} with petrol blue geometry and gilt accents."
 
             # Set up IDs for the real Istanbul unit's image and audio

@@ -374,35 +374,35 @@ The implementation is divided into 8 phases, designed to be completed sequential
 This phase updates the core LO data structure across all backend modules. Complete this phase first as it establishes the foundation for all other work.
 
 #### Content Module
-- [ ] Update `UnitModel.learning_objectives` JSON structure to include `title` and rename `text` to `description` in `backend/modules/content/models.py`
-- [ ] Update `UnitLearningObjective` DTO in `backend/modules/content/service.py` to add `title: str` and rename `text` to `description: str`
-- [ ] Update tests in `backend/modules/content/test_content_unit.py` for new LO structure
+- [x] Update `UnitModel.learning_objectives` JSON structure to include `title` and rename `text` to `description` in `backend/modules/content/models.py`
+- [x] Update `UnitLearningObjective` DTO in `backend/modules/content/service.py` to add `title: str` and rename `text` to `description: str`
+- [x] Update tests in `backend/modules/content/test_content_unit.py` for new LO structure
 
 #### Learning Session Module
-- [ ] Update `LearningObjectiveProgressItem` DTO to add `title: str` and rename `lo_text` to `description: str` in `backend/modules/learning_session/service.py`
-- [ ] Update `_normalize_unit_objectives()` helper to handle new LO structure
-- [ ] Update route response models in `backend/modules/learning_session/routes.py`
-- [ ] Update public interface DTOs in `backend/modules/learning_session/public.py`
+- [x] Update `LearningObjectiveProgressItem` DTO to add `title: str` and rename `lo_text` to `description: str` in `backend/modules/learning_session/service.py`
+- [x] Update `_normalize_unit_objectives()` helper to handle new LO structure
+- [x] Update route response models in `backend/modules/learning_session/routes.py`
+- [x] Update public interface DTOs in `backend/modules/learning_session/public.py`
 
 #### Learning Coach Module
-- [ ] Update `CoachLearningObjective` in `backend/modules/learning_coach/conversation.py` to add `title: str` and rename `text` to `description: str`
-- [ ] Update field descriptions to clarify title (3-8 words) vs description
-- [ ] Update LO handling in `backend/modules/learning_coach/service.py`
-- [ ] Update tests in `backend/modules/learning_coach/test_learning_coach_unit.py`
+- [x] Update `CoachLearningObjective` in `backend/modules/learning_coach/conversation.py` to add `title: str` and rename `text` to `description: str`
+- [x] Update field descriptions to clarify title (3-8 words) vs description
+- [x] Update LO handling in `backend/modules/learning_coach/service.py`
+- [x] Update tests in `backend/modules/learning_coach/test_learning_coach_unit.py`
 
 #### Content Creator Module
-- [ ] Update `UnitLearningObjective` in `backend/modules/content_creator/steps.py` to add `title: str` and rename `text` to `description: str`
-- [ ] Update tests in `backend/modules/content_creator/test_flows_unit.py` for new LO structure
+- [x] Update `UnitLearningObjective` in `backend/modules/content_creator/steps.py` to add `title: str` and rename `text` to `description: str`
+- [x] Update tests in `backend/modules/content_creator/test_flows_unit.py` for new LO structure
 
 #### Database & Seed Data
-- [ ] Create Alembic migration documenting LO structure change (for schema tracking)
-- [ ] Run Alembic migration: `cd backend && alembic revision --autogenerate -m "Add title and description to learning objectives"`
-- [ ] Apply migration: `cd backend && alembic upgrade head`
-- [ ] Update `backend/scripts/create_seed_data.py` to include `title` and `description` in all seed LOs
+- [x] Create Alembic migration documenting LO structure change (for schema tracking)
+- [x] Run Alembic migration: `cd backend && alembic revision --autogenerate -m "Add title and description to learning objectives"`
+- [x] Apply migration: `cd backend && alembic upgrade head`
+- [x] Update `backend/scripts/create_seed_data.py` to include `title` and `description` in all seed LOs
 
 #### Phase 1 Verification
-- [ ] Ensure all backend unit tests pass: `cd backend && python scripts/run_unit.py`
-- [ ] Ensure backend integration tests pass: `cd backend && python scripts/run_integration.py`
+- [x] Ensure all backend unit tests pass: `cd backend && python scripts/run_unit.py`
+- [x] Ensure backend integration tests pass: `cd backend && python scripts/run_integration.py`
 
 ---
 
@@ -411,21 +411,21 @@ This phase updates the core LO data structure across all backend modules. Comple
 This phase implements the bug fix (last-attempt logic) and the uncovered LO removal feature.
 
 #### Learning Session Module - Last-Attempt Logic
-- [ ] Update `get_unit_lo_progress()` in `backend/modules/learning_session/service.py` to use last-attempt logic (check `attempt_history[-1].is_correct`)
-- [ ] Add tests for last-attempt logic in `backend/modules/learning_session/test_learning_session_unit.py` with multiple attempts
+- [x] Update `get_unit_lo_progress()` in `backend/modules/learning_session/service.py` to use last-attempt logic (check `attempt_history[-1].is_correct`)
+- [x] Add tests for last-attempt logic in `backend/modules/learning_session/test_learning_session_unit.py` with multiple attempts
 
 #### Learning Coach Module - LO Prioritization
-- [ ] Update `backend/modules/learning_coach/prompts/system_prompt.md` to instruct LLM to generate titles (3-8 words) and descriptions
-- [ ] Add instructions to ask learner to prioritize LOs when requesting fewer lessons
+- [x] Update `backend/modules/learning_coach/prompts/system_prompt.md` to instruct LLM to generate titles (3-8 words) and descriptions
+- [x] Add instructions to ask learner to prioritize LOs when requesting fewer lessons
 
 #### Content Creator Module - Uncovered LO Removal
-- [ ] Update `backend/modules/content_creator/prompts/extract_unit_metadata.md` to generate titles and descriptions
-- [ ] Add post-processing step in `backend/modules/content_creator/service.py` to remove uncovered LOs (LOs with zero exercises)
-- [ ] Update tests in `backend/modules/content_creator/test_service_unit.py` for uncovered LO removal
+- [x] Update `backend/modules/content_creator/prompts/extract_unit_metadata.md` to generate titles and descriptions
+- [x] Add post-processing step in `backend/modules/content_creator/service.py` to remove uncovered LOs (LOs with zero exercises)
+- [x] Update tests in `backend/modules/content_creator/test_service_unit.py` for uncovered LO removal
 
 #### Phase 2 Verification
-- [ ] Ensure all backend unit tests pass: `cd backend && python scripts/run_unit.py`
-- [ ] Ensure backend integration tests pass: `cd backend && python scripts/run_integration.py`
+- [x] Ensure all backend unit tests pass: `cd backend && python scripts/run_unit.py`
+- [x] Ensure backend integration tests pass: `cd backend && python scripts/run_integration.py`
 
 ---
 

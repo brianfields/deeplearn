@@ -383,8 +383,16 @@ class TestLearningSessionService:
 
         unit = Mock()
         unit.learning_objectives = [
-            {"id": "lo_1", "text": "Understand topic"},
-            {"id": "lo_2", "text": "Apply topic"},
+            {
+                "id": "lo_1",
+                "title": "Understand Topic",
+                "description": "Understand topic thoroughly",
+            },
+            {
+                "id": "lo_2",
+                "title": "Apply Topic",
+                "description": "Apply topic in context",
+            },
         ]
         self.mock_content_provider.get_unit.return_value = unit
 
@@ -418,6 +426,66 @@ class TestLearningSessionService:
         assert item_lookup["lo_1"].exercises_correct == 1
         assert item_lookup["lo_2"].status is LearningObjectiveStatus.PARTIAL
         assert item_lookup["lo_2"].exercises_attempted == 1
+        assert item_lookup["lo_1"].title == "Understand Topic"
+        assert item_lookup["lo_1"].description == "Understand topic thoroughly"
+
+    @pytest.mark.asyncio
+    async def test_get_unit_lo_progress_uses_last_attempt(self) -> None:
+        """Correctness is determined by the last attempt in the attempt history."""
+
+        unit = Mock()
+        unit.learning_objectives = [
+            {
+                "id": "lo_1",
+                "title": "Understand Topic",
+                "description": "Understand topic thoroughly",
+            },
+            {
+                "id": "lo_2",
+                "title": "Apply Topic",
+                "description": "Apply topic in context",
+            },
+        ]
+        self.mock_content_provider.get_unit.return_value = unit
+
+        exercise_a = Mock()
+        exercise_a.id = "ex_a"
+        exercise_a.lo_id = "lo_1"
+        exercise_b = Mock()
+        exercise_b.id = "ex_b"
+        exercise_b.lo_id = "lo_2"
+        lesson = Mock()
+        lesson.id = "lesson-1"
+        lesson.package = Mock(exercises=[exercise_a, exercise_b])
+        self.mock_content_provider.get_lessons_by_unit.return_value = [lesson]
+
+        session = Mock()
+        session.lesson_id = "lesson-1"
+        session.session_data = {
+            "exercise_answers": {
+                "ex_a": {
+                    "attempt_history": [
+                        {"is_correct": False},
+                        {"is_correct": True},
+                    ]
+                },
+                "ex_b": {
+                    "attempt_history": [
+                        {"is_correct": True},
+                        {"is_correct": False},
+                    ]
+                },
+            }
+        }
+        self.mock_repo.get_sessions_for_user_and_lessons.return_value = [session]
+
+        progress = await self.service.get_unit_lo_progress("user-1", "unit-1")
+
+        item_lookup = {item.lo_id: item for item in progress.items}
+        assert item_lookup["lo_1"].exercises_correct == 1
+        assert item_lookup["lo_1"].status is LearningObjectiveStatus.COMPLETED
+        assert item_lookup["lo_2"].exercises_correct == 0
+        assert item_lookup["lo_2"].status is LearningObjectiveStatus.PARTIAL
 
     @pytest.mark.asyncio
     async def test_get_unit_lo_progress_unit_missing(self) -> None:
