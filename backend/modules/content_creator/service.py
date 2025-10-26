@@ -119,10 +119,6 @@ class ContentCreatorService:
         flow = LessonCreationFlow()
         logger.info("🔄 Starting %s...", flow.flow_name)
         unit_lo_map: dict[str, str] = {lo.id: lo.description for lo in request.unit_learning_objectives}
-        unit_lo_text_lookup: dict[str, str] = {}
-        for lo in request.unit_learning_objectives:
-            unit_lo_text_lookup[str(lo.description)] = lo.id
-            unit_lo_text_lookup[str(lo.title)] = lo.id
         textual_learning_objectives = [unit_lo_map.get(lo_id, lo_id) for lo_id in request.learning_objective_ids]
 
         flow_result = await flow.execute(
@@ -293,7 +289,17 @@ class ContentCreatorService:
             raise ValueError("Unit not found")
 
         raw_learning_objectives = list(getattr(unit_detail, "learning_objectives", []) or [])
-        learning_objectives = [lo.get("text") if isinstance(lo, dict) else getattr(lo, "text", str(lo)) for lo in raw_learning_objectives]
+        learning_objectives: list[str] = []
+        for lo in raw_learning_objectives:
+            if isinstance(lo, dict):
+                description = lo.get("description") or lo.get("title")
+            else:
+                description = (
+                    getattr(lo, "description", None)
+                    or getattr(lo, "title", None)
+                    or str(lo)
+                )
+            learning_objectives.append(str(description or ""))
         key_concepts = self._extract_key_concepts(unit_detail)
 
         flow_inputs = {
@@ -576,15 +582,11 @@ class ContentCreatorService:
                 raw_id = payload.get("id") or payload.get("lo_id")
                 inferred_title = payload.get("title") or payload.get("short_title")
                 if inferred_title is None:
-                    inferred_title = payload.get("text") or payload.get("description") or str(raw_id or f"lo_{len(unit_learning_objectives) + 1}")
-                inferred_description = (
-                    payload.get("description")
-                    or payload.get("text")
-                    or payload.get("lo_text")
-                    or inferred_title
-                )
-                payload.setdefault("title", str(inferred_title))
-                payload.setdefault("description", str(inferred_description))
+                    inferred_title = payload.get("description") or raw_id or f"lo_{len(unit_learning_objectives) + 1}"
+                description = payload.get("description") or inferred_title
+                payload.setdefault("id", str(raw_id or f"lo_{len(unit_learning_objectives) + 1}"))
+                payload["title"] = str(inferred_title)
+                payload["description"] = str(description)
                 unit_learning_objectives.append(UnitLearningObjective.model_validate(payload))
             else:
                 text_value = str(item)
@@ -748,13 +750,13 @@ class ContentCreatorService:
         objective_texts: list[str] = []
         for objective in unit_plan.get("learning_objectives", []) or []:
             if isinstance(objective, dict):
-                text = objective.get("text") or objective.get("summary")
+                text = objective.get("description") or objective.get("title") or objective.get("summary")
                 if text:
                     objective_texts.append(str(text))
             elif isinstance(objective, str):
                 objective_texts.append(objective)
             else:
-                text_attr = getattr(objective, "text", None)
+                text_attr = getattr(objective, "description", None) or getattr(objective, "title", None)
                 if text_attr:
                     objective_texts.append(str(text_attr))
 

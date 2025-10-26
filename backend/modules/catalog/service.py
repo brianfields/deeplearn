@@ -584,10 +584,10 @@ class CatalogService:
 
             if isinstance(item, dict):
                 lo_id = item.get("id")
-                lo_description = item.get("description") or item.get("text")
+                lo_description = item.get("description") or item.get("title")
             else:
                 lo_id = getattr(item, "id", None)
-                lo_description = getattr(item, "description", None) or getattr(item, "text", None)
+                lo_description = getattr(item, "description", None) or getattr(item, "title", None)
                 if lo_id is None and isinstance(item, str):
                     lo_id = item
                 if lo_description is None and isinstance(item, str):
