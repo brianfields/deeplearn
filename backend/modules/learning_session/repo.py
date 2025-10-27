@@ -12,6 +12,7 @@ import uuid
 
 from sqlalchemy import and_, desc, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import attributes
 
 from .models import LearningSessionModel, SessionStatus
 
@@ -101,6 +102,8 @@ class LearningSessionRepo:
             current_data: dict[str, Any] = session.session_data or {}
             current_data.update(session_data)
             session.session_data = current_data
+            # Mark the JSON field as modified so SQLAlchemy persists the changes
+            attributes.flag_modified(session, "session_data")
 
         await self.db.commit()
         await self.db.refresh(session)

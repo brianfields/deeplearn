@@ -2,7 +2,6 @@ Unheaded mode. You will implement code changes directly.
 
 Project: {PROJECT}
 Spec path: {SPEC_PATH}
-Current progress: {CHECKED}/{TOTAL} checklist items complete.
 Backend architecture reference: {BACKEND_ARCH}
 Frontend architecture reference: {FRONTEND_ARCH}
 
