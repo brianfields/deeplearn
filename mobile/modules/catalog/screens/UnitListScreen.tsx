@@ -32,6 +32,8 @@ import {
   useRetryUnitCreation,
   useDismissUnit,
   useRemoveUnitFromMyUnits,
+  useDownloadUnit,
+  useRemoveUnitDownload,
 } from '../queries';
 import type { Unit } from '../public';
 import type { LearningStackParamList } from '../../../types';
@@ -79,6 +81,8 @@ export function LessonListScreen() {
   const retryUnitMutation = useRetryUnitCreation();
   const dismissUnitMutation = useDismissUnit();
   const removeUnitMutation = useRemoveUnitFromMyUnits();
+  const downloadUnitMutation = useDownloadUnit();
+  const _removeDownloadMutation = useRemoveUnitDownload();
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const ui = uiSystemProvider();
   const theme = ui.getCurrentTheme();
@@ -254,16 +258,16 @@ export function LessonListScreen() {
     async (unitId: string) => {
       setPendingDownloadId(unitId);
       try {
-        await content.requestUnitDownload(unitId);
+        await downloadUnitMutation.mutateAsync({ unitId });
         haptics.trigger('medium');
-        await Promise.all([refetch(), loadCacheOverview()]);
+        await loadCacheOverview();
       } catch (error) {
         console.warn('[UnitListScreen] Failed to queue unit download:', error);
       } finally {
         setPendingDownloadId(null);
       }
     },
-    [content, haptics, loadCacheOverview, refetch]
+    [downloadUnitMutation, haptics, loadCacheOverview]
   );
 
   const handleUnitPress = useCallback(
@@ -321,7 +325,7 @@ export function LessonListScreen() {
       }
       setPendingRemoveUnitId(unit.id);
       removeUnitMutation.mutate(
-        { userId: currentUserId, unit },
+        { userId: currentUserId, unitId: unit.id },
         {
           onSettled: () => setPendingRemoveUnitId(null),
         }

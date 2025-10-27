@@ -403,7 +403,11 @@ export class OfflineCacheService {
 
       const response = await options.pull({ cursor, payload });
 
-      await this.applySyncPull(response, existingUnitMap);
+      await this.applySyncPull(
+        response,
+        existingUnitMap,
+        options.force ?? false
+      );
 
       await this.repository.setMetadata(META_LAST_PULL_AT, String(Date.now()));
       await this.persistLastSyncStatus({
@@ -578,14 +582,23 @@ export class OfflineCacheService {
 
   private async applySyncPull(
     response: SyncPullResponse,
-    existingUnitMap: Map<string, CachedUnit>
+    existingUnitMap: Map<string, CachedUnit>,
+    force: boolean
   ): Promise<void> {
     console.info('[OfflineCache] Applying sync pull', {
       units: response.units.length,
       lessons: response.lessons.length,
       assets: response.assets.length,
       cursor: response.cursor,
+      force,
     });
+
+    // When force=true, clear all minimal units before replacing with fresh data
+    // This ensures units removed from My Units don't stay in cache
+    if (force) {
+      console.info('[OfflineCache] Force refresh: clearing minimal units');
+      await this.repository.clearMinimalUnits();
+    }
 
     if (response.units.length > 0) {
       const mappedUnits = response.units.map(unit =>

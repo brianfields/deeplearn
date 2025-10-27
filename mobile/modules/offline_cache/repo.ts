@@ -156,6 +156,20 @@ export class OfflineCacheRepository {
     ]);
   }
 
+  async clearMinimalUnits(): Promise<void> {
+    await this.provider.transaction(async executor => {
+      // Delete lessons and assets for minimal units only
+      await executor.execute(
+        `DELETE FROM lessons WHERE unit_id IN (SELECT id FROM units WHERE cache_mode = 'minimal');`
+      );
+      await executor.execute(
+        `DELETE FROM assets WHERE unit_id IN (SELECT id FROM units WHERE cache_mode = 'minimal');`
+      );
+      // Delete minimal units
+      await executor.execute(`DELETE FROM units WHERE cache_mode = 'minimal';`);
+    });
+  }
+
   async replaceLessons(unitId: string, lessons: CachedLesson[]): Promise<void> {
     await this.provider.transaction(async executor => {
       await executor.execute(`DELETE FROM lessons WHERE unit_id = ?;`, [

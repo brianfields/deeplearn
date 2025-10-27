@@ -4,8 +4,8 @@ Content Module - Unit Tests
 Tests for the content module service layer with package structure.
 """
 
-from datetime import UTC, datetime, timedelta
 from collections.abc import AsyncGenerator
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 import uuid
@@ -14,7 +14,6 @@ from fastapi import FastAPI, status
 from httpx import ASGITransport, AsyncClient
 import pytest
 import pytest_asyncio
-
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from modules.content.models import LessonModel, UnitModel

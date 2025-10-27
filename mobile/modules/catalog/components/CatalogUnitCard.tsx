@@ -51,9 +51,7 @@ export function CatalogUnitCard({
     onRemove(unit);
   };
 
-  const titleColor = disabled
-    ? theme.colors.textSecondary
-    : theme.colors.text;
+  const titleColor = disabled ? theme.colors.textSecondary : theme.colors.text;
 
   const descriptionColor = disabled
     ? theme.colors.textSecondary
@@ -95,9 +93,7 @@ export function CatalogUnitCard({
     <Box
       mb="sm"
       testID={
-        index !== undefined
-          ? `catalog-unit-card-${index}`
-          : 'catalog-unit-card'
+        index !== undefined ? `catalog-unit-card-${index}` : 'catalog-unit-card'
       }
     >
       <Card variant="default" disabled={disabled}>
@@ -144,7 +140,7 @@ export function CatalogUnitCard({
                     flexDirection: 'row',
                     alignItems: 'center',
                     paddingHorizontal: ui.getSpacing('xs'),
-                    paddingVertical: ui.getSpacing('xxs'),
+                    paddingVertical: ui.getSpacing('xs'),
                     backgroundColor: theme.colors.success,
                     borderRadius: 999,
                   }}
@@ -157,7 +153,7 @@ export function CatalogUnitCard({
                   <Check
                     size={14}
                     color={theme.colors.surface}
-                    style={{ marginRight: ui.getSpacing('xxs') }}
+                    style={{ marginRight: ui.getSpacing('xs') }}
                   />
                   <Text
                     variant="caption"

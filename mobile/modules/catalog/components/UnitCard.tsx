@@ -179,9 +179,7 @@ export function UnitCard({
       }}
       disabled={isRemoveActionPending}
       testID={
-        index !== undefined
-          ? `unit-remove-swipe-${index}`
-          : 'unit-remove-swipe'
+        index !== undefined ? `unit-remove-swipe-${index}` : 'unit-remove-swipe'
       }
     >
       <Trash2 size={20} color={theme.colors.surface} />
@@ -234,132 +232,126 @@ export function UnitCard({
               flexDirection: 'row',
               alignItems: 'flex-start',
               justifyContent: 'space-between',
-                marginBottom: ui.getSpacing('sm'),
-              }}
-            >
-              <Text
-                variant="title"
-                weight="700"
-                color={
-                  isDisabled ? theme.colors.textSecondary : theme.colors.text
-                }
-                style={{ flex: 1, marginRight: ui.getSpacing('sm') }}
-                numberOfLines={2}
-              >
-                {unit.title}
-              </Text>
-            </View>
-
+              marginBottom: ui.getSpacing('sm'),
+            }}
+          >
             <Text
-              variant="secondary"
-              color={isDisabled ? theme.colors.textSecondary : undefined}
+              variant="title"
+              weight="700"
+              color={
+                isDisabled ? theme.colors.textSecondary : theme.colors.text
+              }
+              style={{ flex: 1, marginRight: ui.getSpacing('sm') }}
               numberOfLines={2}
-              style={{ marginBottom: ui.getSpacing('sm') }}
             >
-              {unit.description || unit.progressMessage}
+              {unit.title}
             </Text>
+          </View>
 
-            {unit.status !== 'completed' && (
-              <View style={{ marginBottom: ui.getSpacing('sm') }}>
-                <UnitProgressIndicator
-                  status={unit.status}
-                  progress={unit.creationProgress}
-                  errorMessage={unit.errorMessage}
-                  isStale={isStaleCreation}
-                />
-              </View>
-            )}
+          <Text
+            variant="secondary"
+            color={isDisabled ? theme.colors.textSecondary : undefined}
+            numberOfLines={2}
+            style={{ marginBottom: ui.getSpacing('sm') }}
+          >
+            {unit.description || unit.progressMessage}
+          </Text>
 
-            {showFailedActions && (
-              <View
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'flex-end',
-                  marginTop: ui.getSpacing('sm'),
-                  marginBottom: ui.getSpacing('xs'),
-                  columnGap: ui.getSpacing('sm'),
-                }}
-              >
-                {onRetry && (
-                  <Button
-                    title="Retry"
-                    variant="primary"
-                    size="small"
-                    onPress={handleRetry}
-                    testID={
-                      index !== undefined ? `retry-button-${index}` : undefined
-                    }
-                  />
-                )}
-                {onDismiss && (
-                  <Button
-                    title="Dismiss"
-                    variant="secondary"
-                    size="small"
-                    onPress={handleDismiss}
-                    testID={
-                      index !== undefined
-                        ? `dismiss-button-${index}`
-                        : undefined
-                    }
-                  />
-                )}
-              </View>
-            )}
-
-            {showDownloadStatusInfo && downloadStatusText && (
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  columnGap: ui.getSpacing('xs'),
-                  marginBottom: downloadStatusSpacing,
-                }}
-              >
-                {isDownloadInProgress && (
-                  <ActivityIndicator
-                    size="small"
-                    color={theme.colors.primary}
-                  />
-                )}
-                <Text variant="caption" color={downloadStatusColor}>
-                  {downloadStatusText}
-                </Text>
-              </View>
-            )}
-
-            {showDownloadButton && (
-              <Button
-                title={isDownloadFailed ? 'Retry download' : 'Download'}
-                variant="primary"
-                size="small"
-                onPress={handleDownload}
-                loading={isDownloadActionPending}
-                icon={<Download size={16} color={theme.colors.surface} />}
-                style={[
-                  { alignSelf: 'flex-start' },
-                  !showDownloadStatusInfo
-                    ? { marginTop: ui.getSpacing('sm') }
-                    : null,
-                ]}
-                testID={downloadButtonTestId}
+          {unit.status !== 'completed' && (
+            <View style={{ marginBottom: ui.getSpacing('sm') }}>
+              <UnitProgressIndicator
+                status={unit.status}
+                progress={unit.creationProgress}
+                errorMessage={unit.errorMessage}
+                isStale={isStaleCreation}
               />
-            )}
+            </View>
+          )}
 
+          {showFailedActions && (
             <View
               style={{
                 flexDirection: 'row',
-                justifyContent: 'space-between',
-                marginTop: metadataMarginTop,
+                justifyContent: 'flex-end',
+                marginTop: ui.getSpacing('sm'),
+                marginBottom: ui.getSpacing('xs'),
+                columnGap: ui.getSpacing('sm'),
               }}
             >
-              <Text
-                variant="caption"
-                color={isDisabled ? theme.colors.textSecondary : undefined}
-              >
-                {unit.targetLessonCount} lessons
+              {onRetry && (
+                <Button
+                  title="Retry"
+                  variant="primary"
+                  size="small"
+                  onPress={handleRetry}
+                  testID={
+                    index !== undefined ? `retry-button-${index}` : undefined
+                  }
+                />
+              )}
+              {onDismiss && (
+                <Button
+                  title="Dismiss"
+                  variant="secondary"
+                  size="small"
+                  onPress={handleDismiss}
+                  testID={
+                    index !== undefined ? `dismiss-button-${index}` : undefined
+                  }
+                />
+              )}
+            </View>
+          )}
+
+          {showDownloadStatusInfo && downloadStatusText && (
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                columnGap: ui.getSpacing('xs'),
+                marginBottom: downloadStatusSpacing,
+              }}
+            >
+              {isDownloadInProgress && (
+                <ActivityIndicator size="small" color={theme.colors.primary} />
+              )}
+              <Text variant="caption" color={downloadStatusColor}>
+                {downloadStatusText}
               </Text>
             </View>
+          )}
+
+          {showDownloadButton && (
+            <Button
+              title={isDownloadFailed ? 'Retry download' : 'Download'}
+              variant="primary"
+              size="small"
+              onPress={handleDownload}
+              loading={isDownloadActionPending}
+              icon={<Download size={16} color={theme.colors.surface} />}
+              style={[
+                { alignSelf: 'flex-start' },
+                !showDownloadStatusInfo
+                  ? { marginTop: ui.getSpacing('sm') }
+                  : null,
+              ]}
+              testID={downloadButtonTestId}
+            />
+          )}
+
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              marginTop: metadataMarginTop,
+            }}
+          >
+            <Text
+              variant="caption"
+              color={isDisabled ? theme.colors.textSecondary : undefined}
+            >
+              {unit.targetLessonCount} lessons
+            </Text>
           </View>
         </View>
       </View>

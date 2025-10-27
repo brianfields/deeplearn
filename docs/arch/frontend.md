@@ -18,14 +18,101 @@ mobile/modules/{name}/
 
 **Core Principle**: The app works offline-first. All user-facing operations use local storage; network sync happens explicitly and in the background.
 
-### Rules for Local-First
+### Offline vs Online: When to Use Each
 
-1. **All reads are local**: UI queries always read from local storage via repo helpers (fast, predictable, offline-capable)
-2. **All writes are local + outbox**: Repo methods persist to AsyncStorage AND enqueue to outbox for eventual sync
-3. **Explicit sync methods live in repo**: `repo.sync*FromServer()` pulls data from HTTP and updates local storage/indexes
-4. **Service never touches infrastructure/offline cache/outbox directly**: It only calls repo methods
-5. **Generate IDs locally**: Create IDs on device (e.g., `${type}_${timestamp}_${random}`) for offline creation
-6. **Outbox drains automatically**: Background process syncs pending writes when online (repo enqueues the payloads)
+Not all features need to be offline-capable. Use this decision tree:
+
+#### ✅ **Offline-First (Cache + Sync + Outbox)** - Use when:
+- User needs to access previously synced data without network
+- Data is user-specific (My Units, downloaded lessons, session history)
+- Mutations can be queued for later (create notes, add favorites, draft edits)
+- **Read Pattern**: Read from cache → Return immediately. Background sync updates cache.
+- **Write Pattern**: Write to local storage + enqueue to outbox → Return immediately. Outbox drains when online.
+- **Example**: `getUserUnitCollections()` reads from offline cache; `createNote()` writes to local + outbox.
+
+#### 🌐 **Online-Only (Direct Server Calls)** - Use when:
+- Data changes frequently across devices (global catalog, shared content)
+- User expects fresh data (browsing, search)
+- Data is public/not personalized
+- Mutations require immediate server validation (remove from collection, publish action)
+- **Read Pattern**: Fetch from server → Return fresh data. No caching.
+- **Write Pattern**: Direct API call → Update server → Optionally trigger sync to refresh cache.
+- **Example**: `browseCatalogUnits()` fetches fresh; `removeUnitFromMyUnits()` calls API directly.
+
+#### 💾 **Hybrid (Cache + Fresh Fetch)** - Use when:
+- User needs offline access to specific items (downloaded lessons)
+- Fresh data is preferred when online
+- **Pattern**: Try cache first → If missing or stale, fetch from server → Cache result.
+- **Example**: `getUnitDetail()` checks cache; if not downloaded, syncs from server.
+
+### Real-World Examples from Content Module
+
+```typescript
+// ✅ OFFLINE: My Units (user-specific, cached)
+async getUserUnitCollections(userId: number): Promise<UserUnitCollections> {
+  // Reads from offline cache populated by sync endpoint
+  const cached = await this.ensureUnitsCached();
+  // Filter for units owned by user or in their My Units (synced periodically)
+  return this.filterAndMapCached(cached, userId);
+}
+
+// 🌐 ONLINE: Catalog Browsing (fresh, global)
+async browseCatalogUnits(): Promise<Unit[]> {
+  // Always fetch fresh from server - catalog changes frequently
+  const apiUnits = await this.repo.listUnits();
+  return apiUnits.map(toDTO);
+}
+
+// 💾 HYBRID: Unit Detail (cache for downloaded, fetch for new)
+async getUnitDetail(unitId: string): Promise<UnitDetail | null> {
+  let cached = await this.offlineCache.getUnitDetail(unitId);
+  if (!cached) {
+    await this.runSyncCycle(); // Fetch from server if not cached
+    cached = await this.offlineCache.getUnitDetail(unitId);
+  }
+  return cached ? this.mapToDTO(cached) : null;
+}
+
+// ✅ OFFLINE MUTATION: Create Note (works offline via outbox)
+async createNote(userId: number, unitId: string, text: string): Promise<Note> {
+  const noteId = this.generateId();
+  const note: Note = { id: noteId, userId, unitId, text, createdAt: new Date() };
+
+  // Save to local storage immediately - UI updates instantly
+  await this.repo.saveLocalNote(note);
+  // Enqueue to outbox - syncs to server when online
+  await this.repo.enqueueCreateNote(note);
+
+  return note; // Returns immediately, works offline
+}
+
+// 🌐 ONLINE MUTATION: Remove from My Units (requires network connection)
+async removeUnitFromMyUnits(userId: number, unitId: string): Promise<void> {
+  // This is an online-only mutation - requires immediate server response
+  await this.repo.removeUnitFromMyUnits({ userId, unitId }); // Direct API call
+  await this.runSyncCycle(); // Update cache - unit no longer appears in My Units
+}
+```
+
+### Rules for Local-First vs Online-Only
+
+#### Offline-First Features (use outbox):
+1. **All reads are local**: UI queries read from local storage via repo helpers (fast, predictable, offline-capable)
+2. **All writes use outbox**: Repo methods persist to local storage AND enqueue to outbox for eventual sync
+3. **Generate IDs locally**: Create IDs on device (e.g., `${type}_${timestamp}_${random}`) for offline creation
+4. **Outbox drains automatically**: Background process syncs pending writes when online
+5. **User collections are offline-first**: Personal data (My Units, created content, history, notes) uses cache + sync + outbox
+
+#### Online-Only Features (direct server calls):
+1. **Reads fetch fresh**: Queries call repo methods that make direct HTTP requests (no cache)
+2. **Writes call API directly**: Mutations that need immediate validation use direct API calls (not outbox)
+3. **Post-mutation sync**: After successful mutation, optionally trigger sync to update cache
+4. **Browsing/discovery is online-only**: Catalog, search, and shared content fetch fresh data from server
+
+#### Universal Rules:
+1. **Explicit sync methods live in repo**: `repo.sync*FromServer()` pulls data from HTTP and updates local storage/indexes
+2. **Service never touches infrastructure/offline cache/outbox directly**: It only calls repo methods
+3. **Repo owns the decision**: Service calls repo methods; repo decides whether to use cache/outbox or direct HTTP
 
 ### Pattern: Writes
 
@@ -173,16 +260,21 @@ createItem(data); // Returns immediately, syncs in background
 ```
 queries.ts  →  service.ts  →  repo.ts  →  local storage / offline cache (primary)
                                    ↘︎   outbox (writes)
-                                   ↘︎   HTTP (sync-only sync* calls)
+                                   ↘︎   HTTP (direct fetches for catalog/browse)
 public.ts   →  service.ts
 service.ts  →  otherModule/public   (composition)
 screens/    →  thisModule/queries   (+ optionally otherModule/public hooks for simple UI composition)
 ```
 
-**Local-first flow:**
+**Offline-first flow (My Units, downloaded content, user-created data):**
 - Reads: `queries.ts → service.ts → repo.ts → local storage/offline cache → return immediately`
-- Writes: `queries.ts → service.ts → repo.ts → local storage + outbox → return immediately`
-- Sync: `syncMutation → service.sync*() → repo.ts.sync*FromServer() → HTTP → local storage`
+- Writes (via outbox): `queries.ts → service.ts → repo.ts → local storage + outbox.enqueue() → return immediately`
+  - Background: `outbox drains → HTTP POST/PUT/DELETE → server updated`
+- Sync: `syncMutation → service.sync*() → repo.ts.sync*FromServer() → HTTP GET → local storage`
+
+**Online-only flow (Catalog, search, browsing, server-validated actions):**
+- Reads: `queries.ts → service.ts → repo.ts → HTTP GET → return fresh data (no cache)`
+- Writes (direct API): `queries.ts → service.ts → repo.ts → HTTP POST/DELETE → await response → trigger sync → update cache`
 
 ---
 
@@ -616,15 +708,33 @@ export function UserProfileScreen() {
 
 ---
 
-## Local-First Best Practices
+## Offline/Online Best Practices
 
-1. **ID Generation**: Use `${type}_${Date.now()}_${Math.random().toString(36).slice(2)}` for offline creation
-2. **Maintain indices**: Store arrays of IDs for efficient querying (e.g., `users_index_all`)
-3. **Sync on app start**: Background sync in `useEffect` - doesn't block UI
-4. **Outbox drains automatically**: Use `offline_cache` module's outbox pattern
-5. **Non-fatal sync failures**: Log sync errors but don't break the app
-6. **Cache invalidation**: After sync, invalidate queries to refetch from updated local storage
-7. **Optimistic UI**: Update local storage immediately, UI reflects changes instantly
+### When to Cache (Offline-First with Outbox)
+1. **User-specific data**: Personal collections, created content, session history
+2. **Downloaded content**: Lessons, media files explicitly downloaded for offline use
+3. **Mutations use outbox**: Create, update, delete operations enqueue to outbox (work offline)
+4. **ID Generation**: Use `${type}_${Date.now()}_${Math.random().toString(36).slice(2)}` for offline creation
+5. **Maintain indices**: Store arrays of IDs for efficient querying (e.g., `users_index_all`)
+6. **Sync on app start**: Background sync in `useEffect` - doesn't block UI
+7. **Non-fatal sync failures**: Log sync errors but don't break the app
+8. **Optimistic UI**: Update local storage immediately, UI reflects changes instantly
+9. **Example mutations**: Create notes, add favorites, draft edits, toggle settings
+
+### When to Fetch Fresh (Online-Only with Direct API Calls)
+1. **Catalog/browsing**: Global content that changes across devices
+2. **Search results**: Real-time queries that should reflect latest state
+3. **Shared/public data**: Content not owned by user
+4. **No offline requirement**: Features that don't need to work without network
+5. **Mutations require validation**: Remove from collection, publish actions call API directly (not outbox)
+6. **Direct API calls**: Use `repo` methods that make HTTP requests and return fresh data
+7. **Example mutations**: Remove from My Units, subscribe to unit, report content
+
+### Sync Strategy
+- **User collections sync with `user_id`**: Backend filters to owned + subscribed items
+- **Periodic background sync**: Keep cache fresh without blocking UI
+- **Post-mutation sync**: After add/remove operations, trigger sync to update cache
+- **Cache invalidation**: After sync, invalidate React Query cache to refetch from updated storage
 
 ## "Don't create files you don't need"
 

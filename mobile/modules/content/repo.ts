@@ -157,6 +157,24 @@ export class ContentRepo {
     }
   }
 
+  async listPersonalUnits(params: {
+    userId: number;
+    limit?: number;
+    offset?: number;
+  }): Promise<ApiUnitSummary[]> {
+    const limit = params.limit ?? 100;
+    const offset = params.offset ?? 0;
+    const url = `${CONTENT_BASE}/units/personal?user_id=${encodeURIComponent(String(params.userId))}&limit=${encodeURIComponent(String(limit))}&offset=${encodeURIComponent(String(offset))}`;
+
+    try {
+      return await this.infrastructure.request<ApiUnitSummary[]>(url, {
+        method: 'GET',
+      });
+    } catch (error) {
+      throw this.handleError(error, 'Failed to list personal units');
+    }
+  }
+
   private handleError(error: any, defaultMessage: string): ContentError {
     console.error('[ContentRepo]', defaultMessage, error);
 

@@ -45,12 +45,10 @@ export function CatalogBrowserScreen(): React.ReactElement {
     error: collectionsError,
   } = useUserUnitCollections(currentUserId, { includeGlobal: true });
 
-  const {
-    data: catalogUnits = [],
-    isLoading: isCatalogLoading,
-  } = useCatalogUnits({
-    currentUserId,
-  });
+  const { data: catalogUnits = [], isLoading: isCatalogLoading } =
+    useCatalogUnits({
+      currentUserId,
+    });
 
   const addMutation = useAddUnitToMyUnits();
   const removeMutation = useRemoveUnitFromMyUnits();
@@ -78,9 +76,7 @@ export function CatalogBrowserScreen(): React.ReactElement {
     if (!query) {
       return globalUnits;
     }
-    return globalUnits.filter(unit =>
-      unit.title.toLowerCase().includes(query)
-    );
+    return globalUnits.filter(unit => unit.title.toLowerCase().includes(query));
   }, [globalUnits, searchQuery]);
 
   const isLoading = isCollectionsLoading || isCatalogLoading;
@@ -112,7 +108,7 @@ export function CatalogBrowserScreen(): React.ReactElement {
       }
       setPendingUnitId(unit.id);
       removeMutation.mutate(
-        { userId: currentUserId, unit },
+        { userId: currentUserId, unitId: unit.id },
         {
           onSettled: () => setPendingUnitId(null),
         }

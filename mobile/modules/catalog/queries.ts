@@ -5,10 +5,9 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { QueryKey } from '@tanstack/react-query';
 import { catalogProvider } from './public';
 import { contentProvider } from '../content/public';
-import type { Unit, UserUnitCollections } from '../content/public';
+import type { Unit } from '../content/public';
 import type { LessonFilters, PaginationInfo } from './models';
 import type { UnitCreationRequest } from '../content_creator/public';
 
@@ -206,135 +205,20 @@ export function useRefreshCatalog() {
   });
 }
 
-function findMatchingQueryKeys(
-  queryClient: ReturnType<typeof useQueryClient>,
-  predicate: (key: QueryKey) => boolean
-): QueryKey[] {
-  return queryClient
-    .getQueryCache()
-    .findAll({
-      predicate: query => predicate(query.queryKey),
-    })
-    .map(query => query.queryKey);
-}
-
-function updateUserUnitCollectionsCache(
-  queryClient: ReturnType<typeof useQueryClient>,
-  userId: number,
-  updater: (current: UserUnitCollections | undefined) => UserUnitCollections | undefined
-): Array<{ key: QueryKey; data: UserUnitCollections | undefined }> {
-  const keys = findMatchingQueryKeys(queryClient, key =>
-    Array.isArray(key) &&
-    key.length >= 4 &&
-    key[0] === 'catalog' &&
-    key[1] === 'units' &&
-    key[2] === 'collections' &&
-    key[3] === userId
-  );
-
-  const previous: Array<{ key: QueryKey; data: UserUnitCollections | undefined }> = [];
-
-  for (const key of keys) {
-    const data = queryClient.getQueryData<UserUnitCollections | undefined>(key);
-    previous.push({ key, data });
-    queryClient.setQueryData<UserUnitCollections | undefined>(key, updater(data));
-  }
-
-  return previous;
-}
-
-function updateUnitListCache(
-  queryClient: ReturnType<typeof useQueryClient>,
-  updater: (current: Unit[] | undefined) => Unit[] | undefined
-): Array<{ key: QueryKey; data: Unit[] | undefined }> {
-  const keys = findMatchingQueryKeys(queryClient, key =>
-    Array.isArray(key) &&
-    key.length >= 2 &&
-    key[0] === 'catalog' &&
-    key[1] === 'units' &&
-    (key.length < 3 || key[2] !== 'collections')
-  );
-
-  const previous: Array<{ key: QueryKey; data: Unit[] | undefined }> = [];
-
-  for (const key of keys) {
-    const data = queryClient.getQueryData<Unit[] | undefined>(key);
-    previous.push({ key, data });
-    queryClient.setQueryData<Unit[] | undefined>(key, updater(data));
-  }
-
-  return previous;
-}
-
-interface MyUnitMutationContext {
-  readonly previousCollections: Array<{ key: QueryKey; data: UserUnitCollections | undefined }>;
-  readonly previousUnitLists: Array<{ key: QueryKey; data: Unit[] | undefined }>;
-}
-
 export function useAddUnitToMyUnits() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (args: { userId: number; unit: Unit }) => {
+      // Add to server and trigger sync to update cache
       await content.addUnitToMyUnits(args.userId, args.unit.id);
-      return args.unit;
+      return { userId: args.userId, unitId: args.unit.id };
     },
-    onMutate: async variables => {
-      const { userId, unit } = variables;
-      await queryClient.cancelQueries({
-        predicate: query => {
-          const key = query.queryKey;
-          return (
-            Array.isArray(key) &&
-            key.length >= 4 &&
-            key[0] === 'catalog' &&
-            key[1] === 'units' &&
-            key[2] === 'collections' &&
-            key[3] === userId
-          );
-        },
-      });
+    onSuccess: (_result, variables) => {
+      // Invalidate all relevant queries after mutation + sync completes
+      // This ensures queries refetch from the updated offline cache
 
-      const previousCollections = updateUserUnitCollectionsCache(
-        queryClient,
-        userId,
-        current => {
-          if (!current) return current;
-          if (current.units.some(existing => existing.id === unit.id)) {
-            return current;
-          }
-          return {
-            ...current,
-            units: [unit, ...current.units],
-          };
-        }
-      );
-
-      const previousUnitLists = updateUnitListCache(queryClient, current => {
-        if (!current) return current;
-        if (current.some(existing => existing.id === unit.id)) {
-          return current;
-        }
-        return [unit, ...current];
-      });
-
-      return { previousCollections, previousUnitLists } satisfies MyUnitMutationContext;
-    },
-    onError: (_error, variables, context) => {
-      if (!context) {
-        return;
-      }
-      for (const entry of context.previousCollections) {
-        queryClient.setQueryData(entry.key, entry.data);
-      }
-      for (const entry of context.previousUnitLists) {
-        queryClient.setQueryData(entry.key, entry.data);
-      }
-    },
-    onSettled: (_result, _error, variables) => {
-      if (!variables) {
-        return;
-      }
+      // User collections
       queryClient.invalidateQueries({
         predicate: query => {
           const key = query.queryKey;
@@ -348,6 +232,8 @@ export function useAddUnitToMyUnits() {
           );
         },
       });
+
+      // All catalog unit queries
       queryClient.invalidateQueries({
         predicate: query =>
           Array.isArray(query.queryKey) &&
@@ -356,6 +242,9 @@ export function useAddUnitToMyUnits() {
           query.queryKey[1] === 'units' &&
           (query.queryKey.length < 3 || query.queryKey[2] !== 'collections'),
       });
+
+      // Content queries (same offline cache)
+      queryClient.invalidateQueries({ queryKey: ['content'] });
     },
   });
 }
@@ -364,60 +253,17 @@ export function useRemoveUnitFromMyUnits() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (args: { userId: number; unit: Unit }) => {
-      await content.removeUnitFromMyUnits(args.userId, args.unit.id);
-      return args.unit;
+    mutationFn: async (args: { userId: number; unitId: string }) => {
+      // Remove from server and trigger force sync to update cache
+      // This completes BEFORE onSuccess runs
+      await content.removeUnitFromMyUnits(args.userId, args.unitId);
+      return { userId: args.userId, unitId: args.unitId };
     },
-    onMutate: async variables => {
-      const { userId, unit } = variables;
-      await queryClient.cancelQueries({
-        predicate: query => {
-          const key = query.queryKey;
-          return (
-            Array.isArray(key) &&
-            key.length >= 4 &&
-            key[0] === 'catalog' &&
-            key[1] === 'units' &&
-            key[2] === 'collections' &&
-            key[3] === userId
-          );
-        },
-      });
+    onSuccess: (_result, variables) => {
+      // Invalidate all relevant queries after mutation + sync completes
+      // This ensures queries refetch from the updated offline cache
 
-      const previousCollections = updateUserUnitCollectionsCache(
-        queryClient,
-        userId,
-        current => {
-          if (!current) return current;
-          return {
-            ...current,
-            units: current.units.filter(existing => existing.id !== unit.id),
-          };
-        }
-      );
-
-      const previousUnitLists = updateUnitListCache(queryClient, current => {
-        if (!current) return current;
-        return current.filter(existing => existing.id !== unit.id);
-      });
-
-      return { previousCollections, previousUnitLists } satisfies MyUnitMutationContext;
-    },
-    onError: (_error, _variables, context) => {
-      if (!context) {
-        return;
-      }
-      for (const entry of context.previousCollections) {
-        queryClient.setQueryData(entry.key, entry.data);
-      }
-      for (const entry of context.previousUnitLists) {
-        queryClient.setQueryData(entry.key, entry.data);
-      }
-    },
-    onSettled: (_result, _error, variables) => {
-      if (!variables) {
-        return;
-      }
+      // User collection queries
       queryClient.invalidateQueries({
         predicate: query => {
           const key = query.queryKey;
@@ -431,6 +277,8 @@ export function useRemoveUnitFromMyUnits() {
           );
         },
       });
+
+      // All catalog unit queries (browse lists, detail pages)
       queryClient.invalidateQueries({
         predicate: query =>
           Array.isArray(query.queryKey) &&
@@ -439,6 +287,72 @@ export function useRemoveUnitFromMyUnits() {
           query.queryKey[1] === 'units' &&
           (query.queryKey.length < 3 || query.queryKey[2] !== 'collections'),
       });
+
+      // Content queries (same offline cache)
+      queryClient.invalidateQueries({ queryKey: ['content'] });
+    },
+  });
+}
+
+/**
+ * Download unit mutation
+ */
+export function useDownloadUnit() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (args: { unitId: string }) => {
+      await content.requestUnitDownload(args.unitId);
+      return { unitId: args.unitId };
+    },
+    onSuccess: (_result, _variables) => {
+      // Invalidate all queries that might show download status
+      // This ensures both list and detail views show the correct state
+      queryClient.invalidateQueries({
+        predicate: query => {
+          const key = query.queryKey;
+          return (
+            Array.isArray(key) &&
+            key.length >= 2 &&
+            key[0] === 'catalog' &&
+            key[1] === 'units'
+          );
+        },
+      });
+
+      // Content queries (same offline cache)
+      queryClient.invalidateQueries({ queryKey: ['content'] });
+    },
+  });
+}
+
+/**
+ * Remove unit download mutation
+ */
+export function useRemoveUnitDownload() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (args: { unitId: string }) => {
+      await content.removeUnitDownload(args.unitId);
+      return { unitId: args.unitId };
+    },
+    onSuccess: (_result, _variables) => {
+      // Invalidate all queries that might show download status
+      queryClient.invalidateQueries({
+        predicate: query => {
+          const key = query.queryKey;
+          return (
+            Array.isArray(key) &&
+            key.length >= 2 &&
+            key[0] === 'catalog' &&
+            key[1] === 'units'
+          );
+        },
+      });
+
+      // Content queries (same offline cache)
+      queryClient.invalidateQueries({ queryKey: ['content'] });
     },
   });
 }

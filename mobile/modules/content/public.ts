@@ -10,6 +10,11 @@ export interface ContentProvider {
     offset?: number;
     currentUserId?: number | null;
   }): Promise<Unit[]>;
+  browseCatalogUnits(params?: {
+    limit?: number;
+    offset?: number;
+    currentUserId?: number | null;
+  }): Promise<Unit[]>;
   getUnitDetail(
     unitId: string,
     options?: { currentUserId?: number | null }
@@ -46,6 +51,7 @@ export function contentProvider(): ContentProvider {
   const service = getServiceInstance();
   return {
     listUnits: service.listUnits.bind(service),
+    browseCatalogUnits: service.browseCatalogUnits.bind(service),
     getUnitDetail: service.getUnitDetail.bind(service),
     getUserUnitCollections: service.getUserUnitCollections.bind(service),
     updateUnitSharing: service.updateUnitSharing.bind(service),

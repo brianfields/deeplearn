@@ -38,7 +38,7 @@ import uuid
 # Add the backend directory to the path so we can import modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 
 from modules.content.models import (
     LessonModel,
@@ -1047,17 +1047,20 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                     "learning_objectives": [
                         {
                             "id": "first_aid_lo_1",
-                            "text": "Stabilize a conscious patient while awaiting emergency services",
+                            "title": "Stabilize a conscious patient",
+                            "description": "Stabilize a conscious patient while awaiting emergency services",
                             "bloom_level": "Apply",
                         },
                         {
                             "id": "first_aid_lo_2",
-                            "text": "Decide when to escalate to advanced medical support",
+                            "title": "Decide when to escalate",
+                            "description": "Decide when to escalate to advanced medical support",
                             "bloom_level": "Analyze",
                         },
                         {
                             "id": "first_aid_lo_3",
-                            "text": "Communicate a concise hand-off to first responders",
+                            "title": "Communicate hand-off to responders",
+                            "description": "Communicate a concise hand-off to first responders",
                             "bloom_level": "Apply",
                         },
                     ],
@@ -1074,17 +1077,20 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                             "objectives": [
                                 {
                                     "id": "first_aid_lo_1",
-                                    "text": "Perform a rapid primary assessment and stabilize airway, breathing, and circulation",
+                                    "title": "Primary assessment and ABC stabilization",
+                                    "description": "Perform a rapid primary assessment and stabilize airway, breathing, and circulation",
                                     "bloom_level": "Apply",
                                 },
                                 {
                                     "id": "first_aid_lo_2",
-                                    "text": "Determine escalation triggers using SAMPLE history and vital cues",
+                                    "title": "Determine escalation triggers",
+                                    "description": "Determine escalation triggers using SAMPLE history and vital cues",
                                     "bloom_level": "Analyze",
                                 },
                                 {
                                     "id": "first_aid_lo_3",
-                                    "text": "Prepare a concise radio hand-off using the MIST format",
+                                    "title": "MIST radio hand-off",
+                                    "description": "Prepare a concise radio hand-off using the MIST format",
                                     "bloom_level": "Apply",
                                 },
                             ],
@@ -1238,6 +1244,29 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                 ),
             ]
 
+            # Also delete any audio files with the same s3_key to avoid unique constraint violations
+            # This handles the case where audio files were previously created
+            for audio in sample_audio:
+                stmt = select(AudioModel).filter(AudioModel.s3_key == audio.s3_key)
+                result = await db_session.execute(stmt)
+                existing_audio = result.scalar_one_or_none()
+                if existing_audio:
+                    if args.verbose:
+                        print(f"   • Deleting existing audio with s3_key: {existing_audio.s3_key}")
+                    await db_session.delete(existing_audio)
+                    await db_session.flush()
+
+            # Also delete any image files with the same s3_key to avoid unique constraint violations
+            for image in sample_images:
+                stmt = select(ImageModel).filter(ImageModel.s3_key == image.s3_key)
+                result = await db_session.execute(stmt)
+                existing_image = result.scalar_one_or_none()
+                if existing_image:
+                    if args.verbose:
+                        print(f"   • Deleting existing image with s3_key: {existing_image.s3_key}")
+                    await db_session.delete(existing_image)
+                    await db_session.flush()
+
             db_session.add_all([*sample_images, *sample_audio])
             await db_session.flush()
 
@@ -1249,10 +1278,27 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                 if existing_unit:
                     if args.verbose:
                         print(f"   • Deleting existing unit: {existing_unit.title}")
-                    # Delete associated lessons first
-
+                    # Delete associated data first (in correct order to avoid FK violations)
                     await db_session.execute(delete(LessonModel).where(LessonModel.unit_id == unit_spec["id"]))
+                    await db_session.execute(delete(LearningSessionModel).where(LearningSessionModel.unit_id == unit_spec["id"]))
+                    await db_session.execute(delete(UnitSessionModel).where(UnitSessionModel.unit_id == unit_spec["id"]))
+                    await db_session.execute(delete(UserMyUnitModel).where(UserMyUnitModel.unit_id == unit_spec["id"]))
                     await db_session.delete(existing_unit)
+                    await db_session.flush()
+
+            # Also delete any other units that match the learning objectives we want to fix
+            # This handles the case where the unit was previously created with invalid data
+            invalid_unit_ids = ["3b6caa92-0c83-4d5d-bdff-7f1df59fe2f2"]  # Community First Aid Playbook
+            for invalid_id in invalid_unit_ids:
+                invalid_unit = await db_session.get(UnitModel, invalid_id)
+                if invalid_unit:
+                    if args.verbose:
+                        print(f"   • Deleting invalid unit: {invalid_unit.title}")
+                    await db_session.execute(delete(LessonModel).where(LessonModel.unit_id == invalid_id))
+                    await db_session.execute(delete(LearningSessionModel).where(LearningSessionModel.unit_id == invalid_id))
+                    await db_session.execute(delete(UnitSessionModel).where(UnitSessionModel.unit_id == invalid_id))
+                    await db_session.execute(delete(UserMyUnitModel).where(UserMyUnitModel.unit_id == invalid_id))
+                    await db_session.delete(invalid_unit)
                     await db_session.flush()
 
             for unit_spec in units_spec:

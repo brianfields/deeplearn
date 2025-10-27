@@ -149,13 +149,7 @@ class ContentRepo:
         if my_unit_ids:
             conditions.append(UnitModel.id.in_(my_unit_ids))
 
-        stmt = (
-            select(UnitModel)
-            .where(or_(*conditions))
-            .order_by(desc(UnitModel.updated_at))
-            .offset(offset)
-            .limit(limit)
-        )
+        stmt = select(UnitModel).where(or_(*conditions)).order_by(desc(UnitModel.updated_at)).offset(offset).limit(limit)
         result = await self.s.execute(stmt)
         return list(result.scalars().unique().all())
 
