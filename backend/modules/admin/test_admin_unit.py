@@ -103,6 +103,8 @@ class TestAdminService:
         """Mock LearningSessionProvider for testing."""
         mock = Mock()
         mock.get_user_sessions = AsyncMock(return_value=SessionListResponse(sessions=[], total=0))
+        mock.list_sessions = AsyncMock(return_value=SessionListResponse(sessions=[], total=0))
+        mock.get_session_admin = AsyncMock(return_value=None)
         return mock
 
     @pytest.fixture
@@ -318,6 +320,86 @@ class TestAdminService:
 
         # Verify mock calls
         mock_flow_engine_admin.get_flow_run_by_id.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_learning_sessions_success(
+        self,
+        admin_service: AdminService,
+        mock_learning_sessions_provider: Mock,
+    ) -> None:
+        """Learning sessions listing returns paginated summaries."""
+
+        started_at = datetime.now(UTC).isoformat()
+        session = LearningSession(
+            id="session-1",
+            lesson_id="lesson-1",
+            unit_id="unit-1",
+            user_id="user-1",
+            status="completed",
+            started_at=started_at,
+            completed_at=started_at,
+            current_exercise_index=3,
+            total_exercises=5,
+            progress_percentage=60.0,
+            session_data={"exercise_answers": {}},
+        )
+
+        mock_learning_sessions_provider.list_sessions.return_value = SessionListResponse(
+            sessions=[session],
+            total=1,
+        )
+
+        result = await admin_service.get_learning_sessions(page=1, page_size=10)
+
+        mock_learning_sessions_provider.list_sessions.assert_awaited_once_with(
+            user_id=None,
+            status=None,
+            lesson_id=None,
+            limit=10,
+            offset=0,
+        )
+
+        assert result.total_count == 1
+        assert result.page == 1
+        assert result.page_size == 10
+        assert not result.has_next
+        assert len(result.sessions) == 1
+        summary = result.sessions[0]
+        assert summary.id == "session-1"
+        assert summary.lesson_id == "lesson-1"
+        assert summary.started_at is not None
+
+    @pytest.mark.asyncio
+    async def test_get_learning_session_detail(
+        self,
+        admin_service: AdminService,
+        mock_learning_sessions_provider: Mock,
+    ) -> None:
+        """Learning session detail is retrieved through provider."""
+
+        started_at = datetime.now(UTC).isoformat()
+        session = LearningSession(
+            id="session-42",
+            lesson_id="lesson-99",
+            unit_id="unit-5",
+            user_id="user-77",
+            status="active",
+            started_at=started_at,
+            completed_at=None,
+            current_exercise_index=1,
+            total_exercises=4,
+            progress_percentage=25.0,
+            session_data={"exercise_answers": {}},
+        )
+
+        mock_learning_sessions_provider.get_session_admin.return_value = session
+
+        detail = await admin_service.get_learning_session_detail("session-42")
+
+        mock_learning_sessions_provider.get_session_admin.assert_awaited_once_with("session-42")
+        assert detail is not None
+        assert detail.id == "session-42"
+        assert detail.user_id == "user-77"
 
     @pytest.mark.asyncio
     async def test_list_learning_coach_conversations(

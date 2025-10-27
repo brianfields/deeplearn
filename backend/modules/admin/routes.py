@@ -30,6 +30,8 @@ from .models import (
     FlowStepDetails,
     LearningCoachConversationDetail,
     LearningCoachConversationsListResponse,
+    LearningSessionSummary,
+    LearningSessionsListResponse,
     LessonDetails,
     LessonsListResponse,
     LLMRequestDetails,
@@ -189,6 +191,42 @@ async def get_flow_step_details(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Flow step {step_run_id} not found in flow run {flow_run_id}")
 
     return step_details
+
+
+# ---- Learning Session Management Routes ----
+
+
+@router.get("/learning-sessions", response_model=LearningSessionsListResponse)
+async def list_learning_sessions(
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(50, ge=1, le=100, description="Items per page"),
+    status: str | None = Query(None, description="Filter by session status"),
+    user_id: str | None = Query(None, description="Filter by user ID"),
+    lesson_id: str | None = Query(None, description="Filter by lesson ID"),
+    admin_service: AdminService = Depends(get_admin_service),
+) -> LearningSessionsListResponse:
+    """List learning sessions for administrative review."""
+
+    return await admin_service.get_learning_sessions(
+        page=page,
+        page_size=page_size,
+        status=status,
+        user_id=user_id,
+        lesson_id=lesson_id,
+    )
+
+
+@router.get("/learning-sessions/{session_id}", response_model=LearningSessionSummary)
+async def get_learning_session(
+    session_id: str,
+    admin_service: AdminService = Depends(get_admin_service),
+) -> LearningSessionSummary:
+    """Return the detailed data for a specific learning session."""
+
+    detail = await admin_service.get_learning_session_detail(session_id)
+    if not detail:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Learning session {session_id} not found")
+    return detail
 
 
 # ---- LLM Request Management Routes ----

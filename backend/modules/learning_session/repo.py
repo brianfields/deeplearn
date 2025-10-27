@@ -12,6 +12,7 @@ import uuid
 
 from sqlalchemy import and_, desc, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import attributes
 
 from .models import LearningSessionModel, SessionStatus
 
@@ -101,6 +102,8 @@ class LearningSessionRepo:
             current_data: dict[str, Any] = session.session_data or {}
             current_data.update(session_data)
             session.session_data = current_data
+            # Mark the JSON field as modified so SQLAlchemy persists the changes
+            attributes.flag_modified(session, "session_data")
 
         await self.db.commit()
         await self.db.refresh(session)
@@ -140,6 +143,25 @@ class LearningSessionRepo:
         total = int(total_result.scalar() or 0)
 
         return sessions, total
+
+    async def get_sessions(
+        self,
+        *,
+        user_id: str | None = None,
+        status: str | None = None,
+        lesson_id: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[LearningSessionModel], int]:
+        """Return learning sessions for administrative views."""
+
+        return await self.get_user_sessions(
+            user_id=user_id,
+            status=status,
+            lesson_id=lesson_id,
+            limit=limit,
+            offset=offset,
+        )
 
     async def get_active_session_for_user_and_lesson(self, user_id: str, lesson_id: str) -> LearningSessionModel | None:
         """Get active session for user and lesson (if any)"""

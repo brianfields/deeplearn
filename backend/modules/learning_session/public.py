@@ -81,6 +81,24 @@ class LearningSessionProvider(Protocol):
         """Health check for the learning session service"""
         ...
 
+    @abstractmethod
+    async def list_sessions(
+        self,
+        *,
+        user_id: str | None = None,
+        status: str | None = None,
+        lesson_id: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> SessionListResponse:
+        """Return learning sessions for administrative dashboards."""
+        ...
+
+    @abstractmethod
+    async def get_session_admin(self, session_id: str) -> LearningSession | None:
+        """Fetch a session without enforcing user ownership."""
+        ...
+
     # --- Units progress ---
     @abstractmethod
     async def get_unit_progress(self, user_id: str, unit_id: str) -> UnitProgress:
