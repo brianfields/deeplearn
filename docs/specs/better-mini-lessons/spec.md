@@ -196,96 +196,96 @@
 
 **Goal**: Establish database schema and basic content module support for lesson podcasts.
 
-- [ ] Add podcast columns to `lessons` table in `backend/modules/content/models.py`:
+- [x] Add podcast columns to `lessons` table in `backend/modules/content/models.py`:
   - `podcast_transcript` (Text, nullable)
   - `podcast_voice` (String(100), nullable)
   - `podcast_audio_object_id` (UUID, nullable)
   - `podcast_generated_at` (DateTime, nullable)
   - `podcast_duration_seconds` (Integer, nullable)
-- [ ] Update `UnitModel` podcast field comments/docs to clarify they represent intro podcast
-- [ ] Generate and run Alembic migration for lesson podcast columns
-- [ ] Update `backend/modules/content/service.py`:
+- [x] Update `UnitModel` podcast field comments/docs to clarify they represent intro podcast
+- [x] Generate and run Alembic migration for lesson podcast columns
+- [x] Update `backend/modules/content/service.py`:
   - Add podcast fields to `LessonRead` DTO
   - Add podcast fields to `UnitLessonSummary` DTO
   - Add method to generate lesson podcast audio URL (similar to unit podcast audio URL)
   - Update `UnitDetailRead` to clarify unit podcast is intro podcast
-- [ ] Update `backend/modules/content/repo.py`:
+- [x] Update `backend/modules/content/repo.py`:
   - Add queries to fetch lessons with podcast metadata
   - Update unit queries to include lesson podcast data
-- [ ] Update `backend/modules/content/routes.py`:
+- [x] Update `backend/modules/content/routes.py`:
   - Add `GET /api/v1/content/lessons/{lesson_id}/podcast/audio` route
   - Ensure route returns audio file with proper headers
-- [ ] Update `backend/modules/content/public.py` if lesson podcast methods needed by other modules
-- [ ] Update `backend/modules/content/test_content_unit.py`:
+- [x] Update `backend/modules/content/public.py` if lesson podcast methods needed by other modules
+- [x] Update `backend/modules/content/test_content_unit.py`:
   - Test lesson podcast fields in DTOs
   - Test lesson podcast audio URL generation
-- [ ] **Phase 1 Validation**: Run backend unit tests for content module
+- [x] **Phase 1 Validation**: Run backend unit tests for content module
 
 ### Phase 2: Backend Content Generation (Podcasts)
 
 **Goal**: Implement podcast generation flows for intro and lesson podcasts.
 
-- [ ] Create `backend/modules/content_creator/prompts/generate_intro_podcast_transcript.md`:
+- [x] Create `backend/modules/content_creator/prompts/generate_intro_podcast_transcript.md`:
   - Prompt for generating engaging intro/teaser podcast (~500 words)
   - Emphasizes hooks, importance, and engagement
   - No intro line required
-- [ ] Create `backend/modules/content_creator/prompts/generate_lesson_podcast_transcript.md`:
+- [x] Create `backend/modules/content_creator/prompts/generate_lesson_podcast_transcript.md`:
   - Prompt for generating lesson podcast from mini-lesson
   - Must include intro line: "Lesson N. [Lesson Title]"
   - Narrative and engaging style (not just reading mini-lesson)
-- [ ] Add `GenerateLessonPodcastTranscriptStep` to `backend/modules/content_creator/steps.py`
-- [ ] Create `LessonPodcastFlow` in `backend/modules/content_creator/flows.py`:
+- [x] Add `GenerateLessonPodcastTranscriptStep` to `backend/modules/content_creator/steps.py`
+- [x] Create `LessonPodcastFlow` in `backend/modules/content_creator/flows.py`:
   - Orchestrates lesson podcast transcript generation + audio synthesis
   - Similar structure to `UnitPodcastFlow`
-- [ ] Modify `UnitPodcastFlow` in `backend/modules/content_creator/flows.py`:
+- [x] Modify `UnitPodcastFlow` in `backend/modules/content_creator/flows.py`:
   - Change to generate intro-style podcast (teaser, ~500 words)
   - Use new intro podcast prompt
-- [ ] Create `LessonPodcastGenerator` class in `backend/modules/content_creator/podcast.py`:
+- [x] Create `LessonPodcastGenerator` class in `backend/modules/content_creator/podcast.py`:
   - Similar to `UnitPodcastGenerator`
   - Generates transcript + audio for single lesson
   - Includes intro line in transcript
-- [ ] Modify `UnitPodcastGenerator` in `backend/modules/content_creator/podcast.py`:
+- [x] Modify `UnitPodcastGenerator` in `backend/modules/content_creator/podcast.py`:
   - Update to generate intro-style podcasts
   - Use intro podcast prompt
-- [ ] Modify `LessonCreationFlow` in `backend/modules/content_creator/flows.py`:
+- [x] Modify `LessonCreationFlow` in `backend/modules/content_creator/flows.py`:
   - Integrate lesson podcast generation as part of lesson creation
   - Ensure podcast generated before lesson is saved
-- [ ] Update `backend/modules/content_creator/service.py`:
+- [x] Update `backend/modules/content_creator/service.py`:
   - Update `create_lesson` to generate lesson podcast
   - Update `create_unit` to generate intro podcast (not full unit podcast)
   - Ensure all lesson podcasts generated before unit marked "completed"
   - Store lesson podcast audio in object store and reference in `LessonModel`
-- [ ] Update `backend/modules/content_creator/test_flows_unit.py`:
+- [x] Update `backend/modules/content_creator/test_flows_unit.py`:
   - Test `LessonPodcastFlow` generates transcript + audio
   - Test intro podcast generation in `UnitPodcastFlow`
-- [ ] Update `backend/modules/content_creator/test_service_unit.py`:
+- [x] Update `backend/modules/content_creator/test_service_unit.py`:
   - Test lesson creation includes podcast
   - Test unit creation generates intro + all lesson podcasts
-- [ ] **Phase 2 Validation**: Run backend unit tests for content_creator module
+- [x] **Phase 2 Validation**: Run backend unit tests for content_creator module
 
 ### Phase 3: Backend Catalog, Admin & Seed Data
 
 **Goal**: Surface podcast data in catalog/admin APIs and update seed data.
 
-- [ ] Update `backend/modules/catalog/service.py`:
+- [x] Update `backend/modules/catalog/service.py`:
   - Add podcast fields to `LessonSummary` DTO (has_podcast, podcast_duration_seconds, podcast_voice)
   - Add podcast fields to `LessonDetail` DTO (transcript, audio_url, duration, voice, generated_at)
   - Add lesson podcast fields to `UnitDetail` DTO (lessons should include podcast metadata)
   - Update unit podcast fields in `UnitDetail` to clarify intro podcast
-- [ ] Update `backend/modules/catalog/test_lesson_catalog_unit.py`:
+- [x] Update `backend/modules/catalog/test_lesson_catalog_unit.py`:
   - Test lesson DTOs include podcast fields
-- [ ] Update `backend/modules/admin/models.py`:
+- [x] Update `backend/modules/admin/models.py`:
   - Add podcast fields to `LessonSummary` DTO
   - Add podcast fields to `LessonDetails` DTO
-- [ ] Update `backend/modules/admin/service.py`:
+- [x] Update `backend/modules/admin/service.py`:
   - Include lesson podcast URLs in unit detail responses
   - Include intro podcast URL in unit detail responses
-- [ ] Update `backend/modules/admin/routes.py`:
+- [x] Update `backend/modules/admin/routes.py`:
   - Ensure unit detail endpoint returns podcast data for intro + all lessons
-- [ ] Update `backend/scripts/create_seed_data.py`:
+- [x] Update `backend/scripts/create_seed_data.py`:
   - Generate seed units with intro + lesson podcasts
   - Ensure seed data reflects new structure
-- [ ] **Phase 3 Validation**: 
+- [x] **Phase 3 Validation**:
   - Run backend unit tests: `backend/scripts/run_unit.py`
   - Run backend integration tests: `backend/scripts/run_integration.py`
   - Verify seed data generation works
@@ -294,7 +294,7 @@
 
 **Goal**: Update mobile content sync and catalog to handle lesson podcasts.
 
-- [ ] Update `mobile/modules/content/models.ts`:
+- [x] Update `mobile/modules/content/models.ts`:
   - Add podcast fields to `Lesson` interface:
     - `podcastTranscript?: string | null`
     - `podcastAudioUrl?: string | null`
@@ -302,74 +302,74 @@
     - `podcastVoice?: string | null`
     - `podcastGeneratedAt?: string | null`
   - Add `hasPodcast` computed property
-- [ ] Update `mobile/modules/content/service.ts`:
+- [x] Update `mobile/modules/content/service.ts`:
   - Update sync logic to download lesson podcast audio files
   - Cache lesson podcast metadata in offline cache
-- [ ] Update `mobile/modules/content/repo.ts`:
+- [x] Update `mobile/modules/content/repo.ts`:
   - Update API wire types to include lesson podcast fields
   - Update cache storage to persist lesson podcast data
-- [ ] Update `mobile/modules/content/test_content_service_unit.ts`:
+- [x] Update `mobile/modules/content/test_content_service_unit.ts`:
   - Test lesson podcast fields synced and cached
-- [ ] Update `mobile/modules/catalog/models.ts`:
+- [x] Update `mobile/modules/catalog/models.ts`:
   - Add podcast fields to `LessonSummary` interface
   - Add podcast fields to `LessonDetail` interface
   - Update `UnitDetail` to clarify unit podcast is intro podcast
-- [ ] Update `mobile/modules/catalog/service.ts`:
+- [x] Update `mobile/modules/catalog/service.ts`:
   - Map lesson podcast fields from API responses to DTOs
-- [ ] Update `mobile/modules/catalog/screens/UnitDetailScreen.tsx`:
+- [x] Update `mobile/modules/catalog/screens/UnitDetailScreen.tsx`:
   - Update UI to show "Intro Podcast" label (instead of "Unit Podcast")
   - Optionally show lesson podcast indicators in lesson list
-- [ ] Update `mobile/modules/catalog/components/LessonCard.tsx`:
+- [x] Update `mobile/modules/catalog/components/LessonCard.tsx`:
   - Add podcast indicator icon if lesson has podcast
-- [ ] **Phase 4 Validation**: Run mobile unit tests for content and catalog modules
+- [x] **Phase 4 Validation**: Run mobile unit tests for content and catalog modules
 
 ### Phase 5: Mobile Podcast Player & Learning Session (Playback)
 
 **Goal**: Implement playlist, navigation, and autoplay in podcast player; integrate with learning session.
 
-- [ ] Update `mobile/modules/podcast_player/models.ts`:
+- [x] Update `mobile/modules/podcast_player/models.ts`:
   - Add `lessonId?: string | null` to `PodcastTrack` (null for intro)
   - Add `lessonIndex?: number | null` to `PodcastTrack` (null for intro, 0-based for lessons)
   - Create `UnitPodcastPlaylist` interface:
     - `unitId: string`
     - `tracks: PodcastTrack[]` (intro + lesson podcasts in order)
     - `currentTrackIndex: number`
-- [ ] Update `mobile/modules/podcast_player/store.ts`:
+- [x] Update `mobile/modules/podcast_player/store.ts`:
   - Add `playlist: UnitPodcastPlaylist | null` state
   - Add `autoplayEnabled: boolean` state (default: true)
   - Add actions: `setPlaylist`, `setCurrentTrackIndex`, `toggleAutoplay`
-- [ ] Update `mobile/modules/podcast_player/service.ts`:
+- [x] Update `mobile/modules/podcast_player/service.ts`:
   - Add `loadPlaylist(unitId: string, tracks: PodcastTrack[]): Promise<void>` method
   - Add `skipToNext(): Promise<void>` method (move to next track in playlist)
   - Add `skipToPrevious(): Promise<void>` method (move to previous track in playlist)
   - Add autoplay logic: when track ends, automatically load and play next track if autoplayEnabled
   - Update `loadTrack` to set current track index in playlist
-- [ ] Update `mobile/modules/podcast_player/hooks/usePodcastPlayer.ts`:
+- [x] Update `mobile/modules/podcast_player/hooks/usePodcastPlayer.ts`:
   - Expose `skipToNext` and `skipToPrevious` functions
   - Expose `loadPlaylist` function
   - Expose `autoplayEnabled` and `toggleAutoplay`
-- [ ] Update `mobile/modules/podcast_player/components/PodcastPlayer.tsx`:
+- [x] Update `mobile/modules/podcast_player/components/PodcastPlayer.tsx`:
   - Add skip forward button (calls `skipToNext`)
   - Add skip back button (calls `skipToPrevious`)
   - Add current track indicator (e.g., "Intro" or "Lesson 2 of 5")
   - Add autoplay toggle (optional, can be in settings)
   - Update UI to show which track is playing in playlist
-- [ ] Update `mobile/modules/podcast_player/public.ts`:
+- [x] Update `mobile/modules/podcast_player/public.ts`:
   - Export new playlist and navigation methods
-- [ ] Update `mobile/modules/podcast_player/test_podcast_player_unit.ts`:
+- [x] Update `mobile/modules/podcast_player/test_podcast_player_unit.ts`:
   - Test playlist loading
   - Test skip forward/back navigation
   - Test autoplay logic
-- [ ] Update `mobile/modules/learning_session/screens/LearningFlowScreen.tsx`:
+- [x] Update `mobile/modules/learning_session/screens/LearningFlowScreen.tsx`:
   - On session start, load podcast playlist (intro + all lesson podcasts)
   - Initialize podcast player with playlist
-- [ ] Update `mobile/modules/learning_session/components/LearningFlow.tsx`:
+- [x] Update `mobile/modules/learning_session/components/LearningFlow.tsx`:
   - When showing mini-lesson, load corresponding lesson podcast track
   - Ensure podcast player is visible and playing lesson podcast
-- [ ] Update `mobile/modules/learning_session/components/MiniLesson.tsx`:
+- [x] Update `mobile/modules/learning_session/components/MiniLesson.tsx`:
   - Ensure podcast player remains visible
   - Optionally add UI hint that podcast is available
-- [ ] **Phase 5 Validation**: 
+- [x] **Phase 5 Validation**:
   - Run mobile unit tests: `cd mobile && npm run test`
   - Manual testing: Verify playlist navigation and autoplay work correctly
 
@@ -377,35 +377,35 @@
 
 **Goal**: Complete admin interface, update e2e tests, ensure terminology consistency, and validate entire implementation.
 
-- [ ] Update `admin/modules/admin/models.ts`:
+- [x] Update `admin/modules/admin/models.ts`:
   - Add podcast fields to `LessonSummary` interface
   - Add podcast fields to `LessonDetails` interface
-- [ ] Update `admin/modules/admin/service.ts`:
+- [x] Update `admin/modules/admin/service.ts`:
   - Map lesson podcast fields from API responses
-- [ ] Update `admin/modules/admin/repo.ts`:
+- [x] Update `admin/modules/admin/repo.ts`:
   - Ensure lesson podcast URLs fetched in unit detail calls
-- [ ] Create `admin/modules/admin/components/content/UnitPodcastList.tsx`:
+- [x] Create `admin/modules/admin/components/content/UnitPodcastList.tsx`:
   - Component to display intro podcast + list of lesson podcasts
   - Each podcast shows: title, duration, voice, link to audio file
   - Read-only view (no editing)
-- [ ] Update `admin/app/units/[id]/page.tsx`:
+- [x] Update `admin/app/units/[id]/page.tsx`:
   - Import and render `UnitPodcastList` component
   - Show intro podcast at top
   - Show lesson podcasts in order below
-- [ ] Update existing Maestro e2e tests in `mobile/e2e/` to handle new podcast structure
-- [ ] Add testID attributes to new UI elements (skip buttons, track indicator) for Maestro tests
-- [ ] Search codebase for "unit podcast" references and update to clarify "intro podcast" where appropriate
-- [ ] Ensure all UI labels distinguish between "intro podcast" and "lesson podcasts"
-- [ ] Update any documentation or comments that reference old single-podcast structure
+- [x] Update existing Maestro e2e tests in `mobile/e2e/` to handle new podcast structure
+- [x] Add testID attributes to new UI elements (skip buttons, track indicator) for Maestro tests
+- [x] Search codebase for "unit podcast" references and update to clarify "intro podcast" where appropriate
+- [x] Ensure all UI labels distinguish between "intro podcast" and "lesson podcasts"
+- [x] Update any documentation or comments that reference old single-podcast structure
 - [ ] Ensure lint passes: `./format_code.sh` runs clean
-- [ ] Ensure all unit tests pass:
-  - Backend: `backend/scripts/run_unit.py`
-  - Mobile: `cd mobile && npm run test`
-- [ ] Ensure integration tests pass: `backend/scripts/run_integration.py`
-- [ ] Follow instructions in `codegen/prompts/trace.md` to trace the user story implementation
-- [ ] Fix any issues documented during tracing in `docs/specs/better-mini-lessons/trace.md`
-- [ ] Follow instructions in `codegen/prompts/modulecheck.md` to verify modular architecture compliance
-- [ ] Examine all new code and ensure no dead code exists (all code is being used)
+  - [x] Ensure all unit tests pass:
+    - Backend: `backend/scripts/run_unit.py`
+    - Mobile: `cd mobile && npm run test`
+  - [x] Ensure integration tests pass: `backend/scripts/run_integration.py`
+  - [x] Follow instructions in `codegen/prompts/trace.md` to trace the user story implementation
+  - [x] Fix any issues documented during tracing in `docs/specs/better-mini-lessons/trace.md`
+  - [x] Follow instructions in `codegen/prompts/modulecheck.md` to verify modular architecture compliance
+  - [x] Examine all new code and ensure no dead code exists (all code is being used)
 
 ---
 

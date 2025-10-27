@@ -26,10 +26,13 @@ export type LearningStackParamList = {
   LearningFlow: { lessonId: string; lesson: LessonDetail; unitId: string };
   UnitDetail: { unitId: string };
   UnitLODetail: { unitId: string; unitTitle?: string | null };
-  CacheManagement: undefined;
   Results: {
     results: SessionResults;
     unitId: string;
   };
   CatalogBrowser: undefined;
+  ManageCache: undefined;
+  SQLiteDetail: undefined;
+  AsyncStorageDetail: undefined;
+  FileSystemDetail: undefined;
 };

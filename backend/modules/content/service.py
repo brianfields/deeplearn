@@ -56,6 +56,12 @@ class LessonRead(BaseModel):
     created_at: datetime
     updated_at: datetime
     schema_version: int = 1
+    podcast_transcript: str | None = None
+    podcast_voice: str | None = None
+    podcast_duration_seconds: int | None = None
+    podcast_generated_at: datetime | None = None
+    podcast_audio_url: str | None = None
+    has_podcast: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -95,6 +101,10 @@ class ContentService:
         self._audio_metadata_cache: dict[uuid.UUID, Any | None] = {}
         self._art_metadata_cache: dict[uuid.UUID, Any | None] = {}
 
+    async def commit_session(self) -> None:
+        """Commit pending changes to make them visible immediately in the admin dashboard."""
+        await self.repo.s.commit()
+
     # Lesson operations
     def _lesson_model_to_read(self, lesson: LessonModel) -> LessonRead:
         """Convert an ORM lesson model into the LessonRead DTO."""
@@ -127,7 +137,30 @@ class ContentService:
             "schema_version": getattr(lesson, "schema_version", 1),
         }
 
+        lesson_dict.update(self._build_lesson_podcast_payload(lesson, include_transcript=True))
+
         return LessonRead.model_validate(lesson_dict)
+
+    def _build_lesson_podcast_payload(
+        self,
+        lesson: LessonModel,
+        *,
+        include_transcript: bool,
+    ) -> dict[str, Any]:
+        audio_identifier = getattr(lesson, "podcast_audio_object_id", None)
+        transcript = getattr(lesson, "podcast_transcript", None)
+        payload: dict[str, Any] = {
+            "has_podcast": bool(audio_identifier or transcript),
+            "podcast_voice": getattr(lesson, "podcast_voice", None),
+            "podcast_duration_seconds": getattr(lesson, "podcast_duration_seconds", None),
+            "podcast_generated_at": getattr(lesson, "podcast_generated_at", None),
+            "podcast_audio_url": self._build_lesson_podcast_audio_url(lesson) if audio_identifier else None,
+        }
+
+        if include_transcript:
+            payload["podcast_transcript"] = transcript
+
+        return payload
 
     async def get_lesson(self, lesson_id: str) -> LessonRead | None:
         """Get lesson with package by ID."""
@@ -144,26 +177,7 @@ class ContentService:
 
         for lesson in lessons:
             try:
-                package = LessonPackage.model_validate(lesson.package)
-
-                lesson_dict = {
-                    "id": lesson.id,
-                    "title": lesson.title,
-                    "learner_level": lesson.learner_level,
-                    "unit_id": getattr(lesson, "unit_id", None),
-                    "source_material": lesson.source_material,
-                    "source_domain": getattr(lesson, "source_domain", None),
-                    "source_level": getattr(lesson, "source_level", None),
-                    "refined_material": getattr(lesson, "refined_material", None),
-                    "package": package,
-                    "package_version": lesson.package_version,
-                    "flow_run_id": lesson.flow_run_id,
-                    "created_at": lesson.created_at,
-                    "updated_at": lesson.updated_at,
-                    "schema_version": getattr(lesson, "schema_version", 1),
-                }
-
-                result.append(LessonRead.model_validate(lesson_dict))
+                result.append(self._lesson_model_to_read(lesson))
             except Exception as e:
                 logger.warning(f"⚠️ Skipping lesson {lesson.id} ({lesson.title}) due to data validation error: {e}")
                 continue
@@ -183,26 +197,7 @@ class ContentService:
 
         for lesson in lessons:
             try:
-                package = LessonPackage.model_validate(lesson.package)
-
-                lesson_dict = {
-                    "id": lesson.id,
-                    "title": lesson.title,
-                    "learner_level": lesson.learner_level,
-                    "unit_id": getattr(lesson, "unit_id", None),
-                    "source_material": lesson.source_material,
-                    "source_domain": getattr(lesson, "source_domain", None),
-                    "source_level": getattr(lesson, "source_level", None),
-                    "refined_material": getattr(lesson, "refined_material", None),
-                    "package": package,
-                    "package_version": lesson.package_version,
-                    "flow_run_id": lesson.flow_run_id,
-                    "created_at": lesson.created_at,
-                    "updated_at": lesson.updated_at,
-                    "schema_version": getattr(lesson, "schema_version", 1),
-                }
-
-                result.append(LessonRead.model_validate(lesson_dict))
+                result.append(self._lesson_model_to_read(lesson))
             except Exception as e:
                 logger.warning(f"⚠️ Skipping lesson {lesson.id} ({lesson.title}) due to data validation error: {e}")
                 continue
@@ -216,23 +211,7 @@ class ContentService:
         result: list[LessonRead] = []
         for lesson in lessons:
             try:
-                package = LessonPackage.model_validate(lesson.package)
-                lesson_dict = {
-                    "id": lesson.id,
-                    "title": lesson.title,
-                    "learner_level": lesson.learner_level,
-                    "source_material": lesson.source_material,
-                    "source_domain": getattr(lesson, "source_domain", None),
-                    "source_level": getattr(lesson, "source_level", None),
-                    "refined_material": getattr(lesson, "refined_material", None),
-                    "package": package,
-                    "package_version": lesson.package_version,
-                    "flow_run_id": lesson.flow_run_id,
-                    "created_at": lesson.created_at,
-                    "updated_at": lesson.updated_at,
-                    "schema_version": getattr(lesson, "schema_version", 1),
-                }
-                result.append(LessonRead.model_validate(lesson_dict))
+                result.append(self._lesson_model_to_read(lesson))
             except Exception as e:  # pragma: no cover - defensive
                 logger.warning(f"⚠️ Skipping lesson {lesson.id} due to data validation error: {e}")
                 continue
@@ -256,28 +235,17 @@ class ContentService:
 
         saved_lesson = await self.repo.save_lesson(lesson_model)
 
-        # Return as DTO
-        lesson_dict = {
-            "id": saved_lesson.id,
-            "title": saved_lesson.title,
-            "learner_level": saved_lesson.learner_level,
-            "unit_id": getattr(saved_lesson, "unit_id", None),
-            "source_material": saved_lesson.source_material,
-            "source_domain": getattr(saved_lesson, "source_domain", None),
-            "source_level": getattr(saved_lesson, "source_level", None),
-            "refined_material": getattr(saved_lesson, "refined_material", None),
-            "package": lesson_data.package,  # Use original validated package
-            "package_version": saved_lesson.package_version,
-            "flow_run_id": saved_lesson.flow_run_id,
-            "created_at": saved_lesson.created_at,
-            "updated_at": saved_lesson.updated_at,
-            "schema_version": getattr(saved_lesson, "schema_version", 1),
-        }
+        saved_lesson.package = lesson_data.package.model_dump()  # ensure DTO uses validated package
 
         try:
-            return LessonRead.model_validate(lesson_dict)
+            return self._lesson_model_to_read(saved_lesson)
         except Exception as e:
-            logger.error(f"❌ Failed to validate saved lesson {saved_lesson.id} ({saved_lesson.title}): {e}")
+            logger.error(
+                "❌ Failed to validate saved lesson %s (%s): %s",
+                saved_lesson.id,
+                getattr(saved_lesson, "title", "<unknown>"),
+                e,
+            )
             raise
 
     async def delete_lesson(self, lesson_id: str) -> bool:
@@ -312,7 +280,7 @@ class ContentService:
         status: str = "completed"
         creation_progress: dict[str, Any] | None = None
         error_message: str | None = None
-        # Podcast metadata surfaced in summaries
+        # Intro podcast metadata surfaced in summaries
         has_podcast: bool = False
         podcast_voice: str | None = None
         podcast_duration_seconds: int | None = None
@@ -336,8 +304,15 @@ class ContentService:
         learning_objectives: list[str]
         key_concepts: list[str]
         exercise_count: int
+        has_podcast: bool = False
+        podcast_voice: str | None = None
+        podcast_duration_seconds: int | None = None
+        podcast_generated_at: datetime | None = None
+        podcast_audio_url: str | None = None
 
     class UnitDetailRead(UnitRead):
+        """Full unit detail including intro podcast and ordered lessons."""
+
         learning_objectives: list[UnitLearningObjective] | None = None
         lessons: list[ContentService.UnitLessonSummary]
         podcast_transcript: str | None = None
@@ -390,6 +365,12 @@ class ContentService:
 
     class UnitPodcastAudio(BaseModel):
         unit_id: str
+        mime_type: str
+        audio_bytes: bytes | None = None
+        presigned_url: str | None = None
+
+    class LessonPodcastAudio(BaseModel):
+        lesson_id: str
         mime_type: str
         audio_bytes: bytes | None = None
         presigned_url: str | None = None
@@ -501,6 +482,7 @@ class ContentService:
         unit_read: ContentService.UnitRead,
         *,
         allowed_types: set[str] | None = None,
+        lessons: list[LessonModel] | None = None,
     ) -> list[ContentService.UnitSyncAsset]:
         """Construct asset metadata for the sync payload."""
 
@@ -536,6 +518,38 @@ class ContentService:
                         updated_at=getattr(unit, "podcast_generated_at", unit.updated_at),
                     )
                 )
+
+        # Include lesson podcast assets for offline download
+        if include_audio and lessons:
+            for lesson in lessons:
+                lesson_audio_id = getattr(lesson, "podcast_audio_object_id", None)
+                if lesson_audio_id:
+                    try:
+                        lesson_audio_uuid = lesson_audio_id if isinstance(lesson_audio_id, uuid.UUID) else uuid.UUID(str(lesson_audio_id))
+                    except (TypeError, ValueError):  # pragma: no cover - defensive
+                        logger.warning("🎧 Invalid lesson podcast audio id encountered: %s", lesson_audio_id)
+                        continue
+
+                    presigned_lesson_audio: str | None = None
+                    if self._object_store is not None:
+                        metadata = await self._fetch_audio_metadata(
+                            lesson_audio_uuid,
+                            requesting_user_id=getattr(unit, "user_id", None),
+                            include_presigned_url=True,
+                        )
+                        presigned_lesson_audio = getattr(metadata, "presigned_url", None)
+
+                    assets.append(
+                        self.UnitSyncAsset(
+                            id=f"lesson-podcast-{lesson.id}",
+                            unit_id=unit.id,
+                            type="audio",
+                            object_id=lesson_audio_uuid,
+                            remote_url=self._build_lesson_podcast_audio_url(lesson),
+                            presigned_url=presigned_lesson_audio,
+                            updated_at=getattr(lesson, "podcast_generated_at", lesson.updated_at),
+                        )
+                    )
 
         art_identifier = getattr(unit, "art_image_id", None)
         if include_image and art_identifier:
@@ -647,10 +661,33 @@ class ContentService:
 
         return metadata
 
+    def _build_lesson_podcast_audio_url(self, lesson: LessonModel) -> str | None:
+        audio_identifier = getattr(lesson, "podcast_audio_object_id", None)
+        lesson_id = getattr(lesson, "id", None)
+        if not audio_identifier or not lesson_id:
+            return None
+        return f"/api/v1/content/lessons/{lesson_id}/podcast/audio"
+
     def _build_podcast_audio_url(self, unit: UnitModel) -> str | None:
         if not getattr(unit, "podcast_audio_object_id", None):
             return None
         return self.PODCAST_AUDIO_ROUTE_TEMPLATE.format(unit_id=unit.id)
+
+    def _build_lesson_podcast_filename(self, lesson_id: str, mime_type: str | None) -> str:
+        """Construct a filename for uploaded lesson podcast audio."""
+
+        extension_map = {
+            "audio/mpeg": ".mp3",
+            "audio/mp3": ".mp3",
+            "audio/wav": ".wav",
+            "audio/x-wav": ".wav",
+            "audio/flac": ".flac",
+            "audio/x-flac": ".flac",
+            "audio/mp4": ".mp4",
+            "audio/m4a": ".m4a",
+        }
+        suffix = extension_map.get((mime_type or "").lower(), ".bin")
+        return f"lesson-{lesson_id}{suffix}"
 
     def _build_podcast_filename(self, unit_id: str, mime_type: str | None) -> str:
         """Construct a filename for uploaded podcast audio for a unit."""
@@ -763,9 +800,65 @@ class ContentService:
             voice=voice,
         )
         if updated_model is None:
-            raise ValueError("Failed to persist unit podcast metadata")
+            raise ValueError("Failed to persist intro podcast metadata")
 
         return await self._build_unit_read(updated_model, audio_meta=upload.file)
+
+    async def save_lesson_podcast_from_bytes(
+        self,
+        lesson_id: str,
+        *,
+        transcript: str,
+        audio_bytes: bytes,
+        mime_type: str | None,
+        voice: str | None,
+        duration_seconds: int | None = None,
+    ) -> LessonRead:
+        """Upload lesson podcast audio and persist metadata."""
+
+        if self._object_store is None:
+            raise RuntimeError("Object store is not configured; cannot persist lesson podcast audio.")
+
+        lesson = await self.repo.get_lesson_by_id(lesson_id)
+        if lesson is None:
+            raise ValueError("Lesson not found")
+
+        owner_id: int | None = None
+        unit_id = getattr(lesson, "unit_id", None)
+        if unit_id:
+            unit = await self.repo.get_unit_by_id(unit_id)
+            if unit is not None:
+                owner_id = getattr(unit, "user_id", None)
+
+        filename = self._build_lesson_podcast_filename(lesson_id, mime_type)
+
+        upload = await self._object_store.upload_audio(  # type: ignore[func-returns-value]
+            AudioCreate(
+                user_id=owner_id,
+                filename=filename,
+                content_type=(mime_type or "audio/mpeg"),
+                content=audio_bytes,
+                transcript=transcript,
+            )
+        )
+
+        audio_file = upload.file
+        audio_object_id = audio_file.id
+        resolved_duration = duration_seconds if duration_seconds is not None else getattr(audio_file, "duration_seconds", None)
+        resolved_voice = voice if voice is not None else getattr(audio_file, "voice", None)
+
+        updated_lesson = await self.repo.set_lesson_podcast(
+            lesson_id,
+            transcript=transcript,
+            audio_object_id=audio_object_id,
+            voice=resolved_voice,
+            duration_seconds=resolved_duration,
+        )
+        if updated_lesson is None:
+            raise ValueError("Failed to persist lesson podcast metadata")
+
+        self._audio_metadata_cache.pop(audio_object_id, None)
+        return self._lesson_model_to_read(updated_lesson)
 
     async def get_unit(self, unit_id: str) -> ContentService.UnitRead | None:
         u = await self.repo.get_unit_by_id(unit_id)
@@ -814,6 +907,7 @@ class ContentService:
                 else:
                     key_concepts.append(str(term))
 
+            podcast_meta = self._build_lesson_podcast_payload(lesson, include_transcript=False)
             summary = self.UnitLessonSummary(
                 id=lesson.id,
                 title=lesson.title,
@@ -822,6 +916,11 @@ class ContentService:
                 learning_objectives=objectives,
                 key_concepts=key_concepts,
                 exercise_count=len(package.exercises),
+                has_podcast=podcast_meta["has_podcast"],
+                podcast_voice=podcast_meta["podcast_voice"],
+                podcast_duration_seconds=podcast_meta["podcast_duration_seconds"],
+                podcast_generated_at=podcast_meta["podcast_generated_at"],
+                podcast_audio_url=podcast_meta["podcast_audio_url"],
             )
             lesson_summaries[lesson.id] = summary
 
@@ -978,6 +1077,7 @@ class ContentService:
                 unit,
                 unit_read,
                 allowed_types=allowed_asset_types,
+                lessons=ordered_models if include_lessons else None,
             )
 
             entries.append(
@@ -1318,6 +1418,46 @@ class ContentService:
 
         return self.UnitPodcastAudio(
             unit_id=unit_id,
+            mime_type=mime_type,
+            presigned_url=presigned,
+        )
+
+    async def get_lesson_podcast_audio(self, lesson_id: str) -> ContentService.LessonPodcastAudio | None:
+        """Retrieve lesson podcast audio for streaming."""
+
+        lesson = await self.repo.get_lesson_by_id(lesson_id)
+        if lesson is None:
+            return None
+
+        audio_meta = await self._fetch_audio_metadata(
+            getattr(lesson, "podcast_audio_object_id", None),
+            requesting_user_id=None,
+            include_presigned_url=True,
+        )
+        if not audio_meta:
+            return None
+
+        mime_type = getattr(audio_meta, "content_type", None) or "audio/mpeg"
+        presigned = getattr(audio_meta, "presigned_url", None)
+
+        if presigned is None and self._object_store is not None:
+            s3_key = getattr(audio_meta, "s3_key", None)
+            if s3_key:
+                try:
+                    presigned = await self._object_store.generate_presigned_url(s3_key)
+                except Exception as exc:  # pragma: no cover - object store failures
+                    logger.warning(
+                        "🎧 Failed to generate presigned podcast URL for lesson %s: %s",
+                        lesson_id,
+                        exc,
+                        exc_info=True,
+                    )
+
+        if presigned is None:
+            return None
+
+        return self.LessonPodcastAudio(
+            lesson_id=lesson_id,
             mime_type=mime_type,
             presigned_url=presigned,
         )

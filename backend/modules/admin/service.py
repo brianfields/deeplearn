@@ -786,6 +786,9 @@ class AdminService:
                             package_version=full_lesson.package_version,
                             created_at=full_lesson.created_at,
                             updated_at=full_lesson.updated_at,
+                            has_podcast=getattr(full_lesson, "has_podcast", False),
+                            podcast_voice=getattr(full_lesson, "podcast_voice", None),
+                            podcast_duration_seconds=getattr(full_lesson, "podcast_duration_seconds", None),
                         )
                     )
 
@@ -833,6 +836,12 @@ class AdminService:
                 flow_run_id=str(lesson.flow_run_id) if lesson.flow_run_id else None,
                 created_at=lesson.created_at,
                 updated_at=lesson.updated_at,
+                podcast_transcript=getattr(lesson, "podcast_transcript", None),
+                podcast_voice=getattr(lesson, "podcast_voice", None),
+                podcast_audio_url=getattr(lesson, "podcast_audio_url", None),
+                podcast_duration_seconds=getattr(lesson, "podcast_duration_seconds", None),
+                podcast_generated_at=getattr(lesson, "podcast_generated_at", None),
+                has_podcast=getattr(lesson, "has_podcast", False),
             )
 
         except Exception:

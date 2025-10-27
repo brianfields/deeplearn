@@ -175,10 +175,10 @@ class PodcastLessonInput(BaseModel):
 
 
 class GenerateUnitPodcastTranscriptStep(UnstructuredStep):
-    """Generate a single-voice podcast transcript summarizing the full unit."""
+    """Generate an intro-style podcast transcript that teases the full unit."""
 
     step_name = "generate_unit_podcast_transcript"
-    prompt_file = "generate_unit_podcast_transcript.md"
+    prompt_file = "generate_intro_podcast_transcript.md"
     reasoning_effort = "medium"
     verbosity = "low"
     model = "gpt-5-mini"
@@ -188,6 +188,23 @@ class GenerateUnitPodcastTranscriptStep(UnstructuredStep):
         voice: str
         unit_summary: str
         lessons: list[PodcastLessonInput]
+
+
+class GenerateLessonPodcastTranscriptStep(UnstructuredStep):
+    """Generate a narrative podcast transcript for a single lesson."""
+
+    step_name = "generate_lesson_podcast_transcript"
+    prompt_file = "generate_lesson_podcast_transcript.md"
+    reasoning_effort = "medium"
+    verbosity = "low"
+    model = "gpt-5-mini"
+
+    class Inputs(BaseModel):
+        lesson_number: int
+        lesson_title: str
+        lesson_objective: str
+        mini_lesson: str
+        voice: str
 
 
 class SynthesizePodcastAudioStep(AudioStep):

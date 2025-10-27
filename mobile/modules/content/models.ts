@@ -31,6 +31,8 @@ export interface ApiUnitSummary {
   has_podcast?: boolean;
   podcast_voice?: string | null;
   podcast_duration_seconds?: number | null;
+  podcast_audio_url?: string | null;
+  podcast_transcript?: string | null;
   art_image_url?: string | null;
   art_image_description?: string | null;
   learning_objectives?: ApiUnitLearningObjective[] | null;
@@ -50,6 +52,12 @@ export interface ApiUnitDetail {
     learning_objectives: string[];
     key_concepts: string[];
     exercise_count: number;
+    has_podcast?: boolean;
+    podcast_voice?: string | null;
+    podcast_duration_seconds?: number | null;
+    podcast_generated_at?: string | null;
+    podcast_audio_url?: string | null;
+    podcast_transcript?: string | null;
   }>;
   learning_objectives?: ApiUnitLearningObjective[] | null;
   target_lesson_count?: number | null;
@@ -93,6 +101,26 @@ export interface UnitLessonSummary {
   readonly isReadyForLearning: boolean;
   readonly estimatedDuration: number;
   readonly learnerLevelLabel: string;
+  readonly hasPodcast: boolean;
+  readonly podcastVoice: string | null;
+  readonly podcastDurationSeconds: number | null;
+  readonly podcastGeneratedAt: string | null;
+  readonly podcastAudioUrl: string | null;
+}
+
+export interface Lesson {
+  readonly id: string;
+  readonly title: string;
+  readonly learnerLevel: Difficulty;
+  readonly learningObjectives: string[];
+  readonly keyConcepts: string[];
+  readonly exerciseCount: number;
+  readonly podcastTranscript?: string | null;
+  readonly podcastAudioUrl?: string | null;
+  readonly podcastDurationSeconds?: number | null;
+  readonly podcastVoice?: string | null;
+  readonly podcastGeneratedAt?: string | null;
+  readonly hasPodcast: boolean;
 }
 
 export interface UnitLearningObjective {
@@ -311,6 +339,14 @@ function toUnitLessonSummaryDTO(
   const componentCount = lesson.exercise_count;
   const isReadyForLearning = componentCount > 0;
   const estimatedDuration = Math.max(5, componentCount * 3);
+  const hasPodcast =
+    typeof lesson.has_podcast === 'boolean'
+      ? lesson.has_podcast
+      : Boolean(
+          lesson.podcast_audio_url ||
+            lesson.podcast_duration_seconds ||
+            lesson.podcast_voice
+        );
   return {
     id: lesson.id,
     title: lesson.title,
@@ -323,6 +359,11 @@ function toUnitLessonSummaryDTO(
     isReadyForLearning,
     estimatedDuration,
     learnerLevelLabel: formatLearnerLevel(learnerLevel),
+    hasPodcast,
+    podcastVoice: lesson.podcast_voice ?? null,
+    podcastDurationSeconds: lesson.podcast_duration_seconds ?? null,
+    podcastGeneratedAt: lesson.podcast_generated_at ?? null,
+    podcastAudioUrl: lesson.podcast_audio_url ?? null,
   };
 }
 

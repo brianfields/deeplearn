@@ -27,6 +27,9 @@ interface ApiBrowseLessonsResponse {
     learning_objectives: string[];
     key_concepts: string[];
     exercise_count: number;
+    has_podcast?: boolean;
+    podcast_duration_seconds?: number | null;
+    podcast_voice?: string | null;
   }>;
   total: number;
 }
@@ -43,6 +46,12 @@ interface ApiLessonDetail {
   created_at: string;
   exercise_count: number;
   unit_id?: string | null;
+  podcast_transcript?: string | null;
+  podcast_audio_url?: string | null;
+  podcast_duration_seconds?: number | null;
+  podcast_voice?: string | null;
+  podcast_generated_at?: string | null;
+  has_podcast?: boolean;
 }
 
 export class CatalogRepo {
@@ -396,6 +405,42 @@ export class CatalogRepo {
                 })
               : fallbackObjectives;
 
+          const podcastTranscript =
+            typeof payload.podcast_transcript === 'string'
+              ? payload.podcast_transcript
+              : null;
+          const podcastAudioUrl =
+            typeof payload.podcast_audio_url === 'string'
+              ? payload.podcast_audio_url
+              : null;
+          const rawPodcastDuration = payload.podcast_duration_seconds;
+          const podcastDurationSeconds =
+            typeof rawPodcastDuration === 'number'
+              ? rawPodcastDuration
+              : typeof rawPodcastDuration === 'string'
+                ? Number.parseInt(rawPodcastDuration, 10)
+                : null;
+          const podcastVoice =
+            typeof payload.podcast_voice === 'string'
+              ? payload.podcast_voice
+              : null;
+          const rawGeneratedAt = payload.podcast_generated_at;
+          const podcastGeneratedAt =
+            typeof rawGeneratedAt === 'string'
+              ? rawGeneratedAt
+              : rawGeneratedAt instanceof Date
+                ? rawGeneratedAt.toISOString()
+                : null;
+          const hasPodcast =
+            typeof payload.has_podcast === 'boolean'
+              ? payload.has_podcast
+              : Boolean(
+                  podcastAudioUrl ||
+                    podcastTranscript ||
+                    podcastDurationSeconds ||
+                    podcastVoice
+                );
+
           return {
             id: cachedLesson.id,
             title: cachedLesson.title,
@@ -422,6 +467,16 @@ export class CatalogRepo {
             readinessStatus: 'ready',
             tags: payload.tags || [],
             unitId: cachedLesson.unitId,
+            podcastTranscript,
+            podcastAudioUrl,
+            podcastDurationSeconds:
+              typeof podcastDurationSeconds === 'number' &&
+              Number.isFinite(podcastDurationSeconds)
+                ? podcastDurationSeconds
+                : null,
+            podcastVoice,
+            podcastGeneratedAt,
+            hasPodcast,
           };
         }
       }

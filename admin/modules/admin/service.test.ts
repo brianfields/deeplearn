@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   taskByIdMock: vi.fn<(taskId: string) => Promise<any>>(),
   taskFlowRunsMock: vi.fn<(taskId: string) => Promise<any[]>>(),
   unitFlowRunsMock: vi.fn<(unitId: string) => Promise<any[]>>(),
+  unitDetailMock: vi.fn<(unitId: string) => Promise<any>>(),
   conversationListMock: vi.fn<(
     params?: any
   ) => Promise<{
@@ -17,6 +18,9 @@ const mocks = vi.hoisted(() => ({
     has_next: boolean;
   }>>(),
   conversationDetailMock: vi.fn<(conversationId: string) => Promise<any>>(),
+  lessonsListMock: vi.fn<(params?: any) => Promise<any>>(),
+  lessonByIdMock: vi.fn<(lessonId: string) => Promise<any>>(),
+  unitsListMock: vi.fn<(params?: any) => Promise<any[]>>(),
 }));
 
 vi.mock('./repo', () => ({
@@ -27,11 +31,17 @@ vi.mock('./repo', () => ({
       flowRuns: mocks.taskFlowRunsMock,
     },
     units: {
+      list: mocks.unitsListMock,
+      detail: mocks.unitDetailMock,
       flowRuns: mocks.unitFlowRunsMock,
     },
     conversations: {
       list: mocks.conversationListMock,
       byId: mocks.conversationDetailMock,
+    },
+    lessons: {
+      list: mocks.lessonsListMock,
+      byId: mocks.lessonByIdMock,
     },
   },
 }));
@@ -183,5 +193,126 @@ describe('AdminService task and flow mappings', () => {
     expect(result?.messages).toHaveLength(1);
     expect(result?.messages[0].tokens_used).toBe(120);
     expect(result?.messages[0].metadata.source).toBe('student');
+  });
+
+  it('maps lesson summaries with podcast metadata', async () => {
+    mocks.lessonsListMock.mockResolvedValueOnce({
+      lessons: [
+        {
+          id: 'lesson-1',
+          title: 'Lesson One',
+          learner_level: 'beginner',
+          package_version: 1,
+          created_at: '2024-01-01T00:00:00Z',
+          updated_at: '2024-01-01T01:00:00Z',
+          has_podcast: true,
+          podcast_voice: 'alloy',
+          podcast_duration_seconds: 185,
+          podcast_audio_url: '/audio/lesson-1.mp3',
+          podcast_generated_at: '2024-01-01T01:10:00Z',
+        },
+      ],
+      total_count: 1,
+      page: 1,
+      page_size: 50,
+      has_next: false,
+    });
+
+    const result = await service.getLessons();
+
+    expect(mocks.lessonsListMock).toHaveBeenCalled();
+    expect(result.lessons).toHaveLength(1);
+    const summary = result.lessons[0];
+    expect(summary.has_podcast).toBe(true);
+    expect(summary.podcast_voice).toBe('alloy');
+    expect(summary.podcast_duration_seconds).toBe(185);
+    expect(summary.podcast_audio_url).toBe('/audio/lesson-1.mp3');
+    expect(summary.podcast_generated_at).toEqual(new Date('2024-01-01T01:10:00Z'));
+  });
+
+  it('maps lesson detail podcast metadata', async () => {
+    mocks.lessonByIdMock.mockResolvedValueOnce({
+      id: 'lesson-1',
+      title: 'Lesson One',
+      learner_level: 'beginner',
+      source_material: 'Source',
+      package: { exercises: [], mini_lesson: 'Mini lesson' },
+      package_version: 1,
+      flow_run_id: null,
+      created_at: '2024-01-01T00:00:00Z',
+      updated_at: '2024-01-01T01:00:00Z',
+      has_podcast: true,
+      podcast_transcript: 'Lesson transcript',
+      podcast_voice: 'alloy',
+      podcast_audio_url: '/audio/lesson-1.mp3',
+      podcast_duration_seconds: 200,
+      podcast_generated_at: '2024-01-01T01:30:00Z',
+    });
+
+    const lesson = await service.getLesson('lesson-1');
+
+    expect(mocks.lessonByIdMock).toHaveBeenCalledWith('lesson-1');
+    expect(lesson?.has_podcast).toBe(true);
+    expect(lesson?.podcast_transcript).toBe('Lesson transcript');
+    expect(lesson?.podcast_voice).toBe('alloy');
+    expect(lesson?.podcast_audio_url).toBe('/audio/lesson-1.mp3');
+    expect(lesson?.podcast_duration_seconds).toBe(200);
+    expect(lesson?.podcast_generated_at).toEqual(new Date('2024-01-01T01:30:00Z'));
+  });
+
+  it('maps unit detail lesson podcast fields', async () => {
+    mocks.unitDetailMock.mockResolvedValueOnce({
+      id: 'unit-1',
+      title: 'Unit One',
+      description: null,
+      learner_level: 'beginner',
+      lesson_order: ['lesson-1'],
+      lessons: [
+        {
+          id: 'lesson-1',
+          title: 'Lesson One',
+          learner_level: 'beginner',
+          learning_objectives: [],
+          key_concepts: [],
+          exercise_count: 3,
+          has_podcast: true,
+          podcast_voice: 'verse',
+          podcast_duration_seconds: 150,
+          podcast_generated_at: '2024-01-02T00:00:00Z',
+          podcast_audio_url: '/audio/lesson-1.mp3',
+        },
+      ],
+      learning_objectives: [],
+      target_lesson_count: 1,
+      source_material: null,
+      generated_from_topic: false,
+      flow_type: 'standard',
+      learning_objective_progress: null,
+      has_podcast: true,
+      podcast_voice: 'intro-voice',
+      podcast_duration_seconds: 220,
+      podcast_transcript: 'Intro transcript',
+      podcast_audio_url: '/audio/unit-intro.mp3',
+      art_image_url: null,
+      art_image_description: null,
+      status: 'completed',
+      creation_progress: null,
+      error_message: null,
+      arq_task_id: null,
+      created_at: '2024-01-01T00:00:00Z',
+      updated_at: '2024-01-02T00:00:00Z',
+    });
+    mocks.unitFlowRunsMock.mockResolvedValueOnce([]);
+
+    const detail = await service.getUnitDetail('unit-1');
+
+    expect(mocks.unitDetailMock).toHaveBeenCalledWith('unit-1');
+    expect(detail).not.toBeNull();
+    const firstLesson = detail?.lessons[0];
+    expect(firstLesson?.has_podcast).toBe(true);
+    expect(firstLesson?.podcast_voice).toBe('verse');
+    expect(firstLesson?.podcast_duration_seconds).toBe(150);
+    expect(firstLesson?.podcast_generated_at).toEqual(new Date('2024-01-02T00:00:00Z'));
+    expect(firstLesson?.podcast_audio_url).toBe('/audio/lesson-1.mp3');
   });
 });

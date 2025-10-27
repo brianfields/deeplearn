@@ -319,6 +319,16 @@ export class SQLiteDatabaseProvider {
     }
     return this.database;
   }
+
+  async getDatabaseInfo(): Promise<{ path: string; name: string }> {
+    const dbName = this.config.databaseName;
+    // expo-sqlite stores databases in SQLite directory by default
+    const dbPath = `${FileSystem.documentDirectory}SQLite/${dbName}`;
+    return {
+      name: dbName,
+      path: dbPath,
+    };
+  }
 }
 
 export class FileSystemService {

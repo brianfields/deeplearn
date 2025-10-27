@@ -8,6 +8,7 @@ Uses single lessons table with JSON package field.
 
 from datetime import datetime
 from typing import Any
+import uuid
 
 from sqlalchemy import (
     JSON,
@@ -45,6 +46,13 @@ class LessonModel(Base):
 
     # Association to unit (every lesson belongs to a unit)
     unit_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("units.id"), nullable=True, index=True)
+
+    # Podcast metadata stored directly on the lesson
+    podcast_transcript: Mapped[str | None] = mapped_column(Text, nullable=True)
+    podcast_voice: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    podcast_audio_object_id: Mapped[uuid.UUID | None] = mapped_column(PostgresUUID(), nullable=True)
+    podcast_generated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    podcast_duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
@@ -93,7 +101,7 @@ class UnitModel(Base):
     creation_progress: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    # Podcast fields - transcript + generated audio asset
+    # Intro podcast fields - transcript + generated audio asset (intro only)
     podcast_transcript = Column(Text, nullable=True)
     podcast_voice = Column(String(100), nullable=True)
     podcast_audio_object_id = Column(PostgresUUID(), nullable=True)

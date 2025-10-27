@@ -9,7 +9,7 @@ from modules.content.public import ContentProvider, UnitRead, content_provider
 from modules.infrastructure.public import infrastructure_provider
 from modules.task_queue.public import register_task_handler
 
-from .service import ContentCreatorService, CreateLessonRequest, LessonCreationResult
+from .service import ContentCreatorService
 
 
 class ContentCreatorProvider(Protocol):
@@ -94,7 +94,5 @@ except Exception:  # pragma: no cover
 
 __all__ = [
     "ContentCreatorProvider",
-    "CreateLessonRequest",
-    "LessonCreationResult",
     "content_creator_provider",
 ]

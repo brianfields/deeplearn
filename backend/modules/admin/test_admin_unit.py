@@ -19,6 +19,8 @@ from modules.admin.models import (
     UserUpdateRequest,
 )
 from modules.admin.service import AdminService
+from modules.content.package_models import LessonPackage, Meta
+from modules.content.public import LessonRead
 from modules.conversation_engine.public import (
     ConversationDetailDTO,
     ConversationMessageDTO,
@@ -535,6 +537,95 @@ class TestAdminService:
         assert len(detail.recent_conversations) == 1
         mock_llm_services_admin.get_user_requests.assert_called_once()
         admin_service_with_conversations.get_user_conversations.assert_awaited_once_with(42)
+
+    @pytest.mark.asyncio
+    async def test_get_lessons_includes_podcast_metadata(
+        self,
+        admin_service: AdminService,
+        mock_catalog_provider: Mock,
+        mock_content_provider: Mock,
+    ) -> None:
+        """Lesson summaries should surface podcast metadata for admin review."""
+
+        lesson_summary = SimpleNamespace(id="lesson-1", title="Lesson 1", learner_level="beginner")
+        mock_catalog_provider.search_lessons = AsyncMock(return_value=SimpleNamespace(lessons=[lesson_summary], total=1))
+
+        generated_at = datetime.now(UTC)
+        lesson_read = LessonRead(
+            id="lesson-1",
+            title="Lesson 1",
+            learner_level="beginner",
+            package=LessonPackage(
+                meta=Meta(lesson_id="lesson-1", title="Lesson 1", learner_level="beginner"),
+                unit_learning_objective_ids=["obj1"],
+                glossary={"terms": []},
+                mini_lesson="",
+                exercises=[],
+            ),
+            package_version=1,
+            created_at=generated_at,
+            updated_at=generated_at,
+            podcast_transcript="Lesson 1. Sample transcript.",
+            podcast_voice="Narrator",
+            podcast_duration_seconds=185,
+            podcast_generated_at=generated_at,
+            podcast_audio_url="/api/v1/content/lessons/lesson-1/podcast/audio",
+            has_podcast=True,
+        )
+
+        mock_content_provider.get_lesson = AsyncMock(return_value=lesson_read)
+
+        response = await admin_service.get_lessons()
+
+        assert response.total_count == 1
+        assert len(response.lessons) == 1
+        summary = response.lessons[0]
+        assert summary.has_podcast is True
+        assert summary.podcast_voice == "Narrator"
+        assert summary.podcast_duration_seconds == 185
+
+    @pytest.mark.asyncio
+    async def test_get_lesson_details_includes_podcast_data(
+        self,
+        admin_service: AdminService,
+        mock_content_provider: Mock,
+    ) -> None:
+        """Lesson detail payload includes podcast fields for playback."""
+
+        generated_at = datetime.now(UTC)
+        lesson_read = LessonRead(
+            id="lesson-1",
+            title="Lesson 1",
+            learner_level="beginner",
+            package=LessonPackage(
+                meta=Meta(lesson_id="lesson-1", title="Lesson 1", learner_level="beginner"),
+                unit_learning_objective_ids=["obj1"],
+                glossary={"terms": []},
+                mini_lesson="",
+                exercises=[],
+            ),
+            package_version=1,
+            created_at=generated_at,
+            updated_at=generated_at,
+            podcast_transcript="Lesson 1. Sample transcript.",
+            podcast_voice="Narrator",
+            podcast_duration_seconds=185,
+            podcast_generated_at=generated_at,
+            podcast_audio_url="/api/v1/content/lessons/lesson-1/podcast/audio",
+            has_podcast=True,
+        )
+
+        mock_content_provider.get_lesson = AsyncMock(return_value=lesson_read)
+
+        detail = await admin_service.get_lesson_details("lesson-1")
+
+        assert detail is not None
+        assert detail.has_podcast is True
+        assert detail.podcast_voice == "Narrator"
+        assert detail.podcast_audio_url == "/api/v1/content/lessons/lesson-1/podcast/audio"
+        assert detail.podcast_duration_seconds == 185
+        assert detail.podcast_transcript.startswith("Lesson 1.")
+        assert detail.podcast_generated_at == generated_at
 
     @pytest.mark.asyncio
     async def test_update_user_returns_none_when_missing(

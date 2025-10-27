@@ -22,7 +22,7 @@ import {
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { reducedMotion } from '../../ui_system/utils/motion';
 import { animationTimings } from '../../ui_system/utils/animations';
-import { BookOpen, HardDrive, Plus, Search } from 'lucide-react-native';
+import { BookOpen, Plus, Search, Settings } from 'lucide-react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -282,14 +282,14 @@ export function LessonListScreen() {
     navigation.navigate('LearningCoach');
   }, [navigation, haptics]);
 
-  const handleOpenDownloads = useCallback(() => {
-    haptics.trigger('light');
-    navigation.navigate('CacheManagement');
-  }, [navigation, haptics]);
-
   const handleBrowseCatalog = useCallback(() => {
     haptics.trigger('light');
     navigation.navigate('CatalogBrowser');
+  }, [navigation, haptics]);
+
+  const handleManageCache = useCallback(() => {
+    haptics.trigger('light');
+    navigation.navigate('ManageCache');
   }, [navigation, haptics]);
 
   const handleRetryUnit = useCallback(
@@ -353,19 +353,21 @@ export function LessonListScreen() {
           </Text>
         </View>
         <View style={styles.headerActions}>
-          <Button
-            title="Downloads"
-            variant="secondary"
-            size="small"
-            onPress={handleOpenDownloads}
-            testID="unit-list-cache-button"
-            icon={<HardDrive size={16} color={theme.colors.primary} />}
-          />
+          {__DEV__ && (
+            <Button
+              title="Manage Cache"
+              variant="secondary"
+              size="small"
+              testID="unit-list-manage-cache-button"
+              onPress={handleManageCache}
+              icon={<Settings size={16} color={theme.colors.textSecondary} />}
+            />
+          )}
           <Button
             title="Sign out"
             variant="secondary"
             size="small"
-            style={styles.headerActionSpacing}
+            style={__DEV__ ? styles.headerActionSpacing : undefined}
             testID="unit-list-logout-button"
             onPress={async () => {
               haptics.trigger('light');
