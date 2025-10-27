@@ -259,6 +259,30 @@ export class LearningSessionService {
   }
 
   /**
+   * Trigger outbox sync to push pending learning session data to server
+   * Fire-and-forget - errors are logged but don't fail the operation
+   */
+  private async triggerOutboxSync(): Promise<void> {
+    try {
+      const { offlineCacheProvider } = await import('../offline_cache/public');
+      const { infrastructureProvider } = await import(
+        '../infrastructure/public'
+      );
+      const offlineCache = offlineCacheProvider();
+      const infrastructure = infrastructureProvider();
+      await offlineCache.syncOutbox((endpoint, options) =>
+        infrastructure.request(endpoint, {
+          ...options,
+          method: options.method as 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH',
+        })
+      );
+    } catch (error) {
+      // Log but don't throw - sync is best-effort
+      console.warn('[LearningSession] Outbox sync failed', error);
+    }
+  }
+
+  /**
    * Start a new learning session for a lesson
    * Creates session locally first, syncs to server via outbox
    */
@@ -309,6 +333,9 @@ export class LearningSessionService {
         enqueueOutbox: true,
         idempotencyKey: `start-session-${sessionId}`,
       });
+
+      // Trigger outbox sync in background
+      this.triggerOutboxSync();
 
       return session;
     } catch (error) {
@@ -376,6 +403,9 @@ export class LearningSessionService {
       userId ?? null,
       progressUpdates
     );
+
+    // Trigger outbox sync in background
+    this.triggerOutboxSync();
 
     const session = await this.getSession(request.sessionId);
     let unitProgress: UnitLOProgress | undefined;
