@@ -372,6 +372,57 @@ export class OfflineCacheService {
     }
   }
 
+  /**
+   * Sync pending outbox entries to server
+   * Uses a generic HTTP processor to handle any queued requests
+   */
+  async syncOutbox(
+    httpRequest: (
+      endpoint: string,
+      options: {
+        method: string;
+        headers: Record<string, string>;
+        body?: string;
+      }
+    ) => Promise<unknown>
+  ): Promise<OutboxProcessResult> {
+    console.info('[OfflineCache] Syncing outbox entries');
+
+    const processor: OutboxProcessor = async record => {
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(record.headers ?? {}),
+      } as Record<string, string>;
+      await httpRequest(record.endpoint, {
+        method: record.method,
+        headers,
+        body: record.payload ? JSON.stringify(record.payload) : undefined,
+      });
+    };
+
+    let totalProcessed = 0;
+    let result: OutboxProcessResult;
+
+    // Process all due outbox entries
+    for (let i = 0; i < this.config.maxOutboxAttempts; i += 1) {
+      result = await this.processOutbox(processor);
+      totalProcessed += result.processed;
+      if (result.processed === 0) {
+        break;
+      }
+    }
+
+    console.info('[OfflineCache] Outbox sync complete', {
+      processed: totalProcessed,
+      remaining: await this.repository.countOutbox(),
+    });
+
+    return {
+      processed: totalProcessed,
+      remaining: await this.repository.countOutbox(),
+    };
+  }
+
   async runSyncCycle(options: SyncCycleOptions): Promise<SyncStatus> {
     const startedAt = Date.now();
     let lastError: string | null = null;

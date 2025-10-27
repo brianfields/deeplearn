@@ -700,6 +700,36 @@ class LearningSessionService:
             session_dtos.append(self._to_session_dto(ensured_session))
         return SessionListResponse(sessions=session_dtos, total=total)
 
+    async def list_sessions(
+        self,
+        *,
+        user_id: str | None = None,
+        status: str | None = None,
+        lesson_id: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> SessionListResponse:
+        """Return learning sessions for administrative dashboards."""
+
+        sessions, total = await self.repo.get_sessions(
+            user_id=user_id,
+            status=status,
+            lesson_id=lesson_id,
+            limit=limit,
+            offset=offset,
+        )
+
+        session_dtos = [self._to_session_dto(session) for session in sessions]
+        return SessionListResponse(sessions=session_dtos, total=total)
+
+    async def get_session_admin(self, session_id: str) -> LearningSession | None:
+        """Return a learning session without enforcing user ownership."""
+
+        session = await self.repo.get_session_by_id(session_id)
+        if not session:
+            return None
+        return self._to_session_dto(session)
+
     async def check_health(self) -> bool:
         """Health check for the learning session service"""
         return await self.repo.health_check()

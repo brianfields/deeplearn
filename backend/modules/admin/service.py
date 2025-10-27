@@ -6,7 +6,7 @@ Minimal service for admin dashboard functionality.
 Returns DTOs for all admin functionality.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 import uuid
 
@@ -15,7 +15,7 @@ from modules.content.public import ContentProvider
 from modules.conversation_engine.public import ConversationEngineProvider
 from modules.flow_engine.public import FlowEngineAdminProvider
 from modules.learning_coach.public import LearningCoachProvider
-from modules.learning_session.public import LearningSessionProvider
+from modules.learning_session.public import LearningSession, LearningSessionProvider
 from modules.llm_services.public import LLMServicesAdminProvider
 from modules.user.public import UserProvider, UserRead
 
@@ -28,6 +28,8 @@ from .models import (
     LearningCoachConversationsListResponse,
     LearningCoachConversationSummaryAdmin,
     LearningCoachMessageAdmin,
+    LearningSessionsListResponse,
+    LearningSessionSummary,
     LessonDetails,
     LessonsListResponse,
     LessonSummary,
@@ -472,6 +474,38 @@ class AdminService:
             return value
         return None
 
+    def _parse_datetime(self, value: str | None) -> datetime | None:
+        if not value:
+            return None
+        try:
+            return datetime.fromisoformat(value)
+        except ValueError:
+            try:
+                if value.endswith("Z"):
+                    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+            except ValueError:
+                return None
+        except TypeError:
+            return None
+        return None
+
+    def _to_learning_session_summary(self, session: LearningSession) -> LearningSessionSummary:
+        started_at = self._parse_datetime(session.started_at) or datetime.fromtimestamp(0, UTC)
+        completed_at = self._parse_datetime(session.completed_at)
+        return LearningSessionSummary(
+            id=session.id,
+            lesson_id=session.lesson_id,
+            unit_id=session.unit_id,
+            user_id=session.user_id,
+            status=session.status,
+            started_at=started_at,
+            completed_at=completed_at,
+            current_exercise_index=session.current_exercise_index,
+            total_exercises=session.total_exercises,
+            progress_percentage=session.progress_percentage,
+            session_data=session.session_data or {},
+        )
+
     # ---- Flow Management ----
 
     async def get_flow_runs(
@@ -652,6 +686,76 @@ class AdminService:
             updated_at=getattr(step_model, "updated_at", None) or (step_model.created_at or datetime.now()),
             completed_at=step_model.completed_at,
         )
+
+    # ---- Learning Session Management ----
+
+    async def get_learning_sessions(
+        self,
+        *,
+        page: int = 1,
+        page_size: int = 50,
+        status: str | None = None,
+        user_id: str | None = None,
+        lesson_id: str | None = None,
+    ) -> LearningSessionsListResponse:
+        """Return paginated learning sessions for the admin dashboard."""
+
+        page = max(page, 1)
+        page_size = max(page_size, 1)
+        offset = (page - 1) * page_size
+
+        if not self.learning_sessions:
+            return LearningSessionsListResponse(
+                sessions=[],
+                total_count=0,
+                page=page,
+                page_size=page_size,
+                has_next=False,
+            )
+
+        try:
+            response = await self.learning_sessions.list_sessions(
+                user_id=user_id,
+                status=status,
+                lesson_id=lesson_id,
+                limit=page_size,
+                offset=offset,
+            )
+        except Exception:
+            return LearningSessionsListResponse(
+                sessions=[],
+                total_count=0,
+                page=page,
+                page_size=page_size,
+                has_next=False,
+            )
+
+        session_summaries = [self._to_learning_session_summary(session) for session in response.sessions]
+        has_next = offset + len(session_summaries) < response.total
+
+        return LearningSessionsListResponse(
+            sessions=session_summaries,
+            total_count=response.total,
+            page=page,
+            page_size=page_size,
+            has_next=has_next,
+        )
+
+    async def get_learning_session_detail(self, session_id: str) -> LearningSessionSummary | None:
+        """Return detailed learning session data for a specific session."""
+
+        if not self.learning_sessions:
+            return None
+
+        try:
+            session = await self.learning_sessions.get_session_admin(session_id)
+        except Exception:
+            return None
+
+        if not session:
+            return None
+
+        return self._to_learning_session_summary(session)
 
     # ---- LLM Request Management ----
 

@@ -37,6 +37,16 @@ export interface OfflineCacheProvider {
   downloadUnitAssets(unitId: string): Promise<void>;
   enqueueOutbox(request: OutboxRequest): Promise<void>;
   processOutbox(processor: OutboxProcessor): Promise<OutboxProcessResult>;
+  syncOutbox(
+    httpRequest: (
+      endpoint: string,
+      options: {
+        method: string;
+        headers: Record<string, string>;
+        body?: string;
+      }
+    ) => Promise<unknown>
+  ): Promise<OutboxProcessResult>;
   runSyncCycle(options: SyncCycleOptions): Promise<SyncStatus>;
   getSyncStatus(): Promise<SyncStatus>;
   deleteUnit(unitId: string): Promise<void>;
@@ -125,6 +135,10 @@ export function offlineCacheProvider(): OfflineCacheProvider {
     async processOutbox(processor: OutboxProcessor) {
       const service = await ensureService();
       return service.processOutbox(processor);
+    },
+    async syncOutbox(httpRequest) {
+      const service = await ensureService();
+      return service.syncOutbox(httpRequest);
     },
     async runSyncCycle(options: SyncCycleOptions) {
       const service = await ensureService();

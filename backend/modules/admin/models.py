@@ -84,6 +84,31 @@ class FlowRunsListResponse(BaseModel):
 # ---- LLM Request DTOs ----
 
 
+class LearningSessionSummary(BaseModel):
+    id: str
+    lesson_id: str
+    unit_id: str | None
+    user_id: str | None
+    status: str
+    started_at: datetime
+    completed_at: datetime | None
+    current_exercise_index: int
+    total_exercises: int
+    progress_percentage: float
+    session_data: dict[str, Any]
+
+
+class LearningSessionsListResponse(BaseModel):
+    sessions: list[LearningSessionSummary]
+    total_count: int
+    page: int
+    page_size: int
+    has_next: bool
+
+
+# ---- LLM Request DTOs ----
+
+
 class LLMRequestSummary(BaseModel):
     id: str
     user_id: str | None

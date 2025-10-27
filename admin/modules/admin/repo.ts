@@ -12,6 +12,8 @@ import type {
   ApiFlowStepDetails,
   ApiConversationDetail,
   ApiConversationsListResponse,
+  ApiLearningSession,
+  ApiLearningSessionsListResponse,
   ApiLLMRequest,
   ApiSystemMetrics,
   ApiUnitBasic,
@@ -20,11 +22,12 @@ import type {
   ApiUserDetail,
   ApiUserListResponse,
   ApiUserUpdateRequest,
-  DailyMetrics,
   ConversationListQuery,
+  DailyMetrics,
   FlowMetrics,
   FlowRunsListResponse,
   FlowRunsQuery,
+  LearningSessionsQuery,
   LLMRequestsQuery,
   LessonsListResponse,
   LessonsQuery,
@@ -111,6 +114,32 @@ export const AdminRepo = {
     async byId(conversationId: string): Promise<ApiConversationDetail> {
       const { data } = await apiClient.get<ApiConversationDetail>(
         `${ADMIN_BASE}/learning-coach/conversations/${conversationId}`
+      );
+      return data;
+    },
+  },
+
+  // ---- Learning Session Endpoints ----
+  learningSessions: {
+    async list(params?: LearningSessionsQuery): Promise<ApiLearningSessionsListResponse> {
+      const queryParams = new URLSearchParams();
+
+      if (params?.status) queryParams.append('status', params.status);
+      if (params?.user_id) queryParams.append('user_id', params.user_id);
+      if (params?.lesson_id) queryParams.append('lesson_id', params.lesson_id);
+      if (params?.page) queryParams.append('page', params.page.toString());
+      if (params?.page_size) queryParams.append('page_size', params.page_size.toString());
+
+      const suffix = queryParams.toString() ? `?${queryParams.toString()}` : '';
+      const { data } = await apiClient.get<ApiLearningSessionsListResponse>(
+        `${ADMIN_BASE}/learning-sessions${suffix}`
+      );
+      return data;
+    },
+
+    async byId(sessionId: string): Promise<ApiLearningSession> {
+      const { data } = await apiClient.get<ApiLearningSession>(
+        `${ADMIN_BASE}/learning-sessions/${sessionId}`
       );
       return data;
     },

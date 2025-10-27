@@ -1504,6 +1504,33 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
             cat_unit = units_spec[0]
             grad_unit = units_spec[1]
 
+            # Build realistic exercise answers for epsilon's completed session
+            epsilon_exercise_answers = {}
+            cat_lesson_1_exercises = cat_unit["lessons"][0]["mcqs"]
+            for idx, mcq_spec in enumerate(cat_lesson_1_exercises, start=1):
+                exercise_id = f"{cat_unit['lessons'][0]['id']}_mcq_{idx}"
+                is_correct = idx <= 5  # First 5 correct, last one wrong (matches exercises_correct=5)
+                attempt_time = now - timedelta(days=3, hours=2, minutes=idx * 3)
+                epsilon_exercise_answers[exercise_id] = {
+                    "exercise_type": "mcq",
+                    "is_correct": is_correct,
+                    "user_answer": {"selected_option": chr(ord("A") + (mcq_spec["correct_index"] if is_correct else (mcq_spec["correct_index"] + 1) % len(mcq_spec["options"])))},
+                    "time_spent_seconds": 45 + idx * 5,
+                    "completed_at": attempt_time.isoformat(),
+                    "attempts": 1,
+                    "started_at": (attempt_time - timedelta(seconds=45 + idx * 5)).isoformat(),
+                    "attempt_history": [
+                        {
+                            "attempt_number": 1,
+                            "is_correct": is_correct,
+                            "user_answer": {"selected_option": chr(ord("A") + (mcq_spec["correct_index"] if is_correct else (mcq_spec["correct_index"] + 1) % len(mcq_spec["options"])))},
+                            "time_spent_seconds": 45 + idx * 5,
+                            "submitted_at": attempt_time.isoformat(),
+                        }
+                    ],
+                    "has_been_answered_correctly": is_correct,
+                }
+
             epsilon_session = LearningSessionModel(
                 id=str(uuid.uuid4()),
                 lesson_id=cat_unit["lessons"][0]["id"],
@@ -1512,13 +1539,45 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                 status=SessionStatus.COMPLETED.value,
                 started_at=now - timedelta(days=3),
                 completed_at=now - timedelta(days=2, hours=5),
-                current_exercise_index=3,
-                total_exercises=6,
-                exercises_completed=6,
+                current_exercise_index=6,
+                total_exercises=len(cat_lesson_1_exercises),
+                exercises_completed=len(cat_lesson_1_exercises),
                 exercises_correct=5,
                 progress_percentage=100.0,
-                session_data={"notes": "Completed during community volunteer orientation."},
+                session_data={
+                    "exercise_answers": epsilon_exercise_answers,
+                    "total_time_seconds": sum(ans["time_spent_seconds"] for ans in epsilon_exercise_answers.values()),
+                    "notes": "Completed during community volunteer orientation.",
+                },
             )
+
+            # Build realistic exercise answers for nova's in-progress session
+            nova_exercise_answers = {}
+            cat_lesson_2_exercises = cat_unit["lessons"][1]["mcqs"]
+            for idx in range(1, 3):  # Only 2 exercises completed (matches exercises_completed=2)
+                mcq_spec = cat_lesson_2_exercises[idx - 1]
+                exercise_id = f"{cat_unit['lessons'][1]['id']}_mcq_{idx}"
+                is_correct = True  # Both correct (matches exercises_correct=2)
+                attempt_time = now - timedelta(days=1, hours=3, minutes=idx * 4)
+                nova_exercise_answers[exercise_id] = {
+                    "exercise_type": "mcq",
+                    "is_correct": is_correct,
+                    "user_answer": {"selected_option": chr(ord("A") + mcq_spec["correct_index"])},
+                    "time_spent_seconds": 52 + idx * 8,
+                    "completed_at": attempt_time.isoformat(),
+                    "attempts": 1,
+                    "started_at": (attempt_time - timedelta(seconds=52 + idx * 8)).isoformat(),
+                    "attempt_history": [
+                        {
+                            "attempt_number": 1,
+                            "is_correct": is_correct,
+                            "user_answer": {"selected_option": chr(ord("A") + mcq_spec["correct_index"])},
+                            "time_spent_seconds": 52 + idx * 8,
+                            "submitted_at": attempt_time.isoformat(),
+                        }
+                    ],
+                    "has_been_answered_correctly": is_correct,
+                }
 
             nova_session = LearningSessionModel(
                 id=str(uuid.uuid4()),
@@ -1528,13 +1587,45 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                 status=SessionStatus.ACTIVE.value,
                 started_at=now - timedelta(days=1, hours=4),
                 completed_at=None,
-                current_exercise_index=1,
-                total_exercises=6,
+                current_exercise_index=2,
+                total_exercises=len(cat_lesson_2_exercises),
                 exercises_completed=2,
                 exercises_correct=2,
-                progress_percentage=35.0,
-                session_data={"active_lesson_segment": "Roof safety tips"},
+                progress_percentage=33.0,
+                session_data={
+                    "exercise_answers": nova_exercise_answers,
+                    "total_time_seconds": sum(ans["time_spent_seconds"] for ans in nova_exercise_answers.values()),
+                    "active_lesson_segment": "Roof safety tips",
+                },
             )
+
+            # Build realistic exercise answers for brian's in-progress session
+            brian_exercise_answers = {}
+            grad_lesson_1_exercises = grad_unit["lessons"][0]["mcqs"]
+            for idx in range(1, 3):  # Only 2 exercises completed (matches exercises_completed=2)
+                mcq_spec = grad_lesson_1_exercises[idx - 1]
+                exercise_id = f"{grad_unit['lessons'][0]['id']}_mcq_{idx}"
+                is_correct = True  # Both correct (matches exercises_correct=2)
+                attempt_time = now - timedelta(days=4, hours=18, minutes=idx * 6)
+                brian_exercise_answers[exercise_id] = {
+                    "exercise_type": "mcq",
+                    "is_correct": is_correct,
+                    "user_answer": {"selected_option": chr(ord("A") + mcq_spec["correct_index"])},
+                    "time_spent_seconds": 38 + idx * 12,
+                    "completed_at": attempt_time.isoformat(),
+                    "attempts": 1,
+                    "started_at": (attempt_time - timedelta(seconds=38 + idx * 12)).isoformat(),
+                    "attempt_history": [
+                        {
+                            "attempt_number": 1,
+                            "is_correct": is_correct,
+                            "user_answer": {"selected_option": chr(ord("A") + mcq_spec["correct_index"])},
+                            "time_spent_seconds": 38 + idx * 12,
+                            "submitted_at": attempt_time.isoformat(),
+                        }
+                    ],
+                    "has_been_answered_correctly": is_correct,
+                }
 
             brian_session = LearningSessionModel(
                 id=str(uuid.uuid4()),
@@ -1544,12 +1635,16 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                 status=SessionStatus.ACTIVE.value,
                 started_at=now - timedelta(days=5),
                 completed_at=None,
-                current_exercise_index=1,
-                total_exercises=4,
+                current_exercise_index=2,
+                total_exercises=len(grad_lesson_1_exercises),
                 exercises_completed=2,
                 exercises_correct=2,
-                progress_percentage=55.0,
-                session_data={"current_topic": "Learning rate warm-up"},
+                progress_percentage=50.0,
+                session_data={
+                    "exercise_answers": brian_exercise_answers,
+                    "total_time_seconds": sum(ans["time_spent_seconds"] for ans in brian_exercise_answers.values()),
+                    "current_topic": "Learning rate warm-up",
+                },
             )
 
             db_session.add_all([epsilon_session, nova_session, brian_session])

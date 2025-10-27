@@ -123,6 +123,9 @@ describe('ContentService (offline cache integration)', () => {
       processOutbox: jest
         .fn<OfflineCacheProvider['processOutbox']>()
         .mockResolvedValue({ processed: 0, remaining: 0 }),
+      syncOutbox: jest
+        .fn<OfflineCacheProvider['syncOutbox']>()
+        .mockResolvedValue({ processed: 0, remaining: 0 }),
       runSyncCycle: jest
         .fn<OfflineCacheProvider['runSyncCycle']>()
         .mockResolvedValue(createSyncStatus()),
@@ -444,6 +447,7 @@ describe('ContentService (offline cache integration)', () => {
       userId: 4,
       unitId: 'unit-3',
     });
+    // After removal, a force sync is triggered to refresh the cache
     expect(offlineCache.runSyncCycle).toHaveBeenCalledWith(
       expect.objectContaining({ force: true })
     );

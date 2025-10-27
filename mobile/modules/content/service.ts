@@ -29,7 +29,6 @@ import {
   type OfflineLessonPayload,
   type OfflineUnitPayload,
   type OfflineUnitSummaryPayload,
-  type OutboxRecord,
   type SyncPullArgs,
   type SyncPullResponse,
   type SyncStatus,
@@ -411,8 +410,20 @@ export class ContentService {
 
   async syncNow(): Promise<SyncStatus> {
     console.info('[ContentService] Forcing sync via syncNow');
+
+    // Push pending outbox entries first
+    await this.offlineCache.syncOutbox((endpoint, options) =>
+      this.infrastructure.request(endpoint, {
+        ...options,
+        method: options.method as 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH',
+      })
+    );
+
+    // Then pull latest catalog updates
     return this.offlineCache.runSyncCycle({
-      processor: this.createOutboxProcessor(),
+      processor: async () => {
+        // Outbox already processed above, this is just for the sync cycle contract
+      },
       pull: args => this.pullUpdates(args),
       force: true, // Always fetch all units, ignoring cursor
     });
@@ -435,8 +446,24 @@ export class ContentService {
     force?: boolean;
     payload?: CacheMode;
   }): Promise<void> {
+    // Push pending outbox entries
+    await this.offlineCache.syncOutbox((endpoint, requestOptions) =>
+      this.infrastructure.request(endpoint, {
+        ...requestOptions,
+        method: requestOptions.method as
+          | 'GET'
+          | 'POST'
+          | 'PUT'
+          | 'DELETE'
+          | 'PATCH',
+      })
+    );
+
+    // Then pull updates
     await this.offlineCache.runSyncCycle({
-      processor: this.createOutboxProcessor(),
+      processor: async () => {
+        // Outbox already processed above
+      },
       pull: args => this.pullUpdates(args),
       force: options?.force,
       payload: options?.payload,
@@ -1119,20 +1146,6 @@ export class ContentService {
       return null;
     }
     return { stage, message };
-  }
-
-  private createOutboxProcessor() {
-    return async (record: OutboxRecord): Promise<void> => {
-      const headers = {
-        'Content-Type': 'application/json',
-        ...(record.headers ?? {}),
-      } as Record<string, string>;
-      await this.infrastructure.request(record.endpoint, {
-        method: record.method,
-        headers,
-        body: record.payload ? JSON.stringify(record.payload) : undefined,
-      });
-    };
   }
 
   private applyPaging<T>(items: T[], limit?: number, offset?: number): T[] {

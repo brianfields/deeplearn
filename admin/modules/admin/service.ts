@@ -15,6 +15,8 @@ import type {
   ApiConversationMessage,
   ApiConversationSummary,
   ApiConversationsListResponse,
+  ApiLearningSession,
+  ApiLearningSessionsListResponse,
   ApiLLMRequest,
   ApiSystemMetrics,
   ApiUserDetail,
@@ -33,6 +35,7 @@ import type {
   FlowRunDetails,
   FlowRunSummary,
   FlowStepDetails,
+  LearningSessionSummary,
   LLMRequestDetails,
   LLMRequestSummary,
   LessonDetails,
@@ -54,6 +57,7 @@ import type {
   // Query types
   ConversationListQuery,
   FlowRunsQuery,
+  LearningSessionsQuery,
   LLMRequestsQuery,
   LessonsQuery,
   MetricsQuery,
@@ -61,6 +65,7 @@ import type {
   // Response types
   ConversationsListResponse,
   FlowRunsListResponse,
+  LearningSessionsListResponse,
   LLMRequestsListResponse,
   LessonsListResponse,
 
@@ -189,6 +194,20 @@ const llmRequestToDTO = (apiRequest: ApiLLMRequest): LLMRequestSummary => ({
   cached: apiRequest.cached,
   created_at: new Date(apiRequest.created_at),
   error_message: apiRequest.error_message,
+});
+
+const learningSessionToDTO = (apiSession: ApiLearningSession): LearningSessionSummary => ({
+  id: apiSession.id,
+  lesson_id: apiSession.lesson_id,
+  unit_id: apiSession.unit_id,
+  user_id: apiSession.user_id,
+  status: apiSession.status,
+  started_at: new Date(apiSession.started_at),
+  completed_at: parseDate(apiSession.completed_at),
+  current_exercise_index: apiSession.current_exercise_index,
+  total_exercises: apiSession.total_exercises,
+  progress_percentage: apiSession.progress_percentage,
+  session_data: apiSession.session_data ?? {},
 });
 
 const normalizeMetadata = (metadata: Record<string, any> | null | undefined): Record<string, any> => {
@@ -522,6 +541,49 @@ export class AdminService {
         page_size: 50,
         has_next: false,
       };
+    }
+  }
+
+  // ---- Learning Sessions ----
+
+  async getLearningSessions(
+    params?: LearningSessionsQuery
+  ): Promise<LearningSessionsListResponse> {
+    try {
+      const response: ApiLearningSessionsListResponse = await AdminRepo.learningSessions.list(params);
+
+      return {
+        sessions: response.sessions.map(learningSessionToDTO),
+        total_count: response.total_count,
+        page: response.page,
+        page_size: response.page_size,
+        has_next: response.has_next,
+      };
+    } catch (error) {
+      console.error('Failed to fetch learning sessions:', error);
+      const page = params?.page ?? 1;
+      const pageSize = params?.page_size ?? 50;
+      return {
+        sessions: [],
+        total_count: 0,
+        page,
+        page_size: pageSize,
+        has_next: false,
+      };
+    }
+  }
+
+  async getLearningSession(sessionId: string): Promise<LearningSessionSummary | null> {
+    if (!sessionId) {
+      return null;
+    }
+
+    try {
+      const session = await AdminRepo.learningSessions.byId(sessionId);
+      return learningSessionToDTO(session);
+    } catch (error) {
+      console.error('Failed to fetch learning session detail:', error);
+      return null;
     }
   }
 
