@@ -33,7 +33,7 @@
  * - Coordinates with React Navigation stack
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -55,6 +55,7 @@ import {
   usePodcastState,
 } from '../../podcast_player/public';
 import { catalogProvider } from '../../catalog/public';
+import { infrastructureProvider } from '../../infrastructure/public';
 import type { PodcastTrack } from '../../podcast_player/public';
 import type { UnitDetail } from '../../content/public';
 
@@ -75,6 +76,29 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
   const theme = uiSystem.getCurrentTheme();
   const styles = createStyles(theme);
   const haptics = useHaptics();
+  const infrastructure = infrastructureProvider();
+
+  const apiBase = useMemo(() => {
+    const base =
+      (infrastructure as any).getApiBaseUrl?.() ||
+      (infrastructure as any).getBaseUrl?.() ||
+      '';
+    return typeof base === 'string' ? base.replace(/\/$/, '') : '';
+  }, [infrastructure]);
+
+  const resolvePodcastUrl = useCallback(
+    (url: string | null | undefined): string | null => {
+      if (!url) {
+        return null;
+      }
+      if (/^https?:\/\//i.test(url)) {
+        return url;
+      }
+      const path = url.startsWith('/') ? url : `/${url}`;
+      return `${apiBase}${path}`;
+    },
+    [apiBase]
+  );
 
   // Session creation mutation
   const startSessionMutation = useStartSession();
@@ -104,11 +128,12 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
       }
 
       const tracks: PodcastTrack[] = [];
-      if (unitDetail.podcastAudioUrl) {
+      const introPodcastUrl = resolvePodcastUrl(unitDetail.podcastAudioUrl);
+      if (introPodcastUrl) {
         tracks.push({
           unitId: unitDetail.id,
           title: 'Intro Podcast',
-          audioUrl: unitDetail.podcastAudioUrl,
+          audioUrl: introPodcastUrl,
           durationSeconds: unitDetail.podcastDurationSeconds ?? 0,
           transcript: unitDetail.podcastTranscript ?? null,
           lessonId: null,
@@ -117,14 +142,17 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
       }
 
       unitDetail.lessons.forEach((lessonSummary, index) => {
-        if (!lessonSummary.podcastAudioUrl) {
+        const resolvedLessonUrl = resolvePodcastUrl(
+          lessonSummary.podcastAudioUrl
+        );
+        if (!resolvedLessonUrl) {
           return;
         }
         const isCurrentLesson = lessonSummary.id === lesson.id;
         tracks.push({
           unitId: unitDetail.id,
           title: `Lesson ${index + 1}: ${lessonSummary.title}`,
-          audioUrl: lessonSummary.podcastAudioUrl,
+          audioUrl: resolvedLessonUrl,
           durationSeconds: lessonSummary.podcastDurationSeconds ?? 0,
           transcript: isCurrentLesson ? lesson.podcastTranscript ?? null : null,
           lessonId: lessonSummary.id,
@@ -134,7 +162,7 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
 
       return tracks;
     };
-  }, [lesson]);
+  }, [lesson, resolvePodcastUrl]);
 
   useEffect(() => {
     if (!unitId) {
