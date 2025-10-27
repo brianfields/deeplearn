@@ -203,8 +203,7 @@ describe('ContentService (offline cache integration)', () => {
             has_podcast: true,
             podcast_voice: 'alloy',
             podcast_duration_seconds: 180,
-            podcast_audio_url:
-              '/api/v1/content/lessons/lesson-1/podcast/audio',
+            podcast_audio_url: '/api/v1/content/lessons/lesson-1/podcast/audio',
             podcast_transcript: 'Lesson 1. Welcome to the lesson podcast.',
             podcast_generated_at: new Date().toISOString(),
           },

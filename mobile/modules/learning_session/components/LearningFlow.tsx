@@ -166,7 +166,10 @@ export default function LearningFlow({
         return undefined;
       })
       .catch(error => {
-        console.warn('[LearningFlow] Failed to load lesson podcast track', error);
+        console.warn(
+          '[LearningFlow] Failed to load lesson podcast track',
+          error
+        );
       });
   }, [
     playlist,

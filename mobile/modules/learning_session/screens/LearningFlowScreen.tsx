@@ -102,13 +102,8 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
 
   // Session creation mutation
   const startSessionMutation = useStartSession();
-  const {
-    loadPlaylist,
-    loadTrack,
-    play,
-    pause,
-    autoplayEnabled,
-  } = usePodcastPlayer();
+  const { loadPlaylist, loadTrack, play, pause, autoplayEnabled } =
+    usePodcastPlayer();
   const { currentTrack, playlist } = usePodcastState();
   const hasPlayer = Boolean(
     unitId && playlist?.unitId === unitId && (playlist?.tracks.length ?? 0) > 0
@@ -154,7 +149,9 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
           title: `Lesson ${index + 1}: ${lessonSummary.title}`,
           audioUrl: resolvedLessonUrl,
           durationSeconds: lessonSummary.podcastDurationSeconds ?? 0,
-          transcript: isCurrentLesson ? lesson.podcastTranscript ?? null : null,
+          transcript: isCurrentLesson
+            ? (lesson.podcastTranscript ?? null)
+            : null,
           lessonId: lessonSummary.id,
           lessonIndex: index,
         });

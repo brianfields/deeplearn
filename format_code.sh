@@ -2,9 +2,28 @@
 
 # Code Formatting and Linting Script
 # This script runs formatting and linting tools across all codebases
+#
+# Usage: ./format_code.sh [--no-venv]
+#   --no-venv: Skip virtual environment activation (use current Python environment)
 
 # Track overall success
 OVERALL_SUCCESS=true
+
+# Parse command-line arguments
+USE_VENV=true
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --no-venv)
+            USE_VENV=false
+            shift
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Usage: $0 [--no-venv]"
+            exit 1
+            ;;
+    esac
+done
 
 # Function to run a command and report result
 run_command() {
@@ -35,14 +54,23 @@ run_command() {
 
 echo "Starting code formatting and linting..."
 
+# Construct backend commands based on venv usage
+if [ "$USE_VENV" = true ]; then
+    BACKEND_PREFIX="([ -f venv/bin/activate ] && source venv/bin/activate || source ../venv/bin/activate) && "
+    echo "Using virtual environment for backend commands"
+else
+    BACKEND_PREFIX=""
+    echo "Using current Python environment (--no-venv)"
+fi
+
 # Backend: Ruff format and lint
-if run_command "backend ruff format" "([ -f venv/bin/activate ] && source venv/bin/activate || source ../venv/bin/activate) && python3 -m ruff format" "backend"; then
+if run_command "backend ruff format" "${BACKEND_PREFIX}python3 -m ruff format" "backend"; then
     echo "[PASS] Backend formatting completed"
 else
     echo "[FAIL] Backend formatting failed"
 fi
 
-if run_command "backend ruff lint fix" "([ -f venv/bin/activate ] && source venv/bin/activate || source ../venv/bin/activate) && python3 -m ruff check --fix" "backend"; then
+if run_command "backend ruff lint fix" "${BACKEND_PREFIX}python3 -m ruff check --fix" "backend"; then
     echo "[PASS] Backend linting completed"
 else
     echo "[FAIL] Backend linting failed"

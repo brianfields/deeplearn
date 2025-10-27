@@ -23,7 +23,10 @@ import { UnitDetailScreen } from './modules/catalog/screens/UnitDetailScreen';
 import { UnitLODetailScreen } from './modules/catalog/screens/UnitLODetailScreen';
 import LoginScreen from './modules/user/screens/LoginScreen';
 import RegisterScreen from './modules/user/screens/RegisterScreen';
-import CacheManagementScreen from './modules/offline_cache/screens/CacheManagementScreen';
+import ManageCacheScreen from './modules/offline_cache/screens/ManageCacheScreen';
+import SQLiteDetailScreen from './modules/offline_cache/screens/SQLiteDetailScreen';
+import AsyncStorageDetailScreen from './modules/offline_cache/screens/AsyncStorageDetailScreen';
+import FileSystemDetailScreen from './modules/offline_cache/screens/FileSystemDetailScreen';
 
 // Types
 import type { RootStackParamList, LearningStackParamList } from './types';
@@ -102,10 +105,31 @@ function LearningStackNavigator(): React.ReactElement {
         }}
       />
       <LearningStack.Screen
-        name="CacheManagement"
-        component={CacheManagementScreen}
+        name="ManageCache"
+        component={ManageCacheScreen}
         options={{
-          title: 'Cache Management',
+          title: 'Manage Cache',
+        }}
+      />
+      <LearningStack.Screen
+        name="SQLiteDetail"
+        component={SQLiteDetailScreen}
+        options={{
+          title: 'SQLite Database',
+        }}
+      />
+      <LearningStack.Screen
+        name="AsyncStorageDetail"
+        component={AsyncStorageDetailScreen}
+        options={{
+          title: 'AsyncStorage',
+        }}
+      />
+      <LearningStack.Screen
+        name="FileSystemDetail"
+        component={FileSystemDetailScreen}
+        options={{
+          title: 'File System',
         }}
       />
       <LearningStack.Screen

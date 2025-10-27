@@ -1,4 +1,10 @@
-import React, { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import {
   View,
   StyleSheet,
@@ -542,6 +548,54 @@ export function UnitDetailScreen() {
     );
   }, [currentUserId, haptics, navigation, removeFromMyUnits, unit]);
 
+  const handleDeleteDownload = useCallback(() => {
+    if (!unit) {
+      return;
+    }
+
+    const sizeLabel = unitMetrics.storageBytes
+      ? ` (${formatBytes(unitMetrics.storageBytes)})`
+      : '';
+    Alert.alert(
+      'Delete Download',
+      `Delete downloaded content for "${unit.title}"?${sizeLabel}\n\nYou'll need to download it again to access lessons offline.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            haptics.trigger('medium');
+            try {
+              await offlineCache.deleteUnit(unit.id);
+              await content.syncNow();
+              await Promise.all([refetch(), loadUnitMetrics()]);
+              navigation.navigate('LessonList');
+            } catch (error) {
+              console.error(
+                '[UnitDetailScreen] Failed to delete download',
+                error
+              );
+              Alert.alert(
+                'Delete failed',
+                'We could not delete the download. Please try again.'
+              );
+            }
+          },
+        },
+      ]
+    );
+  }, [
+    content,
+    haptics,
+    loadUnitMetrics,
+    navigation,
+    offlineCache,
+    refetch,
+    unit,
+    unitMetrics.storageBytes,
+  ]);
+
   if (!unit) {
     return (
       <SafeAreaView
@@ -821,6 +875,19 @@ export function UnitDetailScreen() {
           </Box>
         )}
 
+        {isDownloaded && (
+          <Box px="lg" mt="md">
+            <Button
+              title={`Delete Download${unitMetrics.storageBytes ? ` (${formatBytes(unitMetrics.storageBytes)})` : ''}`}
+              variant="secondary"
+              size="medium"
+              fullWidth
+              onPress={handleDeleteDownload}
+              testID="delete-download-button"
+            />
+          </Box>
+        )}
+
         {unit.isOwnedByCurrentUser && (
           <Box px="lg" mt="md">
             <Card variant="outlined" style={{ margin: 0 }}>
@@ -847,7 +914,7 @@ export function UnitDetailScreen() {
         <Fragment>
           <Box px="lg" mb="xs" mt="md">
             <Text
-              variant="overline"
+              variant="caption"
               color={theme.colors.textSecondary}
               accessibilityRole="text"
             >

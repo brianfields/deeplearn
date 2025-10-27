@@ -170,8 +170,8 @@ UnitSyncResponse = ContentService.UnitSyncResponse
 __all__ = [
     "ContentProvider",
     "LessonCreate",
-    "LessonRead",
     "LessonPodcastAudio",
+    "LessonRead",
     "UnitCreate",
     "UnitDetailRead",
     "UnitPodcastAudio",

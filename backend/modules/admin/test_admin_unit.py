@@ -19,13 +19,13 @@ from modules.admin.models import (
     UserUpdateRequest,
 )
 from modules.admin.service import AdminService
+from modules.content.package_models import LessonPackage, Meta
+from modules.content.public import LessonRead
 from modules.conversation_engine.public import (
     ConversationDetailDTO,
     ConversationMessageDTO,
     ConversationSummaryDTO,
 )
-from modules.content.package_models import LessonPackage, Meta
-from modules.content.public import LessonRead
 from modules.flow_engine.models import FlowRunModel, FlowStepRunModel
 from modules.learning_session.service import LearningSession, SessionListResponse
 from modules.llm_services.service import LLMRequest
@@ -548,9 +548,7 @@ class TestAdminService:
         """Lesson summaries should surface podcast metadata for admin review."""
 
         lesson_summary = SimpleNamespace(id="lesson-1", title="Lesson 1", learner_level="beginner")
-        mock_catalog_provider.search_lessons = AsyncMock(
-            return_value=SimpleNamespace(lessons=[lesson_summary], total=1)
-        )
+        mock_catalog_provider.search_lessons = AsyncMock(return_value=SimpleNamespace(lessons=[lesson_summary], total=1))
 
         generated_at = datetime.now(UTC)
         lesson_read = LessonRead(

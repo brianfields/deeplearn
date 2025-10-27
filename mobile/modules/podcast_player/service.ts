@@ -318,7 +318,11 @@ export class PodcastPlayerService {
     const currentTrack = store.currentTrack;
     let currentTrackIndex = 0;
 
-    if (existingPlaylist && existingPlaylist.unitId === unitId && currentTrack) {
+    if (
+      existingPlaylist &&
+      existingPlaylist.unitId === unitId &&
+      currentTrack
+    ) {
       const matchedIndex = validTracks.findIndex(track =>
         this.isSameTrack(track, currentTrack)
       );

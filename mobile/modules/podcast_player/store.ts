@@ -62,11 +62,13 @@ export const usePodcastStore = create<PodcastPlayerState>((set, get) => ({
       const { currentTrack: existing } = state;
       const nextTrack = playlist.tracks[playlist.currentTrackIndex] ?? null;
       const matchedTrack = existing
-        ? playlist.tracks.find(track =>
+        ? (playlist.tracks.find(track =>
             track.lessonId
               ? track.lessonId === existing.lessonId
-              : !track.lessonId && !existing.lessonId && track.unitId === existing.unitId
-          ) ?? null
+              : !track.lessonId &&
+                !existing.lessonId &&
+                track.unitId === existing.unitId
+          ) ?? null)
         : null;
 
       return {
@@ -82,7 +84,10 @@ export const usePodcastStore = create<PodcastPlayerState>((set, get) => ({
         return {};
       }
 
-      const clampedIndex = Math.max(0, Math.min(index, playlist.tracks.length - 1));
+      const clampedIndex = Math.max(
+        0,
+        Math.min(index, playlist.tracks.length - 1)
+      );
       const nextTrack = playlist.tracks[clampedIndex] ?? null;
 
       return {

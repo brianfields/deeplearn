@@ -885,24 +885,21 @@ export class ContentService {
         ? payload.podcast_transcript
         : null;
     const rawPodcastVoice =
-      typeof payload?.podcast_voice === 'string'
-        ? payload.podcast_voice
-        : null;
+      typeof payload?.podcast_voice === 'string' ? payload.podcast_voice : null;
     const rawPodcastAudioUrl =
       typeof payload?.podcast_audio_url === 'string'
         ? payload.podcast_audio_url
         : null;
-    const rawGeneratedAt = (payload as Record<string, unknown> | undefined)?.
-      podcast_generated_at;
+    const rawGeneratedAt = (payload as Record<string, unknown> | undefined)
+      ?.podcast_generated_at;
     const podcastGeneratedAt =
       typeof rawGeneratedAt === 'string'
         ? rawGeneratedAt
         : rawGeneratedAt instanceof Date
           ? rawGeneratedAt.toISOString()
           : null;
-    const rawDuration =
-      (payload as Record<string, unknown> | undefined)?.
-        podcast_duration_seconds;
+    const rawDuration = (payload as Record<string, unknown> | undefined)
+      ?.podcast_duration_seconds;
     const parsedDuration =
       typeof rawDuration === 'number'
         ? rawDuration

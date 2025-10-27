@@ -289,12 +289,12 @@ class CatalogService:
             created_at=str(lesson.created_at),
             exercise_count=len(exercises),
             unit_id=lesson.unit_id,
-             podcast_transcript=getattr(lesson, "podcast_transcript", None),
-             podcast_audio_url=getattr(lesson, "podcast_audio_url", None),
-             podcast_duration_seconds=getattr(lesson, "podcast_duration_seconds", None),
-             podcast_voice=getattr(lesson, "podcast_voice", None),
-             podcast_generated_at=self._format_datetime(getattr(lesson, "podcast_generated_at", None)),
-             has_podcast=getattr(lesson, "has_podcast", False),
+            podcast_transcript=getattr(lesson, "podcast_transcript", None),
+            podcast_audio_url=getattr(lesson, "podcast_audio_url", None),
+            podcast_duration_seconds=getattr(lesson, "podcast_duration_seconds", None),
+            podcast_voice=getattr(lesson, "podcast_voice", None),
+            podcast_generated_at=self._format_datetime(getattr(lesson, "podcast_generated_at", None)),
+            has_podcast=getattr(lesson, "has_podcast", False),
         )
 
     async def search_lessons(

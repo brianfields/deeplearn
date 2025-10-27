@@ -330,6 +330,9 @@ export class OfflineCacheRepository {
       await executor.execute('DELETE FROM metadata;');
       await executor.execute('DELETE FROM units;');
     });
+
+    // VACUUM to reclaim space and shrink the database file
+    await this.provider.execute('VACUUM;');
   }
 
   async enqueueOutbox(
