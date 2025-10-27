@@ -582,6 +582,13 @@ export class AdminService {
         package_version: lesson.package_version,
         created_at: new Date(lesson.created_at),
         updated_at: new Date(lesson.updated_at),
+        has_podcast: Boolean(lesson.has_podcast),
+        podcast_voice: lesson.podcast_voice ?? null,
+        podcast_duration_seconds: lesson.podcast_duration_seconds ?? null,
+        podcast_audio_url: lesson.podcast_audio_url ?? null,
+        podcast_generated_at: lesson.podcast_generated_at
+          ? new Date(lesson.podcast_generated_at)
+          : null,
       }));
 
       return {
@@ -617,6 +624,14 @@ export class AdminService {
         flow_run_id: apiLesson.flow_run_id || null,
         created_at: new Date(apiLesson.created_at),
         updated_at: new Date(apiLesson.updated_at),
+        has_podcast: Boolean(apiLesson.has_podcast),
+        podcast_transcript: apiLesson.podcast_transcript ?? null,
+        podcast_voice: apiLesson.podcast_voice ?? null,
+        podcast_audio_url: apiLesson.podcast_audio_url ?? null,
+        podcast_duration_seconds: apiLesson.podcast_duration_seconds ?? null,
+        podcast_generated_at: apiLesson.podcast_generated_at
+          ? new Date(apiLesson.podcast_generated_at)
+          : null,
       };
     } catch (error) {
       console.error('Failed to fetch lesson:', error);
@@ -747,6 +762,13 @@ export class AdminService {
           learning_objectives: l.learning_objectives ?? [],
           key_concepts: l.key_concepts ?? [],
           exercise_count: l.exercise_count,
+          has_podcast: Boolean(l.has_podcast),
+          podcast_voice: l.podcast_voice ?? null,
+          podcast_duration_seconds: l.podcast_duration_seconds ?? null,
+          podcast_generated_at: l.podcast_generated_at
+            ? new Date(l.podcast_generated_at)
+            : null,
+          podcast_audio_url: l.podcast_audio_url ?? null,
         })),
         learning_objectives:
           detail.learning_objectives?.map((lo) => ({

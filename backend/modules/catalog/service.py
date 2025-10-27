@@ -26,6 +26,9 @@ class LessonSummary(BaseModel):
     learning_objectives: list[str]
     key_concepts: list[str]
     exercise_count: int
+    has_podcast: bool = False
+    podcast_duration_seconds: int | None = None
+    podcast_voice: str | None = None
 
     def matches_learner_level(self, learner_level: str) -> bool:
         """Check if lesson matches specified learner level."""
@@ -46,6 +49,12 @@ class LessonDetail(BaseModel):
     created_at: str
     exercise_count: int
     unit_id: str | None = None
+    podcast_transcript: str | None = None
+    podcast_audio_url: str | None = None
+    podcast_duration_seconds: int | None = None
+    podcast_voice: str | None = None
+    podcast_generated_at: str | None = None
+    has_podcast: bool = False
 
     def is_ready_for_learning(self) -> bool:
         """Ready when there is at least one exercise."""
@@ -133,6 +142,11 @@ class UnitDetail(BaseModel):
     podcast_audio_url: str | None = None
     art_image_url: str | None = None
     art_image_description: str | None = None
+    intro_podcast_audio_url: str | None = None
+    intro_podcast_transcript: str | None = None
+    intro_podcast_voice: str | None = None
+    intro_podcast_duration_seconds: int | None = None
+    intro_podcast_generated_at: str | None = None
 
 
 class LearningObjectiveProgress(BaseModel):
@@ -166,6 +180,15 @@ class CatalogService:
         self.units = units
         self.learning_sessions = learning_sessions
         self._unit_objective_cache: dict[str, dict[str, str]] = {}
+
+    def _format_datetime(self, value: datetime | None) -> str | None:
+        """Format a datetime value as ISO 8601 for serialization."""
+
+        if value is None:
+            return None
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return str(value)
 
     async def browse_lessons(
         self,
@@ -203,6 +226,9 @@ class CatalogService:
                     learning_objectives=objective_texts,
                     key_concepts=[],  # Key concepts are now in glossary terms
                     exercise_count=exercise_count,
+                    has_podcast=getattr(lesson, "has_podcast", False),
+                    podcast_duration_seconds=getattr(lesson, "podcast_duration_seconds", None),
+                    podcast_voice=getattr(lesson, "podcast_voice", None),
                 )
             )
 
@@ -263,6 +289,12 @@ class CatalogService:
             created_at=str(lesson.created_at),
             exercise_count=len(exercises),
             unit_id=lesson.unit_id,
+             podcast_transcript=getattr(lesson, "podcast_transcript", None),
+             podcast_audio_url=getattr(lesson, "podcast_audio_url", None),
+             podcast_duration_seconds=getattr(lesson, "podcast_duration_seconds", None),
+             podcast_voice=getattr(lesson, "podcast_voice", None),
+             podcast_generated_at=self._format_datetime(getattr(lesson, "podcast_generated_at", None)),
+             has_podcast=getattr(lesson, "has_podcast", False),
         )
 
     async def search_lessons(
@@ -312,6 +344,9 @@ class CatalogService:
                     learning_objectives=objectives,
                     key_concepts=key_concepts,
                     exercise_count=exercise_count,
+                    has_podcast=getattr(lesson, "has_podcast", False),
+                    podcast_duration_seconds=getattr(lesson, "podcast_duration_seconds", None),
+                    podcast_voice=getattr(lesson, "podcast_voice", None),
                 )
             )
 
@@ -358,6 +393,9 @@ class CatalogService:
                     learning_objectives=objectives,
                     key_concepts=key_concepts,
                     exercise_count=exercise_count,
+                    has_podcast=getattr(lesson, "has_podcast", False),
+                    podcast_duration_seconds=getattr(lesson, "podcast_duration_seconds", None),
+                    podcast_voice=getattr(lesson, "podcast_voice", None),
                 )
             )
         return summaries
@@ -462,11 +500,16 @@ class CatalogService:
                 learning_objectives=lesson.learning_objectives,
                 key_concepts=lesson.key_concepts,
                 exercise_count=lesson.exercise_count,
+                has_podcast=getattr(lesson, "has_podcast", False),
+                podcast_duration_seconds=getattr(lesson, "podcast_duration_seconds", None),
+                podcast_voice=getattr(lesson, "podcast_voice", None),
             )
             for lesson in detail.lessons
         ]
 
         objective_progress = await self._build_learning_objective_progress(unit_id, detail)
+
+        podcast_generated_at_value = getattr(detail, "podcast_generated_at", None)
 
         return UnitDetail(
             id=detail.id,
@@ -486,8 +529,14 @@ class CatalogService:
             podcast_duration_seconds=getattr(detail, "podcast_duration_seconds", None),
             podcast_transcript=getattr(detail, "podcast_transcript", None),
             podcast_audio_url=getattr(detail, "podcast_audio_url", None),
+            intro_podcast_audio_url=getattr(detail, "podcast_audio_url", None),
+            intro_podcast_transcript=getattr(detail, "podcast_transcript", None),
+            intro_podcast_voice=getattr(detail, "podcast_voice", None),
+            intro_podcast_duration_seconds=getattr(detail, "podcast_duration_seconds", None),
+            intro_podcast_generated_at=self._format_datetime(podcast_generated_at_value),
             art_image_url=getattr(detail, "art_image_url", None),
             art_image_description=getattr(detail, "art_image_description", None),
+            podcast_generated_at=podcast_generated_at_value,
         )
 
     async def browse_units_for_user(

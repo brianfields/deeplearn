@@ -48,21 +48,62 @@ export function PodcastPlayer({
   const styles = useMemo(() => createStyles(theme), [theme]);
   const haptics = useHaptics();
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
-  const { playbackState, currentTrack, globalSpeed } = usePodcastState();
+  const {
+    playbackState,
+    currentTrack,
+    globalSpeed,
+    playlist,
+    autoplayEnabled,
+  } = usePodcastState();
   const {
     loadTrack,
     play,
     pause,
     skipBackward,
     skipForward,
+    skipToNext,
+    skipToPrevious,
     seekTo,
     setSpeed,
+    toggleAutoplay,
   } = usePodcastPlayer();
 
   const isCurrentTrack = currentTrack?.unitId === unitId;
 
   const [isSeekingPosition, setIsSeekingPosition] = useState(false);
   const [pendingSeekPosition, setPendingSeekPosition] = useState(0);
+
+  const playlistLength = playlist?.tracks.length ?? 0;
+  const currentPlaylistIndex = playlist?.currentTrackIndex ?? 0;
+  const hasPlaylist = playlistLength > 0;
+  const isPreviousDisabled = !hasPlaylist || currentPlaylistIndex <= 0;
+  const isNextDisabled =
+    !hasPlaylist || currentPlaylistIndex >= playlistLength - 1;
+
+  const trackIndicatorText = useMemo(() => {
+    if (!playlist || !currentTrack) {
+      return null;
+    }
+    if (!currentTrack.lessonId) {
+      return 'Intro';
+    }
+
+    const lessonTracks = playlist.tracks.filter(
+      trackItem => trackItem.lessonId
+    );
+    const lessonIndex =
+      typeof currentTrack.lessonIndex === 'number'
+        ? currentTrack.lessonIndex
+        : lessonTracks.findIndex(
+            trackItem => trackItem.lessonId === currentTrack.lessonId
+          );
+
+    if (lessonIndex >= 0 && lessonTracks.length > 0) {
+      return `Lesson ${lessonIndex + 1} of ${lessonTracks.length}`;
+    }
+
+    return currentTrack.title;
+  }, [playlist, currentTrack]);
 
   // Speed slider drag state
   const sliderWidth = useRef(0);
@@ -208,6 +249,27 @@ export function PodcastPlayer({
     skipForward().catch(() => {});
   };
 
+  const handlePreviousTrack = (): void => {
+    if (isPreviousDisabled) {
+      return;
+    }
+    haptics.trigger('light');
+    skipToPrevious().catch(() => {});
+  };
+
+  const handleNextTrack = (): void => {
+    if (isNextDisabled) {
+      return;
+    }
+    haptics.trigger('light');
+    skipToNext().catch(() => {});
+  };
+
+  const handleToggleAutoplay = (): void => {
+    haptics.trigger('light');
+    toggleAutoplay();
+  };
+
   const handleToggleExpand = (): void => {
     haptics.trigger('medium');
     setIsExpanded(!isExpanded);
@@ -307,38 +369,42 @@ export function PodcastPlayer({
     <View style={styles.container}>
       {/* Collapsed Player Bar */}
       <View style={styles.collapsedBar}>
-        {/* Expand Button */}
         <Pressable
           onPress={handleToggleExpand}
           style={styles.expandButton}
           accessibilityLabel={isExpanded ? 'Collapse player' : 'Expand player'}
           accessibilityRole="button"
+          testID="podcast-expand-toggle"
         >
           <Text variant="h2" style={styles.expandIcon}>
             {isExpanded ? '⌄' : '⌃'}
           </Text>
         </Pressable>
 
-        {/* Skip Backward */}
         <Pressable
-          onPress={handleSkipBackward}
-          style={styles.skipButton}
-          accessibilityLabel="Skip backward 15 seconds"
+          onPress={handlePreviousTrack}
+          style={[
+            styles.trackSkipButton,
+            isPreviousDisabled && styles.trackSkipButtonDisabled,
+          ]}
+          accessibilityLabel="Previous podcast"
           accessibilityRole="button"
+          disabled={isPreviousDisabled}
+          testID="podcast-prev-track"
         >
-          <View style={styles.skipCircle}>
-            <Text variant="caption" style={styles.skipText}>
-              ‹15
+          <View style={styles.trackSkipCircle}>
+            <Text variant="caption" style={styles.trackSkipIcon}>
+              ⏮
             </Text>
           </View>
         </Pressable>
 
-        {/* Play/Pause Button (centered) */}
         <Pressable
           onPress={handleTogglePlay}
           style={styles.playButton}
           accessibilityLabel={isPlaying ? 'Pause' : 'Play'}
           accessibilityRole="button"
+          testID="podcast-play-toggle"
         >
           <View
             style={[
@@ -352,21 +418,44 @@ export function PodcastPlayer({
           </View>
         </Pressable>
 
-        {/* Skip Forward */}
         <Pressable
-          onPress={handleSkipForward}
-          style={styles.skipButton}
-          accessibilityLabel="Skip forward 15 seconds"
+          onPress={handleNextTrack}
+          style={[
+            styles.trackSkipButton,
+            isNextDisabled && styles.trackSkipButtonDisabled,
+          ]}
+          accessibilityLabel="Next podcast"
           accessibilityRole="button"
+          disabled={isNextDisabled}
+          testID="podcast-next-track"
         >
-          <View style={styles.skipCircle}>
-            <Text variant="caption" style={styles.skipText}>
-              15›
+          <View style={styles.trackSkipCircle}>
+            <Text variant="caption" style={styles.trackSkipIcon}>
+              ⏭
             </Text>
           </View>
         </Pressable>
 
-        {/* Artwork */}
+        <View style={styles.trackSummary}>
+          {trackIndicatorText ? (
+            <Text
+              variant="caption"
+              style={styles.trackIndicatorCollapsed}
+              testID="podcast-track-indicator"
+            >
+              {trackIndicatorText}
+            </Text>
+          ) : null}
+          <Text
+            variant="body"
+            numberOfLines={1}
+            style={styles.trackTitleCollapsed}
+            accessibilityLabel={`Now playing ${track.title}`}
+          >
+            {track.title}
+          </Text>
+        </View>
+
         <View style={styles.artworkContainer}>
           <ArtworkImage
             title={track.title}
@@ -388,6 +477,12 @@ export function PodcastPlayer({
             <Text variant="h2" style={styles.title}>
               {track.title}
             </Text>
+
+            {trackIndicatorText ? (
+              <Text variant="caption" style={styles.trackIndicatorExpanded}>
+                {trackIndicatorText}
+              </Text>
+            ) : null}
 
             {/* Time Labels */}
             <View style={styles.timeRow}>
@@ -412,6 +507,27 @@ export function PodcastPlayer({
               showValueLabels={false}
               testID="podcast-player-slider"
             />
+
+            <View style={styles.secondaryControls}>
+              <Pressable
+                onPress={handleSkipBackward}
+                style={styles.secondaryControlButton}
+                accessibilityLabel="Rewind 15 seconds"
+                accessibilityRole="button"
+                testID="podcast-rewind-15"
+              >
+                <Text style={styles.secondaryControlText}>−15s</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleSkipForward}
+                style={styles.secondaryControlButton}
+                accessibilityLabel="Forward 15 seconds"
+                accessibilityRole="button"
+                testID="podcast-forward-15"
+              >
+                <Text style={styles.secondaryControlText}>+15s</Text>
+              </Pressable>
+            </View>
 
             {/* Speed Controls - Overcast Style */}
             <View style={styles.speedSection}>
@@ -480,6 +596,39 @@ export function PodcastPlayer({
               <Text style={styles.currentSpeedText}>{globalSpeed}×</Text>
             </View>
 
+            <View style={styles.autoplaySection}>
+              <Text
+                variant="caption"
+                color={theme.colors.textSecondary}
+                style={styles.sectionLabel}
+              >
+                Autoplay
+              </Text>
+              <Pressable
+                onPress={handleToggleAutoplay}
+                style={styles.autoplayToggle}
+                accessibilityLabel="Toggle autoplay"
+                accessibilityRole="button"
+                testID="podcast-autoplay-toggle"
+              >
+                <View
+                  style={[
+                    styles.autoplayToggleIndicator,
+                    autoplayEnabled && styles.autoplayToggleIndicatorActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.autoplayToggleText,
+                      autoplayEnabled && styles.autoplayToggleTextActive,
+                    ]}
+                  >
+                    {autoplayEnabled ? 'On' : 'Off'}
+                  </Text>
+                </View>
+              </Pressable>
+            </View>
+
             {/* Transcript */}
             {track.transcript && (
               <View style={styles.transcriptSection}>
@@ -541,13 +690,17 @@ const createStyles = (theme: any) =>
       fontSize: 24,
       color: theme.colors.text,
     },
-    skipButton: {
+    trackSkipButton: {
       width: 44,
       height: 44,
       alignItems: 'center',
       justifyContent: 'center',
+      marginHorizontal: 4,
     },
-    skipCircle: {
+    trackSkipButtonDisabled: {
+      opacity: 0.4,
+    },
+    trackSkipCircle: {
       width: 40,
       height: 40,
       borderRadius: 20,
@@ -555,9 +708,10 @@ const createStyles = (theme: any) =>
       borderColor: theme.colors.text,
       alignItems: 'center',
       justifyContent: 'center',
+      backgroundColor: theme.colors.surface,
     },
-    skipText: {
-      fontSize: 12,
+    trackSkipIcon: {
+      fontSize: 14,
       fontWeight: '600',
       color: theme.colors.text,
     },
@@ -590,6 +744,23 @@ const createStyles = (theme: any) =>
       height: 48,
       borderRadius: 4,
     },
+    trackSummary: {
+      flex: 1,
+      marginHorizontal: theme.spacing?.sm || 8,
+      justifyContent: 'center',
+    },
+    trackIndicatorCollapsed: {
+      color: theme.colors.textSecondary,
+      marginBottom: 2,
+      textTransform: 'uppercase',
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    trackTitleCollapsed: {
+      color: theme.colors.text,
+      fontWeight: '600',
+      fontSize: 14,
+    },
     expandedContent: {
       maxHeight: 400,
       borderTopWidth: 1,
@@ -602,6 +773,12 @@ const createStyles = (theme: any) =>
       marginBottom: theme.spacing?.md || 16,
       fontWeight: '600',
     },
+    trackIndicatorExpanded: {
+      marginBottom: theme.spacing?.sm || 8,
+      color: theme.colors.textSecondary,
+      textTransform: 'uppercase',
+      fontWeight: '600',
+    },
     timeRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -609,6 +786,26 @@ const createStyles = (theme: any) =>
     },
     sliderContainer: {
       marginBottom: theme.spacing?.lg || 20,
+    },
+    secondaryControls: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: theme.spacing?.md || 16,
+    },
+    secondaryControlButton: {
+      flex: 1,
+      marginHorizontal: 8,
+      paddingVertical: 12,
+      borderRadius: 24,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      backgroundColor: theme.colors.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    secondaryControlText: {
+      fontWeight: '600',
+      color: theme.colors.text,
     },
     speedSection: {
       marginBottom: theme.spacing?.lg || 20,
@@ -691,6 +888,31 @@ const createStyles = (theme: any) =>
       fontSize: 16,
       fontWeight: '600',
       color: theme.colors.text,
+    },
+    autoplaySection: {
+      marginBottom: theme.spacing?.lg || 20,
+    },
+    autoplayToggle: {
+      alignSelf: 'flex-start',
+    },
+    autoplayToggleIndicator: {
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      backgroundColor: theme.colors.surface,
+    },
+    autoplayToggleIndicatorActive: {
+      backgroundColor: theme.colors.primary,
+      borderColor: theme.colors.primary,
+    },
+    autoplayToggleText: {
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    autoplayToggleTextActive: {
+      color: theme.colors.surface,
     },
     transcriptSection: {
       marginBottom: theme.spacing?.lg || 20,

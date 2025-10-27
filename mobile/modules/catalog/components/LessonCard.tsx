@@ -18,6 +18,7 @@ import {
   CheckCircle,
   ArrowRight,
   WifiOff,
+  Headphones,
 } from 'lucide-react-native';
 
 import { LessonSummary } from '../models';
@@ -122,6 +123,14 @@ export function LessonCard({
           </View>
 
           <View style={styles.meta}>
+            {lesson.hasPodcast && (
+              <Headphones
+                size={16}
+                color={theme.colors.textSecondary}
+                style={{ marginRight: 6 }}
+                accessibilityLabel="Lesson podcast available"
+              />
+            )}
             {!isOfflineAvailable && (
               <WifiOff size={16} color={theme.colors.textSecondary} />
             )}

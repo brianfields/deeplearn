@@ -14,6 +14,7 @@ import MiniLesson from './MiniLesson';
 import MultipleChoice from './MultipleChoice';
 import type { MCQContentDTO } from '../models';
 import { catalogProvider } from '../../catalog/public';
+import { usePodcastPlayer, usePodcastState } from '../../podcast_player/public';
 
 interface LearningFlowProps {
   sessionId: string;
@@ -37,6 +38,8 @@ export default function LearningFlow({
   const theme = uiSystem.getCurrentTheme();
   const styles = createStyles(theme);
   const haptics = useHaptics();
+  const { loadTrack, play } = usePodcastPlayer();
+  const { playlist, currentTrack, autoplayEnabled } = usePodcastState();
 
   // Session data and actions
   const {
@@ -139,6 +142,40 @@ export default function LearningFlow({
     didacticData,
     exercises,
     didacticShown,
+  ]);
+
+  useEffect(() => {
+    if (!playlist || !session?.lessonId || !shouldShowDidactic) {
+      return;
+    }
+    const lessonTrack = playlist.tracks.find(
+      track => track.lessonId === session.lessonId
+    );
+    if (!lessonTrack) {
+      return;
+    }
+    if (currentTrack && currentTrack.lessonId === session.lessonId) {
+      return;
+    }
+
+    loadTrack(lessonTrack)
+      .then(() => {
+        if (autoplayEnabled) {
+          return play();
+        }
+        return undefined;
+      })
+      .catch(error => {
+        console.warn('[LearningFlow] Failed to load lesson podcast track', error);
+      });
+  }, [
+    playlist,
+    session?.lessonId,
+    shouldShowDidactic,
+    loadTrack,
+    autoplayEnabled,
+    play,
+    currentTrack,
   ]);
 
   // Handle exercise completion
@@ -318,6 +355,7 @@ export default function LearningFlow({
               setCurrentExercise(0);
             }}
             isLoading={isUpdatingProgress}
+            hasPodcast={hasPlayer}
           />
         )}
         {!shouldShowDidactic && renderCurrentExercise()}

@@ -22,6 +22,14 @@ export interface PodcastTrack {
   readonly audioUrl: string;
   readonly durationSeconds: number;
   readonly transcript?: string | null;
+  readonly lessonId?: string | null;
+  readonly lessonIndex?: number | null;
+}
+
+export interface UnitPodcastPlaylist {
+  readonly unitId: string;
+  readonly tracks: PodcastTrack[];
+  readonly currentTrackIndex: number;
 }
 
 export interface PlaybackState {

@@ -33,7 +33,7 @@
  * - Coordinates with React Navigation stack
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -54,6 +54,9 @@ import {
   PodcastPlayer,
   usePodcastState,
 } from '../../podcast_player/public';
+import { catalogProvider } from '../../catalog/public';
+import type { PodcastTrack } from '../../podcast_player/public';
+import type { UnitDetail } from '../../content/public';
 
 // Types
 import type { LearningStackParamList } from '../../../types';
@@ -75,15 +78,126 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
 
   // Session creation mutation
   const startSessionMutation = useStartSession();
-  const { pause } = usePodcastPlayer();
-  const { currentTrack } = usePodcastState();
-  const hasPlayer = Boolean(unitId && currentTrack?.unitId === unitId);
+  const {
+    loadPlaylist,
+    loadTrack,
+    play,
+    pause,
+    autoplayEnabled,
+  } = usePodcastPlayer();
+  const { currentTrack, playlist } = usePodcastState();
+  const hasPlayer = Boolean(
+    unitId && playlist?.unitId === unitId && (playlist?.tracks.length ?? 0) > 0
+  );
+  const [_isPlaylistLoading, setIsPlaylistLoading] = useState(false);
 
   useEffect(() => {
     if (!unitId) {
       setError('Unit context is required to start this lesson');
     }
   }, [unitId]);
+
+  const buildPlaylistTracks = useMemo(() => {
+    return (unitDetail: UnitDetail | null): PodcastTrack[] => {
+      if (!unitDetail) {
+        return [];
+      }
+
+      const tracks: PodcastTrack[] = [];
+      if (unitDetail.podcastAudioUrl) {
+        tracks.push({
+          unitId: unitDetail.id,
+          title: 'Intro Podcast',
+          audioUrl: unitDetail.podcastAudioUrl,
+          durationSeconds: unitDetail.podcastDurationSeconds ?? 0,
+          transcript: unitDetail.podcastTranscript ?? null,
+          lessonId: null,
+          lessonIndex: null,
+        });
+      }
+
+      unitDetail.lessons.forEach((lessonSummary, index) => {
+        if (!lessonSummary.podcastAudioUrl) {
+          return;
+        }
+        const isCurrentLesson = lessonSummary.id === lesson.id;
+        tracks.push({
+          unitId: unitDetail.id,
+          title: `Lesson ${index + 1}: ${lessonSummary.title}`,
+          audioUrl: lessonSummary.podcastAudioUrl,
+          durationSeconds: lessonSummary.podcastDurationSeconds ?? 0,
+          transcript: isCurrentLesson ? lesson.podcastTranscript ?? null : null,
+          lessonId: lessonSummary.id,
+          lessonIndex: index,
+        });
+      });
+
+      return tracks;
+    };
+  }, [lesson]);
+
+  useEffect(() => {
+    if (!unitId) {
+      return;
+    }
+    if (playlist?.unitId === unitId && (playlist?.tracks.length ?? 0) > 0) {
+      return;
+    }
+
+    let isMounted = true;
+    setIsPlaylistLoading(true);
+
+    const loadUnitPlaylist = async (): Promise<void> => {
+      try {
+        const catalog = catalogProvider();
+        const detail = await catalog.getUnitDetail(unitId);
+        if (!isMounted) {
+          return;
+        }
+        const tracks = buildPlaylistTracks(detail);
+        if (tracks.length === 0) {
+          console.warn('[LearningFlowScreen] No podcast tracks for unit', {
+            unitId,
+          });
+          return;
+        }
+        await loadPlaylist(unitId, tracks);
+        const shouldLoadInitialTrack =
+          !currentTrack || currentTrack.unitId !== unitId;
+        if (shouldLoadInitialTrack) {
+          await loadTrack(tracks[0]);
+          if (autoplayEnabled) {
+            await play();
+          }
+        }
+      } catch (playlistError) {
+        console.error(
+          '[LearningFlowScreen] Failed to load podcast playlist',
+          playlistError
+        );
+      } finally {
+        if (isMounted) {
+          setIsPlaylistLoading(false);
+        }
+      }
+    };
+
+    void loadUnitPlaylist();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    unitId,
+    playlist?.unitId,
+    playlist?.tracks.length,
+    loadPlaylist,
+    buildPlaylistTracks,
+    currentTrack,
+    loadTrack,
+    play,
+    autoplayEnabled,
+  ]);
 
   // Create session on mount
   useEffect(() => {

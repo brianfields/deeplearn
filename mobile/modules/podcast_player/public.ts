@@ -13,4 +13,4 @@ export {
   PLAYBACK_SPEEDS,
 };
 
-export type { PodcastTrack, PlaybackSpeed } from './models';
+export type { PodcastTrack, PlaybackSpeed, UnitPodcastPlaylist } from './models';

@@ -107,6 +107,7 @@ class ContentProvider(Protocol):
         voice: str | None = None,
     ) -> ContentService.UnitRead | None: ...
     async def get_unit_podcast_audio(self, unit_id: str) -> ContentService.UnitPodcastAudio | None: ...
+    async def get_lesson_podcast_audio(self, lesson_id: str) -> ContentService.LessonPodcastAudio | None: ...
     async def save_unit_podcast_from_bytes(
         self,
         unit_id: str,
@@ -116,6 +117,16 @@ class ContentProvider(Protocol):
         mime_type: str | None,
         voice: str | None,
     ) -> ContentService.UnitRead: ...
+    async def save_lesson_podcast_from_bytes(
+        self,
+        lesson_id: str,
+        *,
+        transcript: str,
+        audio_bytes: bytes,
+        mime_type: str | None,
+        voice: str | None,
+        duration_seconds: int | None = None,
+    ) -> LessonRead: ...
     async def save_unit_art_from_bytes(
         self,
         unit_id: str,
@@ -152,6 +163,7 @@ UnitCreate = ContentService.UnitCreate
 UnitRead = ContentService.UnitRead
 UnitDetailRead = ContentService.UnitDetailRead
 UnitPodcastAudio = ContentService.UnitPodcastAudio
+LessonPodcastAudio = ContentService.LessonPodcastAudio
 UnitSessionRead = ContentService.UnitSessionRead
 UnitSyncResponse = ContentService.UnitSyncResponse
 
@@ -159,6 +171,7 @@ __all__ = [
     "ContentProvider",
     "LessonCreate",
     "LessonRead",
+    "LessonPodcastAudio",
     "UnitCreate",
     "UnitDetailRead",
     "UnitPodcastAudio",

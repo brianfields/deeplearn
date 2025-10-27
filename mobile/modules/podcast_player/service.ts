@@ -8,10 +8,16 @@
 import TrackPlayer, {
   AppKilledPlaybackBehavior,
   Capability,
+  Event,
   RepeatMode,
   State as TrackPlayerState,
 } from 'react-native-track-player';
-import type { PersistedUnitState, PlaybackSpeed, PodcastTrack } from './models';
+import type {
+  PersistedUnitState,
+  PlaybackSpeed,
+  PodcastTrack,
+  UnitPodcastPlaylist,
+} from './models';
 import {
   PLAYBACK_SPEEDS,
   getPodcastStoreState,
@@ -39,10 +45,46 @@ export class PodcastPlayerService {
   private currentTrackId: string | null = null;
   private progressSubscription: TrackPlayerEventSubscription | null = null;
   private stateSubscription: TrackPlayerEventSubscription | null = null;
+  private queueEndedSubscription: TrackPlayerEventSubscription | null = null;
   private repo: PodcastPlayerRepo;
 
   constructor(repo: PodcastPlayerRepo = new PodcastPlayerRepo()) {
     this.repo = repo;
+  }
+
+  private getTrackKey(track: PodcastTrack): string {
+    if (track.lessonId) {
+      return `${track.unitId}:lesson:${track.lessonId}`;
+    }
+    if (typeof track.lessonIndex === 'number') {
+      return `${track.unitId}:lesson-index:${track.lessonIndex}`;
+    }
+    return `${track.unitId}:intro`;
+  }
+
+  private isSameTrack(a: PodcastTrack, b: PodcastTrack): boolean {
+    if (a.lessonId && b.lessonId) {
+      return a.lessonId === b.lessonId;
+    }
+    if (!a.lessonId && !b.lessonId) {
+      return a.unitId === b.unitId;
+    }
+    return false;
+  }
+
+  private detachEventListeners(): void {
+    if (this.progressSubscription) {
+      this.progressSubscription.remove();
+      this.progressSubscription = null;
+    }
+    if (this.stateSubscription) {
+      this.stateSubscription.remove();
+      this.stateSubscription = null;
+    }
+    if (this.queueEndedSubscription) {
+      this.queueEndedSubscription.remove();
+      this.queueEndedSubscription = null;
+    }
   }
 
   async initialize(): Promise<void> {
@@ -107,11 +149,61 @@ export class PodcastPlayerService {
   }
 
   private attachEventListeners(): void {
-    // Note: Event listeners are now handled in useTrackPlayer hook using useTrackPlayerEvents
-    // This ensures proper React lifecycle management and prevents the "no listeners registered" warning
-    console.log(
-      '[PodcastPlayerService] ℹ️ Event listeners managed by useTrackPlayer hook'
+    this.detachEventListeners();
+    this.queueEndedSubscription = TrackPlayer.addEventListener(
+      Event.PlaybackQueueEnded,
+      this.handleQueueEnded
     );
+  }
+
+  private handleQueueEnded = (): void => {
+    void this.advanceFromQueueEnd();
+  };
+
+  private async advanceFromQueueEnd(): Promise<void> {
+    const store = getPodcastStoreState();
+    const playlist = store.playlist;
+    if (!playlist) {
+      return;
+    }
+
+    if (!store.autoplayEnabled) {
+      store.updatePlaybackState({ isPlaying: false });
+      return;
+    }
+
+    const nextIndex = playlist.currentTrackIndex + 1;
+    if (nextIndex >= playlist.tracks.length) {
+      store.updatePlaybackState({ isPlaying: false });
+      return;
+    }
+
+    await this.advanceToIndex(nextIndex, true);
+  }
+
+  private async advanceToIndex(
+    index: number,
+    autoplayOverride?: boolean
+  ): Promise<void> {
+    const store = getPodcastStoreState();
+    const playlist = store.playlist;
+    if (!playlist) {
+      return;
+    }
+
+    const targetTrack = playlist.tracks[index];
+    if (!targetTrack) {
+      return;
+    }
+
+    await this.loadTrack(targetTrack);
+    const shouldAutoplay =
+      typeof autoplayOverride === 'boolean'
+        ? autoplayOverride
+        : store.autoplayEnabled;
+    if (shouldAutoplay) {
+      await this.play();
+    }
   }
 
   async loadTrack(track: PodcastTrack): Promise<void> {
@@ -126,11 +218,12 @@ export class PodcastPlayerService {
     await this.initialize();
     const store = getPodcastStoreState();
     const { playbackState } = store;
+    const trackKey = this.getTrackKey(track);
 
     console.log('[PodcastPlayerService] 📝 Setting loading state...');
     store.updatePlaybackState({ isLoading: true });
 
-    if (this.currentTrackId && this.currentTrackId !== track.unitId) {
+    if (this.currentTrackId && this.currentTrackId !== trackKey) {
       console.log('[PodcastPlayerService] 💾 Saving previous track position:', {
         trackId: this.currentTrackId,
         position: playbackState.position,
@@ -141,8 +234,17 @@ export class PodcastPlayerService {
     console.log('[PodcastPlayerService] 🔄 Resetting TrackPlayer...');
     await TrackPlayer.reset();
 
-    this.currentTrackId = track.unitId;
+    this.currentTrackId = trackKey;
     store.setCurrentTrack(track);
+    const playlist = store.playlist;
+    if (playlist) {
+      const trackIndex = playlist.tracks.findIndex(playlistTrack =>
+        this.isSameTrack(playlistTrack, track)
+      );
+      if (trackIndex >= 0 && playlist.currentTrackIndex !== trackIndex) {
+        store.setCurrentTrackIndex(trackIndex);
+      }
+    }
     store.updatePlaybackState({
       position: 0,
       duration: track.durationSeconds,
@@ -151,7 +253,7 @@ export class PodcastPlayerService {
     });
 
     console.log('[PodcastPlayerService] 📖 Loading persisted state...');
-    const persistedState = await this.getPersistedUnitState(track.unitId);
+    const persistedState = await this.getPersistedTrackState(trackKey);
     const startPosition = clamp(
       persistedState?.position ?? 0,
       0,
@@ -161,7 +263,7 @@ export class PodcastPlayerService {
 
     console.log('[PodcastPlayerService] ➕ Adding track to player...');
     const trackToAdd = {
-      id: track.unitId,
+      id: trackKey,
       url: track.audioUrl,
       title: track.title,
       artist: DEFAULT_ARTIST,
@@ -198,6 +300,77 @@ export class PodcastPlayerService {
       isLoading: false,
     });
     console.log('[PodcastPlayerService] ✅ loadTrack complete');
+  }
+
+  async loadPlaylist(unitId: string, tracks: PodcastTrack[]): Promise<void> {
+    await this.initialize();
+    const store = getPodcastStoreState();
+    const validTracks = tracks.filter(track => !!track.audioUrl);
+
+    if (validTracks.length === 0) {
+      this.currentTrackId = null;
+      store.setPlaylist(null);
+      await TrackPlayer.reset();
+      return;
+    }
+
+    const existingPlaylist = store.playlist;
+    const currentTrack = store.currentTrack;
+    let currentTrackIndex = 0;
+
+    if (existingPlaylist && existingPlaylist.unitId === unitId && currentTrack) {
+      const matchedIndex = validTracks.findIndex(track =>
+        this.isSameTrack(track, currentTrack)
+      );
+      if (matchedIndex >= 0) {
+        currentTrackIndex = matchedIndex;
+      }
+    }
+
+    const playlist: UnitPodcastPlaylist = {
+      unitId,
+      tracks: validTracks,
+      currentTrackIndex,
+    };
+
+    store.setPlaylist(playlist);
+  }
+
+  async skipToNext(): Promise<void> {
+    const store = getPodcastStoreState();
+    const playlist = store.playlist;
+    if (!playlist) {
+      return;
+    }
+
+    const nextIndex = playlist.currentTrackIndex + 1;
+    if (nextIndex >= playlist.tracks.length) {
+      await this.seekTo(0);
+      store.updatePlaybackState({ isPlaying: false });
+      return;
+    }
+
+    await this.advanceToIndex(nextIndex, true);
+  }
+
+  async skipToPrevious(): Promise<void> {
+    const store = getPodcastStoreState();
+    const playlist = store.playlist;
+    if (!playlist) {
+      return;
+    }
+
+    const position = store.playbackState.position;
+    if (position > 5 || playlist.currentTrackIndex === 0) {
+      await this.seekTo(0);
+      await this.play();
+      return;
+    }
+
+    const previousIndex = playlist.currentTrackIndex - 1;
+    if (previousIndex >= 0) {
+      await this.advanceToIndex(previousIndex, true);
+    }
   }
 
   async play(): Promise<void> {
@@ -303,9 +476,9 @@ export class PodcastPlayerService {
     const clamped = clamp(position, 0, duration);
     await TrackPlayer.seekTo(clamped);
     store.updatePlaybackState({ position: clamped });
-    const trackId = store.currentTrack?.unitId;
-    if (trackId) {
-      await this.savePosition(trackId, clamped);
+    const currentTrack = store.currentTrack;
+    if (currentTrack) {
+      await this.savePosition(this.getTrackKey(currentTrack), clamped);
     }
   }
 
@@ -320,18 +493,19 @@ export class PodcastPlayerService {
     return usePodcastStore.getState().globalSpeed;
   }
 
-  async getPosition(unitId: string): Promise<number> {
-    const persisted = await this.getPersistedUnitState(unitId);
+  async getPosition(trackKey: string): Promise<number> {
+    const persisted = await this.getPersistedTrackState(trackKey);
     return persisted?.position ?? 0;
   }
 
-  async savePosition(unitId: string, position: number): Promise<void> {
+  async savePosition(trackKey: string, position: number): Promise<void> {
     if (!Number.isFinite(position)) {
       return;
     }
-    await this.repo.saveUnitPosition(unitId, position);
+    await this.repo.saveUnitPosition(trackKey, position);
     const store = getPodcastStoreState();
-    if (store.currentTrack?.unitId === unitId) {
+    const currentTrack = store.currentTrack;
+    if (currentTrack && this.getTrackKey(currentTrack) === trackKey) {
       store.updatePlaybackState({ position });
     }
   }
@@ -412,10 +586,10 @@ export class PodcastPlayerService {
     }
   };
 
-  private async getPersistedUnitState(
-    unitId: string
+  private async getPersistedTrackState(
+    trackKey: string
   ): Promise<PersistedUnitState | null> {
-    return this.repo.getUnitState(unitId);
+    return this.repo.getUnitState(trackKey);
   }
 }
 

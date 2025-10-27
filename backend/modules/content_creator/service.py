@@ -30,7 +30,7 @@ from modules.infrastructure.public import infrastructure_provider
 from modules.task_queue.public import task_queue_provider
 
 from .flows import LessonCreationFlow, UnitArtCreationFlow, UnitCreationFlow
-from .podcast import PodcastLesson, UnitPodcastGenerator
+from .podcast import LessonPodcastGenerator, PodcastLesson, UnitPodcastGenerator
 from .steps import UnitLearningObjective
 
 logger = logging.getLogger(__name__)
@@ -77,10 +77,12 @@ class ContentCreatorService:
         self,
         content: ContentProvider,
         podcast_generator: UnitPodcastGenerator | None = None,
+        lesson_podcast_generator: LessonPodcastGenerator | None = None,
     ) -> None:
         """Initialize with content storage only - flows handle LLM interactions."""
         self.content = content
         self.podcast_generator = podcast_generator
+        self.lesson_podcast_generator = lesson_podcast_generator
         # Object store is no longer used here; persistence is delegated to content service
         self._object_store = None
 
@@ -169,6 +171,15 @@ class ContentCreatorService:
 
         mini_lesson_text = str(flow_result.get("mini_lesson") or "")
 
+        lesson_podcast_generator = self.lesson_podcast_generator or LessonPodcastGenerator()
+        lesson_podcast = await lesson_podcast_generator.create_podcast(
+            lesson_index=0,
+            lesson_title=request.topic,
+            lesson_objective=request.lesson_objective,
+            mini_lesson=mini_lesson_text,
+            voice_label=request.voice,
+        )
+
         # Build exercises from MCQs
         exercises: list[MCQExercise] = []
         mcqs = flow_result.get("mcqs", {}) or {}
@@ -255,7 +266,17 @@ class ContentCreatorService:
         )
 
         logger.info("💾 Saving lesson with package to database...")
-        await self.content.save_lesson(lesson_data)
+        saved_lesson = await self.content.save_lesson(lesson_data)
+
+        logger.info("🔊 Uploading lesson podcast audio...")
+        await self.content.save_lesson_podcast_from_bytes(
+            saved_lesson.id,
+            transcript=lesson_podcast.transcript,
+            audio_bytes=lesson_podcast.audio_bytes,
+            mime_type=lesson_podcast.mime_type,
+            voice=lesson_podcast.voice,
+            duration_seconds=lesson_podcast.duration_seconds,
+        )
 
         logger.info(
             "🎉 Lesson creation completed! Package references %s objectives, %s terms, %s exercises",
@@ -464,8 +485,17 @@ class ContentCreatorService:
 
         # Mini lesson text
         mini_lesson_text = str(md_res.get("mini_lesson") or "")
-        podcast_voice_label = str(md_res.get("voice") or "Plain")
         podcast_lesson = PodcastLesson(title=lesson_title, mini_lesson=mini_lesson_text)
+
+        generator = self.lesson_podcast_generator or LessonPodcastGenerator()
+        lesson_podcast = await generator.create_podcast(
+            lesson_index=lesson_index,
+            lesson_title=lesson_title,
+            lesson_objective=lesson_objective_text,
+            mini_lesson=mini_lesson_text,
+            voice_label=str(md_res.get("voice") or "Plain"),
+        )
+        podcast_voice_label = lesson_podcast.voice
 
         # MCQ exercises
         exercises: list[MCQExercise] = []
@@ -537,6 +567,14 @@ class ContentCreatorService:
                     learner_level=learner_level,
                     package=lesson_package,
                 )
+            )
+            await content.save_lesson_podcast_from_bytes(
+                created_lesson.id,
+                transcript=lesson_podcast.transcript,
+                audio_bytes=lesson_podcast.audio_bytes,
+                mime_type=lesson_podcast.mime_type,
+                voice=lesson_podcast.voice,
+                duration_seconds=lesson_podcast.duration_seconds,
             )
 
         covered_lo_ids = {str(exercise.lo_id) for exercise in exercises if getattr(exercise, "lo_id", None)}
@@ -671,9 +709,9 @@ class ContentCreatorService:
         if lesson_ids:
             await self.content.assign_lessons_to_unit(unit_id, lesson_ids)
 
-        # Generate podcast and art in parallel (both are independent post-processing tasks)
+        # Generate intro podcast and art in parallel (both are independent post-processing tasks)
         async def _generate_podcast() -> None:
-            """Generate podcast for the unit."""
+            """Generate the unit intro podcast."""
             if not podcast_lessons:
                 return
 
@@ -681,7 +719,7 @@ class ContentCreatorService:
             # Cache the generator for future use to avoid repeated initialization
             self.podcast_generator = generator
             try:
-                logger.info("🎧 Generating unit podcast...")
+                logger.info("🎧 Generating intro podcast...")
                 summary_text = self._summarize_unit_plan(unit_plan, lessons_plan)
                 podcast = await generator.create_podcast(
                     unit_title=final_title,
@@ -697,9 +735,9 @@ class ContentCreatorService:
                         mime_type=podcast.mime_type,
                         voice=podcast.voice,
                     )
-                    logger.info("✅ Podcast generation completed")
+                    logger.info("✅ Intro podcast generation completed")
             except Exception as exc:  # pragma: no cover - podcast generation should not block unit creation
-                logger.warning("🎧 Failed to generate podcast for unit %s: %s", unit_id, exc, exc_info=True)
+                logger.warning("🎧 Failed to generate intro podcast for unit %s: %s", unit_id, exc, exc_info=True)
 
         async def _generate_art() -> None:
             """Generate artwork for the unit."""

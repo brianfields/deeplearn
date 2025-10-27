@@ -88,7 +88,22 @@ class TestContentService:
         )
 
         # Mock lesson with package
-        mock_lesson = LessonModel(id="test-id", title="Test Lesson", learner_level="beginner", package=package.model_dump(), package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC))
+        now = datetime.now(UTC)
+        audio_id = uuid.uuid4()
+        mock_lesson = LessonModel(
+            id="test-id",
+            title="Test Lesson",
+            learner_level="beginner",
+            package=package.model_dump(),
+            package_version=1,
+            created_at=now,
+            updated_at=now,
+            podcast_transcript="Sample transcript",
+            podcast_voice="narrator",
+            podcast_audio_object_id=audio_id,
+            podcast_generated_at=now,
+            podcast_duration_seconds=187,
+        )
 
         repo.get_lesson_by_id.return_value = mock_lesson
         service = ContentService(repo)
@@ -104,7 +119,80 @@ class TestContentService:
         assert len(result.package.exercises) == 1
         assert result.package.unit_learning_objective_ids == ["lo_1"]
 
-        repo.get_lesson_by_id.assert_awaited_once_with("test-id")
+    async def test_save_lesson_podcast_from_bytes_persists_metadata(self) -> None:
+        """Uploading a lesson podcast stores audio and updates metadata."""
+
+        repo = AsyncMock(spec=ContentRepo)
+        object_store = AsyncMock()
+
+        now = datetime.now(UTC)
+        package = LessonPackage(
+            meta=Meta(lesson_id="lesson-1", title="Lesson", learner_level="beginner"),
+            unit_learning_objective_ids=["lo_1"],
+            glossary={"terms": []},
+            mini_lesson="Body",
+            exercises=[],
+        )
+        lesson_model = LessonModel(
+            id="lesson-1",
+            title="Lesson",
+            learner_level="beginner",
+            package=package.model_dump(),
+            package_version=1,
+            unit_id="unit-1",
+            created_at=now,
+            updated_at=now,
+        )
+        repo.get_lesson_by_id.return_value = lesson_model
+        repo.get_unit_by_id.return_value = SimpleNamespace(user_id=42)
+
+        upload_file = SimpleNamespace(id=uuid.uuid4(), duration_seconds=95, voice="Synth")
+        object_store.upload_audio.return_value = SimpleNamespace(file=upload_file)
+
+        async def _set_lesson_podcast(
+            lesson_id: str,
+            *,
+            transcript: str,
+            audio_object_id: uuid.UUID,
+            voice: str | None,
+            duration_seconds: int | None,
+        ) -> LessonModel:
+            lesson_model.podcast_transcript = transcript
+            lesson_model.podcast_audio_object_id = audio_object_id
+            lesson_model.podcast_voice = voice
+            lesson_model.podcast_duration_seconds = duration_seconds
+            lesson_model.podcast_generated_at = now
+            lesson_model.updated_at = now
+            return lesson_model
+
+        repo.set_lesson_podcast.side_effect = _set_lesson_podcast
+
+        service = ContentService(repo, object_store=object_store)
+        result = await service.save_lesson_podcast_from_bytes(
+            "lesson-1",
+            transcript="Lesson 1. Lesson",
+            audio_bytes=b"audio-bytes",
+            mime_type="audio/mpeg",
+            voice="Guide",
+            duration_seconds=120,
+        )
+
+        object_store.upload_audio.assert_awaited_once()
+        repo.set_lesson_podcast.assert_awaited_once_with(
+            "lesson-1",
+            transcript="Lesson 1. Lesson",
+            audio_object_id=upload_file.id,
+            voice="Guide",
+            duration_seconds=120,
+        )
+        assert result.podcast_transcript == "Lesson 1. Lesson"
+        assert result.has_podcast is True
+        assert result.podcast_voice == "Guide"
+        assert result.podcast_duration_seconds == 120
+        assert result.podcast_generated_at == now
+        assert result.podcast_audio_url == "/api/v1/content/lessons/lesson-1/podcast/audio"
+
+        repo.get_lesson_by_id.assert_awaited_once_with("lesson-1")
 
     async def test_save_lesson_creates_new_lesson_with_package(self) -> None:
         """Test that save_lesson creates a new lesson with package."""
@@ -135,6 +223,8 @@ class TestContentService:
         assert result.title == "Test Lesson"
         assert result.package_version == 1
         assert result.package.unit_learning_objective_ids == ["lo_1"]
+        assert result.has_podcast is False
+        assert result.podcast_audio_url is None
         repo.save_lesson.assert_awaited_once()
 
     async def test_lesson_exists_returns_true_when_exists(self) -> None:
@@ -697,6 +787,103 @@ class TestContentService:
         assert audio.audio_bytes is None
         assert audio.mime_type == "audio/mpeg"
 
+    async def test_get_unit_detail_includes_lesson_podcast_metadata(self) -> None:
+        """Unit detail should surface lesson podcast metadata."""
+
+        repo = AsyncMock(spec=ContentRepo)
+        service = ContentService(repo)
+
+        now = datetime.now(UTC)
+        unit_model = UnitModel(
+            id="unit-1",
+            title="Unit",
+            description=None,
+            learner_level="beginner",
+            lesson_order=["lesson-1"],
+            user_id=None,
+            is_global=False,
+            status="completed",
+            generated_from_topic=False,
+            flow_type="standard",
+            created_at=now,
+            updated_at=now,
+        )
+
+        audio_id = uuid.uuid4()
+        lesson_package = LessonPackage(
+            meta=Meta(lesson_id="lesson-1", title="Lesson 1", learner_level="beginner"),
+            unit_learning_objective_ids=["lo-1"],
+            glossary={"terms": []},
+            mini_lesson="Body",
+            exercises=[],
+        )
+        lesson_model = LessonModel(
+            id="lesson-1",
+            title="Lesson 1",
+            learner_level="beginner",
+            unit_id="unit-1",
+            package=lesson_package.model_dump(),
+            package_version=1,
+            podcast_audio_object_id=audio_id,
+            podcast_voice="narrator",
+            podcast_duration_seconds=200,
+            created_at=now,
+            updated_at=now,
+        )
+
+        repo.get_unit_by_id.return_value = unit_model
+        repo.get_lessons_by_unit.return_value = [lesson_model]
+
+        detail = await service.get_unit_detail("unit-1")
+
+        assert detail is not None
+        assert detail.lessons[0].has_podcast is True
+        assert detail.lessons[0].podcast_audio_url == "/api/v1/content/lessons/lesson-1/podcast/audio"
+        assert detail.lessons[0].podcast_voice == "narrator"
+
+    async def test_get_lesson_podcast_audio_uses_object_store(self) -> None:
+        """Lesson podcast audio should resolve through the object store."""
+
+        repo = AsyncMock(spec=ContentRepo)
+        object_store = AsyncMock()
+        object_store.get_audio = AsyncMock()
+        object_store.get_audio.return_value = Mock(
+            content_type="audio/mpeg",
+            presigned_url="https://example.com/lesson.mp3",
+        )
+
+        service = ContentService(repo, object_store=object_store)
+
+        now = datetime.now(UTC)
+        audio_id = uuid.uuid4()
+        lesson_package = LessonPackage(
+            meta=Meta(lesson_id="lesson-1", title="Lesson 1", learner_level="beginner"),
+            unit_learning_objective_ids=["lo-1"],
+            glossary={"terms": []},
+            mini_lesson="Body",
+            exercises=[],
+        )
+
+        lesson_model = LessonModel(
+            id="lesson-1",
+            title="Lesson 1",
+            learner_level="beginner",
+            package=lesson_package.model_dump(),
+            package_version=1,
+            podcast_audio_object_id=audio_id,
+            created_at=now,
+            updated_at=now,
+        )
+
+        repo.get_lesson_by_id.return_value = lesson_model
+
+        audio = await service.get_lesson_podcast_audio("lesson-1")
+
+        assert audio is not None
+        assert audio.presigned_url == "https://example.com/lesson.mp3"
+        assert audio.mime_type == "audio/mpeg"
+        object_store.get_audio.assert_awaited_once()
+
     async def test_get_units_since_returns_unit_and_assets(self) -> None:
         """Unit sync should include lessons, assets, and a cursor."""
 
@@ -975,6 +1162,12 @@ class _StubSyncService:
             cursor=datetime.now(UTC),
         )
 
+    async def get_unit_podcast_audio(self, unit_id: str) -> ContentService.UnitPodcastAudio | None:  # noqa: ARG002
+        return ContentService.UnitPodcastAudio(unit_id="stub", mime_type="audio/mpeg", presigned_url="https://example.com/unit.mp3")
+
+    async def get_lesson_podcast_audio(self, lesson_id: str) -> ContentService.LessonPodcastAudio | None:  # noqa: ARG002
+        return ContentService.LessonPodcastAudio(lesson_id="stub", mime_type="audio/mpeg", presigned_url="https://example.com/lesson.mp3")
+
 
 async def _build_test_app(stub: _StubSyncService) -> FastAPI:
     app = FastAPI()
@@ -1064,6 +1257,34 @@ async def test_sync_units_route_rejects_unknown_payload() -> None:
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert stub.args is None
+
+
+async def test_unit_podcast_route_redirects() -> None:
+    """Unit podcast route should redirect to the presigned audio URL."""
+
+    stub = _StubSyncService()
+    app = await _build_test_app(stub)
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/api/v1/content/units/unit-1/podcast/audio", follow_redirects=False)
+
+    assert response.status_code == status.HTTP_307_TEMPORARY_REDIRECT
+    assert response.headers["location"] == "https://example.com/unit.mp3"
+
+
+async def test_lesson_podcast_route_redirects() -> None:
+    """Lesson podcast route should redirect to the presigned audio URL."""
+
+    stub = _StubSyncService()
+    app = await _build_test_app(stub)
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/api/v1/content/lessons/lesson-1/podcast/audio", follow_redirects=False)
+
+    assert response.status_code == status.HTTP_307_TEMPORARY_REDIRECT
+    assert response.headers["location"] == "https://example.com/lesson.mp3"
 
 
 class TestContentRepoMyUnits:

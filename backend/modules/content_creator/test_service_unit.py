@@ -27,7 +27,16 @@ class TestContentCreatorService:
         """Test creating a lesson using flow engine."""
         # Arrange
         content = AsyncMock()
-        service = ContentCreatorService(content)
+        content.save_lesson_podcast_from_bytes = AsyncMock()
+        lesson_podcast_payload = SimpleNamespace(
+            transcript="Lesson 1. Test Lesson",
+            audio_bytes=b"lesson-bytes",
+            mime_type="audio/mpeg",
+            voice="Test voice",
+            duration_seconds=180,
+        )
+        lesson_podcast_generator = SimpleNamespace(create_podcast=AsyncMock(return_value=lesson_podcast_payload))
+        service = ContentCreatorService(content, lesson_podcast_generator=lesson_podcast_generator)
 
         request = CreateLessonRequest(
             topic="Test Lesson",
@@ -109,6 +118,15 @@ class TestContentCreatorService:
         assert result.objectives_count > 0
         assert result.mcqs_count > 0
         content.save_lesson.assert_awaited_once()
+        lesson_podcast_generator.create_podcast.assert_awaited_once()
+        content.save_lesson_podcast_from_bytes.assert_awaited_once_with(
+            mock_lesson.id,
+            transcript="Lesson 1. Test Lesson",
+            audio_bytes=b"lesson-bytes",
+            mime_type="audio/mpeg",
+            voice="Test voice",
+            duration_seconds=180,
+        )
         # No more component calls - everything is in the package now
 
         # Verify flow was called with correct inputs

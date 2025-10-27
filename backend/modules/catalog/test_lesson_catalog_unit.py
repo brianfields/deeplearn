@@ -52,8 +52,30 @@ class TestCatalogService:
 
         # Mock lessons from content module
         mock_lessons = [
-            LessonRead(id="lesson-1", title="Lesson 1", learner_level="beginner", package=package1, package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC)),
-            LessonRead(id="lesson-2", title="Lesson 2", learner_level="intermediate", package=package2, package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC)),
+            LessonRead(
+                id="lesson-1",
+                title="Lesson 1",
+                learner_level="beginner",
+                package=package1,
+                package_version=1,
+                created_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC),
+                podcast_transcript="Lesson 1. Managed Commons introduction.",
+                podcast_voice="Narrator",
+                podcast_duration_seconds=210,
+                podcast_generated_at=datetime.now(UTC),
+                podcast_audio_url="/api/v1/content/lessons/lesson-1/podcast/audio",
+                has_podcast=True,
+            ),
+            LessonRead(
+                id="lesson-2",
+                title="Lesson 2",
+                learner_level="intermediate",
+                package=package2,
+                package_version=1,
+                created_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC),
+            ),
         ]
 
         content.search_lessons = AsyncMock(return_value=mock_lessons)
@@ -69,6 +91,9 @@ class TestCatalogService:
         assert result.lessons[0].id == "lesson-1"
         assert result.lessons[0].exercise_count == 1  # exercises only
         assert result.lessons[1].exercise_count == 0  # no exercises
+        assert result.lessons[0].has_podcast is True
+        assert result.lessons[0].podcast_voice == "Narrator"
+        assert result.lessons[0].podcast_duration_seconds == 210
 
         content.search_lessons.assert_awaited_once_with(learner_level="beginner", limit=10)
 
@@ -95,7 +120,22 @@ class TestCatalogService:
             ],
         )
 
-        mock_lesson = LessonRead(id="lesson-1", title="Lesson 1", learner_level="beginner", package=package, package_version=1, created_at=datetime.now(UTC), updated_at=datetime.now(UTC))
+        generated_at = datetime.now(UTC)
+        mock_lesson = LessonRead(
+            id="lesson-1",
+            title="Lesson 1",
+            learner_level="beginner",
+            package=package,
+            package_version=1,
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+            podcast_transcript="Lesson 1. Managed Commons introduction.",
+            podcast_voice="Narrator",
+            podcast_duration_seconds=198,
+            podcast_audio_url="/api/v1/content/lessons/lesson-1/podcast/audio",
+            podcast_generated_at=generated_at,
+            has_podcast=True,
+        )
 
         content.get_lesson = AsyncMock(return_value=mock_lesson)
         units = Mock()
@@ -110,6 +150,12 @@ class TestCatalogService:
         assert result.title == "Lesson 1"
         assert result.exercise_count == 1  # exercises only
         assert len(result.exercises) == 1
+        assert result.has_podcast is True
+        assert result.podcast_voice == "Narrator"
+        assert result.podcast_audio_url == "/api/v1/content/lessons/lesson-1/podcast/audio"
+        assert result.podcast_duration_seconds == 198
+        assert result.podcast_transcript.startswith("Lesson 1.")
+        assert result.podcast_generated_at == generated_at.isoformat()
 
         content.get_lesson.assert_awaited_once_with("lesson-1")
 
@@ -145,7 +191,12 @@ class TestCatalogService:
             learning_objectives=["Understand A"],
             key_concepts=[],
             exercise_count=1,
+            has_podcast=True,
+            podcast_voice="Narrator",
+            podcast_duration_seconds=205,
         )
+
+        intro_generated_at = datetime.now(UTC)
 
         units.get_unit_detail = AsyncMock(
             return_value=SimpleNamespace(
@@ -160,6 +211,12 @@ class TestCatalogService:
                 source_material=None,
                 generated_from_topic=False,
                 flow_type="standard",
+                has_podcast=True,
+                podcast_voice="Storyteller",
+                podcast_transcript="Intro narrative",
+                podcast_audio_url="/api/v1/content/units/unit-1/podcast/audio",
+                podcast_duration_seconds=320,
+                podcast_generated_at=intro_generated_at,
             )
         )
 
@@ -215,6 +272,14 @@ class TestCatalogService:
         assert progress.exercises_total == 1
         assert progress.exercises_correct == 1
         assert progress.progress_percentage == 100.0
+        assert result.has_podcast is True
+        assert result.intro_podcast_voice == "Storyteller"
+        assert result.intro_podcast_audio_url == "/api/v1/content/units/unit-1/podcast/audio"
+        assert result.intro_podcast_duration_seconds == 320
+        assert result.intro_podcast_generated_at == intro_generated_at.isoformat()
+        assert result.lessons[0].has_podcast is True
+        assert result.lessons[0].podcast_voice == "Narrator"
+        assert result.lessons[0].podcast_duration_seconds == 205
 
     @pytest.mark.asyncio
     async def test_browse_units_for_user_splits_personal_and_global(self) -> None:

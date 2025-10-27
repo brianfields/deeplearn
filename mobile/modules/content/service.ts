@@ -1,5 +1,6 @@
 import {
   ContentRepo,
+  type ApiLessonRead,
   type ApiUnitSyncEntry,
   type ApiUnitSyncResponse,
 } from './repo';
@@ -594,6 +595,19 @@ export class ContentService {
       .map(asset => this.toOfflineAssetPayload(asset, summary.id, now))
       .filter((asset): asset is OfflineAssetPayload => Boolean(asset));
 
+    const assetIds = new Set(assetPayloads.map(asset => asset.id));
+    entry.lessons.forEach(lesson => {
+      const lessonAsset = this.toLessonPodcastAssetPayload(
+        lesson,
+        summary.id,
+        now
+      );
+      if (lessonAsset && !assetIds.has(lessonAsset.id)) {
+        assetPayloads.push(lessonAsset);
+        assetIds.add(lessonAsset.id);
+      }
+    });
+
     return {
       unit,
       lessons: lessonPayloads,
@@ -626,6 +640,33 @@ export class ContentService {
       type,
       remoteUri,
       checksum: asset.checksum ?? null,
+      updatedAt,
+    };
+  }
+
+  private toLessonPodcastAssetPayload(
+    lesson: ApiLessonRead,
+    unitId: string,
+    fallbackTime: number
+  ): OfflineAssetPayload | null {
+    const remoteUri =
+      typeof lesson.podcast_audio_url === 'string'
+        ? lesson.podcast_audio_url
+        : null;
+    if (!remoteUri) {
+      return null;
+    }
+
+    const generatedAt = this.parseTimestamp(lesson.podcast_generated_at);
+    const updatedAt =
+      generatedAt ?? this.parseTimestamp(lesson.updated_at) ?? fallbackTime;
+
+    return {
+      id: `lesson-podcast-${lesson.id}`,
+      unitId,
+      type: 'audio',
+      remoteUri,
+      checksum: null,
       updatedAt,
     };
   }
@@ -839,6 +880,49 @@ export class ContentService {
         ? packagePayload.exercises
         : [];
 
+    const rawPodcastTranscript =
+      typeof payload?.podcast_transcript === 'string'
+        ? payload.podcast_transcript
+        : null;
+    const rawPodcastVoice =
+      typeof payload?.podcast_voice === 'string'
+        ? payload.podcast_voice
+        : null;
+    const rawPodcastAudioUrl =
+      typeof payload?.podcast_audio_url === 'string'
+        ? payload.podcast_audio_url
+        : null;
+    const rawGeneratedAt = (payload as Record<string, unknown> | undefined)?.
+      podcast_generated_at;
+    const podcastGeneratedAt =
+      typeof rawGeneratedAt === 'string'
+        ? rawGeneratedAt
+        : rawGeneratedAt instanceof Date
+          ? rawGeneratedAt.toISOString()
+          : null;
+    const rawDuration =
+      (payload as Record<string, unknown> | undefined)?.
+        podcast_duration_seconds;
+    const parsedDuration =
+      typeof rawDuration === 'number'
+        ? rawDuration
+        : typeof rawDuration === 'string'
+          ? Number.parseInt(rawDuration, 10)
+          : null;
+    const podcastDurationSeconds =
+      typeof parsedDuration === 'number' && Number.isFinite(parsedDuration)
+        ? parsedDuration
+        : null;
+    const hasPodcast =
+      typeof payload?.has_podcast === 'boolean'
+        ? payload.has_podcast
+        : Boolean(
+            rawPodcastAudioUrl ||
+              rawPodcastTranscript ||
+              podcastDurationSeconds ||
+              rawPodcastVoice
+          );
+
     return {
       id: lesson.id,
       title: lesson.title,
@@ -850,6 +934,12 @@ export class ContentService {
       learning_objectives: learningObjectives,
       key_concepts: keyConcepts,
       exercise_count: exerciseComponents.length,
+      has_podcast: hasPodcast,
+      podcast_voice: rawPodcastVoice,
+      podcast_duration_seconds: podcastDurationSeconds,
+      podcast_generated_at: podcastGeneratedAt,
+      podcast_audio_url: rawPodcastAudioUrl,
+      podcast_transcript: rawPodcastTranscript,
     };
   }
 

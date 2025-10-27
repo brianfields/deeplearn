@@ -46,6 +46,7 @@ interface MiniLessonProps {
   lessonTitle?: string;
   onContinue: () => void;
   isLoading?: boolean;
+  hasPodcast?: boolean;
 }
 
 export default function MiniLesson({
@@ -53,6 +54,7 @@ export default function MiniLesson({
   lessonTitle,
   onContinue,
   isLoading = false,
+  hasPodcast = false,
 }: MiniLessonProps) {
   const uiSystem = uiSystemProvider();
   const theme = uiSystem.getCurrentTheme();
@@ -277,6 +279,14 @@ export default function MiniLesson({
           </Animated.View>
         </Animated.View>
       )}
+
+      {hasPodcast ? (
+        <View style={styles.podcastHintContainer}>
+          <Text style={styles.podcastHintText}>
+            🎧 A narrated version of this lesson is playing below.
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -440,5 +450,16 @@ const createStyles = (theme: any) =>
 
     scrollArrow: {
       padding: 8,
+    },
+
+    podcastHintContainer: {
+      paddingHorizontal: 20,
+      paddingBottom: 16,
+    },
+
+    podcastHintText: {
+      textAlign: 'center',
+      color: theme.colors.textSecondary,
+      fontSize: 13,
     },
   });

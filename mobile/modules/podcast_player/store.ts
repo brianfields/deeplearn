@@ -5,7 +5,12 @@
  */
 
 import { create } from 'zustand';
-import type { PlaybackSpeed, PlaybackState, PodcastTrack } from './models';
+import type {
+  PlaybackSpeed,
+  PlaybackState,
+  PodcastTrack,
+  UnitPodcastPlaylist,
+} from './models';
 
 const DEFAULT_SPEED: PlaybackSpeed = 1;
 
@@ -19,23 +24,75 @@ const DEFAULT_PLAYBACK_STATE: PlaybackState = {
 
 interface PodcastPlayerState {
   readonly currentTrack: PodcastTrack | null;
+  readonly playlist: UnitPodcastPlaylist | null;
   readonly playbackState: PlaybackState;
   readonly globalSpeed: PlaybackSpeed;
   readonly isMinimized: boolean;
+  readonly autoplayEnabled: boolean;
   setCurrentTrack: (track: PodcastTrack | null) => void;
+  setPlaylist: (playlist: UnitPodcastPlaylist | null) => void;
+  setCurrentTrackIndex: (index: number) => void;
   updatePlaybackState: (state: Partial<PlaybackState>) => void;
   setGlobalSpeed: (speed: PlaybackSpeed) => void;
   setMinimized: (minimized: boolean) => void;
+  toggleAutoplay: () => void;
   reset: () => void;
 }
 
 export const usePodcastStore = create<PodcastPlayerState>((set, get) => ({
   currentTrack: null,
+  playlist: null,
   playbackState: DEFAULT_PLAYBACK_STATE,
   globalSpeed: DEFAULT_SPEED,
   isMinimized: false,
+  autoplayEnabled: true,
   setCurrentTrack: (track: PodcastTrack | null) => {
     set({ currentTrack: track });
+  },
+  setPlaylist: (playlist: UnitPodcastPlaylist | null) => {
+    set(state => {
+      if (!playlist) {
+        return {
+          playlist: null,
+          currentTrack: null,
+          playbackState: DEFAULT_PLAYBACK_STATE,
+        };
+      }
+
+      const { currentTrack: existing } = state;
+      const nextTrack = playlist.tracks[playlist.currentTrackIndex] ?? null;
+      const matchedTrack = existing
+        ? playlist.tracks.find(track =>
+            track.lessonId
+              ? track.lessonId === existing.lessonId
+              : !track.lessonId && !existing.lessonId && track.unitId === existing.unitId
+          ) ?? null
+        : null;
+
+      return {
+        playlist,
+        currentTrack: matchedTrack ?? nextTrack,
+      };
+    });
+  },
+  setCurrentTrackIndex: (index: number) => {
+    set(state => {
+      const playlist = state.playlist;
+      if (!playlist) {
+        return {};
+      }
+
+      const clampedIndex = Math.max(0, Math.min(index, playlist.tracks.length - 1));
+      const nextTrack = playlist.tracks[clampedIndex] ?? null;
+
+      return {
+        playlist: {
+          ...playlist,
+          currentTrackIndex: clampedIndex,
+        },
+        currentTrack: nextTrack,
+      };
+    });
   },
   updatePlaybackState: (state: Partial<PlaybackState>) => {
     const nextState: PlaybackState = {
@@ -50,12 +107,17 @@ export const usePodcastStore = create<PodcastPlayerState>((set, get) => ({
   setMinimized: (minimized: boolean) => {
     set({ isMinimized: minimized });
   },
+  toggleAutoplay: () => {
+    set(state => ({ autoplayEnabled: !state.autoplayEnabled }));
+  },
   reset: () => {
     set({
       currentTrack: null,
+      playlist: null,
       playbackState: DEFAULT_PLAYBACK_STATE,
       globalSpeed: DEFAULT_SPEED,
       isMinimized: false,
+      autoplayEnabled: true,
     });
   },
 }));

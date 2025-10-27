@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -51,6 +51,7 @@ import {
 } from '../../offline_cache/public';
 import { DownloadPrompt } from '../components/DownloadPrompt';
 import type { LOProgressItem } from '../../learning_session/models';
+import { Headphones } from 'lucide-react-native';
 
 type UnitDetailScreenNavigationProp = NativeStackNavigationProp<
   LearningStackParamList,
@@ -379,19 +380,9 @@ export function UnitDetailScreen() {
       return null;
     }
 
-    // 🔍 DEBUG: Log podcast data to verify it's being read correctly
-    console.log('━━━━━ PODCAST TRACK DEBUG ━━━━━');
-    console.log('Unit ID:', unit.id);
-    console.log('Has Podcast:', hasPodcast);
-    console.log('Podcast Duration (raw):', unit.podcastDurationSeconds);
-    console.log('Podcast Duration (type):', typeof unit.podcastDurationSeconds);
-    console.log('Resolved URL:', resolvedPodcastUrl);
-    console.log('Is Downloaded:', isDownloaded);
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-
     return {
       unitId: unit.id,
-      title: unit.title,
+      title: 'Intro Podcast',
       audioUrl: resolvedPodcastUrl,
       durationSeconds: unit.podcastDurationSeconds ?? 0,
       transcript: unit.podcastTranscript ?? null,
@@ -802,7 +793,15 @@ export function UnitDetailScreen() {
                 <Text variant="body" style={{ flex: 1, marginRight: 12 }}>
                   {item.title}
                 </Text>
-                <View style={styles.lessonRight}></View>
+                <View style={styles.lessonRight}>
+                  {item.hasPodcast ? (
+                    <Headphones
+                      size={18}
+                      color={theme.colors.textSecondary}
+                      accessibilityLabel="Lesson podcast available"
+                    />
+                  ) : null}
+                </View>
               </View>
             </Card>
           </Box>
@@ -819,99 +818,6 @@ export function UnitDetailScreen() {
               disabled={removeFromMyUnits.isPending}
               testID="remove-from-my-units"
             />
-          </Box>
-        )}
-
-        {/* 🔍 DEBUG: Cache Inspection Tools */}
-        {__DEV__ && isDownloaded && (
-          <Box px="lg" mt="md">
-            <Card variant="outlined">
-              <Text variant="title">🔍 Cache Debug Tools</Text>
-              <Button
-                title="Inspect Cache Data"
-                onPress={async () => {
-                  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-                  console.log('📊 FULL CACHE INSPECTION');
-                  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-
-                  // Inspect the unit data
-                  console.log('\n📦 Unit Data:');
-                  console.log('  ID:', unit.id);
-                  console.log('  Title:', unit.title);
-                  console.log('  Has Podcast:', hasPodcast);
-                  console.log(
-                    '  Podcast Duration:',
-                    unit.podcastDurationSeconds
-                  );
-                  console.log(
-                    '  Podcast Duration Type:',
-                    typeof unit.podcastDurationSeconds
-                  );
-                  console.log('  Podcast URL:', unit.podcastAudioUrl);
-                  console.log('  Download Status:', unit.downloadStatus);
-
-                  // Inspect the cached unit detail
-                  const cached = await offlineCache.getUnitDetail(unit.id);
-                  console.log('\n💾 Cached Unit Detail:');
-                  console.log(
-                    '  Unit Payload:',
-                    JSON.stringify(cached?.unitPayload, null, 2)
-                  );
-
-                  // Inspect the raw SQLite data
-                  const infrastructure = infrastructureProvider();
-                  const sqliteProvider =
-                    await infrastructure.createSQLiteProvider({
-                      databaseName: 'offline_unit_cache.db',
-                      enableForeignKeys: true,
-                      migrations: [],
-                    });
-
-                  const result = await sqliteProvider.execute(
-                    'SELECT unit_payload FROM units WHERE id = ?',
-                    [unit.id]
-                  );
-
-                  if (result.rows.length > 0) {
-                    console.log('\n🗄️ Raw SQLite Data:');
-                    const rawPayload = JSON.parse(
-                      result.rows[0].unit_payload as string
-                    );
-                    console.log(
-                      '  podcast_duration_seconds:',
-                      rawPayload.podcast_duration_seconds
-                    );
-                    console.log('  has_podcast:', rawPayload.has_podcast);
-                  }
-
-                  console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-                  Alert.alert(
-                    'Cache Inspection',
-                    'Check the Metro console for detailed logs'
-                  );
-                }}
-                variant="secondary"
-                size="medium"
-                fullWidth
-              />
-              <Button
-                title="Force Re-Sync Unit"
-                onPress={async () => {
-                  try {
-                    console.log('🔄 Forcing unit re-sync...');
-                    await content.syncNow();
-                    await refetch();
-                    Alert.alert('Success', 'Unit data re-synced from backend');
-                  } catch (error) {
-                    console.error('Re-sync failed:', error);
-                    Alert.alert('Error', 'Failed to re-sync unit data');
-                  }
-                }}
-                variant="secondary"
-                size="medium"
-                fullWidth
-              />
-            </Card>
           </Box>
         )}
 
@@ -938,12 +844,23 @@ export function UnitDetailScreen() {
         )}
       </ScrollView>
       {hasPodcast && podcastTrack && (
-        <PodcastPlayer
-          track={podcastTrack}
-          unitId={unit.id}
-          artworkUrl={unit.artImageUrl ?? undefined}
-          defaultExpanded={false}
-        />
+        <Fragment>
+          <Box px="lg" mb="xs" mt="md">
+            <Text
+              variant="overline"
+              color={theme.colors.textSecondary}
+              accessibilityRole="text"
+            >
+              Intro Podcast
+            </Text>
+          </Box>
+          <PodcastPlayer
+            track={podcastTrack}
+            unitId={unit.id}
+            artworkUrl={unit.artImageUrl ?? undefined}
+            defaultExpanded={false}
+          />
+        </Fragment>
       )}
     </SafeAreaView>
   );
@@ -985,7 +902,7 @@ const styles = StyleSheet.create({
   loDetailButton: {
     marginTop: 16,
   },
-  lessonRight: { alignItems: 'flex-end' },
+  lessonRight: { alignItems: 'flex-end', minWidth: 24 },
   lessonRowInner: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -36,6 +36,7 @@ describe('CatalogService', () => {
 
     mockContent = {
       listUnits: jest.fn(),
+      browseCatalogUnits: jest.fn(),
       getUnitDetail: jest.fn(),
       getUserUnitCollections: jest.fn(),
       updateUnitSharing: jest.fn(),
@@ -93,6 +94,12 @@ describe('CatalogService', () => {
         readinessStatus: 'ready',
         tags: [],
         unitId: 'unit-1',
+        podcastTranscript: 'Lesson 1. Lesson Title transcript',
+        podcastAudioUrl: 'https://cdn.example.com/audio/lesson-1.mp3',
+        podcastDurationSeconds: 180,
+        podcastVoice: 'verse',
+        podcastGeneratedAt: new Date().toISOString(),
+        hasPodcast: true,
       };
       mockRepo.getLesson.mockResolvedValue(lesson);
 
@@ -198,21 +205,21 @@ describe('CatalogService', () => {
           artImageDescription: 'Art Deco skyline at dawn',
         },
       ];
-      mockContent.listUnits.mockResolvedValue(mockUnits);
+      mockContent.browseCatalogUnits.mockResolvedValue(mockUnits);
 
       const result = await service.browseUnits({ limit: 5, currentUserId: 10 });
 
       expect(result).toEqual(mockUnits);
       expect(result[0].artImageUrl).toBe('https://cdn.example.com/unit-1.png');
       expect(result[0].artImageDescription).toBe('Art Deco skyline at dawn');
-      expect(mockContent.listUnits).toHaveBeenCalledWith({
+      expect(mockContent.browseCatalogUnits).toHaveBeenCalledWith({
         limit: 5,
         currentUserId: 10,
       });
     });
 
     it('wraps provider errors as catalog errors', async () => {
-      mockContent.listUnits.mockRejectedValue({
+      mockContent.browseCatalogUnits.mockRejectedValue({
         message: 'boom',
         code: 'CONTENT_ERROR',
       });

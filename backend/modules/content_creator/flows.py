@@ -16,6 +16,7 @@ from modules.flow_engine.public import BaseFlow
 from .steps import (
     ExtractLessonMetadataStep,
     ExtractUnitMetadataStep,
+    GenerateLessonPodcastTranscriptStep,
     GenerateMCQStep,
     GenerateUnitArtDescriptionStep,
     GenerateUnitArtImageStep,
@@ -161,8 +162,58 @@ class UnitCreationFlow(BaseFlow):
         }
 
 
+class LessonPodcastFlow(BaseFlow):
+    """Generate a narrated podcast for a single lesson."""
+
+    flow_name = "lesson_podcast"
+
+    class Inputs(BaseModel):
+        lesson_number: int
+        lesson_title: str
+        lesson_objective: str
+        mini_lesson: str
+        voice: str
+        audio_model: str = "tts-1-hd"
+        audio_format: str = "mp3"
+        audio_speed: float | None = None
+
+    async def _execute_flow_logic(self, inputs: dict[str, Any]) -> dict[str, Any]:
+        logger.info(
+            "🎙️ Lesson Podcast Flow - Lesson %s: %s",
+            inputs.get("lesson_number"),
+            inputs.get("lesson_title", "Unknown"),
+        )
+
+        transcript_result = await GenerateLessonPodcastTranscriptStep().execute(
+            {
+                "lesson_number": inputs["lesson_number"],
+                "lesson_title": inputs["lesson_title"],
+                "lesson_objective": inputs["lesson_objective"],
+                "mini_lesson": inputs["mini_lesson"],
+                "voice": inputs["voice"],
+            }
+        )
+        transcript_text = str(transcript_result.output_content or "").strip()
+        if not transcript_text:
+            raise RuntimeError("Lesson podcast transcript generation returned empty content")
+
+        audio_inputs = {
+            "text": transcript_text,
+            "voice": inputs["voice"],
+            "model": inputs.get("audio_model", "tts-1-hd"),
+            "format": inputs.get("audio_format", "mp3"),
+            "speed": inputs.get("audio_speed"),
+        }
+        audio_result = await SynthesizePodcastAudioStep().execute(audio_inputs)
+
+        return {
+            "transcript": transcript_text,
+            "audio": audio_result.output_content,
+        }
+
+
 class UnitPodcastFlow(BaseFlow):
-    """Generate a narrated podcast by orchestrating transcript and audio steps."""
+    """Generate an intro-style narrated podcast for the unit."""
 
     flow_name = "unit_podcast"
 
