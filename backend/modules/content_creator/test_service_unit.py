@@ -4,143 +4,19 @@ Content Creator Module - Unit Tests
 Tests for the content creator service layer.
 """
 
-from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 import uuid
 
 import pytest
 
-from modules.content.package_models import LessonPackage, Meta
-from modules.content.public import LessonRead, UnitStatus
+from modules.content.public import UnitStatus
 from modules.content_creator.podcast import PodcastLesson
-from modules.content_creator.service import ContentCreatorService, CreateLessonRequest
-from modules.content_creator.steps import UnitLearningObjective
+from modules.content_creator.service import ContentCreatorService
 
 
 class TestContentCreatorService:
     """Unit tests for ContentCreatorService."""
-
-    @pytest.mark.asyncio
-    @patch("modules.content_creator.service.LessonCreationFlow")
-    async def test_create_lesson_from_source_material(self, mock_flow_class: Mock) -> None:
-        """Test creating a lesson using flow engine."""
-        # Arrange
-        content = AsyncMock()
-        content.save_lesson_podcast_from_bytes = AsyncMock()
-        lesson_podcast_payload = SimpleNamespace(
-            transcript="Lesson 1. Test Lesson",
-            audio_bytes=b"lesson-bytes",
-            mime_type="audio/mpeg",
-            voice="Test voice",
-            duration_seconds=180,
-        )
-        lesson_podcast_generator = SimpleNamespace(create_podcast=AsyncMock(return_value=lesson_podcast_payload))
-        service = ContentCreatorService(content, lesson_podcast_generator=lesson_podcast_generator)
-
-        request = CreateLessonRequest(
-            topic="Test Lesson",
-            unit_source_material="Test material content",
-            learner_level="beginner",
-            voice="Test voice",
-            learning_objective_ids=["lo_1", "lo_2"],
-            unit_learning_objectives=[
-                UnitLearningObjective(id="lo_1", title="Learn X", description="Learn X"),
-                UnitLearningObjective(id="lo_2", title="Understand Y", description="Understand Y"),
-            ],
-            lesson_objective="Test objective",
-        )
-
-        # Mock flow execution
-        mock_flow = AsyncMock()
-        mock_flow_class.return_value = mock_flow
-        mock_flow.execute.return_value = {
-            "topic": "Test Lesson",
-            "learner_level": "beginner",
-            "voice": "Test voice",
-            "learning_objectives": ["Learn X", "Understand Y"],
-            "learning_objective_ids": ["lo_1", "lo_2"],
-            "misconceptions": [{"mc_id": "mc_1", "concept": "Test", "misbelief": "Wrong"}],
-            "confusables": [{"concept_a": "A", "concept_b": "B", "distinction": "Different"}],
-            "glossary": [{"id": "term_1", "term": "Test Term", "definition": "Test definition"}],
-            "mini_lesson": "Test explanation",
-            "mcqs": {
-                "metadata": {},
-                "mcqs": [
-                    {
-                        "id": "ex1",
-                        "lo_id": "lo_1",
-                        "stem": "What is X?",
-                        "options": [
-                            {"id": "ex1_a", "label": "A", "text": "Option A"},
-                            {"id": "ex1_b", "label": "B", "text": "Option B"},
-                            {"id": "ex1_c", "label": "C", "text": "Option C"},
-                        ],
-                        "answer_key": {"label": "A", "rationale_right": "Correct"},
-                        "learning_objectives_covered": ["lo_1"],
-                    },
-                    {
-                        "id": "ex2",
-                        "lo_id": "lo_2",
-                        "stem": "What is Y?",
-                        "options": [
-                            {"id": "ex2_a", "label": "A", "text": "Option A"},
-                            {"id": "ex2_b", "label": "B", "text": "Option B"},
-                            {"id": "ex2_c", "label": "C", "text": "Option C"},
-                        ],
-                        "answer_key": {"label": "B", "rationale_right": "Correct"},
-                        "learning_objectives_covered": ["lo_2"],
-                    },
-                ],
-            },
-        }
-
-        # Mock content service responses
-
-        # Create a mock package
-        mock_package = LessonPackage(
-            meta=Meta(lesson_id="test-id", title="Test Lesson", learner_level="beginner"),
-            unit_learning_objective_ids=["lo_1"],
-            glossary={"terms": []},
-            mini_lesson="Test explanation",
-            exercises=[],
-        )
-
-        mock_lesson = LessonRead(id="test-id", title="Test Lesson", learner_level="beginner", package=mock_package, package_version=1, created_at=datetime(2024, 1, 1), updated_at=datetime(2024, 1, 1))
-        content.save_lesson.return_value = mock_lesson
-
-        # Act
-        result = await service.create_lesson_from_source_material(request)
-
-        # Assert
-        assert result.title == "Test Lesson"
-        assert result.package_version == 1
-        assert result.objectives_count > 0
-        assert result.mcqs_count > 0
-        content.save_lesson.assert_awaited_once()
-        lesson_podcast_generator.create_podcast.assert_awaited_once()
-        content.save_lesson_podcast_from_bytes.assert_awaited_once_with(
-            mock_lesson.id,
-            transcript="Lesson 1. Test Lesson",
-            audio_bytes=b"lesson-bytes",
-            mime_type="audio/mpeg",
-            voice="Test voice",
-            duration_seconds=180,
-        )
-        # No more component calls - everything is in the package now
-
-        # Verify flow was called with correct inputs
-        mock_flow.execute.assert_called_once_with(
-            {
-                "topic": "Test Lesson",
-                "learner_level": "beginner",
-                "voice": "Test voice",
-                "learning_objectives": ["Learn X", "Understand Y"],
-                "learning_objective_ids": ["lo_1", "lo_2"],
-                "lesson_objective": "Test objective",
-                "unit_source_material": "Test material content",
-            }
-        )
 
     @pytest.mark.asyncio
     @patch("modules.content_creator.service.UnitCreationFlow")
@@ -316,6 +192,8 @@ class TestContentCreatorService:
                 unit_title="Draft Unit",
             )
 
+        # Type narrowing: background=True returns MobileUnitCreationResult
+        assert isinstance(result, ContentCreatorService.MobileUnitCreationResult)
         assert result.unit_id == created_unit_id
         assert result.status == UnitStatus.IN_PROGRESS.value
         content.set_unit_task.assert_awaited_once_with(created_unit_id, "task-123")

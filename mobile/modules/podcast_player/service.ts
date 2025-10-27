@@ -148,6 +148,37 @@ export class PodcastPlayerService {
     }
   }
 
+  /**
+   * Safely resets the TrackPlayer with initialization checks.
+   * Ensures the player is fully ready before attempting to reset,
+   * which prevents KVO observer lifecycle issues.
+   */
+  private async safeReset(): Promise<void> {
+    // Ensure player is initialized before attempting reset
+    if (!this.isInitialized) {
+      console.log(
+        '[PodcastPlayerService] ⚠️ Skipping reset - player not initialized'
+      );
+      return;
+    }
+
+    try {
+      // Check that the player is in a valid state by querying its state
+      await TrackPlayer.getState();
+      console.log(
+        '[PodcastPlayerService] ✅ Player ready, proceeding with reset'
+      );
+      await TrackPlayer.reset();
+    } catch (error) {
+      console.warn(
+        '[PodcastPlayerService] ⚠️ Reset failed or player not ready:',
+        error
+      );
+      // If getState fails, the player may not be fully set up yet
+      // In this case, we skip the reset as there's nothing to clean up
+    }
+  }
+
   private attachEventListeners(): void {
     this.detachEventListeners();
     this.queueEndedSubscription = TrackPlayer.addEventListener(
@@ -232,7 +263,7 @@ export class PodcastPlayerService {
     }
 
     console.log('[PodcastPlayerService] 🔄 Resetting TrackPlayer...');
-    await TrackPlayer.reset();
+    await this.safeReset();
 
     this.currentTrackId = trackKey;
     store.setCurrentTrack(track);
@@ -310,7 +341,7 @@ export class PodcastPlayerService {
     if (validTracks.length === 0) {
       this.currentTrackId = null;
       store.setPlaylist(null);
-      await TrackPlayer.reset();
+      await this.safeReset();
       return;
     }
 

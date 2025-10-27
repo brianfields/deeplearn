@@ -62,6 +62,9 @@ class BaseStep(ABC):
     step_name: str
     prompt_file: str | None = None  # Optional for non-LLM steps
 
+    # Optional model selection (can be overridden by subclasses)
+    model: str | None = None  # "gpt-5", "gpt-5-mini", "claude-sonnet-4", etc.
+
     # Optional GPT-5 configuration (can be overridden by subclasses)
     reasoning_effort: str | None = None  # "minimal", "low", "medium", "high"
     verbosity: str | None = None  # "low", "medium", "high"
@@ -93,6 +96,9 @@ class BaseStep(ABC):
         # Check for fast mode and override model
         if os.getenv("FAST_MODE", "false").lower() == "true":
             config["model"] = "gpt-5-mini"
+        elif self.model:
+            # Use the model specified by the step
+            config["model"] = self.model
 
         if self.reasoning_effort:
             config["reasoning"] = {"effort": self.reasoning_effort}

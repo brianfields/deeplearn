@@ -70,6 +70,7 @@ class UnitPodcastGenerator:
         voice_label: str,
         unit_summary: str,
         lessons: Sequence[PodcastLesson],
+        arq_task_id: str | None = None,
     ) -> UnitPodcast:
         """Generate both transcript text and narrated audio for the intro podcast."""
 
@@ -90,7 +91,7 @@ class UnitPodcastGenerator:
         if self.audio_speed is not None:
             flow_inputs["audio_speed"] = self.audio_speed
 
-        flow_result = await self._flow.execute(flow_inputs)
+        flow_result = await self._flow.execute(flow_inputs, arq_task_id=arq_task_id)
         transcript_text = str(flow_result.get("transcript", "")).strip()
         if not transcript_text:
             raise RuntimeError("Podcast transcript generation returned empty content")
@@ -157,6 +158,7 @@ class LessonPodcastGenerator:
         lesson_objective: str,
         mini_lesson: str,
         voice_label: str,
+        arq_task_id: str | None = None,
     ) -> LessonPodcastResult:
         """Generate transcript and audio for the specified lesson."""
 
@@ -173,7 +175,7 @@ class LessonPodcastGenerator:
         if self.audio_speed is not None:
             flow_inputs["audio_speed"] = self.audio_speed
 
-        flow_result = await self._flow.execute(flow_inputs)
+        flow_result = await self._flow.execute(flow_inputs, arq_task_id=arq_task_id)
         transcript_text = str(flow_result.get("transcript", "")).strip()
         if not transcript_text:
             raise RuntimeError("Lesson podcast transcript generation returned empty content")

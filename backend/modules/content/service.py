@@ -101,6 +101,10 @@ class ContentService:
         self._audio_metadata_cache: dict[uuid.UUID, Any | None] = {}
         self._art_metadata_cache: dict[uuid.UUID, Any | None] = {}
 
+    async def commit_session(self) -> None:
+        """Commit pending changes to make them visible immediately in the admin dashboard."""
+        await self.repo.s.commit()
+
     # Lesson operations
     def _lesson_model_to_read(self, lesson: LessonModel) -> LessonRead:
         """Convert an ORM lesson model into the LessonRead DTO."""

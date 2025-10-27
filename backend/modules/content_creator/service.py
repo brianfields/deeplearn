@@ -38,36 +38,7 @@ logger = logging.getLogger(__name__)
 MAX_PARALLEL_LESSONS = 4
 
 
-# DTOs
-class CreateLessonRequest(BaseModel):
-    """Request to create a lesson using the new prompt-aligned flow."""
-
-    topic: str
-    unit_source_material: str
-    learner_level: str = "intermediate"
-    voice: str = "Plain"
-    learning_objective_ids: list[str]
-    unit_learning_objectives: list[UnitLearningObjective]
-    lesson_objective: str
-
-
-# CreateComponentRequest removed - generate_component method is unused
-
-
-class LessonCreationResult(BaseModel):
-    """Result of lesson creation with package details."""
-
-    lesson_id: str
-    title: str
-    package_version: int
-    objectives_count: int
-    glossary_terms_count: int
-    mcqs_count: int
-
-    @property
-    def components_created(self) -> int:
-        """Total number of components created."""
-        return self.objectives_count + self.glossary_terms_count + self.mcqs_count
+# DTOs - none needed at module level (internal implementation only)
 
 
 class ContentCreatorService:
@@ -104,196 +75,9 @@ class ContentCreatorService:
         truncated = title[: max_length - 3] + "..."
         return truncated
 
-    async def create_lesson_from_source_material(self, request: CreateLessonRequest) -> LessonCreationResult:
-        """
-        Create a complete lesson with AI-generated content from source material.
-
-        This method:
-        1. Uses LLM to extract structured content from source material
-        2. Builds a complete LessonPackage with all content
-        3. Saves the lesson with embedded package to the content module
-        4. Returns summary of what was created
-        """
-        lesson_id = str(uuid.uuid4())
-        logger.info(f"🎯 Creating lesson: {request.topic} (ID: {lesson_id})")
-
-        # Run lesson creation flow using new prompt-aligned inputs
-        flow = LessonCreationFlow()
-        logger.info("🔄 Starting %s...", flow.flow_name)
-        unit_lo_map: dict[str, str] = {lo.id: lo.description for lo in request.unit_learning_objectives}
-        textual_learning_objectives = [unit_lo_map.get(lo_id, lo_id) for lo_id in request.learning_objective_ids]
-
-        # Create reverse lookup: description -> ID and title -> ID
-        objective_lookup_by_text: dict[str, str] = {lo.description: lo.id for lo in request.unit_learning_objectives}
-        # Also add title lookups for flexibility
-        for lo in request.unit_learning_objectives:
-            objective_lookup_by_text[lo.title] = lo.id
-
-        flow_result = await flow.execute(
-            {
-                "topic": request.topic,
-                "learner_level": request.learner_level,
-                "voice": request.voice,
-                "learning_objectives": textual_learning_objectives,
-                "learning_objective_ids": request.learning_objective_ids,
-                "lesson_objective": request.lesson_objective,
-                "unit_source_material": request.unit_source_material,
-            }
-        )
-        logger.info("✅ LessonCreationFlow completed successfully")
-
-        meta = Meta(
-            lesson_id=lesson_id,
-            title=request.topic,
-            learner_level=request.learner_level,
-            package_schema_version=1,
-            content_version=1,
-        )
-
-        lesson_lo_ids: list[str] = list(flow_result.get("learning_objective_ids", []) or request.learning_objective_ids)
-        if not lesson_lo_ids:
-            raise ValueError("Lesson flow did not return any learning objective ids")
-
-        # Build glossary from flow result (list of terms)
-        glossary_terms: list[GlossaryTerm] = []
-        for i, term_data in enumerate(flow_result.get("glossary", []) or []):
-            if isinstance(term_data, dict):
-                glossary_terms.append(
-                    GlossaryTerm(
-                        id=f"term_{i + 1}",
-                        term=term_data.get("term", f"Term {i + 1}"),
-                        definition=term_data.get("definition", ""),
-                        micro_check=term_data.get("micro_check"),
-                    )
-                )
-            else:
-                glossary_terms.append(GlossaryTerm(id=f"term_{i + 1}", term=str(term_data), definition=""))
-
-        mini_lesson_text = str(flow_result.get("mini_lesson") or "")
-
-        lesson_podcast_generator = self.lesson_podcast_generator or LessonPodcastGenerator()
-        lesson_podcast = await lesson_podcast_generator.create_podcast(
-            lesson_index=0,
-            lesson_title=request.topic,
-            lesson_objective=request.lesson_objective,
-            mini_lesson=mini_lesson_text,
-            voice_label=request.voice,
-        )
-
-        # Build exercises from MCQs
-        exercises: list[MCQExercise] = []
-        mcqs = flow_result.get("mcqs", {}) or {}
-        mcqs = mcqs.get("mcqs", []) or []
-        for idx, mcq in enumerate(mcqs):
-            exercise_id = f"mcq_{idx + 1}"
-            options_with_ids: list[MCQOption] = []
-            option_id_map: dict[str, str] = {}
-            for opt in mcq.get("options", []):
-                opt_label = opt.get("label", "").upper()
-                gen_opt_id = f"{exercise_id}_{opt_label.lower()}"
-                option_id_map[opt_label] = gen_opt_id
-                options_with_ids.append(
-                    MCQOption(
-                        id=gen_opt_id,
-                        label=opt_label,
-                        text=opt.get("text", ""),
-                        rationale_wrong=opt.get("rationale_wrong"),
-                    )
-                )
-            ak = mcq.get("answer_key", {}) or {}
-            key_label = str(ak.get("label", "")).upper()
-            answer_key = MCQAnswerKey(label=key_label, option_id=option_id_map.get(key_label), rationale_right=ak.get("rationale_right"))
-            covered = mcq.get("learning_objectives_covered", []) or []
-            lo_id: str | None = None
-            for entry in covered:
-                candidate = str(entry)
-                if candidate in unit_lo_map:
-                    lo_id = candidate
-                    break
-                if candidate in objective_lookup_by_text:
-                    lo_id = objective_lookup_by_text[candidate]
-                    break
-            if lo_id is None:
-                lo_id = lesson_lo_ids[0]
-
-            exercises.append(
-                MCQExercise(
-                    id=exercise_id,
-                    exercise_type="mcq",
-                    lo_id=lo_id,
-                    cognitive_level=None,
-                    estimated_difficulty=None,
-                    misconceptions_used=mcq.get("misconceptions_used", []),
-                    stem=mcq.get("stem", ""),
-                    options=options_with_ids,
-                    answer_key=answer_key,
-                )
-            )
-
-        # Build complete lesson package
-        # Normalize misconceptions/confusables to dicts
-        _misconceptions: list[dict[str, str]] = []
-        for m in flow_result.get("misconceptions", []) or []:
-            if isinstance(m, dict):
-                _misconceptions.append(m)
-            elif hasattr(m, "model_dump"):
-                _misconceptions.append(m.model_dump())
-        _confusables: list[dict[str, str]] = []
-        for c in flow_result.get("confusables", []) or []:
-            if isinstance(c, dict):
-                _confusables.append(c)
-            elif hasattr(c, "model_dump"):
-                _confusables.append(c.model_dump())
-
-        package = LessonPackage(
-            meta=meta,
-            unit_learning_objective_ids=lesson_lo_ids,
-            glossary={"terms": glossary_terms},
-            mini_lesson=mini_lesson_text,
-            exercises=exercises,
-            misconceptions=_misconceptions,
-            confusables=_confusables,
-        )
-
-        # Create lesson with package
-        lesson_data = LessonCreate(
-            id=lesson_id,
-            title=request.topic,
-            learner_level=request.learner_level,
-            source_material=request.unit_source_material,
-            package=package,
-            package_version=1,
-        )
-
-        logger.info("💾 Saving lesson with package to database...")
-        saved_lesson = await self.content.save_lesson(lesson_data)
-
-        logger.info("🔊 Uploading lesson podcast audio...")
-        await self.content.save_lesson_podcast_from_bytes(
-            saved_lesson.id,
-            transcript=lesson_podcast.transcript,
-            audio_bytes=lesson_podcast.audio_bytes,
-            mime_type=lesson_podcast.mime_type,
-            voice=lesson_podcast.voice,
-            duration_seconds=lesson_podcast.duration_seconds,
-        )
-
-        logger.info(
-            "🎉 Lesson creation completed! Package references %s objectives, %s terms, %s exercises",
-            len(lesson_lo_ids),
-            len(glossary_terms),
-            len(exercises),
-        )
-        return LessonCreationResult(
-            lesson_id=lesson_id,
-            title=request.topic,
-            package_version=1,
-            objectives_count=len(lesson_lo_ids),
-            glossary_terms_count=len(glossary_terms),
-            mcqs_count=len(exercises),
-        )
-
     class UnitCreationResult(BaseModel):
+        """Result of unit creation with package details."""
+
         unit_id: str
         title: str
         lesson_titles: list[str]
@@ -304,11 +88,13 @@ class ContentCreatorService:
         lesson_ids: list[str] | None = None
 
     class MobileUnitCreationResult(BaseModel):
+        """Result of mobile unit creation request."""
+
         unit_id: str
         title: str
         status: str
 
-    async def create_unit_art(self, unit_id: str) -> UnitRead:
+    async def create_unit_art(self, unit_id: str, arq_task_id: str | None = None) -> UnitRead:
         """Generate and persist Weimar Edge artwork for the specified unit."""
 
         unit_detail = await self.content.get_unit_detail(unit_id, include_art_presigned_url=False)
@@ -336,7 +122,7 @@ class ContentCreatorService:
 
         while attempts < 2:
             try:
-                art_payload = await flow.execute(flow_inputs)
+                art_payload = await flow.execute(flow_inputs, arq_task_id=arq_task_id)
                 break
             except Exception as exc:  # pragma: no cover - LLM/network issues
                 attempts += 1
@@ -494,18 +280,13 @@ class ContentCreatorService:
             lesson_objective=lesson_objective_text,
             mini_lesson=mini_lesson_text,
             voice_label=str(md_res.get("voice") or "Plain"),
+            arq_task_id=arq_task_id,
         )
         podcast_voice_label = lesson_podcast.voice
 
-        # MCQ exercises
+        # MCQ exercises - flow returns list of MCQItem dicts
         exercises: list[MCQExercise] = []
-        # Flow returns either a dict { metadata, mcqs: [...] } or a bare list
-        mcqs_container = md_res.get("mcqs", {}) or {}
-        mcq_items = mcqs_container.get("mcqs", []) if isinstance(mcqs_container, dict) else (mcqs_container or [])
-        for idx, mcq in enumerate(mcq_items):
-            if not isinstance(mcq, dict):
-                # Skip malformed entries
-                continue
+        for idx, mcq in enumerate(md_res.get("mcqs", []) or []):
             exercise_id = f"mcq_{idx + 1}"
             options_with_ids: list[MCQOption] = []
             option_id_map: dict[str, str] = {}
@@ -528,14 +309,34 @@ class ContentCreatorService:
                 option_id=option_id_map.get(key_label),
                 rationale_right=ak.get("rationale_right"),
             )
-            lo_candidates = mcq.get("learning_objectives_covered", []) or lesson_lo_ids
-            lo_id = str(lo_candidates[0]) if lo_candidates else (lesson_lo_ids[0] if lesson_lo_ids else "lo_1")
+
+            # Validate and select learning objective ID
+            # The LLM may return invalid LO IDs, so we need to validate against lesson_lo_ids
+            lo_candidates = mcq.get("learning_objectives_covered", []) or []
+            valid_lo_id: str | None = None
+
+            # Try to find a valid LO ID from the candidates
+            for candidate_lo in lo_candidates:
+                candidate_str = str(candidate_lo)
+                if candidate_str in lesson_lo_ids:
+                    valid_lo_id = candidate_str
+                    break
+
+            # Fallback to first lesson LO if no valid candidate found
+            if valid_lo_id is None:
+                if lesson_lo_ids:
+                    valid_lo_id = lesson_lo_ids[0]
+                    logger.warning(f"MCQ {exercise_id} in lesson {lesson_index + 1} referenced invalid LO IDs {lo_candidates}, falling back to {valid_lo_id}")
+                else:
+                    # Ultimate fallback (should never happen if flow is working correctly)
+                    valid_lo_id = "lo_1"
+                    logger.error(f"MCQ {exercise_id} in lesson {lesson_index + 1} has no valid LO IDs, using fallback 'lo_1'")
 
             exercises.append(
                 MCQExercise(
                     id=exercise_id,
                     exercise_type="mcq",
-                    lo_id=lo_id,
+                    lo_id=valid_lo_id,
                     cognitive_level=None,
                     estimated_difficulty=None,
                     misconceptions_used=mcq.get("misconceptions_used", []),
@@ -596,6 +397,9 @@ class ContentCreatorService:
         logger.info(f"🧱 Executing unit creation pipeline for unit {unit_id}")
         await self.content.update_unit_status(unit_id, UnitStatus.IN_PROGRESS.value, creation_progress={"stage": "planning", "message": "Planning unit structure..."})
 
+        # Commit status update so it shows in admin dashboard immediately
+        await self.content.commit_session()
+
         flow = UnitCreationFlow()
         unit_plan = await flow.execute(
             {
@@ -637,6 +441,8 @@ class ContentCreatorService:
         )
 
         await self.content.update_unit_status(unit_id, UnitStatus.IN_PROGRESS.value, creation_progress={"stage": "generating", "message": "Generating lessons..."})
+        # Commit so status update shows immediately
+        await self.content.commit_session()
 
         # Prepare look-up of unit-level LO texts by id
         unit_los: dict[str, str] = {lo.id: lo.description for lo in unit_learning_objectives}
@@ -647,6 +453,7 @@ class ContentCreatorService:
         unit_material: str = str(unit_plan.get("unit_source_material") or source_material or "")
         lessons_plan = unit_plan.get("lessons", []) or []
         covered_lo_ids: set[str] = set()
+        failed_lessons: list[dict[str, Any]] = []  # Track failed lessons with error details
 
         # Create lessons in parallel with batching to avoid overwhelming the system
         logger.info(f"🚀 Creating {len(lessons_plan)} lessons in parallel (batch size: {MAX_PARALLEL_LESSONS})")
@@ -676,8 +483,24 @@ class ContentCreatorService:
             # Process results
             for i, result in enumerate(batch_results):
                 lesson_num = batch_start + i + 1
+                lesson_plan_item = batch[i]
+                lesson_title = lesson_plan_item.get("title") or f"Lesson {lesson_num}"
+
                 if isinstance(result, Exception):
+                    error_msg = str(result)
+                    error_type = type(result).__name__
                     logger.error(f"❌ Failed to create lesson {lesson_num}: {result}", exc_info=result)
+
+                    # Track the failure with details
+                    failed_lessons.append(
+                        {
+                            "lesson_number": lesson_num,
+                            "lesson_title": lesson_title,
+                            "error_type": error_type,
+                            "error_message": error_msg,
+                        }
+                    )
+
                     # Continue with other lessons - don't let one failure stop the whole unit
                     continue
 
@@ -691,9 +514,28 @@ class ContentCreatorService:
 
             # Update progress after each batch
             progress_pct = (batch_end / len(lessons_plan)) * 100
-            await self.content.update_unit_status(unit_id, UnitStatus.IN_PROGRESS.value, creation_progress={"stage": "generating", "message": f"Generated {len(lesson_ids)}/{len(lessons_plan)} lessons ({progress_pct:.0f}%)..."})
+            progress_msg = f"Generated {len(lesson_ids)}/{len(lessons_plan)} lessons"
+            if failed_lessons:
+                progress_msg += f" ({len(failed_lessons)} failed)"
+            progress_msg += f" ({progress_pct:.0f}%)..."
+
+            await self.content.update_unit_status(
+                unit_id,
+                UnitStatus.IN_PROGRESS.value,
+                creation_progress={
+                    "stage": "generating",
+                    "message": progress_msg,
+                    "lesson_failures": failed_lessons if failed_lessons else None,
+                },
+            )
+            # Commit so progress shows immediately in admin dashboard
+            await self.content.commit_session()
 
         logger.info(f"✅ Completed {len(lesson_ids)}/{len(lessons_plan)} lessons")
+
+        # Log summary of failures if any
+        if failed_lessons:
+            logger.warning(f"⚠️ Unit {unit_id} completed with {len(failed_lessons)} lesson failure(s): " + ", ".join(f"Lesson {f['lesson_number']} ({f['lesson_title']}): {f['error_type']}" for f in failed_lessons))
 
         # Remove any unit learning objectives that never received an exercise
         if unit_learning_objectives and lesson_ids:
@@ -726,6 +568,7 @@ class ContentCreatorService:
                     voice_label=podcast_voice_label or "Plain",
                     unit_summary=summary_text,
                     lessons=podcast_lessons,
+                    arq_task_id=arq_task_id,
                 )
                 if podcast.audio_bytes:
                     await self.content.save_unit_podcast_from_bytes(
@@ -748,7 +591,10 @@ class ContentCreatorService:
                     UnitStatus.IN_PROGRESS.value,
                     creation_progress={"stage": "artwork", "message": "Rendering hero artwork..."},
                 )
-                await self.create_unit_art(unit_id)
+                # Commit so status update shows immediately
+                await self.content.commit_session()
+
+                await self.create_unit_art(unit_id, arq_task_id=arq_task_id)
                 logger.info("✅ Artwork generation completed")
             except Exception as exc:  # pragma: no cover - art generation should not block unit creation
                 logger.warning("🖼️ Failed to generate unit art for %s: %s", unit_id, exc, exc_info=True)
@@ -761,7 +607,20 @@ class ContentCreatorService:
             return_exceptions=True,  # Don't let failures block completion
         )
 
-        await self.content.update_unit_status(unit_id, UnitStatus.COMPLETED.value, creation_progress={"stage": "completed", "message": "Unit creation completed"})
+        # Build final completion message
+        completion_message = "Unit creation completed"
+        if failed_lessons:
+            completion_message += f" with {len(failed_lessons)} lesson failure(s)"
+
+        await self.content.update_unit_status(
+            unit_id,
+            UnitStatus.COMPLETED.value,
+            creation_progress={
+                "stage": "completed",
+                "message": completion_message,
+                "lesson_failures": failed_lessons if failed_lessons else None,
+            },
+        )
 
         return self.UnitCreationResult(
             unit_id=unit_id,
