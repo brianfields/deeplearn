@@ -40,9 +40,10 @@ Phased approach (interactive):
      - We do not need to worry about backward compatibility as we have yet to deploy the application. We can reset the database and start fresh.
      - Do not add tasks for deployment and rollout strategy; those will be handled separately.
      - At the end of the checklist, add the following checklist items to check the implementation:
-       - [ ] Ensure lint passes, i.e. ./format_code.sh runs clean.
-       - [ ] Ensure unit tests pass, i.e. (in backend) scripts/run_unit.py and (in mobile) npm run test both run clean.
-       - [ ] Ensure integration tests pass, i.e. (in backend) scripts/run_integration.py runs clean.
+       - [ ] Ensure lint passes, i.e. './format_code.sh --no-venv' runs clean.
+       - [ ] Ensure backend unit tests pass, i.e. cd backend && scripts/run_unit.py
+       - [ ] Ensure frontend unit tests pass, i.e. cd mobile && npm run test
+       - [ ] Ensure integration tests pass, i.e. cd backend && scripts/run_integration.py runs clean.
        - [ ] Follow the instructions in codegen/prompts/trace.md to ensure the user story is implemented correctly.
        - [ ] Fix any issues documented during the tracing of the user story in {TRACE}.
        - [ ] Follow the instructions in codegen/prompts/modulecheck.md to ensure the new code is following the modular architecture correctly.

@@ -9,6 +9,10 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useUnit, useRetryUnit, useLesson } from '@/modules/admin/queries';
+import {
+  UnitPodcastList,
+  derivePodcastPropsFromUnit,
+} from '@/modules/admin/components/content/UnitPodcastList';
 import { LoadingSpinner } from '@/modules/admin/components/shared/LoadingSpinner';
 import { ErrorMessage } from '@/modules/admin/components/shared/ErrorMessage';
 import { ReloadButton } from '@/modules/admin/components/shared/ReloadButton';
@@ -191,6 +195,7 @@ export default function UnitDetailsPage({ params }: UnitDetailsPageProps) {
     );
 
   const isRetrying = retryUnit.isPending;
+  const podcastProps = derivePodcastPropsFromUnit(unit);
 
   const handleRetry = () => {
     if (retryUnit.isPending) {
@@ -278,52 +283,7 @@ export default function UnitDetailsPage({ params }: UnitDetailsPageProps) {
         </div>
       </div>
 
-      {unit.has_podcast && unit.podcast_audio_url && (
-        <div className="bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">Unit Podcast</h2>
-            <p className="text-sm text-gray-600">AI-generated narrative podcast</p>
-          </div>
-          <div className="px-6 py-6 space-y-4">
-            <div className="flex items-center gap-4 flex-wrap">
-              <a
-                href={
-                  unit.podcast_audio_url.startsWith('http')
-                    ? unit.podcast_audio_url
-                    : `${process.env.NEXT_PUBLIC_API_BASE_URL || ''}${unit.podcast_audio_url}`
-                }
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Listen to Podcast
-              </a>
-              {unit.podcast_duration_seconds && (
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800">
-                  {Math.floor(unit.podcast_duration_seconds / 60)}:{String(unit.podcast_duration_seconds % 60).padStart(2, '0')} min
-                </span>
-              )}
-              {unit.podcast_voice && (
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
-                  Voice: {unit.podcast_voice}
-                </span>
-              )}
-            </div>
-            {unit.podcast_transcript && (
-              <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-2">Transcript</h3>
-                <div className="p-4 bg-gray-50 rounded border border-gray-200 text-sm text-gray-700 whitespace-pre-wrap max-h-96 overflow-auto">
-                  {unit.podcast_transcript}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      <UnitPodcastList {...podcastProps} />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
@@ -376,8 +336,8 @@ export default function UnitDetailsPage({ params }: UnitDetailsPageProps) {
             <p className="text-xs text-gray-500">
               {unit.lessons.reduce((sum, l) => sum + l.exercise_count, 0)} total exercises
             </p>
-            {unit.has_podcast && (
-              <p className="text-xs text-green-600 font-medium">✓ Podcast available</p>
+            {podcastProps.introPodcast && (
+              <p className="text-xs text-green-600 font-medium">✓ Intro podcast available</p>
             )}
           </div>
         </div>

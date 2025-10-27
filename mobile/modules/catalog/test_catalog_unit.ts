@@ -94,6 +94,12 @@ describe('CatalogService', () => {
         readinessStatus: 'ready',
         tags: [],
         unitId: 'unit-1',
+        podcastTranscript: 'Lesson 1. Lesson Title transcript',
+        podcastAudioUrl: 'https://cdn.example.com/audio/lesson-1.mp3',
+        podcastDurationSeconds: 180,
+        podcastVoice: 'verse',
+        podcastGeneratedAt: new Date().toISOString(),
+        hasPodcast: true,
       };
       mockRepo.getLesson.mockResolvedValue(lesson);
 

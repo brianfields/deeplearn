@@ -33,6 +33,7 @@ jest.mock('../infrastructure/public', () => {
 });
 
 import TrackPlayer, {
+  Event,
   State as TrackPlayerState,
 } from 'react-native-track-player';
 import {
@@ -55,6 +56,7 @@ type TrackPlayerTestMock = typeof TrackPlayer & {
   reset: jest.Mock;
   add: jest.Mock;
   setRate: jest.Mock;
+  addEventListener: jest.Mock;
 };
 
 const trackPlayerMock = TrackPlayer as unknown as TrackPlayerTestMock;
@@ -84,6 +86,8 @@ describe('PodcastPlayerService', () => {
     audioUrl: overrides.audioUrl ?? 'https://example.com/audio.mp3',
     durationSeconds: overrides.durationSeconds ?? 300,
     transcript: overrides.transcript ?? 'Transcript',
+    lessonId: overrides.lessonId ?? null,
+    lessonIndex: overrides.lessonIndex ?? null,
   });
 
   it('initializes audio and hydrates global speed', async () => {
@@ -118,7 +122,7 @@ describe('PodcastPlayerService', () => {
     expect(trackPlayerMock.reset).toHaveBeenCalled();
     expect(trackPlayerMock.add).toHaveBeenCalledWith(
       expect.objectContaining({
-        id: firstTrack.unitId,
+        id: 'unit-1:intro',
         url: firstTrack.audioUrl,
         title: firstTrack.title,
       })
@@ -136,23 +140,106 @@ describe('PodcastPlayerService', () => {
 
     const infraInstance = infraMock.mock.results[0].value;
     expect(infraInstance.setStorageItem).toHaveBeenCalledWith(
-      'podcast_player:unit:unit-1:position',
+      'podcast_player:unit:unit-1:intro:position',
       expect.stringContaining('"position":42')
     );
     expect(usePodcastStore.getState().currentTrack?.unitId).toBe('unit-2');
   });
 
+  it('loads playlists and keeps track indices in sync', async () => {
+    const service = getPodcastPlayerService();
+
+    const introTrack = createTrack({ unitId: 'unit-1', title: 'Intro' });
+    const lessonTrack = createTrack({
+      unitId: 'unit-1',
+      title: 'Lesson 1',
+      lessonId: 'lesson-1',
+      lessonIndex: 0,
+    });
+
+    await service.loadPlaylist('unit-1', [introTrack, lessonTrack]);
+
+    const store = usePodcastStore.getState();
+    expect(store.playlist?.tracks).toHaveLength(2);
+    expect(store.playlist?.unitId).toBe('unit-1');
+    expect(store.playlist?.currentTrackIndex).toBe(0);
+
+    await service.loadTrack(lessonTrack);
+    expect(usePodcastStore.getState().playlist?.currentTrackIndex).toBe(1);
+  });
+
+  it('skips forward and backward within playlists', async () => {
+    const service = getPodcastPlayerService();
+
+    const intro = createTrack({ unitId: 'unit-1', title: 'Intro' });
+    const lessonOne = createTrack({
+      unitId: 'unit-1',
+      title: 'Lesson 1',
+      lessonId: 'lesson-1',
+      lessonIndex: 0,
+    });
+    const lessonTwo = createTrack({
+      unitId: 'unit-1',
+      title: 'Lesson 2',
+      lessonId: 'lesson-2',
+      lessonIndex: 1,
+    });
+
+    await service.loadPlaylist('unit-1', [intro, lessonOne, lessonTwo]);
+    await service.loadTrack(intro);
+
+    await service.skipToNext();
+    expect(usePodcastStore.getState().currentTrack?.lessonId).toBe('lesson-1');
+
+    await service.skipToNext();
+    expect(usePodcastStore.getState().currentTrack?.lessonId).toBe('lesson-2');
+
+    await service.skipToPrevious();
+    expect(usePodcastStore.getState().currentTrack?.lessonId).toBe('lesson-1');
+  });
+
+  it('autoplays next track when queue ends and autoplay is enabled', async () => {
+    const service = getPodcastPlayerService();
+
+    const intro = createTrack({ unitId: 'unit-1', title: 'Intro' });
+    const lessonOne = createTrack({
+      unitId: 'unit-1',
+      title: 'Lesson 1',
+      lessonId: 'lesson-1',
+      lessonIndex: 0,
+    });
+
+    await service.loadPlaylist('unit-1', [intro, lessonOne]);
+    await service.loadTrack(intro);
+    await service.play();
+
+    const addEventListenerMock = trackPlayerMock.addEventListener as jest.Mock;
+    const queueEndedHandler = addEventListenerMock.mock.calls.find(
+      call => call[0] === Event.PlaybackQueueEnded
+    )?.[1] as (() => void) | undefined;
+    expect(queueEndedHandler).toBeDefined();
+
+    if (queueEndedHandler) {
+      queueEndedHandler();
+    }
+    await new Promise(process.nextTick);
+
+    expect(usePodcastStore.getState().currentTrack?.lessonId).toBe('lesson-1');
+  });
+
   it('persists playback position and speed', async () => {
     const service = getPodcastPlayerService();
 
-    await service.savePosition('unit-99', 123.45);
+    await service.savePosition('unit-99:intro', 123.45);
     expect(
       (infraMock.mock.results[0].value as any).setStorageItem
     ).toHaveBeenCalledWith(
-      'podcast_player:unit:unit-99:position',
+      'podcast_player:unit:unit-99:intro:position',
       expect.stringContaining('123.45')
     );
-    await expect(service.getPosition('unit-99')).resolves.toBeCloseTo(123.45);
+    await expect(service.getPosition('unit-99:intro')).resolves.toBeCloseTo(
+      123.45
+    );
 
     await service.setSpeed(1.33);
     expect(usePodcastStore.getState().globalSpeed).toBe(1.33);

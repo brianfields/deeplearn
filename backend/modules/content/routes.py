@@ -225,6 +225,20 @@ async def stream_unit_podcast_audio(
     return RedirectResponse(audio.presigned_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
 
+@router.get("/lessons/{lesson_id}/podcast/audio", response_model=None)
+async def stream_lesson_podcast_audio(
+    lesson_id: str,
+    service: ContentService = Depends(get_content_service),
+) -> RedirectResponse:
+    """Stream the generated podcast audio for a lesson."""
+
+    audio = await service.get_lesson_podcast_audio(lesson_id)
+    if not audio or not audio.presigned_url:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Podcast audio not found")
+
+    return RedirectResponse(audio.presigned_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+
+
 @router.post("/units", response_model=ContentService.UnitRead, status_code=status.HTTP_201_CREATED)
 async def create_unit(
     payload: ContentService.UnitCreate,

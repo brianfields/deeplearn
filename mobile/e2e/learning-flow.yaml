@@ -35,6 +35,12 @@ appId: host.exp.Exponent
 # Step 3: Complete didactic content
 - assertVisible:
     id: 'didactic-continue-button'
+- assertVisible:
+    id: 'podcast-track-indicator'
+- assertVisible:
+    id: 'podcast-prev-track'
+- assertVisible:
+    id: 'podcast-next-track'
 - tapOn:
     id: 'didactic-continue-button'
 

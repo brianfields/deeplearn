@@ -31,6 +31,12 @@ export interface ApiLessonRead {
   created_at: string;
   updated_at: string;
   schema_version?: number;
+  has_podcast?: boolean;
+  podcast_transcript?: string | null;
+  podcast_voice?: string | null;
+  podcast_duration_seconds?: number | null;
+  podcast_generated_at?: string | null;
+  podcast_audio_url?: string | null;
 }
 
 export interface ApiUnitSyncAsset {

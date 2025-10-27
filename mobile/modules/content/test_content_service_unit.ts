@@ -52,6 +52,12 @@ describe('ContentService (offline cache integration)', () => {
           description: 'Objective 2 description',
         },
       ],
+      has_podcast: true,
+      podcast_voice: 'verse',
+      podcast_duration_seconds: 215,
+      podcast_audio_url:
+        '/api/v1/content/units/unit-1/podcast/audio?signature=test',
+      podcast_transcript: 'Welcome to the intro podcast!',
     },
   };
 
@@ -197,6 +203,12 @@ describe('ContentService (offline cache integration)', () => {
               ],
               key_concepts: [],
             },
+            has_podcast: true,
+            podcast_voice: 'alloy',
+            podcast_duration_seconds: 180,
+            podcast_audio_url: '/api/v1/content/lessons/lesson-1/podcast/audio',
+            podcast_transcript: 'Lesson 1. Welcome to the lesson podcast.',
+            podcast_generated_at: new Date().toISOString(),
           },
           updatedAt: Date.now(),
           schemaVersion: 1,
@@ -229,8 +241,88 @@ describe('ContentService (offline cache integration)', () => {
     expect(detail?.lessons[0]).toMatchObject({
       learningObjectiveIds: ['lo-1'],
       learningObjectives: ['Objective 1 description'],
+      hasPodcast: true,
+      podcastAudioUrl: '/api/v1/content/lessons/lesson-1/podcast/audio',
+      podcastVoice: 'alloy',
     });
     expect(repo.getUnitDetail).not.toHaveBeenCalled();
+  });
+
+  it('adds lesson podcast assets during sync', async () => {
+    const now = new Date().toISOString();
+    const lessonPodcastUrl =
+      '/api/v1/content/lessons/lesson-1/podcast/audio?token=abc';
+
+    repo.syncUnits.mockResolvedValueOnce({
+      units: [
+        {
+          unit: {
+            id: 'unit-1',
+            title: 'Intro Unit',
+            description: 'Basics',
+            learner_level: 'beginner',
+            lesson_count: 1,
+            lesson_order: ['lesson-1'],
+            status: 'completed',
+            updated_at: now,
+            created_at: now,
+            has_podcast: true,
+            podcast_voice: 'verse',
+            podcast_duration_seconds: 215,
+          },
+          lessons: [
+            {
+              id: 'lesson-1',
+              title: 'Lesson 1',
+              learner_level: 'beginner',
+              unit_id: 'unit-1',
+              package: {},
+              package_version: 1,
+              created_at: now,
+              updated_at: now,
+              has_podcast: true,
+              podcast_audio_url: lessonPodcastUrl,
+              podcast_duration_seconds: 215,
+              podcast_voice: 'alloy',
+              podcast_transcript: 'Lesson 1. Overview of the topic.',
+              podcast_generated_at: now,
+            },
+          ],
+          assets: [],
+        },
+      ],
+      deleted_unit_ids: [],
+      deleted_lesson_ids: [],
+      cursor: now,
+    });
+
+    offlineCache.runSyncCycle.mockImplementationOnce(async ({ pull }) => {
+      const response = await pull({ cursor: null, payload: 'minimal' });
+      expect(response.assets).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: 'lesson-podcast-lesson-1',
+            unitId: 'unit-1',
+            type: 'audio',
+            remoteUri: lessonPodcastUrl,
+          }),
+        ])
+      );
+      return {
+        lastPulledAt: Date.now(),
+        lastCursor: now,
+        pendingWrites: 0,
+        cacheModeCounts: { minimal: 0, full: 0 },
+        lastSyncAttempt: Date.now(),
+        lastSyncResult: 'success',
+        lastSyncError: null,
+      };
+    });
+
+    userIdentity.getUserId.mockReturnValue(101);
+    await service.syncNow();
+
+    expect(repo.syncUnits).toHaveBeenCalled();
   });
 
   it('requests full unit download via offline cache', async () => {

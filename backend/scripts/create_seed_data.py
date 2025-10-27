@@ -1156,6 +1156,16 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
             # Set up IDs for the real Istanbul unit's image and audio
             cat_unit_image_id = uuid.UUID("1a7efaaf-e91d-429b-b032-1a9d08e45af4")
             cat_unit_audio_id = uuid.UUID("b2992f30-f404-43e9-a4fa-dc15c698e025")
+            gradient_unit_audio_id = uuid.UUID("3b1f7e50-69e2-4e35-8f53-b2f2c126e90b")
+            first_aid_unit_audio_id = uuid.UUID("4c2e8f60-7a3f-5f46-9d64-c3d3d237f01c")
+
+            for unit_spec in units_spec:
+                if unit_spec["id"] == "9435f1bf-472d-47c5-a759-99beadd98076":
+                    unit_spec["podcast_audio_object_id"] = cat_unit_audio_id
+                elif unit_spec["id"] == "9435f1bf-472d-47c5-a759-99beadd98077":
+                    unit_spec["podcast_audio_object_id"] = gradient_unit_audio_id
+                elif unit_spec["id"] == "3b6caa92-0c83-4d5d-bdff-7f1df59fe2f2":
+                    unit_spec["podcast_audio_object_id"] = first_aid_unit_audio_id
 
             # Create images and audio first (before units that reference them)
             if args.verbose:
@@ -1177,8 +1187,27 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                 await db_session.flush()
 
             bucket_name = os.getenv("OBJECT_STORE_BUCKET", "lantern-room")
+            seed_timestamp = datetime.utcnow()  # Use timezone-naive datetime to match database schema
 
-            seed_timestamp = datetime.now(UTC)
+            for unit_spec in units_spec:
+                unit_spec.setdefault(
+                    "podcast_transcript",
+                    (f"Welcome to {unit_spec['title']}. This intro podcast previews the lessons and invites learners into the unit's narrative arc."),
+                )
+                unit_spec.setdefault("podcast_voice", "Plain")
+                unit_spec["podcast_generated_at"] = seed_timestamp
+
+                for lesson_index, lesson_spec in enumerate(unit_spec.get("lessons", []), start=1):
+                    lesson_spec["id"] = lesson_spec.get("id") or str(uuid.uuid4())
+                    lesson_spec["flow_run_id"] = lesson_spec.get("flow_run_id") or uuid.uuid4()
+                    # Lessons reuse the unit's podcast audio
+                    lesson_spec["podcast_transcript"] = unit_spec.get("podcast_transcript")
+                    lesson_spec["podcast_voice"] = unit_spec.get("podcast_voice", "Plain")
+                    lesson_spec["podcast_generated_at"] = seed_timestamp
+                    lesson_spec["podcast_audio_object_id"] = unit_spec.get("podcast_audio_object_id")
+                    # Calculate duration based on unit audio
+                    lesson_spec.setdefault("podcast_duration_seconds", 180 + (lesson_index * 30))
+            # Timestamp used for images, audio, and lesson podcasts
 
             sample_images = [
                 ImageModel(
@@ -1229,6 +1258,7 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                     updated_at=seed_timestamp,
                 ),
                 AudioModel(
+                    id=gradient_unit_audio_id,
                     user_id=brian_admin_id,
                     s3_key="seed/brian/audio/gradient-intro.mp3",
                     s3_bucket=bucket_name,
@@ -1242,7 +1272,24 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                     created_at=seed_timestamp,
                     updated_at=seed_timestamp,
                 ),
+                AudioModel(
+                    id=first_aid_unit_audio_id,
+                    user_id=sample_user_ids.get("eylem"),
+                    s3_key="seed/eylem/audio/first-aid-intro.mp3",
+                    s3_bucket=bucket_name,
+                    filename="first-aid-intro.mp3",
+                    content_type="audio/mpeg",
+                    file_size=3_200_000,
+                    duration_seconds=150.0,
+                    bitrate_kbps=128,
+                    sample_rate_hz=44_100,
+                    transcript="Welcome to Community First Aid Playbook. This intro podcast previews the lessons and invites learners into the unit's narrative arc.",
+                    created_at=seed_timestamp,
+                    updated_at=seed_timestamp,
+                ),
             ]
+
+            # Lessons reuse unit audio, so no separate lesson audio files are created
 
             # Also delete any audio files with the same s3_key to avoid unique constraint violations
             # This handles the case where audio files were previously created
@@ -1303,8 +1350,8 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
 
             for unit_spec in units_spec:
                 for lesson_spec in unit_spec["lessons"]:
-                    lesson_spec["id"] = str(uuid.uuid4())
-                    lesson_spec["flow_run_id"] = uuid.uuid4()
+                    lesson_spec.setdefault("id", str(uuid.uuid4()))
+                    lesson_spec.setdefault("flow_run_id", uuid.uuid4())
 
                 unit_entry = {
                     "id": unit_spec["id"],
@@ -1339,8 +1386,9 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                     art_image_description=unit_spec["art_image_description"],
                     podcast_transcript=unit_spec.get("podcast_transcript"),
                     podcast_voice=unit_spec.get("podcast_voice"),
+                    podcast_generated_at=unit_spec.get("podcast_generated_at"),
                     art_image_id=cat_unit_image_id if is_istanbul_unit else None,
-                    podcast_audio_object_id=cat_unit_audio_id if is_istanbul_unit else None,
+                    podcast_audio_object_id=unit_spec.get("podcast_audio_object_id"),
                 )
                 db_session.add(unit_model)
 
@@ -1369,6 +1417,11 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
 
                     lesson_db_dict = {key: value for key, value in lesson_data.items() if key != "unit_learning_objectives"}
                     lesson_db_dict["unit_id"] = unit_spec["id"]
+                    lesson_db_dict["podcast_transcript"] = lesson_spec["podcast_transcript"]
+                    lesson_db_dict["podcast_voice"] = lesson_spec.get("podcast_voice")
+                    lesson_db_dict["podcast_audio_object_id"] = lesson_spec["podcast_audio_object_id"]
+                    lesson_db_dict["podcast_generated_at"] = lesson_spec.get("podcast_generated_at")
+                    lesson_db_dict["podcast_duration_seconds"] = lesson_spec.get("podcast_duration_seconds")
                     flow_run_data = create_sample_flow_run(
                         lesson_spec["flow_run_id"],
                         lesson_spec["id"],

@@ -54,7 +54,7 @@ class ContentRepo:
         return list(result.scalars().all())
 
     async def get_lessons_by_unit(self, unit_id: str, limit: int = 100, offset: int = 0) -> list[LessonModel]:
-        """Get lessons for a specific unit."""
+        """Get lessons for a specific unit including podcast metadata fields."""
         stmt = select(LessonModel).filter(LessonModel.unit_id == unit_id).offset(offset).limit(limit)
         result = await self.s.execute(stmt)
         return list(result.scalars().all())
@@ -62,6 +62,31 @@ class ContentRepo:
     async def save_lesson(self, lesson: LessonModel) -> LessonModel:
         """Save lesson to database."""
         self.s.add(lesson)
+        await self.s.flush()
+        return lesson
+
+    async def set_lesson_podcast(
+        self,
+        lesson_id: str,
+        *,
+        transcript: str,
+        audio_object_id: uuid.UUID,
+        voice: str | None,
+        duration_seconds: int | None,
+    ) -> LessonModel | None:
+        """Persist podcast metadata for a lesson."""
+
+        lesson = await self.get_lesson_by_id(lesson_id)
+        if lesson is None:
+            return None
+
+        lesson.podcast_transcript = transcript  # type: ignore[assignment]
+        lesson.podcast_audio_object_id = audio_object_id  # type: ignore[assignment]
+        lesson.podcast_voice = voice  # type: ignore[assignment]
+        lesson.podcast_duration_seconds = duration_seconds  # type: ignore[assignment]
+        lesson.podcast_generated_at = datetime.utcnow()  # type: ignore[assignment]
+        lesson.updated_at = datetime.utcnow()  # type: ignore[assignment]
+
         await self.s.flush()
         return lesson
 

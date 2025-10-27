@@ -572,13 +572,14 @@ export class OfflineCacheService {
     payload: OfflineUnitPayload,
     existing?: CachedUnit | null
   ): CachedUnit {
+    // Preserve explicit downloadStatus from payload, or existing status
+    // Default to 'idle' (not 'completed') - a unit is not considered downloaded
+    // just because its metadata is cached (cacheMode === 'full')
     const inferredStatus: DownloadStatus = payload.downloadStatus
       ? payload.downloadStatus
       : existing?.downloadStatus
         ? existing.downloadStatus
-        : payload.cacheMode === 'full'
-          ? 'completed'
-          : 'idle';
+        : 'idle';
 
     const downloadedAt = payload.downloadedAt
       ? payload.downloadedAt

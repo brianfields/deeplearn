@@ -11,18 +11,20 @@ Covers:
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from datetime import datetime
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from modules.content.package_models import LessonPackage, Meta
-from modules.content.public import LessonRead
-from modules.content_creator.flows import UnitCreationFlow
+from modules.content_creator.flows import (
+    LessonPodcastFlow,
+    PodcastLessonInput,
+    UnitCreationFlow,
+    UnitPodcastFlow,
+)
 from modules.content_creator.podcast import UnitPodcast
-from modules.content_creator.service import ContentCreatorService, CreateLessonRequest
-from modules.content_creator.steps import UnitLearningObjective
+from modules.content_creator.service import ContentCreatorService
 
 # Deprecated test removed - used old step classes that no longer exist
 
@@ -67,84 +69,78 @@ async def test_unit_creation_flow_plan_and_chunks() -> None:
         assert len(result.get("chunks", [])) == 3
 
 
-class TestServiceFlows:
-    @pytest.mark.asyncio
-    @patch("modules.content_creator.service.LessonCreationFlow")
-    async def test_create_lesson_invokes_flow(self, mock_flow_cls: Mock) -> None:
-        content = AsyncMock()
-        podcast_generator = AsyncMock()
-        podcast_generator.create_podcast.return_value = UnitPodcast(
-            transcript="Narration",
-            audio_bytes=b"audio",
-            mime_type="audio/mpeg",
-            voice="Plain",
-            duration_seconds=90,
-        )
-        content.save_unit_podcast_from_bytes = AsyncMock()
-        svc = ContentCreatorService(content, podcast_generator=podcast_generator)
+@pytest.mark.asyncio
+@patch("modules.content_creator.flows.GenerateLessonPodcastTranscriptStep")
+@patch("modules.content_creator.flows.SynthesizePodcastAudioStep")
+async def test_lesson_podcast_flow_orchestrates_steps(
+    mock_audio_step_cls: Mock,
+    mock_transcript_step_cls: Mock,
+) -> None:
+    transcript_step = AsyncMock()
+    transcript_step.execute.return_value = SimpleNamespace(output_content="Lesson 1. Title")
+    mock_transcript_step_cls.return_value = transcript_step
 
-        # Minimal flow return
-        fake_flow_result = {
-            "topic": "T",
-            "learner_level": "beginner",
-            "voice": "Test voice",
-            "learning_objectives": ["A"],
-            "learning_objective_ids": ["lo_1"],
-            "misconceptions": [],
-            "confusables": [],
-            "glossary": [],
-            "mini_lesson": "x",
-            "mcqs": {
-                "metadata": {"item_count": 1, "lo_coverage": ["lo_1"]},
-                "mcqs": [
-                    {
-                        "id": "ex1",
-                        "lo_id": "lo_1",
-                        "stem": "?",
-                        "options": [
-                            {"id": "ex1_a", "label": "A", "text": "A"},
-                            {"id": "ex1_b", "label": "B", "text": "B"},
-                            {"id": "ex1_c", "label": "C", "text": "C"},
-                        ],
-                        "answer_key": {"label": "A", "rationale_right": "Correct"},
-                        "learning_objectives_covered": ["lo_1"],
-                    }
-                ],
-            },
+    audio_step = AsyncMock()
+    audio_step.execute.return_value = SimpleNamespace(output_content={"id": "audio-1"})
+    mock_audio_step_cls.return_value = audio_step
+
+    flow = LessonPodcastFlow()
+    result = await flow._execute_flow_logic(
+        {
+            "lesson_number": 1,
+            "lesson_title": "Title",
+            "lesson_objective": "Objective",
+            "mini_lesson": "Mini lesson content",
+            "voice": "Guide",
         }
-        mock_flow = AsyncMock()
-        mock_flow.execute.return_value = fake_flow_result
-        mock_flow_cls.return_value = mock_flow
+    )
 
-        # Mock content save
-        mock_package = LessonPackage(
-            meta=Meta(lesson_id="id", title="T", learner_level="beginner"),
-            unit_learning_objective_ids=["lo_1"],
-            glossary={"terms": []},
-            mini_lesson="x",
-            exercises=[],
-        )
-        content.save_lesson.return_value = LessonRead(id="id", title="T", learner_level="beginner", package=mock_package, package_version=1, created_at=datetime(2024, 1, 1), updated_at=datetime(2024, 1, 1))
+    transcript_step.execute.assert_awaited_once()
+    audio_step.execute.assert_awaited_once()
+    assert result["transcript"] == "Lesson 1. Title"
+    assert result["audio"] == {"id": "audio-1"}
 
-        req = CreateLessonRequest(
-            topic="T",
-            unit_source_material="S",
-            learner_level="beginner",
-            voice="Test voice",
-            learning_objective_ids=["lo_1"],
-            unit_learning_objectives=[
-                UnitLearningObjective(
-                    id="lo_1",
-                    title="Learn A",
-                    description="Learn A",
-                )
-            ],
-            lesson_objective="Test objective",
-        )
 
-        await svc.create_lesson_from_source_material(req)
-        mock_flow_cls.return_value.execute.assert_awaited()
+@pytest.mark.asyncio
+@patch("modules.content_creator.flows.GenerateUnitPodcastTranscriptStep")
+@patch("modules.content_creator.flows.SynthesizePodcastAudioStep")
+async def test_unit_podcast_flow_uses_intro_prompt(
+    mock_audio_step_cls: Mock,
+    mock_transcript_step_cls: Mock,
+) -> None:
+    transcript_step = AsyncMock()
+    transcript_step.execute.return_value = SimpleNamespace(output_content="Intro transcript")
+    mock_transcript_step_cls.return_value = transcript_step
 
+    audio_step = AsyncMock()
+    audio_step.execute.return_value = SimpleNamespace(output_content={"id": "audio-2"})
+    mock_audio_step_cls.return_value = audio_step
+
+    lessons = [PodcastLessonInput(title="L1", mini_lesson="Body")]
+    flow = UnitPodcastFlow()
+    result = await flow._execute_flow_logic(
+        {
+            "unit_title": "Unit",
+            "voice": "Guide",
+            "unit_summary": "Summary",
+            "lessons": lessons,
+        }
+    )
+
+    transcript_step.execute.assert_awaited_once_with(
+        {
+            "unit_title": "Unit",
+            "voice": "Guide",
+            "unit_summary": "Summary",
+            "lessons": lessons,
+        }
+    )
+    audio_step.execute.assert_awaited_once()
+    assert result["transcript"] == "Intro transcript"
+    assert result["audio"] == {"id": "audio-2"}
+
+
+class TestServiceFlows:
     @pytest.mark.asyncio
     async def test_create_unit_precreates_and_completes(self) -> None:
         content = AsyncMock()
@@ -169,13 +165,22 @@ class TestServiceFlows:
         content.update_unit_metadata = AsyncMock()
         content.update_unit_status = AsyncMock()
         content.save_unit_podcast_from_bytes = AsyncMock()
+        content.save_lesson_podcast_from_bytes = AsyncMock()
         # Mock get_unit_detail with iterable lessons to avoid TypeError in art generation
         mock_lesson = Mock()
         mock_lesson.key_concepts = ["concept1", "concept2"]
         content.get_unit_detail = AsyncMock(return_value=Mock(title="Unit T", description="Description", learning_objectives=[], lessons=[mock_lesson]))
         # Mock create_unit_art to avoid LLM calls
 
+        lesson_podcast_payload = SimpleNamespace(
+            transcript="Lesson 1. L1",
+            audio_bytes=b"lesson-audio",
+            mime_type="audio/mpeg",
+            voice="Plain",
+            duration_seconds=150,
+        )
         svc = ContentCreatorService(content, podcast_generator=podcast_generator)
+        svc.lesson_podcast_generator = SimpleNamespace(create_podcast=AsyncMock(return_value=lesson_podcast_payload))  # type: ignore[assignment]
 
         # We'll patch flows to return minimal shapes and call create_unit (foreground)
         with (
@@ -228,7 +233,7 @@ class TestServiceFlows:
                 "confusables": [],
                 "glossary": [],
                 "mini_lesson": "x",
-                "mcqs": {"metadata": {"total_mcqs": 0, "lo_coverage": 0}, "mcqs": []},
+                "mcqs": [],
             }
             mock_lcf_cls.return_value = mock_lcf
 
@@ -262,12 +267,21 @@ class TestServiceFlows:
         content.update_unit_metadata = AsyncMock()
         content.update_unit_status = AsyncMock()
         content.save_unit_podcast_from_bytes = AsyncMock()
+        content.save_lesson_podcast_from_bytes = AsyncMock()
         # Mock get_unit_detail with iterable lessons to avoid TypeError in art generation
         mock_lesson = Mock()
         mock_lesson.key_concepts = ["concept1", "concept2"]
         content.get_unit_detail = AsyncMock(return_value=Mock(title="Unit B", description="Description", learning_objectives=[], lessons=[mock_lesson]))
 
+        lesson_podcast_payload = SimpleNamespace(
+            transcript="Lesson 1. L1",
+            audio_bytes=b"lesson-audio",
+            mime_type="audio/mpeg",
+            voice="Plain",
+            duration_seconds=150,
+        )
         svc = ContentCreatorService(content, podcast_generator=podcast_generator)
+        svc.lesson_podcast_generator = SimpleNamespace(create_podcast=AsyncMock(return_value=lesson_podcast_payload))  # type: ignore[assignment]
 
         with (
             patch("modules.content_creator.service.UnitCreationFlow") as mock_ucf_cls,
@@ -317,7 +331,7 @@ class TestServiceFlows:
                 "confusables": [],
                 "glossary": [],
                 "mini_lesson": "x",
-                "mcqs": {"metadata": {"total_mcqs": 0, "lo_coverage": 0}, "mcqs": []},
+                "mcqs": [],
             }
             mock_lcf_cls.return_value = mock_lcf
 

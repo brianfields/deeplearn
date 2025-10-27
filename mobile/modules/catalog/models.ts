@@ -16,6 +16,9 @@ interface ApiLessonSummary {
   learning_objectives: string[];
   key_concepts: string[];
   exercise_count: number;
+  has_podcast?: boolean;
+  podcast_duration_seconds?: number | null;
+  podcast_voice?: string | null;
 }
 
 interface ApiBrowseLessonsResponse {
@@ -35,6 +38,12 @@ interface ApiLessonDetail {
   created_at: string;
   exercise_count: number;
   unit_id?: string | null;
+  podcast_transcript?: string | null;
+  podcast_audio_url?: string | null;
+  podcast_duration_seconds?: number | null;
+  podcast_voice?: string | null;
+  podcast_generated_at?: string | null;
+  has_podcast?: boolean;
 }
 
 // ================================
@@ -56,6 +65,9 @@ export interface LessonSummary {
   readonly durationDisplay: string; // Formatted duration
   readonly readinessStatus: string; // Formatted readiness
   readonly tags: string[]; // Derived from key concepts
+  readonly hasPodcast: boolean;
+  readonly podcastDurationSeconds: number | null;
+  readonly podcastVoice: string | null;
 }
 
 export interface LessonDetail {
@@ -76,6 +88,12 @@ export interface LessonDetail {
   readonly readinessStatus: string;
   readonly tags: string[];
   readonly unitId?: string | null;
+  readonly podcastTranscript?: string | null;
+  readonly podcastAudioUrl?: string | null;
+  readonly podcastDurationSeconds?: number | null;
+  readonly podcastVoice?: string | null;
+  readonly podcastGeneratedAt?: string | null;
+  readonly hasPodcast: boolean;
 }
 
 export interface BrowseLessonsResponse {
@@ -169,6 +187,9 @@ export function toLessonSummaryDTO(api: ApiLessonSummary): LessonSummary {
       api.exercise_count
     ),
     tags: api.key_concepts.slice(0, 3), // Use first 3 key concepts as tags
+    hasPodcast: Boolean(api.has_podcast),
+    podcastDurationSeconds: api.podcast_duration_seconds ?? null,
+    podcastVoice: api.podcast_voice ?? null,
   };
 }
 
@@ -200,6 +221,12 @@ export function toLessonDetailDTO(api: ApiLessonDetail): LessonDetail {
     ),
     tags: api.key_concepts.slice(0, 3),
     unitId: api.unit_id ?? null,
+    podcastTranscript: api.podcast_transcript ?? null,
+    podcastAudioUrl: api.podcast_audio_url ?? null,
+    podcastDurationSeconds: api.podcast_duration_seconds ?? null,
+    podcastVoice: api.podcast_voice ?? null,
+    podcastGeneratedAt: api.podcast_generated_at ?? null,
+    hasPodcast: Boolean(api.has_podcast),
   };
 }
 

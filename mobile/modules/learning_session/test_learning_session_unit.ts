@@ -231,6 +231,12 @@ describe('Learning Session Module', () => {
             { id: 'mcq-2', exercise_type: 'mcq', stem: 'Q2?', lo_id: 'lo-2' },
           ],
           glossaryTerms: [],
+          podcastTranscript: null,
+          podcastAudioUrl: null,
+          podcastDurationSeconds: null,
+          podcastVoice: null,
+          podcastGeneratedAt: null,
+          hasPodcast: false,
         };
 
         mockCatalogProvider.getLessonDetail.mockResolvedValue(mockLessonDetail);
@@ -362,6 +368,12 @@ describe('Learning Session Module', () => {
             { id: 'mcq-2', exercise_type: 'mcq', stem: 'Q2?', lo_id: 'lo-2' },
           ],
           glossaryTerms: [],
+          podcastTranscript: null,
+          podcastAudioUrl: null,
+          podcastDurationSeconds: null,
+          podcastVoice: null,
+          podcastGeneratedAt: null,
+          hasPodcast: false,
         };
 
         mockRepo.getSession.mockResolvedValue(mockSession as any);
@@ -604,6 +616,12 @@ describe('Learning Session Module', () => {
           miniLesson: '...',
           exercises: [],
           glossaryTerms: [],
+          podcastTranscript: null,
+          podcastAudioUrl: null,
+          podcastDurationSeconds: null,
+          podcastVoice: null,
+          podcastGeneratedAt: null,
+          hasPodcast: false,
         };
 
         mockCatalogProvider.getLessonDetail.mockResolvedValue(mockLessonDetail);

@@ -33,7 +33,7 @@
  * - Coordinates with React Navigation stack
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -54,6 +54,10 @@ import {
   PodcastPlayer,
   usePodcastState,
 } from '../../podcast_player/public';
+import { catalogProvider } from '../../catalog/public';
+import { infrastructureProvider } from '../../infrastructure/public';
+import { offlineCacheProvider } from '../../offline_cache/public';
+import type { PodcastTrack } from '../../podcast_player/public';
 
 // Types
 import type { LearningStackParamList } from '../../../types';
@@ -72,18 +76,187 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
   const theme = uiSystem.getCurrentTheme();
   const styles = createStyles(theme);
   const haptics = useHaptics();
+  const infrastructure = infrastructureProvider();
+
+  const apiBase = useMemo(() => {
+    const base =
+      (infrastructure as any).getApiBaseUrl?.() ||
+      (infrastructure as any).getBaseUrl?.() ||
+      '';
+    return typeof base === 'string' ? base.replace(/\/$/, '') : '';
+  }, [infrastructure]);
 
   // Session creation mutation
   const startSessionMutation = useStartSession();
-  const { pause } = usePodcastPlayer();
-  const { currentTrack } = usePodcastState();
-  const hasPlayer = Boolean(unitId && currentTrack?.unitId === unitId);
+  const { loadPlaylist, loadTrack, play, pause, autoplayEnabled } =
+    usePodcastPlayer();
+  const { currentTrack, playlist } = usePodcastState();
+  const hasPlayer = Boolean(
+    unitId && playlist?.unitId === unitId && (playlist?.tracks.length ?? 0) > 0
+  );
+  const [_isPlaylistLoading, setIsPlaylistLoading] = useState(false);
 
   useEffect(() => {
     if (!unitId) {
       setError('Unit context is required to start this lesson');
     }
   }, [unitId]);
+
+  useEffect(() => {
+    if (!unitId) {
+      return;
+    }
+    if (playlist?.unitId === unitId && (playlist?.tracks.length ?? 0) > 0) {
+      return;
+    }
+
+    let isMounted = true;
+    setIsPlaylistLoading(true);
+
+    const loadUnitPlaylist = async (): Promise<void> => {
+      try {
+        const catalog = catalogProvider();
+        const detail = await catalog.getUnitDetail(unitId);
+        if (!isMounted) {
+          return;
+        }
+
+        // Resolve podcast URLs from offline cache if downloaded
+        const offlineCache = offlineCacheProvider();
+        const unitDetail = await offlineCache.getUnitDetail(unitId);
+        const isDownloaded = Boolean(unitDetail);
+
+        const resolveAssetUrl = async (
+          assetId: string | null,
+          fallbackUrl: string | null
+        ): Promise<string | null> => {
+          if (!assetId || !fallbackUrl) {
+            return fallbackUrl;
+          }
+
+          if (isDownloaded) {
+            try {
+              const asset = await offlineCache.resolveAsset(assetId);
+              if (asset?.localPath) {
+                return asset.localPath;
+              }
+            } catch (error) {
+              console.warn(
+                '[LearningFlowScreen] Failed to resolve asset',
+                assetId,
+                error
+              );
+            }
+          }
+
+          // Fallback to remote URL (convert relative to absolute)
+          if (fallbackUrl && !/^https?:\/\//i.test(fallbackUrl)) {
+            const path = fallbackUrl.startsWith('/')
+              ? fallbackUrl
+              : `/${fallbackUrl}`;
+            return `${apiBase}${path}`;
+          }
+          return fallbackUrl;
+        };
+
+        const tracks: PodcastTrack[] = [];
+
+        // Intro podcast
+        if (detail?.podcastAudioUrl) {
+          const introPodcastUrl = await resolveAssetUrl(
+            unitDetail?.assets.find(a => a.type === 'audio')?.id ?? null,
+            detail.podcastAudioUrl
+          );
+          if (introPodcastUrl) {
+            tracks.push({
+              unitId: detail.id,
+              title: 'Intro Podcast',
+              audioUrl: introPodcastUrl,
+              durationSeconds: detail.podcastDurationSeconds ?? 0,
+              transcript: detail.podcastTranscript ?? null,
+              lessonId: null,
+              lessonIndex: null,
+            });
+          }
+        }
+
+        // Lesson podcasts
+        if (detail) {
+          for (const [index, lessonSummary] of detail.lessons.entries()) {
+            if (!lessonSummary.podcastAudioUrl) {
+              continue;
+            }
+
+            const lessonAssetId = `lesson-podcast-${lessonSummary.id}`;
+            const resolvedLessonUrl = await resolveAssetUrl(
+              lessonAssetId,
+              lessonSummary.podcastAudioUrl
+            );
+
+            if (!resolvedLessonUrl) {
+              continue;
+            }
+
+            const isCurrentLesson = lessonSummary.id === lesson.id;
+            tracks.push({
+              unitId: detail.id,
+              title: `Lesson ${index + 1}: ${lessonSummary.title}`,
+              audioUrl: resolvedLessonUrl,
+              durationSeconds: lessonSummary.podcastDurationSeconds ?? 0,
+              transcript: isCurrentLesson
+                ? (lesson.podcastTranscript ?? null)
+                : null,
+              lessonId: lessonSummary.id,
+              lessonIndex: index,
+            });
+          }
+        }
+
+        if (tracks.length === 0) {
+          console.warn('[LearningFlowScreen] No podcast tracks for unit', {
+            unitId,
+          });
+          return;
+        }
+
+        await loadPlaylist(unitId, tracks);
+        const shouldLoadInitialTrack =
+          !currentTrack || currentTrack.unitId !== unitId;
+        if (shouldLoadInitialTrack) {
+          await loadTrack(tracks[0]);
+          if (autoplayEnabled) {
+            await play();
+          }
+        }
+      } catch (playlistError) {
+        console.error(
+          '[LearningFlowScreen] Failed to load podcast playlist',
+          playlistError
+        );
+      } finally {
+        if (isMounted) {
+          setIsPlaylistLoading(false);
+        }
+      }
+    };
+
+    void loadUnitPlaylist();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    unitId,
+    playlist?.unitId,
+    playlist?.tracks.length,
+    loadPlaylist,
+    currentTrack,
+    loadTrack,
+    play,
+    autoplayEnabled,
+    apiBase,
+    lesson,
+  ]);
 
   // Create session on mount
   useEffect(() => {

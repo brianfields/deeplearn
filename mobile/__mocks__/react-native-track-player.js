@@ -70,6 +70,7 @@ const pause = jest.fn(async () => {
 const getProgress = jest.fn(async () => progress);
 const getActiveTrack = jest.fn(async () => null);
 const getPlaybackState = jest.fn(async () => playbackState);
+const getState = jest.fn(async () => playbackState);
 const destroy = jest.fn(async () => {});
 const registerPlaybackService = jest.fn();
 
@@ -107,6 +108,7 @@ function __resetMock() {
   getProgress.mockClear();
   getActiveTrack.mockClear();
   getPlaybackState.mockClear();
+  getState.mockClear();
   destroy.mockClear();
   registerPlaybackService.mockClear();
 }
@@ -125,6 +127,7 @@ const TrackPlayer = {
   getProgress,
   getActiveTrack,
   getPlaybackState,
+  getState,
   destroy,
   registerPlaybackService,
   __setProgress,

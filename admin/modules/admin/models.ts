@@ -212,6 +212,11 @@ export interface LessonSummary {
   package_version: number;
   created_at: Date;
   updated_at: Date;
+  has_podcast: boolean;
+  podcast_voice: string | null;
+  podcast_duration_seconds: number | null;
+  podcast_audio_url: string | null;
+  podcast_generated_at?: Date | null;
 }
 
 export interface LessonDetails {
@@ -224,6 +229,12 @@ export interface LessonDetails {
   flow_run_id: string | null;
   created_at: Date;
   updated_at: Date;
+  has_podcast: boolean;
+  podcast_transcript: string | null;
+  podcast_voice: string | null;
+  podcast_audio_url: string | null;
+  podcast_duration_seconds: number | null;
+  podcast_generated_at: Date | null;
 }
 
 export interface LessonsListResponse {
@@ -536,6 +547,11 @@ export interface ApiUnitLessonSummary {
   learning_objectives: string[];
   key_concepts: string[];
   exercise_count: number;
+  has_podcast?: boolean;
+  podcast_voice?: string | null;
+  podcast_duration_seconds?: number | null;
+  podcast_generated_at?: string | null;
+  podcast_audio_url?: string | null;
 }
 
 export interface ApiUnitDetail {
@@ -604,6 +620,11 @@ export interface UnitLessonSummary {
   learning_objectives: string[];
   key_concepts: string[];
   exercise_count: number;
+  has_podcast: boolean;
+  podcast_voice: string | null;
+  podcast_duration_seconds: number | null;
+  podcast_generated_at: Date | null;
+  podcast_audio_url: string | null;
 }
 
 export interface LearningObjectiveProgress {

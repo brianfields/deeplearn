@@ -226,6 +226,9 @@ class LessonSummary(BaseModel):
     package_version: int
     created_at: datetime
     updated_at: datetime
+    has_podcast: bool = False
+    podcast_voice: str | None = None
+    podcast_duration_seconds: int | None = None
 
 
 class LessonDetails(BaseModel):
@@ -238,6 +241,12 @@ class LessonDetails(BaseModel):
     flow_run_id: str | None
     created_at: datetime
     updated_at: datetime
+    podcast_transcript: str | None = None
+    podcast_voice: str | None = None
+    podcast_audio_url: str | None = None
+    podcast_duration_seconds: int | None = None
+    podcast_generated_at: datetime | None = None
+    has_podcast: bool = False
 
 
 class LessonsListResponse(BaseModel):
