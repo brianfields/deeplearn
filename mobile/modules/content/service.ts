@@ -525,8 +525,9 @@ export class ContentService {
         ? 'full'
         : payloadMode;
 
-    const downloadStatus: DownloadStatus =
-      existing?.downloadStatus ?? 'completed';
+    // Don't assume units are downloaded just because we synced their metadata
+    // Default to 'idle' - units must be explicitly downloaded via requestUnitDownload
+    const downloadStatus: DownloadStatus = existing?.downloadStatus ?? 'idle';
     const downloadedAt = existing?.downloadedAt ?? null;
 
     const unitPayload: OfflineUnitSummaryPayload = {

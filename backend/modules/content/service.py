@@ -478,6 +478,7 @@ class ContentService:
         unit_read: ContentService.UnitRead,
         *,
         allowed_types: set[str] | None = None,
+        lessons: list[LessonModel] | None = None,
     ) -> list[ContentService.UnitSyncAsset]:
         """Construct asset metadata for the sync payload."""
 
@@ -513,6 +514,38 @@ class ContentService:
                         updated_at=getattr(unit, "podcast_generated_at", unit.updated_at),
                     )
                 )
+
+        # Include lesson podcast assets for offline download
+        if include_audio and lessons:
+            for lesson in lessons:
+                lesson_audio_id = getattr(lesson, "podcast_audio_object_id", None)
+                if lesson_audio_id:
+                    try:
+                        lesson_audio_uuid = lesson_audio_id if isinstance(lesson_audio_id, uuid.UUID) else uuid.UUID(str(lesson_audio_id))
+                    except (TypeError, ValueError):  # pragma: no cover - defensive
+                        logger.warning("🎧 Invalid lesson podcast audio id encountered: %s", lesson_audio_id)
+                        continue
+
+                    presigned_lesson_audio: str | None = None
+                    if self._object_store is not None:
+                        metadata = await self._fetch_audio_metadata(
+                            lesson_audio_uuid,
+                            requesting_user_id=getattr(unit, "user_id", None),
+                            include_presigned_url=True,
+                        )
+                        presigned_lesson_audio = getattr(metadata, "presigned_url", None)
+
+                    assets.append(
+                        self.UnitSyncAsset(
+                            id=f"lesson-podcast-{lesson.id}",
+                            unit_id=unit.id,
+                            type="audio",
+                            object_id=lesson_audio_uuid,
+                            remote_url=self._build_lesson_podcast_audio_url(lesson),
+                            presigned_url=presigned_lesson_audio,
+                            updated_at=getattr(lesson, "podcast_generated_at", lesson.updated_at),
+                        )
+                    )
 
         art_identifier = getattr(unit, "art_image_id", None)
         if include_image and art_identifier:
@@ -1040,6 +1073,7 @@ class ContentService:
                 unit,
                 unit_read,
                 allowed_types=allowed_asset_types,
+                lessons=ordered_models if include_lessons else None,
             )
 
             entries.append(

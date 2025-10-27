@@ -207,25 +207,30 @@ export function ManageCacheScreen(): React.ReactElement {
             haptics.trigger('medium');
 
             try {
-              // 1. Save current user before clearing
-              const currentUser = await AsyncStorage.getItem(USER_STORAGE_KEY);
-
-              // 2. Clear offline cache (SQLite and files)
+              // 1. Clear offline cache (SQLite and files)
               const offlineCache = offlineCacheProvider();
               await offlineCache.clearAll();
 
-              // 3. Clear AsyncStorage
-              await AsyncStorage.clear();
+              // 2. Selectively clear AsyncStorage (keep user login)
+              const allKeys = await AsyncStorage.getAllKeys();
+              const keysToRemove = allKeys.filter(
+                key => key !== USER_STORAGE_KEY
+              );
 
-              // 4. Restore user
-              if (currentUser) {
-                await AsyncStorage.setItem(USER_STORAGE_KEY, currentUser);
+              console.log('[ManageCache] Clearing AsyncStorage keys:', {
+                total: allKeys.length,
+                removing: keysToRemove.length,
+                keeping: [USER_STORAGE_KEY],
+              });
+
+              if (keysToRemove.length > 0) {
+                await AsyncStorage.multiRemove(keysToRemove);
               }
 
-              // 5. Clear React Query cache
+              // 3. Clear React Query cache
               queryClient.clear();
 
-              // 6. Reload summary
+              // 4. Reload summary
               await loadSummary();
 
               haptics.trigger('success');

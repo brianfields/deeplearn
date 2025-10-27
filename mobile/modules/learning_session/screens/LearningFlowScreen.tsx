@@ -33,7 +33,7 @@
  * - Coordinates with React Navigation stack
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -56,8 +56,8 @@ import {
 } from '../../podcast_player/public';
 import { catalogProvider } from '../../catalog/public';
 import { infrastructureProvider } from '../../infrastructure/public';
+import { offlineCacheProvider } from '../../offline_cache/public';
 import type { PodcastTrack } from '../../podcast_player/public';
-import type { UnitDetail } from '../../content/public';
 
 // Types
 import type { LearningStackParamList } from '../../../types';
@@ -86,20 +86,6 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
     return typeof base === 'string' ? base.replace(/\/$/, '') : '';
   }, [infrastructure]);
 
-  const resolvePodcastUrl = useCallback(
-    (url: string | null | undefined): string | null => {
-      if (!url) {
-        return null;
-      }
-      if (/^https?:\/\//i.test(url)) {
-        return url;
-      }
-      const path = url.startsWith('/') ? url : `/${url}`;
-      return `${apiBase}${path}`;
-    },
-    [apiBase]
-  );
-
   // Session creation mutation
   const startSessionMutation = useStartSession();
   const { loadPlaylist, loadTrack, play, pause, autoplayEnabled } =
@@ -115,51 +101,6 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
       setError('Unit context is required to start this lesson');
     }
   }, [unitId]);
-
-  const buildPlaylistTracks = useMemo(() => {
-    return (unitDetail: UnitDetail | null): PodcastTrack[] => {
-      if (!unitDetail) {
-        return [];
-      }
-
-      const tracks: PodcastTrack[] = [];
-      const introPodcastUrl = resolvePodcastUrl(unitDetail.podcastAudioUrl);
-      if (introPodcastUrl) {
-        tracks.push({
-          unitId: unitDetail.id,
-          title: 'Intro Podcast',
-          audioUrl: introPodcastUrl,
-          durationSeconds: unitDetail.podcastDurationSeconds ?? 0,
-          transcript: unitDetail.podcastTranscript ?? null,
-          lessonId: null,
-          lessonIndex: null,
-        });
-      }
-
-      unitDetail.lessons.forEach((lessonSummary, index) => {
-        const resolvedLessonUrl = resolvePodcastUrl(
-          lessonSummary.podcastAudioUrl
-        );
-        if (!resolvedLessonUrl) {
-          return;
-        }
-        const isCurrentLesson = lessonSummary.id === lesson.id;
-        tracks.push({
-          unitId: unitDetail.id,
-          title: `Lesson ${index + 1}: ${lessonSummary.title}`,
-          audioUrl: resolvedLessonUrl,
-          durationSeconds: lessonSummary.podcastDurationSeconds ?? 0,
-          transcript: isCurrentLesson
-            ? (lesson.podcastTranscript ?? null)
-            : null,
-          lessonId: lessonSummary.id,
-          lessonIndex: index,
-        });
-      });
-
-      return tracks;
-    };
-  }, [lesson, resolvePodcastUrl]);
 
   useEffect(() => {
     if (!unitId) {
@@ -179,13 +120,105 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
         if (!isMounted) {
           return;
         }
-        const tracks = buildPlaylistTracks(detail);
+
+        // Resolve podcast URLs from offline cache if downloaded
+        const offlineCache = offlineCacheProvider();
+        const unitDetail = await offlineCache.getUnitDetail(unitId);
+        const isDownloaded = Boolean(unitDetail);
+
+        const resolveAssetUrl = async (
+          assetId: string | null,
+          fallbackUrl: string | null
+        ): Promise<string | null> => {
+          if (!assetId || !fallbackUrl) {
+            return fallbackUrl;
+          }
+
+          if (isDownloaded) {
+            try {
+              const asset = await offlineCache.resolveAsset(assetId);
+              if (asset?.localPath) {
+                return asset.localPath;
+              }
+            } catch (error) {
+              console.warn(
+                '[LearningFlowScreen] Failed to resolve asset',
+                assetId,
+                error
+              );
+            }
+          }
+
+          // Fallback to remote URL (convert relative to absolute)
+          if (fallbackUrl && !/^https?:\/\//i.test(fallbackUrl)) {
+            const path = fallbackUrl.startsWith('/')
+              ? fallbackUrl
+              : `/${fallbackUrl}`;
+            return `${apiBase}${path}`;
+          }
+          return fallbackUrl;
+        };
+
+        const tracks: PodcastTrack[] = [];
+
+        // Intro podcast
+        if (detail?.podcastAudioUrl) {
+          const introPodcastUrl = await resolveAssetUrl(
+            unitDetail?.assets.find(a => a.type === 'audio')?.id ?? null,
+            detail.podcastAudioUrl
+          );
+          if (introPodcastUrl) {
+            tracks.push({
+              unitId: detail.id,
+              title: 'Intro Podcast',
+              audioUrl: introPodcastUrl,
+              durationSeconds: detail.podcastDurationSeconds ?? 0,
+              transcript: detail.podcastTranscript ?? null,
+              lessonId: null,
+              lessonIndex: null,
+            });
+          }
+        }
+
+        // Lesson podcasts
+        if (detail) {
+          for (const [index, lessonSummary] of detail.lessons.entries()) {
+            if (!lessonSummary.podcastAudioUrl) {
+              continue;
+            }
+
+            const lessonAssetId = `lesson-podcast-${lessonSummary.id}`;
+            const resolvedLessonUrl = await resolveAssetUrl(
+              lessonAssetId,
+              lessonSummary.podcastAudioUrl
+            );
+
+            if (!resolvedLessonUrl) {
+              continue;
+            }
+
+            const isCurrentLesson = lessonSummary.id === lesson.id;
+            tracks.push({
+              unitId: detail.id,
+              title: `Lesson ${index + 1}: ${lessonSummary.title}`,
+              audioUrl: resolvedLessonUrl,
+              durationSeconds: lessonSummary.podcastDurationSeconds ?? 0,
+              transcript: isCurrentLesson
+                ? (lesson.podcastTranscript ?? null)
+                : null,
+              lessonId: lessonSummary.id,
+              lessonIndex: index,
+            });
+          }
+        }
+
         if (tracks.length === 0) {
           console.warn('[LearningFlowScreen] No podcast tracks for unit', {
             unitId,
           });
           return;
         }
+
         await loadPlaylist(unitId, tracks);
         const shouldLoadInitialTrack =
           !currentTrack || currentTrack.unitId !== unitId;
@@ -217,11 +250,12 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
     playlist?.unitId,
     playlist?.tracks.length,
     loadPlaylist,
-    buildPlaylistTracks,
     currentTrack,
     loadTrack,
     play,
     autoplayEnabled,
+    apiBase,
+    lesson,
   ]);
 
   // Create session on mount
