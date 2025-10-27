@@ -1,6 +1,7 @@
 import React from 'react';
-import { ActivityIndicator, View } from 'react-native';
-import { Download } from 'lucide-react-native';
+import { ActivityIndicator, Alert, TouchableOpacity, View } from 'react-native';
+import { Download, Trash2 } from 'lucide-react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import type { Unit } from '../../content/public';
 import type { DownloadStatus } from '../../offline_cache/public';
 import { UnitProgressIndicator } from './UnitProgressIndicator';
@@ -26,6 +27,9 @@ interface Props {
   storageBytes?: number;
   onDownload?: (unitId: string) => void;
   isDownloadActionPending?: boolean;
+  canRemoveFromMyUnits?: boolean;
+  onRemoveFromMyUnits?: (unit: Unit) => void;
+  isRemoveActionPending?: boolean;
 }
 
 export function UnitCard({
@@ -40,10 +44,14 @@ export function UnitCard({
   storageBytes,
   onDownload,
   isDownloadActionPending,
+  canRemoveFromMyUnits = false,
+  onRemoveFromMyUnits,
+  isRemoveActionPending = false,
 }: Props): React.ReactElement {
   const ui = uiSystemProvider();
   const theme = ui.getCurrentTheme();
   const { trigger } = useHaptics();
+  const swipeableRef = React.useRef<Swipeable | null>(null);
 
   // Check if unit has been creating for too long (1 hour = 3600 seconds)
   const isStaleCreation = React.useMemo(() => {
@@ -130,6 +138,57 @@ export function UnitCard({
     onDismiss(unit.id);
   };
 
+  const closeSwipe = (): void => {
+    swipeableRef.current?.close();
+  };
+
+  const handleRemoveFromMyUnits = (): void => {
+    if (!onRemoveFromMyUnits || isRemoveActionPending) {
+      return;
+    }
+    Alert.alert(
+      'Remove from My Units',
+      `Remove "${unit.title}" from My Units?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+          onPress: closeSwipe,
+        },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () => {
+            trigger('medium');
+            onRemoveFromMyUnits(unit);
+            closeSwipe();
+          },
+        },
+      ]
+    );
+  };
+
+  const renderRemoveAction = (): React.ReactElement => (
+    <TouchableOpacity
+      onPress={handleRemoveFromMyUnits}
+      style={{
+        width: ui.getSpacing('xl') * 2,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: theme.colors.error,
+      }}
+      disabled={isRemoveActionPending}
+      testID={
+        index !== undefined ? `unit-remove-swipe-${index}` : 'unit-remove-swipe'
+      }
+    >
+      <Trash2 size={20} color={theme.colors.surface} />
+      <Text variant="caption" color={theme.colors.surface}>
+        Remove
+      </Text>
+    </TouchableOpacity>
+  );
+
   const handleDownload = (): void => {
     if (!onDownload || !canDownload) {
       return;
@@ -140,172 +199,182 @@ export function UnitCard({
   const downloadButtonTestId =
     index !== undefined ? `download-button-${index}` : undefined;
 
+  const cardContent = (
+    <Card
+      variant="default"
+      onPress={handlePress}
+      disabled={isDisabled}
+      style={[
+        unit.status === 'failed'
+          ? { borderLeftWidth: 4, borderLeftColor: theme.colors.error }
+          : null,
+      ]}
+    >
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'flex-start',
+          columnGap: ui.getSpacing('md'),
+        }}
+      >
+        <ArtworkImage
+          title={unit.title}
+          imageUrl={unit.artImageUrl ?? undefined}
+          description={unit.artImageDescription ?? undefined}
+          variant="thumbnail"
+          style={{ flexShrink: 0 }}
+          testID={index !== undefined ? `unit-art-${index}` : undefined}
+        />
+
+        <View style={{ flex: 1 }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              marginBottom: ui.getSpacing('sm'),
+            }}
+          >
+            <Text
+              variant="title"
+              weight="700"
+              color={
+                isDisabled ? theme.colors.textSecondary : theme.colors.text
+              }
+              style={{ flex: 1, marginRight: ui.getSpacing('sm') }}
+              numberOfLines={2}
+            >
+              {unit.title}
+            </Text>
+          </View>
+
+          <Text
+            variant="secondary"
+            color={isDisabled ? theme.colors.textSecondary : undefined}
+            numberOfLines={2}
+            style={{ marginBottom: ui.getSpacing('sm') }}
+          >
+            {unit.description || unit.progressMessage}
+          </Text>
+
+          {unit.status !== 'completed' && (
+            <View style={{ marginBottom: ui.getSpacing('sm') }}>
+              <UnitProgressIndicator
+                status={unit.status}
+                progress={unit.creationProgress}
+                errorMessage={unit.errorMessage}
+                isStale={isStaleCreation}
+              />
+            </View>
+          )}
+
+          {showFailedActions && (
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'flex-end',
+                marginTop: ui.getSpacing('sm'),
+                marginBottom: ui.getSpacing('xs'),
+                columnGap: ui.getSpacing('sm'),
+              }}
+            >
+              {onRetry && (
+                <Button
+                  title="Retry"
+                  variant="primary"
+                  size="small"
+                  onPress={handleRetry}
+                  testID={
+                    index !== undefined ? `retry-button-${index}` : undefined
+                  }
+                />
+              )}
+              {onDismiss && (
+                <Button
+                  title="Dismiss"
+                  variant="secondary"
+                  size="small"
+                  onPress={handleDismiss}
+                  testID={
+                    index !== undefined ? `dismiss-button-${index}` : undefined
+                  }
+                />
+              )}
+            </View>
+          )}
+
+          {showDownloadStatusInfo && downloadStatusText && (
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                columnGap: ui.getSpacing('xs'),
+                marginBottom: downloadStatusSpacing,
+              }}
+            >
+              {isDownloadInProgress && (
+                <ActivityIndicator size="small" color={theme.colors.primary} />
+              )}
+              <Text variant="caption" color={downloadStatusColor}>
+                {downloadStatusText}
+              </Text>
+            </View>
+          )}
+
+          {showDownloadButton && (
+            <Button
+              title={isDownloadFailed ? 'Retry download' : 'Download'}
+              variant="primary"
+              size="small"
+              onPress={handleDownload}
+              loading={isDownloadActionPending}
+              icon={<Download size={16} color={theme.colors.surface} />}
+              style={[
+                { alignSelf: 'flex-start' },
+                !showDownloadStatusInfo
+                  ? { marginTop: ui.getSpacing('sm') }
+                  : null,
+              ]}
+              testID={downloadButtonTestId}
+            />
+          )}
+
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              marginTop: metadataMarginTop,
+            }}
+          >
+            <Text
+              variant="caption"
+              color={isDisabled ? theme.colors.textSecondary : undefined}
+            >
+              {unit.targetLessonCount} lessons
+            </Text>
+          </View>
+        </View>
+      </View>
+    </Card>
+  );
+
   return (
     <Box
       testID={index !== undefined ? `unit-card-${index}` : undefined}
       mb="sm"
     >
-      <Card
-        variant="default"
-        onPress={handlePress}
-        disabled={isDisabled}
-        style={[
-          unit.status === 'failed'
-            ? { borderLeftWidth: 4, borderLeftColor: theme.colors.error }
-            : null,
-        ]}
-      >
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'flex-start',
-            columnGap: ui.getSpacing('md'),
-          }}
+      {canRemoveFromMyUnits && onRemoveFromMyUnits ? (
+        <Swipeable
+          ref={swipeableRef}
+          friction={2}
+          rightThreshold={40}
+          renderRightActions={renderRemoveAction}
         >
-          <ArtworkImage
-            title={unit.title}
-            imageUrl={unit.artImageUrl ?? undefined}
-            description={unit.artImageDescription ?? undefined}
-            variant="thumbnail"
-            style={{ flexShrink: 0 }}
-            testID={index !== undefined ? `unit-art-${index}` : undefined}
-          />
-
-          <View style={{ flex: 1 }}>
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'flex-start',
-                justifyContent: 'space-between',
-                marginBottom: ui.getSpacing('sm'),
-              }}
-            >
-              <Text
-                variant="title"
-                weight="700"
-                color={
-                  isDisabled ? theme.colors.textSecondary : theme.colors.text
-                }
-                style={{ flex: 1, marginRight: ui.getSpacing('sm') }}
-                numberOfLines={2}
-              >
-                {unit.title}
-              </Text>
-            </View>
-
-            <Text
-              variant="secondary"
-              color={isDisabled ? theme.colors.textSecondary : undefined}
-              numberOfLines={2}
-              style={{ marginBottom: ui.getSpacing('sm') }}
-            >
-              {unit.description || unit.progressMessage}
-            </Text>
-
-            {unit.status !== 'completed' && (
-              <View style={{ marginBottom: ui.getSpacing('sm') }}>
-                <UnitProgressIndicator
-                  status={unit.status}
-                  progress={unit.creationProgress}
-                  errorMessage={unit.errorMessage}
-                  isStale={isStaleCreation}
-                />
-              </View>
-            )}
-
-            {showFailedActions && (
-              <View
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'flex-end',
-                  marginTop: ui.getSpacing('sm'),
-                  marginBottom: ui.getSpacing('xs'),
-                  columnGap: ui.getSpacing('sm'),
-                }}
-              >
-                {onRetry && (
-                  <Button
-                    title="Retry"
-                    variant="primary"
-                    size="small"
-                    onPress={handleRetry}
-                    testID={
-                      index !== undefined ? `retry-button-${index}` : undefined
-                    }
-                  />
-                )}
-                {onDismiss && (
-                  <Button
-                    title="Dismiss"
-                    variant="secondary"
-                    size="small"
-                    onPress={handleDismiss}
-                    testID={
-                      index !== undefined
-                        ? `dismiss-button-${index}`
-                        : undefined
-                    }
-                  />
-                )}
-              </View>
-            )}
-
-            {showDownloadStatusInfo && downloadStatusText && (
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  columnGap: ui.getSpacing('xs'),
-                  marginBottom: downloadStatusSpacing,
-                }}
-              >
-                {isDownloadInProgress && (
-                  <ActivityIndicator
-                    size="small"
-                    color={theme.colors.primary}
-                  />
-                )}
-                <Text variant="caption" color={downloadStatusColor}>
-                  {downloadStatusText}
-                </Text>
-              </View>
-            )}
-
-            {showDownloadButton && (
-              <Button
-                title={isDownloadFailed ? 'Retry download' : 'Download'}
-                variant="primary"
-                size="small"
-                onPress={handleDownload}
-                loading={isDownloadActionPending}
-                icon={<Download size={16} color={theme.colors.surface} />}
-                style={[
-                  { alignSelf: 'flex-start' },
-                  !showDownloadStatusInfo
-                    ? { marginTop: ui.getSpacing('sm') }
-                    : null,
-                ]}
-                testID={downloadButtonTestId}
-              />
-            )}
-
-            <View
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                marginTop: metadataMarginTop,
-              }}
-            >
-              <Text
-                variant="caption"
-                color={isDisabled ? theme.colors.textSecondary : undefined}
-              >
-                {unit.targetLessonCount} lessons
-              </Text>
-            </View>
-          </View>
-        </View>
-      </Card>
+          {cardContent}
+        </Swipeable>
+      ) : (
+        cardContent
+      )}
     </Box>
   );
 }

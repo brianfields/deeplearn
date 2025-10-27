@@ -1,6 +1,7 @@
 import { describe, expect, it, jest, beforeEach } from '@jest/globals';
 import { ContentService } from './service';
 import { ContentRepo } from './repo';
+import type { ApiUnitRead } from './repo';
 import type {
   CachedAsset,
   CachedUnit,
@@ -60,6 +61,8 @@ describe('ContentService (offline cache integration)', () => {
       getUnitDetail: jest.fn(),
       getUserUnitCollections: jest.fn(),
       updateUnitSharing: jest.fn(),
+      addUnitToMyUnits: jest.fn(),
+      removeUnitFromMyUnits: jest.fn(),
       syncUnits: jest.fn(),
     } as unknown as jest.Mocked<ContentRepo>;
 
@@ -290,5 +293,86 @@ describe('ContentService (offline cache integration)', () => {
     const result = await service.resolveAsset('asset-1');
     expect(result).toEqual(asset);
     expect(offlineCache.resolveAsset).toHaveBeenCalledWith('asset-1');
+  });
+
+  it('adds unit to My Units and caches summary', async () => {
+    const apiUnit: ApiUnitRead = {
+      id: 'unit-2',
+      title: 'Global Unit',
+      description: 'Desc',
+      learner_level: 'beginner',
+      lesson_count: 3,
+      status: 'completed',
+      lesson_order: [],
+      user_id: 99,
+      is_global: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    repo.addUnitToMyUnits.mockResolvedValue({
+      unit: apiUnit,
+      is_in_my_units: true,
+    });
+
+    await service.addUnitToMyUnits(7, 'unit-2');
+
+    expect(repo.addUnitToMyUnits).toHaveBeenCalledWith({
+      userId: 7,
+      unitId: 'unit-2',
+    });
+    expect(offlineCache.cacheMinimalUnits).toHaveBeenCalledWith([
+      expect.objectContaining({ id: 'unit-2' }),
+    ]);
+  });
+
+  it('removes unit from My Units and caches summary', async () => {
+    const apiUnit: ApiUnitRead = {
+      id: 'unit-3',
+      title: 'Shared Unit',
+      description: null,
+      learner_level: 'advanced',
+      lesson_count: 5,
+      status: 'completed',
+      lesson_order: ['l-1'],
+      user_id: 5,
+      is_global: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    repo.removeUnitFromMyUnits.mockResolvedValue({
+      unit: apiUnit,
+      is_in_my_units: false,
+    });
+
+    await service.removeUnitFromMyUnits(4, ' unit-3 ');
+
+    expect(repo.removeUnitFromMyUnits).toHaveBeenCalledWith({
+      userId: 4,
+      unitId: 'unit-3',
+    });
+    expect(offlineCache.cacheMinimalUnits).toHaveBeenCalledWith([
+      expect.objectContaining({ id: 'unit-3' }),
+    ]);
+  });
+
+  it('throws content error when add to My Units validation fails', async () => {
+    await expect(service.addUnitToMyUnits(0, 'unit-4')).rejects.toMatchObject({
+      message: 'Valid user ID is required',
+      code: 'CONTENT_SERVICE_ERROR',
+    });
+    expect(repo.addUnitToMyUnits).not.toHaveBeenCalled();
+  });
+
+  it('surfaces backend errors when removal fails', async () => {
+    repo.removeUnitFromMyUnits.mockRejectedValue(new Error('Forbidden'));
+
+    await expect(
+      service.removeUnitFromMyUnits(3, 'unit-5')
+    ).rejects.toMatchObject({
+      message: 'Forbidden',
+      code: 'CONTENT_SERVICE_ERROR',
+    });
   });
 });

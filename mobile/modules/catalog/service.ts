@@ -281,6 +281,7 @@ export class CatalogService {
   /**
    * Browse units with status information
    * Added for unit-based browsing in the catalog UI.
+   * Fetches fresh data from the server, not from offline cache.
    */
   async browseUnits(params?: {
     limit?: number;
@@ -288,7 +289,7 @@ export class CatalogService {
     currentUserId?: number | null;
   }): Promise<Unit[]> {
     try {
-      return await this.deps.content.listUnits(params);
+      return await this.deps.content.browseCatalogUnits(params);
     } catch (error) {
       throw this.handleServiceError(error, 'Failed to browse units');
     }

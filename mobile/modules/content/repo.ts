@@ -5,6 +5,8 @@ import type {
   UpdateUnitSharingRequest,
   ContentError,
   ApiUnitLearningObjective,
+  AddToMyUnitsRequest,
+  RemoveFromMyUnitsRequest,
 } from './models';
 
 const CONTENT_BASE = '/api/v1/content';
@@ -53,6 +55,11 @@ export interface ApiUnitSyncResponse {
   deleted_unit_ids: string[];
   deleted_lesson_ids: string[];
   cursor: string;
+}
+
+export interface ApiMyUnitMutationResponse {
+  unit: ApiUnitRead;
+  is_in_my_units: boolean;
 }
 
 export class ContentRepo {
@@ -105,6 +112,66 @@ export class ContentRepo {
       });
     } catch (error) {
       throw this.handleError(error, 'Failed to update unit sharing');
+    }
+  }
+
+  async addUnitToMyUnits(
+    request: AddToMyUnitsRequest
+  ): Promise<ApiMyUnitMutationResponse> {
+    const url = `${CONTENT_BASE}/units/my-units/add`;
+
+    try {
+      return await this.infrastructure.request<ApiMyUnitMutationResponse>(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: request.userId,
+          unit_id: request.unitId,
+        }),
+      });
+    } catch (error) {
+      throw this.handleError(error, 'Failed to add unit to My Units');
+    }
+  }
+
+  async removeUnitFromMyUnits(
+    request: RemoveFromMyUnitsRequest
+  ): Promise<ApiMyUnitMutationResponse> {
+    const url = `${CONTENT_BASE}/units/my-units/remove`;
+
+    try {
+      return await this.infrastructure.request<ApiMyUnitMutationResponse>(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: request.userId,
+          unit_id: request.unitId,
+        }),
+      });
+    } catch (error) {
+      throw this.handleError(error, 'Failed to remove unit from My Units');
+    }
+  }
+
+  async listPersonalUnits(params: {
+    userId: number;
+    limit?: number;
+    offset?: number;
+  }): Promise<ApiUnitSummary[]> {
+    const limit = params.limit ?? 100;
+    const offset = params.offset ?? 0;
+    const url = `${CONTENT_BASE}/units/personal?user_id=${encodeURIComponent(String(params.userId))}&limit=${encodeURIComponent(String(limit))}&offset=${encodeURIComponent(String(offset))}`;
+
+    try {
+      return await this.infrastructure.request<ApiUnitSummary[]>(url, {
+        method: 'GET',
+      });
+    } catch (error) {
+      throw this.handleError(error, 'Failed to list personal units');
     }
   }
 

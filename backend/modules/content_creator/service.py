@@ -424,9 +424,9 @@ class ContentCreatorService:
         unit_material: str,
         learner_level: str,
         arq_task_id: str | None,
-    ) -> tuple[str, PodcastLesson, str]:
+    ) -> tuple[str, PodcastLesson, str, set[str]]:
         """
-        Create a single lesson and return (lesson_id, podcast_lesson, voice).
+        Create a single lesson and return (lesson_id, podcast_lesson, voice, covered_lo_ids).
 
         This method is designed to be called in parallel for multiple lessons.
         Each invocation uses its own database session to avoid serialization.

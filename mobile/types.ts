@@ -31,4 +31,5 @@ export type LearningStackParamList = {
     results: SessionResults;
     unitId: string;
   };
+  CatalogBrowser: undefined;
 };

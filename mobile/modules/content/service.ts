@@ -12,6 +12,8 @@ import type {
   UnitDetail,
   UpdateUnitSharingRequest,
   UserUnitCollections,
+  AddToMyUnitsRequest,
+  RemoveFromMyUnitsRequest,
 } from './models';
 import { toUnitDTO, toUnitDetailDTO } from './models';
 import {
@@ -92,26 +94,49 @@ export class ContentService {
     }
   }
 
+  async browseCatalogUnits(params?: ListUnitsParams): Promise<Unit[]> {
+    try {
+      // Fetch fresh data from server for catalog browsing
+      const apiUnits = await this.repo.listUnits({
+        limit: params?.limit,
+        offset: params?.offset,
+      });
+
+      return apiUnits.map(apiUnit =>
+        toUnitDTO(apiUnit, params?.currentUserId ?? null)
+      );
+    } catch (error) {
+      throw this.handleError(error, 'Failed to browse catalog units');
+    }
+  }
+
   async getUserUnitCollections(
     userId: number,
     options?: { includeGlobal?: boolean; limit?: number; offset?: number }
   ): Promise<UserUnitCollections> {
-    if (!Number.isFinite(userId) || userId <= 0) {
+    if (!Number.isInteger(userId) || userId <= 0) {
       return { units: [], ownedUnitIds: [] };
     }
 
     const includeGlobal = options?.includeGlobal ?? true;
 
     try {
+      // Read from offline cache for offline support
+      // The cache is populated by sync, which includes units owned by user + My Units
       const cached = await this.ensureUnitsCached();
+
+      // Units owned by this user
       const ownedUnits = cached
         .filter(unit => this.getOwnerId(unit) === userId)
         .map(unit => this.mapCachedUnitToUnit(unit, userId));
 
       const ownedUnitIds = new Set(ownedUnits.map(unit => unit.id));
+
+      // Start with owned units
       const mergedUnits: Unit[] = [...ownedUnits];
 
       if (includeGlobal) {
+        // Add global units that are in the cache (which includes My Units via sync)
         cached.forEach(unit => {
           if (ownedUnitIds.has(unit.id)) {
             return;
@@ -211,6 +236,114 @@ export class ContentService {
     } catch (error) {
       throw this.handleError(error, 'Failed to update unit sharing');
     }
+  }
+
+  async addUnitToMyUnits(userId: number, unitId: string): Promise<void> {
+    if (!Number.isInteger(userId) || userId <= 0) {
+      throw this.handleError(
+        new Error('Valid user ID is required'),
+        'Valid user ID is required'
+      );
+    }
+
+    const trimmedUnitId = unitId?.trim();
+    if (!trimmedUnitId) {
+      throw this.handleError(
+        new Error('Unit ID is required'),
+        'Unit ID is required'
+      );
+    }
+
+    const request: AddToMyUnitsRequest = {
+      userId,
+      unitId: trimmedUnitId,
+    };
+
+    try {
+      const response = await this.repo.addUnitToMyUnits(request);
+      // Cache immediately for instant feedback
+      await this.offlineCache.cacheMinimalUnits([
+        this.toOfflineUnitPayloadFromSummary(response.unit),
+      ]);
+      // Trigger regular sync to ensure cache stays consistent
+      // Use regular sync (not force) to avoid clearing other cached units
+      await this.runSyncCycle();
+    } catch (error) {
+      throw this.handleError(error, 'Failed to add unit to My Units');
+    }
+  }
+
+  async removeUnitFromMyUnits(userId: number, unitId: string): Promise<void> {
+    if (!Number.isInteger(userId) || userId <= 0) {
+      throw this.handleError(
+        new Error('Valid user ID is required'),
+        'Valid user ID is required'
+      );
+    }
+
+    const trimmedUnitId = unitId?.trim();
+    if (!trimmedUnitId) {
+      throw this.handleError(
+        new Error('Unit ID is required'),
+        'Unit ID is required'
+      );
+    }
+
+    const request: RemoveFromMyUnitsRequest = {
+      userId,
+      unitId: trimmedUnitId,
+    };
+
+    try {
+      // Remove from My Units on server
+      await this.repo.removeUnitFromMyUnits(request);
+    } catch (error: any) {
+      // If unit is already not in My Units (404), that's the desired state
+      // Continue to sync to clean up the cache
+      if (error?.statusCode !== 404) {
+        throw this.handleError(error, 'Failed to remove unit from My Units');
+      }
+      console.info(
+        '[ContentService] Unit already not in My Units, syncing cache',
+        {
+          unitId: trimmedUnitId,
+        }
+      );
+    }
+
+    // Check if unit was downloaded - if so, delete it after server removal
+    // We do this AFTER server removal to avoid leaving orphaned downloads if removal fails
+    const cachedUnit = await this.offlineCache.getUnitDetail(trimmedUnitId);
+    if (cachedUnit) {
+      console.info('[ContentService] Deleting unit from cache', {
+        unitId: trimmedUnitId,
+        downloadStatus: cachedUnit.downloadStatus,
+        cacheMode: cachedUnit.cacheMode,
+      });
+      await this.offlineCache.deleteUnit(trimmedUnitId);
+
+      // Verify deletion
+      const afterDelete = await this.offlineCache.getUnitDetail(trimmedUnitId);
+      console.info('[ContentService] After deletion, unit in cache:', {
+        unitId: trimmedUnitId,
+        stillExists: !!afterDelete,
+      });
+    }
+
+    // Trigger force sync to fully refresh cache and remove from minimal cache
+    // Force sync clears minimal units and replaces with fresh data from server
+    // For downloaded units, they're already deleted above
+    console.info('[ContentService] Starting force sync after removal', {
+      unitId: trimmedUnitId,
+    });
+    await this.runSyncCycle({ force: true });
+
+    // Verify unit is not in cache after sync
+    const afterSync = await this.offlineCache.getUnitDetail(trimmedUnitId);
+    console.info('[ContentService] After force sync, unit in cache:', {
+      unitId: trimmedUnitId,
+      exists: !!afterSync,
+    });
   }
 
   async requestUnitDownload(unitId: string): Promise<void> {

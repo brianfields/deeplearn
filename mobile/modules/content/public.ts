@@ -10,6 +10,11 @@ export interface ContentProvider {
     offset?: number;
     currentUserId?: number | null;
   }): Promise<Unit[]>;
+  browseCatalogUnits(params?: {
+    limit?: number;
+    offset?: number;
+    currentUserId?: number | null;
+  }): Promise<Unit[]>;
   getUnitDetail(
     unitId: string,
     options?: { currentUserId?: number | null }
@@ -23,6 +28,8 @@ export interface ContentProvider {
     request: UpdateUnitSharingRequest,
     currentUserId?: number | null
   ): Promise<Unit>;
+  addUnitToMyUnits(userId: number, unitId: string): Promise<void>;
+  removeUnitFromMyUnits(userId: number, unitId: string): Promise<void>;
   requestUnitDownload(unitId: string): Promise<void>;
   removeUnitDownload(unitId: string): Promise<void>;
   resolveAsset(assetId: string): Promise<CachedAsset | null>;
@@ -44,9 +51,12 @@ export function contentProvider(): ContentProvider {
   const service = getServiceInstance();
   return {
     listUnits: service.listUnits.bind(service),
+    browseCatalogUnits: service.browseCatalogUnits.bind(service),
     getUnitDetail: service.getUnitDetail.bind(service),
     getUserUnitCollections: service.getUserUnitCollections.bind(service),
     updateUnitSharing: service.updateUnitSharing.bind(service),
+    addUnitToMyUnits: service.addUnitToMyUnits.bind(service),
+    removeUnitFromMyUnits: service.removeUnitFromMyUnits.bind(service),
     requestUnitDownload: service.requestUnitDownload.bind(service),
     removeUnitDownload: service.removeUnitDownload.bind(service),
     resolveAsset: service.resolveAsset.bind(service),

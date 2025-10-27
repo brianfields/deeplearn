@@ -13,7 +13,13 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import { useCatalogUnitDetail, useToggleUnitSharing } from '../queries';
+import {
+  useCatalogUnitDetail,
+  useToggleUnitSharing,
+  useRemoveUnitFromMyUnits,
+  useDownloadUnit,
+  useRemoveUnitDownload,
+} from '../queries';
 import {
   UnitObjectiveSummaryList,
   UnitProgressView,
@@ -61,6 +67,9 @@ export function UnitDetailScreen() {
     currentUserId: currentUserId ?? undefined,
   });
   const toggleSharing = useToggleUnitSharing();
+  const removeFromMyUnits = useRemoveUnitFromMyUnits();
+  const downloadUnit = useDownloadUnit();
+  const _removeDownload = useRemoveUnitDownload();
   const ui = uiSystemProvider();
   const theme = ui.getCurrentTheme();
   const haptics = useHaptics();
@@ -439,9 +448,9 @@ export function UnitDetailScreen() {
 
     setIsDownloadActionPending(true);
     try {
-      await content.requestUnitDownload(unit.id);
+      await downloadUnit.mutateAsync({ unitId: unit.id });
       haptics.trigger('medium');
-      await Promise.all([refetch(), loadUnitMetrics()]);
+      await loadUnitMetrics();
     } catch (error) {
       console.warn('[UnitDetailScreen] Failed to queue unit download', {
         unitId: unit.id,
@@ -454,7 +463,7 @@ export function UnitDetailScreen() {
     } finally {
       setIsDownloadActionPending(false);
     }
-  }, [content, haptics, loadUnitMetrics, refetch, unit]);
+  }, [downloadUnit, haptics, loadUnitMetrics, unit]);
 
   const confirmDownload = useCallback(() => {
     if (!unit) {
@@ -497,6 +506,50 @@ export function UnitDetailScreen() {
       setIsCancelPending(false);
     }
   }, [content, loadUnitMetrics, offlineCache, refetch, unit]);
+
+  const handleRemoveFromMyUnits = useCallback(() => {
+    if (!unit || !currentUserId) {
+      return;
+    }
+
+    Alert.alert(
+      'Remove from My Units',
+      `Remove "${unit.title}" from your collection?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () => {
+            haptics.trigger('medium');
+            removeFromMyUnits.mutate(
+              { userId: currentUserId, unitId: unit.id },
+              {
+                onSuccess: () => {
+                  Alert.alert('Removed', 'Unit removed from your collection.', [
+                    {
+                      text: 'OK',
+                      onPress: () => navigation.navigate('LessonList'),
+                    },
+                  ]);
+                },
+                onError: error => {
+                  console.error(
+                    '[UnitDetailScreen] Failed to remove from My Units',
+                    error
+                  );
+                  Alert.alert(
+                    'Remove failed',
+                    'We could not remove this unit. Please try again.'
+                  );
+                },
+              }
+            );
+          },
+        },
+      ]
+    );
+  }, [currentUserId, haptics, navigation, removeFromMyUnits, unit]);
 
   if (!unit) {
     return (
@@ -582,6 +635,20 @@ export function UnitDetailScreen() {
               </Card>
             </Box>
           ) : null}
+
+          {!unit.isOwnedByCurrentUser && unit.isGlobal && currentUserId && (
+            <Box px="lg" mt="lg">
+              <Button
+                title="Remove from My Units"
+                variant="secondary"
+                size="medium"
+                fullWidth
+                onPress={handleRemoveFromMyUnits}
+                disabled={removeFromMyUnits.isPending}
+                testID="remove-from-my-units-prompt"
+              />
+            </Box>
+          )}
         </ScrollView>
       </SafeAreaView>
     );
@@ -740,6 +807,20 @@ export function UnitDetailScreen() {
             </Card>
           </Box>
         ))}
+
+        {!unit.isOwnedByCurrentUser && unit.isGlobal && currentUserId && (
+          <Box px="lg" mt="lg">
+            <Button
+              title="Remove from My Units"
+              variant="secondary"
+              size="medium"
+              fullWidth
+              onPress={handleRemoveFromMyUnits}
+              disabled={removeFromMyUnits.isPending}
+              testID="remove-from-my-units"
+            />
+          </Box>
+        )}
 
         {/* 🔍 DEBUG: Cache Inspection Tools */}
         {__DEV__ && isDownloaded && (

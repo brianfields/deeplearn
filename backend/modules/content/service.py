@@ -803,7 +803,7 @@ class ContentService:
             lesson_lo_ids = list(package.unit_learning_objective_ids)
             if not lesson_lo_ids:
                 lesson_lo_ids = sorted({exercise.lo_id for exercise in package.exercises})
-            objectives = [(lo_lookup.get(lo_id).description if lo_lookup.get(lo_id) else lo_id) for lo_id in lesson_lo_ids]
+            objectives = [(lo_obj.description if (lo_obj := lo_lookup.get(lo_id)) else lo_id) for lo_id in lesson_lo_ids]
             glossary_terms = package.glossary.get("terms", []) if package.glossary else []
             key_concepts: list[str] = []
             for term in glossary_terms:
@@ -889,9 +889,19 @@ class ContentService:
 
         units = await self.repo.get_units_updated_since(since, limit=limit)
 
-        # Filter units to only those the user can access (owned by user OR global)
+        memberships: set[str] = set()
+
+        def _user_can_access(unit: UnitModel) -> bool:
+            if user_id is None:
+                return True
+            if getattr(unit, "user_id", None) == user_id:
+                return True
+            return unit.id in memberships
+
         if user_id is not None:
-            units = [unit for unit in units if unit.user_id == user_id or unit.is_global]
+            membership_ids = await self.repo.list_my_units_unit_ids(user_id)
+            memberships = set(membership_ids)
+            units = [unit for unit in units if _user_can_access(unit)]
 
         unit_by_id: dict[str, UnitModel] = {unit.id: unit for unit in units}
 
@@ -914,9 +924,11 @@ class ContentService:
                     continue
                 if lesson.unit_id not in unit_by_id:
                     unit = await self.repo.get_unit_by_id(lesson.unit_id)
-                    if unit is not None:
+                    if unit is not None and _user_can_access(unit):
                         unit_by_id[unit.id] = unit
                         units.append(unit)
+                    else:
+                        continue
                 bucket = lessons_by_unit.setdefault(lesson.unit_id, {})
                 existing = bucket.get(lesson.id)
                 if existing is None or existing.updated_at < lesson.updated_at:
@@ -995,6 +1007,21 @@ class ContentService:
     async def list_units_for_user(self, user_id: int, *, limit: int = 100, offset: int = 0) -> list[ContentService.UnitRead]:
         """Return units owned by a specific user."""
         arr = await self.repo.list_units_for_user(user_id=user_id, limit=limit, offset=offset)
+        results: list[ContentService.UnitRead] = []
+        for unit in arr:
+            results.append(await self._build_unit_read(unit))
+        return results
+
+    async def list_units_for_user_including_my_units(
+        self,
+        user_id: int,
+        *,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[ContentService.UnitRead]:
+        """Return units owned by the user along with catalog units they have added."""
+
+        arr = await self.repo.list_units_for_user_including_my_units(user_id=user_id, limit=limit, offset=offset)
         results: list[ContentService.UnitRead] = []
         for unit in arr:
             results.append(await self._build_unit_read(unit))
@@ -1107,6 +1134,43 @@ class ContentService:
         if updated is None:
             raise ValueError("Unit not found")
         return await self._build_unit_read(updated)
+
+    async def add_unit_to_my_units(self, user_id: int, unit_id: str) -> ContentService.UnitRead:
+        """Add a catalog unit to the user's My Units collection."""
+
+        unit = await self.repo.get_unit_by_id(unit_id)
+        if unit is None:
+            raise LookupError("Unit not found")
+
+        if getattr(unit, "user_id", None) == user_id:
+            return await self._build_unit_read(unit)
+
+        already_member = await self.repo.is_unit_in_my_units(user_id, unit_id)
+        if already_member:
+            return await self._build_unit_read(unit)
+
+        if not getattr(unit, "is_global", False):
+            raise PermissionError("Unit is not shared globally")
+
+        await self.repo.add_unit_to_my_units(user_id, unit_id)
+        return await self._build_unit_read(unit)
+
+    async def remove_unit_from_my_units(self, user_id: int, unit_id: str) -> ContentService.UnitRead:
+        """Remove a catalog unit from the user's My Units collection."""
+
+        unit = await self.repo.get_unit_by_id(unit_id)
+        if unit is None:
+            raise LookupError("Unit not found")
+
+        if getattr(unit, "user_id", None) == user_id:
+            raise PermissionError("Cannot remove an owned unit")
+
+        membership_exists = await self.repo.is_unit_in_my_units(user_id, unit_id)
+        if not membership_exists:
+            raise LookupError("Unit is not in My Units")
+
+        await self.repo.remove_unit_from_my_units(user_id, unit_id)
+        return await self._build_unit_read(unit)
 
     @staticmethod
     def _parse_unit_learning_objectives(

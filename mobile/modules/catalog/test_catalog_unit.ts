@@ -224,6 +224,26 @@ describe('CatalogService', () => {
     });
   });
 
+  describe('getUserUnitCollections', () => {
+    it('delegates to content provider with options', async () => {
+      mockContent.getUserUnitCollections.mockResolvedValue({
+        units: [],
+        ownedUnitIds: ['owned-1'],
+      });
+
+      const result = await service.getUserUnitCollections(7, {
+        includeGlobal: true,
+        limit: 10,
+      });
+
+      expect(mockContent.getUserUnitCollections).toHaveBeenCalledWith(7, {
+        includeGlobal: true,
+        limit: 10,
+      });
+      expect(result).toEqual({ units: [], ownedUnitIds: ['owned-1'] });
+    });
+  });
+
   describe('getUnitDetail', () => {
     it('returns null when unit id is blank', async () => {
       expect(await service.getUnitDetail('')).toBeNull();

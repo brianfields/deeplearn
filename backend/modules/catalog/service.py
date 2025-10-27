@@ -500,7 +500,11 @@ class CatalogService:
     ) -> UserUnitCollections:
         """Return separate personal and global unit lists for a user."""
 
-        personal_unit_models = await self.units.list_units_for_user(user_id=user_id, limit=limit, offset=offset)
+        personal_unit_models = await self.units.list_units_for_user_including_my_units(
+            user_id=user_id,
+            limit=limit,
+            offset=offset,
+        )
         personal_units = await self._map_units_to_summaries(personal_unit_models)
 
         global_units: list[UnitSummary] = []

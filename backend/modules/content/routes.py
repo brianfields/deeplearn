@@ -41,6 +41,20 @@ class UnitShareUpdate(BaseModel):
     acting_user_id: int | None = Field(default=None, ge=1)
 
 
+class MyUnitMutationRequest(BaseModel):
+    """Request payload for adding or removing a unit from My Units."""
+
+    user_id: int = Field(..., ge=1)
+    unit_id: str = Field(..., min_length=1)
+
+
+class MyUnitMutationResponse(BaseModel):
+    """Response payload describing the unit membership state."""
+
+    unit: ContentService.UnitRead
+    is_in_my_units: bool
+
+
 @router.get("/units", response_model=list[ContentService.UnitRead])
 async def list_units(
     limit: int = Query(100, ge=1, le=500, description="Maximum number of units to return"),
@@ -105,9 +119,9 @@ async def list_personal_units(
     offset: int = Query(0, ge=0, description="Pagination offset for unit listing"),
     service: ContentService = Depends(get_content_service),
 ) -> list[ContentService.UnitRead]:
-    """Return units owned by the provided user."""
+    """Return units owned by the user and catalog units they added to My Units."""
 
-    return await service.list_units_for_user(user_id=user_id, limit=limit, offset=offset)
+    return await service.list_units_for_user_including_my_units(user_id=user_id, limit=limit, offset=offset)
 
 
 @router.get("/units/global", response_model=list[ContentService.UnitRead])
@@ -132,6 +146,40 @@ async def get_unit_detail(
     if unit is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unit not found")
     return unit
+
+
+@router.post("/units/my-units/add", response_model=MyUnitMutationResponse)
+async def add_unit_to_my_units(
+    payload: MyUnitMutationRequest,
+    service: ContentService = Depends(get_content_service),
+) -> MyUnitMutationResponse:
+    """Add a catalog unit to the requesting user's My Units collection."""
+
+    try:
+        unit = await service.add_unit_to_my_units(payload.user_id, payload.unit_id)
+    except LookupError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+
+    return MyUnitMutationResponse(unit=unit, is_in_my_units=True)
+
+
+@router.post("/units/my-units/remove", response_model=MyUnitMutationResponse)
+async def remove_unit_from_my_units(
+    payload: MyUnitMutationRequest,
+    service: ContentService = Depends(get_content_service),
+) -> MyUnitMutationResponse:
+    """Remove a catalog unit from the requesting user's My Units collection."""
+
+    try:
+        unit = await service.remove_unit_from_my_units(payload.user_id, payload.unit_id)
+    except LookupError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+
+    return MyUnitMutationResponse(unit=unit, is_in_my_units=False)
 
 
 @router.get("/units/{unit_id}/flow-runs")

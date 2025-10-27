@@ -4,6 +4,7 @@ Content Module - Unit Tests
 Tests for the content module service layer with package structure.
 """
 
+from collections.abc import AsyncGenerator
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
@@ -12,6 +13,8 @@ import uuid
 from fastapi import FastAPI, status
 from httpx import ASGITransport, AsyncClient
 import pytest
+import pytest_asyncio
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from modules.content.models import LessonModel, UnitModel
 from modules.content.package_models import GlossaryTerm, LessonPackage, MCQAnswerKey, MCQExercise, MCQOption, Meta
@@ -20,8 +23,25 @@ from modules.content.routes import get_content_service
 from modules.content.routes import router as content_router
 from modules.content.service import ContentService, LessonCreate
 from modules.flow_engine.public import FlowRunSummaryDTO
+from modules.shared_models import Base
+from modules.user.models import UserModel
 
 pytestmark = pytest.mark.asyncio
+
+
+@pytest_asyncio.fixture
+async def in_memory_session() -> AsyncGenerator[AsyncSession, None]:
+    """Provide an isolated in-memory database session for repository tests."""
+
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with session_factory() as session:
+        yield session
+
+    await engine.dispose()
 
 
 class TestContentService:
@@ -355,6 +375,90 @@ class TestContentService:
 
         assert result == []
         repo.list_units_for_user.assert_awaited_once_with(user_id=10, limit=100, offset=0)
+
+    async def test_add_unit_to_my_units_requires_global_unit(self) -> None:
+        """Adding a unit that is not global should be forbidden."""
+
+        repo = AsyncMock(spec=ContentRepo)
+        service = ContentService(repo)
+
+        unit = UnitModel(
+            id="unit-1",
+            title="Unit",
+            learner_level="beginner",
+            lesson_order=[],
+            user_id=2,
+            is_global=False,
+            status="completed",
+            generated_from_topic=False,
+            flow_type="standard",
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
+
+        repo.get_unit_by_id.return_value = unit
+        repo.is_unit_in_my_units.return_value = False
+
+        with pytest.raises(PermissionError, match="shared globally"):
+            await service.add_unit_to_my_units(5, "unit-1")
+
+        repo.get_unit_by_id.assert_awaited_once_with("unit-1")
+        repo.add_unit_to_my_units.assert_not_called()
+
+    async def test_remove_unit_from_my_units_blocks_owned_units(self) -> None:
+        """Owned units cannot be removed from My Units."""
+
+        repo = AsyncMock(spec=ContentRepo)
+        service = ContentService(repo)
+
+        unit = UnitModel(
+            id="unit-2",
+            title="Unit",
+            learner_level="beginner",
+            lesson_order=[],
+            user_id=7,
+            is_global=True,
+            status="completed",
+            generated_from_topic=False,
+            flow_type="standard",
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
+
+        repo.get_unit_by_id.return_value = unit
+
+        with pytest.raises(PermissionError, match="Cannot remove an owned unit"):
+            await service.remove_unit_from_my_units(7, "unit-2")
+
+        repo.is_unit_in_my_units.assert_not_awaited()
+
+    async def test_remove_unit_from_my_units_requires_membership(self) -> None:
+        """Removing a unit without membership should raise an error."""
+
+        repo = AsyncMock(spec=ContentRepo)
+        service = ContentService(repo)
+
+        unit = UnitModel(
+            id="unit-3",
+            title="Unit",
+            learner_level="beginner",
+            lesson_order=[],
+            user_id=9,
+            is_global=True,
+            status="completed",
+            generated_from_topic=False,
+            flow_type="standard",
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
+
+        repo.get_unit_by_id.return_value = unit
+        repo.is_unit_in_my_units.return_value = False
+
+        with pytest.raises(LookupError, match="My Units"):
+            await service.remove_unit_from_my_units(3, "unit-3")
+
+        repo.remove_unit_from_my_units.assert_not_awaited()
 
     async def test_list_global_units_uses_repo(self) -> None:
         """Ensure global listing delegates to repository."""
@@ -737,6 +841,108 @@ class TestContentService:
         assert {asset.type for asset in entry.assets} == {"image"}
         assert response.cursor == now
 
+    async def test_get_units_since_filters_by_my_units_membership(self) -> None:
+        """Only owned units or units in My Units should be returned for a user."""
+
+        repo = AsyncMock(spec=ContentRepo)
+        object_store = AsyncMock()
+        object_store.get_audio = AsyncMock(return_value=None)
+        object_store.get_image = AsyncMock(return_value=None)
+        service = ContentService(repo, object_store=object_store)
+
+        now = datetime.now(UTC)
+        learner_id = 7
+
+        owned_unit = UnitModel(
+            id="owned-unit",
+            title="Owned",
+            description="",
+            learner_level="beginner",
+            lesson_order=[],
+            user_id=learner_id,
+            is_global=False,
+            learning_objectives=[],
+            target_lesson_count=None,
+            source_material=None,
+            generated_from_topic=False,
+            flow_type="standard",
+            status="completed",
+            creation_progress=None,
+            error_message=None,
+            podcast_transcript=None,
+            podcast_voice=None,
+            podcast_audio_object_id=None,
+            podcast_generated_at=now,
+            art_image_id=None,
+            art_image_description=None,
+            created_at=now,
+            updated_at=now,
+        )
+
+        my_unit = UnitModel(
+            id="my-unit",
+            title="Catalog",
+            description="",
+            learner_level="beginner",
+            lesson_order=[],
+            user_id=21,
+            is_global=True,
+            learning_objectives=[],
+            target_lesson_count=None,
+            source_material=None,
+            generated_from_topic=False,
+            flow_type="standard",
+            status="completed",
+            creation_progress=None,
+            error_message=None,
+            podcast_transcript=None,
+            podcast_voice=None,
+            podcast_audio_object_id=None,
+            podcast_generated_at=now,
+            art_image_id=None,
+            art_image_description=None,
+            created_at=now,
+            updated_at=now,
+        )
+
+        other_global = UnitModel(
+            id="other-unit",
+            title="Other",
+            description="",
+            learner_level="beginner",
+            lesson_order=[],
+            user_id=22,
+            is_global=True,
+            learning_objectives=[],
+            target_lesson_count=None,
+            source_material=None,
+            generated_from_topic=False,
+            flow_type="standard",
+            status="completed",
+            creation_progress=None,
+            error_message=None,
+            podcast_transcript=None,
+            podcast_voice=None,
+            podcast_audio_object_id=None,
+            podcast_generated_at=now,
+            art_image_id=None,
+            art_image_description=None,
+            created_at=now,
+            updated_at=now,
+        )
+
+        repo.get_units_updated_since.return_value = [owned_unit, my_unit, other_global]
+        repo.list_my_units_unit_ids.return_value = [my_unit.id]
+        repo.get_lessons_for_unit_ids.return_value = []
+        repo.get_lessons_updated_since.return_value = []
+
+        response = await service.get_units_since(since=None, limit=10, user_id=learner_id)
+
+        repo.list_my_units_unit_ids.assert_awaited_once_with(learner_id)
+        returned_ids = {entry.unit.id for entry in response.units}
+        assert returned_ids == {owned_unit.id, my_unit.id}
+        assert other_global.id not in returned_ids
+
 
 class _StubSyncService:
     """Minimal stub to capture sync calls from the FastAPI route."""
@@ -858,3 +1064,110 @@ async def test_sync_units_route_rejects_unknown_payload() -> None:
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert stub.args is None
+
+
+class TestContentRepoMyUnits:
+    """Tests covering repository helpers for My Units membership."""
+
+    async def test_add_and_remove_my_unit_membership(self, in_memory_session: AsyncSession) -> None:
+        """Ensure membership records can be created and removed."""
+
+        repo = ContentRepo(in_memory_session)
+
+        learner = UserModel(
+            email="learner@example.com",
+            password_hash="hash",
+            name="Learner",
+            role="learner",
+        )
+        owner = UserModel(
+            email="owner@example.com",
+            password_hash="hash",
+            name="Owner",
+            role="creator",
+        )
+        in_memory_session.add_all([learner, owner])
+        await in_memory_session.flush()
+
+        unit = UnitModel(
+            id="unit-global",
+            title="Global Unit",
+            learner_level="beginner",
+            lesson_order=[],
+            user_id=owner.id,
+            is_global=True,
+            status="completed",
+            generated_from_topic=False,
+            flow_type="standard",
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
+        in_memory_session.add(unit)
+        await in_memory_session.flush()
+
+        await repo.add_unit_to_my_units(learner.id, unit.id)
+
+        assert await repo.is_unit_in_my_units(learner.id, unit.id) is True
+        assert await repo.list_my_units_unit_ids(learner.id) == [unit.id]
+
+        removed = await repo.remove_unit_from_my_units(learner.id, unit.id)
+
+        assert removed is True
+        assert await repo.is_unit_in_my_units(learner.id, unit.id) is False
+        assert await repo.list_my_units_unit_ids(learner.id) == []
+
+    async def test_list_units_for_user_including_my_units(self, in_memory_session: AsyncSession) -> None:
+        """Owned units and catalog memberships should both be returned."""
+
+        repo = ContentRepo(in_memory_session)
+
+        learner = UserModel(
+            email="learner2@example.com",
+            password_hash="hash",
+            name="Learner Two",
+            role="learner",
+        )
+        owner = UserModel(
+            email="owner2@example.com",
+            password_hash="hash",
+            name="Owner Two",
+            role="creator",
+        )
+        in_memory_session.add_all([learner, owner])
+        await in_memory_session.flush()
+
+        owned_unit = UnitModel(
+            id="unit-owned",
+            title="Owned",
+            learner_level="beginner",
+            lesson_order=[],
+            user_id=learner.id,
+            is_global=False,
+            status="completed",
+            generated_from_topic=False,
+            flow_type="standard",
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
+        global_unit = UnitModel(
+            id="unit-added",
+            title="Added",
+            learner_level="beginner",
+            lesson_order=[],
+            user_id=owner.id,
+            is_global=True,
+            status="completed",
+            generated_from_topic=False,
+            flow_type="standard",
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
+        in_memory_session.add_all([owned_unit, global_unit])
+        await in_memory_session.flush()
+
+        await repo.add_unit_to_my_units(learner.id, global_unit.id)
+
+        results = await repo.list_units_for_user_including_my_units(learner.id)
+        result_ids = {unit.id for unit in results}
+
+        assert result_ids == {owned_unit.id, global_unit.id}

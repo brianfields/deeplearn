@@ -187,6 +187,16 @@ export interface UpdateUnitSharingRequest {
   readonly actingUserId?: number;
 }
 
+export interface AddToMyUnitsRequest {
+  readonly userId: number;
+  readonly unitId: string;
+}
+
+export interface RemoveFromMyUnitsRequest {
+  readonly userId: number;
+  readonly unitId: string;
+}
+
 export interface ContentError {
   readonly message: string;
   readonly code: string;
