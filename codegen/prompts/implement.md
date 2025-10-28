@@ -1,6 +1,6 @@
-Unheaded mode. You will implement code changes directly.
 
-Project: {PROJECT}
+You are working on the "{PROJECT}" project -- please call the branch codex-{PROJECT}. Detailed instructions below.
+
 Spec path: {SPEC_PATH}
 Backend architecture reference: {BACKEND_ARCH}
 Frontend architecture reference: {FRONTEND_ARCH}
