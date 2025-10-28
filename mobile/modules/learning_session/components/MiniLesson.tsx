@@ -63,7 +63,7 @@ export default function MiniLesson({
 
   const [hasScrolled, setHasScrolled] = useState(false);
 
-  console.log('📖 [MiniLesson] Received snippet:', snippet);
+  // console.log('📖 [MiniLesson] Received snippet:', snippet);
 
   // Animated values
   const continueButtonOpacity = useSharedValue(0);

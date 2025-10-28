@@ -18,7 +18,7 @@ class SessionHandler:
         if existing:
             return UnitSessionRead.model_validate(existing)
 
-        from ..learning_session.models import UnitSessionModel  # noqa: PLC0415
+        from ...learning_session.models import UnitSessionModel  # noqa: PLC0415
 
         model = UnitSessionModel(
             id=str(uuid.uuid4()),
@@ -47,7 +47,7 @@ class SessionHandler:
     ) -> UnitSessionRead:
         model = await self.repo.get_unit_session(user_id=user_id, unit_id=unit_id)
         if not model:
-            from ..learning_session.models import UnitSessionModel  # noqa: PLC0415
+            from ...learning_session.models import UnitSessionModel  # noqa: PLC0415
 
             model = UnitSessionModel(
                 id=str(uuid.uuid4()),
