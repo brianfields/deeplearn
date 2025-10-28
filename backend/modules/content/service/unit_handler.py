@@ -116,7 +116,7 @@ class UnitHandler:
 
                 metadata = await self.media.fetch_audio_metadata(
                     audio_uuid,
-                    requesting_user_id=None,
+                    requesting_user_id=getattr(unit, "user_id", None),
                     include_presigned_url=True,
                 )
                 assets.append(
