@@ -45,7 +45,7 @@ class StatusHandler:
             inputs={
                 "unit_id": unit_id,
                 "topic": topic,
-                "source_material": source_material,
+                "unit_source_material": source_material,
                 "target_lesson_count": target_lesson_count,
                 "learner_level": learner_level,
             },
