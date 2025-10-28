@@ -13,12 +13,19 @@ You are an expert educational podcast writer creating a narrative audio script f
 - Close with a short recap and motivation to continue to the next lesson.
 - Keep narration single-voice with natural paragraphing (no bullet lists or headings).
 
-## Inputs
-- `lesson_number`: 1-indexed position of the lesson within the unit.
-- `lesson_title`: Title of the lesson.
-- `lesson_objective`: Core learning objective for the lesson.
-- `mini_lesson`: Canonical mini-lesson text for reference.
-- `voice`: Voice profile to match.
+## Lesson Details
+
+**Lesson Number**: {{lesson_number}}
+
+**Lesson Title**: {{lesson_title}}
+
+**Voice**: {{voice}}
+
+**Lesson Objective**:
+{{lesson_objective}}
+
+**Mini-Lesson Content**:
+{{mini_lesson}}
 
 ## Output Format
 - Provide only the transcript text, ready to be read aloud. No bullet lists, nor Markdown code fences. No more than 500 words.

@@ -13,7 +13,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import ANY, AsyncMock, Mock, patch
 
 import pytest
 
@@ -23,7 +23,7 @@ from modules.content_creator.flows import (
     UnitCreationFlow,
     UnitPodcastFlow,
 )
-from modules.content_creator.podcast import UnitPodcast
+from modules.content_creator.podcast import PodcastLesson, UnitPodcast
 from modules.content_creator.service import ContentCreatorService
 
 # Deprecated test removed - used old step classes that no longer exist
@@ -58,7 +58,7 @@ async def test_unit_creation_flow_plan_and_chunks() -> None:
         result = await flow.execute(
             {
                 "topic": "Test Topic",
-                "unit_source_material": None,
+                "source_material": None,
                 "target_lesson_count": 3,
                 "learner_level": "beginner",
             }
@@ -172,23 +172,38 @@ class TestServiceFlows:
         content.get_unit_detail = AsyncMock(return_value=Mock(title="Unit T", description="Description", learning_objectives=[], lessons=[mock_lesson]))
         # Mock create_unit_art to avoid LLM calls
 
-        lesson_podcast_payload = SimpleNamespace(
-            transcript="Lesson 1. L1",
-            audio_bytes=b"lesson-audio",
-            mime_type="audio/mpeg",
-            voice="Plain",
-            duration_seconds=150,
-        )
         svc = ContentCreatorService(content, podcast_generator=podcast_generator)
-        svc.lesson_podcast_generator = SimpleNamespace(create_podcast=AsyncMock(return_value=lesson_podcast_payload))  # type: ignore[assignment]
+        svc._media_handler.generate_lesson_podcast = AsyncMock(
+            return_value=(
+                PodcastLesson(title="Lesson 1", mini_lesson="x"),
+                SimpleNamespace(
+                    transcript="Lesson 1. L1",
+                    audio_bytes=b"lesson-audio",
+                    mime_type="audio/mpeg",
+                    voice="Plain",
+                    duration_seconds=150,
+                ),
+            )
+        )
+        svc._media_handler.save_lesson_podcast = AsyncMock()
+        svc._media_handler.generate_unit_podcast = AsyncMock(
+            return_value=SimpleNamespace(
+                transcript="Narration",
+                audio_bytes=b"audio",
+                mime_type="audio/mpeg",
+                voice="Plain",
+                duration_seconds=120,
+            )
+        )
+        svc._media_handler.save_unit_podcast = AsyncMock()
 
         # We'll patch flows to return minimal shapes and call create_unit (foreground)
         with (
-            patch("modules.content_creator.service.UnitCreationFlow") as mock_ucf_cls,
-            patch("modules.content_creator.service.LessonCreationFlow") as mock_lcf_cls,
-            patch.object(svc, "create_unit_art", new=AsyncMock()),
-            patch("modules.content_creator.service.content_provider", return_value=content),
-            patch("modules.content_creator.service.infrastructure_provider") as mock_infra_prov,
+            patch("modules.content_creator.service.flow_handler.UnitCreationFlow") as mock_ucf_cls,
+            patch("modules.content_creator.service.flow_handler.LessonCreationFlow") as mock_lcf_cls,
+            patch.object(svc._media_handler, "create_unit_art", new=AsyncMock()),
+            patch("modules.content_creator.service.flow_handler.content_provider", return_value=content),
+            patch("modules.content_creator.service.flow_handler.infrastructure_provider") as mock_infra_prov,
         ):
             # Mock infrastructure provider with proper async context manager
             mock_infra = Mock()
@@ -218,7 +233,7 @@ class TestServiceFlows:
                     }
                 ],
                 "lesson_count": 1,
-                "unit_source_material": "S",
+                "source_material": "S",
             }
             mock_ucf_cls.return_value = mock_ucf
 
@@ -241,8 +256,8 @@ class TestServiceFlows:
         assert result.title == "Unit T"
         content.save_lesson.assert_awaited()
         content.assign_lessons_to_unit.assert_awaited_once()
-        podcast_generator.create_podcast.assert_awaited_once()
-        content.save_unit_podcast_from_bytes.assert_awaited_once()
+        svc._media_handler.generate_unit_podcast.assert_awaited_once()
+        svc._media_handler.save_unit_podcast.assert_awaited_once_with(created_unit_obj.id, ANY)
 
     @pytest.mark.asyncio
     async def test_podcast_audio_uploads_to_object_store(self) -> None:
@@ -273,22 +288,37 @@ class TestServiceFlows:
         mock_lesson.key_concepts = ["concept1", "concept2"]
         content.get_unit_detail = AsyncMock(return_value=Mock(title="Unit B", description="Description", learning_objectives=[], lessons=[mock_lesson]))
 
-        lesson_podcast_payload = SimpleNamespace(
-            transcript="Lesson 1. L1",
-            audio_bytes=b"lesson-audio",
-            mime_type="audio/mpeg",
-            voice="Plain",
-            duration_seconds=150,
-        )
         svc = ContentCreatorService(content, podcast_generator=podcast_generator)
-        svc.lesson_podcast_generator = SimpleNamespace(create_podcast=AsyncMock(return_value=lesson_podcast_payload))  # type: ignore[assignment]
+        svc._media_handler.generate_lesson_podcast = AsyncMock(
+            return_value=(
+                PodcastLesson(title="Lesson 1", mini_lesson="Body"),
+                SimpleNamespace(
+                    transcript="Lesson 1. L1",
+                    audio_bytes=b"lesson-audio",
+                    mime_type="audio/mpeg",
+                    voice="Plain",
+                    duration_seconds=150,
+                ),
+            )
+        )
+        svc._media_handler.save_lesson_podcast = AsyncMock()
+        svc._media_handler.generate_unit_podcast = AsyncMock(
+            return_value=UnitPodcast(
+                transcript="Narration",
+                audio_bytes=b"audio",
+                mime_type="audio/mpeg",
+                voice="Plain",
+                duration_seconds=120,
+            )
+        )
+        svc._media_handler.save_unit_podcast = AsyncMock()
 
         with (
-            patch("modules.content_creator.service.UnitCreationFlow") as mock_ucf_cls,
-            patch("modules.content_creator.service.LessonCreationFlow") as mock_lcf_cls,
-            patch.object(svc, "create_unit_art", new=AsyncMock()),
-            patch("modules.content_creator.service.content_provider", return_value=content),
-            patch("modules.content_creator.service.infrastructure_provider") as mock_infra_prov,
+            patch("modules.content_creator.service.flow_handler.UnitCreationFlow") as mock_ucf_cls,
+            patch("modules.content_creator.service.flow_handler.LessonCreationFlow") as mock_lcf_cls,
+            patch.object(svc._media_handler, "create_unit_art", new=AsyncMock()),
+            patch("modules.content_creator.service.flow_handler.content_provider", return_value=content),
+            patch("modules.content_creator.service.flow_handler.infrastructure_provider") as mock_infra_prov,
         ):
             # Mock infrastructure provider with proper async context manager
             mock_infra = Mock()
@@ -339,4 +369,4 @@ class TestServiceFlows:
 
             content.save_lesson.assert_awaited()
             content.assign_lessons_to_unit.assert_awaited()
-            content.save_unit_podcast_from_bytes.assert_awaited_once()
+        svc._media_handler.save_unit_podcast.assert_awaited_once()

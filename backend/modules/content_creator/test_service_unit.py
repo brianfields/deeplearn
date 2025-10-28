@@ -19,7 +19,7 @@ class TestContentCreatorService:
     """Unit tests for ContentCreatorService."""
 
     @pytest.mark.asyncio
-    @patch("modules.content_creator.service.UnitCreationFlow")
+    @patch("modules.content_creator.service.flow_handler.UnitCreationFlow")
     async def test_execute_unit_creation_removes_uncovered_los(
         self,
         mock_flow_class: Mock,
@@ -33,7 +33,17 @@ class TestContentCreatorService:
         content.save_unit_podcast_from_bytes = AsyncMock()
 
         service = ContentCreatorService(content)
-        service.create_unit_art = AsyncMock()
+        service._media_handler.create_unit_art = AsyncMock()
+        service._media_handler.generate_unit_podcast = AsyncMock(
+            return_value=SimpleNamespace(
+                transcript="Transcript",
+                audio_bytes=b"",
+                mime_type="audio/mpeg",
+                voice="Plain",
+                duration_seconds=120,
+            )
+        )
+        service._media_handler.save_unit_podcast = AsyncMock()
 
         unit_plan = {
             "unit_title": "Test Unit",
@@ -74,7 +84,7 @@ class TestContentCreatorService:
         )
         service.podcast_generator = podcast_generator
 
-        service._create_single_lesson = AsyncMock(
+        service._flow_handler._create_single_lesson = AsyncMock(
             return_value=(
                 "lesson-1",
                 PodcastLesson(title="Lesson 1", mini_lesson="Body"),
@@ -130,16 +140,15 @@ class TestContentCreatorService:
         content.set_unit_task = AsyncMock()
 
         # Mock task queue provider to avoid infrastructure initialization
-        with patch("modules.content_creator.service.task_queue_provider") as mock_provider:
-            tq = AsyncMock()
-            mock_provider.return_value = tq
-            tq.submit_flow_task.return_value = SimpleNamespace(
-                task_id="task-789",
-                flow_run_id=uuid.UUID(valid_unit_id),
-            )
+        tq = AsyncMock()
+        service._status_handler._task_queue_factory = Mock(return_value=tq)
+        tq.submit_flow_task.return_value = SimpleNamespace(
+            task_id="task-789",
+            flow_run_id=uuid.UUID(valid_unit_id),
+        )
 
-            # Act
-            result = await service.retry_unit_creation(valid_unit_id)
+        # Act
+        result = await service.retry_unit_creation(valid_unit_id)
 
         # Assert
         assert result is not None
@@ -161,7 +170,6 @@ class TestContentCreatorService:
                 "learner_level": mock_unit.learner_level,
             },
         )
-        mock_provider.assert_called_once_with()
 
     @pytest.mark.asyncio
     async def test_create_unit_background_records_task(self) -> None:
@@ -174,23 +182,22 @@ class TestContentCreatorService:
 
         service = ContentCreatorService(content)
 
-        with patch("modules.content_creator.service.task_queue_provider") as mock_provider:
-            task_service = AsyncMock()
-            mock_provider.return_value = task_service
-            task_service.submit_flow_task.return_value = SimpleNamespace(
-                task_id="task-123",
-                flow_run_id=uuid.UUID(created_unit_id),
-            )
+        task_service = AsyncMock()
+        service._status_handler._task_queue_factory = Mock(return_value=task_service)
+        task_service.submit_flow_task.return_value = SimpleNamespace(
+            task_id="task-123",
+            flow_run_id=uuid.UUID(created_unit_id),
+        )
 
-            result = await service.create_unit(
-                topic="Interesting Topic",
-                source_material="source",
-                background=True,
-                target_lesson_count=2,
-                learner_level="advanced",
-                user_id=9,
-                unit_title="Draft Unit",
-            )
+        result = await service.create_unit(
+            topic="Interesting Topic",
+            source_material="source",
+            background=True,
+            target_lesson_count=2,
+            learner_level="advanced",
+            user_id=9,
+            unit_title="Draft Unit",
+        )
 
         # Type narrowing: background=True returns MobileUnitCreationResult
         assert isinstance(result, ContentCreatorService.MobileUnitCreationResult)
@@ -203,12 +210,11 @@ class TestContentCreatorService:
             inputs={
                 "unit_id": created_unit_id,
                 "topic": "Interesting Topic",
-                "unit_source_material": "source",
+                "source_material": "source",
                 "target_lesson_count": 2,
                 "learner_level": "advanced",
             },
         )
-        mock_provider.assert_called_once_with()
 
     @pytest.mark.asyncio
     async def test_retry_unit_creation_unit_not_found(self) -> None:
@@ -276,7 +282,7 @@ class TestContentCreatorService:
         content.get_unit.assert_awaited_once_with("nonexistent-unit")
 
     @pytest.mark.asyncio
-    @patch("modules.content_creator.service.UnitArtCreationFlow")
+    @patch("modules.content_creator.service.media_handler.UnitArtCreationFlow")
     async def test_create_unit_art_uploads_generated_image(self, mock_flow_class: Mock) -> None:
         """Art generation flow output should be downloaded and saved via content service."""
 
@@ -301,7 +307,7 @@ class TestContentCreatorService:
         download_mock = AsyncMock(return_value=(b"image-bytes", "image/png"))
         content.save_unit_art_from_bytes.return_value = SimpleNamespace(id="unit-1")
 
-        with patch.object(service, "_download_image", download_mock):
+        with patch.object(service._media_handler, "_download_image", download_mock):
             result = await service.create_unit_art("unit-1")
 
         content.get_unit_detail.assert_awaited_once_with("unit-1", include_art_presigned_url=False)
@@ -317,7 +323,7 @@ class TestContentCreatorService:
         assert result == content.save_unit_art_from_bytes.return_value
 
     @pytest.mark.asyncio
-    @patch("modules.content_creator.service.UnitArtCreationFlow")
+    @patch("modules.content_creator.service.media_handler.UnitArtCreationFlow")
     async def test_create_unit_art_retries_on_failure(self, mock_flow_class: Mock) -> None:
         """The service should retry the art flow once before raising."""
 
@@ -345,7 +351,7 @@ class TestContentCreatorService:
         download_mock = AsyncMock(return_value=(b"img", "image/png"))
         content.save_unit_art_from_bytes.return_value = SimpleNamespace(id="unit-2")
 
-        with patch.object(service, "_download_image", download_mock):
+        with patch.object(service._media_handler, "_download_image", download_mock):
             result = await service.create_unit_art("unit-2")
 
         assert mock_flow.execute.await_count == 2
@@ -353,7 +359,7 @@ class TestContentCreatorService:
         assert result == content.save_unit_art_from_bytes.return_value
 
     @pytest.mark.asyncio
-    @patch("modules.content_creator.service.UnitArtCreationFlow")
+    @patch("modules.content_creator.service.media_handler.UnitArtCreationFlow")
     async def test_create_unit_art_raises_after_retries(self, mock_flow_class: Mock) -> None:
         """Two consecutive flow failures should bubble up as a runtime error."""
 

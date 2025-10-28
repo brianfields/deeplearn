@@ -421,7 +421,7 @@ class ContentRepo:
     # Unit session operations
     async def get_unit_session(self, user_id: str, unit_id: str) -> Any | None:
         """Get the latest unit session for a user and unit."""
-        from ..learning_session.models import UnitSessionModel  # Local import to avoid circular deps # noqa: PLC0415
+        from ..learning_session.models import UnitSessionModel  # Local import to avoid circular deps
 
         stmt = select(UnitSessionModel).filter(and_(UnitSessionModel.user_id == user_id, UnitSessionModel.unit_id == unit_id)).order_by(desc(UnitSessionModel.updated_at)).limit(1)
         result = await self.s.execute(stmt)

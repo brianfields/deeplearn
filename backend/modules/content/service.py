@@ -1489,7 +1489,7 @@ class ContentService:
         if existing:
             return self.UnitSessionRead.model_validate(existing)
 
-        from ..learning_session.models import UnitSessionModel  # noqa: PLC0415
+        from ..learning_session.models import UnitSessionModel
 
         model = UnitSessionModel(
             id=str(uuid.uuid4()),
@@ -1519,7 +1519,7 @@ class ContentService:
         """Update progress for a unit session, creating one if needed."""
         model = await self.repo.get_unit_session(user_id=user_id, unit_id=unit_id)
         if not model:
-            from ..learning_session.models import UnitSessionModel  # noqa: PLC0415
+            from ..learning_session.models import UnitSessionModel
 
             model = UnitSessionModel(
                 id=str(uuid.uuid4()),

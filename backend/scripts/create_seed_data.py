@@ -208,7 +208,7 @@ def create_sample_flow_run(
         "execution_time_ms": 45000,
         "inputs": {
             "topic": lesson_data["title"],
-            "unit_source_material": lesson_data["source_material"],
+            "source_material": lesson_data["source_material"],
             "learner_level": lesson_data["learner_level"],
             "voice": "narrative",
             "learning_objectives": objectives,
@@ -287,7 +287,7 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, lesson_data: dict[str, Any])
                 "voice": "narrative",
                 "learning_objectives": objectives,
                 "learning_objective_ids": objective_ids,
-                "unit_source_material": lesson_data["source_material"],
+                "source_material": lesson_data["source_material"],
             },
             "outputs": {"mini_lesson": package.get("mini_lesson")},
             "prompt_file": "generate_mini_lesson.md",

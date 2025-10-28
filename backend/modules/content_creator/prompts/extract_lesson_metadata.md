@@ -22,7 +22,7 @@ You are an expert instructional designer and learning scientist. Read the inputs
 {{learning_objectives}}
 
 **SOURCE_MATERIAL:**
-{{unit_source_material}}
+{{source_material}}
 
 # Your Task in Detail
 

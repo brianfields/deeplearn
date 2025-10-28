@@ -46,7 +46,7 @@ class LessonCreationFlow(BaseFlow):
         learning_objectives: list[str]
         learning_objective_ids: list[str]
         lesson_objective: str
-        unit_source_material: str
+        source_material: str
 
     async def _execute_flow_logic(self, inputs: dict[str, Any]) -> dict[str, Any]:
         logger.info(f"🧪 Lesson Creation Flow - {inputs.get('topic', 'Unknown')}")
@@ -60,7 +60,7 @@ class LessonCreationFlow(BaseFlow):
                 "learning_objectives": inputs["learning_objectives"],
                 "learning_objective_ids": inputs["learning_objective_ids"],
                 "lesson_objective": inputs["lesson_objective"],
-                "unit_source_material": inputs["unit_source_material"],
+                "source_material": inputs["source_material"],
             }
         )
         lesson_md = md_result.output_content
@@ -107,7 +107,7 @@ class UnitCreationFlow(BaseFlow):
 
     class Inputs(BaseModel):
         topic: str
-        unit_source_material: str | None = None
+        source_material: str | None = None
         target_lesson_count: int | None = None
         learner_level: str = "beginner"
 
@@ -125,7 +125,7 @@ class UnitCreationFlow(BaseFlow):
         logger.info("🧱 Unit Creation Flow - Starting")
 
         # Step 0: Ensure we have source material
-        material: str | None = inputs.get("unit_source_material")
+        material: str | None = inputs.get("source_material")
         topic: str | None = inputs.get("topic")
         if not material:
             logger.info("📝 Generating source material from topic…")
@@ -147,7 +147,7 @@ class UnitCreationFlow(BaseFlow):
                 "topic": topic or "",
                 "learner_level": inputs.get("learner_level", "beginner"),
                 "target_lesson_count": inputs.get("target_lesson_count"),
-                "unit_source_material": material,
+                "source_material": material,
             }
         )
         unit_md = md_result.output_content
@@ -158,7 +158,7 @@ class UnitCreationFlow(BaseFlow):
             "learning_objectives": [lo.model_dump() for lo in unit_md.learning_objectives],
             "lessons": [ls.model_dump() for ls in unit_md.lessons],
             "lesson_count": int(unit_md.lesson_count),
-            "unit_source_material": material,
+            "source_material": material,
         }
 
 

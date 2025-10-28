@@ -64,7 +64,7 @@ class UnitHandler:
     async def build_unit_assets(
         self,
         unit: UnitModel,
-        unit_read: UnitRead,
+        _unit_read: UnitRead,
         *,
         allowed_types: set[str] | None = None,
         lessons: Iterable[LessonModel] | None = None,
@@ -120,7 +120,7 @@ class UnitHandler:
                 )
                 assets.append(
                     UnitSyncAsset(
-                        id=str(audio_uuid),
+                        id=f"lesson-podcast-{lesson.id}",
                         unit_id=unit.id,
                         type="audio",
                         object_id=audio_uuid,
