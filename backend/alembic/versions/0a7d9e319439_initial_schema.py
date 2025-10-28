@@ -1,8 +1,8 @@
 """initial_schema
 
-Revision ID: 44c03196ddfc
+Revision ID: 0a7d9e319439
 Revises: 
-Create Date: 2025-10-26 20:56:34.647767
+Create Date: 2025-10-28 11:16:44.779079
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '44c03196ddfc'
+revision: str = '0a7d9e319439'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -290,6 +290,11 @@ def upgrade() -> None:
     sa.Column('package_version', sa.Integer(), nullable=False),
     sa.Column('flow_run_id', sa.UUID(), nullable=True),
     sa.Column('unit_id', sa.String(length=36), nullable=True),
+    sa.Column('podcast_transcript', sa.Text(), nullable=True),
+    sa.Column('podcast_voice', sa.String(length=100), nullable=True),
+    sa.Column('podcast_audio_object_id', sa.UUID(), nullable=True),
+    sa.Column('podcast_generated_at', sa.DateTime(), nullable=True),
+    sa.Column('podcast_duration_seconds', sa.Integer(), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=False),
     sa.ForeignKeyConstraint(['flow_run_id'], ['flow_runs.id'], ),
