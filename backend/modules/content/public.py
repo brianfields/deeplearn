@@ -22,7 +22,6 @@ class ContentProvider(Protocol):
 
     async def commit_session(self) -> None: ...
     async def get_lesson(self, lesson_id: str) -> LessonRead | None: ...
-    async def get_all_lessons(self, limit: int = 100, offset: int = 0) -> list[LessonRead]: ...
     async def search_lessons(
         self,
         query: str | None = None,
@@ -70,6 +69,7 @@ class ContentProvider(Protocol):
         limit: int = 100,
         include_deleted: bool = False,
         payload: ContentService.UnitSyncPayload = "full",
+        user_id: int | None = None,
     ) -> ContentService.UnitSyncResponse: ...
     async def update_unit_status(
         self,

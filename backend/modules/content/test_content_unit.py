@@ -22,6 +22,7 @@ from modules.content.repo import ContentRepo
 from modules.content.routes import get_content_service
 from modules.content.routes import router as content_router
 from modules.content.service import ContentService, LessonCreate
+from modules.content.service.media import MediaHelper
 from modules.flow_engine.public import FlowRunSummaryDTO
 from modules.shared_models import Base
 from modules.user.models import UserModel
@@ -1392,3 +1393,49 @@ class TestContentRepoMyUnits:
         result_ids = {unit.id for unit in results}
 
         assert result_ids == {owned_unit.id, global_unit.id}
+
+
+class TestMediaHelper:
+    """Focused tests for the shared media helper."""
+
+    async def test_fetch_audio_metadata_uses_cache(self) -> None:
+        """Fetching the same audio metadata twice should reuse the cached value."""
+
+        object_store = AsyncMock()
+        audio_id = uuid.uuid4()
+        metadata = SimpleNamespace(presigned_url="https://cdn/audio.mp3", duration_seconds=123)
+        object_store.get_audio.return_value = metadata
+
+        helper = MediaHelper(object_store)
+        result_one = await helper.fetch_audio_metadata(audio_id, requesting_user_id=42, include_presigned_url=True)
+        result_two = await helper.fetch_audio_metadata(audio_id, requesting_user_id=42, include_presigned_url=True)
+
+        object_store.get_audio.assert_awaited_once_with(
+            audio_id,
+            requesting_user_id=42,
+            include_presigned_url=True,
+        )
+        assert result_one is metadata
+        assert result_two is metadata
+
+    async def test_build_lesson_podcast_payload_respects_transcript_flag(self) -> None:
+        """Transcript inclusion should be controlled by the flag."""
+
+        helper = MediaHelper(None)
+        generated_at = datetime.now(UTC)
+        lesson = SimpleNamespace(
+            id="lesson-123",
+            podcast_audio_object_id=uuid.uuid4(),
+            podcast_transcript="Narration",
+            podcast_voice="Guide",
+            podcast_duration_seconds=187,
+            podcast_generated_at=generated_at,
+        )
+
+        without_transcript = helper.build_lesson_podcast_payload(lesson, include_transcript=False)
+        with_transcript = helper.build_lesson_podcast_payload(lesson, include_transcript=True)
+
+        assert without_transcript["has_podcast"] is True
+        assert "podcast_transcript" not in without_transcript
+        assert with_transcript["podcast_transcript"] == "Narration"
+        assert with_transcript["podcast_audio_url"].endswith("/podcast/audio")
