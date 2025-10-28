@@ -223,3 +223,21 @@ def get_order_service(s: Session = Depends(get_session)) -> OrderService:
 * No facade: **public returns the service directly**; enforcement is by convention (import only from `module.public`) and, if you wish, a linter rule.
 * Keep sessions request-scoped in `get_session()` (commit/rollback there).
 * Pick sync **or** async across repo/service/routes and stick to it (use async if depending on any modules that have async public interfaces).
+* Oversized service modules can promote helpers into a `service/` package while keeping `service.py` as a thin façade. Extract DTOs into `service/dtos.py`, move focused logic into handler modules, and have the façade delegate:
+
+```python
+# modules/content/service.py
+from .service.lesson_handler import LessonHandler
+from .service.unit_handler import UnitHandler
+
+class ContentService:
+    def __init__(self, repo: ContentRepo, object_store: ObjectStoreProvider | None = None) -> None:
+        media = MediaHelper(object_store)
+        self._lessons = LessonHandler(repo, media)
+        self._units = UnitHandler(repo, media, self._lessons)
+
+    async def get_lesson(self, lesson_id: str) -> LessonRead | None:
+        return await self._lessons.get_lesson(lesson_id)
+```
+
+The façade owns lifecycle/dependency wiring, but each handler remains private to the module.

@@ -28,12 +28,6 @@ class ContentRepo:
         """Get lesson by ID."""
         return await self.s.get(LessonModel, lesson_id)
 
-    async def get_all_lessons(self, limit: int = 100, offset: int = 0) -> list[LessonModel]:
-        """Get all lessons with pagination."""
-        stmt = select(LessonModel).offset(offset).limit(limit)
-        result = await self.s.execute(stmt)
-        return list(result.scalars().all())
-
     async def search_lessons(
         self,
         query: str | None = None,
