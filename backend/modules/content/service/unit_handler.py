@@ -64,7 +64,7 @@ class UnitHandler:
     async def build_unit_assets(
         self,
         unit: UnitModel,
-        unit_read: UnitRead,
+        _unit_read: UnitRead,
         *,
         allowed_types: set[str] | None = None,
         lessons: Iterable[LessonModel] | None = None,

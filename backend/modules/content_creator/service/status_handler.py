@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import logging
-import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
+import logging
 from typing import Any
+import uuid
 
 from modules.content.public import ContentProvider, UnitStatus
 from modules.task_queue.public import task_queue_provider
@@ -45,7 +45,7 @@ class StatusHandler:
             inputs={
                 "unit_id": unit_id,
                 "topic": topic,
-                "unit_source_material": source_material,
+                "source_material": source_material,
                 "target_lesson_count": target_lesson_count,
                 "learner_level": learner_level,
             },
@@ -141,9 +141,7 @@ class StatusHandler:
 
                 should_timeout = task_failed or (unit.updated_at.replace(tzinfo=UTC) < timeout_threshold)
                 if should_timeout:
-                    error_reason = "Associated task failed" if task_failed else (
-                        f"Unit creation exceeded timeout ({timeout_seconds} seconds)"
-                    )
+                    error_reason = "Associated task failed" if task_failed else (f"Unit creation exceeded timeout ({timeout_seconds} seconds)")
                     logger.warning(
                         "⏰ Timing out unit %s: %s (age: %s seconds)",
                         unit.id,

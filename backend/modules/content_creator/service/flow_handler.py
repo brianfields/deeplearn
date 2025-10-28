@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import uuid
 from typing import Any
+import uuid
 
 from modules.content.package_models import (
     GlossaryTerm,
@@ -67,7 +67,7 @@ class FlowHandler:
         unit_plan = await flow.execute(
             {
                 "topic": topic,
-                "unit_source_material": source_material,
+                "source_material": source_material,
                 "target_lesson_count": target_lesson_count,
                 "learner_level": learner_level,
             },
@@ -93,9 +93,7 @@ class FlowHandler:
                 unit_learning_objectives.append(UnitLearningObjective.model_validate(payload))
             else:
                 text_value = str(item)
-                unit_learning_objectives.append(
-                    UnitLearningObjective(id=str(item), title=text_value, description=text_value)
-                )
+                unit_learning_objectives.append(UnitLearningObjective(id=str(item), title=text_value, description=text_value))
 
         await self._content.update_unit_metadata(
             unit_id,
@@ -114,7 +112,7 @@ class FlowHandler:
         lesson_ids: list[str] = []
         podcast_lessons: list[PodcastLesson] = []
         podcast_voice_label: str | None = None
-        unit_material: str = str(unit_plan.get("unit_source_material") or source_material or "")
+        unit_material: str = str(unit_plan.get("source_material") or source_material or "")
         lessons_plan = unit_plan.get("lessons", []) or []
         covered_lo_ids: set[str] = set()
         failed_lessons: list[dict[str, Any]] = []
@@ -309,7 +307,7 @@ class FlowHandler:
                 "learning_objectives": lesson_lo_descriptions,
                 "learning_objective_ids": lesson_lo_ids,
                 "lesson_objective": lesson_objective_text,
-                "unit_source_material": unit_material,
+                "source_material": unit_material,
             },
             arq_task_id=arq_task_id,
         )

@@ -43,7 +43,7 @@ class TestRepositories:
     """Smoke-test repository wiring."""
 
     def test_repo_initialisation(self) -> None:
-        from .repo import ConversationMessageRepo, ConversationRepo  # noqa: PLC0415
+        from .repo import ConversationMessageRepo, ConversationRepo
 
         session = MagicMock()
         conversation_repo = ConversationRepo(session)

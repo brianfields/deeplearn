@@ -13,8 +13,8 @@ You are an expert instructional designer. Extract a **structured unit plan** fro
 - **TARGET_LESSON_COUNT:**
   {{target_lesson_count}}   // optional; if absent, target 5–10 lessons
 
-- **UNIT_SOURCE_MATERIAL:**
-  {{unit_source_material}}
+- **SOURCE_MATERIAL:**
+  {{source_material}}
 
 # Your Task in Detail
 

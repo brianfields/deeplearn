@@ -85,9 +85,8 @@ class MediaHelper:
             )
             metadata = None
 
-        if metadata is not None:
-            if include_presigned_url or cached is None:
-                self._audio_metadata_cache[audio_id] = metadata
+        if metadata is not None and (include_presigned_url or cached is None):
+            self._audio_metadata_cache[audio_id] = metadata
 
         return metadata
 

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any
 
 from ..models import LessonModel, UnitModel
 from ..repo import ContentRepo
@@ -117,7 +116,7 @@ class SyncHandler:
                 for model in ordered_models:
                     try:
                         lesson_read = self.lesson_handler.lesson_to_read(model)
-                    except Exception:  # pragma: no cover - helper already logged
+                    except Exception:  # pragma: no cover - helper already logged  # noqa: S112
                         continue
                     lesson_reads.append(lesson_read)
                     cursor_candidates.append(model.updated_at)

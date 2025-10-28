@@ -1,6 +1,7 @@
 """Prompt utilities for the content creator service."""
 
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 
 class PromptHandler:
@@ -23,10 +24,7 @@ class PromptHandler:
 
         summary_lines.append("Lessons:")
         for lesson in lessons_list:
-            if isinstance(lesson, dict):
-                lesson_title = str(lesson.get("title", ""))
-            else:
-                lesson_title = getattr(lesson, "title", "")
+            lesson_title = str(lesson.get("title", "")) if isinstance(lesson, dict) else getattr(lesson, "title", "")
             summary_lines.append(f"- {lesson_title}")
 
         return "\n".join(summary_lines)

@@ -1,13 +1,16 @@
 """Helper package for the content module's service layer."""
 
+from modules.flow_engine.public import flow_engine_admin_provider
+from modules.infrastructure.public import infrastructure_provider
+
 from .dtos import (
     LessonCreate,
     LessonPodcastAudio,
     LessonRead,
     UnitCreate,
     UnitDetailRead,
-    UnitLessonSummary,
     UnitLearningObjective,
+    UnitLessonSummary,
     UnitPodcastAudio,
     UnitRead,
     UnitSessionRead,
@@ -17,9 +20,6 @@ from .dtos import (
     UnitSyncPayload,
     UnitSyncResponse,
 )
-from modules.flow_engine.public import flow_engine_admin_provider
-from modules.infrastructure.public import infrastructure_provider
-
 from .facade import ContentService
 from .lesson_handler import LessonHandler
 from .media import MediaHelper
@@ -29,19 +29,18 @@ from .unit_handler import UnitHandler
 
 __all__ = [
     "ContentService",
-    "flow_engine_admin_provider",
-    "infrastructure_provider",
     "LessonCreate",
+    "LessonHandler",
     "LessonPodcastAudio",
     "LessonRead",
-    "LessonHandler",
     "MediaHelper",
     "SessionHandler",
     "SyncHandler",
     "UnitCreate",
     "UnitDetailRead",
-    "UnitLessonSummary",
+    "UnitHandler",
     "UnitLearningObjective",
+    "UnitLessonSummary",
     "UnitPodcastAudio",
     "UnitRead",
     "UnitSessionRead",
@@ -50,5 +49,6 @@ __all__ = [
     "UnitSyncEntry",
     "UnitSyncPayload",
     "UnitSyncResponse",
-    "UnitHandler",
+    "flow_engine_admin_provider",
+    "infrastructure_provider",
 ]

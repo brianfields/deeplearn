@@ -58,7 +58,7 @@ async def test_unit_creation_flow_plan_and_chunks() -> None:
         result = await flow.execute(
             {
                 "topic": "Test Topic",
-                "unit_source_material": None,
+                "source_material": None,
                 "target_lesson_count": 3,
                 "learner_level": "beginner",
             }
@@ -172,13 +172,6 @@ class TestServiceFlows:
         content.get_unit_detail = AsyncMock(return_value=Mock(title="Unit T", description="Description", learning_objectives=[], lessons=[mock_lesson]))
         # Mock create_unit_art to avoid LLM calls
 
-        lesson_podcast_payload = SimpleNamespace(
-            transcript="Lesson 1. L1",
-            audio_bytes=b"lesson-audio",
-            mime_type="audio/mpeg",
-            voice="Plain",
-            duration_seconds=150,
-        )
         svc = ContentCreatorService(content, podcast_generator=podcast_generator)
         svc._media_handler.generate_lesson_podcast = AsyncMock(
             return_value=(
@@ -240,7 +233,7 @@ class TestServiceFlows:
                     }
                 ],
                 "lesson_count": 1,
-                "unit_source_material": "S",
+                "source_material": "S",
             }
             mock_ucf_cls.return_value = mock_ucf
 
@@ -295,13 +288,6 @@ class TestServiceFlows:
         mock_lesson.key_concepts = ["concept1", "concept2"]
         content.get_unit_detail = AsyncMock(return_value=Mock(title="Unit B", description="Description", learning_objectives=[], lessons=[mock_lesson]))
 
-        lesson_podcast_payload = SimpleNamespace(
-            transcript="Lesson 1. L1",
-            audio_bytes=b"lesson-audio",
-            mime_type="audio/mpeg",
-            voice="Plain",
-            duration_seconds=150,
-        )
         svc = ContentCreatorService(content, podcast_generator=podcast_generator)
         svc._media_handler.generate_lesson_podcast = AsyncMock(
             return_value=(
@@ -316,13 +302,15 @@ class TestServiceFlows:
             )
         )
         svc._media_handler.save_lesson_podcast = AsyncMock()
-        svc._media_handler.generate_unit_podcast = AsyncMock(return_value=UnitPodcast(
-            transcript="Narration",
-            audio_bytes=b"audio",
-            mime_type="audio/mpeg",
-            voice="Plain",
-            duration_seconds=120,
-        ))
+        svc._media_handler.generate_unit_podcast = AsyncMock(
+            return_value=UnitPodcast(
+                transcript="Narration",
+                audio_bytes=b"audio",
+                mime_type="audio/mpeg",
+                voice="Plain",
+                duration_seconds=120,
+            )
+        )
         svc._media_handler.save_unit_podcast = AsyncMock()
 
         with (

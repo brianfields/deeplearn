@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 import logging
-from typing import Any, Iterable
+from typing import Any
 
 import httpx
 
@@ -47,14 +48,7 @@ class MediaHandler:
         raw_learning_objectives = list(getattr(unit_detail, "learning_objectives", []) or [])
         learning_objectives: list[str] = []
         for lo in raw_learning_objectives:
-            description = (
-                lo.get("description")
-                or lo.get("title")
-                if isinstance(lo, dict)
-                else getattr(lo, "description", None)
-                or getattr(lo, "title", None)
-                or str(lo)
-            )
+            description = lo.get("description") or lo.get("title") if isinstance(lo, dict) else getattr(lo, "description", None) or getattr(lo, "title", None) or str(lo)
             learning_objectives.append(str(description or ""))
         key_concepts = self._prompt_handler.extract_key_concepts(unit_detail)
 

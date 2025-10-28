@@ -235,7 +235,7 @@ class TestTaskQueueService:
         """Create TaskQueueService with mocked dependencies."""
 
         def mock_init(self, infrastructure):
-            from modules.task_queue.repo import TaskQueueRepo  # noqa: PLC0415
+            from modules.task_queue.repo import TaskQueueRepo
 
             self.infrastructure = infrastructure
             self.redis_connection = infrastructure.get_redis_connection()

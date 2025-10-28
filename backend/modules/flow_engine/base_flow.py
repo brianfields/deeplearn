@@ -170,7 +170,7 @@ class BaseFlow(ABC):
         llm_services = llm_services_provider()
 
         # Import here to avoid circular imports
-        from ..task_queue.public import task_queue_provider  # noqa: PLC0415
+        from ..task_queue.public import task_queue_provider
 
         task_queue = task_queue_provider()
 

@@ -326,7 +326,7 @@ def flow_engine_worker_provider(session: Session, llm_services: LLMServicesProvi
     step_run_repo = FlowStepRunRepo(session)
 
     # Lazy import to avoid widening the public surface with internal types
-    from .service import FlowEngineService  # local import  # noqa: PLC0415
+    from .service import FlowEngineService  # local import
 
     return FlowEngineService(flow_run_repo, step_run_repo, llm_services)
 

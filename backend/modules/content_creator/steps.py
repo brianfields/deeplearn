@@ -34,8 +34,8 @@ class GenerateUnitSourceMaterialStep(UnstructuredStep):
     Output is plain-text with markdown headings as described in the prompt.
     """
 
-    step_name = "generate_unit_source_material"
-    prompt_file = "generate_unit_source_material.md"
+    step_name = "generate_source_material"
+    prompt_file = "generate_source_material.md"
     reasoning_effort = "low"
     verbosity = "low"
     model = "gpt-5-mini"
@@ -74,7 +74,7 @@ class ExtractUnitMetadataStep(StructuredStep):
         topic: str
         learner_level: str
         target_lesson_count: int | None = None
-        unit_source_material: str
+        source_material: str
 
     class Outputs(BaseModel):
         unit_title: str
@@ -100,7 +100,7 @@ class ExtractLessonMetadataStep(StructuredStep):
         learning_objectives: list[str]
         learning_objective_ids: list[str]
         lesson_objective: str
-        unit_source_material: str
+        source_material: str
 
     class Outputs(BaseModel):
         topic: str

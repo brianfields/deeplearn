@@ -165,7 +165,7 @@ async def test_submit_learner_turn_appends_message() -> None:
     service_instance.record_assistant_message.return_value = assistant_message
 
     # Mock the structured LLM response
-    from modules.learning_coach.conversation import CoachResponse  # noqa: PLC0415
+    from modules.learning_coach.conversation import CoachResponse
 
     coach_response = CoachResponse(
         message="Noted! I'll include project work in the plan.",

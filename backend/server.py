@@ -39,7 +39,7 @@ from modules.user.routes import router as user_router
 # Configure enhanced logging
 def setup_logging() -> None:
     """Set up enhanced logging configuration."""
-    import os  # noqa: PLC0415
+    import os
 
     log_level = os.getenv("LOG_LEVEL", "INFO").upper()
     debug_mode = os.getenv("DEBUG", "false").lower() == "true"
