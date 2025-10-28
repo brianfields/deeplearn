@@ -1398,25 +1398,51 @@ class TestContentRepoMyUnits:
 class TestMediaHelper:
     """Focused tests for the shared media helper."""
 
-    async def test_fetch_audio_metadata_uses_cache(self) -> None:
-        """Fetching the same audio metadata twice should reuse the cached value."""
+    async def test_fetch_audio_metadata_caches_without_presigned_urls(self) -> None:
+        """Non-presigned lookups should reuse the cached value."""
 
         object_store = AsyncMock()
         audio_id = uuid.uuid4()
-        metadata = SimpleNamespace(presigned_url="https://cdn/audio.mp3", duration_seconds=123)
+        metadata = SimpleNamespace(duration_seconds=123)
         object_store.get_audio.return_value = metadata
 
         helper = MediaHelper(object_store)
-        result_one = await helper.fetch_audio_metadata(audio_id, requesting_user_id=42, include_presigned_url=True)
-        result_two = await helper.fetch_audio_metadata(audio_id, requesting_user_id=42, include_presigned_url=True)
+        result_one = await helper.fetch_audio_metadata(audio_id, requesting_user_id=42, include_presigned_url=False)
+        result_two = await helper.fetch_audio_metadata(audio_id, requesting_user_id=42, include_presigned_url=False)
 
         object_store.get_audio.assert_awaited_once_with(
             audio_id,
             requesting_user_id=42,
-            include_presigned_url=True,
+            include_presigned_url=False,
         )
         assert result_one is metadata
         assert result_two is metadata
+
+    async def test_fetch_audio_metadata_refreshes_presigned_urls(self) -> None:
+        """Presigned URL requests should always fetch fresh metadata."""
+
+        object_store = AsyncMock()
+        audio_id = uuid.uuid4()
+
+        metadata_without_url = SimpleNamespace(duration_seconds=123, presigned_url=None)
+        metadata_with_url = SimpleNamespace(duration_seconds=123, presigned_url="https://cdn/audio.mp3")
+        object_store.get_audio.side_effect = [metadata_without_url, metadata_with_url]
+
+        helper = MediaHelper(object_store)
+        result_without_url = await helper.fetch_audio_metadata(
+            audio_id,
+            requesting_user_id=42,
+            include_presigned_url=False,
+        )
+        result_with_url = await helper.fetch_audio_metadata(
+            audio_id,
+            requesting_user_id=42,
+            include_presigned_url=True,
+        )
+
+        assert result_without_url is metadata_without_url
+        assert result_with_url is metadata_with_url
+        assert object_store.get_audio.await_count == 2
 
     async def test_build_lesson_podcast_payload_respects_transcript_flag(self) -> None:
         """Transcript inclusion should be controlled by the flag."""

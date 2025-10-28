@@ -58,9 +58,10 @@ class MediaHelper:
         if audio_id is None:
             return None
 
-        cached = self._audio_metadata_cache.get(audio_id)
-        if cached is not None and (include_presigned_url or getattr(cached, "presigned_url", None) is not None):
-            return cached
+        if not include_presigned_url:
+            cached = self._audio_metadata_cache.get(audio_id)
+            if cached is not None:
+                return cached
 
         if self._object_store is None:
             return None
@@ -80,7 +81,7 @@ class MediaHelper:
             )
             metadata = None
 
-        if metadata is not None:
+        if metadata is not None and not include_presigned_url:
             self._audio_metadata_cache[audio_id] = metadata
 
         return metadata
