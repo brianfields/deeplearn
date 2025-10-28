@@ -59,7 +59,7 @@ class GenerateResponseRequest(BaseModel):
     """Request body for text generation requests."""
 
     messages: list[MessagePayload]
-    user_id: uuid.UUID | None = Field(default=None, description="Authenticated user identifier")
+    user_id: int | None = Field(default=None, description="Authenticated user identifier")
     model: str | None = Field(default=None, description="Optional model override")
     temperature: float | None = Field(default=None, ge=0.0, le=2.0, description="Optional temperature override")
     max_output_tokens: int | None = Field(default=None, gt=0, description="Optional max output tokens override")
@@ -105,7 +105,7 @@ async def generate_response(
 
 @router.get("/requests", response_model=list[LLMRequest])
 def list_user_requests(
-    user_id: uuid.UUID = Query(..., description="User to filter requests for"),
+    user_id: int = Query(..., description="User to filter requests for"),
     limit: int = Query(50, ge=1, le=500, description="Maximum number of requests to return"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
     service: LLMService = Depends(get_llm_service),

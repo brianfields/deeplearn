@@ -40,7 +40,7 @@ else:
         retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
         max_retries: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
         priority: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-        user_id: Mapped[uuid.UUID | None] = mapped_column(PostgresUUID(), nullable=True, index=True)
+        user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
         worker_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
         flow_run_id: Mapped[uuid.UUID | None] = mapped_column(PostgresUUID(), nullable=True, index=True)
         unit_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
@@ -84,7 +84,7 @@ class TaskStatus:
     max_retries: int = 1
     inputs: dict[str, Any] | None = None
     outputs: dict[str, Any] | None = None
-    user_id: str | None = None
+    user_id: int | None = None
     worker_id: str | None = None
     queue_name: str = "default"
     priority: int = 0

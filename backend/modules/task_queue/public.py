@@ -17,7 +17,7 @@ from .service import TaskQueueService
 class TaskQueueProvider(Protocol):
     """Protocol defining the public interface for task queue operations."""
 
-    async def submit_flow_task(self, flow_name: str, flow_run_id: uuid.UUID, inputs: dict[str, Any], user_id: uuid.UUID | None = None, priority: int = 0, delay: float | None = None, task_type: str | None = None) -> TaskSubmissionResult:
+    async def submit_flow_task(self, flow_name: str, flow_run_id: uuid.UUID, inputs: dict[str, Any], user_id: int | None = None, priority: int = 0, delay: float | None = None, task_type: str | None = None) -> TaskSubmissionResult:
         """Submit a flow execution task to the queue."""
         ...
 
