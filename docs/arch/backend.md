@@ -241,3 +241,17 @@ class ContentService:
 ```
 
 The façade owns lifecycle/dependency wiring, but each handler remains private to the module.
+
+Large AI orchestration modules such as `modules/content` and `modules/content_creator` follow the same convention with a
+`service/` package that splits responsibilities:
+
+- `service/dtos.py` defines the Pydantic response models reused by routes and tests.
+- `service/prompt_handler.py` centralises prompt assembly and summarisation helpers used by flows and media generators.
+- `service/flow_handler.py` sequences long-running generation flows (lesson/unit planners, retries, batching) and stays focused
+  on orchestration.
+- `service/media_handler.py` owns podcast/audio/artwork generation plus persistence into the content module.
+- `service/status_handler.py` encapsulates ARQ task submission, retry wiring, and timeout detection logic.
+
+`service.py` becomes a thin façade that wires the handlers together, preserves the public contract (for example, the
+`ContentCreatorService` returned by `modules/content_creator/public.py`), and keeps cross-module imports confined to
+`public.py`.
