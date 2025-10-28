@@ -31,7 +31,7 @@ class FlowRunRepo:
         self.s.add(flow_run)
         return flow_run
 
-    def by_user_id(self, user_id: uuid.UUID, limit: int = 50, offset: int = 0) -> list[FlowRunModel]:
+    def by_user_id(self, user_id: int, limit: int = 50, offset: int = 0) -> list[FlowRunModel]:
         """Get flow runs for a specific user."""
         return list(self.s.execute(select(FlowRunModel).where(FlowRunModel.user_id == user_id).order_by(desc(FlowRunModel.created_at)).limit(limit).offset(offset)).scalars())
 
@@ -43,7 +43,7 @@ class FlowRunRepo:
         """Get flow runs by flow name."""
         return list(self.s.execute(select(FlowRunModel).where(FlowRunModel.flow_name == flow_name).order_by(desc(FlowRunModel.created_at)).limit(limit).offset(offset)).scalars())
 
-    def count_by_user(self, user_id: uuid.UUID) -> int:
+    def count_by_user(self, user_id: int) -> int:
         """Count total flow runs for a user."""
         result = self.s.execute(select(FlowRunModel.id).where(FlowRunModel.user_id == user_id))
         return len(list(result.scalars()))

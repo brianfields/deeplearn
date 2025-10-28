@@ -20,7 +20,7 @@ class FlowRunSummaryDTO:
     status: str
     execution_mode: str
     arq_task_id: str | None
-    user_id: str | None
+    user_id: int | None
     created_at: datetime
     started_at: datetime | None
     completed_at: datetime | None
@@ -61,7 +61,7 @@ class FlowRunDetailsDTO:
     status: str
     execution_mode: str
     arq_task_id: str | None
-    user_id: str | None
+    user_id: int | None
     current_step: str | None
     step_progress: int
     total_steps: int | None
@@ -110,7 +110,7 @@ class FlowEngineService:
         self,
         flow_name: str,
         inputs: dict[str, Any],
-        user_id: uuid.UUID | None = None,
+        user_id: int | None = None,
         *,
         execution_mode: str = "sync",
         arq_task_id: str | None = None,
@@ -295,7 +295,7 @@ class FlowRunQueryService:
             status=flow_run.status,
             execution_mode=flow_run.execution_mode,
             arq_task_id=flow_run.arq_task_id,
-            user_id=str(flow_run.user_id) if flow_run.user_id else None,
+            user_id=flow_run.user_id,
             current_step=flow_run.current_step,
             step_progress=flow_run.step_progress,
             total_steps=flow_run.total_steps,
@@ -372,7 +372,7 @@ class FlowRunQueryService:
                 status=run.status,
                 execution_mode=run.execution_mode,
                 arq_task_id=run.arq_task_id,
-                user_id=str(run.user_id) if run.user_id else None,
+                user_id=run.user_id,
                 created_at=run.created_at,
                 started_at=run.started_at,
                 completed_at=run.completed_at,
@@ -415,7 +415,7 @@ class FlowRunQueryService:
                     status=run.status,
                     execution_mode=run.execution_mode,
                     arq_task_id=run.arq_task_id,
-                    user_id=str(run.user_id) if run.user_id else None,
+                    user_id=run.user_id,
                     created_at=run.created_at,
                     started_at=run.started_at,
                     completed_at=run.completed_at,

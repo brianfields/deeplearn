@@ -47,12 +47,12 @@ class _RecordingProvider(LLMProvider):
 
     def __init__(self, config: LLMConfig, db_session: Session) -> None:
         super().__init__(config, db_session)
-        self.last_user_id: uuid.UUID | None = None
+        self.last_user_id: int | None = None
 
     async def generate_response(
         self,
         messages: list[Any],
-        user_id: uuid.UUID | None = None,
+        user_id: int | None = None,
         **kwargs: Any,
     ) -> tuple[LLMResponse, uuid.UUID]:
         """Record the user identifier and create a request without saving it."""

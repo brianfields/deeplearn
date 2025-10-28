@@ -67,7 +67,7 @@ def flow_execution(func: Callable[..., Any]) -> Callable[..., Any]:
                         },
                     )
                     raise
-            user_id = cast(uuid.UUID | None, kwargs.get("user_id"))
+            user_id = cast(int | None, kwargs.get("user_id"))
 
             logger.info(f"🚀 Starting flow: {self.flow_name}")
             logger.debug(f"Flow inputs: {list(inputs.keys()) if isinstance(inputs, dict) else 'N/A'}")
@@ -179,7 +179,7 @@ class BaseFlow(ABC):
             validated_inputs = self.inputs_model(**inputs)
             inputs = validated_inputs.model_dump()
 
-        user_id = cast(uuid.UUID | None, kwargs.get("user_id"))
+        user_id = cast(int | None, kwargs.get("user_id"))
 
         logger.info(f"🚀 Starting ARQ flow: {self.flow_name}")
         logger.debug(f"Flow inputs: {list(inputs.keys()) if isinstance(inputs, dict) else 'N/A'}")

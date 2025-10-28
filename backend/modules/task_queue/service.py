@@ -118,7 +118,7 @@ class TaskQueueService:
         flow_name: str,
         flow_run_id: uuid.UUID,
         inputs: dict[str, Any],
-        user_id: uuid.UUID | None,
+        user_id: int | None,
         priority: int,
         task_type: str | None,
     ) -> TaskModel:
@@ -168,7 +168,7 @@ class TaskQueueService:
             max_retries=task.max_retries,
             inputs=task.inputs,
             outputs=task.result,
-            user_id=str(task.user_id) if task.user_id else None,
+            user_id=task.user_id,
             worker_id=task.worker_id,
             queue_name=task.queue_name,
             priority=task.priority,
@@ -200,7 +200,7 @@ class TaskQueueService:
             self._arq_pool = await create_pool(self.redis_settings)
         return self._arq_pool
 
-    async def submit_flow_task(self, flow_name: str, flow_run_id: uuid.UUID, inputs: dict[str, Any], user_id: uuid.UUID | None = None, priority: int = 0, delay: float | None = None, task_type: str | None = None) -> TaskSubmissionResult:
+    async def submit_flow_task(self, flow_name: str, flow_run_id: uuid.UUID, inputs: dict[str, Any], user_id: int | None = None, priority: int = 0, delay: float | None = None, task_type: str | None = None) -> TaskSubmissionResult:
         """
         Submit a flow execution task to the ARQ queue.
 
@@ -226,7 +226,7 @@ class TaskQueueService:
                 "flow_name": flow_name,
                 "flow_run_id": str(flow_run_id),
                 "inputs": inputs,
-                "user_id": str(user_id) if user_id else None,
+                "user_id": user_id,
                 "task_id": task_id,
             }
             # Ensure task_type is provided for the worker to resolve the handler.
@@ -250,7 +250,7 @@ class TaskQueueService:
                 flow_name=flow_name,
                 status=TaskStatusEnum.PENDING,
                 created_at=datetime.now(UTC),
-                user_id=str(user_id) if user_id else None,
+                user_id=user_id,
                 inputs=inputs,
                 priority=priority,
                 queue_name="default",

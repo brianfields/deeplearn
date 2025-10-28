@@ -53,9 +53,9 @@ async def execute_registered_task(_ctx: dict[str, Any], task_payload: dict[str, 
             raise ValueError(f"Invalid flow_run_id UUID: {e}") from e
     if user_id_str:
         try:
-            user_id = uuid.UUID(user_id_str)
-        except ValueError as e:
-            raise ValueError(f"Invalid user_id UUID: {e}") from e
+            user_id = int(user_id_str) if user_id_str else None
+        except (ValueError, TypeError) as e:
+            raise ValueError(f"Invalid user_id: {e}") from e
 
     logger.info(f"🚀 Starting task: task_id={task_id}, type={task_type}")
     if flow_run_id is not None or user_id is not None:
