@@ -54,7 +54,7 @@ Top-level keys in this **exact order**:
    {
       "title": "Lesson 1 title",
       "lesson_objective": "<One precise, measurable lesson-level objective (1–2 sentences). No questions.>",
-      "learning_objectives": ["UO1", "UO2"]
+      "learning_objective_ids": ["UO1", "UO2"]
     }
   ],
   "lesson_count": 1
@@ -68,7 +68,7 @@ Top-level keys in this **exact order**:
 
   * **title:** Unique and concrete; implies the core skill/knowledge.
   * **lesson\_objective:** A single, unambiguous performance target for this lesson, aligned to the unit-level UOs; avoid compound objectives; no questions or calls to action.
-  * **learning\_objectives:** Reference **UO ids** only (e.g., `"UO2"`). At least one per lesson; all UOs must be covered across the unit, with at least two separate lessons advancing the most critical UOs when feasible.
+  * **learning\_objective\_ids:** Reference **UO ids** only (e.g., `"UO2"`). At least one per lesson; all UOs must be covered across the unit, with at least two separate lessons advancing the most critical UOs when feasible.
 * **lesson\_count:** Integer in \[1, 20]; must equal `lessons.length`.
 
 # Constraints
@@ -102,32 +102,32 @@ Top-level keys in this **exact order**:
     {
       "title": "Definitions that Matter: Mean and Median",
       "lesson_objective": "State and compute the mean and median for a small dataset, using correct procedures for summation, counting, and sorting.",
-      "learning_objectives": ["UO1"]
+      "learning_objective_ids": ["UO1"]
     },
     {
       "title": "When Extremes Scream: Outliers and Skew",
       "lesson_objective": "Describe how a single extreme value shifts the mean and leaves the median comparatively stable, using source examples to justify the distinction.",
-      "learning_objectives": ["UO2"]
+      "learning_objective_ids": ["UO2"]
     },
     {
       "title": "Picking the Representative: Mean or Median?",
       "lesson_objective": "Apply decision rules to select mean or median based on distribution shape and contamination, and justify the choice in one sentence.",
-      "learning_objectives": ["UO2", "UO3"]
+      "learning_objective_ids": ["UO2", "UO3"]
     },
     {
       "title": "Reading the Signals: Simple Visual Diagnostics",
       "lesson_objective": "Interpret basic visuals (e.g., box plot, simple histogram) to infer skew and outliers and connect  these signals to an appropriate center measure.",
-      "learning_objectives": ["UO2", "UO3"]
+      "learning_objective_ids": ["UO2", "UO3"]
     },
     {
       "title": "Say It Clearly: Transparent Reporting",
       "lesson_objective": "Compose a brief report that names the chosen center, pairs it with a spread measure, and notes any outliers without deletion.",
-      "learning_objectives": ["UO4"]
+      "learning_objective_ids": ["UO4"]
     },
     {
       "title": "Mini Case Study: From Data Shape to Justified Summary",
       "lesson_objective": "Execute the full chain—inspect shape, select a center, and justify the choice—using terms and examples consistent with the unit source.",
-      "learning_objectives": ["UO1", "UO2", "UO3", "UO4"]
+      "learning_objective_ids": ["UO1", "UO2", "UO3", "UO4"]
     }
   ],
   "lesson_count": 6

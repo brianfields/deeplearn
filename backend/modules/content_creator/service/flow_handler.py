@@ -55,7 +55,15 @@ class FlowHandler:
     ) -> UnitCreationResult:
         """Execute the end-to-end unit creation using the active prompt-aligned flows."""
 
-        logger.info("🧱 Executing unit creation pipeline for unit %s", unit_id)
+        logger.info("=" * 80)
+        logger.info("🧱 UNIT CREATION START")
+        logger.info(f"   Unit ID: {unit_id}")
+        logger.info(f"   Topic: {topic}")
+        logger.info(f"   Level: {learner_level}")
+        logger.info(f"   Target Lessons: {target_lesson_count or 'auto'}")
+        logger.info(f"   Source Material: {'provided' if source_material else 'will generate'}")
+        logger.info("=" * 80)
+
         await self._content.update_unit_status(
             unit_id,
             UnitStatus.IN_PROGRESS.value,
@@ -63,6 +71,7 @@ class FlowHandler:
         )
         await self._content.commit_session()
 
+        logger.info("📋 Phase 1: Unit Planning")
         flow = UnitCreationFlow()
         unit_plan = await flow.execute(
             {
@@ -75,6 +84,7 @@ class FlowHandler:
         )
 
         final_title = str(unit_plan.get("unit_title") or f"{topic}")
+        logger.info(f"   ✓ Unit title: {final_title}")
         raw_unit_learning_objectives = unit_plan.get("learning_objectives", []) or []
         unit_learning_objectives: list[UnitLearningObjective] = []
         for item in raw_unit_learning_objectives:
@@ -100,6 +110,8 @@ class FlowHandler:
             title=final_title,
             learning_objectives=unit_learning_objectives,
         )
+        logger.info(f"   ✓ Learning objectives: {len(unit_learning_objectives)}")
+
         await self._content.update_unit_status(
             unit_id,
             UnitStatus.IN_PROGRESS.value,
@@ -117,22 +129,18 @@ class FlowHandler:
         covered_lo_ids: set[str] = set()
         failed_lessons: list[dict[str, Any]] = []
 
-        logger.info(
-            "🚀 Creating %s lessons in parallel (batch size: %s)",
-            len(lessons_plan),
-            MAX_PARALLEL_LESSONS,
-        )
+        logger.info("")
+        logger.info(f"📚 Phase 2: Lesson Generation ({len(lessons_plan)} lessons)")
+        logger.info(f"   Batch size: {MAX_PARALLEL_LESSONS}")
+        logger.info("")
 
         for batch_start in range(0, len(lessons_plan), MAX_PARALLEL_LESSONS):
             batch_end = min(batch_start + MAX_PARALLEL_LESSONS, len(lessons_plan))
             batch = lessons_plan[batch_start:batch_end]
 
-            logger.info(
-                "📦 Processing batch %s: lessons %s-%s",
-                batch_start // MAX_PARALLEL_LESSONS + 1,
-                batch_start + 1,
-                batch_end,
-            )
+            batch_num = (batch_start // MAX_PARALLEL_LESSONS) + 1
+            total_batches = (len(lessons_plan) + MAX_PARALLEL_LESSONS - 1) // MAX_PARALLEL_LESSONS
+            logger.info(f"   📦 Batch {batch_num}/{total_batches}: Processing lessons {batch_start + 1}-{batch_end}")
 
             tasks = [
                 self._create_single_lesson(
@@ -175,6 +183,10 @@ class FlowHandler:
                 covered_lo_ids.update(lesson_covered_los)
 
             progress_pct = (batch_end / max(len(lessons_plan), 1)) * 100
+            logger.info(f"      ✓ Batch complete: {len(lesson_ids)}/{len(lessons_plan)} lessons ({progress_pct:.0f}%)")
+            if failed_lessons:
+                logger.warning(f"      ⚠️  {len(failed_lessons)} lesson(s) failed in this unit")
+
             progress_msg = f"Generated {len(lesson_ids)}/{len(lessons_plan)} lessons"
             if failed_lessons:
                 progress_msg += f" ({len(failed_lessons)} failed)"
@@ -191,7 +203,8 @@ class FlowHandler:
             )
             await self._content.commit_session()
 
-        logger.info("✅ Completed %s/%s lessons", len(lesson_ids), len(lessons_plan))
+        logger.info("")
+        logger.info(f"✅ Lesson generation complete: {len(lesson_ids)}/{len(lessons_plan)} succeeded")
         if failed_lessons:
             logger.warning(
                 "⚠️ Unit %s completed with %s lesson failure(s)",
@@ -213,11 +226,14 @@ class FlowHandler:
 
         summary_text = self._prompt_handler.summarize_unit_plan(unit_plan, lessons_plan)
 
+        logger.info("")
+        logger.info("🎨 Phase 3: Media Generation")
+
         async def _generate_podcast() -> None:
             if not podcast_lessons:
                 return
             try:
-                logger.info("🎧 Generating intro podcast...")
+                logger.info("   🎧 Generating unit intro podcast...")
                 podcast = await self._media_handler.generate_unit_podcast(
                     unit_title=final_title,
                     voice_label=podcast_voice_label or "Plain",
@@ -226,18 +242,16 @@ class FlowHandler:
                     arq_task_id=arq_task_id,
                 )
                 await self._media_handler.save_unit_podcast(unit_id, podcast)
-                logger.info("✅ Intro podcast generation completed")
+                logger.info("   ✓ Unit podcast complete")
             except Exception as exc:  # pragma: no cover - podcast generation should not block unit creation
                 logger.warning(
-                    "🎧 Failed to generate intro podcast for unit %s: %s",
-                    unit_id,
-                    exc,
-                    exc_info=True,
+                    "   ⚠️ Failed to generate unit podcast: %s",
+                    str(exc)[:100],
                 )
 
         async def _generate_art() -> None:
             try:
-                logger.info("🖼️ Generating unit artwork...")
+                logger.info("   🖼️ Generating unit artwork...")
                 await self._content.update_unit_status(
                     unit_id,
                     UnitStatus.IN_PROGRESS.value,
@@ -245,13 +259,11 @@ class FlowHandler:
                 )
                 await self._content.commit_session()
                 await self._media_handler.create_unit_art(unit_id, arq_task_id=arq_task_id)
-                logger.info("✅ Artwork generation completed")
+                logger.info("   ✓ Unit artwork complete")
             except Exception as exc:  # pragma: no cover - art generation should not block unit creation
                 logger.warning(
-                    "🖼️ Failed to generate unit art for %s: %s",
-                    unit_id,
-                    exc,
-                    exc_info=True,
+                    "   ⚠️ Failed to generate unit artwork: %s",
+                    str(exc)[:100],
                 )
 
         await asyncio.gather(_generate_podcast(), _generate_art(), return_exceptions=True)
@@ -269,6 +281,16 @@ class FlowHandler:
                 "lesson_failures": failed_lessons if failed_lessons else None,
             },
         )
+
+        logger.info("")
+        logger.info("=" * 80)
+        logger.info("✅ UNIT CREATION COMPLETE")
+        logger.info(f"   Unit ID: {unit_id}")
+        logger.info(f"   Title: {final_title}")
+        logger.info(f"   Lessons: {len(lesson_ids)}/{len(lessons_plan)}")
+        if failed_lessons:
+            logger.warning(f"   ⚠️  Failures: {len(failed_lessons)}")
+        logger.info("=" * 80)
 
         return UnitCreationResult(
             unit_id=unit_id,
@@ -297,7 +319,7 @@ class FlowHandler:
         lesson_lo_descriptions: list[str] = [unit_los.get(lid, lid) for lid in lesson_lo_ids]
         lesson_objective_text: str = lesson_plan.get("lesson_objective", "")
 
-        logger.info("📝 Creating lesson %s: %s", lesson_index + 1, lesson_title)
+        logger.info(f"      📝 Lesson {lesson_index + 1}: {lesson_title[:60]}{'...' if len(lesson_title) > 60 else ''}")
 
         md_res = await LessonCreationFlow().execute(
             {
@@ -434,5 +456,5 @@ class FlowHandler:
 
         covered_lo_ids = {str(exercise.lo_id) for exercise in exercises if getattr(exercise, "lo_id", None)}
 
-        logger.info("✅ Completed lesson %s: %s", lesson_index + 1, lesson_title)
+        logger.debug(f"         ✓ Lesson {lesson_index + 1} complete - {len(exercises)} exercises, {len(covered_lo_ids)} LOs covered")
         return created_lesson.id, podcast_lesson, lesson_podcast_result.voice, covered_lo_ids

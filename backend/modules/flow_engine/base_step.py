@@ -18,6 +18,33 @@ from .context import FlowContext
 
 logger = logging.getLogger(__name__)
 
+
+def _truncate_for_logging(data: Any, max_str_length: int = 200) -> Any:
+    """Recursively truncate large data structures for logging.
+
+    - Truncates long strings
+    - Truncates base64 and binary-looking data
+    - Recursively processes dicts and lists
+    - Preserves structure for debugging
+    """
+    if isinstance(data, str):
+        # Check if it looks like base64 or binary data
+        if len(data) > max_str_length:
+            if data.startswith(("data:", "//", "iVBOR", "AAAA")) or all(c in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=" for c in data[:100]):
+                return f"<{len(data)} chars, base64/binary data>"
+            return f"{data[:max_str_length]}... <truncated, {len(data)} total chars>"
+        return data
+    elif isinstance(data, dict):
+        return {k: _truncate_for_logging(v, max_str_length) for k, v in data.items()}
+    elif isinstance(data, list):
+        if len(data) > 10:
+            return [_truncate_for_logging(item, max_str_length) for item in data[:10]] + [f"... <{len(data) - 10} more items>"]
+        return [_truncate_for_logging(item, max_str_length) for item in data]
+    elif isinstance(data, bytes):
+        return f"<{len(data)} bytes>"
+    return data
+
+
 # Type variable for input models
 InputT = TypeVar("InputT", bound=BaseModel)
 
@@ -154,9 +181,11 @@ class BaseStep(ABC):
 
             # Execute step-specific logic
             logger.debug(f"Executing step logic: {self.step_name}")
-            logger.debug(f"Step inputs: {validated_inputs.model_dump()}")
+            logger.debug(f"Step inputs: {_truncate_for_logging(validated_inputs.model_dump())}")
             output_content, llm_request_id = await self._execute_step_logic(validated_inputs, context)
-            logger.debug(f"Step output type: {type(output_content)}, content: {output_content}")
+            logger.debug(f"Step output type: {type(output_content).__name__}")
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f"Step output (truncated): {_truncate_for_logging(output_content)}")
 
             # Calculate execution time
             execution_time_ms = int((time.time() - start_time) * 1000)
