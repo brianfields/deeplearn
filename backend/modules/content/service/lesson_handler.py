@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import logging
 from datetime import datetime
+import logging
 from typing import Any
 
 from ..models import LessonModel
@@ -179,9 +179,7 @@ class LessonHandler:
 
         audio_file = upload.file
         audio_object_id = audio_file.id
-        resolved_duration = (
-            duration_seconds if duration_seconds is not None else getattr(audio_file, "duration_seconds", None)
-        )
+        resolved_duration = duration_seconds if duration_seconds is not None else getattr(audio_file, "duration_seconds", None)
         resolved_voice = voice if voice is not None else getattr(audio_file, "voice", None)
 
         updated_lesson = await self.repo.set_lesson_podcast(

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
+from datetime import datetime
 import logging
-from datetime import UTC, datetime
-from typing import Any, Iterable
+from typing import Any
 import uuid
 
 from modules.flow_engine.public import FlowRunSummaryDTO
@@ -12,8 +13,8 @@ from ..repo import ContentRepo
 from .dtos import (
     UnitCreate,
     UnitDetailRead,
-    UnitLessonSummary,
     UnitLearningObjective,
+    UnitLessonSummary,
     UnitPodcastAudio,
     UnitRead,
     UnitSyncAsset,
@@ -107,9 +108,7 @@ class UnitHandler:
                 if not audio_identifier:
                     continue
                 try:
-                    audio_uuid = (
-                        audio_identifier if isinstance(audio_identifier, uuid.UUID) else uuid.UUID(str(audio_identifier))
-                    )
+                    audio_uuid = audio_identifier if isinstance(audio_identifier, uuid.UUID) else uuid.UUID(str(audio_identifier))
                 except (TypeError, ValueError):  # pragma: no cover - defensive
                     logger.warning("🎧 Invalid lesson podcast id encountered: %s", audio_identifier)
                     continue
