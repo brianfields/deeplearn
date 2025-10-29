@@ -10,17 +10,20 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import {
-  useNavigation,
-  type NavigationProp,
-} from '@react-navigation/native';
+import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import type {
   NativeStackNavigationProp,
   NativeStackScreenProps,
 } from '@react-navigation/native-stack';
-import DocumentPicker, { types as DocumentPickerTypes } from 'react-native-document-picker';
+import DocumentPicker, {
+  types as DocumentPickerTypes,
+} from 'react-native-document-picker';
 import { useAuth } from '../../user/public';
-import { useUserResources, useUploadResource, useAddResourceFromURL } from '../queries';
+import {
+  useUserResources,
+  useUploadResource,
+  useAddResourceFromURL,
+} from '../queries';
 import type { ResourceSummary } from '../models';
 import { ResourcePicker } from '../components/ResourcePicker';
 import type { ResourceStackParamList } from '../nav';
@@ -32,7 +35,10 @@ export type AddResourceScreenParams = {
   readonly attachToConversation?: boolean;
 };
 
-type ScreenProps = NativeStackScreenProps<ResourceStackParamList, 'AddResource'>;
+type ScreenProps = NativeStackScreenProps<
+  ResourceStackParamList,
+  'AddResource'
+>;
 
 export function AddResourceScreen({
   navigation,
@@ -45,9 +51,8 @@ export function AddResourceScreen({
   const uploadMutation = useUploadResource();
   const urlMutation = useAddResourceFromURL();
   const resourcesQuery = useUserResources(userId, { enabled: !!userId });
-  const parentNavigation = useNavigation<
-    NativeStackNavigationProp<LearningStackParamList>
-  >();
+  const parentNavigation =
+    useNavigation<NativeStackNavigationProp<LearningStackParamList>>();
   const attachToConversation = route.params?.attachToConversation ?? false;
 
   const handleResourceAttached = useCallback(
@@ -109,7 +114,9 @@ export function AddResourceScreen({
           },
           onError: (error: unknown) => {
             const message =
-              error instanceof Error ? error.message : 'Failed to upload resource.';
+              error instanceof Error
+                ? error.message
+                : 'Failed to upload resource.';
             Alert.alert('Upload failed', message);
           },
         }
@@ -119,7 +126,9 @@ export function AddResourceScreen({
         return;
       }
       const message =
-        error instanceof Error ? error.message : 'Unable to pick the selected file.';
+        error instanceof Error
+          ? error.message
+          : 'Unable to pick the selected file.';
       Alert.alert('File selection error', message);
     }
   }, [navigation, uploadMutation, userId]);
@@ -155,7 +164,9 @@ export function AddResourceScreen({
         },
         onError: (error: unknown) => {
           const message =
-            error instanceof Error ? error.message : 'Failed to add URL resource.';
+            error instanceof Error
+              ? error.message
+              : 'Failed to add URL resource.';
           Alert.alert('Unable to add resource', message);
         },
       }
@@ -179,7 +190,10 @@ export function AddResourceScreen({
   );
 
   const handlePhotoPlaceholder = useCallback(() => {
-    Alert.alert('Coming soon', 'Taking a photo as a resource will arrive in a future update.');
+    Alert.alert(
+      'Coming soon',
+      'Taking a photo as a resource will arrive in a future update.'
+    );
   }, []);
 
   const isBusy = uploadMutation.isPending || urlMutation.isPending;
@@ -189,13 +203,17 @@ export function AddResourceScreen({
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.heading}>Add a new resource</Text>
         <Text style={styles.description}>
-          Provide the learning coach with additional materials. Upload files, paste URLs,
-          or reuse something you have already shared.
+          Provide the learning coach with additional materials. Upload files,
+          paste URLs, or reuse something you have already shared.
         </Text>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Upload a file</Text>
-          <Pressable style={styles.primaryButton} onPress={handleFileUpload} disabled={isBusy}>
+          <Pressable
+            style={styles.primaryButton}
+            onPress={handleFileUpload}
+            disabled={isBusy}
+          >
             {uploadMutation.isPending ? (
               <ActivityIndicator color="#fff" />
             ) : (
@@ -221,7 +239,11 @@ export function AddResourceScreen({
             style={styles.input}
           />
           {urlError ? <Text style={styles.errorText}>{urlError}</Text> : null}
-          <Pressable style={styles.secondaryButton} onPress={handleUrlSubmit} disabled={isBusy}>
+          <Pressable
+            style={styles.secondaryButton}
+            onPress={handleUrlSubmit}
+            disabled={isBusy}
+          >
             {urlMutation.isPending ? (
               <ActivityIndicator color="#1f2937" />
             ) : (
@@ -241,7 +263,10 @@ export function AddResourceScreen({
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Take a photo</Text>
-          <Pressable style={styles.secondaryButton} onPress={handlePhotoPlaceholder}>
+          <Pressable
+            style={styles.secondaryButton}
+            onPress={handlePhotoPlaceholder}
+          >
             <Text style={styles.secondaryButtonText}>Coming soon</Text>
           </Pressable>
         </View>

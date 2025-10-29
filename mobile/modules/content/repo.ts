@@ -116,7 +116,10 @@ export class ContentRepo {
         method: 'GET',
       });
     } catch (error) {
-      throw this.handleError(error, `Failed to get resources for unit ${unitId}`);
+      throw this.handleError(
+        error,
+        `Failed to get resources for unit ${unitId}`
+      );
     }
   }
 

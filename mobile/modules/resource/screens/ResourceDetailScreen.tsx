@@ -48,15 +48,21 @@ export function ResourceDetailScreen({
         ) : detailQuery.data ? (
           <>
             <Text style={styles.title}>
-              {detailQuery.data.filename ?? detailQuery.data.sourceUrl ?? 'Untitled resource'}
+              {detailQuery.data.filename ??
+                detailQuery.data.sourceUrl ??
+                'Untitled resource'}
             </Text>
             <Text style={styles.meta}>
-              Type: {detailQuery.data.resourceType} • Uploaded {detailQuery.data.createdAt}
+              Type: {detailQuery.data.resourceType} • Uploaded{' '}
+              {detailQuery.data.createdAt}
             </Text>
 
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Extracted content</Text>
-              <Text style={styles.bodyText}>{detailQuery.data.extractedText || 'No extracted text available yet.'}</Text>
+              <Text style={styles.bodyText}>
+                {detailQuery.data.extractedText ||
+                  'No extracted text available yet.'}
+              </Text>
             </View>
 
             <View style={styles.section}>

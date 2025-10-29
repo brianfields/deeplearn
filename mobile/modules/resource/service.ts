@@ -58,7 +58,9 @@ export class ResourceService {
     return toResource(response);
   }
 
-  async addResourceFromUrl(request: AddResourceFromURLRequest): Promise<Resource> {
+  async addResourceFromUrl(
+    request: AddResourceFromURLRequest
+  ): Promise<Resource> {
     if (!Number.isFinite(request.userId) || request.userId <= 0) {
       throw new Error('A valid user is required');
     }

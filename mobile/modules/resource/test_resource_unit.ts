@@ -1,6 +1,9 @@
 import { ResourceService } from './service';
 import type { ResourceRepo } from './repo';
-import type { AddResourceFromURLRequest, CreateResourceRequest } from './models';
+import type {
+  AddResourceFromURLRequest,
+  CreateResourceRequest,
+} from './models';
 
 describe('ResourceService', () => {
   const sampleResourceResponse = {
@@ -27,15 +30,17 @@ describe('ResourceService', () => {
         resource_type: 'url',
         source_url: 'https://example.com',
       }),
-      listUserResources: jest.fn().mockResolvedValue([{
-        id: 'abc',
-        resource_type: 'url',
-        filename: null,
-        source_url: 'https://example.com',
-        file_size: null,
-        created_at: '2024-01-02T00:00:00Z',
-        preview_text: 'Preview',
-      }]),
+      listUserResources: jest.fn().mockResolvedValue([
+        {
+          id: 'abc',
+          resource_type: 'url',
+          filename: null,
+          source_url: 'https://example.com',
+          file_size: null,
+          created_at: '2024-01-02T00:00:00Z',
+          preview_text: 'Preview',
+        },
+      ]),
       getResource: jest.fn().mockResolvedValue(sampleResourceResponse),
     } as unknown as jest.Mocked<ResourceRepo>;
     service = new ResourceService(repo);
@@ -81,7 +86,9 @@ describe('ResourceService', () => {
   });
 
   it('throws when listing resources without a valid user', async () => {
-    await expect(service.listUserResources(0)).rejects.toThrow('A valid user is required');
+    await expect(service.listUserResources(0)).rejects.toThrow(
+      'A valid user is required'
+    );
   });
 
   it('returns resource summaries from repo responses', async () => {
@@ -100,7 +107,11 @@ describe('ResourceService', () => {
   });
 
   it('validates resource id when fetching details', async () => {
-    await expect(service.getResourceDetail('')).rejects.toThrow('Resource id is required');
-    await expect(service.getResourceDetail('1234')).resolves.toMatchObject({ id: '1234' });
+    await expect(service.getResourceDetail('')).rejects.toThrow(
+      'Resource id is required'
+    );
+    await expect(service.getResourceDetail('1234')).resolves.toMatchObject({
+      id: '1234',
+    });
   });
 });

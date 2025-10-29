@@ -38,7 +38,10 @@ function formatDate(timestamp: string): string {
 
 export function ResourceCard({ resource, onPress }: Props): React.ReactElement {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+    >
       <View style={styles.header}>
         <Text style={styles.title} numberOfLines={1}>
           {resource.filename ?? resource.sourceUrl ?? 'Untitled resource'}

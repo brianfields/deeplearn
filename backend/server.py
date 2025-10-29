@@ -33,6 +33,7 @@ from modules.infrastructure.exception_handlers import (
 from modules.infrastructure.public import DatabaseSession, infrastructure_provider
 from modules.learning_coach.routes import router as learning_coach_router
 from modules.learning_session.routes import router as learning_session_router
+from modules.resource.routes import router as resource_router
 from modules.task_queue.routes import router as task_queue_router
 from modules.user.routes import router as user_router
 
@@ -142,6 +143,7 @@ app.include_router(catalog_router, tags=["Catalog"])
 app.include_router(content_creator_router, tags=["Content Creator"])
 app.include_router(content_router, tags=["Content"])
 app.include_router(unit_resources_router, tags=["Content Resources"])
+app.include_router(resource_router, tags=["Resources"])
 app.include_router(user_router, tags=["Users"])
 app.include_router(admin_router, tags=["Admin"])
 app.include_router(task_queue_router, tags=["Task Queue"])

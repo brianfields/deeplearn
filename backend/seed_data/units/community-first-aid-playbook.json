@@ -1,0 +1,159 @@
+{
+  "id": "3b6caa92-0c83-4d5d-bdff-7f1df59fe2f2",
+  "title": "Community First Aid Playbook",
+  "description": "Scenario-based first aid skills for community response teams covering scene safety, stabilization, and escalation decisions.",
+  "learner_level": "beginner",
+  "learning_objectives": [
+    {
+      "id": "first_aid_lo_1",
+      "title": "Stabilize a conscious patient",
+      "description": "Stabilize a conscious patient while awaiting emergency services",
+      "bloom_level": "Apply"
+    },
+    {
+      "id": "first_aid_lo_2",
+      "title": "Decide when to escalate",
+      "description": "Decide when to escalate to advanced medical support",
+      "bloom_level": "Analyze"
+    },
+    {
+      "id": "first_aid_lo_3",
+      "title": "Communicate hand-off to responders",
+      "description": "Communicate a concise hand-off to first responders",
+      "bloom_level": "Apply"
+    }
+  ],
+  "target_lesson_count": 1,
+  "source_material": "Community emergency response drills, FEMA ICS pocket guides, and field debrief notes.",
+  "generated_from_topic": true,
+  "is_global": true,
+  "owner_key": "eylem",
+  "art_image_description": "Weimar Edge illustration of Community First Aid Playbook highlighting Stabilize a conscious patient, Decide when to escalate with petrol blue geometry and gilt accents.",
+  "podcast_transcript": "Welcome to Community First Aid Playbook. This intro podcast previews the lessons and invites learners into the unit's narrative arc.",
+  "podcast_voice": "Plain",
+  "lessons": [
+    {
+      "id": "f5c228b1-e255-45bb-a56f-c6c99ff8cf3e",
+      "title": "Stabilize and Signal",
+      "learner_level": "beginner",
+      "source_material": "Annotated community drill checklists and EMS communication templates.",
+      "objectives": [
+        {
+          "id": "first_aid_lo_1",
+          "title": "Stabilize a conscious patient",
+          "description": "Stabilize a conscious patient while awaiting emergency services",
+          "bloom_level": "Apply"
+        },
+        {
+          "id": "first_aid_lo_2",
+          "title": "Decide when to escalate",
+          "description": "Decide when to escalate to advanced medical support",
+          "bloom_level": "Analyze"
+        },
+        {
+          "id": "first_aid_lo_3",
+          "title": "Communicate hand-off to responders",
+          "description": "Communicate a concise hand-off to first responders",
+          "bloom_level": "Apply"
+        }
+      ],
+      "glossary_terms": [
+        {
+          "term": "SAMPLE",
+          "definition": "Patient history acronym: Symptoms, Allergies, Medications, Past history, Last intake, Events."
+        },
+        {
+          "term": "MIST",
+          "definition": "Medical hand-off format: Mechanism, Injuries, Signs, Treatments."
+        },
+        {
+          "term": "Primary Survey",
+          "definition": "Rapid ABC check to find and treat immediate life threats."
+        }
+      ],
+      "mini_lesson": "Scene size-up keeps volunteers safe: scan hazards, don PPE, and enlist bystanders. The primary survey follows ABC\u2014airway, breathing, circulation\u2014before moving patients. Stabilize the cervical spine only when mechanism suggests injury and you have adequate help. Use SAMPLE to gather clues and track changes. Escalate when airway is compromised, breathing is labored, bleeding is uncontrolled, or mental status worsens. When EMS arrives, hand off with MIST so responders get the essentials in under 30 seconds.",
+      "mcqs": [
+        {
+          "stem": "Which observation is an immediate trigger to escalate to advanced medical support?",
+          "options": [
+            {
+              "text": "Patient becomes disoriented and cannot state their name",
+              "rationale_wrong": null
+            },
+            {
+              "text": "Minor scrape on forearm",
+              "rationale_wrong": "Surface abrasions can be treated on scene without escalation."
+            },
+            {
+              "text": "Patient reports mild thirst",
+              "rationale_wrong": "Thirst alone is not an escalation trigger."
+            }
+          ],
+          "correct_index": 0,
+          "cognitive_level": "Analyze",
+          "difficulty": "Easy",
+          "misconceptions": [
+            "wait_for_visible_bleeding"
+          ],
+          "correct_rationale": "Altered mental status signals compromised perfusion and needs advanced care."
+        },
+        {
+          "stem": "What information belongs in the \"M\" section of a MIST hand-off?",
+          "options": [
+            {
+              "text": "Mechanism of injury",
+              "rationale_wrong": null
+            },
+            {
+              "text": "Medication allergies",
+              "rationale_wrong": "Allergies appear in the SAMPLE history, not MIST's M."
+            },
+            {
+              "text": "Treatment en route",
+              "rationale_wrong": "Treatments are documented in the T component."
+            }
+          ],
+          "correct_index": 0,
+          "cognitive_level": "Understand",
+          "difficulty": "Easy",
+          "misconceptions": [
+            "mist_sections_interchangeable"
+          ],
+          "correct_rationale": "MIST starts with the mechanism so responders anticipate likely injuries."
+        }
+      ],
+      "misconceptions": [
+        {
+          "id": "wait_for_visible_bleeding",
+          "misbelief": "Only visible bleeding demands EMS escalation.",
+          "why_plausible": "External bleeding is tangible, while mental status changes seem mild.",
+          "correction": "Altered consciousness, airway compromise, or labored breathing require immediate escalation even without bleeding."
+        },
+        {
+          "id": "mist_sections_interchangeable",
+          "misbelief": "MIST sections are interchangeable and order is optional.",
+          "why_plausible": "Volunteers focus on content over structure.",
+          "correction": "The standardized order keeps radio traffic predictable for incoming responders."
+        }
+      ],
+      "confusables": []
+    }
+  ],
+  "resources": [],
+  "art_image": null,
+  "podcast_audio": {
+    "id": "4c2e8f60-7a3f-5f46-9d64-c3d3d237f01c",
+    "user_id": 2,
+    "s3_key": "seed/eylem/audio/first-aid-intro.mp3",
+    "s3_bucket": "lantern-room",
+    "filename": "first-aid-intro.mp3",
+    "content_type": "audio/mpeg",
+    "file_size": 3200000,
+    "duration_seconds": 150.0,
+    "bitrate_kbps": 128,
+    "sample_rate_hz": 44100,
+    "transcript": "Welcome to Community First Aid Playbook. This intro podcast previews the lessons and invites learners into the unit's narrative arc.",
+    "created_at": "2025-10-30 00:23:07.758697+00:00",
+    "updated_at": "2025-10-30 00:23:07.758697+00:00"
+  }
+}

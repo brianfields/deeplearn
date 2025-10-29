@@ -1,5 +1,5 @@
 import { ResourceService } from './service';
-import type { Resource, ResourceSummary, ResourceServiceContract } from './models';
+import type { ResourceServiceContract } from './models';
 
 export interface ResourceProvider extends ResourceServiceContract {
   uploadFileResource: ResourceService['uploadFileResource'];
@@ -28,4 +28,7 @@ export function resourceProvider(): ResourceProvider {
 }
 
 export type { Resource, ResourceSummary, ResourceType } from './models';
-export type { CreateResourceRequest, AddResourceFromURLRequest } from './models';
+export type {
+  CreateResourceRequest,
+  AddResourceFromURLRequest,
+} from './models';

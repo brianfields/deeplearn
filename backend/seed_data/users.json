@@ -1,0 +1,31 @@
+[
+  {
+    "key": "brian",
+    "email": "thecriticalpath@gmail.com",
+    "name": "Brian Fields",
+    "password": "epsilon",
+    "role": "admin"
+  },
+  {
+    "key": "eylem",
+    "email": "eylem.ozaslan@gmail.com",
+    "name": "Eylem Ozaslan",
+    "password": "epsilon",
+    "role": "admin"
+  },
+  {
+    "key": "epsilon",
+    "email": "epsilon.cat@example.com",
+    "name": "Epsilon cat",
+    "password": "epsilon",
+    "role": "learner"
+  },
+  {
+    "key": "nova",
+    "email": "nova.cat@example.com",
+    "name": "Nova cat",
+    "password": "epsilon",
+    "role": "learner"
+  }
+]
+

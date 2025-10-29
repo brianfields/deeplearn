@@ -1,0 +1,245 @@
+{
+  "id": "9435f1bf-472d-47c5-a759-99beadd98077",
+  "title": "Gradient Descent Mastery",
+  "description": "A focused look at optimization fundamentals for machine learning practitioners.",
+  "learner_level": "intermediate",
+  "learning_objectives": [
+    {
+      "id": "grad_unit_lo_1",
+      "title": "Explain Gradient Updates",
+      "description": "Explain how gradient descent updates parameters",
+      "bloom_level": "Understand"
+    },
+    {
+      "id": "grad_unit_lo_2",
+      "title": "Compare Descent Strategies",
+      "description": "Compare batch, stochastic, and mini-batch strategies",
+      "bloom_level": "Analyze"
+    }
+  ],
+  "target_lesson_count": 2,
+  "source_material": "Lecture notes on convex optimization, annotated Python notebooks, and practical training logs.",
+  "generated_from_topic": true,
+  "is_global": false,
+  "owner_key": "brian",
+  "art_image_description": "Weimar Edge illustration of Gradient Descent Mastery highlighting Explain Gradient Updates, Compare Descent Strategies with petrol blue geometry and gilt accents.",
+  "podcast_transcript": "Welcome to Gradient Descent Mastery. This intro podcast previews the lessons and invites learners into the unit's narrative arc.",
+  "podcast_voice": "Plain",
+  "lessons": [
+    {
+      "id": "94e348bf-0a0e-4bd6-8d71-1112ced6326e",
+      "title": "Gradient Descent Fundamentals",
+      "learner_level": "intermediate",
+      "source_material": "Walk-through of loss landscape intuition with quadratic examples and contour diagrams.",
+      "objectives": [
+        {
+          "id": "grad_unit_lo_1",
+          "title": "Explain Gradient Updates",
+          "description": "Explain how gradient descent updates parameters",
+          "bloom_level": "Understand"
+        },
+        {
+          "id": "grad_unit_lo_1",
+          "title": "Explain Gradient Updates",
+          "description": "Explain how gradient descent updates parameters",
+          "bloom_level": "Understand"
+        }
+      ],
+      "glossary_terms": [
+        {
+          "term": "Learning Rate",
+          "definition": "Scalar that scales the gradient step during optimization."
+        },
+        {
+          "term": "Loss Landscape",
+          "definition": "Surface describing how the loss changes with model parameters."
+        },
+        {
+          "term": "Convergence",
+          "definition": "Process of iteratively approaching an optimum."
+        }
+      ],
+      "mini_lesson": "Gradient descent walks downhill on a loss landscape by following the negative gradient. Choosing the learning rate balances progress with stability. Too small and updates crawl; too large and the algorithm overshoots the valley. Visualizing contour plots helps practitioners tune the step size and anticipate oscillations.",
+      "mcqs": [
+        {
+          "stem": "What happens when the learning rate is set too high?",
+          "options": [
+            {
+              "text": "Updates overshoot and may diverge",
+              "rationale_wrong": null
+            },
+            {
+              "text": "Optimization halts immediately",
+              "rationale_wrong": "Stopping occurs only if gradients become zero or errors occur."
+            },
+            {
+              "text": "Gradients become zero regardless of the loss",
+              "rationale_wrong": "Gradients depend on the loss surface, not the learning rate."
+            }
+          ],
+          "correct_index": 0,
+          "cognitive_level": "Analyze",
+          "difficulty": "Medium",
+          "misconceptions": [
+            "higher_rate_faster"
+          ],
+          "correct_rationale": "Large steps can bounce across the valley and fail to converge."
+        },
+        {
+          "stem": "Which equation represents one gradient descent step?",
+          "options": [
+            {
+              "text": "\u03b8 := \u03b8 - \u03b1 \u2207J(\u03b8)",
+              "rationale_wrong": null
+            },
+            {
+              "text": "\u03b8 := \u03b8 + \u03b1 \u03b8",
+              "rationale_wrong": "This ignores the gradient information entirely."
+            },
+            {
+              "text": "\u03b8 := \u03b8 / \u03b1",
+              "rationale_wrong": "Dividing by the learning rate is unrelated to descent."
+            }
+          ],
+          "correct_index": 0,
+          "cognitive_level": "Remember",
+          "difficulty": "Easy",
+          "misconceptions": [
+            "missing_gradient"
+          ],
+          "correct_rationale": "The gradient guides the step direction while \u03b1 scales it."
+        }
+      ],
+      "misconceptions": [],
+      "confusables": []
+    },
+    {
+      "id": "c91e9256-26f8-45aa-8390-3f80a903824f",
+      "title": "Mini-Batch Strategies",
+      "learner_level": "intermediate",
+      "source_material": "Case study comparing batch, stochastic, and mini-batch training on image classifiers.",
+      "objectives": [
+        {
+          "id": "grad_unit_lo_2",
+          "title": "Compare Descent Strategies",
+          "description": "Compare batch, stochastic, and mini-batch strategies",
+          "bloom_level": "Analyze"
+        },
+        {
+          "id": "grad_unit_lo_2",
+          "title": "Compare Descent Strategies",
+          "description": "Compare batch, stochastic, and mini-batch strategies",
+          "bloom_level": "Analyze"
+        }
+      ],
+      "glossary_terms": [
+        {
+          "term": "Batch Gradient Descent",
+          "definition": "Optimization that uses the full dataset each update."
+        },
+        {
+          "term": "Stochastic Gradient Descent",
+          "definition": "Optimization using one example per update."
+        },
+        {
+          "term": "Mini-Batch",
+          "definition": "Subset of examples used per update to balance variance and efficiency."
+        }
+      ],
+      "mini_lesson": "Mini-batches blend the stability of batch training with the responsiveness of stochastic updates. Smaller batches introduce gradient noise that can escape shallow minima, while larger batches leverage hardware parallelism. Practitioners often start with powers of two (32, 64, 128) and adjust based on validation loss curves.",
+      "mcqs": [
+        {
+          "stem": "Why choose mini-batch gradient descent over pure stochastic descent?",
+          "options": [
+            {
+              "text": "It smooths gradient noise while remaining efficient",
+              "rationale_wrong": null
+            },
+            {
+              "text": "It eliminates the need for a learning rate",
+              "rationale_wrong": "Learning rate tuning is still required."
+            },
+            {
+              "text": "It guarantees convergence in one epoch",
+              "rationale_wrong": "Convergence still depends on many factors."
+            }
+          ],
+          "correct_index": 0,
+          "cognitive_level": "Analyze",
+          "difficulty": "Medium",
+          "misconceptions": [
+            "mini_batch_is_exact"
+          ],
+          "correct_rationale": "Mini-batches reduce variance while keeping computation tractable."
+        },
+        {
+          "stem": "Which batch size balances speed and noise for many image tasks?",
+          "options": [
+            {
+              "text": "A power of two such as 64",
+              "rationale_wrong": null
+            },
+            {
+              "text": "Batch size of 1 to avoid memory use",
+              "rationale_wrong": "Size 1 is pure stochastic descent."
+            },
+            {
+              "text": "Full dataset size each step",
+              "rationale_wrong": "Full batches maximize stability but reduce responsiveness."
+            }
+          ],
+          "correct_index": 0,
+          "cognitive_level": "Apply",
+          "difficulty": "Easy",
+          "misconceptions": [
+            "bigger_always_better"
+          ],
+          "correct_rationale": "Powers of two align with hardware and offer a practical trade-off."
+        }
+      ],
+      "misconceptions": [],
+      "confusables": []
+    }
+  ],
+  "resources": [
+    {
+      "id": "bc9ea4cb-ac1d-4712-aeb3-a6a880cc9f38",
+      "user_id": 1,
+      "resource_type": "file_upload",
+      "filename": "gradient-descent-cheatsheet.md",
+      "extracted_text": "Gradient descent tuning cheatsheet\n\u2022 Start with learning rate 0.1 for convex demos, decay by 0.5 when oscillations persist.\n\u2022 Clip gradients above 5.0 to stabilize mini-batch updates.\n\u2022 Log validation loss every 10 steps; trigger warm restart if plateau > 30 steps.",
+      "extraction_metadata": {},
+      "file_size": 271,
+      "object_store_document_id": "51a7e0ce-b53a-4bca-8f24-2e03b8153b35",
+      "created_at": "2025-10-30 00:23:07.850994+00:00",
+      "updated_at": "2025-10-30 00:23:07.850994+00:00",
+      "document": {
+        "id": "51a7e0ce-b53a-4bca-8f24-2e03b8153b35",
+        "user_id": 1,
+        "s3_key": "seed/resources/brian/gradient-descent-cheatsheet.md",
+        "s3_bucket": "lantern-room",
+        "filename": "gradient-descent-cheatsheet.md",
+        "content_type": "text/markdown",
+        "file_size": 271,
+        "created_at": "2025-10-30 00:23:07.850994+00:00",
+        "updated_at": "2025-10-30 00:23:07.850994+00:00"
+      }
+    }
+  ],
+  "art_image": null,
+  "podcast_audio": {
+    "id": "3b1f7e50-69e2-4e35-8f53-b2f2c126e90b",
+    "user_id": 1,
+    "s3_key": "seed/brian/audio/gradient-intro.mp3",
+    "s3_bucket": "lantern-room",
+    "filename": "gradient-intro.mp3",
+    "content_type": "audio/mpeg",
+    "file_size": 2621440,
+    "duration_seconds": 95.0,
+    "bitrate_kbps": 192,
+    "sample_rate_hz": 44100,
+    "transcript": "Welcome to Gradient Descent Mastery. This intro podcast previews the lessons and invites learners into the unit's narrative arc.",
+    "created_at": "2025-10-30 00:23:07.850994+00:00",
+    "updated_at": "2025-10-30 00:23:07.850994+00:00"
+  }
+}

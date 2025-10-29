@@ -67,5 +67,8 @@ export interface ResourceSummaryApiResponse {
 
 export type ResourceServiceContract = Pick<
   ResourceService,
-  'uploadFileResource' | 'addResourceFromUrl' | 'listUserResources' | 'getResourceDetail'
+  | 'uploadFileResource'
+  | 'addResourceFromUrl'
+  | 'listUserResources'
+  | 'getResourceDetail'
 >;

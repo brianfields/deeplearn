@@ -44,7 +44,9 @@ export function ResourceLibraryScreen({
   if (!userId) {
     return (
       <SafeAreaView style={styles.centered}>
-        <Text style={styles.helperText}>Sign in to view your resource library.</Text>
+        <Text style={styles.helperText}>
+          Sign in to view your resource library.
+        </Text>
       </SafeAreaView>
     );
   }
@@ -80,7 +82,9 @@ export function ResourceLibraryScreen({
           renderItem={({ item }) => (
             <ResourceCard
               resource={item}
-              onPress={() => navigation.navigate('ResourceDetail', { resourceId: item.id })}
+              onPress={() =>
+                navigation.navigate('ResourceDetail', { resourceId: item.id })
+              }
             />
           )}
           contentContainerStyle={styles.listContent}

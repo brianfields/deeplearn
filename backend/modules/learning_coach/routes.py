@@ -47,7 +47,7 @@ class LearningCoachSessionStateModel(BaseModel):
     suggested_lesson_count: int | None = None
     proposed_brief: dict[str, Any] | None = None
     accepted_brief: dict[str, Any] | None = None
-    resources: list["ResourceSummaryModel"] = Field(default_factory=list)
+    resources: list[ResourceSummaryModel] = Field(default_factory=list)
 
 
 class StartSessionRequest(BaseModel):

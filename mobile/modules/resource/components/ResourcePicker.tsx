@@ -33,8 +33,8 @@ export function ResourcePicker({
     return (
       <View style={styles.centered}>
         <Text style={styles.helper}>
-          You have not uploaded any resources yet. Upload a file or paste a URL to
-          see it here.
+          You have not uploaded any resources yet. Upload a file or paste a URL
+          to see it here.
         </Text>
       </View>
     );

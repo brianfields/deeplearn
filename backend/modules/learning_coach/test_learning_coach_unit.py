@@ -358,6 +358,7 @@ async def test_add_resource_attaches_metadata_and_returns_state() -> None:
     ):
         state = await conversation.add_resource(
             _conversation_id=str(conversation_id),
+            _user_id=1,
             resource_id=str(resource_id),
         )
 

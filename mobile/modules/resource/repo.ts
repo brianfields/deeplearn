@@ -50,7 +50,9 @@ export class ResourceRepo {
     );
   }
 
-  async listUserResources(userId: number): Promise<ResourceSummaryApiResponse[]> {
+  async listUserResources(
+    userId: number
+  ): Promise<ResourceSummaryApiResponse[]> {
     const query = new URLSearchParams({ user_id: String(userId) });
     return this.infrastructure.request<ResourceSummaryApiResponse[]>(
       `${RESOURCE_BASE}?${query.toString()}`,

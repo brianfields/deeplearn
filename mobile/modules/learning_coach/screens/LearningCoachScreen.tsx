@@ -50,7 +50,9 @@ export function LearningCoachScreen({
   const attachResource = useAttachResourceMutation();
   const createUnit = useCreateUnit();
   const sessionQuery = useLearningCoachSession(conversationId);
-  const [pendingResourceId, setPendingResourceId] = useState<string | null>(null);
+  const [pendingResourceId, setPendingResourceId] = useState<string | null>(
+    null
+  );
 
   useEffect(() => {
     if (!conversationId && !startSession.isPending && !startSession.isSuccess) {
@@ -124,7 +126,8 @@ export function LearningCoachScreen({
 
   const conversationResources = sessionState?.resources ?? [];
   const canAttachResource = Boolean(conversationId);
-  const isProcessingResource = attachResource.isPending || pendingResourceId !== null;
+  const isProcessingResource =
+    attachResource.isPending || pendingResourceId !== null;
 
   useEffect(() => {
     const selected = route.params?.attachResourceId;
@@ -376,8 +379,8 @@ export function LearningCoachScreen({
           <View style={styles.uploadPrompt}>
             <Text style={styles.uploadPromptTitle}>Share source material</Text>
             <Text style={styles.uploadPromptSubtitle}>
-              Upload files or links before your first message so the coach can tailor
-              the conversation.
+              Upload files or links before your first message so the coach can
+              tailor the conversation.
             </Text>
             <Pressable
               style={({ pressed }) => [
@@ -390,7 +393,9 @@ export function LearningCoachScreen({
               onPress={handleAddResource}
               disabled={!canAttachResource || isCoachLoading}
             >
-              <Text style={styles.uploadPromptButtonText}>Upload source material</Text>
+              <Text style={styles.uploadPromptButtonText}>
+                Upload source material
+              </Text>
             </Pressable>
           </View>
         ) : null}
@@ -407,7 +412,9 @@ export function LearningCoachScreen({
               {conversationResources.map(resource => (
                 <View key={resource.id} style={styles.resourcePill}>
                   <Text numberOfLines={1} style={styles.resourcePillText}>
-                    {resource.filename ?? resource.sourceUrl ?? resource.resourceType}
+                    {resource.filename ??
+                      resource.sourceUrl ??
+                      resource.resourceType}
                   </Text>
                 </View>
               ))}
@@ -480,7 +487,10 @@ export function LearningCoachScreen({
         disabled={isCoachLoading || isAccepting}
         onAttach={handleAddResource}
         attachDisabled={
-          !canAttachResource || isCoachLoading || isAccepting || isProcessingResource
+          !canAttachResource ||
+          isCoachLoading ||
+          isAccepting ||
+          isProcessingResource
         }
       />
     </SafeAreaView>
