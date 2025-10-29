@@ -4,7 +4,7 @@ import type { ButtonHTMLAttributes } from 'react';
 import { cn } from '@/lib/utils';
 
 interface ReloadButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'onClick'> {
-  onReload: () => void | Promise<void>;
+  onReload: () => void | Promise<any>;
   isLoading?: boolean;
   label?: string;
 }

@@ -1,11 +1,5 @@
 import React from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { ResourceCard } from './ResourceCard';
 import type { ResourceSummary } from '../models';
 
@@ -41,14 +35,15 @@ export function ResourcePicker({
   }
 
   return (
-    <FlatList
-      data={resources}
-      keyExtractor={item => item.id}
-      renderItem={({ item }) => (
-        <ResourceCard resource={item} onPress={() => onSelect(item)} />
-      )}
-      contentContainerStyle={styles.listContent}
-    />
+    <View style={styles.listContent}>
+      {resources.map(resource => (
+        <ResourceCard
+          key={resource.id}
+          resource={resource}
+          onPress={() => onSelect(resource)}
+        />
+      ))}
+    </View>
   );
 }
 

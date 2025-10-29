@@ -68,7 +68,6 @@ import type {
   MetricsQuery,
 
   // Response types
-  ConversationsListResponse,
   FlowRunsListResponse,
   LearningSessionsListResponse,
   LLMRequestsListResponse,

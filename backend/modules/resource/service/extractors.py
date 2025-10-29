@@ -64,7 +64,39 @@ def extract_youtube_transcript(_url: str) -> str:
     raise NotImplementedError("YouTube transcript extraction coming soon. Please copy/paste the transcript.")
 
 
-def scrape_web_page(_url: str) -> str:
-    """Placeholder for generic web scraping."""
+def scrape_web_page(url: str) -> str:
+    """Extract text content from a web page using BeautifulSoup."""
+    from bs4 import BeautifulSoup
+    import requests
 
-    raise NotImplementedError("Web page extraction coming soon. Please copy/paste the article text.")
+    try:
+        # Set a reasonable timeout and user agent
+        headers = {"User-Agent": "Mozilla/5.0 (compatible; LearningApp/1.0; +http://example.com/bot)"}
+        response = requests.get(url, headers=headers, timeout=30)
+        response.raise_for_status()
+
+        # Parse HTML content
+        soup = BeautifulSoup(response.content, "html.parser")
+
+        # Remove script, style, and other non-content elements
+        for element in soup(["script", "style", "nav", "footer", "header", "aside"]):
+            element.decompose()
+
+        # Extract text from the page
+        text = soup.get_text(separator="\n", strip=True)
+
+        # Clean up excessive whitespace
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        cleaned_text = "\n".join(lines)
+
+        if not cleaned_text:
+            raise ExtractionError("No text content found on the page")
+
+        return cleaned_text
+
+    except requests.exceptions.Timeout as exc:
+        raise ExtractionError("Request timed out while fetching the page") from exc
+    except requests.exceptions.RequestException as exc:
+        raise ExtractionError(f"Failed to fetch page: {exc!s}") from exc
+    except Exception as exc:
+        raise ExtractionError(f"Failed to parse page content: {exc!s}") from exc

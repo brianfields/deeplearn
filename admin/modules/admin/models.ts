@@ -510,13 +510,6 @@ export interface DailyMetrics {
 
 // ---- Units Types ----
 
-export interface UnitLearningObjective {
-  id: string;
-  text: string;
-  bloom_level: string | null;
-  evidence_of_mastery: string | null;
-}
-
 // API wire formats
 export interface ApiUnitSummary {
   id: string;
