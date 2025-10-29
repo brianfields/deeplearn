@@ -171,4 +171,3 @@ python scripts/export_seed_data.py --unit-id <unit-uuid>
 # Export users
 python scripts/export_seed_data.py --users
 ```
-

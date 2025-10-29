@@ -324,15 +324,34 @@ async def test_add_resource_attaches_metadata_and_returns_state() -> None:
         title=None,
         status="active",
         metadata={"resource_ids": [str(resource_id)]},
-        message_count=1,
+        message_count=2,
         created_at=now,
         updated_at=now,
         last_message_at=now,
     )
 
-    service_instance.get_conversation_summary.side_effect = [summary_before, summary_before, summary_after]
+    service_instance.get_conversation_summary.side_effect = [summary_before, summary_before, summary_after, summary_after]
     service_instance.update_conversation_metadata.return_value = summary_after
     service_instance.get_message_history.return_value = []
+
+    # Mock build_llm_messages and LLM generation
+    service_instance.build_llm_messages.return_value = []
+    mock_llm_services = AsyncMock()
+    mock_llm_services.generate_structured_response = AsyncMock(
+        return_value=(
+            MagicMock(
+                message="I've reviewed your resource. It looks helpful!",
+                finalized_topic=None,
+                unit_title=None,
+                learning_objectives=None,
+                suggested_lesson_count=None,
+                suggested_quick_replies=["Continue", "Tell me more"],
+            ),
+            uuid.uuid4(),
+            {"usage": {"total_tokens": 100}, "cost_estimate": 0.01, "provider": "openai"},
+        )
+    )
+    service_instance.llm_services = mock_llm_services
 
     resource = ResourceRead(
         id=resource_id,
@@ -347,12 +366,12 @@ async def test_add_resource_attaches_metadata_and_returns_state() -> None:
         updated_at=now,
     )
 
-    mock_fetch = AsyncMock(side_effect=[[resource], [resource]])
+    mock_fetch = AsyncMock(side_effect=[[resource], [resource], [resource]])
 
     with (
         patch("modules.conversation_engine.base_conversation.infrastructure_provider", return_value=mock_infra),
         patch("modules.learning_coach.conversation.infrastructure_provider", return_value=mock_infra),
-        patch("modules.conversation_engine.base_conversation.llm_services_provider", return_value=AsyncMock()),
+        patch("modules.conversation_engine.base_conversation.llm_services_provider", return_value=mock_llm_services),
         patch("modules.conversation_engine.base_conversation.ConversationEngineService", return_value=service_instance),
         patch("modules.learning_coach.service.fetch_resources_for_ids", mock_fetch),
     ):
@@ -367,12 +386,15 @@ async def test_add_resource_attaches_metadata_and_returns_state() -> None:
         {"resource_ids": [str(resource_id)]},
         merge=True,
     )
+    # Verify LLM was called to generate acknowledgment
+    assert mock_llm_services.generate_structured_response.await_count == 1
+
     assert len(state.resources) == 1
     resource_summary = state.resources[0]
     assert resource_summary.id == str(resource_id)
     assert resource_summary.filename == "notes.txt"
     assert "Key takeaways" in resource_summary.preview_text
-    assert mock_fetch.await_count == 2
+    assert mock_fetch.await_count >= 2
 
 
 @pytest.mark.asyncio

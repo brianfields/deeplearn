@@ -176,6 +176,8 @@ async def attach_resource(
         )
     except LookupError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
 
     return _serialize_state(state)
 

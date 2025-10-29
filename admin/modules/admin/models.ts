@@ -181,6 +181,7 @@ export interface ConversationDetail {
   metadata: Record<string, any>;
   proposed_brief: Record<string, any> | null;
   accepted_brief: Record<string, any> | null;
+  resources: ResourceSummary[];
 }
 
 export interface ConversationSummary {
@@ -791,6 +792,17 @@ export interface ApiConversationDetail {
   metadata: Record<string, any> | null;
   proposed_brief?: Record<string, any> | null;
   accepted_brief?: Record<string, any> | null;
+  resources?: ApiResourceSummary[];
+}
+
+export interface ApiResourceSummary {
+  id: string;
+  resource_type: string;
+  filename: string | null;
+  source_url: string | null;
+  file_size: number | null;
+  created_at: string;
+  preview_text: string;
 }
 
 export interface ApiConversationSummary {

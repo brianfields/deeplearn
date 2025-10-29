@@ -10,11 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useNavigation, type NavigationProp } from '@react-navigation/native';
-import type {
-  NativeStackNavigationProp,
-  NativeStackScreenProps,
-} from '@react-navigation/native-stack';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import DocumentPicker, {
   types as DocumentPickerTypes,
 } from 'react-native-document-picker';
@@ -26,7 +22,6 @@ import {
 } from '../queries';
 import type { ResourceSummary } from '../models';
 import { ResourcePicker } from '../components/ResourcePicker';
-import type { ResourceStackParamList } from '../nav';
 import type { LearningStackParamList } from '../../../types';
 
 const URL_REGEX = /^(https?:\/\/).+/i;
@@ -36,7 +31,7 @@ export type AddResourceScreenParams = {
 };
 
 type ScreenProps = NativeStackScreenProps<
-  ResourceStackParamList,
+  LearningStackParamList,
   'AddResource'
 >;
 
@@ -51,8 +46,6 @@ export function AddResourceScreen({
   const uploadMutation = useUploadResource();
   const urlMutation = useAddResourceFromURL();
   const resourcesQuery = useUserResources(userId, { enabled: !!userId });
-  const parentNavigation =
-    useNavigation<NativeStackNavigationProp<LearningStackParamList>>();
   const attachToConversation = route.params?.attachToConversation ?? false;
 
   const handleResourceAttached = useCallback(
@@ -60,14 +53,14 @@ export function AddResourceScreen({
       if (!attachToConversation) {
         return;
       }
-      const targetNavigation =
-        navigation.getParent<NavigationProp<LearningStackParamList>>() ??
-        parentNavigation;
-      targetNavigation?.navigate('LearningCoach', {
-        attachResourceId: resourceId,
-      });
+      // Update the LearningCoach screen params and go back to it
+      navigation.navigate({
+        name: 'LearningCoach',
+        params: { attachResourceId: resourceId },
+        merge: true, // Merge with existing params instead of replacing
+      } as any);
     },
-    [attachToConversation, navigation, parentNavigation]
+    [attachToConversation, navigation]
   );
 
   const handleFileUpload = useCallback(async () => {
@@ -181,10 +174,12 @@ export function AddResourceScreen({
           'Resource selected',
           'Sharing this with your learning coach now.'
         );
-        navigation.goBack();
+        // Don't call goBack - handleResourceAttached already navigates back
         return;
       }
-      navigation.navigate('ResourceDetail', { resourceId: resource.id });
+      // When not attaching to conversation, just go back
+      // (ResourceDetail is not available in LearningStack)
+      navigation.goBack();
     },
     [attachToConversation, handleResourceAttached, navigation]
   );

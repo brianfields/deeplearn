@@ -25,6 +25,7 @@ import {
 import type { LearningStackParamList } from '../../../types';
 import { useCreateUnit } from '../../catalog/queries';
 import { LearningCoachMessage } from '../models';
+import { useRef } from 'react';
 
 const uiSystem = uiSystemProvider();
 const theme = uiSystem.getCurrentTheme();
@@ -53,6 +54,7 @@ export function LearningCoachScreen({
   const [pendingResourceId, setPendingResourceId] = useState<string | null>(
     null
   );
+  const attachingResourceRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!conversationId && !startSession.isPending && !startSession.isSuccess) {
@@ -131,17 +133,43 @@ export function LearningCoachScreen({
 
   useEffect(() => {
     const selected = route.params?.attachResourceId;
+    console.log('[LearningCoach] attachResourceId effect:', {
+      selected,
+      conversationId,
+      hasSelected: !!selected,
+      hasConversationId: !!conversationId,
+    });
     if (!selected || !conversationId) {
       return;
     }
+    console.log('[LearningCoach] Setting pendingResourceId:', selected);
     navigation.setParams({ attachResourceId: undefined });
     setPendingResourceId(selected);
   }, [conversationId, navigation, route.params?.attachResourceId]);
 
   useEffect(() => {
+    console.log('[LearningCoach] pendingResourceId effect:', {
+      pendingResourceId,
+      conversationId,
+      hasPending: !!pendingResourceId,
+      hasConversationId: !!conversationId,
+      attachingResourceRef: attachingResourceRef.current,
+    });
     if (!pendingResourceId || !conversationId) {
       return;
     }
+    // Prevent duplicate calls for the same resource
+    if (attachingResourceRef.current === pendingResourceId) {
+      console.log('[LearningCoach] Already attaching this resource, skipping');
+      return;
+    }
+
+    attachingResourceRef.current = pendingResourceId;
+    console.log('[LearningCoach] Calling attachResource.mutate:', {
+      conversationId,
+      resourceId: pendingResourceId,
+      userId: user ? String(user.id) : null,
+    });
     attachResource.mutate(
       {
         conversationId,
@@ -150,6 +178,7 @@ export function LearningCoachScreen({
       },
       {
         onError: error => {
+          console.error('[LearningCoach] attachResource error:', error);
           const message =
             error instanceof Error
               ? error.message
@@ -157,11 +186,13 @@ export function LearningCoachScreen({
           Alert.alert('Resource not attached', message);
         },
         onSettled: () => {
+          console.log('[LearningCoach] attachResource settled');
           setPendingResourceId(null);
+          attachingResourceRef.current = null;
         },
       }
     );
-  }, [attachResource, conversationId, pendingResourceId, user]);
+  }, [conversationId, pendingResourceId, user, attachResource]);
 
   const handleSend = (message: string) => {
     if (!conversationId) {

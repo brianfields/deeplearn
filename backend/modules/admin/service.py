@@ -260,12 +260,34 @@ class AdminService:
 
         metadata = dict(detail.metadata or {})
 
+        # Fetch resources attached to this conversation
+        from modules.learning_coach.service import _extract_resource_ids, fetch_resources_for_ids
+        from modules.infrastructure.public import infrastructure_provider
+        from modules.admin.models import ResourceSummaryAdmin
+
+        resource_ids = _extract_resource_ids(metadata)
+        infra = infrastructure_provider()
+        resources_data = await fetch_resources_for_ids(infra, resource_ids)
+        resources = [
+            ResourceSummaryAdmin(
+                id=str(r.id),
+                resource_type=r.resource_type,
+                filename=r.filename,
+                source_url=r.source_url,
+                file_size=r.file_size,
+                created_at=r.created_at,
+                preview_text=r.extracted_text[:200] if r.extracted_text else "",
+            )
+            for r in resources_data
+        ]
+
         return LearningCoachConversationDetail(
             conversation_id=detail.id,
             messages=messages,
             metadata=metadata,
             proposed_brief=self._dict_or_none(metadata.get("proposed_brief")),
             accepted_brief=self._dict_or_none(metadata.get("accepted_brief")),
+            resources=resources,
         )
 
     async def get_user_conversations(self, user_id: int, *, limit: int = 5) -> list[UserConversationSummary]:

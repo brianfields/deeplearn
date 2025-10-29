@@ -100,4 +100,3 @@ All three existing units have been successfully exported and re-imported:
 - Community First Aid: 12KB JSON, imports correctly
 
 The system is production-ready!
-

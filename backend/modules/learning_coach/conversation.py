@@ -128,6 +128,7 @@ class LearningCoachConversation(BaseConversation):
             raise LookupError("Resource not found")
 
         resource = resources[0]
+        print(f"[DEBUG] add_resource: resource.user_id={resource.user_id}, _user_id={_user_id}, resource_id={resource_id}")
         if _user_id is None or resource.user_id != _user_id:
             raise PermissionError("Resource does not belong to the active learner")
 
@@ -135,9 +136,13 @@ class LearningCoachConversation(BaseConversation):
         existing_ids = self._extract_resource_ids(summary.metadata)
         stored_ids = [str(item) for item in existing_ids]
         resource_id_str = str(resource_uuid)
+        print(f"[DEBUG] add_resource: existing_ids={existing_ids}, resource_id_str={resource_id_str}")
         if resource_id_str not in stored_ids:
             stored_ids.append(resource_id_str)
             await self.update_conversation_metadata({RESOURCE_METADATA_KEY: stored_ids})
+            print(f"[DEBUG] add_resource: Updated metadata with resource_ids={stored_ids}")
+            # Generate coach acknowledgment with resource context
+            await self._generate_structured_reply()
 
         return await self._build_session_state()
 

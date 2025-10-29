@@ -261,6 +261,7 @@ const conversationDetailToDTO = (detail: ApiConversationDetail): ConversationDet
   metadata: normalizeMetadata(detail.metadata),
   proposed_brief: detail.proposed_brief ?? null,
   accepted_brief: detail.accepted_brief ?? null,
+  resources: (detail.resources ?? []).map(resourceSummaryToDTO),
 });
 
 const userConversationToDTO = (
