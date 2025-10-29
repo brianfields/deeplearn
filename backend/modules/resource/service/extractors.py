@@ -6,7 +6,9 @@ from collections.abc import Iterable
 from io import BytesIO
 import re
 from zipfile import BadZipFile, ZipFile
-from xml.etree import ElementTree as ET
+
+from defusedxml import ElementTree as ET
+from defusedxml.common import DefusedXmlException
 
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
@@ -63,7 +65,7 @@ def extract_text_from_docx(content: bytes) -> str:
 
     try:
         root = ET.fromstring(document_xml)
-    except ET.ParseError as exc:  # pragma: no cover - malformed XML
+    except (ET.ParseError, DefusedXmlException) as exc:  # pragma: no cover - malformed XML
         raise ExtractionError("Failed to parse DOCX XML content") from exc
 
     namespace = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
@@ -107,7 +109,7 @@ def extract_text_from_pptx(content: bytes) -> str:
 
                 try:
                     root = ET.fromstring(slide_xml)
-                except ET.ParseError as exc:  # pragma: no cover - malformed XML
+                except (ET.ParseError, DefusedXmlException) as exc:  # pragma: no cover - malformed XML
                     raise ExtractionError(f"Failed to parse slide XML: {name}") from exc
 
                 namespace = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
