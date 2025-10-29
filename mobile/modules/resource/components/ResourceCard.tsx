@@ -37,7 +37,11 @@ function formatDate(timestamp: string): string {
   }
 }
 
-export function ResourceCard({ resource, onPress, isShared = false }: Props): React.ReactElement {
+export function ResourceCard({
+  resource,
+  onPress,
+  isShared = false,
+}: Props): React.ReactElement {
   return (
     <Pressable
       onPress={onPress}
@@ -48,7 +52,10 @@ export function ResourceCard({ resource, onPress, isShared = false }: Props): Re
       ]}
     >
       <View style={styles.header}>
-        <Text style={[styles.title, isShared && styles.titleShared]} numberOfLines={1}>
+        <Text
+          style={[styles.title, isShared && styles.titleShared]}
+          numberOfLines={1}
+        >
           {resource.filename ?? resource.sourceUrl ?? 'Untitled resource'}
         </Text>
         {isShared ? (

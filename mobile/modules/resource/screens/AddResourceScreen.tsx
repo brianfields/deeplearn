@@ -196,7 +196,10 @@ export function AddResourceScreen({
                 style: 'destructive',
                 onPress: () => {
                   // TODO: Implement unshare functionality
-                  Alert.alert('Coming soon', 'Unsharing resources will be available soon.');
+                  Alert.alert(
+                    'Coming soon',
+                    'Unsharing resources will be available soon.'
+                  );
                 },
               },
             ]
@@ -217,7 +220,12 @@ export function AddResourceScreen({
       // (ResourceDetail is not available in LearningStack)
       navigation.goBack();
     },
-    [attachToConversation, handleResourceAttached, navigation, sharedResourceIds]
+    [
+      attachToConversation,
+      handleResourceAttached,
+      navigation,
+      sharedResourceIds,
+    ]
   );
 
   const handlePhotoPlaceholder = useCallback(() => {
