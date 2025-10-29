@@ -127,6 +127,10 @@ class LearningCoachConversation(BaseConversation):
         if not resources:
             raise LookupError("Resource not found")
 
+        resource = resources[0]
+        if _user_id is None or resource.user_id != _user_id:
+            raise PermissionError("Resource does not belong to the active learner")
+
         summary = await self.get_conversation_summary()
         existing_ids = self._extract_resource_ids(summary.metadata)
         stored_ids = [str(item) for item in existing_ids]
