@@ -7,12 +7,14 @@ interface Props {
   readonly resources: ResourceSummary[];
   readonly onSelect: (resource: ResourceSummary) => void;
   readonly isLoading?: boolean;
+  readonly sharedResourceIds?: Set<string>;
 }
 
 export function ResourcePicker({
   resources,
   onSelect,
   isLoading = false,
+  sharedResourceIds = new Set(),
 }: Props): React.ReactElement {
   if (isLoading) {
     return (
@@ -41,6 +43,7 @@ export function ResourcePicker({
           key={resource.id}
           resource={resource}
           onPress={() => onSelect(resource)}
+          isShared={sharedResourceIds.has(resource.id)}
         />
       ))}
     </View>

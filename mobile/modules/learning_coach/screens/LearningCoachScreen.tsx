@@ -121,12 +121,14 @@ export function LearningCoachScreen({
     );
   }, [startSession.isPending, learnerTurn.isPending, sessionQuery.isFetching]);
 
+  const conversationResources = sessionState?.resources ?? [];
   const hasLearnerMessage = useMemo(() => {
     const messages = sessionState?.messages ?? [];
-    return messages.some(message => message.role === 'user');
-  }, [sessionState?.messages]);
+    const hasUserMessage = messages.some(message => message.role === 'user');
+    const hasResources = conversationResources.length > 0;
+    return hasUserMessage || hasResources;
+  }, [sessionState?.messages, conversationResources.length]);
 
-  const conversationResources = sessionState?.resources ?? [];
   const canAttachResource = Boolean(conversationId);
   const isProcessingResource =
     attachResource.isPending || pendingResourceId !== null;
@@ -238,7 +240,10 @@ export function LearningCoachScreen({
       );
       return;
     }
-    navigation.navigate('AddResource', { attachToConversation: true });
+    navigation.navigate('AddResource', {
+      attachToConversation: true,
+      conversationId: conversationId,
+    });
   };
 
   const normalizeDifficulty = (
@@ -436,22 +441,6 @@ export function LearningCoachScreen({
             isLoading={isCoachLoading}
           />
         </View>
-        {conversationResources.length > 0 ? (
-          <View style={styles.resourcesContainer}>
-            <Text style={styles.resourcesTitle}>Shared resources</Text>
-            <View style={styles.resourcesPills}>
-              {conversationResources.map(resource => (
-                <View key={resource.id} style={styles.resourcePill}>
-                  <Text numberOfLines={1} style={styles.resourcePillText}>
-                    {resource.filename ??
-                      resource.sourceUrl ??
-                      resource.resourceType}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        ) : null}
       </View>
       {isProcessingResource ? (
         <View style={styles.processingBanner}>

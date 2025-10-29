@@ -141,6 +141,11 @@ class LearningCoachConversation(BaseConversation):
             stored_ids.append(resource_id_str)
             await self.update_conversation_metadata({RESOURCE_METADATA_KEY: stored_ids})
             print(f"[DEBUG] add_resource: Updated metadata with resource_ids={stored_ids}")
+
+            # Inject a user message showing what was shared
+            resource_name = resource.filename or resource.source_url or resource.resource_type
+            await self.record_user_message(f"[shared {resource_name}]")
+
             # Generate coach acknowledgment with resource context
             await self._generate_structured_reply()
 

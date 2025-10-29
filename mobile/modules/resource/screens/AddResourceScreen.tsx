@@ -23,11 +23,13 @@ import {
 import type { ResourceSummary } from '../models';
 import { ResourcePicker } from '../components/ResourcePicker';
 import type { LearningStackParamList } from '../../../types';
+import { useLearningCoachSession } from '../../learning_coach/queries';
 
 const URL_REGEX = /^(https?:\/\/).+/i;
 
 export type AddResourceScreenParams = {
   readonly attachToConversation?: boolean;
+  readonly conversationId?: string | null;
 };
 
 type ScreenProps = NativeStackScreenProps<
@@ -48,19 +50,31 @@ export function AddResourceScreen({
   const resourcesQuery = useUserResources(userId, { enabled: !!userId });
   const attachToConversation = route.params?.attachToConversation ?? false;
 
+  // Get conversation ID from navigation state to fetch shared resources
+  const conversationId = route.params?.conversationId ?? null;
+  const sessionQuery = useLearningCoachSession(
+    attachToConversation ? conversationId : null
+  );
+  const sharedResourceIds = new Set(
+    sessionQuery.data?.resources?.map(r => r.id) ?? []
+  );
+
   const handleResourceAttached = useCallback(
     (resourceId: string) => {
-      if (!attachToConversation) {
+      if (!attachToConversation || !conversationId) {
         return;
       }
       // Update the LearningCoach screen params and go back to it
       navigation.navigate({
         name: 'LearningCoach',
-        params: { attachResourceId: resourceId },
+        params: {
+          conversationId: conversationId,
+          attachResourceId: resourceId,
+        },
         merge: true, // Merge with existing params instead of replacing
       } as any);
     },
-    [attachToConversation, navigation]
+    [attachToConversation, conversationId, navigation]
   );
 
   const handleFileUpload = useCallback(async () => {
@@ -169,6 +183,28 @@ export function AddResourceScreen({
   const handleSelectResource = useCallback(
     (resource: ResourceSummary) => {
       if (attachToConversation) {
+        // Check if resource is already shared
+        if (sharedResourceIds.has(resource.id)) {
+          // Prompt to unshare
+          Alert.alert(
+            'Resource already shared',
+            `Would you like to unshare "${resource.filename || resource.sourceUrl || 'this resource'}"?`,
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Unshare',
+                style: 'destructive',
+                onPress: () => {
+                  // TODO: Implement unshare functionality
+                  Alert.alert('Coming soon', 'Unsharing resources will be available soon.');
+                },
+              },
+            ]
+          );
+          return;
+        }
+
+        // Attach the resource
         handleResourceAttached(resource.id);
         Alert.alert(
           'Resource selected',
@@ -181,7 +217,7 @@ export function AddResourceScreen({
       // (ResourceDetail is not available in LearningStack)
       navigation.goBack();
     },
-    [attachToConversation, handleResourceAttached, navigation]
+    [attachToConversation, handleResourceAttached, navigation, sharedResourceIds]
   );
 
   const handlePhotoPlaceholder = useCallback(() => {
@@ -253,6 +289,7 @@ export function AddResourceScreen({
             resources={resourcesQuery.data ?? []}
             onSelect={handleSelectResource}
             isLoading={resourcesQuery.isLoading}
+            sharedResourceIds={sharedResourceIds}
           />
         </View>
 

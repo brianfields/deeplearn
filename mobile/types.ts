@@ -29,7 +29,7 @@ export type LearningStackParamList = {
         attachResourceId?: string;
       }
     | undefined;
-  AddResource: { attachToConversation?: boolean } | undefined;
+  AddResource: { attachToConversation?: boolean; conversationId?: string | null } | undefined;
   LearningFlow: { lessonId: string; lesson: LessonDetail; unitId: string };
   UnitDetail: { unitId: string };
   UnitLODetail: { unitId: string; unitTitle?: string | null };

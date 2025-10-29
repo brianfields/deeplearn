@@ -11,6 +11,7 @@ import type { ResourceSummary } from '../models';
 interface Props {
   readonly resource: ResourceSummary;
   readonly onPress?: (event: GestureResponderEvent) => void;
+  readonly isShared?: boolean;
 }
 
 function formatFileSize(size: number | null): string {
@@ -36,17 +37,25 @@ function formatDate(timestamp: string): string {
   }
 }
 
-export function ResourceCard({ resource, onPress }: Props): React.ReactElement {
+export function ResourceCard({ resource, onPress, isShared = false }: Props): React.ReactElement {
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+      style={({ pressed }) => [
+        styles.card,
+        isShared && styles.cardShared,
+        pressed && styles.cardPressed,
+      ]}
     >
       <View style={styles.header}>
-        <Text style={styles.title} numberOfLines={1}>
+        <Text style={[styles.title, isShared && styles.titleShared]} numberOfLines={1}>
           {resource.filename ?? resource.sourceUrl ?? 'Untitled resource'}
         </Text>
-        <Text style={styles.meta}>{resource.resourceType}</Text>
+        {isShared ? (
+          <Text style={styles.sharedBadge}>Shared</Text>
+        ) : (
+          <Text style={styles.meta}>{resource.resourceType}</Text>
+        )}
       </View>
       <Text style={styles.preview} numberOfLines={2}>
         {resource.previewText || 'No preview available yet.'}
@@ -71,6 +80,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
+  cardShared: {
+    borderWidth: 2,
+    borderColor: '#3b82f6',
+    backgroundColor: '#eff6ff',
+  },
   cardPressed: {
     opacity: 0.85,
   },
@@ -85,6 +99,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginRight: 8,
+  },
+  titleShared: {
+    color: '#3b82f6',
+  },
+  sharedBadge: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#3b82f6',
+    backgroundColor: '#dbeafe',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
   preview: {
     color: '#444',
