@@ -4,9 +4,17 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from io import BytesIO
+from urllib.parse import parse_qs, urlparse
 
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
+
+from youtube_transcript_api import (
+    NoTranscriptFound,
+    TranscriptsDisabled,
+    VideoUnavailable,
+    YouTubeTranscriptApi,
+)
 
 
 class ExtractionError(Exception):
@@ -58,10 +66,60 @@ def extract_text_from_pptx(_content: bytes) -> str:
     raise NotImplementedError("PowerPoint parsing coming soon. Please convert to PDF or copy/paste text.")
 
 
-def extract_youtube_transcript(_url: str) -> str:
-    """Placeholder for YouTube transcript extraction."""
+def extract_youtube_transcript(url: str) -> str:
+    """Fetch the transcript text for a YouTube video."""
 
-    raise NotImplementedError("YouTube transcript extraction coming soon. Please copy/paste the transcript.")
+    video_id = _parse_youtube_video_id(url)
+    if video_id is None:
+        raise ExtractionError("Could not determine YouTube video ID from URL")
+
+    try:
+        transcript = YouTubeTranscriptApi.get_transcript(video_id)
+    except TranscriptsDisabled as exc:
+        raise ExtractionError("Transcripts are disabled for this YouTube video") from exc
+    except NoTranscriptFound as exc:
+        raise ExtractionError("No transcript available for this YouTube video") from exc
+    except VideoUnavailable as exc:
+        raise ExtractionError("YouTube video is unavailable") from exc
+    except Exception as exc:  # pragma: no cover - network/library edge cases
+        raise ExtractionError("Failed to fetch YouTube transcript") from exc
+
+    lines: list[str] = []
+    for entry in transcript:
+        text = (entry.get("text") or "").strip()
+        if text:
+            lines.append(text.replace("\n", " ").strip())
+
+    if not lines:
+        raise ExtractionError("Transcript for this YouTube video was empty")
+
+    return "\n".join(lines)
+
+
+def _parse_youtube_video_id(url: str) -> str | None:
+    """Extract the canonical video ID from common YouTube URL formats."""
+
+    parsed = urlparse(url)
+    host = parsed.netloc.lower()
+
+    path_segments = [segment for segment in parsed.path.split("/") if segment]
+
+    if host in {"youtu.be", "www.youtu.be"}:
+        return path_segments[0] if path_segments else None
+
+    if host.endswith("youtube.com"):
+        if parsed.path == "/watch":
+            query = parse_qs(parsed.query)
+            video_values = query.get("v")
+            if video_values:
+                return video_values[0]
+        if path_segments:
+            if path_segments[0] in {"embed", "shorts", "v", "live"} and len(path_segments) >= 2:
+                return path_segments[1]
+            if len(path_segments) == 1 and 10 <= len(path_segments[0]) <= 20:
+                return path_segments[0]
+
+    return None
 
 
 def scrape_web_page(url: str) -> str:
