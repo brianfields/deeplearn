@@ -380,7 +380,7 @@ export function LearningCoachScreen({
         },
         {
           text: 'Leave',
-          onPress: () => navigation.navigate('LessonList'),
+          onPress: () => navigation.goBack(),
         },
       ]
     );

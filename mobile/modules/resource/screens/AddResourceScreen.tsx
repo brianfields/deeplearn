@@ -24,6 +24,10 @@ import type { ResourceSummary } from '../models';
 import { ResourcePicker } from '../components/ResourcePicker';
 import type { LearningStackParamList } from '../../../types';
 import { useLearningCoachSession } from '../../learning_coach/queries';
+import { uiSystemProvider } from '../../ui_system/public';
+
+const uiSystem = uiSystemProvider();
+const theme = uiSystem.getCurrentTheme();
 
 const URL_REGEX = /^(https?:\/\/).+/i;
 
@@ -235,10 +239,28 @@ export function AddResourceScreen({
     );
   }, []);
 
+  const handleClose = useCallback(() => {
+    // Modal screens should always just dismiss back to the screen that opened them
+    navigation.goBack();
+  }, [navigation]);
+
   const isBusy = uploadMutation.isPending || urlMutation.isPending;
 
   return (
     <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <Pressable
+          onPress={handleClose}
+          style={({ pressed }) => [
+            styles.closeButton,
+            { opacity: pressed ? 0.6 : 1 },
+          ]}
+        >
+          <Text style={styles.closeButtonText}>✕</Text>
+        </Pressable>
+        <Text style={styles.headerTitle}>Add Resource</Text>
+        <View style={styles.headerSpacer} />
+      </View>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.heading}>Add a new resource</Text>
         <Text style={styles.description}>
@@ -318,7 +340,37 @@ export function AddResourceScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: theme.colors.background,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: theme.colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border ?? 'rgba(0,0,0,0.1)',
+  },
+  closeButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 20,
+  },
+  closeButtonText: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: theme.colors.text,
+  },
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: theme.colors.text,
+  },
+  headerSpacer: {
+    width: 40,
   },
   content: {
     padding: 20,
