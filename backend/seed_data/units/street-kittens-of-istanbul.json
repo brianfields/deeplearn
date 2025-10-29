@@ -1,0 +1,599 @@
+{
+  "id": "9435f1bf-472d-47c5-a759-99beadd98076",
+  "title": "Street Kittens of Istanbul",
+  "description": "A learning unit about Street Kittens of Istanbul",
+  "learner_level": "intermediate",
+  "learning_objectives": [
+    {
+      "id": "lo_1",
+      "title": "Understand Kitten Commons",
+      "description": "Explain the managed-commons context for Istanbul's street kittens, distinguishing stray vs. feral statuses, kitten life-stage bands, key actors, and seasonality.",
+      "bloom_level": null
+    },
+    {
+      "id": "lo_2",
+      "title": "Map Urban Microhabitats",
+      "description": "Map a 50\u2013100 m urban microhabitat to identify food sources, shelters, risks, and human\u2013cat interfaces, and recommend placements for shelters and trap sites.",
+      "bloom_level": null
+    },
+    {
+      "id": "lo_3",
+      "title": "Sequence Kitten Triage",
+      "description": "Sequence kitten triage in warmth\u2013hydration\u2013respiration\u2013nutrition order and classify cases into urgent, priority, or routine pathways.",
+      "bloom_level": null
+    },
+    {
+      "id": "lo_4",
+      "title": "Plan Age-Based Care",
+      "description": "Specify age-appropriate feeding, micro-shelter features, and a basic vaccination and parasite-control schedule for a given kitten profile.",
+      "bloom_level": null
+    },
+    {
+      "id": "lo_5",
+      "title": "Design Seasonal TNR",
+      "description": "Design a Trap\u2013Neuter\u2013Return (TNR) workflow aligned to seasonality, including ear-tipping, return-to-territory, and simple record-keeping.",
+      "bloom_level": null
+    },
+    {
+      "id": "lo_6",
+      "title": "Handle Critical Edge Cases",
+      "description": "Identify edge cases such as lactating queens, late pregnancy, panleukopenia outbreaks, or seasonal extremes and specify the required operational adjustments.",
+      "bloom_level": null
+    }
+  ],
+  "target_lesson_count": 2,
+  "source_material": null,
+  "generated_from_topic": true,
+  "is_global": true,
+  "owner_key": "eylem",
+  "art_image_description": "Weimar Edge illustration of Street Kittens of Istanbul highlighting Understand Kitten Commons, Map Urban Microhabitats with petrol blue geometry and gilt accents.",
+  "podcast_transcript": "Picture Istanbul at dawn. The call to prayer, the hiss of kettles, and in the alley between a bakery and a barber\u2014two wet-nosed kittens blinking into the day. They don't make it because of luck. They make it because a city of humans manages a commons, whether it knows it or not. That's our unit: from seeing the system to working the system.\n\nStart with classification. Strays tolerate us. Ferals don't. That single split decides how close we get, how we feed, how we trap. Then read the clock on a kitten's body. Neonate, zero to two weeks\u2014eyes closed, heat-dependent. Infant, two to four\u2014eyes open, wobble stance. Transitional, four to eight\u2014teething, learning to eat. Juvenile, eight to twenty-four\u2014fast, curious, hitting surgical weight. Seasonality is the drumbeat. Spring and late summer flood the streets with kittens. Winter tests endurance. If you know the rhythm, you can play ahead of it.\n\nNow shrink your world to a 50\u2013100 meter circle. Walk it. Sketch it. Where's food? Dumpsters behind meyhanes, a feeder's mat of bowls under the fig tree, a cafe's crumbs at closing. Where's shelter? The dry corner under the stairs, a basement vent, an old \"cat house\" near the kiosk. Where's danger? A taxi cut-through, a dog pack's patrol, a gutter that becomes a river when it rains, the shop owner who's had enough. Where do cats meet people? Schools, markets, tourist choke points. Name the actors: the auntie who feeds at dusk, the municipal mobile clinic two streets over, the guy who complains when bowls block his door.\n\nThen place things with intention. Micro-shelters elevated, dry, out of the wind, with two exits. Insulate before the cold; shade and water before the heat. Keep feeding stations tidy and consistent, but not on thresholds. And keep trap sites separate and discreet, pre-baited so trap day isn't a surprise. Four to six weeks before the spring and late-summer waves, turn up the trapping. Prioritize juveniles at weight and intact adults. Lactating queens? Sterilize only if you can return same day to the exact spot.\n\nLesson two starts with a single rule: triage in order\u2014warmth, hydration, respiration, nutrition. Cold and limp, or breathing hard? That's urgent. Warm first. Don't feed a cold kitten. Stable but snotty eyes, underweight? Priority. Bright-eyed, eating, normal vitals? Routine.\n\nFeed by stage. Neonates get kitten milk replacer by bottle, small and frequent, in warmth and dryness. Two to four weeks, gruel. Four to eight, move to wet food. Eight and up, high-protein wet and dry. Micro-shelters get straw in winter, not fabric. Airflow and shade in heat. Begin core vaccines around eight to nine weeks; boost three to four weeks later. Deworm by weight. Add flea control to cut vectors and protect the group.\n\nTNR is choreography. Pre-bait. Trap. Sterilize. Ear-tip. Vaccinate when possible. Recover. Return to the same territory within 24\u201348 hours. Time campaigns for late winter and late summer to blunt kitten surges. Track everything: photos, locations, ear-tip status, sex, dates, interventions. That ledger is your memory.\n\nEdge cases change the tempo. Lactating queens\u2014same-day return. Late pregnancy\u2014postpone if you can. Panleukopenia\u2014stop mixing, isolate, bleach. Heatwave\u2014shade and water stations. Winter\u2014elevate shelters, add straw, cut drafts. And watch the socialization window: from roughly two to seven weeks, gentle daily handling can turn a life on the street into a home.\n\nSo here's your charge. Map one microhabitat. Place one shelter right. Set one clean feeding routine apart from your future trap line. Run one triage. Plan one season-timed TNR cycle, and write it down. Istanbul's street kittens aren't waiting for perfect. They're waiting for you to start. Next, pick a colony and commit twelve weeks. We'll be here, walking the alley with you.",
+  "podcast_voice": "Plain",
+  "lessons": [
+    {
+      "id": "5866b675-56ec-4731-9fca-36e52cf71e2b",
+      "title": "Managed Commons in Practice: Context, Seasonality, and Microhabitats",
+      "learner_level": "intermediate",
+      "source_material": null,
+      "objectives": [
+        {
+          "id": "lo_1",
+          "title": "Understand Kitten Commons",
+          "description": "Explain the managed-commons context for Istanbul's street kittens, distinguishing stray vs. feral statuses, kitten life-stage bands, key actors, and seasonality.",
+          "bloom_level": null
+        },
+        {
+          "id": "lo_2",
+          "title": "Map Urban Microhabitats",
+          "description": "Map a 50\u2013100 m urban microhabitat to identify food sources, shelters, risks, and human\u2013cat interfaces, and recommend placements for shelters and trap sites.",
+          "bloom_level": null
+        }
+      ],
+      "glossary_terms": [
+        {
+          "term": "Managed commons",
+          "definition": "A shared urban space where cats persist through community care and municipal services under social norms."
+        },
+        {
+          "term": "Seasonality",
+          "definition": "Predictable shifts across the year in breeding, disease, and resource needs."
+        },
+        {
+          "term": "Microhabitat",
+          "definition": "A 50\u2013100 m patch of urban features that shape food, shelter, and risk."
+        },
+        {
+          "term": "Stray",
+          "definition": "Formerly owned or human-acclimated cat living outdoors."
+        },
+        {
+          "term": "Feral",
+          "definition": "Minimally socialized cat that avoids close human contact."
+        },
+        {
+          "term": "Trap\u2013Neuter\u2013Return (TNR)",
+          "definition": "Capture, sterilize, vaccinate when possible, ear-tip, and return to territory."
+        },
+        {
+          "term": "Ear-tipping",
+          "definition": "Small surgical notch marking a sterilized free-roaming cat."
+        }
+      ],
+      "mini_lesson": "Istanbul's street kittens live in a managed commons: survival and population stability come from residents, feeders, and municipal clinics working together. Classify cats first: strays accept human proximity; ferals avoid it. Note kitten life stages\u2014neonate (0\u20132 w), infant (2\u20134 w), transitional (4\u20138 w), juvenile (8\u201324 w)\u2014because feeding, sheltering, and TNR timing depend on age. Seasonality matters: expect kitten surges in spring and late summer; prepare for thermal stress in winter.\n\nMap a 50\u2013100 m microhabitat. Mark on a sketch: 1) food sources (dumpsters, cafes, feeder spots), 2) shelters (nooks, basements, existing \"cat houses\"), 3) risks (traffic lanes, dogs, flood paths, conflicts), 4) human\u2013cat interfaces (markets, tourist hubs, schools). Add actors: who feeds, who complains, nearest mobile clinic.\n\nRecommendations:\n- Place micro-shelters elevated, dry, wind-sheltered, with two exits; anchor and keep clean. Add insulation before winter; add shade and water in heat.\n- Keep feeding stations consistent and tidy away from doorways; separate them from discreet pre-baited trap sites.\n- Schedule intensified trapping 4\u20136 weeks before spring/late-summer surges; prioritize juveniles at surgical weight and visibly intact adults; same-day return for lactating queens.\n\nThis map plus rationale guides shelter placement and trap cycles while respecting site fidelity and social license.",
+      "mcqs": [
+        {
+          "stem": "Which observation best supports classifying an outdoor cat as a Stray rather than Feral?",
+          "options": [
+            {
+              "text": "Approaches people within arm's reach.",
+              "rationale_wrong": null
+            },
+            {
+              "text": "Retreats or hides when approached.",
+              "rationale_wrong": "Avoiding humans describes feral behavior, not a socialized stray."
+            },
+            {
+              "text": "Ear-tipping notch is visible.",
+              "rationale_wrong": "Ear-tipping marks sterilization status, not socialization or temperament."
+            },
+            {
+              "text": "Mostly active at night.",
+              "rationale_wrong": "Activity timing doesn't define stray versus feral."
+            }
+          ],
+          "correct_index": 0,
+          "cognitive_level": null,
+          "difficulty": "Medium",
+          "misconceptions": [],
+          "correct_rationale": "Strays accept close human proximity; ferals avoid approach. Proximity indicates stray."
+        },
+        {
+          "stem": "You find a shivering 1\u2011week kitten under stairs. What is the best first step?",
+          "options": [
+            {
+              "text": "Warm the neonate, then feed kitten milk replacer.",
+              "rationale_wrong": null
+            },
+            {
+              "text": "Feed cow's milk immediately.",
+              "rationale_wrong": "Cow's milk causes GI upset and malnutrition; cold kittens shouldn't eat."
+            },
+            {
+              "text": "Begin Trap\u2013Neuter\u2013Return (TNR) around the nest.",
+              "rationale_wrong": "Trap\u2013Neuter\u2013Return (TNR) targets adults; immediate neonatal priority is warming."
+            },
+            {
+              "text": "Place in an outdoor shelter and feed later.",
+              "rationale_wrong": "Passive sheltering delays warming; stabilize temperature before any feeding."
+            }
+          ],
+          "correct_index": 0,
+          "cognitive_level": null,
+          "difficulty": "Medium",
+          "misconceptions": [
+            "MC3",
+            "MC4"
+          ],
+          "correct_rationale": "Warm first; hypothermic neonates can't digest safely. Use kitten milk replacer."
+        },
+        {
+          "stem": "Mapping a 60 m Microhabitat alley, choose the best micro\u2011shelter location.",
+          "options": [
+            {
+              "text": "Beside a busy shop doorway.",
+              "rationale_wrong": "Doorways cause complaints and disruptions; avoid high foot traffic."
+            },
+            {
+              "text": "Raised, dry stairwell alcove, shielded from wind, two exits.",
+              "rationale_wrong": null
+            },
+            {
+              "text": "Under a leaky gutter near a drain path.",
+              "rationale_wrong": "Leakage and flood paths make shelters damp and unsafe."
+            },
+            {
+              "text": "Along a dog patrol path behind dumpsters.",
+              "rationale_wrong": "Dogs and movement corridors increase stress and risk."
+            }
+          ],
+          "correct_index": 1,
+          "cognitive_level": null,
+          "difficulty": "Medium",
+          "misconceptions": [],
+          "correct_rationale": "Elevated, dry, wind\u2011sheltered placement with two exits matches guidance."
+        },
+        {
+          "stem": "A feeder runs a visible feeding station by a cafe. For Trap\u2013Neuter\u2013Return (TNR), where should you stage traps to reduce trap shyness?",
+          "options": [
+            {
+              "text": "Right beside the feeding bowls for consistency.",
+              "rationale_wrong": "Combining sites conditions cats to avoid traps at meals."
+            },
+            {
+              "text": "At the cafe doorway for easy monitoring.",
+              "rationale_wrong": "Doorways invite conflict and attention, undermining social license."
+            },
+            {
+              "text": "Discreet, pre\u2011baited spot away from the feeding station.",
+              "rationale_wrong": null
+            },
+            {
+              "text": "Inside a micro\u2011shelter with two exits.",
+              "rationale_wrong": "Shelters are for protection, not trapping; blocked exits deter use."
+            }
+          ],
+          "correct_index": 2,
+          "cognitive_level": null,
+          "difficulty": "Medium",
+          "misconceptions": [],
+          "correct_rationale": "Trap sites should be discreet and separate from feeding stations."
+        },
+        {
+          "stem": "For a 50\u2013100 m Microhabitat in a Managed commons, which annotations best guide shelter placement and Trap\u2013Neuter\u2013Return (TNR) cycles aligned with Seasonality?",
+          "options": [
+            {
+              "text": "Food sources, shelters, risks, human\u2013cat interfaces, actors, mobile clinic.",
+              "rationale_wrong": null
+            },
+            {
+              "text": "Only feeding spots; other details clutter the map.",
+              "rationale_wrong": "Feeding alone ignores shelter, disease, risks, and community conflicts."
+            },
+            {
+              "text": "Only shelters and nests; skip human factors.",
+              "rationale_wrong": "Nests are fragile; leaving out human interfaces weakens outcomes."
+            },
+            {
+              "text": "Only tourist hubs; ignore other interfaces and risks.",
+              "rationale_wrong": "Narrow focus misses risks, resources, and actors needed for planning."
+            }
+          ],
+          "correct_index": 0,
+          "cognitive_level": null,
+          "difficulty": "Medium",
+          "misconceptions": [
+            "MC1"
+          ],
+          "correct_rationale": "These capture resources, risks, and actors for shelter and TNR planning."
+        }
+      ],
+      "misconceptions": [
+        {
+          "id": "MC1",
+          "misbelief": "Feeding alone keeps street kittens safe and stable.",
+          "why_plausible": "Feeding is visible, easy to organize, and shows immediate response from cats.",
+          "correction": "Survival also depends on shelter, vaccination/parasite control, and TNR; feeding without these can raise disease and conflict risks."
+        },
+        {
+          "id": "MC2",
+          "misbelief": "TNR makes colonies grow because cats are returned.",
+          "why_plausible": "Returned, ear-tipped cats remain visible in the area.",
+          "correction": "Sterilized, site-faithful adults prevent new litters and defend territory, which stabilizes or reduces numbers over time."
+        },
+        {
+          "id": "MC3",
+          "misbelief": "Any milk is fine for neonate kittens.",
+          "why_plausible": "Cow's milk is common and inexpensive.",
+          "correction": "Use kitten milk replacer; cow's milk causes GI upset and malnutrition."
+        },
+        {
+          "id": "MC4",
+          "misbelief": "Cold, hungry kittens should be fed immediately.",
+          "why_plausible": "Hunger seems most urgent to bystanders.",
+          "correction": "Warm first, then feed; hypothermic kittens cannot digest safely and risk aspiration."
+        }
+      ],
+      "confusables": [
+        {
+          "a": "Stray",
+          "b": "Feral",
+          "contrast": "Strays tolerate human proximity; ferals avoid it and show minimal socialization."
+        },
+        {
+          "a": "Feeding Station",
+          "b": "Trap Site",
+          "contrast": "Feeding stations are stable and visible; trap sites are pre-baited and discreet to reduce trap shyness."
+        },
+        {
+          "a": "Shelter",
+          "b": "Nest",
+          "contrast": "Shelters are human-made and weatherproof; nests are queen-selected natural hideouts that are fragile and hidden."
+        }
+      ]
+    },
+    {
+      "id": "c0a8dc23-f59e-48f0-b8e4-86dae4b0b758",
+      "title": "From Triage to TNR: Integrated Care and Control Plan",
+      "learner_level": "intermediate",
+      "source_material": null,
+      "objectives": [
+        {
+          "id": "lo_3",
+          "title": "Sequence Kitten Triage",
+          "description": "Sequence kitten triage in warmth\u2013hydration\u2013respiration\u2013nutrition order and classify cases into urgent, priority, or routine pathways.",
+          "bloom_level": null
+        },
+        {
+          "id": "lo_4",
+          "title": "Plan Age-Based Care",
+          "description": "Specify age-appropriate feeding, micro-shelter features, and a basic vaccination and parasite-control schedule for a given kitten profile.",
+          "bloom_level": null
+        },
+        {
+          "id": "lo_5",
+          "title": "Design Seasonal TNR",
+          "description": "Design a Trap\u2013Neuter\u2013Return (TNR) workflow aligned to seasonality, including ear-tipping, return-to-territory, and simple record-keeping.",
+          "bloom_level": null
+        },
+        {
+          "id": "lo_6",
+          "title": "Handle Critical Edge Cases",
+          "description": "Identify edge cases such as lactating queens, late pregnancy, panleukopenia outbreaks, or seasonal extremes and specify the required operational adjustments.",
+          "bloom_level": null
+        }
+      ],
+      "glossary_terms": [
+        {
+          "term": "Triage",
+          "definition": "A prioritization sequence: warmth, hydration, respiration, then nutrition."
+        },
+        {
+          "term": "Kitten Milk Replacer (KMR)",
+          "definition": "Formula designed to substitute for queen's milk."
+        },
+        {
+          "term": "Micro-shelter",
+          "definition": "Simple, weather-resistant housing that reduces exposure to cold, heat, wind, and rain."
+        },
+        {
+          "term": "Ear-tipping",
+          "definition": "Small surgical removal of the ear tip to mark a sterilized free-roaming cat."
+        },
+        {
+          "term": "Trap\u2013Neuter\u2013Return (TNR)",
+          "definition": "Humane population control: trap, sterilize, vaccinate when possible, and return to territory."
+        },
+        {
+          "term": "Socialization Window",
+          "definition": "Peak period (~2\u20137 weeks) when handling most effectively builds tameness."
+        },
+        {
+          "term": "Herd Effect",
+          "definition": "Lower disease spread when enough individuals are immunized."
+        }
+      ],
+      "mini_lesson": "Start with triage. Sequence needs: warmth \u2192 hydration \u2192 respiration \u2192 nutrition. Urgent: cold, lethargic, or labored breathing; warm to safe temperature before any feeding. Priority: ocular/nasal discharge or low weight but stable breathing. Routine: active, eating, normal vitals.\n\nMatch care to age. Neonates (0\u20132 wks): KMR by bottle, tiny frequent feeds; keep dry, draft-free, and warmed. 2\u20134 wks: introduce gruel; 4\u20138 wks: transition to wet food; 8+ wks: high-protein wet/dry. Micro-shelter: elevated, insulated box with wind break, dual exits, shade and airflow in heat; straw (not fabric) for winter moisture.\n\nDisease prevention: begin core vaccines around weaning (e.g., 8\u20139 wks) with a booster in 3\u20134 weeks; deworm by weight; add flea control to cut vector risks and build herd effect.\n\nTNR workflow: pre-bait, trap, sterilize, ear-tip, vaccinate as possible, recover, return to the same spot within 24\u201348 hours. Plan campaigns late winter and late summer to blunt kitten surges; log photos, location, ear-tip status, sex, dates, and interventions.\n\nEdge-case adjustments: lactating queens\u2014same-day return or delay surgery; late pregnancy\u2014postpone when feasible; panleukopenia\u2014isolate and pause mixing; heatwaves\u2014shade and water stations; winter\u2014elevate shelters, use straw.",
+      "mcqs": [
+        {
+          "stem": "Triage a 3-week-old kitten: cold, lethargic, stable breathing. What immediate action and urgency fit best?",
+          "options": [
+            {
+              "text": "Warm gently; urgent category",
+              "rationale_wrong": null
+            },
+            {
+              "text": "Offer KMR; priority category",
+              "rationale_wrong": "Feeding contradicts triage; cold kittens risk aspiration."
+            },
+            {
+              "text": "Hydrate orally; routine category",
+              "rationale_wrong": "Hydration follows warming; routine misclassifies a cold kitten."
+            },
+            {
+              "text": "Start dewormer; routine category",
+              "rationale_wrong": "Deworming is not immediate; routine misses urgent signs."
+            }
+          ],
+          "correct_index": 0,
+          "cognitive_level": null,
+          "difficulty": "Medium",
+          "misconceptions": [
+            "MC1"
+          ],
+          "correct_rationale": "Warm first per triage; cold lethargy is urgent."
+        },
+        {
+          "stem": "Outdoors in summer, an 8-week-old kitten needs care. Select feeding, micro-shelter feature, and vaccine/parasite plan.",
+          "options": [
+            {
+              "text": "High-protein wet/dry; shade and airflow; start core vaccine, deworm",
+              "rationale_wrong": null
+            },
+            {
+              "text": "KMR by bottle; fabric bedding; vaccinate later only",
+              "rationale_wrong": "Neonatal KMR and fabric bedding are inappropriate; vaccines start now."
+            },
+            {
+              "text": "Wet food only; sealed box; skip vaccines outdoors",
+              "rationale_wrong": "Skipping vaccines outdoors ignores herd effect; sealed shelters trap heat."
+            },
+            {
+              "text": "Gruel; wind break only; deworm replaces vaccines",
+              "rationale_wrong": "Parasite control complements, not replaces, core vaccination."
+            }
+          ],
+          "correct_index": 0,
+          "cognitive_level": null,
+          "difficulty": "Medium",
+          "misconceptions": [
+            "MC2",
+            "MC3"
+          ],
+          "correct_rationale": "At 8 weeks, high-protein diet, ventilated shade, begin core vaccines and deworming."
+        },
+        {
+          "stem": "Design a late-winter Trap\u2013Neuter\u2013Return (TNR) plan for a feral colony. Choose steps and logging aligned to site fidelity.",
+          "options": [
+            {
+              "text": "Pre-bait, trap, sterilize, ear-tip, vaccinate, return; log ear-tip status",
+              "rationale_wrong": null
+            },
+            {
+              "text": "Trap, sterilize, relocate colony; skip ear-tips; record adopters",
+              "rationale_wrong": "Relocation violates TNR and invites the vacuum effect."
+            },
+            {
+              "text": "Trap in spring, vaccinate only; release anywhere; no records",
+              "rationale_wrong": "Seasonality off; vaccination-only and no records break workflow."
+            },
+            {
+              "text": "Pre-bait, trap, ear-tip, return; log photos and location",
+              "rationale_wrong": "Omits sterilization and vaccination; logging is incomplete alone."
+            }
+          ],
+          "correct_index": 0,
+          "cognitive_level": null,
+          "difficulty": "Medium",
+          "misconceptions": [
+            "MC4"
+          ],
+          "correct_rationale": "Matches TNR steps, return-to-territory, and essential ear-tip logging."
+        },
+        {
+          "stem": "During a heatwave, micro-shelters sit in sun, and a lactating queen is trapped. What adjustment best protects kittens and colony?",
+          "options": [
+            {
+              "text": "Same-day return the lactating queen; add shade and water stations",
+              "rationale_wrong": null
+            },
+            {
+              "text": "Relocate queen to cooler site; shelters unchanged",
+              "rationale_wrong": "Relocation risks disorientation and refilling; site fidelity preferred."
+            },
+            {
+              "text": "Delay surgery; hold nursing queen until kittens wean",
+              "rationale_wrong": "Holding separates queen from kittens during heat; return is safer."
+            },
+            {
+              "text": "Spay late-term queen immediately; move kittens to new shelter",
+              "rationale_wrong": "Irrelevant to lactation; moving kittens disrupts care under heat stress."
+            }
+          ],
+          "correct_index": 0,
+          "cognitive_level": null,
+          "difficulty": "Medium",
+          "misconceptions": [
+            "MC4"
+          ],
+          "correct_rationale": "Return lactating queens promptly; heatwaves require shade and water provisioning."
+        },
+        {
+          "stem": "Select the correct triage sequence for kittens.",
+          "options": [
+            {
+              "text": "Warmth \u2192 Hydration \u2192 Respiration \u2192 Nutrition",
+              "rationale_wrong": null
+            },
+            {
+              "text": "Nutrition \u2192 Hydration \u2192 Respiration \u2192 Warmth",
+              "rationale_wrong": "Feeding first risks aspiration in cold kittens."
+            },
+            {
+              "text": "Hydration \u2192 Warmth \u2192 Nutrition \u2192 Respiration",
+              "rationale_wrong": "Warmth precedes hydration; order here is incorrect."
+            },
+            {
+              "text": "Respiration \u2192 Warmth \u2192 Hydration \u2192 Nutrition",
+              "rationale_wrong": "The protocol places warmth first, not respiration."
+            }
+          ],
+          "correct_index": 0,
+          "cognitive_level": null,
+          "difficulty": "Medium",
+          "misconceptions": [
+            "MC1"
+          ],
+          "correct_rationale": "This order prevents aspiration and shock before feeding."
+        }
+      ],
+      "misconceptions": [
+        {
+          "id": "MC1",
+          "misbelief": "Feeding first is safest for weak kittens.",
+          "why_plausible": "Hunger is visible and feels most urgent.",
+          "correction": "Triage follows warmth \u2192 hydration \u2192 respiration \u2192 nutrition; warming precedes feeding to prevent aspiration and shock."
+        },
+        {
+          "id": "MC2",
+          "misbelief": "Any milk works for neonates.",
+          "why_plausible": "Cow's milk is common and inexpensive.",
+          "correction": "Use kitten milk replacer (KMR); cow's milk causes GI upset and malnutrition."
+        },
+        {
+          "id": "MC3",
+          "misbelief": "Vaccination is optional for outdoor colonies.",
+          "why_plausible": "Street cats seem hardy and already exposed.",
+          "correction": "Core vaccines reduce outbreaks; herd effect protects the whole colony."
+        },
+        {
+          "id": "MC4",
+          "misbelief": "Relocating cats is better than returning them.",
+          "why_plausible": "New location seems safer or cleaner.",
+          "correction": "TNR returns cats to their territory; site fidelity maintains stability and prevents the vacuum effect."
+        }
+      ],
+      "confusables": [
+        {
+          "a": "Stray",
+          "b": "Feral",
+          "contrast": "Strays tolerate human proximity; ferals avoid it and show minimal socialization."
+        },
+        {
+          "a": "TNR",
+          "b": "Relocation",
+          "contrast": "TNR sterilizes and returns to origin; relocation moves cats and risks disorientation and colony refill."
+        },
+        {
+          "a": "Core vaccine",
+          "b": "Parasite control",
+          "contrast": "Vaccines prevent viral/bacterial disease; parasite control targets internal/external parasites like worms and fleas."
+        }
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "id": "5d9518b7-ebb5-49db-b8f4-1bce021ac753",
+      "user_id": 2,
+      "resource_type": "file_upload",
+      "filename": "kitten-field-notes.txt",
+      "extracted_text": "Feeding log \u2014 Karak\u00f6y colony\n05:30 warm goat-milk formula for neonates (24 ml split across four kittens).\n12:15 replaced damp straw in shelter crates; added thermal discs.\n18:40 observed Tomtom alley tomcat guarding trap line; adjust placement tomorrow.\n\nAction items: rotate heat packs every 6 hours, stock extra oral rehydration, photograph ear-tipped adults.",
+      "extraction_metadata": {},
+      "file_size": 364,
+      "object_store_document_id": "6a7431f5-6f6e-48e7-9f9a-3569fbe5c923",
+      "created_at": "2025-10-30 00:23:07.914800+00:00",
+      "updated_at": "2025-10-30 00:23:07.914800+00:00",
+      "document": {
+        "id": "6a7431f5-6f6e-48e7-9f9a-3569fbe5c923",
+        "user_id": 2,
+        "s3_key": "seed/resources/epsilon/kitten-field-notes.txt",
+        "s3_bucket": "lantern-room",
+        "filename": "kitten-field-notes.txt",
+        "content_type": "text/plain",
+        "file_size": 364,
+        "created_at": "2025-10-30 00:23:07.914800+00:00",
+        "updated_at": "2025-10-30 00:23:07.914800+00:00"
+      }
+    },
+    {
+      "id": "1a53bd9d-d652-4f5d-9f10-2dad436e47f7",
+      "user_id": 2,
+      "resource_type": "url",
+      "source_url": "https://istanbul.example.org/animal-welfare/community-feeding-guide",
+      "extracted_text": "Excerpt: Istanbul Municipal Animal Welfare Directive (2023)\nHighlights feeding station spacing, volunteer registration, and sanitation requirements for urban colonies.\nKey reminder: keep food 3 meters from storefronts, and document veterinary visits in the shared ledger.",
+      "extraction_metadata": {},
+      "created_at": "2025-10-30 00:23:07.914800+00:00",
+      "updated_at": "2025-10-30 00:23:07.914800+00:00"
+    }
+  ],
+  "art_image": {
+    "id": "1a7efaaf-e91d-429b-b032-1a9d08e45af4",
+    "user_id": 2,
+    "s3_key": "seed/7cf29b22-58e2-4b16-88af-db5162a151bf.png",
+    "s3_bucket": "lantern-room",
+    "filename": "unit-art-9435f1bf-472d-47c5-a759-99beadd98076.png",
+    "content_type": "image/png",
+    "file_size": 1991902,
+    "width": 1024,
+    "height": 1024,
+    "alt_text": "Ear\u2011tipped street kitten on a crate in a petrol\u2011blue, rain\u2011slick Istanbul alley under a tight spotlight; thin gilt lines indicate care stations and an open humane trap.",
+    "description": "Cinematic realism: petrol\u2011blue, rain\u2011slick Istanbul alley; ear\u2011tipped kitten, tiny gauze wrap, on a lacquered crate in a tight spotlight. Hairline gilt lines map care points and humane trap; Art\u2011Deco geometry, 3% grain.",
+    "created_at": "2025-10-30 00:23:07.914800+00:00",
+    "updated_at": "2025-10-30 00:23:07.914800+00:00"
+  },
+  "podcast_audio": {
+    "id": "b2992f30-f404-43e9-a4fa-dc15c698e025",
+    "user_id": 2,
+    "s3_key": "seed/f2ff972d-b8d1-4549-afd4-0e791bee9882.mp3",
+    "s3_bucket": "lantern-room",
+    "filename": "unit-9435f1bf-472d-47c5-a759-99beadd98076.mp3",
+    "content_type": "audio/mpeg",
+    "file_size": 4668000,
+    "duration_seconds": 233.0,
+    "bitrate_kbps": 128,
+    "sample_rate_hz": 44100,
+    "transcript": "Picture Istanbul at dawn. The call to prayer, the hiss of kettles, and in the alley between a bakery and a barber\u2014two wet-nosed kittens blinking into the day. They don't make it because of luck. They make it because a city of humans manages a commons, whether it knows it or not. That's our unit: from seeing the system to working the system.\n\nStart with classification. Strays tolerate us. Ferals don't. That single split decides how close we get, how we feed, how we trap. Then read the clock on a kitten's body. Neonate, zero to two weeks\u2014eyes closed, heat-dependent. Infant, two to four\u2014eyes open, wobble stance. Transitional, four to eight\u2014teething, learning to eat. Juvenile, eight to twenty-four\u2014fast, curious, hitting surgical weight. Seasonality is the drumbeat. Spring and late summer flood the streets with kittens. Winter tests endurance. If you know the rhythm, you can play ahead of it.\n\nNow shrink your world to a 50\u2013100 meter circle. Walk it. Sketch it. Where's food? Dumpsters behind meyhanes, a feeder's mat of bowls under the fig tree, a cafe's crumbs at closing. Where's shelter? The dry corner under the stairs, a basement vent, an old \"cat house\" near the kiosk. Where's danger? A taxi cut-through, a dog pack's patrol, a gutter that becomes a river when it rains, the shop owner who's had enough. Where do cats meet people? Schools, markets, tourist choke points. Name the actors: the auntie who feeds at dusk, the municipal mobile clinic two streets over, the guy who complains when bowls block his door.\n\nThen place things with intention. Micro-shelters elevated, dry, out of the wind, with two exits. Insulate before the cold; shade and water before the heat. Keep feeding stations tidy and consistent, but not on thresholds. And keep trap sites separate and discreet, pre-baited so trap day isn't a surprise. Four to six weeks before the spring and late-summer waves, turn up the trapping. Prioritize juveniles at weight and intact adults. Lactating queens? Sterilize only if you can return same day to the exact spot.\n\nLesson two starts with a single rule: triage in order\u2014warmth, hydration, respiration, nutrition. Cold and limp, or breathing hard? That's urgent. Warm first. Don't feed a cold kitten. Stable but snotty eyes, underweight? Priority. Bright-eyed, eating, normal vitals? Routine.\n\nFeed by stage. Neonates get kitten milk replacer by bottle, small and frequent, in warmth and dryness. Two to four weeks, gruel. Four to eight, move to wet food. Eight and up, high-protein wet and dry. Micro-shelters get straw in winter, not fabric. Airflow and shade in heat. Begin core vaccines around eight to nine weeks; boost three to four weeks later. Deworm by weight. Add flea control to cut vectors and protect the group.\n\nTNR is choreography. Pre-bait. Trap. Sterilize. Ear-tip. Vaccinate when possible. Recover. Return to the same territory within 24\u201348 hours. Time campaigns for late winter and late summer to blunt kitten surges. Track everything: photos, locations, ear-tip status, sex, dates, interventions. That ledger is your memory.\n\nEdge cases change the tempo. Lactating queens\u2014same-day return. Late pregnancy\u2014postpone if you can. Panleukopenia\u2014stop mixing, isolate, bleach. Heatwave\u2014shade and water stations. Winter\u2014elevate shelters, add straw, cut drafts. And watch the socialization window: from roughly two to seven weeks, gentle daily handling can turn a life on the street into a home.\n\nSo here's your charge. Map one microhabitat. Place one shelter right. Set one clean feeding routine apart from your future trap line. Run one triage. Plan one season-timed TNR cycle, and write it down. Istanbul's street kittens aren't waiting for perfect. They're waiting for you to start. Next, pick a colony and commit twelve weeks. We'll be here, walking the alley with you.",
+    "created_at": "2025-10-30 00:23:07.914800+00:00",
+    "updated_at": "2025-10-30 00:23:07.914800+00:00"
+  }
+}

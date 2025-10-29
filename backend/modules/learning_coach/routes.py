@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
 from modules.infrastructure.public import infrastructure_provider
 
-from .dtos import LearningCoachMessage, LearningCoachSessionState
+from .dtos import LearningCoachMessage, LearningCoachResource, LearningCoachSessionState
 from .service import LearningCoachService
 
 router = APIRouter(prefix="/api/v1/learning_coach", tags=["learning_coach"])
@@ -46,6 +47,7 @@ class LearningCoachSessionStateModel(BaseModel):
     suggested_lesson_count: int | None = None
     proposed_brief: dict[str, Any] | None = None
     accepted_brief: dict[str, Any] | None = None
+    resources: list[ResourceSummaryModel] = Field(default_factory=list)
 
 
 class StartSessionRequest(BaseModel):
@@ -69,6 +71,25 @@ class AcceptBriefRequest(BaseModel):
     conversation_id: str = Field(..., description="Existing learning coach conversation identifier")
     brief: dict[str, Any] = Field(..., description="Structured brief supplied by the coach")
     user_id: int | None = Field(default=None, description="Authenticated learner identifier", ge=1)
+
+
+class AttachResourceRequest(BaseModel):
+    """Payload to associate an uploaded resource with a conversation."""
+
+    resource_id: uuid.UUID = Field(..., description="Identifier of the resource to attach")
+    user_id: int | None = Field(default=None, description="Authenticated learner identifier", ge=1)
+
+
+class ResourceSummaryModel(BaseModel):
+    """Response model describing a conversation resource."""
+
+    id: uuid.UUID
+    resource_type: str
+    filename: str | None = None
+    source_url: str | None = None
+    file_size: int | None = None
+    created_at: datetime
+    preview_text: str
 
 
 def get_learning_coach_service() -> LearningCoachService:
@@ -135,6 +156,32 @@ async def get_session_state(
     return _serialize_state(state)
 
 
+@router.post(
+    "/conversations/{conversation_id}/resources",
+    response_model=LearningCoachSessionStateModel,
+    status_code=status.HTTP_200_OK,
+)
+async def attach_resource(
+    conversation_id: str,
+    request: AttachResourceRequest,
+    service: LearningCoachService = Depends(get_learning_coach_service),
+) -> LearningCoachSessionStateModel:
+    """Attach a learner resource to the specified learning coach conversation."""
+
+    try:
+        state = await service.attach_resource(
+            conversation_id=conversation_id,
+            resource_id=request.resource_id,
+            user_id=request.user_id,
+        )
+    except LookupError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+
+    return _serialize_state(state)
+
+
 def _serialize_state(state: LearningCoachSessionState) -> LearningCoachSessionStateModel:
     """Convert an internal DTO into an API response model."""
 
@@ -148,6 +195,7 @@ def _serialize_state(state: LearningCoachSessionState) -> LearningCoachSessionSt
         suggested_lesson_count=state.suggested_lesson_count,
         proposed_brief=state.proposed_brief,
         accepted_brief=state.accepted_brief,
+        resources=[_serialize_resource(resource) for resource in state.resources],
     )
 
 
@@ -160,6 +208,20 @@ def _serialize_message(message: LearningCoachMessage) -> LearningCoachMessageMod
         content=message.content,
         created_at=message.created_at,
         metadata=message.metadata,
+    )
+
+
+def _serialize_resource(resource: LearningCoachResource) -> ResourceSummaryModel:
+    """Convert a resource DTO into the API response model."""
+
+    return ResourceSummaryModel(
+        id=uuid.UUID(str(resource.id)),
+        resource_type=resource.resource_type,
+        filename=resource.filename,
+        source_url=resource.source_url,
+        file_size=resource.file_size,
+        created_at=resource.created_at,
+        preview_text=resource.preview_text,
     )
 
 

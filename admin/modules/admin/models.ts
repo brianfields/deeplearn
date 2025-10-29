@@ -181,6 +181,7 @@ export interface ConversationDetail {
   metadata: Record<string, any>;
   proposed_brief: Record<string, any> | null;
   accepted_brief: Record<string, any> | null;
+  resources: ResourceSummary[];
 }
 
 export interface ConversationSummary {
@@ -377,6 +378,7 @@ export interface UserDetail extends UserSummary {
   recent_sessions: UserSessionSummary[];
   recent_llm_requests: UserLLMRequestSummary[];
   recent_conversations: UserConversationSummary[];
+  resources: ResourceWithUsage[];
 }
 
 export interface UserListResponse {
@@ -508,13 +510,6 @@ export interface DailyMetrics {
 }
 
 // ---- Units Types ----
-
-export interface UnitLearningObjective {
-  id: string;
-  text: string;
-  bloom_level: string | null;
-  evidence_of_mastery: string | null;
-}
 
 // API wire formats
 export interface ApiUnitSummary {
@@ -662,9 +657,41 @@ export interface UnitDetail {
   flow_runs: FlowRunSummary[];
   created_at: Date | null;
   updated_at: Date | null;
+  resources: ResourceSummary[];
 }
 
 export type LessonToUnitMap = Record<string, { unit_id: string; unit_title: string }>;
+
+// ---- Resource Types ----
+
+export interface ApiResourceSummary {
+  id: string;
+  resource_type: string;
+  filename: string | null;
+  source_url: string | null;
+  file_size: number | null;
+  created_at: string;
+  preview_text: string;
+}
+
+export interface ResourceSummary {
+  id: string;
+  resource_type: string;
+  filename: string | null;
+  source_url: string | null;
+  file_size: number | null;
+  created_at: Date;
+  preview_text: string;
+}
+
+export interface ResourceUsageSummary {
+  unit_id: string;
+  unit_title: string;
+}
+
+export interface ResourceWithUsage extends ResourceSummary {
+  used_in_units: ResourceUsageSummary[];
+}
 
 // ---- API Wire Types (private to module) ----
 
@@ -765,6 +792,17 @@ export interface ApiConversationDetail {
   metadata: Record<string, any> | null;
   proposed_brief?: Record<string, any> | null;
   accepted_brief?: Record<string, any> | null;
+  resources?: ApiResourceSummary[];
+}
+
+export interface ApiResourceSummary {
+  id: string;
+  resource_type: string;
+  filename: string | null;
+  source_url: string | null;
+  file_size: number | null;
+  created_at: string;
+  preview_text: string;
 }
 
 export interface ApiConversationSummary {

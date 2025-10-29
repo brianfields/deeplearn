@@ -68,6 +68,16 @@ export interface ApiMyUnitMutationResponse {
   is_in_my_units: boolean;
 }
 
+export interface ApiUnitResourceSummary {
+  readonly id: string;
+  readonly resource_type: string;
+  readonly filename: string | null;
+  readonly source_url: string | null;
+  readonly file_size: number | null;
+  readonly created_at: string;
+  readonly preview_text: string | null;
+}
+
 export class ContentRepo {
   private infrastructure = infrastructureProvider();
 
@@ -96,6 +106,20 @@ export class ContentRepo {
       });
     } catch (error) {
       throw this.handleError(error, `Failed to get unit ${unitId}`);
+    }
+  }
+
+  async getUnitResources(unitId: string): Promise<ApiUnitResourceSummary[]> {
+    const url = `/api/v1/units/${encodeURIComponent(unitId)}/resources`;
+    try {
+      return await this.infrastructure.request<ApiUnitResourceSummary[]>(url, {
+        method: 'GET',
+      });
+    } catch (error) {
+      throw this.handleError(
+        error,
+        `Failed to get resources for unit ${unitId}`
+      );
     }
   }
 

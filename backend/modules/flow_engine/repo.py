@@ -71,7 +71,9 @@ class FlowRunRepo:
         if arq_task_id:
             stmt = stmt.where(FlowRunModel.arq_task_id == arq_task_id)
         if unit_id:
-            stmt = stmt.where(FlowRunModel.inputs["unit_id"].astext == unit_id)
+            from sqlalchemy import String, cast
+
+            stmt = stmt.where(cast(FlowRunModel.inputs["unit_id"], String) == unit_id)
 
         stmt = stmt.order_by(desc(FlowRunModel.created_at)).limit(limit).offset(offset)
         return list(self.s.execute(stmt).scalars())

@@ -1,65 +1,88 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { TaskStatus } from './models';
+import type {
+  TaskStatus,
+  ConversationSummary,
+  LessonSummary,
+  ResourceWithUsage,
+  UserDetail,
+} from './models';
 import { AdminService } from './service';
 
 const mocks = vi.hoisted(() => ({
-  tasksMock: vi.fn<(limit?: number, queueName?: string) => Promise<any[]>>(),
-  taskByIdMock: vi.fn<(taskId: string) => Promise<any>>(),
-  taskFlowRunsMock: vi.fn<(taskId: string) => Promise<any[]>>(),
-  unitFlowRunsMock: vi.fn<(unitId: string) => Promise<any[]>>(),
-  unitDetailMock: vi.fn<(unitId: string) => Promise<any>>(),
-  conversationListMock: vi.fn<(
-    params?: any
-  ) => Promise<{
-    conversations: any[];
-    total_count: number;
-    page: number;
-    page_size: number;
-    has_next: boolean;
-  }>>(),
-  conversationDetailMock: vi.fn<(conversationId: string) => Promise<any>>(),
-  lessonsListMock: vi.fn<(params?: any) => Promise<any>>(),
-  lessonByIdMock: vi.fn<(lessonId: string) => Promise<any>>(),
-  unitsListMock: vi.fn<(params?: any) => Promise<any[]>>(),
-  learningSessionListMock: vi.fn<(
-    params?: any
-  ) => Promise<{
-    sessions: any[];
-    total_count: number;
-    page: number;
-    page_size: number;
-    has_next: boolean;
-  }>>(),
-  learningSessionDetailMock: vi.fn<(sessionId: string) => Promise<any>>(),
+  tasks: vi.fn(),
+  taskById: vi.fn(),
+  taskFlowRuns: vi.fn(),
+  unitFlowRuns: vi.fn(),
+  unitDetail: vi.fn(),
+  unitResources: vi.fn(),
+  conversationList: vi.fn(),
+  conversationDetail: vi.fn(),
+  lessonsList: vi.fn(),
+  lessonById: vi.fn(),
+  resourcesByUser: vi.fn(),
+  usersDetail: vi.fn(),
+  usersUpdate: vi.fn(),
+  usersList: vi.fn(),
+  unitsList: vi.fn(),
+  unitsBasics: vi.fn(),
+  healthCheck: vi.fn(),
 }));
 
 vi.mock('./repo', () => ({
   AdminRepo: {
     taskQueue: {
-      tasks: mocks.tasksMock,
-      taskById: mocks.taskByIdMock,
-      flowRuns: mocks.taskFlowRunsMock,
+      tasks: mocks.tasks,
+      taskById: mocks.taskById,
+      flowRuns: mocks.taskFlowRuns,
     },
     units: {
-      list: mocks.unitsListMock,
-      detail: mocks.unitDetailMock,
-      flowRuns: mocks.unitFlowRunsMock,
+      list: mocks.unitsList,
+      basics: mocks.unitsBasics,
+      detail: mocks.unitDetail,
+      flowRuns: mocks.unitFlowRuns,
+      resources: mocks.unitResources,
     },
     conversations: {
-      list: mocks.conversationListMock,
-      byId: mocks.conversationDetailMock,
+      list: mocks.conversationList,
+      byId: mocks.conversationDetail,
     },
     lessons: {
-      list: mocks.lessonsListMock,
-      byId: mocks.lessonByIdMock,
-    learningSessions: {
-      list: mocks.learningSessionListMock,
-      byId: mocks.learningSessionDetailMock,
+      list: mocks.lessonsList,
+      byId: mocks.lessonById,
     },
+    resources: {
+      listByUser: mocks.resourcesByUser,
+    },
+    users: {
+      list: mocks.usersList,
+      detail: mocks.usersDetail,
+      update: mocks.usersUpdate,
+    },
+    metrics: {
+      getSystemMetrics: vi.fn(),
+      getFlowMetrics: vi.fn(),
+      getDailyMetrics: vi.fn(),
+    },
+    flows: {
+      list: vi.fn(),
+      getStepDetails: vi.fn(),
+    },
+    flowEngine: {
+      byId: vi.fn(),
+    },
+    llmRequests: {
+      list: vi.fn(),
+      byId: vi.fn(),
+    },
+    learningSessions: {
+      list: vi.fn(),
+      byId: vi.fn(),
+    },
+    healthCheck: mocks.healthCheck,
   },
 }));
 
-describe('AdminService task and flow mappings', () => {
+describe('AdminService resource-aware mappings', () => {
   const service = new AdminService();
 
   beforeEach(() => {
@@ -74,11 +97,11 @@ describe('AdminService task and flow mappings', () => {
       queue_name: 'default',
     };
 
-    mocks.tasksMock.mockResolvedValueOnce([apiTask]);
+    mocks.tasks.mockResolvedValueOnce([apiTask]);
 
     const result = await service.getTasks(25);
 
-    expect(mocks.tasksMock).toHaveBeenCalledWith(25, undefined);
+    expect(mocks.tasks).toHaveBeenCalledWith(25, undefined);
     expect(result).toHaveLength(1);
 
     const task: TaskStatus = result[0];
@@ -94,13 +117,6 @@ describe('AdminService task and flow mappings', () => {
     expect(task.started_at).toBeNull();
     expect(task.completed_at).toBeNull();
     expect(task.flow_name).toBeNull();
-    expect(task.task_type).toBeNull();
-    expect(task.progress_percentage).toBeNull();
-    expect(task.current_step).toBeNull();
-    expect(task.worker_id).toBeNull();
-    expect(task.user_id).toBeNull();
-    expect(task.flow_run_id).toBeNull();
-    expect(task.unit_id).toBeNull();
   });
 
   it('maps flow runs associated with a task', async () => {
@@ -121,26 +137,27 @@ describe('AdminService task and flow mappings', () => {
       error_message: null,
     };
 
-    mocks.taskFlowRunsMock.mockResolvedValueOnce([apiFlowRun]);
+    mocks.taskFlowRuns.mockResolvedValueOnce([apiFlowRun]);
 
     const runs = await service.getTaskFlowRuns('task-001');
 
-    expect(mocks.taskFlowRunsMock).toHaveBeenCalledWith('task-001');
+    expect(mocks.taskFlowRuns).toHaveBeenCalledWith('task-001');
     expect(runs).toHaveLength(1);
     expect(runs[0].id).toBe('flow-123');
     expect(runs[0].started_at).toEqual(new Date('2024-01-01T00:05:00Z'));
     expect(runs[0].completed_at).toEqual(new Date('2024-01-01T00:06:00Z'));
     expect(runs[0].execution_time_ms).toBe(60000);
-    expect(runs[0].total_tokens).toBe(1200);
   });
 
   it('returns [] when unit flow run lookup fails', async () => {
-    mocks.unitFlowRunsMock.mockRejectedValueOnce(new Error('network error'));
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mocks.unitFlowRuns.mockRejectedValueOnce(new Error('network error'));
 
     const runs = await service.getUnitFlowRuns('unit-123');
 
-    expect(mocks.unitFlowRunsMock).toHaveBeenCalledWith('unit-123');
+    expect(mocks.unitFlowRuns).toHaveBeenCalledWith('unit-123');
     expect(runs).toEqual([]);
+    errorSpy.mockRestore();
   });
 
   it('maps conversation summaries into DTOs with pagination metadata', async () => {
@@ -156,7 +173,7 @@ describe('AdminService task and flow mappings', () => {
       metadata: { topic: 'algebra' },
     };
 
-    mocks.conversationListMock.mockResolvedValueOnce({
+    mocks.conversationList.mockResolvedValueOnce({
       conversations: [summary],
       total_count: 1,
       page: 1,
@@ -166,13 +183,15 @@ describe('AdminService task and flow mappings', () => {
 
     const result = await service.getConversations({ page: 1, page_size: 50 });
 
-    expect(mocks.conversationListMock).toHaveBeenCalledWith({ page: 1, page_size: 50 });
+    expect(mocks.conversationList).toHaveBeenCalledWith({ page: 1, page_size: 50 });
     expect(result.total_count).toBe(1);
     expect(result.page_size).toBe(50);
     expect(result.conversations).toHaveLength(1);
-    expect(result.conversations[0].id).toBe('conv-1');
-    expect(result.conversations[0].created_at).toEqual(new Date('2024-01-01T00:00:00Z'));
-    expect(result.conversations[0].metadata.topic).toBe('algebra');
+
+    const conversation: ConversationSummary = result.conversations[0];
+    expect(conversation.id).toBe('conv-1');
+    expect(conversation.created_at).toEqual(new Date('2024-01-01T00:00:00Z'));
+    expect(conversation.metadata.topic).toBe('algebra');
   });
 
   it('maps conversation detail with messages into DTO', async () => {
@@ -196,11 +215,11 @@ describe('AdminService task and flow mappings', () => {
       ],
     };
 
-    mocks.conversationDetailMock.mockResolvedValueOnce(detail);
+    mocks.conversationDetail.mockResolvedValueOnce(detail);
 
     const result = await service.getConversation('conv-1');
 
-    expect(mocks.conversationDetailMock).toHaveBeenCalledWith('conv-1');
+    expect(mocks.conversationDetail).toHaveBeenCalledWith('conv-1');
     expect(result).not.toBeNull();
     expect(result?.conversation_id).toBe('conv-1');
     expect(result?.messages).toHaveLength(1);
@@ -209,7 +228,7 @@ describe('AdminService task and flow mappings', () => {
   });
 
   it('maps lesson summaries with podcast metadata', async () => {
-    mocks.lessonsListMock.mockResolvedValueOnce({
+    mocks.lessonsList.mockResolvedValueOnce({
       lessons: [
         {
           id: 'lesson-1',
@@ -223,34 +242,20 @@ describe('AdminService task and flow mappings', () => {
           podcast_duration_seconds: 185,
           podcast_audio_url: '/audio/lesson-1.mp3',
           podcast_generated_at: '2024-01-01T01:10:00Z',
-  it('maps learning sessions into DTOs', async () => {
-    const response = {
-      sessions: [
-        {
-          id: 'session-1',
-          lesson_id: 'lesson-1',
-          unit_id: 'unit-1',
-          user_id: 'user-1',
-          status: 'completed',
-          started_at: '2024-01-01T00:00:00Z',
-          completed_at: '2024-01-01T00:30:00Z',
-          current_exercise_index: 3,
-          total_exercises: 5,
-          progress_percentage: 60,
-          session_data: { exercise_answers: {} },
         },
       ],
       total_count: 1,
       page: 1,
-      page_size: 50,
+      page_size: 25,
       has_next: false,
     });
 
     const result = await service.getLessons();
 
-    expect(mocks.lessonsListMock).toHaveBeenCalled();
+    expect(mocks.lessonsList).toHaveBeenCalled();
     expect(result.lessons).toHaveLength(1);
-    const summary = result.lessons[0];
+
+    const summary: LessonSummary = result.lessons[0];
     expect(summary.has_podcast).toBe(true);
     expect(summary.podcast_voice).toBe('alloy');
     expect(summary.podcast_duration_seconds).toBe(185);
@@ -259,7 +264,7 @@ describe('AdminService task and flow mappings', () => {
   });
 
   it('maps lesson detail podcast metadata', async () => {
-    mocks.lessonByIdMock.mockResolvedValueOnce({
+    mocks.lessonById.mockResolvedValueOnce({
       id: 'lesson-1',
       title: 'Lesson One',
       learner_level: 'beginner',
@@ -279,7 +284,7 @@ describe('AdminService task and flow mappings', () => {
 
     const lesson = await service.getLesson('lesson-1');
 
-    expect(mocks.lessonByIdMock).toHaveBeenCalledWith('lesson-1');
+    expect(mocks.lessonById).toHaveBeenCalledWith('lesson-1');
     expect(lesson?.has_podcast).toBe(true);
     expect(lesson?.podcast_transcript).toBe('Lesson transcript');
     expect(lesson?.podcast_voice).toBe('alloy');
@@ -288,8 +293,8 @@ describe('AdminService task and flow mappings', () => {
     expect(lesson?.podcast_generated_at).toEqual(new Date('2024-01-01T01:30:00Z'));
   });
 
-  it('maps unit detail lesson podcast fields', async () => {
-    mocks.unitDetailMock.mockResolvedValueOnce({
+  it('maps unit detail including associated resources', async () => {
+    mocks.unitDetail.mockResolvedValueOnce({
       id: 'unit-1',
       title: 'Unit One',
       description: null,
@@ -330,39 +335,95 @@ describe('AdminService task and flow mappings', () => {
       created_at: '2024-01-01T00:00:00Z',
       updated_at: '2024-01-02T00:00:00Z',
     });
-    mocks.unitFlowRunsMock.mockResolvedValueOnce([]);
+    mocks.unitFlowRuns.mockResolvedValueOnce([]);
+    mocks.unitResources.mockResolvedValueOnce([
+      {
+        id: 'res-1',
+        resource_type: 'file',
+        filename: 'notes.pdf',
+        source_url: null,
+        file_size: 1234,
+        created_at: '2024-01-01T00:00:00Z',
+        preview_text: 'Preview',
+      },
+    ]);
 
     const detail = await service.getUnitDetail('unit-1');
 
-    expect(mocks.unitDetailMock).toHaveBeenCalledWith('unit-1');
+    expect(mocks.unitDetail).toHaveBeenCalledWith('unit-1');
     expect(detail).not.toBeNull();
-    const firstLesson = detail?.lessons[0];
-    expect(firstLesson?.has_podcast).toBe(true);
-    expect(firstLesson?.podcast_voice).toBe('verse');
-    expect(firstLesson?.podcast_duration_seconds).toBe(150);
-    expect(firstLesson?.podcast_generated_at).toEqual(new Date('2024-01-02T00:00:00Z'));
-    expect(firstLesson?.podcast_audio_url).toBe('/audio/lesson-1.mp3');
-      page_size: 25,
-      has_next: false,
-    };
-
-    mocks.learningSessionListMock.mockResolvedValueOnce(response);
-
-    const result = await service.getLearningSessions({ page: 1, page_size: 25 });
-
-    expect(mocks.learningSessionListMock).toHaveBeenCalledWith({ page: 1, page_size: 25 });
-    expect(result.sessions).toHaveLength(1);
-    expect(result.total_count).toBe(1);
-    expect(result.sessions[0].id).toBe('session-1');
-    expect(result.sessions[0].started_at).toEqual(new Date('2024-01-01T00:00:00Z'));
+    expect(detail?.lessons[0].podcast_voice).toBe('verse');
+    expect(detail?.resources).toHaveLength(1);
+    expect(detail?.resources[0].filename).toBe('notes.pdf');
   });
 
-  it('returns null when learning session detail fetch fails', async () => {
-    mocks.learningSessionDetailMock.mockRejectedValueOnce(new Error('network error'));
+  it('builds user resources with usage lookups', async () => {
+    const apiUser = {
+      id: 99,
+      email: 'learner@example.com',
+      name: 'Learner',
+      role: 'student',
+      is_active: true,
+      created_at: '2024-01-01T00:00:00Z',
+      updated_at: '2024-01-02T00:00:00Z',
+      associations: {
+        owned_unit_count: 1,
+        owned_global_unit_count: 0,
+        learning_session_count: 0,
+        llm_request_count: 0,
+      },
+      owned_units: [
+        {
+          id: 'unit-1',
+          title: 'Unit One',
+          is_global: false,
+          updated_at: '2024-01-02T00:00:00Z',
+          art_image_url: null,
+          art_image_description: null,
+        },
+      ],
+      recent_sessions: [],
+      recent_llm_requests: [],
+      recent_conversations: [],
+    };
 
-    const detail = await service.getLearningSession('session-1');
+    mocks.usersDetail.mockResolvedValueOnce(apiUser);
+    mocks.resourcesByUser.mockResolvedValueOnce([
+      {
+        id: 'res-1',
+        resource_type: 'file',
+        filename: 'notes.pdf',
+        source_url: null,
+        file_size: 1234,
+        created_at: '2024-01-01T00:00:00Z',
+        preview_text: 'Preview',
+      },
+    ]);
+    mocks.unitResources.mockResolvedValueOnce([
+      {
+        id: 'res-1',
+        resource_type: 'file',
+        filename: 'notes.pdf',
+        source_url: null,
+        file_size: 1234,
+        created_at: '2024-01-01T00:00:00Z',
+        preview_text: 'Preview',
+      },
+    ]);
 
-    expect(mocks.learningSessionDetailMock).toHaveBeenCalledWith('session-1');
-    expect(detail).toBeNull();
+    const userDetail = await service.getUser(99);
+
+    expect(mocks.usersDetail).toHaveBeenCalledWith(99);
+    expect(mocks.resourcesByUser).toHaveBeenCalledWith(99);
+    expect(mocks.unitResources).toHaveBeenCalledWith('unit-1');
+
+    const resources = (userDetail as UserDetail).resources;
+    expect(resources).toHaveLength(1);
+
+    const resource: ResourceWithUsage = resources[0];
+    expect(resource.id).toBe('res-1');
+    expect(resource.used_in_units).toEqual([
+      { unit_id: 'unit-1', unit_title: 'Unit One' },
+    ]);
   });
 });

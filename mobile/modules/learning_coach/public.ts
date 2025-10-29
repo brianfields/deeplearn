@@ -5,6 +5,7 @@ export interface LearningCoachProvider {
   sendLearnerTurn: LearningCoachService['sendLearnerTurn'];
   acceptBrief: LearningCoachService['acceptBrief'];
   getSession: LearningCoachService['getSession'];
+  attachResource: LearningCoachService['attachResource'];
 }
 
 let serviceInstance: LearningCoachService | null = null;
@@ -23,6 +24,7 @@ export function learningCoachProvider(): LearningCoachProvider {
     sendLearnerTurn: service.sendLearnerTurn.bind(service),
     acceptBrief: service.acceptBrief.bind(service),
     getSession: service.getSession.bind(service),
+    attachResource: service.attachResource.bind(service),
   };
 }
 
@@ -30,4 +32,5 @@ export type {
   LearningCoachBrief,
   LearningCoachMessage,
   LearningCoachSessionState,
+  AttachResourcePayload,
 } from './models';

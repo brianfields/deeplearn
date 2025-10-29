@@ -5,6 +5,8 @@ import { uiSystemProvider } from '../../ui_system/public';
 interface Props {
   readonly onSend: (message: string) => void;
   readonly disabled?: boolean;
+  readonly onAttach?: () => void;
+  readonly attachDisabled?: boolean;
 }
 
 const uiSystem = uiSystemProvider();
@@ -13,7 +15,12 @@ const sendTextColor = uiSystem.isLightColor(theme.colors.primary)
   ? theme.colors.text
   : theme.colors.surface;
 
-export function Composer({ onSend, disabled }: Props): React.ReactElement {
+export function Composer({
+  onSend,
+  disabled,
+  onAttach,
+  attachDisabled,
+}: Props): React.ReactElement {
   const [value, setValue] = useState('');
   const [isSending, setIsSending] = useState(false);
 
@@ -27,6 +34,13 @@ export function Composer({ onSend, disabled }: Props): React.ReactElement {
     setValue('');
   };
 
+  const handleAttach = () => {
+    if (!onAttach || attachDisabled) {
+      return;
+    }
+    onAttach();
+  };
+
   // Reset sending state when input changes or when disabled changes
   React.useEffect(() => {
     if (value || !disabled) {
@@ -36,6 +50,18 @@ export function Composer({ onSend, disabled }: Props): React.ReactElement {
 
   return (
     <View style={styles.container}>
+      {onAttach ? (
+        <Pressable
+          style={({ pressed }) => [
+            styles.attachButton,
+            { opacity: pressed || attachDisabled ? 0.6 : 1 },
+          ]}
+          onPress={handleAttach}
+          disabled={attachDisabled}
+        >
+          <Text style={styles.attachButtonText}>＋</Text>
+        </Pressable>
+      ) : null}
       <TextInput
         value={value}
         onChangeText={setValue}
@@ -79,6 +105,22 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     backgroundColor: theme.colors.surface,
     color: theme.colors.text,
+  },
+  attachButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: theme.colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  attachButtonText: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: theme.colors.primary,
   },
   button: {
     borderRadius: 12,

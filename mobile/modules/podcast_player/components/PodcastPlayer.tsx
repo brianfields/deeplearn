@@ -110,14 +110,25 @@ export function PodcastPlayer({
   const sliderX = useRef(0);
   const [isDraggingSpeed, setIsDraggingSpeed] = useState(false);
   const [dragSpeedPosition, setDragSpeedPosition] = useState(0);
+  const lastLoadedTrackIdRef = useRef<string | null>(null);
 
   // Load track when component mounts (same as FullPlayer)
   useEffect(() => {
     if (!track || isCurrentTrack) {
       return;
     }
+
+    // Prevent duplicate loads of the same track
+    const trackId = track.lessonId || `${track.unitId}:intro`;
+    if (lastLoadedTrackIdRef.current === trackId) {
+      console.log('[PodcastPlayer] Track already loaded, skipping:', trackId);
+      return;
+    }
+
+    lastLoadedTrackIdRef.current = trackId;
     loadTrack(track).catch(error => {
       console.warn('[PodcastPlayer] Failed to load track', error);
+      lastLoadedTrackIdRef.current = null; // Reset on error to allow retry
     });
   }, [isCurrentTrack, loadTrack, track]);
 

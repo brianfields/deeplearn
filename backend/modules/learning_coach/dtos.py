@@ -28,6 +28,19 @@ class LearningCoachMessage:
 
 
 @dataclass(slots=True)
+class LearningCoachResource:
+    """Summary view of a resource associated with the conversation."""
+
+    id: str
+    resource_type: str
+    filename: str | None
+    source_url: str | None
+    file_size: int | None
+    created_at: datetime
+    preview_text: str
+
+
+@dataclass(slots=True)
 class LearningCoachSessionState:
     """Aggregate view of a learning coach conversation."""
 
@@ -40,6 +53,7 @@ class LearningCoachSessionState:
     suggested_lesson_count: int | None
     proposed_brief: dict[str, Any] | None  # Deprecated, will be removed
     accepted_brief: dict[str, Any] | None  # Deprecated, will be removed
+    resources: list[LearningCoachResource]
 
 
 @dataclass(slots=True)

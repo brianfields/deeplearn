@@ -12,11 +12,13 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from modules.infrastructure.public import infrastructure_provider
+from modules.resource.public import ResourceProvider, ResourceSummary, resource_provider
 
 from .public import content_provider
 from .service import ContentService
 
 router = APIRouter(prefix="/api/v1/content", tags=["Content"])
+unit_resources_router = APIRouter(prefix="/api/v1/units", tags=["Content Resources"])
 
 
 async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
@@ -26,6 +28,12 @@ async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
     infra.initialize()
     async with infra.get_async_session_context() as session:
         yield session
+
+
+async def get_resource_provider(session: AsyncSession = Depends(get_async_session)) -> ResourceProvider:
+    """Build the resource provider for read-only operations."""
+
+    return await resource_provider(session)
 
 
 async def get_content_service(session: AsyncSession = Depends(get_async_session)) -> ContentService:
@@ -182,6 +190,16 @@ async def remove_unit_from_my_units(
     return MyUnitMutationResponse(unit=unit, is_in_my_units=False)
 
 
+@unit_resources_router.get("/{unit_id}/resources", response_model=list[ResourceSummary])
+async def get_unit_resources_endpoint(
+    unit_id: str,
+    resources: ResourceProvider = Depends(get_resource_provider),
+) -> list[ResourceSummary]:
+    """Return resources linked to the requested unit."""
+
+    return await resources.get_resources_for_unit(unit_id)
+
+
 @router.get("/units/{unit_id}/flow-runs")
 async def get_unit_flow_runs(
     unit_id: str,
@@ -267,3 +285,6 @@ async def update_unit_sharing(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+__all__ = ["router", "unit_resources_router"]

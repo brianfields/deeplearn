@@ -47,6 +47,8 @@ export class PodcastPlayerService {
   private stateSubscription: TrackPlayerEventSubscription | null = null;
   private queueEndedSubscription: TrackPlayerEventSubscription | null = null;
   private repo: PodcastPlayerRepo;
+  private loadTrackMutex = false;
+  private loadTrackPromise: Promise<void> | null = null;
 
   constructor(repo: PodcastPlayerRepo = new PodcastPlayerRepo()) {
     this.repo = repo;
@@ -89,7 +91,7 @@ export class PodcastPlayerService {
 
   async initialize(): Promise<void> {
     console.log('[PodcastPlayerService] 🔧 Initialize called');
-    if (this.isInitialized) {
+    if (this.isInitialized && !this.initializationPromise) {
       console.log('[PodcastPlayerService] ✅ Already initialized');
       return;
     }
@@ -97,7 +99,8 @@ export class PodcastPlayerService {
       console.log(
         '[PodcastPlayerService] ⏳ Initialization in progress, waiting...'
       );
-      return this.initializationPromise;
+      await this.initializationPromise;
+      return;
     }
 
     console.log('[PodcastPlayerService] 🚀 Starting initialization...');
@@ -137,6 +140,7 @@ export class PodcastPlayerService {
           '[PodcastPlayerService] ❌ Initialization failed:',
           error
         );
+        this.isInitialized = false;
         throw error;
       }
     })();
@@ -238,6 +242,38 @@ export class PodcastPlayerService {
   }
 
   async loadTrack(track: PodcastTrack): Promise<void> {
+    const trackKey = this.getTrackKey(track);
+
+    // If we're already loading this exact track, wait for that operation
+    if (this.loadTrackPromise && this.currentTrackId === trackKey) {
+      console.log(
+        '[PodcastPlayerService] ⏳ loadTrack already in progress for this track, waiting...'
+      );
+      await this.loadTrackPromise;
+      return;
+    }
+
+    // If we're loading a different track, wait for that to complete first
+    if (this.loadTrackMutex) {
+      console.log(
+        '[PodcastPlayerService] 🔒 loadTrack already in progress, waiting for mutex...'
+      );
+      await this.loadTrackPromise;
+    }
+
+    // Acquire mutex
+    this.loadTrackMutex = true;
+    this.loadTrackPromise = this.loadTrackInternal(track);
+
+    try {
+      await this.loadTrackPromise;
+    } finally {
+      this.loadTrackMutex = false;
+      this.loadTrackPromise = null;
+    }
+  }
+
+  private async loadTrackInternal(track: PodcastTrack): Promise<void> {
     console.log('[PodcastPlayerService] 🎵 loadTrack called');
     console.log('[PodcastPlayerService] Track details:', {
       unitId: track.unitId,
@@ -307,8 +343,12 @@ export class PodcastPlayerService {
       console.log('[PodcastPlayerService] ✅ Track added successfully');
     } catch (error) {
       console.error('[PodcastPlayerService] ❌ Failed to add track:', error);
+      store.updatePlaybackState({ isLoading: false });
       throw error;
     }
+
+    // Wait for player to be ready before setting rate/seeking
+    await this.waitForPlayerReady();
 
     const speed = store.globalSpeed;
     console.log('[PodcastPlayerService] ⚡ Setting playback rate:', speed);
@@ -331,6 +371,45 @@ export class PodcastPlayerService {
       isLoading: false,
     });
     console.log('[PodcastPlayerService] ✅ loadTrack complete');
+  }
+
+  /**
+   * Waits for the player to reach a ready state (duration > 0 or ready state)
+   * before performing operations like seekTo or setRate
+   */
+  private async waitForPlayerReady(maxWaitMs = 3000): Promise<void> {
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < maxWaitMs) {
+      try {
+        const progress = await TrackPlayer.getProgress();
+        const state = await TrackPlayer.getState();
+
+        // Ready if we have duration or state is not None/Loading
+        if (
+          progress.duration > 0 ||
+          (state !== 'none' && state !== 'loading')
+        ) {
+          console.log('[PodcastPlayerService] ✅ Player is ready:', {
+            duration: progress.duration,
+            state,
+          });
+          return;
+        }
+      } catch (error) {
+        console.warn(
+          '[PodcastPlayerService] ⚠️ Error checking player state:',
+          error
+        );
+      }
+
+      // Wait 100ms before checking again
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    console.warn(
+      '[PodcastPlayerService] ⚠️ Player ready timeout, proceeding anyway'
+    );
   }
 
   async loadPlaylist(unitId: string, tracks: PodcastTrack[]): Promise<void> {

@@ -21,7 +21,7 @@ except ImportError:  # pragma: no cover - optional dependency
     Image = None  # type: ignore
 from pydantic import BaseModel, Field
 
-from .repo import AudioRepo, ImageRepo
+from .repo import AudioRepo, DocumentRepo, ImageRepo
 from .s3_provider import FileMetadata, S3Error, S3FileNotFoundError, S3Provider
 
 logger = logging.getLogger(__name__)
@@ -35,6 +35,16 @@ IMAGE_CONTENT_TYPES: frozenset[str] = frozenset(
         "image/gif",
     }
 )
+DOCUMENT_CONTENT_TYPES: frozenset[str] = frozenset(
+    {
+        "application/pdf",
+        "text/plain",
+        "text/markdown",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    }
+)
+
 AUDIO_CONTENT_TYPES: frozenset[str] = frozenset(
     {
         "audio/mpeg",
@@ -103,6 +113,34 @@ class ImageCreate(BaseModel):
     description: str | None = None
 
 
+class DocumentRead(BaseModel):
+    """DTO describing stored document metadata."""
+
+    id: uuid.UUID
+    user_id: int | None
+    s3_key: str
+    s3_bucket: str
+    filename: str
+    content_type: str
+    file_size: int
+    created_at: datetime
+    updated_at: datetime
+    presigned_url: str | None = None
+
+    model_config = {
+        "from_attributes": True,
+    }
+
+
+class DocumentCreate(BaseModel):
+    """Payload for uploading a document."""
+
+    user_id: int | None
+    filename: str
+    content_type: str
+    content: bytes = Field(repr=False)
+
+
 class AudioRead(BaseModel):
     """DTO for audio metadata."""
 
@@ -143,6 +181,13 @@ class FileUploadResult(BaseModel):
     presigned_url: str | None = None
 
 
+class DocumentUploadResult(BaseModel):
+    """Return type for document uploads."""
+
+    document: DocumentRead
+    presigned_url: str | None = None
+
+
 @dataclass(slots=True)
 class _ImageMetadata:
     width: int | None
@@ -157,12 +202,42 @@ class _AudioMetadata:
 
 
 class ObjectStoreService:
-    """Service coordinating storage of images and audio in S3 with metadata in Postgres."""
+    """Service coordinating storage of images, audio, and documents in S3 with metadata in Postgres."""
 
-    def __init__(self, image_repo: ImageRepo, audio_repo: AudioRepo, s3: S3Provider) -> None:
+    def __init__(self, image_repo: ImageRepo, audio_repo: AudioRepo, document_repo: DocumentRepo, s3: S3Provider) -> None:
         self._images = image_repo
         self._audio = audio_repo
+        self._documents = document_repo
         self._s3 = s3
+
+    async def upload_document(
+        self,
+        data: DocumentCreate,
+        *,
+        generate_presigned_url: bool = False,
+        presigned_ttl_seconds: int = 86400,
+    ) -> DocumentUploadResult:
+        self._validate_file(data.content, data.content_type, DOCUMENT_CONTENT_TYPES)
+        upload_metadata = await self._upload_to_s3(
+            user_id=data.user_id,
+            filename=data.filename,
+            content_type=data.content_type,
+            content=data.content,
+            category="documents",
+        )
+        document = await self._documents.create(
+            user_id=data.user_id,
+            s3_key=upload_metadata.s3_key,
+            s3_bucket=self._s3.bucket_name,
+            filename=upload_metadata.filename,
+            content_type=upload_metadata.content_type,
+            file_size=upload_metadata.file_size,
+        )
+        url = await self._s3.get_presigned_url(document.s3_key, expires_in=presigned_ttl_seconds) if generate_presigned_url else None
+        dto = DocumentRead.model_validate(document)
+        if url is not None:
+            dto = dto.model_copy(update={"presigned_url": url})
+        return DocumentUploadResult(document=dto, presigned_url=url)
 
     async def upload_image(
         self,

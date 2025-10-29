@@ -2,18 +2,20 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Any
 import uuid
 
 from modules.conversation_engine.public import conversation_engine_provider
 from modules.infrastructure.public import InfrastructureProvider, infrastructure_provider
+from modules.resource.public import ResourceRead, resource_provider
 
 from .conversation import LearningCoachConversation
 from .dtos import (
     LearningCoachConversationSummary,
     LearningCoachMessage,
     LearningCoachObjective,
+    LearningCoachResource,
     LearningCoachSessionState,
 )
 
@@ -78,6 +80,22 @@ class LearningCoachService:
             brief=brief,
         )
 
+    async def attach_resource(
+        self,
+        *,
+        conversation_id: str,
+        resource_id: uuid.UUID,
+        user_id: int | None = None,
+    ) -> LearningCoachSessionState:
+        """Associate an uploaded resource with the specified conversation."""
+
+        conversation = self._conversation_factory()
+        return await conversation.add_resource(
+            _conversation_id=conversation_id,
+            _user_id=user_id,
+            resource_id=str(resource_id),
+        )
+
     async def restart_session(
         self,
         *,
@@ -114,6 +132,8 @@ class LearningCoachService:
             if include_system_messages or message.role != "system"
         ]
 
+        resources = await self.get_conversation_resources(conversation_id)
+
         return LearningCoachSessionState(
             conversation_id=detail.id,
             messages=messages,
@@ -124,6 +144,18 @@ class LearningCoachService:
             suggested_lesson_count=metadata.get("suggested_lesson_count"),
             proposed_brief=self._dict_or_none(metadata.get("proposed_brief")),
             accepted_brief=self._dict_or_none(metadata.get("accepted_brief")),
+            resources=[
+                LearningCoachResource(
+                    id=str(resource.id),
+                    resource_type=resource.resource_type,
+                    filename=resource.filename,
+                    source_url=resource.source_url,
+                    file_size=resource.file_size,
+                    created_at=resource.created_at,
+                    preview_text=_build_preview_text(resource),
+                )
+                for resource in resources
+            ],
         )
 
     async def list_conversations(
@@ -198,6 +230,120 @@ class LearningCoachService:
                 )
 
         return objectives or None
+
+    async def get_conversation_resources(self, conversation_id: str) -> list[ResourceRead]:
+        """Return resources linked to a conversation via metadata."""
+
+        infra = self._get_infrastructure()
+        with infra.get_session_context() as session:
+            engine = conversation_engine_provider(session)
+            detail = await engine.get_conversation(uuid.UUID(conversation_id))
+
+        resource_ids = _extract_resource_ids(detail.metadata)
+        return await fetch_resources_for_ids(infra, resource_ids)
+
+
+RESOURCE_METADATA_KEY = "resource_ids"
+
+
+def _extract_resource_ids(metadata: dict[str, Any] | None) -> list[uuid.UUID]:
+    """Parse stored resource identifiers from the provided metadata."""
+
+    if not metadata:
+        return []
+    return _coerce_resource_ids(metadata.get(RESOURCE_METADATA_KEY))
+
+
+def _coerce_resource_ids(value: Any) -> list[uuid.UUID]:
+    """Convert stored identifier values into UUID objects."""
+
+    if value is None:
+        return []
+    if isinstance(value, str | uuid.UUID):
+        try:
+            return [uuid.UUID(str(value))]
+        except ValueError:
+            return []
+    if isinstance(value, list | tuple | set):
+        result: list[uuid.UUID] = []
+        for item in value:
+            try:
+                result.append(uuid.UUID(str(item)))
+            except ValueError:
+                continue
+        return result
+    return []
+
+
+async def fetch_resources_for_ids(
+    infrastructure: InfrastructureProvider,
+    resource_ids: Sequence[uuid.UUID],
+) -> list[ResourceRead]:
+    """Load resources by identifier using the resource provider."""
+
+    if not resource_ids:
+        return []
+
+    infrastructure.initialize()
+    async with infrastructure.get_async_session_context() as session:
+        provider = await resource_provider(session)
+        results: list[ResourceRead] = []
+        for resource_id in resource_ids:
+            record = await provider.get_resource(resource_id)
+            if record is not None:
+                results.append(record)
+        return results
+
+
+def _build_preview_text(resource: ResourceRead) -> str:
+    """Return a short preview of the extracted resource text for API summaries."""
+
+    text = resource.extracted_text.strip()
+    if len(text) <= 200:
+        return text
+    return text[:200]
+
+
+def _build_context_excerpt(resource: ResourceRead) -> str:
+    """Return the first 500 words of the extracted text for prompt context."""
+
+    text = resource.extracted_text.strip()
+    if not text:
+        return ""
+    words = text.split()
+    if len(words) <= 500:
+        return text
+    excerpt = " ".join(words[:500])
+    return excerpt
+
+
+def build_resource_context_prompt(resources: Sequence[ResourceRead]) -> str | None:
+    """Generate the resource context block appended to the system prompt."""
+
+    if not resources:
+        return None
+
+    lines = [
+        "## Source Materials Provided",
+        "",
+        "The learner has provided the following materials for context:",
+        "",
+    ]
+
+    for index, resource in enumerate(resources, start=1):
+        label = resource.filename or resource.source_url or f"Resource {index}"
+        uploaded = resource.created_at.strftime("%B %d, %Y")
+        lines.append(f"{index}. {label} (uploaded on {uploaded})")
+        lines.append("   Extracted content:")
+        excerpt = _build_context_excerpt(resource)
+        if excerpt:
+            indented = excerpt.replace("\n", "\n   ")
+            lines.append(f"   {indented}")
+        else:
+            lines.append("   (no extracted text available)")
+        lines.append("")
+
+    return "\n".join(lines).strip()
 
 
 __all__ = [

@@ -3,6 +3,7 @@ import type {
   AcceptBriefPayload,
   LearnerTurnPayload,
   LearningCoachSessionState,
+  AttachResourcePayload,
   StartSessionPayload,
 } from './models';
 
@@ -33,5 +34,11 @@ export class LearningCoachService {
 
   async getSession(conversationId: string): Promise<LearningCoachSessionState> {
     return this.repo.getSession(conversationId);
+  }
+
+  async attachResource(
+    payload: AttachResourcePayload
+  ): Promise<LearningCoachSessionState> {
+    return this.repo.attachResource(payload);
   }
 }

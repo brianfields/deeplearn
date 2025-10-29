@@ -1,6 +1,7 @@
 import {
   ContentRepo,
   type ApiLessonRead,
+  type ApiUnitResourceSummary,
   type ApiUnitSyncEntry,
   type ApiUnitSyncResponse,
 } from './repo';
@@ -17,6 +18,7 @@ import type {
   RemoveFromMyUnitsRequest,
 } from './models';
 import { toUnitDTO, toUnitDetailDTO } from './models';
+import type { ResourceSummary, ResourceType } from '../resource/public';
 import {
   offlineCacheProvider,
   type CachedAsset,
@@ -198,9 +200,13 @@ export class ContentService {
         return this.mapCachedUnitMetadata(cached, options?.currentUserId);
       }
 
-      const apiDetail = await this.repo.getUnitDetail(unitId);
+      const [apiDetail, apiResources] = await Promise.all([
+        this.repo.getUnitDetail(unitId),
+        this.repo.getUnitResources(unitId),
+      ]);
       await this.cacheDetailFallback(apiDetail);
-      return toUnitDetailDTO(apiDetail, options?.currentUserId);
+      const resources = this.mapApiResources(apiResources);
+      return toUnitDetailDTO(apiDetail, options?.currentUserId, resources);
     } catch (error: any) {
       if (error?.statusCode === 404) {
         return null;
@@ -729,6 +735,23 @@ export class ContentService {
     };
   }
 
+  private mapApiResources(
+    resources: ApiUnitResourceSummary[] | null | undefined
+  ): ResourceSummary[] {
+    if (!Array.isArray(resources)) {
+      return [];
+    }
+    return resources.map(resource => ({
+      id: resource.id,
+      resourceType: resource.resource_type as ResourceType,
+      filename: resource.filename ?? null,
+      sourceUrl: resource.source_url ?? null,
+      fileSize: resource.file_size ?? null,
+      createdAt: resource.created_at,
+      previewText: resource.preview_text ?? '',
+    }));
+  }
+
   private mapCachedUnitMetadata(
     cached: CachedUnitDetail,
     currentUserId?: number | null
@@ -769,6 +792,7 @@ export class ContentService {
       downloadStatus: cached.downloadStatus,
       downloadedAt: cached.downloadedAt ?? null,
       syncedAt: cached.syncedAt ?? null,
+      resources: [],
     };
   }
 

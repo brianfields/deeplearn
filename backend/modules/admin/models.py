@@ -180,12 +180,23 @@ class LearningCoachMessageAdmin(BaseModel):
     message_order: int | None = None
 
 
+class ResourceSummaryAdmin(BaseModel):
+    id: str
+    resource_type: str
+    filename: str | None
+    source_url: str | None
+    file_size: int | None
+    created_at: datetime
+    preview_text: str
+
+
 class LearningCoachConversationDetail(BaseModel):
     conversation_id: str
     messages: list[LearningCoachMessageAdmin]
     metadata: dict[str, Any]
     proposed_brief: dict[str, Any] | None = None
     accepted_brief: dict[str, Any] | None = None
+    resources: list[ResourceSummaryAdmin] = []
 
 
 class LearningCoachConversationSummaryAdmin(BaseModel):

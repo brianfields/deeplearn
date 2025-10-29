@@ -1,0 +1,67 @@
+{
+  "_comment": "This is a template for creating new unit seed data",
+  "id": "00000000-0000-0000-0000-000000000000",
+  "title": "Example Unit Title",
+  "description": "A brief description of what this unit teaches",
+  "learner_level": "intermediate",
+  "learning_objectives": [
+    {
+      "id": "lo_1",
+      "title": "First Learning Objective",
+      "description": "What the learner will be able to do",
+      "bloom_level": "Apply"
+    }
+  ],
+  "target_lesson_count": 1,
+  "source_material": null,
+  "generated_from_topic": true,
+  "is_global": false,
+  "owner_key": "brian",
+  "podcast_transcript": "Welcome to this unit. Here's an overview...",
+  "podcast_voice": "Plain",
+  "lessons": [
+    {
+      "title": "Lesson Title",
+      "learner_level": "intermediate",
+      "source_material": null,
+      "objectives": [
+        {
+          "id": "lo_1",
+          "title": "First Learning Objective",
+          "description": "What the learner will be able to do",
+          "bloom_level": "Apply"
+        }
+      ],
+      "glossary_terms": [
+        {
+          "term": "Key Term",
+          "definition": "Definition of the term"
+        }
+      ],
+      "mini_lesson": "The main lesson content goes here...",
+      "mcqs": [
+        {
+          "stem": "What is the correct answer?",
+          "options": [
+            {
+              "text": "Correct answer",
+              "rationale_wrong": null
+            },
+            {
+              "text": "Wrong answer",
+              "rationale_wrong": "This is wrong because..."
+            }
+          ],
+          "correct_index": 0,
+          "cognitive_level": "Apply",
+          "difficulty": "Medium",
+          "misconceptions": [],
+          "correct_rationale": "This is correct because..."
+        }
+      ],
+      "misconceptions": [],
+      "confusables": []
+    }
+  ],
+  "resources": []
+}

@@ -163,6 +163,48 @@ export function ConversationDetails({ conversationId, summary }: ConversationDet
         </details>
       )}
 
+      {conversation.resources && conversation.resources.length > 0 && (
+        <div className="rounded-md border border-gray-200 bg-white p-4">
+          <h3 className="mb-3 text-sm font-semibold text-gray-700">
+            Source Resources ({conversation.resources.length})
+          </h3>
+          <div className="space-y-3">
+            {conversation.resources.map((resource) => (
+              <div
+                key={resource.id}
+                className="rounded border border-gray-100 bg-gray-50 p-3"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-800">
+                        {resource.resource_type}
+                      </span>
+                      <span className="text-sm font-medium text-gray-900">
+                        {resource.filename || resource.source_url || 'Untitled'}
+                      </span>
+                    </div>
+                    {resource.file_size && (
+                      <div className="mt-1 text-xs text-gray-500">
+                        Size: {(resource.file_size / 1024).toFixed(1)} KB
+                      </div>
+                    )}
+                    {resource.preview_text && (
+                      <div className="mt-2 text-xs text-gray-600">
+                        {resource.preview_text}
+                      </div>
+                    )}
+                  </div>
+                  <div className="ml-4 text-right text-xs text-gray-500">
+                    {formatDate(resource.created_at)}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="space-y-4">
         <h3 className="text-lg font-medium text-gray-900">Transcript</h3>
         <MessageTranscript messages={conversation.messages} />

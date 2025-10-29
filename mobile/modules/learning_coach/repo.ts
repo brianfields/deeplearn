@@ -8,7 +8,9 @@ import type {
   LearningCoachBrief,
   LearningCoachLearningObjective,
   LearningCoachError,
+  AttachResourcePayload,
 } from './models';
+import type { ResourceSummary, ResourceType } from '../resource/public';
 
 const LEARNING_COACH_BASE = '/api/v1/learning_coach';
 
@@ -30,6 +32,7 @@ interface ApiSessionState {
   readonly suggested_lesson_count?: number | null;
   readonly proposed_brief?: Record<string, any> | null;
   readonly accepted_brief?: Record<string, any> | null;
+  readonly resources?: ApiResourceSummary[] | null;
 }
 
 interface ApiLearningObjective {
@@ -37,6 +40,16 @@ interface ApiLearningObjective {
   readonly title?: string;
   readonly description?: string;
   readonly text?: string;
+}
+
+interface ApiResourceSummary {
+  readonly id: string;
+  readonly resource_type: string;
+  readonly filename?: string | null;
+  readonly source_url?: string | null;
+  readonly file_size?: number | null;
+  readonly created_at: string;
+  readonly preview_text?: string | null;
 }
 
 function toMessage(dto: ApiMessage): LearningCoachMessage {
@@ -78,6 +91,7 @@ function toSessionState(dto: ApiSessionState): LearningCoachSessionState {
     suggestedLessonCount: dto.suggested_lesson_count ?? null,
     proposedBrief: normalizeBrief(dto.proposed_brief),
     acceptedBrief: normalizeBrief(dto.accepted_brief),
+    resources: normalizeResources(dto.resources),
   };
 }
 
@@ -131,6 +145,23 @@ function normalizeLearningObjectives(
     );
 
   return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeResources(
+  resources: ApiResourceSummary[] | null | undefined
+): ResourceSummary[] | undefined {
+  if (!Array.isArray(resources)) {
+    return undefined;
+  }
+  return resources.map(resource => ({
+    id: resource.id,
+    resourceType: resource.resource_type as ResourceType,
+    filename: resource.filename ?? null,
+    sourceUrl: resource.source_url ?? null,
+    fileSize: resource.file_size ?? null,
+    createdAt: resource.created_at,
+    previewText: resource.preview_text ?? '',
+  }));
 }
 
 export class LearningCoachRepo {
@@ -212,6 +243,27 @@ export class LearningCoachRepo {
       return toSessionState(response);
     } catch (error) {
       throw this.handleError(error, 'Failed to fetch session state');
+    }
+  }
+
+  async attachResource(
+    payload: AttachResourcePayload
+  ): Promise<LearningCoachSessionState> {
+    try {
+      const response = await this.infrastructure.request<ApiSessionState>(
+        `${LEARNING_COACH_BASE}/conversations/${encodeURIComponent(payload.conversationId)}/resources`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            resource_id: payload.resourceId,
+            user_id: payload.userId ?? null,
+          }),
+        }
+      );
+      return toSessionState(response);
+    } catch (error) {
+      throw this.handleError(error, 'Failed to attach resource');
     }
   }
 

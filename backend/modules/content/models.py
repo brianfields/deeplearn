@@ -17,9 +17,11 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
+    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -129,6 +131,20 @@ class UnitModel(Base):
 """
 UnitSessionModel moved to modules.learning_session.models
 """
+
+
+class UnitResourceModel(Base):
+    """Join table linking units to uploaded resources."""
+
+    __tablename__ = "unit_resources"
+    __table_args__ = (
+        Index("ix_unit_resources_unit_id", "unit_id"),
+        Index("ix_unit_resources_resource_id", "resource_id"),
+    )
+
+    unit_id: Mapped[str] = mapped_column(String(36), ForeignKey("units.id"), primary_key=True)
+    resource_id: Mapped[uuid.UUID] = mapped_column(PostgresUUID(as_uuid=True), ForeignKey("resources.id"), primary_key=True)
+    added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
 class UserMyUnitModel(Base):

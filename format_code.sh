@@ -84,6 +84,12 @@ else
     echo "[WARN] Admin linting failed (possibly due to Node.js version)"
 fi
 
+if run_command "admin tsc" "npx tsc --noEmit" "admin"; then
+    echo "[PASS] Admin type checking completed"
+else
+    echo "[FAIL] Admin type checking failed"
+fi
+
 # Mobile: Prettier format and ESLint fix
 if run_command "mobile format" "npm run format" "mobile"; then
     echo "[PASS] Mobile formatting completed"
@@ -95,6 +101,12 @@ if run_command "mobile lint fix" "npm run lint:fix" "mobile"; then
     echo "[PASS] Mobile linting completed"
 else
     echo "[FAIL] Mobile linting failed"
+fi
+
+if run_command "mobile tsc" "npx tsc --noEmit" "mobile"; then
+    echo "[PASS] Mobile type checking completed"
+else
+    echo "[FAIL] Mobile type checking failed"
 fi
 
 # Final result
