@@ -16,12 +16,15 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session, sessionmaker
 
-from modules.object_store.repo import AudioRepo, ImageRepo
+from modules.object_store.repo import AudioRepo, DocumentRepo, ImageRepo
 from modules.object_store.s3_provider import FileMetadata, S3Error, S3Provider
 from modules.object_store.service import (
     AudioCreate,
     AudioRead,
     AuthorizationError,
+    DocumentCreate,
+    DocumentRead,
+    DocumentUploadResult,
     FileUploadResult,
     FileValidationError,
     ImageCreate,
@@ -122,7 +125,7 @@ async def session() -> AsyncGenerator[AsyncSession, None]:
 @pytest_asyncio.fixture
 async def service(session: AsyncSession) -> ObjectStoreService:
     fake_s3 = _FakeS3Provider()
-    return ObjectStoreService(ImageRepo(session), AudioRepo(session), fake_s3)
+    return ObjectStoreService(ImageRepo(session), AudioRepo(session), DocumentRepo(session), fake_s3)
 
 
 def _make_png() -> bytes:
@@ -163,6 +166,26 @@ async def test_upload_image_persists_metadata(service: ObjectStoreService, sessi
     record = await ImageRepo(session).by_id(dto.id)
     assert record is not None
     assert record.alt_text == "alt"
+
+
+@pytest.mark.asyncio
+async def test_upload_document_stores_metadata(service: ObjectStoreService, session: AsyncSession) -> None:
+    create = DocumentCreate(
+        user_id=3,
+        filename="notes.txt",
+        content_type="text/plain",
+        content=b"important notes",
+    )
+    result = await service.upload_document(create, generate_presigned_url=True)
+    assert isinstance(result, DocumentUploadResult)
+    assert result.presigned_url is not None
+    dto = result.document
+    assert isinstance(dto, DocumentRead)
+    assert dto.filename == "notes.txt"
+
+    record = await DocumentRepo(session).by_id(dto.id)
+    assert record is not None
+    assert record.file_size == len(create.content)
 
 
 @pytest.mark.asyncio
@@ -228,7 +251,7 @@ async def test_delete_audio_removes_record(service: ObjectStoreService, session:
 async def test_upload_audio_wraps_s3_errors(session: AsyncSession) -> None:
     failing_provider = _FakeS3Provider()
     failing_provider.raise_on_upload = True
-    failing_service = ObjectStoreService(ImageRepo(session), AudioRepo(session), failing_provider)
+    failing_service = ObjectStoreService(ImageRepo(session), AudioRepo(session), DocumentRepo(session), failing_provider)
     with pytest.raises(StorageProviderError):
         await failing_service.upload_audio(AudioCreate(user_id=1, filename="sound.wav", content_type="audio/wav", content=_make_wav()))
 

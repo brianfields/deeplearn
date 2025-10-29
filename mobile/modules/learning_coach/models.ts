@@ -1,3 +1,5 @@
+import type { ResourceSummary } from '../resource/public';
+
 export type MessageRole = 'assistant' | 'user' | 'system';
 
 export interface LearningCoachMessage {
@@ -32,6 +34,7 @@ export interface LearningCoachSessionState {
   readonly suggestedLessonCount?: number | null;
   readonly proposedBrief?: LearningCoachBrief | null; // Deprecated
   readonly acceptedBrief?: LearningCoachBrief | null; // Deprecated
+  readonly resources?: ResourceSummary[];
 }
 
 export interface StartSessionPayload {
@@ -48,6 +51,12 @@ export interface LearnerTurnPayload {
 export interface AcceptBriefPayload {
   readonly conversationId: string;
   readonly brief: LearningCoachBrief;
+  readonly userId?: string | null;
+}
+
+export interface AttachResourcePayload {
+  readonly conversationId: string;
+  readonly resourceId: string;
   readonly userId?: string | null;
 }
 

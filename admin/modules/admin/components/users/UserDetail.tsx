@@ -13,6 +13,7 @@ import { LoadingSpinner } from '../shared/LoadingSpinner';
 import { ErrorMessage } from '../shared/ErrorMessage';
 import { formatDate } from '@/lib/utils';
 import { StatusBadge } from '../shared/StatusBadge';
+import { ResourceList } from '../resources/ResourceList';
 
 interface UserDetailProps {
   userId: number | string;
@@ -38,6 +39,7 @@ export function UserDetail({ userId }: UserDetailProps) {
   const recentSessions = user?.recent_sessions ?? [];
   const recentRequests = user?.recent_llm_requests ?? [];
   const recentConversations = user?.recent_conversations ?? [];
+  const resources = user?.resources ?? [];
 
   const isUpdating = updateUser.isPending;
 
@@ -184,6 +186,20 @@ export function UserDetail({ userId }: UserDetailProps) {
           )}
         </div>
       </form>
+
+      <div className="bg-white shadow rounded-lg p-6 space-y-4">
+        <div>
+          <h2 className="text-lg font-medium text-gray-900">Resources</h2>
+          <p className="text-sm text-gray-500">
+            Uploaded files and links shared by this user during unit creation.
+          </p>
+        </div>
+        <ResourceList
+          resources={resources}
+          showUsageColumn
+          emptyMessage="No resources uploaded yet."
+        />
+      </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <div className="bg-white shadow rounded-lg p-6 space-y-4">

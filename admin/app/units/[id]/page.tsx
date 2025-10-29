@@ -17,6 +17,7 @@ import { LoadingSpinner } from '@/modules/admin/components/shared/LoadingSpinner
 import { ErrorMessage } from '@/modules/admin/components/shared/ErrorMessage';
 import { ReloadButton } from '@/modules/admin/components/shared/ReloadButton';
 import { StatusBadge } from '@/modules/admin/components/shared/StatusBadge';
+import { ResourceList } from '@/modules/admin/components/resources/ResourceList';
 import { formatDate } from '@/lib/utils';
 import type { MCQExercise } from '@/modules/admin/models';
 
@@ -196,6 +197,7 @@ export default function UnitDetailsPage({ params }: UnitDetailsPageProps) {
 
   const isRetrying = retryUnit.isPending;
   const podcastProps = derivePodcastPropsFromUnit(unit);
+  const resourceSummaries = unit.resources ?? [];
 
   const handleRetry = () => {
     if (retryUnit.isPending) {
@@ -284,6 +286,19 @@ export default function UnitDetailsPage({ params }: UnitDetailsPageProps) {
       </div>
 
       <UnitPodcastList {...podcastProps} />
+
+      <div className="bg-white rounded-lg shadow p-6 space-y-4">
+        <div>
+          <h2 className="text-lg font-medium text-gray-900">Source Resources</h2>
+          <p className="text-sm text-gray-500">
+            Materials the learner provided for this unit&apos;s creation.
+          </p>
+        </div>
+        <ResourceList
+          resources={resourceSummaries}
+          emptyMessage="No source resources attached to this unit yet."
+        />
+      </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">

@@ -18,6 +18,7 @@ import pytest
 from sqlalchemy import desc as _desc
 from sqlalchemy import select
 
+from modules.content.models import UnitResourceModel
 from modules.content.public import content_provider
 from modules.content_creator.public import content_creator_provider
 from modules.content_creator.service import ContentCreatorService
@@ -412,6 +413,11 @@ class TestUnitCreationIntegration:
             assert saved_unit.learning_objectives is None or isinstance(saved_unit.learning_objectives, list)
             # flow_type should default to 'standard'
             assert getattr(saved_unit, "flow_type", "standard") == "standard"
+
+            # Verify the new unit_resources join table has no links for this generated unit yet
+            resource_stmt = select(UnitResourceModel).where(UnitResourceModel.unit_id == unit_result.unit_id)
+            resource_rows = await session.execute(resource_stmt)
+            assert resource_rows.scalars().all() == []
 
             # Verify flow run record for unit_creation
             stmt = select(FlowRunModel).where(FlowRunModel.flow_name == "unit_creation").order_by(_desc(FlowRunModel.created_at))

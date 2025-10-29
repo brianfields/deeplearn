@@ -294,6 +294,7 @@ describe('CatalogService', () => {
         podcastAudioUrl: null,
         artImageUrl: 'https://cdn.example.com/unit-2.png',
         artImageDescription: 'Heroic Bauhaus silhouette',
+        resources: [],
       };
       mockContent.getUnitDetail.mockResolvedValue(detail);
 

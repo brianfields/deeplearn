@@ -13,7 +13,9 @@ import uuid
 from sqlalchemy import and_, desc, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .models import LessonModel, UnitModel, UserMyUnitModel
+from modules.resource.models import ResourceModel
+
+from .models import LessonModel, UnitModel, UnitResourceModel, UserMyUnitModel
 
 
 class ContentRepo:
@@ -181,6 +183,24 @@ class ContentRepo:
     async def get_units_by_status(self, status: str, limit: int = 100, offset: int = 0) -> list[UnitModel]:
         """Get units by status, ordered by updated_at descending."""
         stmt = select(UnitModel).filter(UnitModel.status == status).order_by(desc(UnitModel.updated_at)).offset(offset).limit(limit)
+        result = await self.s.execute(stmt)
+        return list(result.scalars().all())
+
+    async def link_resource_to_unit(self, unit_id: str, resource_id: uuid.UUID) -> UnitResourceModel:
+        """Create a join record linking a resource to a unit."""
+
+        existing = await self.s.get(UnitResourceModel, {"unit_id": unit_id, "resource_id": resource_id})
+        if existing is not None:
+            return existing
+        link = UnitResourceModel(unit_id=unit_id, resource_id=resource_id)
+        self.s.add(link)
+        await self.s.flush()
+        return link
+
+    async def get_resources_for_unit(self, unit_id: str) -> list[ResourceModel]:
+        """Return resources linked to the provided unit ordered by recency."""
+
+        stmt = select(ResourceModel).join(UnitResourceModel, UnitResourceModel.resource_id == ResourceModel.id).where(UnitResourceModel.unit_id == unit_id).order_by(desc(UnitResourceModel.added_at))
         result = await self.s.execute(stmt)
         return list(result.scalars().all())
 

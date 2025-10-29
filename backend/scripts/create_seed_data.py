@@ -43,6 +43,7 @@ from sqlalchemy import delete, select
 from modules.content.models import (
     LessonModel,
     UnitModel,  # Import UnitModel so SQLAlchemy knows about the units table
+    UnitResourceModel,
     UserMyUnitModel,
 )
 from modules.content.package_models import GlossaryTerm, LessonPackage, MCQAnswerKey, MCQExercise, MCQOption, Meta
@@ -50,7 +51,8 @@ from modules.flow_engine.models import FlowRunModel, FlowStepRunModel
 from modules.infrastructure.public import infrastructure_provider
 from modules.learning_session.models import LearningSessionModel, SessionStatus, UnitSessionModel
 from modules.llm_services.models import LLMRequestModel
-from modules.object_store.models import AudioModel, ImageModel
+from modules.object_store.models import AudioModel, DocumentModel, ImageModel
+from modules.resource.models import ResourceModel
 from modules.user.repo import UserRepo
 from modules.user.service import UserService
 
@@ -455,6 +457,8 @@ async def main() -> None:
     sample_user_ids: dict[str, int] = {}
     user_snapshots: dict[str, dict[str, Any]] = {}
     units_output: list[dict[str, Any]] = []
+    unit_entries_by_id: dict[str, dict[str, Any]] = {}
+    resource_output: list[dict[str, Any]] = []
     users_created_count = 0
     global_units_count = 0
     personal_units_count = 0
@@ -1360,9 +1364,11 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                     "owner_key": unit_spec["owner_key"],
                     "owner_id": unit_spec["owner_id"],
                     "lessons": [],
+                    "resources": [],
                     "art_image_description": unit_spec["art_image_description"],
                 }
                 units_output.append(unit_entry)
+                unit_entries_by_id[unit_spec["id"]] = unit_entry
 
                 # For the Istanbul unit, set the real art_image_id and podcast_audio_object_id
                 is_istanbul_unit = unit_spec["id"] == "9435f1bf-472d-47c5-a759-99beadd98076"
@@ -1458,6 +1464,191 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
 
             await db_session.flush()
 
+            street_kittens_unit_id = next(unit["id"] for unit in units_spec if unit["title"] == "Street Kittens of Istanbul")
+            gradient_unit_id = next(unit["id"] for unit in units_spec if unit["title"] == "Gradient Descent Mastery")
+
+            if args.verbose:
+                print("📚 Creating sample learner resources...")
+
+            kitten_notes_text = (
+                "Feeding log — Karaköy colony\n"
+                "05:30 warm goat-milk formula for neonates (24 ml split across four kittens).\n"
+                "12:15 replaced damp straw in shelter crates; added thermal discs.\n"
+                "18:40 observed Tomtom alley tomcat guarding trap line; adjust placement tomorrow.\n\n"
+                "Action items: rotate heat packs every 6 hours, stock extra oral rehydration, photograph ear-tipped adults."
+            )
+            gradient_brief_text = (
+                "Gradient descent tuning cheatsheet\n"
+                "• Start with learning rate 0.1 for convex demos, decay by 0.5 when oscillations persist.\n"
+                "• Clip gradients above 5.0 to stabilize mini-batch updates.\n"
+                "• Log validation loss every 10 steps; trigger warm restart if plateau > 30 steps."
+            )
+            municipal_guidelines_text = (
+                "Excerpt: Istanbul Municipal Animal Welfare Directive (2023)\n"
+                "Highlights feeding station spacing, volunteer registration, and sanitation requirements for urban colonies.\n"
+                "Key reminder: keep food 3 meters from storefronts, and document veterinary visits in the shared ledger."
+            )
+
+            kitten_notes_bytes = kitten_notes_text.encode("utf-8")
+            gradient_brief_bytes = gradient_brief_text.encode("utf-8")
+            municipal_guidelines_bytes = municipal_guidelines_text.encode("utf-8")
+
+            kitten_document_id = uuid.UUID("6a7431f5-6f6e-48e7-9f9a-3569fbe5c923")
+            gradient_document_id = uuid.UUID("51a7e0ce-b53a-4bca-8f24-2e03b8153b35")
+
+            document_specs = [
+                {
+                    "id": kitten_document_id,
+                    "user_key": "epsilon",
+                    "filename": "kitten-field-notes.txt",
+                    "s3_key": "seed/resources/epsilon/kitten-field-notes.txt",
+                    "content_type": "text/plain",
+                    "file_size": len(kitten_notes_bytes),
+                },
+                {
+                    "id": gradient_document_id,
+                    "user_key": "brian",
+                    "filename": "gradient-descent-cheatsheet.md",
+                    "s3_key": "seed/resources/brian/gradient-descent-cheatsheet.md",
+                    "content_type": "text/markdown",
+                    "file_size": len(gradient_brief_bytes),
+                },
+            ]
+
+            for doc_spec in document_specs:
+                existing_document = await db_session.get(DocumentModel, doc_spec["id"])
+                if existing_document:
+                    await db_session.delete(existing_document)
+                    await db_session.flush()
+                stmt = select(DocumentModel).where(DocumentModel.s3_key == doc_spec["s3_key"])
+                stale_document = await db_session.execute(stmt)
+                stale_instance = stale_document.scalar_one_or_none()
+                if stale_instance:
+                    await db_session.delete(stale_instance)
+                    await db_session.flush()
+
+            document_models = [
+                DocumentModel(
+                    id=spec["id"],
+                    user_id=sample_user_ids[spec["user_key"]],
+                    s3_key=spec["s3_key"],
+                    s3_bucket=bucket_name,
+                    filename=spec["filename"],
+                    content_type=spec["content_type"],
+                    file_size=spec["file_size"],
+                    created_at=seed_timestamp,
+                    updated_at=seed_timestamp,
+                )
+                for spec in document_specs
+            ]
+
+            db_session.add_all(document_models)
+            await db_session.flush()
+
+            resource_specs = [
+                {
+                    "resource_id": uuid.UUID("f9961d6a-d9de-4fa5-b50e-9d382bc7432b"),
+                    "user_key": "epsilon",
+                    "resource_type": "file_upload",
+                    "filename": "kitten-field-notes.txt",
+                    "source_url": None,
+                    "extracted_text": kitten_notes_text,
+                    "metadata": {
+                        "source": "file_upload",
+                        "filename": "kitten-field-notes.txt",
+                        "content_type": "text/plain",
+                        "truncated": False,
+                        "original_size": len(kitten_notes_bytes),
+                    },
+                    "file_size": len(kitten_notes_bytes),
+                    "document_id": kitten_document_id,
+                    "unit_ids": [street_kittens_unit_id],
+                },
+                {
+                    "resource_id": uuid.UUID("ad9a8f96-cb96-4fc7-99c9-860f8eab3cf2"),
+                    "user_key": "brian",
+                    "resource_type": "file_upload",
+                    "filename": "gradient-descent-cheatsheet.md",
+                    "source_url": None,
+                    "extracted_text": gradient_brief_text,
+                    "metadata": {
+                        "source": "file_upload",
+                        "filename": "gradient-descent-cheatsheet.md",
+                        "content_type": "text/markdown",
+                        "truncated": False,
+                        "original_size": len(gradient_brief_bytes),
+                    },
+                    "file_size": len(gradient_brief_bytes),
+                    "document_id": gradient_document_id,
+                    "unit_ids": [gradient_unit_id],
+                },
+                {
+                    "resource_id": uuid.UUID("d839b1eb-9d16-4e8d-a597-1b6e2cc5fefa"),
+                    "user_key": "nova",
+                    "resource_type": "url",
+                    "filename": None,
+                    "source_url": "https://istanbul.example.org/animal-welfare/community-feeding-guide",
+                    "extracted_text": municipal_guidelines_text,
+                    "metadata": {
+                        "source": "url",
+                        "content_type": "web_page",
+                        "truncated": False,
+                        "original_size": len(municipal_guidelines_bytes),
+                        "summary_note": "Seeded municipal directive summary for reuse",
+                    },
+                    "file_size": None,
+                    "document_id": None,
+                    "unit_ids": [street_kittens_unit_id],
+                },
+            ]
+
+            for spec in resource_specs:
+                await db_session.execute(delete(UnitResourceModel).where(UnitResourceModel.resource_id == spec["resource_id"]))
+                existing_resource = await db_session.get(ResourceModel, spec["resource_id"])
+                if existing_resource:
+                    await db_session.delete(existing_resource)
+                    await db_session.flush()
+
+                resource_model = ResourceModel(
+                    id=spec["resource_id"],
+                    user_id=sample_user_ids[spec["user_key"]],
+                    resource_type=spec["resource_type"],
+                    filename=spec["filename"],
+                    source_url=spec["source_url"],
+                    extracted_text=spec["extracted_text"],
+                    extraction_metadata=spec["metadata"],
+                    file_size=spec["file_size"],
+                    object_store_document_id=spec["document_id"],
+                    created_at=seed_timestamp,
+                    updated_at=seed_timestamp,
+                )
+                db_session.add(resource_model)
+
+                resource_label = spec["filename"] or spec["source_url"] or "resource"
+                resource_output.append(
+                    {
+                        "id": str(spec["resource_id"]),
+                        "label": resource_label,
+                        "resource_type": spec["resource_type"],
+                        "user_key": spec["user_key"],
+                        "unit_ids": spec["unit_ids"],
+                    }
+                )
+
+                for unit_id in spec["unit_ids"]:
+                    db_session.add(UnitResourceModel(unit_id=unit_id, resource_id=spec["resource_id"]))
+                    unit_entry = unit_entries_by_id.get(unit_id)
+                    if unit_entry is not None:
+                        unit_entry.setdefault("resources", []).append(
+                            {
+                                "resource_id": str(spec["resource_id"]),
+                                "resource_type": spec["resource_type"],
+                                "label": resource_label,
+                            }
+                        )
+
+            await db_session.flush()
+
             if args.verbose:
                 print("🧾  Seeding My Units memberships for learners...")
 
@@ -1465,7 +1656,6 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
             await db_session.execute(delete(UserMyUnitModel).where(UserMyUnitModel.user_id.in_(learner_member_ids)))
             await db_session.flush()
 
-            street_kittens_unit_id = units_spec[0]["id"]
             street_kittens_title = units_spec[0]["title"]
             community_unit_id = next(unit["id"] for unit in units_spec if unit["title"] == "Community First Aid Playbook")
             community_unit_title = next(unit["title"] for unit in units_spec if unit["id"] == community_unit_id)
@@ -1715,6 +1905,18 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
         print(f"   • {visibility} Unit {unit_entry['id']}: {unit_entry['title']} (owner: {owner_name})")
         for lesson in unit_entry["lessons"]:
             print(f"     • Lesson {lesson['lesson_id']}: {lesson['title']} — exercises: {lesson['exercise_count']}, glossary terms: {lesson['glossary_count']}")
+        if unit_entry["resources"]:
+            for resource in unit_entry["resources"]:
+                print(f"     • Resource {resource['resource_id']}: {resource['label']} — type: {resource['resource_type']}")
+
+    if resource_output:
+        print()
+        print(f"   • Sample resources: {len(resource_output)} total")
+        for resource in resource_output:
+            user_name = user_snapshots[resource["user_key"]]["name"]
+            unit_titles = [unit_entries_by_id[unit_id]["title"] for unit_id in resource["unit_ids"] if unit_id in unit_entries_by_id]
+            linked_units = ", ".join(unit_titles) if unit_titles else "Unlinked"
+            print(f"     - {resource['label']} ({resource['resource_type']}) uploaded by {user_name} → {linked_units}")
 
     print()
     print(f"   • Global units: {global_units_count}; Private units: {personal_units_count}")
@@ -1743,10 +1945,12 @@ Edge-case adjustments: lactating queens—same-day return or delay surgery; late
                     "is_global": unit_entry["is_global"],
                     "owner_name": user_snapshots[unit_entry["owner_key"]]["name"],
                     "lessons": unit_entry["lessons"],
+                    "resources": unit_entry["resources"],
                 }
                 for unit_entry in units_output
             ],
             "my_units_memberships": [{"user": member_name, "unit": unit_title} for member_name, unit_title in my_units_memberships_summary],
+            "resources": resource_output,
         }
 
         with Path(args.output).open("w") as f:

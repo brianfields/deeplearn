@@ -5,6 +5,7 @@
  */
 
 import type { CacheMode, DownloadStatus } from '../offline_cache/public';
+import type { ResourceSummary } from '../resource/public';
 
 // Backend API wire types (private to module)
 export interface ApiUnitLearningObjective {
@@ -189,6 +190,7 @@ export interface UnitDetail {
   readonly downloadStatus?: DownloadStatus;
   readonly downloadedAt?: number | null;
   readonly syncedAt?: number | null;
+  readonly resources: ResourceSummary[];
 }
 
 export interface LearningObjectiveProgress {
@@ -282,7 +284,8 @@ export function toUnitDTO(
 
 export function toUnitDetailDTO(
   api: ApiUnitDetail,
-  currentUserId?: number | null
+  currentUserId?: number | null,
+  resources: ResourceSummary[] = []
 ): UnitDetail {
   const difficulty = (api.learner_level as Difficulty) ?? 'beginner';
   const ownerUserId = api.user_id ?? null;
@@ -329,6 +332,7 @@ export function toUnitDetailDTO(
     podcastAudioUrl: api.podcast_audio_url ?? null,
     artImageUrl: api.art_image_url ?? null,
     artImageDescription: api.art_image_description ?? null,
+    resources,
   };
 }
 

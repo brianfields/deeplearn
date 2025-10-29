@@ -7,7 +7,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .models import AudioModel, ImageModel
+from .models import AudioModel, DocumentModel, ImageModel
 
 
 class ImageRepo:
@@ -148,3 +148,40 @@ class AudioRepo:
         stmt = select(AudioModel.id).where(AudioModel.user_id == user_id)
         result = await self.session.execute(stmt)
         return len(result.scalars().all())
+
+
+class DocumentRepo:
+    """Data access helpers for stored documents."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def create(
+        self,
+        *,
+        user_id: int | None,
+        s3_key: str,
+        s3_bucket: str,
+        filename: str,
+        content_type: str,
+        file_size: int,
+    ) -> DocumentModel:
+        document = DocumentModel(
+            user_id=user_id,
+            s3_key=s3_key,
+            s3_bucket=s3_bucket,
+            filename=filename,
+            content_type=content_type,
+            file_size=file_size,
+        )
+        self.session.add(document)
+        await self.session.flush()
+        await self.session.refresh(document)
+        return document
+
+    async def by_id(self, document_id: uuid.UUID) -> DocumentModel | None:
+        return await self.session.get(DocumentModel, document_id)
+
+    async def delete(self, document: DocumentModel) -> None:
+        await self.session.delete(document)
+        await self.session.flush()

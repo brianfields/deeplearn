@@ -8,9 +8,19 @@ import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .repo import AudioRepo, ImageRepo
+from .repo import AudioRepo, DocumentRepo, ImageRepo
 from .s3_provider import S3Provider, create_s3_config_from_env
-from .service import AudioCreate, AudioRead, FileUploadResult, ImageCreate, ImageRead, ObjectStoreService
+from .service import (
+    AudioCreate,
+    AudioRead,
+    DocumentCreate,
+    DocumentRead,
+    DocumentUploadResult,
+    FileUploadResult,
+    ImageCreate,
+    ImageRead,
+    ObjectStoreService,
+)
 
 
 class ObjectStoreProvider(Protocol):
@@ -24,6 +34,16 @@ class ObjectStoreProvider(Protocol):
         presigned_ttl_seconds: int = 86400,
     ) -> FileUploadResult:
         """Upload an image and store metadata."""
+        ...
+
+    async def upload_document(
+        self,
+        data: DocumentCreate,
+        *,
+        generate_presigned_url: bool = False,
+        presigned_ttl_seconds: int = 86400,
+    ) -> DocumentUploadResult:
+        """Upload a document and store metadata."""
         ...
 
     async def upload_audio(
@@ -107,12 +127,15 @@ def object_store_provider(
     config = create_s3_config_from_env()
     resolved_bucket = bucket_name or os.getenv("OBJECT_STORE_BUCKET", "lantern-room")
     s3 = S3Provider(config, resolved_bucket)
-    return ObjectStoreService(ImageRepo(session), AudioRepo(session), s3)
+    return ObjectStoreService(ImageRepo(session), AudioRepo(session), DocumentRepo(session), s3)
 
 
 __all__ = [
     "AudioCreate",
     "AudioRead",
+    "DocumentCreate",
+    "DocumentRead",
+    "DocumentUploadResult",
     "FileUploadResult",
     "ImageCreate",
     "ImageRead",

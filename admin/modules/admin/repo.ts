@@ -19,6 +19,7 @@ import type {
   ApiUnitBasic,
   ApiUnitDetail,
   ApiUnitSummary,
+  ApiResourceSummary,
   ApiUserDetail,
   ApiUserListResponse,
   ApiUserUpdateRequest,
@@ -230,6 +231,20 @@ export const AdminRepo = {
     },
     async flowRuns(unitId: string): Promise<ApiFlowRun[]> {
       const { data } = await apiClient.get<ApiFlowRun[]>(`${CONTENT_BASE}/units/${unitId}/flow-runs`);
+      return data;
+    },
+
+    async resources(unitId: string): Promise<ApiResourceSummary[]> {
+      const encodedId = encodeURIComponent(unitId);
+      const { data } = await apiClient.get<ApiResourceSummary[]>(`/units/${encodedId}/resources`);
+      return data;
+    },
+  },
+
+  resources: {
+    async listByUser(userId: number | string): Promise<ApiResourceSummary[]> {
+      const params = new URLSearchParams({ user_id: String(userId) });
+      const { data } = await apiClient.get<ApiResourceSummary[]>(`/resources?${params.toString()}`);
       return data;
     },
   },

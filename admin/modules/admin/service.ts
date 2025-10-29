@@ -19,7 +19,9 @@ import type {
   ApiLearningSessionsListResponse,
   ApiLLMRequest,
   ApiSystemMetrics,
+  ApiResourceSummary,
   ApiUserDetail,
+  ApiUserOwnedUnitSummary,
   ApiUserListResponse,
   ApiUserSummary,
   ApiUserUpdateRequest,
@@ -40,6 +42,9 @@ import type {
   LLMRequestSummary,
   LessonDetails,
   LessonSummary,
+  ResourceSummary,
+  ResourceUsageSummary,
+  ResourceWithUsage,
   SystemMetrics,
   UnitDetail,
   UnitSummary,
@@ -159,6 +164,16 @@ const flowRunDetailsToDTO = (apiFlow: ApiFlowRunDetails): FlowRunDetails => ({
   flow_metadata: apiFlow.flow_metadata,
   error_message: apiFlow.error_message,
   steps: apiFlow.steps.map(stepToDTO),
+});
+
+const resourceSummaryToDTO = (apiResource: ApiResourceSummary): ResourceSummary => ({
+  id: apiResource.id,
+  resource_type: apiResource.resource_type,
+  filename: apiResource.filename ?? null,
+  source_url: apiResource.source_url ?? null,
+  file_size: apiResource.file_size ?? null,
+  created_at: new Date(apiResource.created_at),
+  preview_text: apiResource.preview_text,
 });
 
 const stepToDTO = (apiStep: ApiFlowStepDetails): FlowStepDetails => ({
@@ -318,12 +333,13 @@ const userSummaryToDTO = (user: ApiUserSummary): UserSummary => ({
   associations: userAssociationsToDTO(user.associations),
 });
 
-const userDetailToDTO = (user: ApiUserDetail): UserDetail => ({
+const userDetailToDTO = (user: ApiUserDetail, resources: ResourceWithUsage[] = []): UserDetail => ({
   ...userSummaryToDTO(user),
   owned_units: user.owned_units.map(userOwnedUnitToDTO),
   recent_sessions: user.recent_sessions.map(userSessionToDTO),
   recent_llm_requests: user.recent_llm_requests.map(userRequestToDTO),
   recent_conversations: (user.recent_conversations ?? []).map(userConversationToDTO),
+  resources,
 });
 
 // ---- Service Implementation ----
@@ -358,7 +374,8 @@ export class AdminService {
   async getUser(userId: number | string): Promise<UserDetail | null> {
     try {
       const detail = await AdminRepo.users.detail(userId);
-      return userDetailToDTO(detail);
+      const resources = await this.buildUserResources(detail.id, detail.owned_units);
+      return userDetailToDTO(detail, resources);
     } catch (error) {
       console.error('Failed to fetch user detail:', error);
       return null;
@@ -373,11 +390,65 @@ export class AdminService {
       if (payload.is_active !== undefined) updateRequest.is_active = payload.is_active;
 
       const updated = await AdminRepo.users.update(userId, updateRequest);
-      return userDetailToDTO(updated);
+      const resources = await this.buildUserResources(updated.id, updated.owned_units);
+      return userDetailToDTO(updated, resources);
     } catch (error) {
       console.error('Failed to update user:', error);
       return null;
     }
+  }
+
+  private async buildUserResources(
+    userId: number | string,
+    ownedUnits: ApiUserOwnedUnitSummary[]
+  ): Promise<ResourceWithUsage[]> {
+    const numericId = typeof userId === 'number' ? userId : Number(userId);
+    if (!Number.isFinite(numericId)) {
+      return [];
+    }
+
+    const listResourcesForUser = (
+      AdminRepo.resources as { listByUser?: (userId: number) => Promise<ApiResourceSummary[]> }
+    ).listByUser;
+    const getUnitResources = (
+      AdminRepo.units as { resources?: (unitId: string) => Promise<ApiResourceSummary[]> }
+    ).resources;
+
+    const [resources, unitResourceLookups] = await Promise.all([
+      listResourcesForUser
+        ? listResourcesForUser(numericId).catch(() => [] as ApiResourceSummary[])
+        : Promise.resolve([] as ApiResourceSummary[]),
+      Promise.all(
+        ownedUnits.map(async (unit) => {
+          if (!getUnitResources) {
+            return { unitId: unit.id, unitTitle: unit.title, resources: [] as ApiResourceSummary[] };
+          }
+          try {
+            const unitResources = await getUnitResources(unit.id);
+            return { unitId: unit.id, unitTitle: unit.title, resources: unitResources };
+          } catch (error) {
+            console.error('Failed to fetch resources for unit', unit.id, error);
+            return { unitId: unit.id, unitTitle: unit.title, resources: [] as ApiResourceSummary[] };
+          }
+        })
+      ),
+    ]);
+
+    const usageByResource = new Map<string, ResourceUsageSummary[]>();
+    for (const lookup of unitResourceLookups) {
+      for (const resource of lookup.resources) {
+        const existing = usageByResource.get(resource.id) ?? [];
+        usageByResource.set(resource.id, [
+          ...existing,
+          { unit_id: lookup.unitId, unit_title: lookup.unitTitle },
+        ]);
+      }
+    }
+
+    return resources.map((resource) => ({
+      ...resourceSummaryToDTO(resource),
+      used_in_units: usageByResource.get(resource.id) ?? [],
+    }));
   }
 
   // ---- Flow Management ----
@@ -806,9 +877,16 @@ export class AdminService {
 
   async getUnitDetail(unitId: string): Promise<UnitDetail | null> {
     try {
-      const [detail, flowRuns] = await Promise.all([
+      const loadUnitResources = (AdminRepo.units as {
+        resources?: (unitId: string) => Promise<ApiResourceSummary[]>;
+      }).resources;
+
+      const [detail, flowRuns, resources] = await Promise.all([
         AdminRepo.units.detail(unitId),
         AdminRepo.units.flowRuns(unitId).catch(() => [] as ApiFlowRun[]),
+        loadUnitResources
+          ? loadUnitResources(unitId).catch(() => [] as ApiResourceSummary[])
+          : Promise.resolve([] as ApiResourceSummary[]),
       ]);
 
       return {
@@ -859,6 +937,7 @@ export class AdminService {
         flow_runs: flowRuns.map(flowRunToDTO),
         created_at: (detail as any).created_at ? new Date((detail as any).created_at) : null,
         updated_at: (detail as any).updated_at ? new Date((detail as any).updated_at) : null,
+        resources: resources.map(resourceSummaryToDTO),
       };
     } catch (error) {
       console.error('Failed to fetch unit detail:', error);

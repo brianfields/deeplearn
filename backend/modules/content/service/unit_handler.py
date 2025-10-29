@@ -61,6 +61,18 @@ class UnitHandler:
         )
         return unit_read
 
+    async def attach_resources_to_unit(self, unit_id: str, resource_ids: Iterable[uuid.UUID]) -> None:
+        """Link the provided resources to the given unit."""
+
+        normalized_ids: set[uuid.UUID] = set()
+        for resource_id in resource_ids:
+            try:
+                normalized_ids.add(resource_id if isinstance(resource_id, uuid.UUID) else uuid.UUID(str(resource_id)))
+            except (TypeError, ValueError):  # pragma: no cover - defensive casting
+                logger.warning("Invalid resource id supplied to attach_resources_to_unit: %s", resource_id)
+        for normalized_id in normalized_ids:
+            await self.repo.link_resource_to_unit(unit_id, normalized_id)
+
     async def build_unit_assets(
         self,
         unit: UnitModel,

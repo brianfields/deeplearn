@@ -68,3 +68,28 @@ class AudioModel(Base):
         onupdate=func.now(),
         nullable=False,
     )
+
+
+class DocumentModel(Base):
+    """Database record representing stored documents."""
+
+    __tablename__ = "documents"
+    __table_args__ = (
+        Index("ix_documents_user_id", "user_id"),
+        Index("ix_documents_s3_key", "s3_key", unique=True),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    s3_key: Mapped[str] = mapped_column(String(512), nullable=False)
+    s3_bucket: Mapped[str] = mapped_column(String(255), nullable=False)
+    filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    file_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )

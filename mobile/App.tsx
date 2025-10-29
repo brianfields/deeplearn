@@ -21,6 +21,7 @@ import LearningFlowScreen from './modules/learning_session/screens/LearningFlowS
 import ResultsScreen from './modules/learning_session/screens/ResultsScreen';
 import { UnitDetailScreen } from './modules/catalog/screens/UnitDetailScreen';
 import { UnitLODetailScreen } from './modules/catalog/screens/UnitLODetailScreen';
+import { AddResourceScreen } from './modules/resource/screens/AddResourceScreen';
 import LoginScreen from './modules/user/screens/LoginScreen';
 import RegisterScreen from './modules/user/screens/RegisterScreen';
 import ManageCacheScreen from './modules/offline_cache/screens/ManageCacheScreen';
@@ -88,6 +89,15 @@ function LearningStackNavigator(): React.ReactElement {
         component={LearningCoachScreen}
         options={{
           title: 'Learning Coach',
+        }}
+      />
+      <LearningStack.Screen
+        name="AddResource"
+        component={AddResourceScreen}
+        options={{
+          presentation: 'modal',
+          animation: reducedMotion.enabled ? 'none' : 'slide_from_bottom',
+          headerShown: false,
         }}
       />
       <LearningStack.Screen

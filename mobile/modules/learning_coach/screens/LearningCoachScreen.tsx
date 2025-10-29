@@ -19,6 +19,7 @@ import {
   useAcceptBriefMutation,
   useLearnerTurnMutation,
   useLearningCoachSession,
+  useAttachResourceMutation,
   useStartLearningCoachSession,
 } from '../queries';
 import type { LearningStackParamList } from '../../../types';
@@ -46,8 +47,10 @@ export function LearningCoachScreen({
   const startSession = useStartLearningCoachSession();
   const learnerTurn = useLearnerTurnMutation();
   const acceptBrief = useAcceptBriefMutation();
+  const attachResource = useAttachResourceMutation();
   const createUnit = useCreateUnit();
   const sessionQuery = useLearningCoachSession(conversationId);
+  const [pendingResourceId, setPendingResourceId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!conversationId && !startSession.isPending && !startSession.isSuccess) {
@@ -114,6 +117,49 @@ export function LearningCoachScreen({
     );
   }, [startSession.isPending, learnerTurn.isPending, sessionQuery.isFetching]);
 
+  const hasLearnerMessage = useMemo(() => {
+    const messages = sessionState?.messages ?? [];
+    return messages.some(message => message.role === 'user');
+  }, [sessionState?.messages]);
+
+  const conversationResources = sessionState?.resources ?? [];
+  const canAttachResource = Boolean(conversationId);
+  const isProcessingResource = attachResource.isPending || pendingResourceId !== null;
+
+  useEffect(() => {
+    const selected = route.params?.attachResourceId;
+    if (!selected || !conversationId) {
+      return;
+    }
+    navigation.setParams({ attachResourceId: undefined });
+    setPendingResourceId(selected);
+  }, [conversationId, navigation, route.params?.attachResourceId]);
+
+  useEffect(() => {
+    if (!pendingResourceId || !conversationId) {
+      return;
+    }
+    attachResource.mutate(
+      {
+        conversationId,
+        resourceId: pendingResourceId,
+        userId: user ? String(user.id) : null,
+      },
+      {
+        onError: error => {
+          const message =
+            error instanceof Error
+              ? error.message
+              : 'Unable to share that resource. Please try again.';
+          Alert.alert('Resource not attached', message);
+        },
+        onSettled: () => {
+          setPendingResourceId(null);
+        },
+      }
+    );
+  }, [attachResource, conversationId, pendingResourceId, user]);
+
   const handleSend = (message: string) => {
     if (!conversationId) {
       return;
@@ -148,6 +194,17 @@ export function LearningCoachScreen({
 
   const handleQuickReply = (reply: string) => {
     handleSend(reply);
+  };
+
+  const handleAddResource = () => {
+    if (!canAttachResource) {
+      Alert.alert(
+        'Almost ready',
+        'Please wait for your coach to connect before sharing materials.'
+      );
+      return;
+    }
+    navigation.navigate('AddResource', { attachToConversation: true });
   };
 
   const normalizeDifficulty = (
@@ -314,7 +371,56 @@ export function LearningCoachScreen({
         <Text style={styles.headerTitle}>Learning Coach</Text>
         <View style={styles.headerSpacer} />
       </View>
-      <ConversationList messages={displayMessages} isLoading={isCoachLoading} />
+      <View style={styles.body}>
+        {!hasLearnerMessage ? (
+          <View style={styles.uploadPrompt}>
+            <Text style={styles.uploadPromptTitle}>Share source material</Text>
+            <Text style={styles.uploadPromptSubtitle}>
+              Upload files or links before your first message so the coach can tailor
+              the conversation.
+            </Text>
+            <Pressable
+              style={({ pressed }) => [
+                styles.uploadPromptButton,
+                {
+                  opacity:
+                    pressed || !canAttachResource || isCoachLoading ? 0.7 : 1,
+                },
+              ]}
+              onPress={handleAddResource}
+              disabled={!canAttachResource || isCoachLoading}
+            >
+              <Text style={styles.uploadPromptButtonText}>Upload source material</Text>
+            </Pressable>
+          </View>
+        ) : null}
+        <View style={styles.listWrapper}>
+          <ConversationList
+            messages={displayMessages}
+            isLoading={isCoachLoading}
+          />
+        </View>
+        {conversationResources.length > 0 ? (
+          <View style={styles.resourcesContainer}>
+            <Text style={styles.resourcesTitle}>Shared resources</Text>
+            <View style={styles.resourcesPills}>
+              {conversationResources.map(resource => (
+                <View key={resource.id} style={styles.resourcePill}>
+                  <Text numberOfLines={1} style={styles.resourcePillText}>
+                    {resource.filename ?? resource.sourceUrl ?? resource.resourceType}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
+      </View>
+      {isProcessingResource ? (
+        <View style={styles.processingBanner}>
+          <ActivityIndicator color={theme.colors.primary} size="small" />
+          <Text style={styles.processingText}>Processing your resource…</Text>
+        </View>
+      ) : null}
       {sessionState.finalizedTopic && sessionState.learningObjectives ? (
         <View style={styles.finalizedContainer}>
           {sessionState.unitTitle && (
@@ -369,7 +475,14 @@ export function LearningCoachScreen({
         disabled={isCoachLoading}
         replies={quickReplies}
       />
-      <Composer onSend={handleSend} disabled={isCoachLoading || isAccepting} />
+      <Composer
+        onSend={handleSend}
+        disabled={isCoachLoading || isAccepting}
+        onAttach={handleAddResource}
+        attachDisabled={
+          !canAttachResource || isCoachLoading || isAccepting || isProcessingResource
+        }
+      />
     </SafeAreaView>
   );
 }
@@ -378,6 +491,12 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: theme.colors.background,
+  },
+  body: {
+    flex: 1,
+  },
+  listWrapper: {
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,
@@ -419,6 +538,85 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     width: 40,
+  },
+  uploadPrompt: {
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    backgroundColor: theme.colors.surface,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
+    gap: 12,
+  },
+  uploadPromptTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: theme.colors.text,
+  },
+  uploadPromptSubtitle: {
+    fontSize: 14,
+    color: theme.colors.textSecondary ?? '#6b7280',
+    lineHeight: 20,
+  },
+  uploadPromptButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: theme.colors.primary,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  uploadPromptButtonText: {
+    color: theme.colors.surface,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  resourcesContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    gap: 8,
+  },
+  resourcesTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.text,
+  },
+  resourcesPills: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  resourcePill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.surface,
+  },
+  resourcePillText: {
+    maxWidth: 220,
+    color: theme.colors.primary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  processingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: theme.colors.surface,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
+  },
+  processingText: {
+    color: theme.colors.textSecondary ?? '#6b7280',
+    fontSize: 14,
+    fontStyle: 'italic',
   },
   finalizedContainer: {
     padding: 16,

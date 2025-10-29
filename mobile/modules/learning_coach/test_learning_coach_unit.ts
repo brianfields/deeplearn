@@ -41,6 +41,17 @@ describe('LearningCoachRepo', () => {
         level: 'Beginner',
       },
       accepted_brief: null,
+      resources: [
+        {
+          id: 'res-1',
+          resource_type: 'file_upload',
+          filename: 'algebra-notes.pdf',
+          source_url: null,
+          file_size: 1024,
+          created_at: '2024-01-02T00:00:00Z',
+          preview_text: 'These are algebra notes.',
+        },
+      ],
     });
 
     const repo = new LearningCoachRepo();
@@ -64,6 +75,17 @@ describe('LearningCoachRepo', () => {
       level: 'Beginner',
     });
     expect(state.acceptedBrief).toBeNull();
+    expect(state.resources).toEqual([
+      {
+        id: 'res-1',
+        resourceType: 'file_upload',
+        filename: 'algebra-notes.pdf',
+        sourceUrl: null,
+        fileSize: 1024,
+        createdAt: '2024-01-02T00:00:00Z',
+        previewText: 'These are algebra notes.',
+      },
+    ]);
   });
 
   it('handles brief acceptance', async () => {
@@ -96,5 +118,62 @@ describe('LearningCoachRepo', () => {
       notes: null,
       level: null,
     });
+  });
+
+  it('attaches a resource to the conversation', async () => {
+    mockRequest.mockResolvedValueOnce({
+      conversation_id: 'conv-1',
+      metadata: {},
+      messages: [],
+      proposed_brief: null,
+      accepted_brief: null,
+      resources: [],
+    });
+
+    const repo = new LearningCoachRepo();
+    const state = await repo.startSession({});
+
+    mockRequest.mockResolvedValueOnce({
+      conversation_id: state.conversationId,
+      metadata: {},
+      messages: [],
+      proposed_brief: null,
+      accepted_brief: null,
+      resources: [
+        {
+          id: 'resource-9',
+          resource_type: 'url',
+          filename: null,
+          source_url: 'https://example.com',
+          file_size: null,
+          created_at: '2024-04-02T00:00:00Z',
+          preview_text: 'Example summary',
+        },
+      ],
+    });
+
+    const updated = await repo.attachResource({
+      conversationId: state.conversationId,
+      resourceId: 'resource-9',
+    });
+
+    expect(mockRequest).toHaveBeenLastCalledWith(
+      `/api/v1/learning_coach/conversations/${encodeURIComponent(state.conversationId)}/resources`,
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ resource_id: 'resource-9', user_id: null }),
+      })
+    );
+    expect(updated.resources).toEqual([
+      {
+        id: 'resource-9',
+        resourceType: 'url',
+        filename: null,
+        sourceUrl: 'https://example.com',
+        fileSize: null,
+        createdAt: '2024-04-02T00:00:00Z',
+        previewText: 'Example summary',
+      },
+    ]);
   });
 });

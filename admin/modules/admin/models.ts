@@ -377,6 +377,7 @@ export interface UserDetail extends UserSummary {
   recent_sessions: UserSessionSummary[];
   recent_llm_requests: UserLLMRequestSummary[];
   recent_conversations: UserConversationSummary[];
+  resources: ResourceWithUsage[];
 }
 
 export interface UserListResponse {
@@ -662,9 +663,41 @@ export interface UnitDetail {
   flow_runs: FlowRunSummary[];
   created_at: Date | null;
   updated_at: Date | null;
+  resources: ResourceSummary[];
 }
 
 export type LessonToUnitMap = Record<string, { unit_id: string; unit_title: string }>;
+
+// ---- Resource Types ----
+
+export interface ApiResourceSummary {
+  id: string;
+  resource_type: string;
+  filename: string | null;
+  source_url: string | null;
+  file_size: number | null;
+  created_at: string;
+  preview_text: string;
+}
+
+export interface ResourceSummary {
+  id: string;
+  resource_type: string;
+  filename: string | null;
+  source_url: string | null;
+  file_size: number | null;
+  created_at: Date;
+  preview_text: string;
+}
+
+export interface ResourceUsageSummary {
+  unit_id: string;
+  unit_title: string;
+}
+
+export interface ResourceWithUsage extends ResourceSummary {
+  used_in_units: ResourceUsageSummary[];
+}
 
 // ---- API Wire Types (private to module) ----
 

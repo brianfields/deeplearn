@@ -12,9 +12,10 @@ from modules.conversation_engine.public import (
     ConversationMessageDTO,
     ConversationSummaryDTO,
 )
+from modules.resource.service import ResourceRead
 
 from .conversation import LearningCoachConversation
-from .service import LearningCoachService
+from .service import LearningCoachService, build_resource_context_prompt
 
 
 @pytest.mark.asyncio
@@ -86,8 +87,10 @@ async def test_start_session_records_topic_and_returns_assistant_turn() -> None:
 
     with (
         patch("modules.conversation_engine.base_conversation.infrastructure_provider", return_value=mock_infra),
+        patch("modules.learning_coach.conversation.infrastructure_provider", return_value=mock_infra),
         patch("modules.conversation_engine.base_conversation.llm_services_provider", return_value=mock_llm_services),
         patch("modules.conversation_engine.base_conversation.ConversationEngineService", return_value=service_instance),
+        patch("modules.learning_coach.service.fetch_resources_for_ids", AsyncMock(return_value=[])),
     ):
         state = await conversation.start_session(topic="algebra")
 
@@ -95,6 +98,7 @@ async def test_start_session_records_topic_and_returns_assistant_turn() -> None:
     assert state.metadata["topic"] == "algebra"
     assert state.messages[-1].role == "assistant"
     assert state.messages[-1].content == "What would you like to learn today?"
+    assert state.resources == []
     service_instance.record_user_message.assert_awaited_once()
     # Verify the static opening message was recorded
     service_instance.record_assistant_message.assert_awaited_once()
@@ -181,8 +185,10 @@ async def test_submit_learner_turn_appends_message() -> None:
 
     with (
         patch("modules.conversation_engine.base_conversation.infrastructure_provider", return_value=mock_infra),
+        patch("modules.learning_coach.conversation.infrastructure_provider", return_value=mock_infra),
         patch("modules.conversation_engine.base_conversation.llm_services_provider", return_value=mock_llm_services),
         patch("modules.conversation_engine.base_conversation.ConversationEngineService", return_value=service_instance),
+        patch("modules.learning_coach.service.fetch_resources_for_ids", AsyncMock(return_value=[])),
     ):
         state = await conversation.submit_learner_turn(
             _conversation_id=str(conversation_id),
@@ -192,6 +198,7 @@ async def test_submit_learner_turn_appends_message() -> None:
     assert state.messages[-1].content.startswith("Noted!")
     service_instance.record_user_message.assert_awaited_once()
     mock_llm_services.generate_structured_response.assert_awaited_once()
+    assert state.resources == []
 
 
 def test_parse_learning_objectives_includes_titles() -> None:
@@ -266,8 +273,10 @@ async def test_accept_brief_updates_metadata() -> None:
 
     with (
         patch("modules.conversation_engine.base_conversation.infrastructure_provider", return_value=mock_infra),
+        patch("modules.learning_coach.conversation.infrastructure_provider", return_value=mock_infra),
         patch("modules.conversation_engine.base_conversation.llm_services_provider", return_value=AsyncMock()),
         patch("modules.conversation_engine.base_conversation.ConversationEngineService", return_value=service_instance),
+        patch("modules.learning_coach.service.fetch_resources_for_ids", AsyncMock(return_value=[])),
     ):
         state = await conversation.accept_brief(
             _conversation_id=str(conversation_id),
@@ -276,6 +285,93 @@ async def test_accept_brief_updates_metadata() -> None:
 
     service_instance.update_conversation_metadata.assert_awaited_once()
     assert state.accepted_brief == accepted_payload
+    assert state.resources == []
+
+
+@pytest.mark.asyncio
+async def test_add_resource_attaches_metadata_and_returns_state() -> None:
+    """Attaching a resource should store it in metadata and surface a summary."""
+
+    conversation = LearningCoachConversation()
+
+    mock_infra = MagicMock()
+    session_ctx = MagicMock()
+    session_ctx.__enter__.return_value = MagicMock()
+    session_ctx.__exit__.return_value = False
+    mock_infra.get_session_context.return_value = session_ctx
+
+    service_instance = AsyncMock()
+    conversation_id = uuid.uuid4()
+    resource_id = uuid.uuid4()
+    now = datetime.now(UTC)
+
+    summary_before = ConversationSummaryDTO(
+        id=str(conversation_id),
+        user_id=None,
+        conversation_type="learning_coach",
+        title=None,
+        status="active",
+        metadata={},
+        message_count=1,
+        created_at=now,
+        updated_at=now,
+        last_message_at=now,
+    )
+    summary_after = ConversationSummaryDTO(
+        id=str(conversation_id),
+        user_id=None,
+        conversation_type="learning_coach",
+        title=None,
+        status="active",
+        metadata={"resource_ids": [str(resource_id)]},
+        message_count=1,
+        created_at=now,
+        updated_at=now,
+        last_message_at=now,
+    )
+
+    service_instance.get_conversation_summary.side_effect = [summary_before, summary_before, summary_after]
+    service_instance.update_conversation_metadata.return_value = summary_after
+    service_instance.get_message_history.return_value = []
+
+    resource = ResourceRead(
+        id=resource_id,
+        user_id=1,
+        resource_type="file_upload",
+        filename="notes.txt",
+        source_url=None,
+        extracted_text="Key takeaways from the lecture.",
+        extraction_metadata={},
+        file_size=512,
+        created_at=now,
+        updated_at=now,
+    )
+
+    mock_fetch = AsyncMock(side_effect=[[resource], [resource]])
+
+    with (
+        patch("modules.conversation_engine.base_conversation.infrastructure_provider", return_value=mock_infra),
+        patch("modules.learning_coach.conversation.infrastructure_provider", return_value=mock_infra),
+        patch("modules.conversation_engine.base_conversation.llm_services_provider", return_value=AsyncMock()),
+        patch("modules.conversation_engine.base_conversation.ConversationEngineService", return_value=service_instance),
+        patch("modules.learning_coach.service.fetch_resources_for_ids", mock_fetch),
+    ):
+        state = await conversation.add_resource(
+            _conversation_id=str(conversation_id),
+            resource_id=str(resource_id),
+        )
+
+    service_instance.update_conversation_metadata.assert_awaited_once_with(
+        conversation_id,
+        {"resource_ids": [str(resource_id)]},
+        merge=True,
+    )
+    assert len(state.resources) == 1
+    resource_summary = state.resources[0]
+    assert resource_summary.id == str(resource_id)
+    assert resource_summary.filename == "notes.txt"
+    assert "Key takeaways" in resource_summary.preview_text
+    assert mock_fetch.await_count == 2
 
 
 @pytest.mark.asyncio
@@ -313,6 +409,7 @@ async def test_service_get_session_state_uses_infrastructure() -> None:
     async_engine.get_conversation.return_value = detail
 
     service = LearningCoachService(infrastructure=mock_infra)
+    service.get_conversation_resources = AsyncMock(return_value=[])
 
     with patch("modules.learning_coach.service.conversation_engine_provider", return_value=async_engine):
         state = await service.get_session_state(str(conversation_id))
@@ -321,6 +418,7 @@ async def test_service_get_session_state_uses_infrastructure() -> None:
     async_engine.get_conversation.assert_awaited_once()
     assert state.metadata["topic"] == "algebra"
     assert state.messages[0].role == "assistant"
+    assert state.resources == []
 
 
 @pytest.mark.asyncio
@@ -360,3 +458,29 @@ async def test_service_list_conversations_returns_summaries() -> None:
     async_engine.list_conversations_by_type.assert_awaited_once()
     assert results[0].id == str(conversation_id)
     assert results[0].metadata["topic"] == "algebra"
+
+
+def test_build_resource_context_prompt_formats_output() -> None:
+    """The helper should include filenames and excerpts in the prompt block."""
+
+    now = datetime(2024, 1, 1, tzinfo=UTC)
+    resource = ResourceRead(
+        id=uuid.uuid4(),
+        user_id=7,
+        resource_type="url",
+        filename=None,
+        source_url="https://example.com/article",
+        extracted_text="This is a comprehensive overview of the subject that spans multiple sections.",
+        extraction_metadata={},
+        file_size=None,
+        created_at=now,
+        updated_at=now,
+    )
+
+    prompt = build_resource_context_prompt([resource])
+
+    assert prompt is not None
+    assert "## Source Materials Provided" in prompt
+    assert "https://example.com/article" in prompt
+    assert "Extracted content" in prompt
+    assert "This is a comprehensive overview" in prompt

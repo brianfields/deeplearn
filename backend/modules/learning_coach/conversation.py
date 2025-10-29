@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
+import uuid
 
 from pydantic import BaseModel, Field
 
@@ -13,8 +15,33 @@ from modules.conversation_engine.public import (
     ConversationMessageDTO,
     conversation_session,
 )
+from modules.infrastructure.public import infrastructure_provider
 
-from .dtos import LearningCoachMessage, LearningCoachObjective, LearningCoachSessionState
+from .dtos import (
+    LearningCoachMessage,
+    LearningCoachObjective,
+    LearningCoachResource,
+    LearningCoachSessionState,
+)
+
+if TYPE_CHECKING:
+    from modules.resource.service import ResourceRead
+
+
+RESOURCE_METADATA_KEY = "resource_ids"
+
+
+async def _fetch_resources(resource_ids: Sequence[uuid.UUID]) -> list[ResourceRead]:
+    """Load resource records for the provided identifiers."""
+
+    if not resource_ids:
+        return []
+
+    from .service import fetch_resources_for_ids
+
+    infra = infrastructure_provider()
+    infra.initialize()
+    return await fetch_resources_for_ids(infra, resource_ids)
 
 
 class CoachLearningObjective(BaseModel):
@@ -85,6 +112,32 @@ class LearningCoachConversation(BaseConversation):
     system_prompt_file = "prompts/system_prompt.md"
 
     @conversation_session
+    async def add_resource(
+        self,
+        *,
+        _conversation_id: str | None = None,
+        _user_id: int | None = None,
+        resource_id: str,
+    ) -> LearningCoachSessionState:
+        """Attach a learner resource to the active conversation."""
+
+        resource_uuid = uuid.UUID(str(resource_id))
+
+        resources = await _fetch_resources([resource_uuid])
+        if not resources:
+            raise LookupError("Resource not found")
+
+        summary = await self.get_conversation_summary()
+        existing_ids = self._extract_resource_ids(summary.metadata)
+        stored_ids = [str(item) for item in existing_ids]
+        resource_id_str = str(resource_uuid)
+        if resource_id_str not in stored_ids:
+            stored_ids.append(resource_id_str)
+            await self.update_conversation_metadata({RESOURCE_METADATA_KEY: stored_ids})
+
+        return await self._build_session_state()
+
+    @conversation_session
     async def start_session(
         self,
         *,
@@ -148,6 +201,7 @@ class LearningCoachConversation(BaseConversation):
         history = await ctx.service.get_message_history(ctx.conversation_id, include_system=False)
         summary = await self.get_conversation_summary()
         metadata = dict(summary.metadata or {})
+        resources = await self._load_conversation_resources()
 
         return LearningCoachSessionState(
             conversation_id=str(ctx.conversation_id),
@@ -159,6 +213,7 @@ class LearningCoachConversation(BaseConversation):
             suggested_lesson_count=metadata.get("suggested_lesson_count"),
             proposed_brief=self._dict_or_none(metadata.get("proposed_brief")),
             accepted_brief=self._dict_or_none(metadata.get("accepted_brief")),
+            resources=[self._to_resource_summary(resource) for resource in resources],
         )
 
     def _to_message(self, message: ConversationMessageDTO) -> LearningCoachMessage:
@@ -213,10 +268,17 @@ class LearningCoachConversation(BaseConversation):
     async def _generate_structured_reply(self) -> None:
         """Generate a structured coach response and persist it."""
 
-        # Generate structured response using helper
+        resources = await self._load_conversation_resources()
+        from .service import build_resource_context_prompt
+
+        base_prompt = self.get_system_prompt()
+        resource_context = build_resource_context_prompt(resources)
+        system_prompt = self._merge_system_prompt(base_prompt, resource_context)
+
         coach_response, request_id, raw_response = await self.generate_structured_reply(
             CoachResponse,
             model="claude-haiku-4-5",
+            system_prompt=system_prompt,
         )
 
         # Record the assistant message
@@ -246,3 +308,60 @@ class LearningCoachConversation(BaseConversation):
             if coach_response.suggested_lesson_count is not None:
                 metadata_update["suggested_lesson_count"] = coach_response.suggested_lesson_count
             await self.update_conversation_metadata(metadata_update)
+
+    async def _load_conversation_resources(self) -> list[ResourceRead]:
+        """Return resources referenced by the current conversation metadata."""
+
+        metadata = ConversationContext.current().metadata or {}
+        resource_ids = self._coerce_resource_ids(metadata.get(RESOURCE_METADATA_KEY))
+        return await _fetch_resources(resource_ids)
+
+    def _extract_resource_ids(self, metadata: Any) -> list[uuid.UUID]:
+        """Parse stored resource identifiers from conversation metadata."""
+
+        if not isinstance(metadata, dict):
+            return []
+        return self._coerce_resource_ids(metadata.get(RESOURCE_METADATA_KEY))
+
+    def _coerce_resource_ids(self, value: Any) -> list[uuid.UUID]:
+        """Convert stored identifier values into UUID instances."""
+
+        if value is None:
+            return []
+        if isinstance(value, str | uuid.UUID):
+            try:
+                return [uuid.UUID(str(value))]
+            except ValueError:
+                return []
+        if isinstance(value, list | tuple | set):
+            result: list[uuid.UUID] = []
+            for item in value:
+                try:
+                    result.append(uuid.UUID(str(item)))
+                except ValueError:
+                    continue
+            return result
+        return []
+
+    def _to_resource_summary(self, resource: ResourceRead) -> LearningCoachResource:
+        """Convert a resource record into the conversation DTO format."""
+
+        preview = resource.extracted_text.strip()
+        if len(preview) > 200:
+            preview = preview[:200]
+        return LearningCoachResource(
+            id=str(resource.id),
+            resource_type=resource.resource_type,
+            filename=resource.filename,
+            source_url=resource.source_url,
+            file_size=resource.file_size,
+            created_at=resource.created_at,
+            preview_text=preview,
+        )
+
+    def _merge_system_prompt(self, base_prompt: str | None, resource_context: str | None) -> str | None:
+        """Combine the static system prompt with dynamic resource context."""
+
+        if base_prompt and resource_context:
+            return f"{base_prompt}\n\n{resource_context}"
+        return resource_context or base_prompt

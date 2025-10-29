@@ -4,6 +4,7 @@ import type {
   AcceptBriefPayload,
   LearnerTurnPayload,
   LearningCoachSessionState,
+  AttachResourcePayload,
   StartSessionPayload,
 } from './models';
 
@@ -59,6 +60,19 @@ export function useAcceptBriefMutation() {
   const queryClient = useQueryClient();
   return useMutation<LearningCoachSessionState, Error, AcceptBriefPayload>({
     mutationFn: payload => learningCoach.acceptBrief(payload),
+    onSuccess: state => {
+      queryClient.setQueryData(
+        learningCoachKeys.session(state.conversationId),
+        state
+      );
+    },
+  });
+}
+
+export function useAttachResourceMutation() {
+  const queryClient = useQueryClient();
+  return useMutation<LearningCoachSessionState, Error, AttachResourcePayload>({
+    mutationFn: payload => learningCoach.attachResource(payload),
     onSuccess: state => {
       queryClient.setQueryData(
         learningCoachKeys.session(state.conversationId),
