@@ -4,7 +4,18 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, Final
+
+
+class _UnsetType:
+    """Sentinel value representing an intentionally omitted field."""
+
+    __slots__ = ()
+
+
+UNSET: Final[_UnsetType] = _UnsetType()
+
+UncoveredLearningObjectiveIds = list[str] | None
 
 
 @dataclass(slots=True)
@@ -54,6 +65,7 @@ class LearningCoachSessionState:
     proposed_brief: dict[str, Any] | None  # Deprecated, will be removed
     accepted_brief: dict[str, Any] | None  # Deprecated, will be removed
     resources: list[LearningCoachResource]
+    uncovered_learning_objective_ids: UncoveredLearningObjectiveIds | _UnsetType = UNSET
 
 
 @dataclass(slots=True)

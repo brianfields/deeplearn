@@ -16,6 +16,7 @@ from modules.resource.service import ResourceRead
 
 from .conversation import LearningCoachConversation
 from .service import LearningCoachService, build_resource_context_prompt
+from .dtos import UNSET
 
 
 @pytest.mark.asyncio
@@ -99,6 +100,7 @@ async def test_start_session_records_topic_and_returns_assistant_turn() -> None:
     assert state.messages[-1].role == "assistant"
     assert state.messages[-1].content == "What would you like to learn today?"
     assert state.resources == []
+    assert state.uncovered_learning_objective_ids is UNSET
     service_instance.record_user_message.assert_awaited_once()
     # Verify the static opening message was recorded
     service_instance.record_assistant_message.assert_awaited_once()
@@ -323,7 +325,10 @@ async def test_add_resource_attaches_metadata_and_returns_state() -> None:
         conversation_type="learning_coach",
         title=None,
         status="active",
-        metadata={"resource_ids": [str(resource_id)]},
+        metadata={
+            "resource_ids": [str(resource_id)],
+            "uncovered_learning_objective_ids": ["lo_gap"],
+        },
         message_count=2,
         created_at=now,
         updated_at=now,
@@ -409,6 +414,7 @@ async def test_add_resource_attaches_metadata_and_returns_state() -> None:
     assert resource_summary.id == str(resource_id)
     assert resource_summary.filename == "notes.txt"
     assert "Key takeaways" in resource_summary.preview_text
+    assert state.uncovered_learning_objective_ids == ["lo_gap"]
     assert mock_fetch.await_count >= 2
 
 
@@ -457,6 +463,7 @@ async def test_service_get_session_state_uses_infrastructure() -> None:
     assert state.metadata["topic"] == "algebra"
     assert state.messages[0].role == "assistant"
     assert state.resources == []
+    assert state.uncovered_learning_objective_ids is UNSET
 
 
 @pytest.mark.asyncio

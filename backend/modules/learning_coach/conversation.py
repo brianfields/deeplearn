@@ -18,10 +18,12 @@ from modules.conversation_engine.public import (
 from modules.infrastructure.public import infrastructure_provider
 
 from .dtos import (
+    UNSET,
     LearningCoachMessage,
     LearningCoachObjective,
     LearningCoachResource,
     LearningCoachSessionState,
+    UncoveredLearningObjectiveIds,
 )
 
 if TYPE_CHECKING:
@@ -220,6 +222,13 @@ class LearningCoachConversation(BaseConversation):
         summary = await self.get_conversation_summary()
         metadata = dict(summary.metadata or {})
         resources = await self._load_conversation_resources()
+        uncovered_ids = (
+            self._parse_uncovered_learning_objective_ids(
+                metadata.get("uncovered_learning_objective_ids")
+            )
+            if "uncovered_learning_objective_ids" in metadata
+            else UNSET
+        )
 
         return LearningCoachSessionState(
             conversation_id=str(ctx.conversation_id),
@@ -232,6 +241,7 @@ class LearningCoachConversation(BaseConversation):
             proposed_brief=self._dict_or_none(metadata.get("proposed_brief")),
             accepted_brief=self._dict_or_none(metadata.get("accepted_brief")),
             resources=[self._to_resource_summary(resource) for resource in resources],
+            uncovered_learning_objective_ids=uncovered_ids,
         )
 
     def _to_message(self, message: ConversationMessageDTO) -> LearningCoachMessage:
@@ -282,6 +292,25 @@ class LearningCoachConversation(BaseConversation):
                 )
 
         return objectives or None
+
+    def _parse_uncovered_learning_objective_ids(
+        self, value: Any
+    ) -> UncoveredLearningObjectiveIds:
+        """Normalize uncovered learning objective identifiers from metadata."""
+
+        if value is None:
+            return None
+
+        if not isinstance(value, list):
+            return []
+
+        normalized = [
+            str(item)
+            for item in value
+            if isinstance(item, str) and item.strip()
+        ]
+
+        return normalized
 
     async def _generate_structured_reply(self) -> None:
         """Generate a structured coach response and persist it."""
