@@ -172,6 +172,63 @@
           "first_aid_lo_3"
         ]
       }
+    },
+      "resource_id": "5f9e8e50-9f5c-4f64-bb86-77a7713dfdd0",
+      "resource_type": "photo",
+      "filename": "scene-safety-whiteboard.jpg",
+      "extracted_text": "Scene safety checklist written on a whiteboard with color-coded markers.\n\nDescription: An emergency response drill team stands around a folding table beside a whiteboard. The board lists 'Scene Size-Up' with bullet points: 'Hazards? PPE on?', 'Number of patients', 'Call EMS early'. A laminated START triage card and a radio rest on the table. Two volunteers wear reflective vests while pointing to the airway checklist.\n\nVisible text: 'Scene Size-Up', 'Hazards? PPE on?', 'Number of patients', 'Call EMS early', 'START', 'Airway', 'Breathing', 'Circulation'.",
+      "metadata": {
+        "source": "photo",
+        "model": "gpt-4o",
+        "description": "Emergency responders at a drill reviewing a scene safety checklist on a whiteboard with radios and PPE visible.",
+        "visible_text": "Scene Size-Up checklist with START triage reminders and ABC prompts."
+      },
+      "file_size": 428512,
+      "object_store_image_id": "f9dc76c3-1f5d-43c3-83e0-6e4ccf9449bc",
+      "image": {
+        "id": "f9dc76c3-1f5d-43c3-83e0-6e4ccf9449bc",
+        "s3_key": "seed/resources/eylem/scene-safety-whiteboard.jpg",
+        "s3_bucket": "lantern-room",
+        "filename": "scene-safety-whiteboard.jpg",
+        "content_type": "image/jpeg",
+        "file_size": 428512,
+        "width": 1600,
+        "height": 1066,
+        "alt_text": "Emergency response volunteers review a whiteboard that lists scene safety steps next to radios and PPE.",
+        "description": "Wide shot of a first-aid drill team discussing a scene safety checklist on a whiteboard with START triage cues."
+      }
+    }
+  ],
+  "learning_coach_conversations": [
+    {
+      "id": "c62ab1c0-90b6-4f71-8d7f-90a65b3ecf1d",
+      "user_key": "eylem",
+      "title": "Scene safety photo walkthrough",
+      "resource_ids": [
+        "5f9e8e50-9f5c-4f64-bb86-77a7713dfdd0"
+      ],
+      "metadata": {
+        "unit_id": "3b6caa92-0c83-4d5d-bdff-7f1df59fe2f2",
+        "conversation_stage": "analysis"
+      },
+      "messages": [
+        {
+          "role": "user",
+          "content": "I've attached the scene safety whiteboard from last night's drill. Can you help me turn this into a quick reference for volunteers?",
+          "metadata": {
+            "attachment_type": "photo"
+          }
+        },
+        {
+          "role": "assistant",
+          "content": "Thanks for the photo! I see the checklist covering hazards, PPE, patient count, and calling EMS early, plus the START triage card. I'll summarize these into a printable reference and highlight the airway-breathing-circulation reminders.",
+          "metadata": {
+            "resource_ids": [
+              "5f9e8e50-9f5c-4f64-bb86-77a7713dfdd0"
+            ]
+          }
+        }
+      ]
     }
   ],
   "art_image": null,

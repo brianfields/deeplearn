@@ -104,7 +104,7 @@ class LLMMessage(BaseModel):
     """DTO for LLM conversation messages."""
 
     role: str = Field(..., description="Message role (system, user, assistant, function, tool)")
-    content: str = Field(..., description="Message content")
+    content: str | list[dict[str, Any]] = Field(..., description="Message content")
     name: str | None = Field(None, description="Optional name for the message")
     function_call: dict[str, Any] | None = Field(None, description="Function call data")
     tool_calls: list[dict[str, Any]] | None = Field(None, description="Tool calls data")
@@ -522,7 +522,15 @@ class LLMService:
 
         # Rough token estimation (this is approximate)
         # In production, you might want to use tiktoken or similar
-        total_chars = sum(len(msg.content) for msg in messages)
+        total_chars = 0
+        for msg in messages:
+            if isinstance(msg.content, str):
+                total_chars += len(msg.content)
+            else:
+                for part in msg.content:
+                    text = part.get("text") if isinstance(part, dict) else None
+                    if isinstance(text, str):
+                        total_chars += len(text)
         estimated_tokens = total_chars // 4  # Rough approximation
 
         return provider.estimate_cost(

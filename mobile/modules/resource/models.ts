@@ -37,6 +37,11 @@ export interface CreateResourceRequest {
   readonly file: UploadableFile;
 }
 
+export interface PhotoResourceCreate {
+  readonly userId: number;
+  readonly file: UploadableFile;
+}
+
 export interface AddResourceFromURLRequest {
   readonly userId: number;
   readonly url: string;
@@ -68,6 +73,7 @@ export interface ResourceSummaryApiResponse {
 export type ResourceServiceContract = Pick<
   ResourceService,
   | 'uploadFileResource'
+  | 'uploadPhotoResource'
   | 'addResourceFromUrl'
   | 'listUserResources'
   | 'getResourceDetail'

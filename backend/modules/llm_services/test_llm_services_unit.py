@@ -86,6 +86,50 @@ class _RecordingProvider(LLMProvider):
         raise NotImplementedError
 
 
+class _VisionRecordingProvider(LLMProvider):
+    """Test provider that records the raw messages for vision payload assertions."""
+
+    def __init__(self, config: LLMConfig, db_session: Session) -> None:
+        super().__init__(config, db_session)
+        self.last_messages: list[Any] = []
+
+    async def generate_response(
+        self,
+        messages: list[Any],
+        user_id: int | None = None,
+        **kwargs: Any,
+    ) -> tuple[LLMResponse, uuid.UUID]:
+        """Capture messages and persist a request for inspection."""
+
+        self.last_messages = messages
+        llm_request = self._create_llm_request(
+            messages=messages,
+            user_id=user_id,
+            model=kwargs.get("model"),
+            temperature=kwargs.get("temperature"),
+            max_output_tokens=kwargs.get("max_output_tokens"),
+        )
+        if llm_request.id is None:  # pragma: no cover - defensive guard
+            raise AssertionError("LLM request was not persisted")
+
+        response = LLMResponse(
+            content="vision-ok",
+            provider=self.config.provider,
+            model=kwargs.get("model") or self.config.model,
+            tokens_used=6,
+        )
+        return response, llm_request.id
+
+    async def generate_image(self, *args: Any, **kwargs: Any) -> tuple[Any, uuid.UUID]:  # pragma: no cover - unused in tests
+        raise NotImplementedError
+
+    async def generate_audio(self, *args: Any, **kwargs: Any) -> tuple[Any, uuid.UUID]:  # pragma: no cover - unused in tests
+        raise NotImplementedError
+
+    async def search_recent_news(self, *args: Any, **kwargs: Any) -> tuple[Any, uuid.UUID]:  # pragma: no cover - unused in tests
+        raise NotImplementedError
+
+
 @pytest.fixture()
 def db_session() -> Session:
     """Provide an isolated in-memory database session for each test."""
@@ -139,6 +183,52 @@ async def test_generate_response_assigns_user_context(db_session: Session, monke
 
     # Ensure the message conversion preserved role semantics
     assert messages[0].to_llm_message().role is MessageRole.USER
+
+
+@pytest.mark.asyncio()
+async def test_generate_response_supports_vision_messages(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Vision payloads should flow through to providers without losing structure."""
+
+    repo = LLMRequestRepo(db_session)
+    config = LLMConfig(provider=LLMProviderType.OPENAI, model="gpt-4o", api_key="key")
+
+    provider_factory = _ProviderFactory(lambda cfg, session: _VisionRecordingProvider(cfg, session))
+
+    monkeypatch.setattr("modules.llm_services.service.create_llm_config_from_env", lambda: config)
+    monkeypatch.setattr("modules.llm_services.service.create_llm_provider", provider_factory)
+
+    service = LLMService(repo)
+    provider = provider_factory.last_provider
+    assert isinstance(provider, _VisionRecordingProvider)
+
+    image_url = "https://example.com/photo.png"
+    messages = [
+        LLMMessage(
+            role="user",
+            content=[
+                {
+                    "type": "text",
+                    "text": "Analyze this learning resource photo.",
+                },
+                {
+                    "type": "image_url",
+                    "image_url": {"url": image_url},
+                },
+            ],
+        )
+    ]
+
+    response, request_id = await service.generate_response(messages=messages, user_id=1, model="gpt-4o")
+
+    assert response.content == "vision-ok"
+    assert provider.last_messages, "Provider did not capture messages"
+    assert isinstance(provider.last_messages[0].content, list)
+    assert provider.last_messages[0].content[1]["image_url"]["url"] == image_url
+
+    stored_request = repo.by_id(request_id)
+    assert stored_request is not None
+    assert isinstance(stored_request.messages[0]["content"], list)
+    assert stored_request.messages[0]["content"][1]["image_url"]["url"] == image_url
 
 
 def test_convert_to_claude_messages_includes_system_prompt() -> None:

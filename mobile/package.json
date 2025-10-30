@@ -51,6 +51,7 @@
     "expo-device": "^7.1.4",
     "expo-file-system": "~18.1.11",
     "expo-haptics": "^14.1.4",
+    "expo-image-picker": "^17.0.8",
     "expo-linear-gradient": "^14.1.5",
     "expo-sqlite": "~15.0.2",
     "expo-status-bar": "~2.2.3",

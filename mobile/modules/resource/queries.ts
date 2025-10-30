@@ -3,6 +3,7 @@ import { resourceProvider } from './public';
 import type {
   AddResourceFromURLRequest,
   CreateResourceRequest,
+  PhotoResourceCreate,
   Resource,
 } from './models';
 
@@ -52,6 +53,20 @@ export function useAddResourceFromURL() {
   return useMutation({
     mutationFn: (payload: AddResourceFromURLRequest) =>
       resource.addResourceFromUrl(payload),
+    onSuccess: (result: Resource) => {
+      queryClient.invalidateQueries({
+        queryKey: resourceKeys.userList(result.userId),
+      });
+      queryClient.setQueryData(resourceKeys.detail(result.id), result);
+    },
+  });
+}
+
+export function useUploadPhotoResource() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: PhotoResourceCreate) =>
+      resource.uploadPhotoResource(payload),
     onSuccess: (result: Resource) => {
       queryClient.invalidateQueries({
         queryKey: resourceKeys.userList(result.userId),

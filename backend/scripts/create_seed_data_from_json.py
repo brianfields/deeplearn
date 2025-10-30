@@ -10,7 +10,7 @@ Usage:
 """
 
 import argparse
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 import json
 import logging
 import os
@@ -31,6 +31,7 @@ from modules.content.models import (
     UnitResourceModel,
 )
 from modules.content.package_models import GlossaryTerm, LessonPackage, MCQAnswerKey, MCQExercise, MCQOption, Meta
+from modules.conversation_engine.models import ConversationMessageModel, ConversationModel
 from modules.flow_engine.models import FlowRunModel, FlowStepRunModel
 from modules.infrastructure.public import infrastructure_provider
 from modules.llm_services.models import LLMRequestModel
@@ -665,6 +666,7 @@ async def process_unit_from_json(
             print(f"   • Created lesson: {lesson_spec['title']}")
 
     # Process resources if provided
+    photo_resource_ids: list[uuid.UUID] = []
     for resource_spec in unit_spec.get("resources", []):
         resource_id = uuid.UUID(resource_spec["resource_id"]) if "resource_id" in resource_spec else uuid.uuid4()
 
@@ -698,6 +700,36 @@ async def process_unit_from_json(
                 db_session.add(document_model)
                 await db_session.flush()
 
+        image_id: uuid.UUID | None = None
+        if resource_spec.get("object_store_image_id"):
+            image_id = uuid.UUID(str(resource_spec["object_store_image_id"]))
+
+        if resource_spec.get("image"):
+            img_spec = resource_spec["image"]
+            image_id = image_id or (uuid.UUID(img_spec["id"]) if "id" in img_spec else uuid.uuid4())
+            existing_image = await db_session.get(ImageModel, image_id)
+            if not existing_image:
+                image_model = ImageModel(
+                    id=image_id,
+                    user_id=img_spec.get("user_id", owner_id),
+                    s3_key=img_spec["s3_key"],
+                    s3_bucket=img_spec.get("s3_bucket", bucket_name),
+                    filename=img_spec["filename"],
+                    content_type=img_spec.get("content_type", "image/jpeg"),
+                    file_size=img_spec.get("file_size", resource_spec.get("file_size", 0) or 0),
+                    width=img_spec.get("width"),
+                    height=img_spec.get("height"),
+                    alt_text=img_spec.get("alt_text"),
+                    description=img_spec.get("description"),
+                    created_at=seed_timestamp,
+                    updated_at=seed_timestamp,
+                )
+                db_session.add(image_model)
+                await db_session.flush()
+
+        if resource_spec.get("resource_type") == "photo" and image_id is not None:
+            photo_resource_ids.append(resource_id)
+
         # Create resource
         resource_model = ResourceModel(
             id=resource_id,
@@ -705,10 +737,11 @@ async def process_unit_from_json(
             resource_type=resource_spec["resource_type"],
             filename=resource_spec.get("filename"),
             source_url=resource_spec.get("source_url"),
-            extracted_text=resource_spec.get("extracted_text"),
+            extracted_text=resource_spec.get("extracted_text", ""),
             extraction_metadata=resource_spec.get("metadata", {}),
             file_size=resource_spec.get("file_size"),
             object_store_document_id=document_id,
+            object_store_image_id=image_id,
             created_at=seed_timestamp,
             updated_at=seed_timestamp,
         )
@@ -720,7 +753,73 @@ async def process_unit_from_json(
         await db_session.flush()
 
         if args.verbose:
-            print(f"   • Created resource: {resource_spec.get('filename') or resource_spec.get('source_url')}")
+            label = resource_spec.get("filename") or resource_spec.get("source_url") or str(resource_id)
+            print(f"   • Created resource: {label} ({resource_spec['resource_type']})")
+
+    # Seed optional learning coach conversations tied to the new resources
+    for conversation_spec in unit_spec.get("learning_coach_conversations", []):
+        conversation_id = uuid.UUID(conversation_spec["id"]) if "id" in conversation_spec else uuid.uuid4()
+        existing_conversation = await db_session.get(ConversationModel, conversation_id)
+        if existing_conversation:
+            await db_session.delete(existing_conversation)
+            await db_session.flush()
+
+        participant_key = conversation_spec.get("user_key", owner_key)
+        participant_id = user_ids.get(participant_key)
+        if not participant_id:
+            raise ValueError(f"Unknown user_key for conversation: {participant_key}")
+
+        metadata = dict(conversation_spec.get("metadata", {}))
+        resource_ids = [uuid.UUID(str(value)) for value in conversation_spec.get("resource_ids", [])]
+        if resource_ids:
+            metadata.setdefault("resource_ids", [str(resource_id) for resource_id in resource_ids])
+
+        messages = conversation_spec.get("messages", [])
+        message_count = len(messages)
+        conversation = ConversationModel(
+            id=conversation_id,
+            user_id=participant_id,
+            conversation_type="learning_coach",
+            title=conversation_spec.get("title"),
+            status=conversation_spec.get("status", "active"),
+            conversation_metadata=metadata,
+            message_count=message_count,
+            created_at=seed_timestamp,
+            updated_at=seed_timestamp,
+            last_message_at=seed_timestamp if message_count else None,
+        )
+        db_session.add(conversation)
+        await db_session.flush()
+
+        message_base_time = seed_timestamp
+        for index, message_spec in enumerate(messages, start=1):
+            offset_seconds = message_spec.get("offset_seconds")
+            message_time = message_base_time if offset_seconds is None else message_base_time + timedelta(seconds=float(offset_seconds))
+            conversation_message = ConversationMessageModel(
+                conversation_id=conversation_id,
+                role=message_spec["role"],
+                content=message_spec["content"],
+                message_order=index,
+                llm_request_id=None,
+                tokens_used=message_spec.get("tokens_used"),
+                cost_estimate=message_spec.get("cost_estimate"),
+                message_metadata=message_spec.get("metadata"),
+                created_at=message_time,
+                updated_at=message_time,
+            )
+            db_session.add(conversation_message)
+            conversation.last_message_at = message_time
+            conversation.updated_at = message_time
+
+        if resource_ids:
+            missing_photos = [resource_id for resource_id in resource_ids if resource_id not in photo_resource_ids]
+            if missing_photos and args.verbose:
+                print(
+                    "   • Conversation references non-photo resources:",
+                    ", ".join(str(value) for value in missing_photos),
+                )
+        if args.verbose:
+            print(f"   • Seeded learning coach conversation: {conversation.title or conversation_id}")
 
     await db_session.flush()
 

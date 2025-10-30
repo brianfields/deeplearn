@@ -30,6 +30,7 @@ class ResourceRepo:
         extraction_metadata: dict[str, object],
         file_size: int | None,
         object_store_document_id: uuid.UUID | None,
+        object_store_image_id: uuid.UUID | None,
     ) -> ResourceModel:
         resource = ResourceModel(
             user_id=user_id,
@@ -40,6 +41,7 @@ class ResourceRepo:
             extraction_metadata=extraction_metadata,
             file_size=file_size,
             object_store_document_id=object_store_document_id,
+            object_store_image_id=object_store_image_id,
         )
         self._session.add(resource)
         await self._session.flush()

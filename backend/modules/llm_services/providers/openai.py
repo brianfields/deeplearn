@@ -277,7 +277,7 @@ class OpenAIProvider(LLMProvider):
             logger.debug(f"Using previous response ID: {kwargs['previous_response_id']}")
 
         # Add optional parameters that work with GPT-5
-        for param in ["top_p", "frequency_penalty", "presence_penalty", "stop", "max_output_tokens"]:
+        for param in ["temperature", "top_p", "frequency_penalty", "presence_penalty", "stop", "max_output_tokens"]:
             if param in kwargs:
                 request_params[param] = kwargs[param]
 
@@ -324,7 +324,20 @@ class OpenAIProvider(LLMProvider):
 
             logger.info(f"🤖 Starting GPT-5 request - Model: {model}, Messages: {len(messages)}")
             if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(f"Messages: {[{'role': m.role.value, 'content': m.content[:100] + '...' if len(m.content) > 100 else m.content} for m in messages]}")
+                logger.debug(
+                    "Messages: %s",
+                    [
+                        {
+                            "role": msg.role.value,
+                            "content": (
+                                msg.content[:100] + "..."
+                                if isinstance(msg.content, str) and len(msg.content) > 100
+                                else (msg.content if isinstance(msg.content, str) else "[non-text content]")
+                            ),
+                        }
+                        for msg in messages
+                    ],
+                )
 
             # Prepare request parameters (avoid passing duplicate 'model')
             kwargs_clean = kwargs.copy()

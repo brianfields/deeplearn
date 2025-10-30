@@ -13,8 +13,10 @@ import uuid
 from pypdf import PdfReader
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from modules.llm_services.public import LLMServicesProvider, llm_services_provider
 from modules.object_store.public import (
     DocumentCreate,
+    ImageCreate,
     ObjectStoreProvider,
     object_store_provider,
 )
@@ -23,12 +25,14 @@ from ..models import ResourceModel
 from ..repo import ResourceRepo
 from .dtos import (
     FileResourceCreate,
+    PhotoResourceCreate,
     ResourceRead,
     ResourceSummary,
     UrlResourceCreate,
 )
 from .extractors import (
     ExtractionError,
+    extract_text_from_photo,
     extract_text_from_docx,
     extract_text_from_markdown,
     extract_text_from_pdf,
@@ -43,6 +47,16 @@ logger = logging.getLogger(__name__)
 MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024
 MAX_EXTRACTED_TEXT_BYTES = 100 * 1024
 PREVIEW_CHAR_LIMIT = 200
+ALLOWED_IMAGE_CONTENT_TYPES: frozenset[str] = frozenset(
+    {
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "image/jpg",
+        "image/heic",
+        "image/heif",
+    }
+)
 ALLOWED_FILE_EXTENSIONS: frozenset[str] = frozenset(
     {
         ".txt",
@@ -73,6 +87,7 @@ class ResourceService:
 
     repo: ResourceRepo
     object_store: ObjectStoreProvider
+    llm_services: LLMServicesProvider
 
     async def upload_file_resource(self, data: FileResourceCreate) -> ResourceRead:
         """Upload a file, extract text, and persist the resource."""
@@ -115,6 +130,7 @@ class ResourceService:
             extraction_metadata=extraction_metadata,
             file_size=file_size,
             object_store_document_id=document_result.document.id,
+            object_store_image_id=None,
         )
         return ResourceRead.model_validate(resource)
 
@@ -143,6 +159,73 @@ class ResourceService:
             extraction_metadata=metadata,
             file_size=None,
             object_store_document_id=None,
+            object_store_image_id=None,
+        )
+        return ResourceRead.model_validate(resource)
+
+    async def upload_photo_resource(self, data: PhotoResourceCreate) -> ResourceRead:
+        """Upload a learner photo, extract context, and persist the resource."""
+
+        normalized_name = data.filename.strip() or "photo.jpg"
+        content_type = data.content_type.lower()
+        if content_type not in ALLOWED_IMAGE_CONTENT_TYPES:
+            raise ResourceValidationError(
+                f"Unsupported image type: {data.content_type}"
+            )
+
+        file_size = data.file_size or len(data.content)
+        self._validate_file_size(file_size)
+
+        try:
+            upload_result = await self.object_store.upload_image(
+                ImageCreate(
+                    user_id=data.user_id,
+                    filename=normalized_name,
+                    content_type=content_type,
+                    content=data.content,
+                ),
+                generate_presigned_url=True,
+                presigned_ttl_seconds=900,
+            )
+        except Exception as exc:  # pragma: no cover - defensive storage handling
+            logger.exception("Failed to upload photo to object store")
+            raise ResourceExtractionError("Failed to store photo") from exc
+
+        if upload_result.presigned_url is None:
+            raise ResourceExtractionError("Failed to generate image URL for analysis")
+
+        try:
+            extracted_text, extraction_metadata = await extract_text_from_photo(
+                upload_result.presigned_url,
+                self.llm_services,
+            )
+        except ExtractionError as exc:
+            raise ResourceExtractionError(str(exc)) from exc
+        except Exception as exc:  # pragma: no cover - unexpected errors
+            logger.exception("Unexpected error during photo analysis")
+            raise ResourceExtractionError("Failed to analyse the photo") from exc
+
+        extraction_metadata.update(
+            {
+                "filename": normalized_name,
+                "file_size": file_size,
+                "image_id": str(upload_result.file.id),
+            }
+        )
+
+        truncated_text, truncate_meta = self._truncate_extracted_text(extracted_text)
+        extraction_metadata.update(truncate_meta)
+
+        resource = await self.repo.create(
+            user_id=data.user_id,
+            resource_type="photo",
+            filename=normalized_name,
+            source_url=None,
+            extracted_text=truncated_text,
+            extraction_metadata=extraction_metadata,
+            file_size=file_size,
+            object_store_document_id=None,
+            object_store_image_id=upload_result.file.id,
         )
         return ResourceRead.model_validate(resource)
 
@@ -305,6 +388,7 @@ async def resource_service_factory(session: AsyncSession) -> ResourceService:
     return ResourceService(
         repo=ResourceRepo(session),
         object_store=object_store_provider(session),
+        llm_services=llm_services_provider(),
     )
 
 
