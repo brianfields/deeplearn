@@ -4,16 +4,14 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from io import BytesIO
-from urllib.parse import parse_qs, urlparse
 import re
+from urllib.parse import parse_qs, urlparse
 from zipfile import BadZipFile, ZipFile
 
 from defusedxml import ElementTree as ET
 from defusedxml.common import DefusedXmlException
-
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
-
 from youtube_transcript_api import (
     NoTranscriptFound,
     TranscriptsDisabled,
@@ -98,11 +96,7 @@ def extract_text_from_pptx(content: bytes) -> str:
 
     try:
         with ZipFile(BytesIO(content)) as archive:
-            slide_entries = [
-                (int(match.group(1)), name)
-                for name in archive.namelist()
-                if (match := slide_pattern.fullmatch(name))
-            ]
+            slide_entries = [(int(match.group(1)), name) for name in archive.namelist() if (match := slide_pattern.fullmatch(name))]
 
             if not slide_entries:
                 raise ExtractionError("No slides found in the presentation")
@@ -143,7 +137,7 @@ def extract_youtube_transcript(url: str) -> str:
         raise ExtractionError("Could not determine YouTube video ID from URL")
 
     try:
-        transcript = YouTubeTranscriptApi.get_transcript(video_id)
+        transcript = YouTubeTranscriptApi().fetch(video_id)
     except TranscriptsDisabled as exc:
         raise ExtractionError("Transcripts are disabled for this YouTube video") from exc
     except NoTranscriptFound as exc:
@@ -155,7 +149,7 @@ def extract_youtube_transcript(url: str) -> str:
 
     lines: list[str] = []
     for entry in transcript:
-        text = (entry.get("text") or "").strip()
+        text = (entry.text or "").strip()
         if text:
             lines.append(text.replace("\n", " ").strip())
 
