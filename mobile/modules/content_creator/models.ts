@@ -7,6 +7,7 @@ export interface UnitCreationRequest {
   readonly targetLessonCount?: number | null;
   readonly shareGlobally?: boolean;
   readonly ownerUserId?: number | null;
+  readonly conversationId?: string | null;
 }
 
 export interface UnitCreationResponse {

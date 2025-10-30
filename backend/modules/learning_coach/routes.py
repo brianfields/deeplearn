@@ -8,10 +8,16 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
+from pydantic_core import PydanticUndefined
 
 from modules.infrastructure.public import infrastructure_provider
 
-from .dtos import LearningCoachMessage, LearningCoachResource, LearningCoachSessionState
+from .dtos import (
+    UNSET,
+    LearningCoachMessage,
+    LearningCoachResource,
+    LearningCoachSessionState,
+)
 from .service import LearningCoachService
 
 router = APIRouter(prefix="/api/v1/learning_coach", tags=["learning_coach"])
@@ -48,6 +54,10 @@ class LearningCoachSessionStateModel(BaseModel):
     proposed_brief: dict[str, Any] | None = None
     accepted_brief: dict[str, Any] | None = None
     resources: list[ResourceSummaryModel] = Field(default_factory=list)
+    uncovered_learning_objective_ids: list[str] | None = Field(
+        default=PydanticUndefined,
+        description="Learning objective identifiers that require supplemental coverage.",
+    )
 
 
 class StartSessionRequest(BaseModel):
@@ -184,18 +194,32 @@ async def attach_resource(
 
 def _serialize_state(state: LearningCoachSessionState) -> LearningCoachSessionStateModel:
     """Convert an internal DTO into an API response model."""
+    payload: dict[str, Any] = {
+        "conversation_id": state.conversation_id,
+        "messages": [_serialize_message(message) for message in state.messages],
+        "metadata": state.metadata,
+        "finalized_topic": state.finalized_topic,
+        "unit_title": state.unit_title,
+        "learning_objectives": [
+            LearningObjectiveModel(id=obj.id, title=obj.title, description=obj.description)
+            for obj in state.learning_objectives or []
+        ]
+        if state.learning_objectives
+        else None,
+        "suggested_lesson_count": state.suggested_lesson_count,
+        "proposed_brief": state.proposed_brief,
+        "accepted_brief": state.accepted_brief,
+        "resources": [_serialize_resource(resource) for resource in state.resources],
+    }
 
-    return LearningCoachSessionStateModel(
-        conversation_id=state.conversation_id,
-        messages=[_serialize_message(message) for message in state.messages],
-        metadata=state.metadata,
-        finalized_topic=state.finalized_topic,
-        unit_title=state.unit_title,
-        learning_objectives=[LearningObjectiveModel(id=obj.id, title=obj.title, description=obj.description) for obj in state.learning_objectives or []] if state.learning_objectives else None,
-        suggested_lesson_count=state.suggested_lesson_count,
-        proposed_brief=state.proposed_brief,
-        accepted_brief=state.accepted_brief,
-        resources=[_serialize_resource(resource) for resource in state.resources],
+    fields_set = set(payload.keys())
+    if state.uncovered_learning_objective_ids is not UNSET:
+        payload["uncovered_learning_objective_ids"] = state.uncovered_learning_objective_ids
+        fields_set.add("uncovered_learning_objective_ids")
+
+    return LearningCoachSessionStateModel.model_construct(
+        _fields_set=fields_set,
+        **payload,
     )
 
 

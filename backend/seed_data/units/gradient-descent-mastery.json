@@ -224,6 +224,29 @@
         "created_at": "2025-10-30 00:23:07.850994+00:00",
         "updated_at": "2025-10-30 00:23:07.850994+00:00"
       }
+    },
+    {
+      "resource_id": "8d1b0a8a-9c02-4d32-9aa7-b47fe87cc1f4",
+      "resource_type": "url",
+      "source_url": "https://ml4all.example.com/notes/gradient-descent-intuition",
+      "extracted_text": "Instructor-authored blog post describing gradient descent intuition with contour diagrams and annotated Python snippets for batch versus stochastic updates.",
+      "metadata": {
+        "source": "learner_share",
+        "captured_at": "2024-02-12T14:05:00Z"
+      }
+    },
+    {
+      "resource_id": "2c54d82e-77aa-4fb1-9a6e-8213029ecf9c",
+      "resource_type": "generated_source",
+      "filename": "adaptive-learning-rates-supplement.txt",
+      "extracted_text": "AI-generated supplement focusing on adaptive learning rate schedules, convergence guarantees, and comparing RMSProp with Adam for objectives not covered in learner notes.",
+      "metadata": {
+        "generated_at": "2024-02-15T09:40:00Z",
+        "method": "ai_supplemental",
+        "uncovered_lo_ids": [
+          "grad_unit_lo_2"
+        ]
+      }
     }
   ],
   "art_image": null,

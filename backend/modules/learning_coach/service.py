@@ -12,11 +12,13 @@ from modules.resource.public import ResourceRead, resource_provider
 
 from .conversation import LearningCoachConversation
 from .dtos import (
+    UNSET,
     LearningCoachConversationSummary,
     LearningCoachMessage,
     LearningCoachObjective,
     LearningCoachResource,
     LearningCoachSessionState,
+    UncoveredLearningObjectiveIds,
 )
 
 
@@ -133,6 +135,13 @@ class LearningCoachService:
         ]
 
         resources = await self.get_conversation_resources(conversation_id)
+        uncovered_ids = (
+            self._parse_uncovered_learning_objective_ids(
+                metadata.get("uncovered_learning_objective_ids")
+            )
+            if "uncovered_learning_objective_ids" in metadata
+            else UNSET
+        )
 
         return LearningCoachSessionState(
             conversation_id=detail.id,
@@ -156,6 +165,7 @@ class LearningCoachService:
                 )
                 for resource in resources
             ],
+            uncovered_learning_objective_ids=uncovered_ids,
         )
 
     async def list_conversations(
@@ -230,6 +240,23 @@ class LearningCoachService:
                 )
 
         return objectives or None
+
+    def _parse_uncovered_learning_objective_ids(
+        self, value: Any
+    ) -> UncoveredLearningObjectiveIds:
+        if value is None:
+            return None
+
+        if not isinstance(value, list):
+            return []
+
+        normalized = [
+            str(item)
+            for item in value
+            if isinstance(item, str) and item.strip()
+        ]
+
+        return normalized
 
     async def get_conversation_resources(self, conversation_id: str) -> list[ResourceRead]:
         """Return resources linked to a conversation via metadata."""

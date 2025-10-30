@@ -52,6 +52,7 @@ describe('LearningCoachRepo', () => {
           preview_text: 'These are algebra notes.',
         },
       ],
+      uncovered_learning_objective_ids: ['lo-2', 123 as any, null as any],
     });
 
     const repo = new LearningCoachRepo();
@@ -86,6 +87,7 @@ describe('LearningCoachRepo', () => {
         previewText: 'These are algebra notes.',
       },
     ]);
+    expect(state.uncoveredLearningObjectiveIds).toEqual(['lo-2']);
   });
 
   it('handles brief acceptance', async () => {
@@ -175,5 +177,40 @@ describe('LearningCoachRepo', () => {
         previewText: 'Example summary',
       },
     ]);
+  });
+
+  it('passes conversationId when accepting a brief', async () => {
+    mockRequest
+      .mockResolvedValueOnce({
+        conversation_id: 'conv-9',
+        metadata: {},
+        messages: [],
+      })
+      .mockResolvedValueOnce({
+        conversation_id: 'conv-9',
+        metadata: {},
+        messages: [],
+        accepted_brief: null,
+      });
+
+    const repo = new LearningCoachRepo();
+    const state = await repo.startSession({});
+
+    await repo.acceptBrief({
+      conversationId: state.conversationId,
+      brief: { title: 'Test', description: '', objectives: [] },
+    });
+
+    expect(mockRequest).toHaveBeenNthCalledWith(
+      2,
+      '/api/v1/learning_coach/session/accept',
+      expect.objectContaining({
+        body: JSON.stringify({
+          conversation_id: 'conv-9',
+          brief: { title: 'Test', description: '', objectives: [] },
+          user_id: null,
+        }),
+      })
+    );
   });
 });

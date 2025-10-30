@@ -14,7 +14,7 @@ class ResourceRead(BaseModel):
 
     id: uuid.UUID
     user_id: int
-    resource_type: str
+    resource_type: str = Field(description="Type of resource (e.g., 'file_upload', 'url', 'generated_source').")
     filename: str | None
     source_url: str | None
     extracted_text: str

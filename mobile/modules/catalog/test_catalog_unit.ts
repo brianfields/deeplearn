@@ -354,6 +354,7 @@ describe('CatalogService', () => {
         targetLessonCount: 3,
         shareGlobally: true,
         ownerUserId: 7,
+        conversationId: 'conv-789',
       };
       const response: UnitCreationResponse = {
         unitId: 'new-unit',

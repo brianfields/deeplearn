@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Protocol
 
 from modules.infrastructure.public import InfrastructureProvider, infrastructure_provider
+from modules.resource.public import ResourceRead
 
 from .dtos import (
     LearningCoachConversationSummary,
@@ -62,6 +63,8 @@ class LearningCoachProvider(Protocol):
         offset: int = 0,
         status: str | None = None,
     ) -> list[LearningCoachConversationSummary]: ...
+
+    async def get_conversation_resources(self, conversation_id: str) -> list[ResourceRead]: ...
 
 
 def learning_coach_provider(

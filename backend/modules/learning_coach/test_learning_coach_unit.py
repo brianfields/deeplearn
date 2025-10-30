@@ -16,6 +16,7 @@ from modules.resource.service import ResourceRead
 
 from .conversation import LearningCoachConversation
 from .service import LearningCoachService, build_resource_context_prompt
+from .dtos import UNSET
 
 
 @pytest.mark.asyncio
@@ -99,6 +100,7 @@ async def test_start_session_records_topic_and_returns_assistant_turn() -> None:
     assert state.messages[-1].role == "assistant"
     assert state.messages[-1].content == "What would you like to learn today?"
     assert state.resources == []
+    assert state.uncovered_learning_objective_ids is UNSET
     service_instance.record_user_message.assert_awaited_once()
     # Verify the static opening message was recorded
     service_instance.record_assistant_message.assert_awaited_once()
@@ -167,14 +169,14 @@ async def test_submit_learner_turn_appends_message() -> None:
     service_instance.get_message_history.return_value = [user_message, assistant_message]
     service_instance.build_llm_messages.return_value = []
     service_instance.record_assistant_message.return_value = assistant_message
+    service_instance.update_conversation_metadata.return_value = summary
 
     # Mock the structured LLM response
     from modules.learning_coach.conversation import CoachResponse
 
     coach_response = CoachResponse(
         message="Noted! I'll include project work in the plan.",
-        next_action=None,
-        brief_proposal=None,
+        uncovered_learning_objective_ids=None,
     )
     llm_request_id = uuid.uuid4()
     raw_response = {"provider": "openai", "usage": {"total_tokens": 15}, "cost_estimate": 0.04}
@@ -323,7 +325,10 @@ async def test_add_resource_attaches_metadata_and_returns_state() -> None:
         conversation_type="learning_coach",
         title=None,
         status="active",
-        metadata={"resource_ids": [str(resource_id)]},
+        metadata={
+            "resource_ids": [str(resource_id)],
+            "uncovered_learning_objective_ids": ["lo_gap"],
+        },
         message_count=2,
         created_at=now,
         updated_at=now,
@@ -346,6 +351,7 @@ async def test_add_resource_attaches_metadata_and_returns_state() -> None:
                 learning_objectives=None,
                 suggested_lesson_count=None,
                 suggested_quick_replies=["Continue", "Tell me more"],
+                uncovered_learning_objective_ids=["lo_gap"],
             ),
             uuid.uuid4(),
             {"usage": {"total_tokens": 100}, "cost_estimate": 0.01, "provider": "openai"},
@@ -381,10 +387,24 @@ async def test_add_resource_attaches_metadata_and_returns_state() -> None:
             resource_id=str(resource_id),
         )
 
-    service_instance.update_conversation_metadata.assert_awaited_once_with(
-        conversation_id,
-        {"resource_ids": [str(resource_id)]},
-        merge=True,
+    calls = service_instance.update_conversation_metadata.await_args_list
+    assert any(
+        call.args
+        == (
+            conversation_id,
+            {"resource_ids": [str(resource_id)]},
+        )
+        and call.kwargs.get("merge", True) is True
+        for call in calls
+    )
+    assert any(
+        call.args
+        == (
+            conversation_id,
+            {"uncovered_learning_objective_ids": ["lo_gap"]},
+        )
+        and call.kwargs.get("merge", True) is True
+        for call in calls
     )
     # Verify LLM was called to generate acknowledgment
     assert mock_llm_services.generate_structured_response.await_count == 1
@@ -394,6 +414,7 @@ async def test_add_resource_attaches_metadata_and_returns_state() -> None:
     assert resource_summary.id == str(resource_id)
     assert resource_summary.filename == "notes.txt"
     assert "Key takeaways" in resource_summary.preview_text
+    assert state.uncovered_learning_objective_ids == ["lo_gap"]
     assert mock_fetch.await_count >= 2
 
 
@@ -442,6 +463,7 @@ async def test_service_get_session_state_uses_infrastructure() -> None:
     assert state.metadata["topic"] == "algebra"
     assert state.messages[0].role == "assistant"
     assert state.resources == []
+    assert state.uncovered_learning_objective_ids is UNSET
 
 
 @pytest.mark.asyncio

@@ -33,6 +33,7 @@ Phased approach (interactive):
      - A concise, prioritized checklist with GitHub-style checkboxes, e.g. "- [ ] Step name"
        - Keep it flat and implementable; each item should be a meaningful step
        - Include both backend and frontend tasks; group with simple headings if helpful
+       - If the task list is long, break it into 2-6 phases.
      - Keep the test creation minimal: use unit tests for complex behavior on both backend and frontend. No new integration tests, but make any changes necessary to the existing integration tests to ensure they are up to date. Also, make sure to fix existing maestro tests in mobile/e2e, adding testID attributes if necessary (don't create new maestro tests).
      - Add a task to the spec if there are any database migrations. Migrations should be created and run with Alembic, ensuring that checklist items for model changes appearing before the checklist item for generating and running the migration.
      - As part of the checklist, identify any changes to terminology or naming caused by this spec and, if necessary, add one or more tasks to ensure each change is made consistently across the codebase.

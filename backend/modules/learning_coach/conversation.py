@@ -18,10 +18,12 @@ from modules.conversation_engine.public import (
 from modules.infrastructure.public import infrastructure_provider
 
 from .dtos import (
+    UNSET,
     LearningCoachMessage,
     LearningCoachObjective,
     LearningCoachResource,
     LearningCoachSessionState,
+    UncoveredLearningObjectiveIds,
 )
 
 if TYPE_CHECKING:
@@ -102,6 +104,10 @@ class CoachResponse(BaseModel):
             "Examples: 'Tell me more', 'Yes, that works', 'Can we adjust the focus?', 'I'm a beginner'. "
             "Keep each under 40 characters. Tailor to what you need to know next or what the learner might want to say."
         ),
+    )
+    uncovered_learning_objective_ids: list[str] | None = Field(
+        default=None,
+        description=("Learning objective identifiers that are not adequately covered by the learner's shared resources. Return an empty list when resources cover every objective and null when no resources are available to evaluate."),
     )
 
 
@@ -216,6 +222,13 @@ class LearningCoachConversation(BaseConversation):
         summary = await self.get_conversation_summary()
         metadata = dict(summary.metadata or {})
         resources = await self._load_conversation_resources()
+        uncovered_ids = (
+            self._parse_uncovered_learning_objective_ids(
+                metadata.get("uncovered_learning_objective_ids")
+            )
+            if "uncovered_learning_objective_ids" in metadata
+            else UNSET
+        )
 
         return LearningCoachSessionState(
             conversation_id=str(ctx.conversation_id),
@@ -228,6 +241,7 @@ class LearningCoachConversation(BaseConversation):
             proposed_brief=self._dict_or_none(metadata.get("proposed_brief")),
             accepted_brief=self._dict_or_none(metadata.get("accepted_brief")),
             resources=[self._to_resource_summary(resource) for resource in resources],
+            uncovered_learning_objective_ids=uncovered_ids,
         )
 
     def _to_message(self, message: ConversationMessageDTO) -> LearningCoachMessage:
@@ -279,6 +293,25 @@ class LearningCoachConversation(BaseConversation):
 
         return objectives or None
 
+    def _parse_uncovered_learning_objective_ids(
+        self, value: Any
+    ) -> UncoveredLearningObjectiveIds:
+        """Normalize uncovered learning objective identifiers from metadata."""
+
+        if value is None:
+            return None
+
+        if not isinstance(value, list):
+            return []
+
+        normalized = [
+            str(item)
+            for item in value
+            if isinstance(item, str) and item.strip()
+        ]
+
+        return normalized
+
     async def _generate_structured_reply(self) -> None:
         """Generate a structured coach response and persist it."""
 
@@ -310,18 +343,24 @@ class LearningCoachConversation(BaseConversation):
         )
 
         # If topic is finalized, update conversation metadata
+        metadata_update: dict[str, Any] = {
+            "uncovered_learning_objective_ids": coach_response.uncovered_learning_objective_ids,
+        }
         if coach_response.finalized_topic:
-            metadata_update: dict[str, Any] = {
-                "finalized_topic": coach_response.finalized_topic,
-                "finalized_at": datetime.now(UTC).isoformat(),
-            }
+            metadata_update.update(
+                {
+                    "finalized_topic": coach_response.finalized_topic,
+                    "finalized_at": datetime.now(UTC).isoformat(),
+                }
+            )
             if coach_response.unit_title is not None:
                 metadata_update["unit_title"] = coach_response.unit_title
             if coach_response.learning_objectives is not None:
                 metadata_update["learning_objectives"] = [objective.model_dump() for objective in coach_response.learning_objectives]
             if coach_response.suggested_lesson_count is not None:
                 metadata_update["suggested_lesson_count"] = coach_response.suggested_lesson_count
-            await self.update_conversation_metadata(metadata_update)
+
+        await self.update_conversation_metadata(metadata_update)
 
     async def _load_conversation_resources(self) -> list[ResourceRead]:
         """Return resources referenced by the current conversation metadata."""

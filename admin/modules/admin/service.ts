@@ -20,6 +20,7 @@ import type {
   ApiLLMRequest,
   ApiSystemMetrics,
   ApiResourceSummary,
+  ApiResourceDetail,
   ApiUserDetail,
   ApiUserOwnedUnitSummary,
   ApiUserListResponse,
@@ -43,6 +44,7 @@ import type {
   LessonDetails,
   LessonSummary,
   ResourceSummary,
+  ResourceDetail,
   ResourceUsageSummary,
   ResourceWithUsage,
   SystemMetrics,
@@ -173,6 +175,19 @@ const resourceSummaryToDTO = (apiResource: ApiResourceSummary): ResourceSummary 
   file_size: apiResource.file_size ?? null,
   created_at: new Date(apiResource.created_at),
   preview_text: apiResource.preview_text,
+});
+
+const resourceDetailToDTO = (apiResource: ApiResourceDetail): ResourceDetail => ({
+  id: apiResource.id,
+  user_id: apiResource.user_id,
+  resource_type: apiResource.resource_type,
+  filename: apiResource.filename ?? null,
+  source_url: apiResource.source_url ?? null,
+  extracted_text: apiResource.extracted_text,
+  extraction_metadata: apiResource.extraction_metadata ?? {},
+  file_size: apiResource.file_size ?? null,
+  created_at: new Date(apiResource.created_at),
+  updated_at: new Date(apiResource.updated_at),
 });
 
 const stepToDTO = (apiStep: ApiFlowStepDetails): FlowStepDetails => ({
@@ -941,6 +956,28 @@ export class AdminService {
       };
     } catch (error) {
       console.error('Failed to fetch unit detail:', error);
+      return null;
+    }
+  }
+
+  async getResource(resourceId: string): Promise<ResourceDetail | null> {
+    const loadResourceDetail = (AdminRepo.resources as {
+      detail?: (resourceId: string) => Promise<ApiResourceDetail>;
+    }).detail;
+
+    if (!loadResourceDetail) {
+      return null;
+    }
+
+    try {
+      const resource = await loadResourceDetail(resourceId);
+      return resourceDetailToDTO(resource);
+    } catch (error) {
+      const maybeAxiosError = error as { response?: { status?: number } };
+      if (maybeAxiosError?.response?.status === 404) {
+        return null;
+      }
+      console.error('Failed to fetch resource detail:', error);
       return null;
     }
   }

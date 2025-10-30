@@ -674,6 +674,19 @@ export interface ApiResourceSummary {
   preview_text: string;
 }
 
+export interface ApiResourceDetail {
+  id: string;
+  user_id: number;
+  resource_type: string;
+  filename: string | null;
+  source_url: string | null;
+  extracted_text: string;
+  extraction_metadata: Record<string, unknown>;
+  file_size: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ResourceSummary {
   id: string;
   resource_type: string;
@@ -682,6 +695,19 @@ export interface ResourceSummary {
   file_size: number | null;
   created_at: Date;
   preview_text: string;
+}
+
+export interface ResourceDetail {
+  id: string;
+  user_id: number;
+  resource_type: string;
+  filename: string | null;
+  source_url: string | null;
+  extracted_text: string;
+  extraction_metadata: Record<string, unknown>;
+  file_size: number | null;
+  created_at: Date;
+  updated_at: Date;
 }
 
 export interface ResourceUsageSummary {
