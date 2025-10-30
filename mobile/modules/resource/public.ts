@@ -3,6 +3,7 @@ import type { ResourceServiceContract } from './models';
 
 export interface ResourceProvider extends ResourceServiceContract {
   uploadFileResource: ResourceService['uploadFileResource'];
+  uploadPhotoResource: ResourceService['uploadPhotoResource'];
   addResourceFromUrl: ResourceService['addResourceFromUrl'];
   listUserResources: ResourceService['listUserResources'];
   getResourceDetail: ResourceService['getResourceDetail'];
@@ -21,6 +22,7 @@ export function resourceProvider(): ResourceProvider {
   const service = getService();
   return {
     uploadFileResource: service.uploadFileResource.bind(service),
+    uploadPhotoResource: service.uploadPhotoResource.bind(service),
     addResourceFromUrl: service.addResourceFromUrl.bind(service),
     listUserResources: service.listUserResources.bind(service),
     getResourceDetail: service.getResourceDetail.bind(service),
@@ -30,5 +32,6 @@ export function resourceProvider(): ResourceProvider {
 export type { Resource, ResourceSummary, ResourceType } from './models';
 export type {
   CreateResourceRequest,
+  PhotoResourceCreate,
   AddResourceFromURLRequest,
 } from './models';

@@ -3,6 +3,7 @@ import type { ResourceRepo } from './repo';
 import type {
   AddResourceFromURLRequest,
   CreateResourceRequest,
+  PhotoResourceCreate,
 } from './models';
 
 describe('ResourceService', () => {
@@ -25,6 +26,10 @@ describe('ResourceService', () => {
   beforeEach(() => {
     repo = {
       uploadFileResource: jest.fn().mockResolvedValue(sampleResourceResponse),
+      uploadPhotoResource: jest.fn().mockResolvedValue({
+        ...sampleResourceResponse,
+        resource_type: 'photo' as const,
+      }),
       addResourceFromUrl: jest.fn().mockResolvedValue({
         ...sampleResourceResponse,
         resource_type: 'url',
@@ -70,6 +75,45 @@ describe('ResourceService', () => {
       createdAt: '2024-01-01T00:00:00Z',
       updatedAt: '2024-01-01T00:00:00Z',
     });
+  });
+
+  it('uploads photos after validating type and user', async () => {
+    const request: PhotoResourceCreate = {
+      userId: 7,
+      file: {
+        uri: 'file:///path/to/photo.jpg',
+        name: 'photo.jpg',
+        type: 'IMAGE/JPEG',
+        size: 2048,
+      },
+    };
+
+    const result = await service.uploadPhotoResource(request);
+    expect(repo.uploadPhotoResource).toHaveBeenCalledWith({
+      userId: 7,
+      file: {
+        uri: 'file:///path/to/photo.jpg',
+        name: 'photo.jpg',
+        type: 'image/jpeg',
+        size: 2048,
+      },
+    });
+    expect(result.resourceType).toBe('photo');
+  });
+
+  it('rejects photo uploads without image mime type', async () => {
+    const request: PhotoResourceCreate = {
+      userId: 7,
+      file: {
+        uri: 'file:///path/to/file.txt',
+        name: 'file.txt',
+        type: 'text/plain',
+      },
+    };
+
+    await expect(service.uploadPhotoResource(request)).rejects.toThrow(
+      'Only image files can be uploaded'
+    );
   });
 
   it('normalizes URL inputs before delegating', async () => {

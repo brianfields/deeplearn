@@ -54,6 +54,16 @@ class FileResourceCreate(BaseModel):
     file_size: int | None = None
 
 
+class PhotoResourceCreate(BaseModel):
+    """Payload for learner photo uploads."""
+
+    user_id: int
+    filename: str
+    content_type: str
+    content: bytes = Field(repr=False)
+    file_size: int | None = None
+
+
 class UrlResourceCreate(BaseModel):
     """Payload for URL-based resources."""
 
@@ -63,6 +73,7 @@ class UrlResourceCreate(BaseModel):
 
 __all__ = [
     "FileResourceCreate",
+    "PhotoResourceCreate",
     "ResourceRead",
     "ResourceSummary",
     "UrlResourceCreate",

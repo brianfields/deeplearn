@@ -19,6 +19,7 @@ class ResourceModel(Base):
     __table_args__ = (
         Index("ix_resources_user_id", "user_id"),
         Index("ix_resources_created_at", "created_at"),
+        Index("ix_resources_object_store_image_id", "object_store_image_id"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(PostgresUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -30,5 +31,6 @@ class ResourceModel(Base):
     extraction_metadata: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
     file_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
     object_store_document_id: Mapped[uuid.UUID | None] = mapped_column(PostgresUUID(as_uuid=True), ForeignKey("documents.id"), nullable=True)
+    object_store_image_id: Mapped[uuid.UUID | None] = mapped_column(PostgresUUID(as_uuid=True), ForeignKey("images.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
