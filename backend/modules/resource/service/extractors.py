@@ -6,8 +6,8 @@ from collections.abc import Iterable
 from io import BytesIO
 import json
 import logging
-from typing import Any
 import re
+from typing import Any
 from urllib.parse import parse_qs, urlparse
 from zipfile import BadZipFile, ZipFile
 
@@ -204,21 +204,30 @@ async def extract_text_from_photo(image_url: str, llm_service: LLMServicesProvid
     """Use a vision-capable LLM to analyse a learner photo."""
 
     messages = [
-        LLMMessage(role="system", content=VISION_ANALYSIS_PROMPT),
+        LLMMessage(role="system", content=VISION_ANALYSIS_PROMPT, name=None, function_call=None, tool_calls=None),
         LLMMessage(
             role="user",
             content=[
                 {
-                    "type": "text",
+                    "type": "input_text",
                     "text": ("Analyze this study photo, describe the important academic context, and transcribe any text that would help a tutor understand the material."),
                 },
-                {"type": "image_url", "image_url": {"url": image_url}},
+                {"type": "input_image", "image_url": image_url},
             ],
+            name=None,
+            function_call=None,
+            tool_calls=None,
         ),
     ]
 
     try:
-        response, request_id = await llm_service.generate_response(messages, model="gpt-4o-mini")
+        response, request_id = await llm_service.generate_response(
+            messages,
+            model="gpt-5-mini",
+            max_output_tokens=100000,
+            reasoning={"effort": "low"},
+            text={"verbosity": "medium"},
+        )
     except Exception as exc:  # pragma: no cover - defensive against provider failures
         logger.exception("Vision extraction failed to reach LLM")
         raise ExtractionError("Failed to analyse the photo") from exc

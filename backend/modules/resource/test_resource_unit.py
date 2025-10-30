@@ -101,6 +101,10 @@ async def test_extract_text_from_photo_parses_response() -> None:
 
     class FakeLLM:
         async def generate_response(self, *_args, **kwargs):  # type: ignore[override]
+            assert kwargs["model"] == "gpt-5-mini"
+            assert kwargs["reasoning"] == {"effort": "medium"}
+            assert kwargs["text"] == {"verbosity": "medium"}
+            assert kwargs["max_output_tokens"] == 900
             return (
                 SimpleNamespace(
                     content=json.dumps(
@@ -109,7 +113,7 @@ async def test_extract_text_from_photo_parses_response() -> None:
                             "visible_text": "∫ f(x) dx = F(x) + C",
                         }
                     ),
-                    model=kwargs.get("model", "gpt-4o-mini"),
+                    model=kwargs.get("model", "gpt-5-mini"),
                 ),
                 uuid.uuid4(),
             )
@@ -122,7 +126,7 @@ async def test_extract_text_from_photo_parses_response() -> None:
     assert "Visible text" in combined
     assert metadata["description"] == "A whiteboard full of calculus"
     assert metadata["visible_text"].startswith("∫ f(x)")
-    assert metadata["vision_model"] == "gpt-4o-mini"
+    assert metadata["vision_model"] == "gpt-5-mini"
     assert "llm_request_id" in metadata
 
 
@@ -137,7 +141,7 @@ async def test_upload_photo_resource_persists_image(monkeypatch: pytest.MonkeyPa
     async def fake_extract(url: str, service: _StubLLMService) -> tuple[str, dict[str, object]]:
         assert url == "https://example.com/presigned.png"
         assert service is llm
-        return "Study diagram", {"vision_model": "gpt-4o-mini"}
+        return "Study diagram", {"vision_model": "gpt-5-mini"}
 
     monkeypatch.setattr(
         "modules.resource.service.facade.extract_text_from_photo",
@@ -158,7 +162,7 @@ async def test_upload_photo_resource_persists_image(monkeypatch: pytest.MonkeyPa
     assert result.resource_type == "photo"
     assert repo.last_kwargs is not None
     assert repo.last_kwargs["object_store_image_id"] == store.last_result.file.id
-    assert repo.last_kwargs["extraction_metadata"]["vision_model"] == "gpt-4o-mini"
+    assert repo.last_kwargs["extraction_metadata"]["vision_model"] == "gpt-5-mini"
     assert repo.last_kwargs["file_size"] == 512
 
 
@@ -193,7 +197,7 @@ async def test_upload_photo_resource_truncates_extracted_text(monkeypatch: pytes
     llm = _StubLLMService()
 
     long_text = "A" * (MAX_EXTRACTED_TEXT_BYTES + 1024)
-    metadata_template = {"vision_model": "gpt-4o-mini"}
+    metadata_template = {"vision_model": "gpt-5-mini"}
 
     async def fake_extract(url: str, service: _StubLLMService) -> tuple[str, dict[str, object]]:
         assert url == "https://example.com/presigned.png"

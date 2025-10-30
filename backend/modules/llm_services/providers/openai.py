@@ -277,7 +277,7 @@ class OpenAIProvider(LLMProvider):
             logger.debug(f"Using previous response ID: {kwargs['previous_response_id']}")
 
         # Add optional parameters that work with GPT-5
-        for param in ["top_p", "frequency_penalty", "presence_penalty", "stop", "max_output_tokens"]:
+        for param in ["temperature", "top_p", "frequency_penalty", "presence_penalty", "stop", "max_output_tokens"]:
             if param in kwargs:
                 request_params[param] = kwargs[param]
 
