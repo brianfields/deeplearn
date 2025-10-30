@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
   lessonsList: vi.fn(),
   lessonById: vi.fn(),
   resourcesByUser: vi.fn(),
+  resourceDetail: vi.fn(),
   usersDetail: vi.fn(),
   usersUpdate: vi.fn(),
   usersList: vi.fn(),
@@ -52,6 +53,7 @@ vi.mock('./repo', () => ({
     },
     resources: {
       listByUser: mocks.resourcesByUser,
+      detail: mocks.resourceDetail,
     },
     users: {
       list: mocks.usersList,
@@ -425,5 +427,41 @@ describe('AdminService resource-aware mappings', () => {
     expect(resource.used_in_units).toEqual([
       { unit_id: 'unit-1', unit_title: 'Unit One' },
     ]);
+  });
+
+  it('returns detailed resource information when available', async () => {
+    mocks.resourceDetail.mockResolvedValueOnce({
+      id: 'res-123',
+      user_id: 42,
+      resource_type: 'generated_source',
+      filename: null,
+      source_url: null,
+      extracted_text: 'Supplemental notes',
+      extraction_metadata: { truncated: false },
+      file_size: null,
+      created_at: '2024-03-01T00:00:00Z',
+      updated_at: '2024-03-01T01:00:00Z',
+    });
+
+    const detail = await service.getResource('res-123');
+
+    expect(mocks.resourceDetail).toHaveBeenCalledWith('res-123');
+    expect(detail).not.toBeNull();
+    expect(detail?.resource_type).toBe('generated_source');
+    expect(detail?.extracted_text).toBe('Supplemental notes');
+    expect(detail?.created_at).toEqual(new Date('2024-03-01T00:00:00Z'));
+    expect(detail?.updated_at).toEqual(new Date('2024-03-01T01:00:00Z'));
+  });
+
+  it('returns null when resource lookup results in 404', async () => {
+    const notFoundError = Object.assign(new Error('Not found'), {
+      response: { status: 404 },
+    });
+    mocks.resourceDetail.mockRejectedValueOnce(notFoundError);
+
+    const detail = await service.getResource('missing');
+
+    expect(mocks.resourceDetail).toHaveBeenCalledWith('missing');
+    expect(detail).toBeNull();
   });
 });

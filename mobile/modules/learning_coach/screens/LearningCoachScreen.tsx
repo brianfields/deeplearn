@@ -129,6 +129,32 @@ export function LearningCoachScreen({
     return hasUserMessage || hasResources;
   }, [sessionState?.messages, conversationResources.length]);
 
+  const coverageStatus = useMemo(() => {
+    const ids = sessionState?.uncoveredLearningObjectiveIds;
+    if (ids === undefined) {
+      return null;
+    }
+    if (ids === null) {
+      return {
+        label: 'No learner resources shared yet',
+        variant: 'neutral' as const,
+      };
+    }
+    if (ids.length === 0) {
+      return {
+        label: 'Learner resources cover all objectives',
+        variant: 'success' as const,
+      };
+    }
+    const count = ids.length;
+    return {
+      label: `Supplemental content needed for ${count} objective${
+        count === 1 ? '' : 's'
+      }`,
+      variant: 'warning' as const,
+    };
+  }, [sessionState?.uncoveredLearningObjectiveIds]);
+
   const canAttachResource = Boolean(conversationId);
   const isProcessingResource =
     attachResource.isPending || pendingResourceId !== null;
@@ -296,6 +322,7 @@ export function LearningCoachScreen({
                 targetLessonCount:
                   sessionState.suggestedLessonCount ?? undefined,
                 ownerUserId: user?.id ?? undefined,
+                conversationId: conversationId ?? undefined,
               },
               {
                 onError: error => {
@@ -342,6 +369,7 @@ export function LearningCoachScreen({
                 (state.metadata?.target_lesson_count as number | undefined) ??
                 undefined,
               ownerUserId: user?.id ?? undefined,
+              conversationId: conversationId ?? undefined,
             },
             {
               onSuccess: () => {
@@ -453,6 +481,22 @@ export function LearningCoachScreen({
           {sessionState.unitTitle && (
             <Text style={styles.unitTitle}>{sessionState.unitTitle}</Text>
           )}
+          {coverageStatus ? (
+            <View
+              style={[
+                styles.coverageBadge,
+                coverageStatus.variant === 'success'
+                  ? styles.coverageBadgeSuccess
+                  : coverageStatus.variant === 'warning'
+                    ? styles.coverageBadgeWarning
+                    : styles.coverageBadgeNeutral,
+              ]}
+            >
+              <Text style={styles.coverageBadgeText}>
+                {coverageStatus.label}
+              </Text>
+            </View>
+          ) : null}
           <Text style={styles.sectionTitle}>Learning Objectives:</Text>
           <View style={styles.objectivesList}>
             {sessionState.learningObjectives.map((objective, idx) => (
@@ -724,5 +768,31 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary ?? '#999',
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  coverageBadge: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
+  coverageBadgeText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: theme.colors.text,
+  },
+  coverageBadgeSuccess: {
+    backgroundColor: '#dcfce7',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#15803d',
+  },
+  coverageBadgeWarning: {
+    backgroundColor: '#fef3c7',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#b45309',
+  },
+  coverageBadgeNeutral: {
+    backgroundColor: theme.colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
   },
 });

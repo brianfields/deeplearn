@@ -171,6 +171,38 @@ class ResourceService:
 
         await self.repo.link_resources_to_unit(unit_id=unit_id, resource_ids=resource_ids)
 
+    async def create_generated_source_resource(
+        self,
+        *,
+        user_id: int,
+        unit_id: str,
+        source_text: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> ResourceRead:
+        """Persist AI-generated supplemental source material as a resource."""
+
+        base_metadata: dict[str, Any] = {
+            "source": "generated_source",
+            "unit_id": unit_id,
+        }
+        if metadata:
+            base_metadata.update(metadata)
+
+        truncated_text, truncate_meta = self._truncate_extracted_text(source_text)
+        base_metadata.update(truncate_meta)
+
+        record = await self.repo.create(
+            user_id=user_id,
+            resource_type="generated_source",
+            filename=None,
+            source_url=None,
+            extracted_text=truncated_text,
+            extraction_metadata=base_metadata,
+            file_size=None,
+            object_store_document_id=None,
+        )
+        return ResourceRead.model_validate(record)
+
     def _extract_text_for_url(self, url: str) -> _ExtractionResult:
         hostname = urlparse(url).hostname or ""
         lowered_host = hostname.lower()

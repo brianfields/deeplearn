@@ -172,6 +172,128 @@ class TestContentCreatorService:
         )
 
     @pytest.mark.asyncio
+    async def test_create_unit_with_conversation_resources(self) -> None:
+        """Conversation resources should populate the unit source material."""
+
+        content = AsyncMock()
+        content.create_unit.return_value = SimpleNamespace(id="unit-123", title="Draft Unit")
+        content.update_unit_status = AsyncMock()
+
+        service = ContentCreatorService(content)
+        service._status_handler.enqueue_unit_creation = AsyncMock()
+        service._fetch_conversation_resources = AsyncMock(return_value=[SimpleNamespace(user_id=101)])
+        service._combine_resource_texts = Mock(return_value="Combined content")
+        session_state = SimpleNamespace(
+            learning_objectives=None,
+            suggested_lesson_count=None,
+            metadata={"uncovered_learning_objective_ids": []},
+        )
+        service._fetch_uncovered_lo_ids = AsyncMock(return_value=([], session_state))
+        service._link_resources_and_save_generated_source = AsyncMock()
+
+        result = await service.create_unit(
+            topic="Interesting Topic",
+            background=True,
+            learner_level="beginner",
+            conversation_id="conversation-1",
+        )
+
+        assert result.unit_id == "unit-123"
+        service._fetch_conversation_resources.assert_awaited_once_with("conversation-1")
+        service._combine_resource_texts.assert_called_once()
+        service._link_resources_and_save_generated_source.assert_awaited_once()
+
+        unit_create = content.create_unit.await_args.args[0]
+        assert unit_create.source_material == "Combined content"
+        assert unit_create.generated_from_topic is False
+
+    @pytest.mark.asyncio
+    async def test_create_unit_ignores_empty_conversation_resources(self) -> None:
+        """Empty or missing conversation resources fall back to topic generation."""
+
+        content = AsyncMock()
+        content.create_unit.return_value = SimpleNamespace(id="unit-456", title="Draft Unit")
+        content.update_unit_status = AsyncMock()
+
+        service = ContentCreatorService(content)
+        service._status_handler.enqueue_unit_creation = AsyncMock()
+        service._fetch_conversation_resources = AsyncMock(return_value=[])
+        service._combine_resource_texts = Mock(return_value="")
+        service._fetch_uncovered_lo_ids = AsyncMock(return_value=(None, None))
+        service._link_resources_and_save_generated_source = AsyncMock()
+
+        result = await service.create_unit(
+            topic="Fallback Topic",
+            background=True,
+            learner_level="beginner",
+            conversation_id="conversation-2",
+        )
+
+        assert result.unit_id == "unit-456"
+        service._fetch_conversation_resources.assert_awaited_once_with("conversation-2")
+        service._combine_resource_texts.assert_not_called()
+        service._link_resources_and_save_generated_source.assert_awaited_once()
+
+        unit_create = content.create_unit.await_args.args[0]
+        assert unit_create.source_material is None
+        assert unit_create.generated_from_topic is True
+
+    @pytest.mark.asyncio
+    async def test_create_unit_with_partial_coverage_generates_supplemental(self) -> None:
+        """Uncovered learning objectives should trigger supplemental generation."""
+
+        content = AsyncMock()
+        content.create_unit.return_value = SimpleNamespace(id="unit-789", title="Draft Unit")
+        content.update_unit_status = AsyncMock()
+
+        service = ContentCreatorService(content)
+        service._status_handler.enqueue_unit_creation = AsyncMock()
+
+        resource = SimpleNamespace(id=uuid.uuid4(), user_id=42, extracted_text="primary")
+        session_state = SimpleNamespace(
+            learning_objectives=[SimpleNamespace(id="lo_1", title="Objective", description="Details")],
+            suggested_lesson_count=5,
+            metadata={"uncovered_learning_objective_ids": ["lo_1"]},
+        )
+
+        service._fetch_conversation_resources = AsyncMock(return_value=[resource])
+        service._combine_resource_texts = Mock(return_value="Resource text")
+        service._fetch_uncovered_lo_ids = AsyncMock(return_value=(["lo_1"], session_state))
+        service._generate_supplemental_source_material = AsyncMock(return_value="Supplement text")
+        service._combine_resource_and_supplemental_text = Mock(return_value="Combined output")
+        service._link_resources_and_save_generated_source = AsyncMock()
+
+        result = await service.create_unit(
+            topic="Interesting Topic",
+            background=True,
+            learner_level="intermediate",
+            conversation_id="conversation-3",
+        )
+
+        assert result.unit_id == "unit-789"
+        service._generate_supplemental_source_material.assert_awaited_once_with(
+            topic="Interesting Topic",
+            learner_level="intermediate",
+            target_lesson_count=None,
+            uncovered_lo_ids=["lo_1"],
+            session_state=session_state,
+        )
+        service._combine_resource_and_supplemental_text.assert_called_once_with(
+            "Resource text",
+            "Supplement text",
+        )
+
+        unit_create = content.create_unit.await_args.args[0]
+        assert unit_create.source_material == "Combined output"
+        service._link_resources_and_save_generated_source.assert_awaited_once_with(
+            unit_id="unit-789",
+            resources=[resource],
+            user_id=42,
+            supplemental_text="Supplement text",
+            uncovered_learning_objective_ids=["lo_1"],
+        )
+
+    @pytest.mark.asyncio
     async def test_create_unit_background_records_task(self) -> None:
         """Background unit creation should persist the ARQ task identifier."""
 
@@ -280,6 +402,60 @@ class TestContentCreatorService:
         # Assert
         assert result is False
         content.get_unit.assert_awaited_once_with("nonexistent-unit")
+
+    @pytest.mark.asyncio
+    async def test_link_resources_and_save_generated_source_persists_supplemental(self) -> None:
+        """Helper should link learner resources and persist supplemental text."""
+
+        content = AsyncMock()
+        service = ContentCreatorService(content)
+
+        resource_service = AsyncMock()
+        generated_id = uuid.uuid4()
+        resource_service.create_generated_source_resource.return_value = SimpleNamespace(id=generated_id)
+        service._resource_service = resource_service
+
+        resource_a = SimpleNamespace(id=uuid.uuid4(), user_id=51)
+        await service._link_resources_and_save_generated_source(
+            unit_id="unit-xyz",
+            resources=[resource_a],
+            user_id=None,
+            supplemental_text=" Supplemental text ",
+            uncovered_learning_objective_ids=["lo_2"],
+        )
+
+        resource_service.create_generated_source_resource.assert_awaited_once()
+        metadata = resource_service.create_generated_source_resource.await_args.kwargs["metadata"]
+        assert metadata["method"] == "ai_supplemental"
+        assert metadata["uncovered_lo_ids"] == ["lo_2"]
+
+        attach_calls = resource_service.attach_resources_to_unit.await_args_list
+        assert attach_calls[0].kwargs == {"unit_id": "unit-xyz", "resource_ids": [resource_a.id]}
+        assert attach_calls[1].kwargs == {"unit_id": "unit-xyz", "resource_ids": [generated_id]}
+
+    @pytest.mark.asyncio
+    async def test_link_resources_and_save_generated_source_skips_when_no_text(self) -> None:
+        """Helper should exit early when supplemental text is missing."""
+
+        content = AsyncMock()
+        service = ContentCreatorService(content)
+        resource_service = AsyncMock()
+        service._resource_service = resource_service
+
+        resource = SimpleNamespace(id=uuid.uuid4(), user_id=99)
+        await service._link_resources_and_save_generated_source(
+            unit_id="unit-empty",
+            resources=[resource],
+            user_id=77,
+            supplemental_text="   ",
+            uncovered_learning_objective_ids=None,
+        )
+
+        resource_service.attach_resources_to_unit.assert_awaited_once_with(
+            unit_id="unit-empty",
+            resource_ids=[resource.id],
+        )
+        resource_service.create_generated_source_resource.assert_not_awaited()
 
     @pytest.mark.asyncio
     @patch("modules.content_creator.service.media_handler.UnitArtCreationFlow")

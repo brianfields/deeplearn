@@ -164,21 +164,21 @@
 **Goal**: Enable the learning coach to evaluate resource coverage and prepare resource module for generated sources.
 
 #### 1.1 Resource Module - Generated Source Support
-- [ ] Add `create_generated_source_resource()` method to `backend/modules/resource/service/facade.py`
-- [ ] Document `generated_source` as a valid resource type in `backend/modules/resource/service/dtos.py`
-- [ ] Add unit test for creating generated source resources in `backend/modules/resource/test_resource_unit.py`
+- [x] Add `create_generated_source_resource()` method to `backend/modules/resource/service/facade.py`
+- [x] Document `generated_source` as a valid resource type in `backend/modules/resource/service/dtos.py`
+- [x] Add unit test for creating generated source resources in `backend/modules/resource/test_resource_unit.py`
 
 #### 1.2 Learning Coach - Resource Coverage Evaluation
-- [ ] Update `CoachResponse` model in `backend/modules/learning_coach/conversation.py` to add `uncovered_learning_objective_ids: list[str] | None` field (Empty list = resources cover all LOs; Populated list = these LO IDs need supplemental material; None = no resources shared yet)
-- [ ] Update `backend/modules/learning_coach/prompts/system_prompt.md` to instruct coach to evaluate each learning objective against shared resources, identify uncovered LOs, and communicate coverage assessment to learner
-- [ ] Update `_generate_structured_reply()` in `conversation.py` to store `uncovered_learning_objective_ids` in conversation metadata
-- [ ] Verify `get_conversation_resources(conversation_id: str)` method in `service.py` is accessible (already exists)
-- [ ] Add or update `get_conversation_resources()` in `backend/modules/learning_coach/public.py` to expose it for content_creator
+- [x] Update `CoachResponse` model in `backend/modules/learning_coach/conversation.py` to add `uncovered_learning_objective_ids: list[str] | None` field (Empty list = resources cover all LOs; Populated list = these LO IDs need supplemental material; None = no resources shared yet)
+- [x] Update `backend/modules/learning_coach/prompts/system_prompt.md` to instruct coach to evaluate each learning objective against shared resources, identify uncovered LOs, and communicate coverage assessment to learner
+- [x] Update `_generate_structured_reply()` in `conversation.py` to store `uncovered_learning_objective_ids` in conversation metadata
+- [x] Verify `get_conversation_resources(conversation_id: str)` method in `service.py` is accessible (already exists)
+- [x] Add or update `get_conversation_resources()` in `backend/modules/learning_coach/public.py` to expose it for content_creator
 
 #### 1.3 Phase 1 Testing
-- [ ] Ensure lint passes: `./format_code.sh --no-venv`
-- [ ] Ensure backend unit tests pass: `cd backend && scripts/run_unit.py`
-- [ ] Test learning coach conversation with resources - verify `uncovered_learning_objective_ids` is set correctly
+- [x] Ensure lint passes: `./format_code.sh --no-venv`
+- [x] Ensure backend unit tests pass: `cd backend && scripts/run_unit.py`
+- [x] Test learning coach conversation with resources - verify `uncovered_learning_objective_ids` is set correctly
 
 ---
 
@@ -187,20 +187,20 @@
 **Goal**: Enable content creator to fetch conversation resources and combine them into source material.
 
 #### 2.1 Content Creator - Basic Integration
-- [ ] Add `conversation_id: str | None` parameter to `create_unit()` in `backend/modules/content_creator/service/facade.py`
-- [ ] Add helper method `_fetch_conversation_resources()` to retrieve resources via `learning_coach_provider`
-- [ ] Add helper method `_fetch_uncovered_lo_ids()` to retrieve `uncovered_learning_objective_ids` from conversation metadata
-- [ ] Add helper method `_combine_resource_texts()` to concatenate resource text with headers (max 200KB) - use algorithm from Technical Notes
-- [ ] Update `create_unit()` to fetch resources if conversation_id provided, combine into base source material, and pass to `_execute_unit_creation_pipeline()`
+- [x] Add `conversation_id: str | None` parameter to `create_unit()` in `backend/modules/content_creator/service/facade.py`
+- [x] Add helper method `_fetch_conversation_resources()` to retrieve resources via `learning_coach_provider`
+- [x] Add helper method `_fetch_uncovered_lo_ids()` to retrieve `uncovered_learning_objective_ids` from conversation metadata
+- [x] Add helper method `_combine_resource_texts()` to concatenate resource text with headers (max 200KB) - use algorithm from Technical Notes
+- [x] Update `create_unit()` to fetch resources if conversation_id provided, combine into base source material, and pass to `_execute_unit_creation_pipeline()`
 
 #### 2.2 Content Creator - Routes
-- [ ] Update `MobileUnitCreateRequest` in `backend/modules/content_creator/routes.py` to accept optional `conversation_id`
-- [ ] Update `create_unit_from_mobile()` route handler to pass `conversation_id` to service
+- [x] Update `MobileUnitCreateRequest` in `backend/modules/content_creator/routes.py` to accept optional `conversation_id`
+- [x] Update `create_unit_from_mobile()` route handler to pass `conversation_id` to service
 
 #### 2.3 Phase 2 Testing
-- [ ] Ensure lint passes: `./format_code.sh --no-venv`
-- [ ] Ensure backend unit tests pass: `cd backend && scripts/run_unit.py`
-- [ ] Add unit tests for creating unit with resources and empty resources fallback
+- [x] Ensure lint passes: `./format_code.sh --no-venv`
+- [x] Ensure backend unit tests pass: `cd backend && scripts/run_unit.py`
+- [x] Add unit tests for creating unit with resources and empty resources fallback
 
 ---
 
@@ -209,18 +209,18 @@
 **Goal**: Add supplemental generation for uncovered LOs and link all resources to created units.
 
 #### 3.1 Supplemental Generation
-- [ ] Add helper method `_generate_supplemental_source_material()` to generate source material for specific LO IDs
-- [ ] Update `create_unit()` to fetch uncovered LO IDs, generate supplemental material if needed, and combine with headers
+- [x] Add helper method `_generate_supplemental_source_material()` to generate source material for specific LO IDs
+- [x] Update `create_unit()` to fetch uncovered LO IDs, generate supplemental material if needed, and combine with headers
 
 #### 3.2 Resource Linking
-- [ ] Add method `_link_resources_and_save_generated_source()` to link learner resources and save generated supplements
-- [ ] Call `_link_resources_and_save_generated_source()` after unit creation succeeds
+- [x] Add method `_link_resources_and_save_generated_source()` to link learner resources and save generated supplements
+- [x] Call `_link_resources_and_save_generated_source()` after unit creation succeeds
 
 #### 3.3 Phase 3 Testing
-- [ ] Ensure lint passes: `./format_code.sh --no-venv`
-- [ ] Ensure backend unit tests pass: `cd backend && scripts/run_unit.py`
-- [ ] Add unit tests for full coverage, partial coverage, and resource linking scenarios
-- [ ] Update and run integration tests: `cd backend && scripts/run_integration.py`
+- [x] Ensure lint passes: `./format_code.sh --no-venv`
+- [x] Ensure backend unit tests pass: `cd backend && scripts/run_unit.py`
+- [x] Add unit tests for full coverage, partial coverage, and resource linking scenarios
+- [x] Update and run integration tests: `cd backend && scripts/run_integration.py`
 
 ---
 
@@ -229,18 +229,18 @@
 **Goal**: Update mobile app to pass conversation context and display coverage status.
 
 #### 4.1 Mobile - Learning Coach
-- [ ] Add `uncoveredLearningObjectiveIds?: string[] | null` to `LearningCoachSessionState` in `mobile/modules/learning_coach/models.ts`
-- [ ] Update `mobile/modules/learning_coach/repo.ts` to parse `uncovered_learning_objective_ids` from API response
-- [ ] Update `LearningCoachScreen.tsx` to optionally display coverage status and pass `conversationId` to `createUnit.mutate()`
-- [ ] Add unit test for conversationId passthrough
+- [x] Add `uncoveredLearningObjectiveIds?: string[] | null` to `LearningCoachSessionState` in `mobile/modules/learning_coach/models.ts`
+- [x] Update `mobile/modules/learning_coach/repo.ts` to parse `uncovered_learning_objective_ids` from API response
+- [x] Update `LearningCoachScreen.tsx` to optionally display coverage status and pass `conversationId` to `createUnit.mutate()`
+- [x] Add unit test for conversationId passthrough
 
 #### 4.2 Mobile - Content Creator
-- [ ] Add `conversationId?: string` to `CreateUnitRequest` in `mobile/modules/content_creator/models.ts`
-- [ ] Update repo, service, and queries to pass through `conversationId`
-- [ ] Add unit test for conversation-based unit creation
+- [x] Add `conversationId?: string` to `CreateUnitRequest` in `mobile/modules/content_creator/models.ts`
+- [x] Update repo, service, and queries to pass through `conversationId`
+- [x] Add unit test for conversation-based unit creation
 
 #### 4.3 Phase 4 Testing
-- [ ] Ensure frontend unit tests pass: `cd mobile && npm run test`
+- [x] Ensure frontend unit tests pass: `cd mobile && npm run test`
 - [ ] Update maestro tests if needed (add testID attributes only, no new tests)
 
 ---
@@ -250,13 +250,13 @@
 **Goal**: Update admin dashboard to display both learner-provided and generated source resources.
 
 #### 5.1 Admin - Unit Detail Views
-- [ ] Update unit detail view in `admin/modules/units/` to display resources with type badges
-- [ ] Add visual distinction for `generated_source` resource type
-- [ ] Provide view/download link for generated source material text
-- [ ] Add unit test for resource type display
+- [x] Update unit detail view in `admin/modules/units/` to display resources with type badges
+- [x] Add visual distinction for `generated_source` resource type
+- [x] Provide view/download link for generated source material text
+- [x] Add unit test for resource type display
 
 #### 5.2 Phase 5 Testing
-- [ ] Test admin UI displays learner-provided and generated source resources with clear visual distinction
+- [x] Test admin UI displays learner-provided and generated source resources with clear visual distinction
 
 ---
 
@@ -265,18 +265,18 @@
 **Goal**: Seed data, end-to-end testing, and final quality verification.
 
 #### 6.1 Seed Data
-- [ ] Update `backend/scripts/create_seed_data.py` to create sample units with resources
-- [ ] Ensure seed data includes examples of learner-provided and generated source material
+- [x] Update `backend/scripts/create_seed_data.py` to create sample units with resources
+- [x] Ensure seed data includes examples of learner-provided and generated source material
 
 #### 6.2 Final Verification
-- [ ] Ensure lint passes: `./format_code.sh --no-venv`
-- [ ] Ensure backend unit tests pass: `cd backend && scripts/run_unit.py`
-- [ ] Ensure frontend unit tests pass: `cd mobile && npm run test`
-- [ ] Ensure integration tests pass: `cd backend && scripts/run_integration.py`
-- [ ] Follow instructions in `codegen/prompts/trace.md` to trace the user story end-to-end
-- [ ] Fix any issues documented in `docs/specs/incorporate-source/trace.md`
-- [ ] Follow instructions in `codegen/prompts/modulecheck.md` to verify modular architecture compliance
-- [ ] Examine all new code and ensure no dead code exists
+- [x] Ensure lint passes: `./format_code.sh --no-venv`
+- [x] Ensure backend unit tests pass: `cd backend && scripts/run_unit.py`
+- [x] Ensure frontend unit tests pass: `cd mobile && npm run test`
+- [x] Ensure integration tests pass: `cd backend && scripts/run_integration.py`
+- [x] Follow instructions in `codegen/prompts/trace.md` to trace the user story end-to-end
+- [x] Fix any issues documented in `docs/specs/incorporate-source/trace.md`
+- [x] Follow instructions in `codegen/prompts/modulecheck.md` to verify modular architecture compliance
+- [x] Examine all new code and ensure no dead code exists
 
 ---
 

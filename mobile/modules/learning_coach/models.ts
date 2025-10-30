@@ -35,6 +35,7 @@ export interface LearningCoachSessionState {
   readonly proposedBrief?: LearningCoachBrief | null; // Deprecated
   readonly acceptedBrief?: LearningCoachBrief | null; // Deprecated
   readonly resources?: ResourceSummary[];
+  readonly uncoveredLearningObjectiveIds?: string[] | null;
 }
 
 export interface StartSessionPayload {

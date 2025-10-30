@@ -291,7 +291,8 @@ export default function UnitDetailsPage({ params }: UnitDetailsPageProps) {
         <div>
           <h2 className="text-lg font-medium text-gray-900">Source Resources</h2>
           <p className="text-sm text-gray-500">
-            Materials the learner provided for this unit&apos;s creation.
+            Learner-provided resources and any generated supplemental material used to build this
+            unit.
           </p>
         </div>
         <ResourceList

@@ -20,6 +20,7 @@ import type {
   ApiUnitDetail,
   ApiUnitSummary,
   ApiResourceSummary,
+  ApiResourceDetail,
   ApiUserDetail,
   ApiUserListResponse,
   ApiUserUpdateRequest,
@@ -245,6 +246,10 @@ export const AdminRepo = {
     async listByUser(userId: number | string): Promise<ApiResourceSummary[]> {
       const params = new URLSearchParams({ user_id: String(userId) });
       const { data } = await apiClient.get<ApiResourceSummary[]>(`/resources?${params.toString()}`);
+      return data;
+    },
+    async detail(resourceId: string): Promise<ApiResourceDetail> {
+      const { data } = await apiClient.get<ApiResourceDetail>(`/resources/${resourceId}`);
       return data;
     },
   },

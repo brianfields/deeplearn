@@ -5,6 +5,17 @@ import type {
 } from '@/modules/admin/models';
 import { formatDate } from '@/lib/utils';
 
+const BADGE_BASE_CLASSES =
+  'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border';
+
+const RESOURCE_TYPE_STYLES: Record<string, string> = {
+  generated_source: 'bg-violet-100 text-violet-800 border-violet-200',
+  url: 'bg-blue-100 text-blue-800 border-blue-200',
+  file_upload: 'bg-slate-100 text-slate-800 border-slate-200',
+  file: 'bg-slate-100 text-slate-800 border-slate-200',
+  default: 'bg-gray-100 text-gray-700 border-gray-200',
+};
+
 type ResourceListItem = ResourceSummary & {
   used_in_units?: ResourceUsageSummary[];
 };
@@ -52,6 +63,30 @@ const normalizePreview = (preview: string): string => {
   return `${trimmed.slice(0, 157)}…`;
 };
 
+const formatResourceTypeLabel = (value: string): string => {
+  if (!value) {
+    return 'Unknown';
+  }
+  return value
+    .split(/[_\s]+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
+export function ResourceTypeBadge({ resourceType }: { resourceType: string }): JSX.Element {
+  const normalized = resourceType?.toLowerCase() ?? 'default';
+  const variantClasses = RESOURCE_TYPE_STYLES[normalized] ?? RESOURCE_TYPE_STYLES.default;
+  return (
+    <span
+      data-testid={`resource-type-${normalized}`}
+      className={`${BADGE_BASE_CLASSES} ${variantClasses}`}
+    >
+      {formatResourceTypeLabel(resourceType)}
+    </span>
+  );
+}
+
 export function ResourceList({
   resources,
   emptyMessage,
@@ -82,6 +117,9 @@ export function ResourceList({
             <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
               Preview
             </th>
+            <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              Actions
+            </th>
             {showUsageColumn && (
               <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 Used In Units
@@ -94,8 +132,8 @@ export function ResourceList({
             <tr key={resource.id}>
               <td className="px-4 py-2 align-top text-sm text-gray-900">
                 <div className="font-medium text-gray-900">{resourceLabel(resource)}</div>
-                <div className="text-xs text-gray-500 capitalize">
-                  {resource.resource_type.replace(/_/g, ' ')}
+                <div className="mt-1">
+                  <ResourceTypeBadge resourceType={resource.resource_type} />
                 </div>
                 {resource.source_url && (
                   <div className="mt-1 text-xs">
@@ -119,6 +157,24 @@ export function ResourceList({
               <td className="px-4 py-2 align-top text-sm text-gray-700">
                 <div className="max-w-xs whitespace-pre-wrap break-words">
                   {normalizePreview(resource.preview_text)}
+                </div>
+              </td>
+              <td className="px-4 py-2 align-top text-sm text-gray-700">
+                <div className="flex flex-col gap-1">
+                  <Link
+                    href={`/resources/${resource.id}`}
+                    className="text-blue-600 hover:text-blue-500"
+                  >
+                    View details
+                  </Link>
+                  {resource.resource_type === 'generated_source' && (
+                    <Link
+                      href={`/resources/${resource.id}?download=1`}
+                      className="text-violet-700 hover:text-violet-600"
+                    >
+                      Download text
+                    </Link>
+                  )}
                 </div>
               </td>
               {showUsageColumn && (

@@ -167,14 +167,14 @@ async def test_submit_learner_turn_appends_message() -> None:
     service_instance.get_message_history.return_value = [user_message, assistant_message]
     service_instance.build_llm_messages.return_value = []
     service_instance.record_assistant_message.return_value = assistant_message
+    service_instance.update_conversation_metadata.return_value = summary
 
     # Mock the structured LLM response
     from modules.learning_coach.conversation import CoachResponse
 
     coach_response = CoachResponse(
         message="Noted! I'll include project work in the plan.",
-        next_action=None,
-        brief_proposal=None,
+        uncovered_learning_objective_ids=None,
     )
     llm_request_id = uuid.uuid4()
     raw_response = {"provider": "openai", "usage": {"total_tokens": 15}, "cost_estimate": 0.04}
@@ -346,6 +346,7 @@ async def test_add_resource_attaches_metadata_and_returns_state() -> None:
                 learning_objectives=None,
                 suggested_lesson_count=None,
                 suggested_quick_replies=["Continue", "Tell me more"],
+                uncovered_learning_objective_ids=["lo_gap"],
             ),
             uuid.uuid4(),
             {"usage": {"total_tokens": 100}, "cost_estimate": 0.01, "provider": "openai"},
@@ -381,10 +382,24 @@ async def test_add_resource_attaches_metadata_and_returns_state() -> None:
             resource_id=str(resource_id),
         )
 
-    service_instance.update_conversation_metadata.assert_awaited_once_with(
-        conversation_id,
-        {"resource_ids": [str(resource_id)]},
-        merge=True,
+    calls = service_instance.update_conversation_metadata.await_args_list
+    assert any(
+        call.args
+        == (
+            conversation_id,
+            {"resource_ids": [str(resource_id)]},
+        )
+        and call.kwargs.get("merge", True) is True
+        for call in calls
+    )
+    assert any(
+        call.args
+        == (
+            conversation_id,
+            {"uncovered_learning_objective_ids": ["lo_gap"]},
+        )
+        and call.kwargs.get("merge", True) is True
+        for call in calls
     )
     # Verify LLM was called to generate acknowledgment
     assert mock_llm_services.generate_structured_response.await_count == 1

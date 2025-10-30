@@ -18,6 +18,7 @@ import type {
   LessonsQuery,
   MetricsQuery,
   UnitDetail,
+  ResourceDetail,
   UserDetail,
   UserListQuery,
   UserUpdatePayload,
@@ -51,6 +52,8 @@ export const adminKeys = {
   units: () => [...adminKeys.all, 'units'] as const,
   unitsList: () => [...adminKeys.units(), 'list'] as const,
   unitDetail: (id: string) => [...adminKeys.units(), 'detail', id] as const,
+  resources: () => [...adminKeys.all, 'resources'] as const,
+  resourceDetail: (id: string) => [...adminKeys.resources(), 'detail', id] as const,
   users: () => [...adminKeys.all, 'users'] as const,
   usersList: (params?: UserListQuery) => [...adminKeys.users(), 'list', params ?? {}] as const,
   userDetail: (id: number | string) => [...adminKeys.users(), 'detail', id] as const,
@@ -233,6 +236,17 @@ export function useUnit(unitId: string, options?: { enabled?: boolean }) {
     queryFn: () => service.getUnitDetail(unitId),
     enabled: !!unitId && (options?.enabled ?? true),
     staleTime: 60 * 1000,
+  });
+}
+
+// ---- Resource Hooks ----
+
+export function useResource(resourceId: string | null, options?: { enabled?: boolean }) {
+  return useQuery<ResourceDetail | null>({
+    queryKey: adminKeys.resourceDetail(resourceId ?? 'unknown'),
+    queryFn: () => (resourceId ? service.getResource(resourceId) : Promise.resolve(null)),
+    enabled: !!resourceId && (options?.enabled ?? true),
+    staleTime: 5 * 60 * 1000,
   });
 }
 

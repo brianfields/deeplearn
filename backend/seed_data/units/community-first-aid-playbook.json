@@ -139,7 +139,41 @@
       "confusables": []
     }
   ],
-  "resources": [],
+  "resources": [
+    {
+      "resource_id": "b66a1c5b-1df3-4b88-8a9e-a7ab9d1eb9f6",
+      "resource_type": "file_upload",
+      "filename": "cert-field-guide.pdf",
+      "file_size": 243712,
+      "extracted_text": "Community Emergency Response Team handbook section covering initial scene surveys, patient stabilization checklists, and decision trees for escalating to advanced care.",
+      "metadata": {
+        "source": "seed",
+        "notes": "Learner-uploaded CERT field reference carried into the content creator pipeline."
+      },
+      "document": {
+        "id": "5e8ad2f2-415d-4cc4-a21c-8c8b2e973df0",
+        "s3_key": "seed/eylem/resources/cert-field-guide.pdf",
+        "s3_bucket": "lantern-room",
+        "filename": "cert-field-guide.pdf",
+        "content_type": "application/pdf",
+        "file_size": 243712
+      }
+    },
+    {
+      "resource_id": "0f67a5e8-6d6c-4a93-b3fb-1fce1db1fd3c",
+      "resource_type": "generated_source",
+      "filename": "supplemental-scene-triage.txt",
+      "extracted_text": "Supplement created to cover escalation briefings and responder hand-off language for objectives not represented in learner uploads. Includes sample radio scripts and escalation thresholds for neurological decline.",
+      "metadata": {
+        "generated_at": "2024-02-15T18:22:00Z",
+        "method": "ai_supplemental",
+        "uncovered_lo_ids": [
+          "first_aid_lo_2",
+          "first_aid_lo_3"
+        ]
+      }
+    }
+  ],
   "art_image": null,
   "podcast_audio": {
     "id": "4c2e8f60-7a3f-5f46-9d64-c3d3d237f01c",

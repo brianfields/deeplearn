@@ -33,6 +33,7 @@ export class ContentCreatorRepo {
           topic: request.topic,
           difficulty: request.difficulty,
           target_lesson_count: request.targetLessonCount,
+          conversation_id: request.conversationId ?? null,
         }),
         headers: {
           'Content-Type': 'application/json',

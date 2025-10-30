@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Any, Protocol
 import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,6 +23,21 @@ class ResourceProvider(Protocol):
 
     async def get_resources_for_unit(self, unit_id: str) -> list[ResourceSummary]:
         """List resources associated with a unit."""
+        ...
+
+    async def attach_resources_to_unit(self, *, unit_id: str, resource_ids: list[uuid.UUID]) -> None:
+        """Link resources to a unit."""
+        ...
+
+    async def create_generated_source_resource(
+        self,
+        *,
+        user_id: int,
+        unit_id: str,
+        source_text: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> ResourceRead:
+        """Persist AI-generated supplemental source material as a resource."""
         ...
 
 

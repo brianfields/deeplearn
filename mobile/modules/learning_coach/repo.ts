@@ -33,6 +33,7 @@ interface ApiSessionState {
   readonly proposed_brief?: Record<string, any> | null;
   readonly accepted_brief?: Record<string, any> | null;
   readonly resources?: ApiResourceSummary[] | null;
+  readonly uncovered_learning_objective_ids?: string[] | null;
 }
 
 interface ApiLearningObjective {
@@ -92,6 +93,9 @@ function toSessionState(dto: ApiSessionState): LearningCoachSessionState {
     proposedBrief: normalizeBrief(dto.proposed_brief),
     acceptedBrief: normalizeBrief(dto.accepted_brief),
     resources: normalizeResources(dto.resources),
+    uncoveredLearningObjectiveIds: normalizeUncoveredLearningObjectiveIds(
+      dto.uncovered_learning_objective_ids
+    ),
   };
 }
 
@@ -162,6 +166,26 @@ function normalizeResources(
     createdAt: resource.created_at,
     previewText: resource.preview_text ?? '',
   }));
+}
+
+function normalizeUncoveredLearningObjectiveIds(
+  ids: ApiSessionState['uncovered_learning_objective_ids']
+): string[] | null | undefined {
+  if (ids === undefined) {
+    return undefined;
+  }
+  if (ids === null) {
+    return null;
+  }
+  if (!Array.isArray(ids)) {
+    return undefined;
+  }
+
+  const normalized = ids
+    .map(id => (typeof id === 'string' ? id : null))
+    .filter((id): id is string => Boolean(id));
+
+  return normalized;
 }
 
 export class LearningCoachRepo {

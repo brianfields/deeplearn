@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from modules.content.public import ContentProvider, UnitStatus, content_provider
 from modules.infrastructure.public import infrastructure_provider
+from modules.resource.public import ResourceProvider, resource_provider
 
 from .service import ContentCreatorService
 
@@ -28,7 +29,11 @@ async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
 async def get_content_creator_service(session: AsyncSession = Depends(get_async_session)) -> ContentCreatorService:
     """Build ContentCreatorService for this request."""
     content: ContentProvider = content_provider(session)
-    return ContentCreatorService(content)
+
+    async def _resource_factory() -> ResourceProvider:
+        return await resource_provider(session)
+
+    return ContentCreatorService(content, resource_factory=_resource_factory)
 
 
 # DTOs for mobile unit creation
@@ -39,6 +44,7 @@ class MobileUnitCreateRequest(BaseModel):
     difficulty: str = "beginner"  # beginner, intermediate, advanced
     unit_title: str | None = None
     target_lesson_count: int | None = None
+    conversation_id: str | None = None
 
 
 class MobileUnitCreateResponse(BaseModel):
@@ -71,6 +77,7 @@ async def create_unit_from_mobile(
             target_lesson_count=request.target_lesson_count,
             background=True,
             user_id=user_id,
+            conversation_id=request.conversation_id,
         )
 
         logger.info("✅ Mobile unit creation started: unit_id=%s", result.unit_id)

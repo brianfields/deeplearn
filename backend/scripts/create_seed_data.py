@@ -34,6 +34,8 @@ def main() -> None:
 
     if args.verbose:
         cmd.append("--verbose")
+        if not args.unit_file:
+            print("🌾 Seeding sample units with learner-provided and generated resources")
 
     if args.unit_file:
         cmd.extend(["--unit-file", args.unit_file])

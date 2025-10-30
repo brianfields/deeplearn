@@ -46,6 +46,22 @@ class GenerateUnitSourceMaterialStep(UnstructuredStep):
         learner_level: str
 
 
+class GenerateSupplementalSourceMaterialStep(UnstructuredStep):
+    """Generate supplemental source material for uncovered learning objectives."""
+
+    step_name = "generate_supplemental_source_material"
+    prompt_file = "generate_supplemental_source_material.md"
+    reasoning_effort = "low"
+    verbosity = "low"
+    model = "gpt-5-mini"
+
+    class Inputs(BaseModel):
+        topic: str
+        learner_level: str
+        target_lesson_count: int | None = None
+        objectives_outline: str
+
+
 # ---------- 2) Extract Unit Metadata ----------
 class UnitLearningObjective(BaseModel):
     id: str
