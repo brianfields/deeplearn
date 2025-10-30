@@ -17,7 +17,10 @@
       "bundleIdentifier": "com.brian.deeplearn",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "UIBackgroundModes": ["audio", "airplay", "picture-in-picture"]
+        "UIBackgroundModes": ["audio", "airplay", "picture-in-picture"],
+        "NSCameraUsageDescription": "The learning coach needs camera access to capture study materials.",
+        "NSPhotoLibraryUsageDescription": "Allow access to choose study photos to share with your coach.",
+        "NSPhotoLibraryAddUsageDescription": "Allow saving analyzed study photos back to your library."
       }
     },
     "android": {
@@ -26,7 +29,13 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.brian.deeplearn"
+      "package": "com.brian.deeplearn",
+      "permissions": [
+        "CAMERA",
+        "READ_MEDIA_IMAGES",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"

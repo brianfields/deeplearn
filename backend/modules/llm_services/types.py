@@ -1,5 +1,7 @@
 """Core types and data structures for LLM and image generation."""
 
+from __future__ import annotations
+
 import base64
 from dataclasses import dataclass
 from datetime import datetime
@@ -53,12 +55,15 @@ class MessageRole(str, Enum):
     TOOL = "tool"
 
 
+LLMMessageContent = str | list[dict[str, Any]]
+
+
 @dataclass
 class LLMMessage:
     """A message in an LLM conversation"""
 
     role: MessageRole
-    content: str
+    content: LLMMessageContent
     name: str | None = None
     function_call: dict[str, Any] | None = None
     tool_calls: list[dict[str, Any]] | None = None

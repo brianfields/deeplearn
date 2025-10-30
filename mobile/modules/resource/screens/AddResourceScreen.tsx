@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+import * as ImagePicker from 'expo-image-picker';
 import {
   ActivityIndicator,
   Alert,
@@ -18,6 +19,7 @@ import { useAuth } from '../../user/public';
 import {
   useUserResources,
   useUploadResource,
+  useUploadPhotoResource,
   useAddResourceFromURL,
 } from '../queries';
 import type { ResourceSummary } from '../models';
@@ -49,8 +51,14 @@ export function AddResourceScreen({
   const userId = user?.id ?? null;
   const [url, setUrl] = useState('');
   const [urlError, setUrlError] = useState<string | null>(null);
+  const [photoStatus, setPhotoStatus] = useState<string | null>(null);
+  const [activePhotoAction, setActivePhotoAction] = useState<'camera' | 'library' | null>(null);
   const uploadMutation = useUploadResource();
+  const photoMutation = useUploadPhotoResource();
   const urlMutation = useAddResourceFromURL();
+  const isPhotoProcessing = photoMutation.isPending;
+  const isBusy =
+    uploadMutation.isPending || urlMutation.isPending || isPhotoProcessing;
   const resourcesQuery = useUserResources(userId, { enabled: !!userId });
   const attachToConversation = route.params?.attachToConversation ?? false;
 
@@ -232,28 +240,145 @@ export function AddResourceScreen({
     ]
   );
 
-  const handlePhotoPlaceholder = useCallback(() => {
-    Alert.alert(
-      'Coming soon',
-      'Taking a photo as a resource will arrive in a future update.'
-    );
-  }, []);
+  const handlePhotoFlow = useCallback(
+    async (source: 'camera' | 'library') => {
+      // TODO: Future - support selecting multiple photos at once
+      if (photoMutation.isPending) {
+        return;
+      }
+      if (!userId) {
+        Alert.alert('Sign in required', 'Please sign in to upload photos.');
+        return;
+      }
+      try {
+        const permission =
+          source === 'camera'
+            ? await ImagePicker.requestCameraPermissionsAsync()
+            : await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!permission.granted) {
+          Alert.alert(
+            source === 'camera' ? 'Camera access needed' : 'Photo access needed',
+            'Please enable permissions in Settings to share photos with your coach.'
+          );
+          return;
+        }
+
+        const pickerResult =
+          source === 'camera'
+            ? await ImagePicker.launchCameraAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                quality: 1,
+              })
+            : await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                quality: 1,
+              });
+
+        if (pickerResult.canceled) {
+          return;
+        }
+
+        const asset = pickerResult.assets?.[0];
+        if (!asset?.uri) {
+          Alert.alert(
+            'Photo unavailable',
+            'We were unable to access the selected photo.'
+          );
+          return;
+        }
+
+        const extension = asset.mimeType?.split('/')[1] ?? 'jpg';
+        const generatedName = `photo-${Date.now()}.${extension}`;
+        const name = asset.fileName ?? generatedName;
+        const type = asset.mimeType ?? 'image/jpeg';
+
+        setActivePhotoAction(source);
+        setPhotoStatus('Uploading and analyzing your photo...');
+
+        photoMutation.mutate(
+          {
+            userId,
+            file: {
+              uri: asset.uri,
+              name,
+              type,
+              size: asset.fileSize ?? null,
+            },
+          },
+          {
+            onSuccess: result => {
+              if (attachToConversation) {
+                handleResourceAttached(result.id);
+              }
+              Alert.alert(
+                'Photo shared',
+                attachToConversation
+                  ? "I've received your photo. Let me analyze it for you."
+                  : 'Your photo has been uploaded as a resource.'
+              );
+              navigation.goBack();
+            },
+            onError: (error: unknown) => {
+              const message =
+                error instanceof Error
+                  ? error.message
+                  : 'Failed to upload your photo.';
+              Alert.alert('Upload failed', message);
+            },
+            onSettled: () => {
+              setPhotoStatus(null);
+              setActivePhotoAction(null);
+            },
+          }
+        );
+      } catch (error: unknown) {
+        setPhotoStatus(null);
+        setActivePhotoAction(null);
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Unable to process the selected photo.';
+        Alert.alert('Photo error', message);
+      }
+    },
+    [
+      attachToConversation,
+      handleResourceAttached,
+      navigation,
+      photoMutation,
+      userId,
+    ]
+  );
+
+  const handleTakePhoto = useCallback(() => {
+    void handlePhotoFlow('camera');
+  }, [handlePhotoFlow]);
+
+  const handleChoosePhoto = useCallback(() => {
+    void handlePhotoFlow('library');
+  }, [handlePhotoFlow]);
 
   const handleClose = useCallback(() => {
+    if (isBusy) {
+      Alert.alert(
+        'Please wait',
+        'Your upload is still processing. Stay on this screen until it finishes.'
+      );
+      return;
+    }
     // Modal screens should always just dismiss back to the screen that opened them
     navigation.goBack();
-  }, [navigation]);
-
-  const isBusy = uploadMutation.isPending || urlMutation.isPending;
+  }, [isBusy, navigation]);
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Pressable
           onPress={handleClose}
+          disabled={isBusy}
           style={({ pressed }) => [
             styles.closeButton,
-            { opacity: pressed ? 0.6 : 1 },
+            { opacity: isBusy ? 0.4 : pressed ? 0.6 : 1 },
           ]}
         >
           <Text style={styles.closeButtonText}>✕</Text>
@@ -324,13 +449,35 @@ export function AddResourceScreen({
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Take a photo</Text>
+          <Text style={styles.sectionTitle}>Add a photo</Text>
           <Pressable
-            style={styles.secondaryButton}
-            onPress={handlePhotoPlaceholder}
+            style={styles.primaryButton}
+            onPress={handleTakePhoto}
+            disabled={isPhotoProcessing}
           >
-            <Text style={styles.secondaryButtonText}>Coming soon</Text>
+            {photoMutation.isPending && activePhotoAction === 'camera' ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.primaryButtonText}>Take a photo</Text>
+            )}
           </Pressable>
+          <Pressable
+            style={[styles.secondaryButton, styles.photoLibraryButton]}
+            onPress={handleChoosePhoto}
+            disabled={isPhotoProcessing}
+          >
+            {photoMutation.isPending && activePhotoAction === 'library' ? (
+              <ActivityIndicator color="#1f2937" />
+            ) : (
+              <Text style={styles.secondaryButtonText}>Choose from library</Text>
+            )}
+          </Pressable>
+          {photoStatus ? (
+            <View style={styles.photoStatusRow}>
+              <ActivityIndicator color="#2563eb" />
+              <Text style={styles.photoStatusText}>{photoStatus}</Text>
+            </View>
+          ) : null}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -410,9 +557,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 8,
   },
+  photoLibraryButton: {
+    marginTop: 12,
+  },
   secondaryButtonText: {
     color: '#1f2937',
     fontSize: 15,
+    fontWeight: '500',
+  },
+  photoStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  photoStatusText: {
+    marginLeft: 8,
+    color: '#2563eb',
+    flex: 1,
     fontWeight: '500',
   },
   input: {

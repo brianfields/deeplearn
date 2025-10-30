@@ -2,6 +2,7 @@
 
 from .dtos import (
     FileResourceCreate,
+    PhotoResourceCreate,
     ResourceRead,
     ResourceSummary,
     UrlResourceCreate,
@@ -16,6 +17,7 @@ from .facade import (
 
 __all__ = [
     "FileResourceCreate",
+    "PhotoResourceCreate",
     "ResourceError",
     "ResourceExtractionError",
     "ResourceRead",

@@ -13,6 +13,7 @@ from modules.infrastructure.public import infrastructure_provider
 
 from .service import (
     FileResourceCreate,
+    PhotoResourceCreate,
     ResourceExtractionError,
     ResourceRead,
     ResourceService,
@@ -62,6 +63,31 @@ async def upload_resource(
                 user_id=user_id,
                 filename=file.filename or "untitled",
                 content_type=file.content_type or "application/octet-stream",
+                content=content,
+                file_size=len(content),
+            )
+        )
+    except ResourceValidationError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except ResourceExtractionError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+
+
+@router.post("/upload-photo", response_model=ResourceRead, status_code=status.HTTP_201_CREATED)
+async def upload_photo_resource(
+    user_id: int = Form(..., ge=1),
+    photo: UploadFile = File(...),
+    service: ResourceService = Depends(get_resource_service),
+) -> ResourceRead:
+    """Upload a learner photo resource."""
+
+    content = await photo.read()
+    try:
+        return await service.upload_photo_resource(
+            PhotoResourceCreate(
+                user_id=user_id,
+                filename=photo.filename or "learner-photo.jpg",
+                content_type=photo.content_type or "application/octet-stream",
                 content=content,
                 file_size=len(content),
             )

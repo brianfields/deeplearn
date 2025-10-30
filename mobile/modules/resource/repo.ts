@@ -2,6 +2,7 @@ import { infrastructureProvider } from '../infrastructure/public';
 import type {
   AddResourceFromURLRequest,
   CreateResourceRequest,
+  PhotoResourceCreate,
   ResourceApiResponse,
   ResourceSummaryApiResponse,
 } from './models';
@@ -24,6 +25,29 @@ export class ResourceRepo {
 
     return this.infrastructure.request<ResourceApiResponse>(
       `${RESOURCE_BASE}/upload`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        body: formData,
+      }
+    );
+  }
+
+  async uploadPhotoResource(
+    request: PhotoResourceCreate
+  ): Promise<ResourceApiResponse> {
+    const formData = new FormData();
+    formData.append('user_id', String(request.userId));
+    formData.append('photo', {
+      uri: request.file.uri,
+      name: request.file.name,
+      type: request.file.type,
+    } as any);
+
+    return this.infrastructure.request<ResourceApiResponse>(
+      `${RESOURCE_BASE}/upload-photo`,
       {
         method: 'POST',
         headers: {

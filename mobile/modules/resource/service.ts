@@ -2,6 +2,7 @@ import { ResourceRepo } from './repo';
 import type {
   AddResourceFromURLRequest,
   CreateResourceRequest,
+  PhotoResourceCreate,
   Resource,
   ResourceApiResponse,
   ResourceSummary,
@@ -55,6 +56,30 @@ export class ResourceService {
       throw new Error('A valid user is required');
     }
     const response = await this.repo.uploadFileResource(request);
+    return toResource(response);
+  }
+
+  async uploadPhotoResource(request: PhotoResourceCreate): Promise<Resource> {
+    if (!request.file?.uri || !request.file.name || !request.file.type) {
+      throw new Error('A valid photo is required');
+    }
+    if (!Number.isFinite(request.userId) || request.userId <= 0) {
+      throw new Error('A valid user is required');
+    }
+    const normalizedType = request.file.type.toLowerCase();
+    if (!normalizedType.startsWith('image/')) {
+      throw new Error('Only image files can be uploaded');
+    }
+
+    const response = await this.repo.uploadPhotoResource({
+      userId: request.userId,
+      file: {
+        uri: request.file.uri,
+        name: request.file.name,
+        type: normalizedType,
+        size: request.file.size ?? null,
+      },
+    });
     return toResource(response);
   }
 

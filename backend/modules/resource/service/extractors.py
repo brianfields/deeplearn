@@ -4,13 +4,28 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from io import BytesIO
+import json
+import logging
+from typing import Any
 
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 
+from modules.llm_services.public import LLMMessage, LLMServicesProvider
+
 
 class ExtractionError(Exception):
     """Raised when text cannot be extracted from a resource."""
+
+
+logger = logging.getLogger(__name__)
+
+VISION_ANALYSIS_PROMPT = (
+    "You are assisting a learning coach by analyzing learner-provided study photos. "
+    "Return a JSON object with two keys: 'description' summarizing the educationally "
+    "relevant details in 2-3 sentences, and 'visible_text' containing any clearly "
+    "readable text exactly as it appears (use an empty string if none)."
+)
 
 
 def extract_text_from_txt(content: bytes) -> str:
@@ -62,6 +77,57 @@ def extract_youtube_transcript(_url: str) -> str:
     """Placeholder for YouTube transcript extraction."""
 
     raise NotImplementedError("YouTube transcript extraction coming soon. Please copy/paste the transcript.")
+
+
+async def extract_text_from_photo(image_url: str, llm_service: LLMServicesProvider) -> tuple[str, dict[str, Any]]:
+    """Use a vision-capable LLM to analyse a learner photo."""
+
+    messages = [
+        LLMMessage(role="system", content=VISION_ANALYSIS_PROMPT),
+        LLMMessage(
+            role="user",
+            content=[
+                {
+                    "type": "text",
+                    "text": ("Analyze this study photo, describe the important academic context, and transcribe any text that would help a tutor understand the material."),
+                },
+                {"type": "image_url", "image_url": image_url},
+            ],
+        ),
+    ]
+
+    try:
+        response, request_id = await llm_service.generate_response(messages, model="gpt-4o-mini")
+    except Exception as exc:  # pragma: no cover - defensive against provider failures
+        logger.exception("Vision extraction failed to reach LLM")
+        raise ExtractionError("Failed to analyse the photo") from exc
+
+    try:
+        payload = json.loads(response.content)
+    except json.JSONDecodeError as exc:
+        logger.error("Vision model returned non-JSON payload: %s", response.content[:200])
+        raise ExtractionError("Vision model returned an unexpected response format") from exc
+
+    description = str(payload.get("description", "")).strip()
+    visible_text = str(payload.get("visible_text", "")).strip()
+
+    combined_text = description
+    if visible_text:
+        combined_text = f"{combined_text}\n\nVisible text:\n{visible_text}" if combined_text else f"Visible text:\n{visible_text}"
+
+    if not combined_text:
+        combined_text = "Photo contained no describable or legible content."
+
+    metadata: dict[str, Any] = {
+        "source": "photo",
+        "vision_model": response.model,
+        "llm_request_id": str(request_id),
+        "description": description,
+        "visible_text": visible_text,
+        "raw_response": payload,
+    }
+
+    return combined_text, metadata
 
 
 def scrape_web_page(url: str) -> str:
