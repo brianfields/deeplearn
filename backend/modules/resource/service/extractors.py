@@ -91,7 +91,7 @@ async def extract_text_from_photo(image_url: str, llm_service: LLMServicesProvid
                     "type": "text",
                     "text": ("Analyze this study photo, describe the important academic context, and transcribe any text that would help a tutor understand the material."),
                 },
-                {"type": "image_url", "image_url": image_url},
+                {"type": "image_url", "image_url": {"url": image_url}},
             ],
         ),
     ]
