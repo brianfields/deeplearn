@@ -1,5 +1,5 @@
 
-You are working on the "{PROJECT}" project -- please call the branch codex/{PROJECT}. Detailed instructions below.
+You are working on the "{PROJECT}" project -- please call the branch codex/{PROJECT} and the task "Implementing {PROJECT}". In the comments to the github PR, please include description of any added packages or database migrations. Detailed instructions below.
 
 Spec path: {SPEC_PATH}
 Backend architecture reference: {BACKEND_ARCH}
