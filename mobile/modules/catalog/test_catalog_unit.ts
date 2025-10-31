@@ -167,7 +167,8 @@ describe('CatalogService', () => {
             wrong_answers: [
               {
                 answer: 'carbon dioxide',
-                explanation: 'Carbon dioxide is what plants take in, not release.',
+                explanation:
+                  'Carbon dioxide is what plants take in, not release.',
                 misconception_ids: ['mis-2'],
               },
             ],

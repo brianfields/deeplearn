@@ -364,26 +364,31 @@ function mapLessonExercise(
       ? exercise.title
       : undefined;
   const difficulty =
-    typeof exercise.difficulty === 'string' && exercise.difficulty.trim().length > 0
+    typeof exercise.difficulty === 'string' &&
+    exercise.difficulty.trim().length > 0
       ? exercise.difficulty
       : undefined;
 
   if (exercise.exercise_type === 'mcq') {
     const options = Array.isArray(exercise.options)
-      ? exercise.options.map((option: any): LessonMCQOption => ({
-          label: typeof option?.label === 'string' ? option.label : '',
-          text: typeof option?.text === 'string' ? option.text : '',
-          rationale_right:
-            typeof option?.rationale_right === 'string'
-              ? option.rationale_right
-              : undefined,
-          rationale_wrong:
-            typeof option?.rationale_wrong === 'string'
-              ? option.rationale_wrong
-              : undefined,
-          option_id:
-            typeof option?.option_id === 'string' ? option.option_id : undefined,
-        }))
+      ? exercise.options.map(
+          (option: any): LessonMCQOption => ({
+            label: typeof option?.label === 'string' ? option.label : '',
+            text: typeof option?.text === 'string' ? option.text : '',
+            rationale_right:
+              typeof option?.rationale_right === 'string'
+                ? option.rationale_right
+                : undefined,
+            rationale_wrong:
+              typeof option?.rationale_wrong === 'string'
+                ? option.rationale_wrong
+                : undefined,
+            option_id:
+              typeof option?.option_id === 'string'
+                ? option.option_id
+                : undefined,
+          })
+        )
       : [];
 
     const answerKeyRaw = exercise.answer_key ?? {};

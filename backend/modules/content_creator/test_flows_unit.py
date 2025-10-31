@@ -102,9 +102,7 @@ async def test_lesson_creation_flow_generates_short_answers(
     mock_extract_step.return_value.execute = AsyncMock(return_value=SimpleNamespace(output_content=lesson_md))
 
     mcq_items = [_FakeModel(stem="What is it?", options=[], answer_key=_FakeModel(label="A"))]
-    mock_mcq_step.return_value.execute = AsyncMock(
-        return_value=SimpleNamespace(output_content=_FakeModel(mcqs=mcq_items))
-    )
+    mock_mcq_step.return_value.execute = AsyncMock(return_value=SimpleNamespace(output_content=_FakeModel(mcqs=mcq_items)))
 
     short_answer_items = [
         _FakeModel(
@@ -119,9 +117,7 @@ async def test_lesson_creation_flow_generates_short_answers(
             explanation_correct="Yes",
         )
     ]
-    mock_short_answer_step.return_value.execute = AsyncMock(
-        return_value=SimpleNamespace(output_content=_FakeModel(short_answers=short_answer_items))
-    )
+    mock_short_answer_step.return_value.execute = AsyncMock(return_value=SimpleNamespace(output_content=_FakeModel(short_answers=short_answer_items)))
 
     flow = LessonCreationFlow()
     result = await flow._execute_flow_logic(

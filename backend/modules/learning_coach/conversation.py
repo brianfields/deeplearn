@@ -222,13 +222,7 @@ class LearningCoachConversation(BaseConversation):
         summary = await self.get_conversation_summary()
         metadata = dict(summary.metadata or {})
         resources = await self._load_conversation_resources()
-        uncovered_ids = (
-            self._parse_uncovered_learning_objective_ids(
-                metadata.get("uncovered_learning_objective_ids")
-            )
-            if "uncovered_learning_objective_ids" in metadata
-            else UNSET
-        )
+        uncovered_ids = self._parse_uncovered_learning_objective_ids(metadata.get("uncovered_learning_objective_ids")) if "uncovered_learning_objective_ids" in metadata else UNSET
 
         return LearningCoachSessionState(
             conversation_id=str(ctx.conversation_id),
@@ -293,9 +287,7 @@ class LearningCoachConversation(BaseConversation):
 
         return objectives or None
 
-    def _parse_uncovered_learning_objective_ids(
-        self, value: Any
-    ) -> UncoveredLearningObjectiveIds:
+    def _parse_uncovered_learning_objective_ids(self, value: Any) -> UncoveredLearningObjectiveIds:
         """Normalize uncovered learning objective identifiers from metadata."""
 
         if value is None:
@@ -304,11 +296,7 @@ class LearningCoachConversation(BaseConversation):
         if not isinstance(value, list):
             return []
 
-        normalized = [
-            str(item)
-            for item in value
-            if isinstance(item, str) and item.strip()
-        ]
+        normalized = [str(item) for item in value if isinstance(item, str) and item.strip()]
 
         return normalized
 

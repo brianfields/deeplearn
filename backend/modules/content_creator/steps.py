@@ -177,11 +177,16 @@ class ShortAnswerItem(BaseModel):
     explanation_correct: str
 
 
+class ShortAnswersCoverage(BaseModel):
+    learning_objective_ids: list[str]
+    misconception_ids: list[str]
+
+
 class ShortAnswersMetadata(BaseModel):
     lesson_title: str
     lesson_objective: str
     learner_level: str
-    coverage: dict[str, list[str]]
+    coverage: ShortAnswersCoverage
 
 
 class GenerateMCQStep(StructuredStep):

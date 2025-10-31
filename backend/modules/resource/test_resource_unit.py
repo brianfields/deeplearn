@@ -141,6 +141,8 @@ async def test_create_generated_source_resource_persists_metadata() -> None:
     kwargs = repo.create.await_args.kwargs
     assert kwargs["resource_type"] == "generated_source"
     assert kwargs["extracted_text"] == "Combined source text"
+
+
 @pytest.mark.asyncio
 async def test_extract_text_from_photo_parses_response() -> None:
     """Vision extraction should combine description and visible text."""

@@ -329,11 +329,7 @@ class OpenAIProvider(LLMProvider):
                     [
                         {
                             "role": msg.role.value,
-                            "content": (
-                                msg.content[:100] + "..."
-                                if isinstance(msg.content, str) and len(msg.content) > 100
-                                else (msg.content if isinstance(msg.content, str) else "[non-text content]")
-                            ),
+                            "content": (msg.content[:100] + "..." if isinstance(msg.content, str) and len(msg.content) > 100 else (msg.content if isinstance(msg.content, str) else "[non-text content]")),
                         }
                         for msg in messages
                     ],
@@ -557,7 +553,7 @@ class OpenAIProvider(LLMProvider):
             kwargs_clean = kwargs.copy()
             kwargs_clean.pop("model", None)  # Remove model if present
             request_params = self._prepare_structured_request_params(messages, response_model, model, **kwargs_clean)
-            logger.info("🤖 Starting structured GPT-5 request using native Structured Outputs")
+            logger.info(f"🤖 Starting structured {model} request using native Structured Outputs")
 
             # Try using responses.parse if available (newer SDK versions)
             responses_client = getattr(self.client, "responses", None)

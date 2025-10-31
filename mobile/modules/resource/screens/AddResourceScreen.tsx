@@ -52,7 +52,9 @@ export function AddResourceScreen({
   const [url, setUrl] = useState('');
   const [urlError, setUrlError] = useState<string | null>(null);
   const [photoStatus, setPhotoStatus] = useState<string | null>(null);
-  const [activePhotoAction, setActivePhotoAction] = useState<'camera' | 'library' | null>(null);
+  const [activePhotoAction, setActivePhotoAction] = useState<
+    'camera' | 'library' | null
+  >(null);
   const uploadMutation = useUploadResource();
   const photoMutation = useUploadPhotoResource();
   const urlMutation = useAddResourceFromURL();
@@ -257,7 +259,9 @@ export function AddResourceScreen({
             : await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!permission.granted) {
           Alert.alert(
-            source === 'camera' ? 'Camera access needed' : 'Photo access needed',
+            source === 'camera'
+              ? 'Camera access needed'
+              : 'Photo access needed',
             'Please enable permissions in Settings to share photos with your coach.'
           );
           return;
@@ -469,7 +473,9 @@ export function AddResourceScreen({
             {photoMutation.isPending && activePhotoAction === 'library' ? (
               <ActivityIndicator color="#1f2937" />
             ) : (
-              <Text style={styles.secondaryButtonText}>Choose from library</Text>
+              <Text style={styles.secondaryButtonText}>
+                Choose from library
+              </Text>
             )}
           </Pressable>
           {photoStatus ? (

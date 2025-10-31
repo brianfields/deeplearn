@@ -232,7 +232,10 @@ export interface SessionExercise {
   readonly id: string;
   readonly type: ExerciseType;
   readonly title: string;
-  readonly content: MCQContentDTO | ShortAnswerContentDTO | Record<string, unknown>;
+  readonly content:
+    | MCQContentDTO
+    | ShortAnswerContentDTO
+    | Record<string, unknown>;
 }
 
 // ================================

@@ -224,22 +224,33 @@ describe('Learning Session Module', () => {
           wrongAnswers: [
             {
               answer: 'respiration',
-              explanation: 'Respiration breaks down food rather than producing it.',
+              explanation:
+                'Respiration breaks down food rather than producing it.',
               misconceptionIds: ['mis-1'],
             },
           ],
-          explanationCorrect: 'Plants convert sunlight into energy through photosynthesis.',
+          explanationCorrect:
+            'Plants convert sunlight into energy through photosynthesis.',
         };
       });
 
       it('accepts canonical answers regardless of casing and whitespace', () => {
-        const result = service.validateShortAnswer('  Photosynthesis ', content);
-        expect(result).toEqual({ isCorrect: true, matchedAnswer: 'photosynthesis' });
+        const result = service.validateShortAnswer(
+          '  Photosynthesis ',
+          content
+        );
+        expect(result).toEqual({
+          isCorrect: true,
+          matchedAnswer: 'photosynthesis',
+        });
       });
 
       it('accepts acceptable answers with fuzzy matching', () => {
         const result = service.validateShortAnswer('photo syntheses', content);
-        expect(result).toEqual({ isCorrect: true, matchedAnswer: 'photo synthesis' });
+        expect(result).toEqual({
+          isCorrect: true,
+          matchedAnswer: 'photo synthesis',
+        });
       });
 
       it('provides targeted feedback for common wrong answers', () => {
