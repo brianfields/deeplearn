@@ -18,6 +18,7 @@ from unittest.mock import ANY, AsyncMock, Mock, patch
 import pytest
 
 from modules.content_creator.flows import (
+    LessonCreationFlow,
     LessonPodcastFlow,
     PodcastLessonInput,
     UnitCreationFlow,
@@ -67,6 +68,77 @@ async def test_unit_creation_flow_plan_and_chunks() -> None:
         assert result["unit_title"] == "Unit T"
         assert result.get("lesson_titles") == ["L1", "L2", "L3"]
         assert len(result.get("chunks", [])) == 3
+
+
+@pytest.mark.asyncio
+@patch("modules.content_creator.flows.GenerateShortAnswerStep")
+@patch("modules.content_creator.flows.GenerateMCQStep")
+@patch("modules.content_creator.flows.ExtractLessonMetadataStep")
+async def test_lesson_creation_flow_generates_short_answers(
+    mock_extract_step: Mock,
+    mock_mcq_step: Mock,
+    mock_short_answer_step: Mock,
+) -> None:
+    """Lesson creation flow should invoke the short-answer generator after MCQs."""
+
+    class _FakeModel:
+        def __init__(self, **payload: Any) -> None:
+            self.__dict__.update(payload)
+
+        def model_dump(self) -> dict[str, Any]:
+            return dict(self.__dict__)
+
+    lesson_md = _FakeModel(
+        topic="Lesson",
+        learner_level="beginner",
+        voice="Guide",
+        learning_objectives=["Explain"],
+        learning_objective_ids=["lo_1"],
+        misconceptions=[_FakeModel(id="m1")],
+        confusables=[_FakeModel(id="c1")],
+        glossary=[_FakeModel(term="Word", definition="Meaning")],
+        mini_lesson="Body",
+    )
+    mock_extract_step.return_value.execute = AsyncMock(return_value=SimpleNamespace(output_content=lesson_md))
+
+    mcq_items = [_FakeModel(stem="What is it?", options=[], answer_key=_FakeModel(label="A"))]
+    mock_mcq_step.return_value.execute = AsyncMock(
+        return_value=SimpleNamespace(output_content=_FakeModel(mcqs=mcq_items))
+    )
+
+    short_answer_items = [
+        _FakeModel(
+            stem="Name it",
+            canonical_answer="term",
+            acceptable_answers=["the term"],
+            wrong_answers=[{"answer": "mistake", "explanation": "Not precise", "misconception_ids": ["m1"]}],
+            learning_objectives_covered=["lo_1"],
+            misconceptions_used=["m1"],
+            glossary_terms_used=["Word"],
+            cognitive_level="remember",
+            explanation_correct="Yes",
+        )
+    ]
+    mock_short_answer_step.return_value.execute = AsyncMock(
+        return_value=SimpleNamespace(output_content=_FakeModel(short_answers=short_answer_items))
+    )
+
+    flow = LessonCreationFlow()
+    result = await flow._execute_flow_logic(
+        {
+            "topic": "Lesson",
+            "learner_level": "beginner",
+            "voice": "Guide",
+            "learning_objectives": ["Explain"],
+            "learning_objective_ids": ["lo_1"],
+            "lesson_objective": "Explain it",
+            "source_material": "Body",
+        }
+    )
+
+    mock_short_answer_step.return_value.execute.assert_awaited_once()
+    assert "short_answers" in result
+    assert result["short_answers"][0]["stem"] == "Name it"
 
 
 @pytest.mark.asyncio
@@ -249,6 +321,7 @@ class TestServiceFlows:
                 "glossary": [],
                 "mini_lesson": "x",
                 "mcqs": [],
+                "short_answers": [],
             }
             mock_lcf_cls.return_value = mock_lcf
 
@@ -362,6 +435,7 @@ class TestServiceFlows:
                 "glossary": [],
                 "mini_lesson": "x",
                 "mcqs": [],
+                "short_answers": [],
             }
             mock_lcf_cls.return_value = mock_lcf
 

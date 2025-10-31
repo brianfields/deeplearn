@@ -159,6 +159,31 @@ class MCQsMetadata(BaseModel):
     voice: str | None = None
 
 
+class ShortAnswerWrongAnswer(BaseModel):
+    answer: str
+    explanation: str
+    misconception_ids: list[str] = []
+
+
+class ShortAnswerItem(BaseModel):
+    stem: str
+    canonical_answer: str
+    acceptable_answers: list[str]
+    wrong_answers: list[ShortAnswerWrongAnswer]
+    learning_objectives_covered: list[str]
+    misconceptions_used: list[str] = []
+    glossary_terms_used: list[str] = []
+    cognitive_level: str | None = None
+    explanation_correct: str
+
+
+class ShortAnswersMetadata(BaseModel):
+    lesson_title: str
+    lesson_objective: str
+    learner_level: str
+    coverage: dict[str, list[str]]
+
+
 class GenerateMCQStep(StructuredStep):
     """Generate 5 MCQs covering all learning objectives for the lesson."""
 
@@ -182,6 +207,32 @@ class GenerateMCQStep(StructuredStep):
     class Outputs(BaseModel):
         metadata: MCQsMetadata
         mcqs: list[MCQItem]
+
+
+class GenerateShortAnswerStep(StructuredStep):
+    """Generate short-answer exercises that complement the MCQs."""
+
+    step_name = "generate_short_answers"
+    prompt_file = "generate_short_answers.md"
+    reasoning_effort = "high"
+    verbosity = "low"
+    model = "gpt-5-mini"
+
+    class Inputs(BaseModel):
+        learner_level: str
+        voice: str
+        lesson_title: str
+        lesson_objective: str
+        learning_objectives: list[str]
+        learning_objective_ids: list[str]
+        mini_lesson: str
+        glossary: list[GlossaryTerm]
+        misconceptions: list[LessonMisconception]
+        mcq_stems: list[str]
+
+    class Outputs(BaseModel):
+        metadata: ShortAnswersMetadata
+        short_answers: list[ShortAnswerItem]
 
 
 # ---------- 5) Generate Unit Podcast Transcript ----------

@@ -77,7 +77,7 @@ export interface LessonDetail {
   readonly learningObjectives: string[];
   readonly keyConcepts: string[];
   readonly miniLesson: string;
-  readonly exercises: any[];
+  readonly exercises: LessonExercise[];
   readonly glossaryTerms: any[];
   readonly exerciseCount: number;
   readonly createdAt: string;
@@ -95,6 +95,52 @@ export interface LessonDetail {
   readonly podcastGeneratedAt?: string | null;
   readonly hasPodcast: boolean;
 }
+
+export interface LessonMCQOption {
+  readonly label: string;
+  readonly text: string;
+  readonly rationale_right?: string;
+  readonly rationale_wrong?: string;
+  readonly option_id?: string;
+}
+
+export interface LessonMCQAnswerKey {
+  readonly label: string;
+  readonly option_id?: string;
+  readonly rationale_right?: string;
+}
+
+export interface LessonMCQExercise {
+  readonly exercise_type: 'mcq';
+  readonly id: string;
+  readonly stem: string;
+  readonly options: LessonMCQOption[];
+  readonly answer_key: LessonMCQAnswerKey;
+  readonly lo_id?: string;
+  readonly title?: string;
+  readonly difficulty?: string;
+}
+
+export interface LessonWrongAnswer {
+  readonly answer: string;
+  readonly explanation: string;
+  readonly misconception_ids: string[];
+}
+
+export interface LessonShortAnswerExercise {
+  readonly exercise_type: 'short_answer';
+  readonly id: string;
+  readonly stem: string;
+  readonly canonical_answer: string;
+  readonly acceptable_answers: string[];
+  readonly wrong_answers: LessonWrongAnswer[];
+  readonly explanation_correct: string;
+  readonly lo_id?: string;
+  readonly title?: string;
+  readonly difficulty?: string;
+}
+
+export type LessonExercise = LessonMCQExercise | LessonShortAnswerExercise;
 
 export interface BrowseLessonsResponse {
   readonly lessons: LessonSummary[];
@@ -199,6 +245,11 @@ export function toLessonSummaryDTO(api: ApiLessonSummary): LessonSummary {
 export function toLessonDetailDTO(api: ApiLessonDetail): LessonDetail {
   const estimatedDuration = Math.max(5, api.exercise_count * 3);
   const isReadyForLearning = api.exercise_count > 0;
+  const exercises = Array.isArray(api.exercises)
+    ? api.exercises
+        .map((exercise, index) => mapLessonExercise(exercise, index))
+        .filter((exercise): exercise is LessonExercise => exercise !== null)
+    : [];
 
   return {
     id: api.id,
@@ -207,7 +258,7 @@ export function toLessonDetailDTO(api: ApiLessonDetail): LessonDetail {
     learningObjectives: api.learning_objectives,
     keyConcepts: api.key_concepts,
     miniLesson: api.mini_lesson,
-    exercises: api.exercises,
+    exercises,
     glossaryTerms: api.glossary_terms,
     exerciseCount: api.exercise_count,
     createdAt: api.created_at,
@@ -291,3 +342,113 @@ function formatReadinessStatus(
 }
 
 // Units live in the content module; types are re-exported via catalog/public.ts.
+
+function mapLessonExercise(
+  exercise: any,
+  index: number
+): LessonExercise | null {
+  if (!exercise || typeof exercise !== 'object') {
+    return null;
+  }
+
+  const id =
+    typeof exercise.id === 'string' && exercise.id.trim().length > 0
+      ? exercise.id
+      : `exercise-${index}`;
+  const loId =
+    typeof exercise.lo_id === 'string' && exercise.lo_id.trim().length > 0
+      ? exercise.lo_id
+      : undefined;
+  const title =
+    typeof exercise.title === 'string' && exercise.title.trim().length > 0
+      ? exercise.title
+      : undefined;
+  const difficulty =
+    typeof exercise.difficulty === 'string' && exercise.difficulty.trim().length > 0
+      ? exercise.difficulty
+      : undefined;
+
+  if (exercise.exercise_type === 'mcq') {
+    const options = Array.isArray(exercise.options)
+      ? exercise.options.map((option: any): LessonMCQOption => ({
+          label: typeof option?.label === 'string' ? option.label : '',
+          text: typeof option?.text === 'string' ? option.text : '',
+          rationale_right:
+            typeof option?.rationale_right === 'string'
+              ? option.rationale_right
+              : undefined,
+          rationale_wrong:
+            typeof option?.rationale_wrong === 'string'
+              ? option.rationale_wrong
+              : undefined,
+          option_id:
+            typeof option?.option_id === 'string' ? option.option_id : undefined,
+        }))
+      : [];
+
+    const answerKeyRaw = exercise.answer_key ?? {};
+    const answerKey: LessonMCQAnswerKey = {
+      label:
+        typeof answerKeyRaw.label === 'string' && answerKeyRaw.label
+          ? answerKeyRaw.label
+          : 'A',
+      option_id:
+        typeof answerKeyRaw.option_id === 'string'
+          ? answerKeyRaw.option_id
+          : undefined,
+      rationale_right:
+        typeof answerKeyRaw.rationale_right === 'string'
+          ? answerKeyRaw.rationale_right
+          : undefined,
+    };
+
+    return {
+      exercise_type: 'mcq',
+      id,
+      stem: typeof exercise.stem === 'string' ? exercise.stem : '',
+      options,
+      answer_key: answerKey,
+      lo_id: loId,
+      title,
+      difficulty,
+    };
+  }
+
+  if (exercise.exercise_type === 'short_answer') {
+    const wrongAnswers = Array.isArray(exercise.wrong_answers)
+      ? exercise.wrong_answers.map(
+          (wrong: any): LessonWrongAnswer => ({
+            answer: typeof wrong?.answer === 'string' ? wrong.answer : '',
+            explanation:
+              typeof wrong?.explanation === 'string' ? wrong.explanation : '',
+            misconception_ids: Array.isArray(wrong?.misconception_ids)
+              ? wrong.misconception_ids.map((idValue: any) => String(idValue))
+              : [],
+          })
+        )
+      : [];
+
+    return {
+      exercise_type: 'short_answer',
+      id,
+      stem: typeof exercise.stem === 'string' ? exercise.stem : '',
+      canonical_answer:
+        typeof exercise.canonical_answer === 'string'
+          ? exercise.canonical_answer
+          : '',
+      acceptable_answers: Array.isArray(exercise.acceptable_answers)
+        ? exercise.acceptable_answers.map((answer: any) => String(answer))
+        : [],
+      wrong_answers: wrongAnswers,
+      explanation_correct:
+        typeof exercise.explanation_correct === 'string'
+          ? exercise.explanation_correct
+          : '',
+      lo_id: loId,
+      title,
+      difficulty,
+    };
+  }
+
+  return null;
+}

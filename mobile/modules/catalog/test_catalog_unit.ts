@@ -137,6 +137,78 @@ describe('CatalogService', () => {
         }
       );
     });
+
+    it('returns typed exercises including short-answer content', async () => {
+      const lesson: LessonDetail = {
+        id: 'lesson-typed',
+        title: 'Lesson Title',
+        learnerLevel: 'beginner',
+        learningObjectives: ['Objective'],
+        keyConcepts: ['Concept'],
+        miniLesson: 'Mini lesson content',
+        exercises: [
+          {
+            exercise_type: 'mcq',
+            id: 'mcq-1',
+            stem: 'What is 2 + 2?',
+            options: [
+              { label: 'A', text: '3' },
+              { label: 'B', text: '4' },
+            ],
+            answer_key: { label: 'B', rationale_right: 'Basic arithmetic.' },
+            lo_id: 'lo-1',
+          },
+          {
+            exercise_type: 'short_answer',
+            id: 'sa-1',
+            stem: 'Name the gas plants release during photosynthesis.',
+            canonical_answer: 'oxygen',
+            acceptable_answers: ['o2'],
+            wrong_answers: [
+              {
+                answer: 'carbon dioxide',
+                explanation: 'Carbon dioxide is what plants take in, not release.',
+                misconception_ids: ['mis-2'],
+              },
+            ],
+            explanation_correct: 'Plants release oxygen as a byproduct.',
+            lo_id: 'lo-2',
+          },
+        ],
+        glossaryTerms: [],
+        exerciseCount: 2,
+        createdAt: new Date().toISOString(),
+        estimatedDuration: 10,
+        isReadyForLearning: true,
+        learnerLevelLabel: 'Beginner',
+        durationDisplay: '10 min',
+        readinessStatus: 'ready',
+        tags: [],
+        unitId: 'unit-typed',
+        podcastTranscript: null,
+        podcastAudioUrl: null,
+        podcastDurationSeconds: null,
+        podcastVoice: null,
+        podcastGeneratedAt: null,
+        hasPodcast: false,
+      };
+
+      mockRepo.getLesson.mockResolvedValue(lesson);
+
+      const result = await service.getLessonDetail('lesson-typed');
+
+      expect(result?.exercises).toHaveLength(2);
+      expect(result?.exercises[1]).toMatchObject({
+        exercise_type: 'short_answer',
+        canonical_answer: 'oxygen',
+        wrong_answers: [
+          expect.objectContaining({
+            answer: 'carbon dioxide',
+            misconception_ids: ['mis-2'],
+          }),
+        ],
+      });
+    });
   });
 
   describe('computeUnitLOProgressLocal', () => {

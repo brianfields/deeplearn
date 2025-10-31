@@ -89,15 +89,15 @@
           "stem": "Which equation represents one gradient descent step?",
           "options": [
             {
-              "text": "\u03b8 := \u03b8 - \u03b1 \u2207J(\u03b8)",
+              "text": "θ := θ - α ∇J(θ)",
               "rationale_wrong": null
             },
             {
-              "text": "\u03b8 := \u03b8 + \u03b1 \u03b8",
+              "text": "θ := θ + α θ",
               "rationale_wrong": "This ignores the gradient information entirely."
             },
             {
-              "text": "\u03b8 := \u03b8 / \u03b1",
+              "text": "θ := θ / α",
               "rationale_wrong": "Dividing by the learning rate is unrelated to descent."
             }
           ],
@@ -107,11 +107,212 @@
           "misconceptions": [
             "missing_gradient"
           ],
-          "correct_rationale": "The gradient guides the step direction while \u03b1 scales it."
+          "correct_rationale": "The gradient guides the step direction while α scales it."
+        },
+        {
+          "stem": "Which quantity determines the direction of the update?",
+          "options": [
+            {
+              "text": "The gradient of the loss",
+              "rationale_wrong": null
+            },
+            {
+              "text": "The learning rate alone",
+              "rationale_wrong": "Learning rate only scales the update; it does not pick the direction."
+            },
+            {
+              "text": "The batch size",
+              "rationale_wrong": "Batch size influences noise, not direction."
+            }
+          ],
+          "correct_index": 0,
+          "cognitive_level": "Understand",
+          "difficulty": "Medium",
+          "misconceptions": [
+            "direction_from_rate"
+          ],
+          "correct_rationale": "The gradient vector points toward steepest ascent, so we step opposite it."
+        },
+        {
+          "stem": "When does vanilla gradient descent typically stop iterating?",
+          "options": [
+            {
+              "text": "When the gradient norm falls near zero",
+              "rationale_wrong": null
+            },
+            {
+              "text": "After a single update",
+              "rationale_wrong": "Multiple updates are required to reach an optimum."
+            },
+            {
+              "text": "Once the loss increases once",
+              "rationale_wrong": "A temporary increase can occur without ending training."
+            }
+          ],
+          "correct_index": 0,
+          "cognitive_level": "Analyze",
+          "difficulty": "Medium",
+          "misconceptions": [
+            "stop_on_first_increase"
+          ],
+          "correct_rationale": "Convergence is reached when gradients vanish or a tolerance threshold is met."
+        },
+        {
+          "stem": "Which hyperparameter scales how far each step travels?",
+          "options": [
+            {
+              "text": "Learning rate",
+              "rationale_wrong": null
+            },
+            {
+              "text": "Momentum",
+              "rationale_wrong": "Momentum adds history but does not alone scale basic step size."
+            },
+            {
+              "text": "Epoch count",
+              "rationale_wrong": "Epochs count passes through data, not step length."
+            }
+          ],
+          "correct_index": 0,
+          "cognitive_level": "Remember",
+          "difficulty": "Easy",
+          "misconceptions": [
+            "epoch_controls_step"
+          ],
+          "correct_rationale": "The learning rate multiplies the gradient to set step magnitude."
         }
       ],
       "misconceptions": [],
-      "confusables": []
+      "confusables": [],
+      "short_answers": [
+        {
+          "stem": "Which vector do we move opposite to descend the loss?",
+          "canonical_answer": "negative gradient",
+          "acceptable_answers": [
+            "-gradient"
+          ],
+          "wrong_answers": [
+            {
+              "answer": "learning rate",
+              "explanation": "The learning rate only scales the update; it is not the direction.",
+              "misconception_ids": [
+                "direction_from_rate"
+              ]
+            },
+            {
+              "answer": "loss surface",
+              "explanation": "The surface defines the landscape but not the direction of travel.",
+              "misconception_ids": []
+            }
+          ],
+          "explanation_correct": "Gradient descent steps against the gradient vector to decrease the loss.",
+          "learning_objectives_covered": [
+            "grad_unit_lo_1"
+          ],
+          "cognitive_level": "Apply"
+        },
+        {
+          "stem": "What term describes the function we minimize during training?",
+          "canonical_answer": "loss function",
+          "acceptable_answers": [
+            "cost function",
+            "objective"
+          ],
+          "wrong_answers": [
+            {
+              "answer": "activation",
+              "explanation": "Activations are neuron outputs, not the optimization target.",
+              "misconception_ids": []
+            },
+            {
+              "answer": "dataset",
+              "explanation": "The dataset is the input, while the loss function measures error.",
+              "misconception_ids": []
+            }
+          ],
+          "explanation_correct": "Training minimizes a loss function that measures prediction error.",
+          "learning_objectives_covered": [
+            "grad_unit_lo_1"
+          ],
+          "cognitive_level": "Remember"
+        },
+        {
+          "stem": "Which hyperparameter controls the step size per update?",
+          "canonical_answer": "learning rate",
+          "acceptable_answers": [
+            "step size"
+          ],
+          "wrong_answers": [
+            {
+              "answer": "batch size",
+              "explanation": "Batch size affects noise, not the scaling of each gradient step.",
+              "misconception_ids": [
+                "bigger_always_better"
+              ]
+            },
+            {
+              "answer": "momentum",
+              "explanation": "Momentum accumulates velocity but does not replace the rate itself.",
+              "misconception_ids": []
+            }
+          ],
+          "explanation_correct": "The learning rate multiplies the gradient to set how far we move.",
+          "learning_objectives_covered": [
+            "grad_unit_lo_1"
+          ],
+          "cognitive_level": "Understand"
+        },
+        {
+          "stem": "What do we call a point where the gradient becomes zero?",
+          "canonical_answer": "stationary point",
+          "acceptable_answers": [
+            "critical point"
+          ],
+          "wrong_answers": [
+            {
+              "answer": "global maximum",
+              "explanation": "A zero gradient could be minimum, maximum, or saddle point.",
+              "misconception_ids": []
+            },
+            {
+              "answer": "divergence",
+              "explanation": "Divergence means the algorithm blew up, not that gradients vanished.",
+              "misconception_ids": []
+            }
+          ],
+          "explanation_correct": "Stationary points have zero gradient and mark potential optima.",
+          "learning_objectives_covered": [
+            "grad_unit_lo_1"
+          ],
+          "cognitive_level": "Analyze"
+        },
+        {
+          "stem": "Which variant uses the entire dataset for each update?",
+          "canonical_answer": "batch gradient descent",
+          "acceptable_answers": [
+            "full batch"
+          ],
+          "wrong_answers": [
+            {
+              "answer": "stochastic descent",
+              "explanation": "Stochastic descent uses one example per update.",
+              "misconception_ids": []
+            },
+            {
+              "answer": "mini-batch",
+              "explanation": "Mini-batch uses subsets, not the complete dataset.",
+              "misconception_ids": [
+                "mini_batch_is_exact"
+              ]
+            }
+          ],
+          "explanation_correct": "Batch gradient descent computes gradients over all examples before stepping.",
+          "learning_objectives_covered": [
+            "grad_unit_lo_1"
+          ],
+          "cognitive_level": "Understand"
+        }
+      ]
     },
     {
       "id": "c91e9256-26f8-45aa-8390-3f80a903824f",
@@ -195,10 +396,206 @@
             "bigger_always_better"
           ],
           "correct_rationale": "Powers of two align with hardware and offer a practical trade-off."
+        },
+        {
+          "stem": "How does decreasing batch size affect gradient estimates?",
+          "options": [
+            {
+              "text": "Noise increases, enabling exploratory moves",
+              "rationale_wrong": null
+            },
+            {
+              "text": "Noise decreases to zero",
+              "rationale_wrong": "Noise only vanishes with full-batch updates."
+            },
+            {
+              "text": "Gradients become biased upward",
+              "rationale_wrong": "Mini-batch gradients remain unbiased on average."
+            }
+          ],
+          "correct_index": 0,
+          "cognitive_level": "Understand",
+          "difficulty": "Medium",
+          "misconceptions": [
+            "variance_equals_bias"
+          ],
+          "correct_rationale": "Smaller batches sample fewer examples so variance grows, which can help escape shallow minima."
+        },
+        {
+          "stem": "Which tool accelerates mini-batch training on GPUs?",
+          "options": [
+            {
+              "text": "Vectorized tensor operations",
+              "rationale_wrong": null
+            },
+            {
+              "text": "Serial parameter updates",
+              "rationale_wrong": "Serial updates negate parallel benefits."
+            },
+            {
+              "text": "Manual gradient calculation",
+              "rationale_wrong": "Automatic differentiation handles gradients efficiently."
+            }
+          ],
+          "correct_index": 0,
+          "cognitive_level": "Apply",
+          "difficulty": "Medium",
+          "misconceptions": [
+            "gpu_needs_serial"
+          ],
+          "correct_rationale": "Leveraging tensor libraries keeps mini-batch operations parallel and fast."
+        },
+        {
+          "stem": "What schedule often follows a plateau in validation loss?",
+          "options": [
+            {
+              "text": "Reduce the learning rate",
+              "rationale_wrong": null
+            },
+            {
+              "text": "Increase batch size immediately",
+              "rationale_wrong": "Larger batches may hide useful noise instead of improving convergence."
+            },
+            {
+              "text": "Restart training from scratch",
+              "rationale_wrong": "Restarts waste progress unless using cyclic schedules."
+            }
+          ],
+          "correct_index": 0,
+          "cognitive_level": "Analyze",
+          "difficulty": "Medium",
+          "misconceptions": [
+            "always_increase_batch"
+          ],
+          "correct_rationale": "Reducing the learning rate after a plateau helps mini-batch updates settle into minima."
         }
       ],
       "misconceptions": [],
-      "confusables": []
+      "confusables": [],
+      "short_answers": [
+        {
+          "stem": "What noise-reducing technique averages gradients across replicas?",
+          "canonical_answer": "gradient accumulation",
+          "acceptable_answers": [
+            "gradient averaging"
+          ],
+          "wrong_answers": [
+            {
+              "answer": "dropout",
+              "explanation": "Dropout regularizes activations but does not average gradients.",
+              "misconception_ids": []
+            },
+            {
+              "answer": "weight decay",
+              "explanation": "Weight decay adds a penalty term instead of averaging gradients.",
+              "misconception_ids": []
+            }
+          ],
+          "explanation_correct": "Accumulating gradients over micro-batches keeps updates stable when memory is limited.",
+          "learning_objectives_covered": [
+            "grad_unit_lo_2"
+          ],
+          "cognitive_level": "Apply"
+        },
+        {
+          "stem": "Which schedule gradually lowers the learning rate during training?",
+          "canonical_answer": "learning rate decay",
+          "acceptable_answers": [
+            "lr decay",
+            "annealing"
+          ],
+          "wrong_answers": [
+            {
+              "answer": "batch norm",
+              "explanation": "Batch normalization rescales activations, not the learning rate.",
+              "misconception_ids": []
+            },
+            {
+              "answer": "weight initialization",
+              "explanation": "Initialization occurs before training and is not a schedule.",
+              "misconception_ids": []
+            }
+          ],
+          "explanation_correct": "Learning rate decay reduces step sizes so mini-batches converge smoothly.",
+          "learning_objectives_covered": [
+            "grad_unit_lo_2"
+          ],
+          "cognitive_level": "Understand"
+        },
+        {
+          "stem": "What metric do practitioners watch to detect overfitting?",
+          "canonical_answer": "validation loss",
+          "acceptable_answers": [
+            "val loss",
+            "validation error"
+          ],
+          "wrong_answers": [
+            {
+              "answer": "training accuracy",
+              "explanation": "Training accuracy rises even when generalization suffers.",
+              "misconception_ids": []
+            },
+            {
+              "answer": "gradient norm",
+              "explanation": "Gradient norms show optimization progress, not overfitting directly.",
+              "misconception_ids": []
+            }
+          ],
+          "explanation_correct": "Validation loss reveals whether mini-batch updates still improve generalization.",
+          "learning_objectives_covered": [
+            "grad_unit_lo_2"
+          ],
+          "cognitive_level": "Analyze"
+        },
+        {
+          "stem": "Which optimizer adds momentum to damp oscillations?",
+          "canonical_answer": "momentum",
+          "acceptable_answers": [
+            "sgd with momentum"
+          ],
+          "wrong_answers": [
+            {
+              "answer": "adam",
+              "explanation": "Adam adapts per-parameter rates beyond simple momentum.",
+              "misconception_ids": []
+            },
+            {
+              "answer": "dropout",
+              "explanation": "Dropout randomly masks activations; it is not an optimizer.",
+              "misconception_ids": []
+            }
+          ],
+          "explanation_correct": "Momentum smooths noisy mini-batch gradients by accumulating velocity.",
+          "learning_objectives_covered": [
+            "grad_unit_lo_2"
+          ],
+          "cognitive_level": "Apply"
+        },
+        {
+          "stem": "How do we describe running several batches in parallel on multiple GPUs?",
+          "canonical_answer": "data parallelism",
+          "acceptable_answers": [
+            "data parallel"
+          ],
+          "wrong_answers": [
+            {
+              "answer": "model parallelism",
+              "explanation": "Model parallelism splits layers across devices instead of batches.",
+              "misconception_ids": []
+            },
+            {
+              "answer": "quantization",
+              "explanation": "Quantization compresses weights rather than distributing batches.",
+              "misconception_ids": []
+            }
+          ],
+          "explanation_correct": "Data parallelism copies the model on each device and splits mini-batches for speed.",
+          "learning_objectives_covered": [
+            "grad_unit_lo_2"
+          ],
+          "cognitive_level": "Understand"
+        }
+      ]
     }
   ],
   "resources": [
@@ -207,7 +604,7 @@
       "user_id": 1,
       "resource_type": "file_upload",
       "filename": "gradient-descent-cheatsheet.md",
-      "extracted_text": "Gradient descent tuning cheatsheet\n\u2022 Start with learning rate 0.1 for convex demos, decay by 0.5 when oscillations persist.\n\u2022 Clip gradients above 5.0 to stabilize mini-batch updates.\n\u2022 Log validation loss every 10 steps; trigger warm restart if plateau > 30 steps.",
+      "extracted_text": "Gradient descent tuning cheatsheet\n• Start with learning rate 0.1 for convex demos, decay by 0.5 when oscillations persist.\n• Clip gradients above 5.0 to stabilize mini-batch updates.\n• Log validation loss every 10 steps; trigger warm restart if plateau > 30 steps.",
       "extraction_metadata": {},
       "file_size": 271,
       "object_store_document_id": "51a7e0ce-b53a-4bca-8f24-2e03b8153b35",

@@ -17,7 +17,16 @@ import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from modules.content.models import LessonModel, UnitModel
-from modules.content.package_models import GlossaryTerm, LessonPackage, MCQAnswerKey, MCQExercise, MCQOption, Meta
+from modules.content.package_models import (
+    GlossaryTerm,
+    LessonPackage,
+    MCQAnswerKey,
+    MCQExercise,
+    MCQOption,
+    Meta,
+    ShortAnswerExercise,
+    WrongAnswer,
+)
 from modules.content.repo import ContentRepo
 from modules.content.routes import get_content_service
 from modules.content.routes import router as content_router
@@ -84,7 +93,22 @@ class TestContentService:
                         MCQOption(id="opt_c", label="C", text="Option C"),
                     ],
                     answer_key=MCQAnswerKey(label="A"),
-                )
+                ),
+                ShortAnswerExercise(
+                    id="sa_1",
+                    lo_id="lo_1",
+                    stem="Name the core idea",
+                    canonical_answer="concept",
+                    acceptable_answers=["the concept"],
+                    wrong_answers=[
+                        WrongAnswer(
+                            answer="wrong concept",
+                            explanation="Focus on the main concept",
+                            misconception_ids=["m1"],
+                        )
+                    ],
+                    explanation_correct="Great recall!",
+                ),
             ],
         )
 
@@ -117,8 +141,33 @@ class TestContentService:
         assert result.id == "test-id"
         assert result.title == "Test Lesson"
         assert result.package_version == 1
-        assert len(result.package.exercises) == 1
+        assert len(result.package.exercises) == 2
         assert result.package.unit_learning_objective_ids == ["lo_1"]
+        assert any(getattr(ex, "exercise_type", None) == "short_answer" for ex in result.package.exercises)
+
+    async def test_short_answer_validates_character_limits(self) -> None:
+        """Short answer exercises enforce canonical and alternative lengths."""
+
+        ShortAnswerExercise(
+            id="sa_1",
+            lo_id="lo_1",
+            stem="Explain the term",
+            canonical_answer="term",
+            acceptable_answers=["key term"],
+            wrong_answers=[WrongAnswer(answer="wrong", explanation="Not quite", misconception_ids=[])],
+            explanation_correct="Nice work",
+        )
+
+        with pytest.raises(ValueError):
+            ShortAnswerExercise(
+                id="sa_2",
+                lo_id="lo_1",
+                stem="Too long",
+                canonical_answer="x" * 51,
+                acceptable_answers=[],
+                wrong_answers=[],
+                explanation_correct="",
+            )
 
     async def test_save_lesson_podcast_from_bytes_persists_metadata(self) -> None:
         """Uploading a lesson podcast stores audio and updates metadata."""

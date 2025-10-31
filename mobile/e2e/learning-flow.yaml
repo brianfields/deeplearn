@@ -44,10 +44,7 @@ appId: host.exp.Exponent
 - tapOn:
     id: 'didactic-continue-button'
 
-# Step 4: Answer MCQ questions
-# Question 1
-- assertVisible:
-    text: 'Volunteers share feeding and water duties'
+# Step 4: Answer MCQ questions (five total)
 - assertVisible:
     id: 'mcq-choice-0'
 - tapOn:
@@ -55,16 +52,94 @@ appId: host.exp.Exponent
 - tapOn:
     id: 'mcq-continue-button'
 
-# Question 2
 - assertVisible:
-    text: 'They guard the fish market at night'
-- assertVisible:
-    id: 'mcq-choice-1'
+    id: 'mcq-choice-0'
 - tapOn:
-    id: 'mcq-choice-1'
+    id: 'mcq-choice-0'
 - tapOn:
     id: 'mcq-continue-button'
 
+- assertVisible:
+    id: 'mcq-choice-0'
+- tapOn:
+    id: 'mcq-choice-0'
+- tapOn:
+    id: 'mcq-continue-button'
+
+- assertVisible:
+    id: 'mcq-choice-0'
+- tapOn:
+    id: 'mcq-choice-0'
+- tapOn:
+    id: 'mcq-continue-button'
+
+- assertVisible:
+    id: 'mcq-choice-0'
+- tapOn:
+    id: 'mcq-choice-0'
+- tapOn:
+    id: 'mcq-continue-button'
+
+# Step 5: Answer short-answer questions (five total)
+- assertVisible:
+    id: 'short-answer-input'
+- tapOn:
+    id: 'short-answer-input'
+- inputText: 'microhabitat'
+- tapOn:
+    id: 'short-answer-submit'
+- assertVisible:
+    id: 'short-answer-feedback'
+- tapOn:
+    id: 'short-answer-continue'
+
+- assertVisible:
+    id: 'short-answer-input'
+- tapOn:
+    id: 'short-answer-input'
+- inputText: 'kitten season'
+- tapOn:
+    id: 'short-answer-submit'
+- assertVisible:
+    id: 'short-answer-feedback'
+- tapOn:
+    id: 'short-answer-continue'
+
+- assertVisible:
+    id: 'short-answer-input'
+- tapOn:
+    id: 'short-answer-input'
+- inputText: 'TNR log'
+- tapOn:
+    id: 'short-answer-submit'
+- assertVisible:
+    id: 'short-answer-feedback'
+- tapOn:
+    id: 'short-answer-continue'
+
+- assertVisible:
+    id: 'short-answer-input'
+- tapOn:
+    id: 'short-answer-input'
+- inputText: 'lactating queen'
+- tapOn:
+    id: 'short-answer-submit'
+- assertVisible:
+    id: 'short-answer-feedback'
+- tapOn:
+    id: 'short-answer-continue'
+
+- assertVisible:
+    id: 'short-answer-input'
+- tapOn:
+    id: 'short-answer-input'
+- inputText: 'mobile clinic'
+- tapOn:
+    id: 'short-answer-submit'
+- assertVisible:
+    id: 'short-answer-feedback'
+- tapOn:
+    id: 'short-answer-continue'
 # Step 6: Verify LO-based results screen elements
 - assertVisible:
     text: 'Learning Objective Progress'

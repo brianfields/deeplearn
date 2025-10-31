@@ -144,19 +144,19 @@ Add short-answer exercise type as a second exercise format alongside multiple-ch
 
 ### Phase 1: Backend - Content Models & Generation
 
-- [ ] Add `WrongAnswer` class to `backend/modules/content/package_models.py` with fields: `answer`, `explanation`, `misconception_ids`
-- [ ] Add `ShortAnswerExercise` class to `backend/modules/content/package_models.py` with fields:
+- [x] Add `WrongAnswer` class to `backend/modules/content/package_models.py` with fields: `answer`, `explanation`, `misconception_ids`
+- [x] Add `ShortAnswerExercise` class to `backend/modules/content/package_models.py` with fields:
   - `exercise_type = "short_answer"`
   - `stem: str`
   - `canonical_answer: str`
   - `acceptable_answers: list[str]`
   - `wrong_answers: list[WrongAnswer]`
   - `explanation_correct: str`
-- [ ] Add validator to `ShortAnswerExercise` ensuring canonical_answer ≤ 50 chars
-- [ ] Update `LessonPackage.exercises` type to `list[MCQExercise | ShortAnswerExercise]`
-- [ ] Update `backend/modules/content/test_content_unit.py` with short-answer test cases
-- [ ] Research and document pedagogical best practices for short-answer questions (Bloom's taxonomy, question design principles)
-- [ ] Create `backend/modules/content_creator/prompts/generate_short_answers.md` prompt:
+- [x] Add validator to `ShortAnswerExercise` ensuring canonical_answer ≤ 50 chars
+- [x] Update `LessonPackage.exercises` type to `list[MCQExercise | ShortAnswerExercise]`
+- [x] Update `backend/modules/content/test_content_unit.py` with short-answer test cases
+- [x] Research and document pedagogical best practices for short-answer questions (Bloom's taxonomy, question design principles)
+- [x] Create `backend/modules/content_creator/prompts/generate_short_answers.md` prompt:
   - Include pedagogical guidelines
   - Specify 1-3 word target, max 50 chars
   - Require canonical answer + acceptable alternatives (aim for 3-5 alternatives)
@@ -164,48 +164,48 @@ Add short-answer exercise type as a second exercise format alongside multiple-ch
   - Accept MCQ stems as input and instruct not to duplicate
   - Specify JSON output schema matching `ShortAnswerExercise`
   - Request LO coverage, misconceptions, cognitive levels
-- [ ] Add `ShortAnswerItem`, `ShortAnswerWrongAnswer`, `ShortAnswersMetadata` Pydantic models to `backend/modules/content_creator/steps.py`
-- [ ] Create `GenerateShortAnswerStep` class in `backend/modules/content_creator/steps.py`:
+- [x] Add `ShortAnswerItem`, `ShortAnswerWrongAnswer`, `ShortAnswersMetadata` Pydantic models to `backend/modules/content_creator/steps.py`
+- [x] Create `GenerateShortAnswerStep` class in `backend/modules/content_creator/steps.py`:
   - Extend `StructuredStep`
   - `step_name = "generate_short_answers"`
   - `prompt_file = "generate_short_answers.md"`
   - Accept MCQ stems in context
   - Return structured short-answer questions
-- [ ] Update `backend/modules/content_creator/flows.py` `CreateLessonPackageFlow`:
+- [x] Update `backend/modules/content_creator/flows.py` `CreateLessonPackageFlow`:
   - After MCQ generation, extract MCQ stems
   - Call `GenerateShortAnswerStep` with MCQ stems in context
   - Combine MCQ and short-answer exercises in lesson package output
-- [ ] Update `backend/modules/content_creator/service/flow_handler.py`:
+- [x] Update `backend/modules/content_creator/service/flow_handler.py`:
   - Add parsing logic for short-answer step output
   - Construct `ShortAnswerExercise` objects with proper ID generation (`sa_1`, `sa_2`, etc.)
   - Validate LO IDs and handle fallbacks (similar to MCQ logic)
-- [ ] Update `backend/modules/content_creator/test_flows_unit.py` to test short-answer generation
-- [ ] Update `backend/modules/content_creator/test_service_unit.py` to test flow handler logic
-- [ ] Verify `backend/modules/catalog/service.py` `LessonDetail` serialization handles short-answer exercises (test with union type)
-- [ ] Update `backend/modules/catalog/test_lesson_catalog_unit.py` with short-answer test cases
-- [ ] Verify `backend/modules/learning_session/service.py` handles short-answer type (should already work)
-- [ ] Update `backend/modules/learning_session/test_learning_session_unit.py` with short-answer test case
-- [ ] Ensure backend unit tests pass, i.e. cd backend && scripts/run_unit.py
+- [x] Update `backend/modules/content_creator/test_flows_unit.py` to test short-answer generation
+- [x] Update `backend/modules/content_creator/test_service_unit.py` to test flow handler logic
+- [x] Verify `backend/modules/catalog/service.py` `LessonDetail` serialization handles short-answer exercises (test with union type)
+- [x] Update `backend/modules/catalog/test_lesson_catalog_unit.py` with short-answer test cases
+- [x] Verify `backend/modules/learning_session/service.py` handles short-answer type (should already work)
+- [x] Update `backend/modules/learning_session/test_learning_session_unit.py` with short-answer test case
+- [x] Ensure backend unit tests pass, i.e. cd backend && scripts/run_unit.py
 
 ### Phase 2: Frontend Mobile - Models & Service & UI
 
-- [ ] Add interfaces to `mobile/modules/learning_session/models.ts`:
+- [x] Add interfaces to `mobile/modules/learning_session/models.ts`:
   - `WrongAnswerDTO` with `answer: string`, `explanation: string`, `misconceptionIds: string[]`
   - `ShortAnswerContentDTO` with `question: string`, `canonicalAnswer: string`, `acceptableAnswers: string[]`, `wrongAnswers: WrongAnswerDTO[]`, `explanationCorrect: string`
-- [ ] Add `validateShortAnswer()` method to `mobile/modules/learning_session/service.ts`:
+- [x] Add `validateShortAnswer()` method to `mobile/modules/learning_session/service.ts`:
   - Implement fuzzy matching: case-insensitive, trim whitespace, Levenshtein distance < 2
   - Check against canonical + acceptable answers
   - Return `{ isCorrect: boolean, matchedAnswer?: string, wrongAnswerExplanation?: string }`
   - Match user answer against wrong answers to provide specific explanation
-- [ ] Update `getSessionExercises()` in `mobile/modules/learning_session/service.ts`:
+- [x] Update `getSessionExercises()` in `mobile/modules/learning_session/service.ts`:
   - Add case for `exercise_type === 'short_answer'`
   - Map to `ShortAnswerContentDTO`
   - Include in returned exercises array
-- [ ] Add unit tests to `mobile/modules/learning_session/test_learning_session_unit.ts`:
+- [x] Add unit tests to `mobile/modules/learning_session/test_learning_session_unit.ts`:
   - Test fuzzy matching: exact match, case variations, whitespace, typos (distance 1-2)
   - Test canonical + acceptable answers
   - Test wrong answer matching
-- [ ] Create `mobile/modules/learning_session/components/ShortAnswer.tsx`:
+- [x] Create `mobile/modules/learning_session/components/ShortAnswer.tsx`:
   - Text input field for answer (single line, auto-focus)
   - Character counter display "X/50" (update on each keystroke)
   - Disable input at 50 characters (prevent further typing)
@@ -217,37 +217,37 @@ Add short-answer exercise type as a second exercise format alongside multiple-ch
   - Continue button after feedback shown
   - Follow design language from `MultipleChoice.tsx` (animations, styling, accessibility)
   - Add testID attributes: `short-answer-input`, `short-answer-submit`, `short-answer-feedback`, `short-answer-continue`
-- [ ] Update `mobile/modules/learning_session/components/LearningFlow.tsx`:
+- [x] Update `mobile/modules/learning_session/components/LearningFlow.tsx`:
   - Add case `'short_answer'` in `renderCurrentExercise()` switch
   - Render `<ShortAnswer>` component with appropriate props
   - Handle completion callback same as MCQ
-- [ ] Add short-answer exercise interfaces to `mobile/modules/catalog/models.ts`
-- [ ] Verify `mobile/modules/catalog/service.ts` handles short-answer exercises in lesson mapping
-- [ ] Update `mobile/modules/catalog/test_catalog_unit.ts` with short-answer test cases
-- [ ] Ensure frontend unit tests pass, i.e. cd mobile && npm run test
+- [x] Add short-answer exercise interfaces to `mobile/modules/catalog/models.ts`
+- [x] Verify `mobile/modules/catalog/service.ts` handles short-answer exercises in lesson mapping
+- [x] Update `mobile/modules/catalog/test_catalog_unit.ts` with short-answer test cases
+- [x] Ensure frontend unit tests pass, i.e. cd mobile && npm run test
 
 ### Phase 3: Frontend Admin - Display
 
-- [ ] Add `ShortAnswerExercise` interface to `admin/modules/admin/models.ts`:
+- [x] Add `ShortAnswerExercise` interface to `admin/modules/admin/models.ts`:
   - Match backend schema with snake_case fields
-- [ ] Update `admin/modules/admin/components/learning-sessions/LearningSessionDetails.tsx`:
+- [x] Update `admin/modules/admin/components/learning-sessions/LearningSessionDetails.tsx`:
   - Add rendering for short-answer exercises in exercise list
   - Display: stem, canonical answer, acceptable answers, wrong answers with explanations
   - Show LO mappings, misconceptions, difficulty
-- [ ] Update `admin/modules/admin/service.ts` to handle short-answer exercise type in mappings
+- [x] Update `admin/modules/admin/service.ts` to handle short-answer exercise type in mappings
 
 ### Phase 4: Testing & Validation
 
-- [ ] Update `backend/scripts/create_seed_data.py` to include short-answer exercises in generated lessons:
+- [x] Update `backend/scripts/create_seed_data.py` to include short-answer exercises in generated lessons:
   - Add example short-answer exercises to seed lessons
   - Ensure 5 MCQ + 5 short-answer format
-- [ ] Ensure lint passes, i.e. './format_code.sh --no-venv' runs clean
-- [ ] Ensure integration tests pass, i.e. cd backend && scripts/run_integration.py runs clean
-- [ ] Update `mobile/e2e/learning-flow.yaml` maestro test if necessary to handle short-answer exercises (add testID interactions for short-answer flow)
-- [ ] Follow the instructions in codegen/prompts/trace.md to ensure the user story is implemented correctly
-- [ ] Fix any issues documented during the tracing of the user story in docs/specs/short-answer-exercise/trace.md
-- [ ] Follow the instructions in codegen/prompts/modulecheck.md to ensure the new code is following the modular architecture correctly
-- [ ] Examine all new code that has been created and make sure all of it is being used; there is no dead code
+- [x] Ensure lint passes, i.e. './format_code.sh --no-venv' runs clean
+- [x] Ensure integration tests pass, i.e. cd backend && scripts/run_integration.py runs clean
+- [x] Update `mobile/e2e/learning-flow.yaml` maestro test if necessary to handle short-answer exercises (add testID interactions for short-answer flow)
+- [x] Follow the instructions in codegen/prompts/trace.md to ensure the user story is implemented correctly
+- [x] Fix any issues documented during the tracing of the user story in docs/specs/short-answer-exercise/trace.md
+- [x] Follow the instructions in codegen/prompts/modulecheck.md to ensure the new code is following the modular architecture correctly
+- [x] Examine all new code that has been created and make sure all of it is being used; there is no dead code
 
 ---
 
@@ -320,6 +320,9 @@ function validateAnswer(
 - Test application of concepts, not just memorization
 - Ensure acceptable answers are genuinely equivalent
 - Wrong answers should reflect common misconceptions
+- Use active verbs such as "define", "identify", or "name" that clearly signal the expected cognitive process
+- Provide succinct context cues from the lesson so learners can retrieve the concept without guessing
+- Keep explanations for wrong answers corrective and action-oriented (e.g., "Remember that..." statements)
 
 ### Exercise Ordering
 

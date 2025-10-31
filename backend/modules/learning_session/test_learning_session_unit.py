@@ -9,6 +9,16 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
+from modules.content.package_models import (
+    LessonPackage,
+    MCQAnswerKey,
+    MCQExercise,
+    MCQOption,
+    Meta,
+    ShortAnswerExercise,
+    WrongAnswer,
+)
+
 from .models import LearningSessionModel, SessionStatus
 from .repo import LearningSessionRepo
 from .service import (
@@ -82,6 +92,68 @@ class TestLearningSessionService:
         self.mock_repo.create_session.assert_awaited_once()
         kwargs = self.mock_repo.create_session.await_args.kwargs
         assert kwargs["unit_id"] == "unit-1"
+
+    @pytest.mark.asyncio
+    async def test_start_session_counts_short_answer_exercises(self) -> None:
+        """Short-answer exercises contribute to total exercise count."""
+
+        package = LessonPackage(
+            meta=Meta(lesson_id="lesson-1", title="Lesson", learner_level="beginner"),
+            unit_learning_objective_ids=["lo_1"],
+            glossary={"terms": []},
+            mini_lesson="Body",
+            exercises=[
+                MCQExercise(
+                    id="mcq_1",
+                    lo_id="lo_1",
+                    stem="What is X?",
+                    options=[
+                        MCQOption(id="opt_a", label="A", text="A"),
+                        MCQOption(id="opt_b", label="B", text="B"),
+                        MCQOption(id="opt_c", label="C", text="C"),
+                    ],
+                    answer_key=MCQAnswerKey(label="A"),
+                ),
+                ShortAnswerExercise(
+                    id="sa_1",
+                    lo_id="lo_1",
+                    stem="Name it",
+                    canonical_answer="concept",
+                    acceptable_answers=["the concept"],
+                    wrong_answers=[WrongAnswer(answer="idea", explanation="Too vague", misconception_ids=[])],
+                    explanation_correct="Nice work",
+                ),
+            ],
+        )
+
+        lesson = Mock()
+        lesson.package = package
+        lesson.unit_id = "unit-1"
+        self.mock_content_provider.get_lesson.return_value = lesson
+        self.mock_repo.get_active_session_for_user_and_lesson.return_value = None
+
+        request = StartSessionRequest(lesson_id="lesson-1", user_id="user-1", unit_id="unit-1")
+
+        self.mock_repo.create_session.return_value = LearningSessionModel(
+            id="session-1",
+            lesson_id="lesson-1",
+            unit_id="unit-1",
+            user_id="user-1",
+            status=SessionStatus.ACTIVE.value,
+            started_at=datetime.utcnow(),
+            current_exercise_index=0,
+            total_exercises=2,
+            exercises_completed=0,
+            exercises_correct=0,
+            progress_percentage=0.0,
+            session_data={},
+        )
+
+        result = await self.service.start_session(request)
+
+        assert result.total_exercises == 2
+        create_kwargs = self.mock_repo.create_session.await_args.kwargs
+        assert create_kwargs["total_exercises"] == 2
 
     @pytest.mark.asyncio
     async def test_start_session_lesson_not_found(self) -> None:

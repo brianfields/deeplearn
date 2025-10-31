@@ -43,6 +43,10 @@ import type {
   LLMRequestSummary,
   LessonDetails,
   LessonSummary,
+  LessonPackage,
+  LessonExercise,
+  Objective,
+  GlossaryTerm,
   ResourceSummary,
   ResourceDetail,
   ResourceUsageSummary,
@@ -189,6 +193,134 @@ const resourceDetailToDTO = (apiResource: ApiResourceDetail): ResourceDetail => 
   created_at: new Date(apiResource.created_at),
   updated_at: new Date(apiResource.updated_at),
 });
+
+const normalizeDifficulty = (value: unknown): 'Easy' | 'Medium' | 'Hard' | null => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'easy') {
+    return 'Easy';
+  }
+  if (normalized === 'medium') {
+    return 'Medium';
+  }
+  if (normalized === 'hard') {
+    return 'Hard';
+  }
+  return null;
+};
+
+const normalizeStringArray = (value: unknown): string[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
+};
+
+const lessonExerciseToDTO = (exercise: any): LessonExercise => {
+  if (!exercise || typeof exercise !== 'object') {
+    return {
+      id: '',
+      exercise_type: 'mcq',
+      lo_id: '',
+      cognitive_level: null,
+      estimated_difficulty: null,
+      misconceptions_used: [],
+      stem: '',
+      options: [],
+      answer_key: { label: '', option_id: null, rationale_right: null },
+    };
+  }
+
+  const rawType = typeof exercise.exercise_type === 'string' ? exercise.exercise_type : 'mcq';
+  const exerciseType = rawType === 'short_answer' ? 'short_answer' : 'mcq';
+  const base = {
+    id: typeof exercise.id === 'string' ? exercise.id : '',
+    exercise_type: exerciseType,
+    lo_id: typeof exercise.lo_id === 'string' ? exercise.lo_id : '',
+    cognitive_level: typeof exercise.cognitive_level === 'string' ? exercise.cognitive_level : null,
+    estimated_difficulty: normalizeDifficulty(exercise.estimated_difficulty),
+    misconceptions_used: normalizeStringArray(exercise.misconceptions_used),
+  };
+
+  if (exerciseType === 'short_answer') {
+    const acceptableAnswers = normalizeStringArray(exercise.acceptable_answers);
+    const wrongAnswers = Array.isArray(exercise.wrong_answers)
+      ? exercise.wrong_answers.map((wrong: any) => ({
+          answer: typeof wrong?.answer === 'string' ? wrong.answer : '',
+          explanation: typeof wrong?.explanation === 'string' ? wrong.explanation : '',
+          misconception_ids: normalizeStringArray(wrong?.misconception_ids),
+        }))
+      : [];
+
+    return {
+      ...base,
+      exercise_type: 'short_answer',
+      stem: typeof exercise.stem === 'string' ? exercise.stem : '',
+      canonical_answer: typeof exercise.canonical_answer === 'string' ? exercise.canonical_answer : '',
+      acceptable_answers: acceptableAnswers,
+      wrong_answers: wrongAnswers,
+      explanation_correct: typeof exercise.explanation_correct === 'string' ? exercise.explanation_correct : '',
+    };
+  }
+
+  const options = Array.isArray(exercise.options)
+    ? exercise.options.map((option: any) => ({
+        id: typeof option?.id === 'string' ? option.id : '',
+        label: typeof option?.label === 'string' ? option.label : '',
+        text: typeof option?.text === 'string' ? option.text : '',
+        rationale: typeof option?.rationale === 'string' ? option.rationale : null,
+        rationale_wrong: typeof option?.rationale_wrong === 'string' ? option.rationale_wrong : null,
+      }))
+    : [];
+
+  const answerKey = exercise?.answer_key ?? {};
+
+  return {
+    ...base,
+    exercise_type: 'mcq',
+    stem: typeof exercise.stem === 'string' ? exercise.stem : '',
+    options,
+    answer_key: {
+      label: typeof answerKey.label === 'string' ? answerKey.label : '',
+      option_id: typeof answerKey.option_id === 'string' ? answerKey.option_id : null,
+      rationale_right: typeof answerKey.rationale_right === 'string' ? answerKey.rationale_right : null,
+    },
+  };
+};
+
+const lessonPackageToDTO = (pkg: any): LessonPackage => {
+  const exercises = Array.isArray(pkg?.exercises)
+    ? pkg.exercises.map(lessonExerciseToDTO)
+    : [];
+
+  const meta = pkg?.meta ?? {};
+  const objectives = Array.isArray(pkg?.objectives) ? pkg.objectives : [];
+  const glossary =
+    pkg && typeof pkg.glossary === 'object' && pkg.glossary !== null ? pkg.glossary : {};
+  const misconceptions = Array.isArray(pkg?.misconceptions) ? pkg.misconceptions : [];
+  const confusables = Array.isArray(pkg?.confusables) ? pkg.confusables : [];
+
+  return {
+    meta: {
+      lesson_id: typeof meta.lesson_id === 'string' ? meta.lesson_id : '',
+      title: typeof meta.title === 'string' ? meta.title : '',
+      learner_level: typeof meta.learner_level === 'string' ? meta.learner_level : '',
+      package_schema_version:
+        typeof meta.package_schema_version === 'number' ? meta.package_schema_version : 1,
+      content_version: typeof meta.content_version === 'number' ? meta.content_version : 1,
+    },
+    objectives: objectives as Objective[],
+    glossary: glossary as Record<string, GlossaryTerm[]>,
+    mini_lesson: typeof pkg?.mini_lesson === 'string' ? pkg.mini_lesson : '',
+    exercises,
+    misconceptions: misconceptions as Record<string, string>[],
+    confusables: confusables as Record<string, string>[],
+  };
+};
 
 const stepToDTO = (apiStep: ApiFlowStepDetails): FlowStepDetails => ({
   id: apiStep.id,
@@ -767,7 +899,7 @@ export class AdminService {
         title: apiLesson.title,
         learner_level: apiLesson.learner_level,
         source_material: apiLesson.source_material,
-        package: apiLesson.package, // Already structured as LessonPackage
+        package: lessonPackageToDTO(apiLesson.package),
         package_version: apiLesson.package_version,
         flow_run_id: apiLesson.flow_run_id || null,
         created_at: new Date(apiLesson.created_at),
