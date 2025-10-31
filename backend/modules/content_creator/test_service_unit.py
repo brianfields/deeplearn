@@ -4,6 +4,7 @@ Content Creator Module - Unit Tests
 Tests for the content creator service layer.
 """
 
+from contextlib import asynccontextmanager
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 import uuid
@@ -170,6 +171,109 @@ class TestContentCreatorService:
                 "learner_level": mock_unit.learner_level,
             },
         )
+
+    @pytest.mark.asyncio
+    @patch("modules.content_creator.service.flow_handler.LessonCreationFlow")
+    @patch("modules.content_creator.service.flow_handler.content_provider")
+    @patch("modules.content_creator.service.flow_handler.infrastructure_provider")
+    async def test_create_single_lesson_includes_short_answers(
+        self,
+        mock_infra_provider: Mock,
+        mock_content_provider: Mock,
+        mock_lesson_flow_cls: Mock,
+    ) -> None:
+        """Flow handler should persist short-answer exercises in the saved lesson package."""
+
+        content = AsyncMock()
+        content.save_lesson = AsyncMock(return_value=Mock(id="lesson-123"))
+        mock_content_provider.return_value = content
+
+        service = ContentCreatorService(content)
+        service._media_handler.generate_lesson_podcast = AsyncMock(
+            return_value=(
+                PodcastLesson(title="Lesson", mini_lesson="Body"),
+                SimpleNamespace(
+                    transcript="Transcript",
+                    audio_bytes=b"audio",
+                    mime_type="audio/mpeg",
+                    voice="Guide",
+                    duration_seconds=90,
+                ),
+            )
+        )
+        service._media_handler.save_lesson_podcast = AsyncMock()
+
+        mock_flow = AsyncMock()
+        mock_flow.execute.return_value = {
+            "topic": "Lesson",
+            "learner_level": "beginner",
+            "voice": "Guide",
+            "learning_objectives": ["Explain"],
+            "learning_objective_ids": ["lo_1"],
+            "misconceptions": [],
+            "confusables": [],
+            "glossary": [],
+            "mini_lesson": "Body",
+            "mcqs": [
+                {
+                    "stem": "What is it?",
+                    "options": [
+                        {"label": "A", "text": "Answer"},
+                        {"label": "B", "text": "Other"},
+                        {"label": "C", "text": "Another"},
+                    ],
+                    "answer_key": {"label": "A"},
+                    "learning_objectives_covered": ["lo_1"],
+                    "misconceptions_used": [],
+                    "glossary_terms_used": [],
+                }
+            ],
+            "short_answers": [
+                {
+                    "stem": "Name it",
+                    "canonical_answer": "term",
+                    "acceptable_answers": ["the term"],
+                    "wrong_answers": [
+                        {
+                            "answer": "mistake",
+                            "explanation": "Not exact",
+                            "misconception_ids": ["m1"],
+                        }
+                    ],
+                    "learning_objectives_covered": ["lo_1"],
+                    "misconceptions_used": ["m1"],
+                    "glossary_terms_used": [],
+                    "cognitive_level": "remember",
+                    "explanation_correct": "Yes",
+                }
+            ],
+        }
+        mock_lesson_flow_cls.return_value = mock_flow
+
+        mock_infra = Mock()
+        mock_infra.initialize = Mock()
+
+        @asynccontextmanager
+        async def _session_ctx() -> AsyncMock:
+            yield AsyncMock()
+
+        mock_infra.get_async_session_context = _session_ctx
+        mock_infra_provider.return_value = mock_infra
+
+        await service._flow_handler._create_single_lesson(
+            lesson_plan={"title": "Lesson", "learning_objective_ids": ["lo_1"], "lesson_objective": "Explain"},
+            lesson_index=0,
+            unit_los={"lo_1": "Explain"},
+            unit_material="Body",
+            learner_level="beginner",
+            arq_task_id=None,
+        )
+
+        assert content.save_lesson.await_count == 1
+        saved_package = content.save_lesson.await_args.args[0].package
+        short_answers = [ex for ex in saved_package.exercises if ex.exercise_type == "short_answer"]
+        assert len(short_answers) == 1
+        assert short_answers[0].canonical_answer == "term"
 
     @pytest.mark.asyncio
     async def test_create_unit_with_conversation_resources(self) -> None:

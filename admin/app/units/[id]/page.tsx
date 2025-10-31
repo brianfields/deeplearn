@@ -19,7 +19,7 @@ import { ReloadButton } from '@/modules/admin/components/shared/ReloadButton';
 import { StatusBadge } from '@/modules/admin/components/shared/StatusBadge';
 import { ResourceList } from '@/modules/admin/components/resources/ResourceList';
 import { formatDate } from '@/lib/utils';
-import type { MCQExercise } from '@/modules/admin/models';
+import type { MCQExercise, ShortAnswerExercise } from '@/modules/admin/models';
 
 interface UnitDetailsPageProps {
   params: { id: string };
@@ -62,8 +62,14 @@ function LessonExpandedDetails({ lessonId }: { lessonId: string }) {
     (ex): ex is MCQExercise => ex.exercise_type === 'mcq'
   );
 
+  const shortAnswerExercises = lesson.package.exercises.filter(
+    (ex): ex is ShortAnswerExercise => ex.exercise_type === 'short_answer'
+  );
+
+  const allExercises = lesson.package.exercises;
+
   return (
-    <div className="px-6 pb-4 pt-2 bg-gray-50 border-t border-gray-100 space-y-4">
+    <div className="px-6 pb-4 pt-2 bg-gray-50 border-t border-gray-100 space-y-6 max-h-[70vh] overflow-y-auto">
       {/* Mini Lesson */}
       {lesson.package.mini_lesson && (
         <div>
@@ -126,46 +132,141 @@ function LessonExpandedDetails({ lessonId }: { lessonId: string }) {
         )}
       </div>
 
-      {/* Exercises */}
-      {mcqExercises.length > 0 && (
+      {/* All Exercises - Unified Section */}
+      {allExercises.length > 0 && (
         <div>
-          <h3 className="text-xs font-semibold text-gray-700 uppercase mb-1.5">
-            Exercises ({mcqExercises.length} MCQs)
-          </h3>
-          <div className="space-y-2 max-h-64 overflow-y-auto">
-            {mcqExercises.map((exercise, idx) => (
-              <div key={exercise.id} className="bg-white rounded border border-gray-200 p-3 text-xs">
-                <div className="font-medium text-gray-900 mb-1.5">
-                  {idx + 1}. {exercise.stem}
+          <div className="mb-3">
+            <h3 className="text-xs font-semibold text-gray-700 uppercase mb-2">
+              Exercises ({allExercises.length} total)
+            </h3>
+            <div className="text-xs text-gray-500 mb-3">
+              {mcqExercises.length > 0 && <span className="mr-4">• {mcqExercises.length} MCQ</span>}
+              {shortAnswerExercises.length > 0 && <span>• {shortAnswerExercises.length} Short Answer</span>}
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {/* MCQ Exercises */}
+            {mcqExercises.length > 0 && (
+              <div className="space-y-3">
+                <div className="text-xs font-semibold text-gray-600 uppercase tracking-wide border-b border-gray-300 pb-2">
+                  Multiple Choice Questions
                 </div>
-                <ul className="space-y-1 ml-2">
-                  {exercise.options.map((opt) => (
-                    <li
-                      key={opt.id}
-                      className={`${
-                        opt.label === exercise.answer_key.label
-                          ? 'text-green-700 font-medium'
-                          : 'text-gray-600'
-                      }`}
-                    >
-                      {opt.label}. {opt.text}
-                    </li>
-                  ))}
-                </ul>
-                {exercise.answer_key.rationale_right && (
-                  <div className="mt-1.5 text-green-700 italic">
-                    ✓ {exercise.answer_key.rationale_right}
+                {mcqExercises.map((exercise, idx) => (
+                  <div key={exercise.id} className="bg-white rounded border border-gray-200 p-4 hover:shadow-sm transition-shadow">
+                    <div className="font-semibold text-gray-900 mb-2">
+                      MCQ {idx + 1}. {exercise.stem}
+                    </div>
+                    <ul className="space-y-1.5 ml-3 mb-3">
+                      {exercise.options.map((opt) => (
+                        <li
+                          key={opt.id}
+                          className={`text-sm ${
+                            opt.label === exercise.answer_key.label
+                              ? 'text-green-700 font-semibold bg-green-50 -ml-3 px-3 py-1 rounded'
+                              : 'text-gray-600'
+                          }`}
+                        >
+                          <span className="font-medium">{opt.label}.</span> {opt.text}
+                        </li>
+                      ))}
+                    </ul>
+                    {exercise.answer_key.rationale_right && (
+                      <div className="text-xs bg-green-50 border border-green-200 rounded p-2 text-green-700">
+                        <span className="font-semibold">Explanation: </span>
+                        {exercise.answer_key.rationale_right}
+                      </div>
+                    )}
                   </div>
-                )}
+                ))}
               </div>
-            ))}
+            )}
+
+            {/* Short Answer Exercises */}
+            {shortAnswerExercises.length > 0 && (
+              <div className="space-y-3">
+                <div className="text-xs font-semibold text-gray-600 uppercase tracking-wide border-b border-gray-300 pb-2">
+                  Short Answer Exercises
+                </div>
+                {shortAnswerExercises.map((exercise, idx) => (
+                  <div key={exercise.id} className="bg-white rounded border border-blue-200 p-4 hover:shadow-sm transition-shadow">
+                    <div className="mb-3">
+                      <div className="font-semibold text-gray-900 mb-1">
+                        Short Answer {idx + 1}. {exercise.stem}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                      {/* Canonical Answer */}
+                      <div className="bg-blue-50 rounded p-3 border border-blue-100">
+                        <p className="text-xs font-semibold uppercase text-blue-700 mb-1">Canonical Answer</p>
+                        <p className="text-sm text-gray-900 font-medium">{exercise.canonical_answer || '—'}</p>
+                      </div>
+
+                      {/* Acceptable Answers */}
+                      <div className="bg-blue-50 rounded p-3 border border-blue-100">
+                        <p className="text-xs font-semibold uppercase text-blue-700 mb-1">
+                          Acceptable Answers ({exercise.acceptable_answers.length})
+                        </p>
+                        {exercise.acceptable_answers.length > 0 ? (
+                          <ul className="text-sm text-gray-900 space-y-0.5">
+                            {exercise.acceptable_answers.map((answer, aIdx) => (
+                              <li key={aIdx} className="flex items-start">
+                                <span className="mr-2">•</span>
+                                <span>{answer}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="text-sm text-gray-500 italic">None specified</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Common Wrong Answers & Misconceptions */}
+                    {exercise.wrong_answers.length > 0 && (
+                      <div className="mb-3">
+                        <p className="text-xs font-semibold uppercase text-gray-600 mb-2">Common Misconceptions</p>
+                        <div className="space-y-2">
+                          {exercise.wrong_answers.map((wrongAnswer, wIdx) => (
+                            <div key={`${exercise.id}-wrong-${wIdx}`} className="bg-amber-50 border border-amber-200 rounded p-2.5">
+                              <p className="text-sm font-medium text-gray-900 mb-1">
+                                Wrong: <span className="text-amber-700">{wrongAnswer.answer || '—'}</span>
+                              </p>
+                              <p className="text-xs text-gray-700 mb-1">
+                                <span className="font-semibold">Why: </span>
+                                {wrongAnswer.explanation || '—'}
+                              </p>
+                              {wrongAnswer.misconception_ids && wrongAnswer.misconception_ids.length > 0 && (
+                                <p className="text-xs text-gray-500">
+                                  <span className="font-semibold">Misconceptions: </span>
+                                  {wrongAnswer.misconception_ids.join(', ')}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Correct Answer Feedback */}
+                    {exercise.explanation_correct && (
+                      <div className="bg-green-50 border border-green-200 rounded p-3">
+                        <p className="text-xs font-semibold uppercase text-green-700 mb-1">Correct Answer Feedback</p>
+                        <p className="text-sm text-gray-900 whitespace-pre-wrap">{exercise.explanation_correct}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
 
       {/* Flow Run / LLM Request Link */}
       {lesson.flow_run_id && (
-        <div className="pt-2 border-t border-gray-200">
+        <div className="pt-3 border-t border-gray-200">
           <Link
             href={`/flows/${lesson.flow_run_id}`}
             className="inline-flex items-center text-xs font-medium text-blue-600 hover:text-blue-800"

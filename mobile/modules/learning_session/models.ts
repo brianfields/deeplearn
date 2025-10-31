@@ -208,11 +208,34 @@ export interface MCQContentDTO {
   readonly explanation: string;
 }
 
+export interface WrongAnswerDTO {
+  readonly answer: string;
+  readonly explanation: string;
+  readonly misconceptionIds: string[];
+}
+
+export interface ShortAnswerContentDTO {
+  readonly question: string;
+  readonly canonicalAnswer: string;
+  readonly acceptableAnswers: string[];
+  readonly wrongAnswers: WrongAnswerDTO[];
+  readonly explanationCorrect: string;
+}
+
+export interface ShortAnswerValidationResult {
+  readonly isCorrect: boolean;
+  readonly matchedAnswer?: string;
+  readonly wrongAnswerExplanation?: string;
+}
+
 export interface SessionExercise {
   readonly id: string;
   readonly type: ExerciseType;
   readonly title: string;
-  readonly content: MCQContentDTO | Record<string, unknown>;
+  readonly content:
+    | MCQContentDTO
+    | ShortAnswerContentDTO
+    | Record<string, unknown>;
 }
 
 // ================================

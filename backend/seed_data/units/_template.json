@@ -59,6 +59,23 @@
           "correct_rationale": "This is correct because..."
         }
       ],
+      "short_answers": [
+        {
+          "stem": "Provide a 1-3 word response",
+          "canonical_answer": "Answer",
+          "acceptable_answers": [
+            "Another answer"
+          ],
+          "wrong_answers": [
+            {
+              "answer": "Misconception",
+              "explanation": "Why this response is incorrect",
+              "misconception_ids": []
+            }
+          ],
+          "explanation_correct": "Brief coaching message shown after a correct response."
+        }
+      ],
       "misconceptions": [],
       "confusables": []
     }

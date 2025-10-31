@@ -18,6 +18,7 @@ from .steps import (
     ExtractUnitMetadataStep,
     GenerateLessonPodcastTranscriptStep,
     GenerateMCQStep,
+    GenerateShortAnswerStep,
     GenerateUnitArtDescriptionStep,
     GenerateUnitArtImageStep,
     GenerateUnitPodcastTranscriptStep,
@@ -81,6 +82,24 @@ class LessonCreationFlow(BaseFlow):
         )
         mcq_out = mcq_result.output_content
 
+        mcq_stems = [it.stem for it in mcq_out.mcqs]
+
+        short_answer_result = await GenerateShortAnswerStep().execute(
+            {
+                "learner_level": inputs["learner_level"],
+                "voice": inputs["voice"],
+                "lesson_title": inputs["topic"],
+                "lesson_objective": inputs["lesson_objective"],
+                "learning_objectives": inputs["learning_objectives"],
+                "learning_objective_ids": inputs["learning_objective_ids"],
+                "mini_lesson": lesson_md.mini_lesson,
+                "glossary": lesson_md.glossary,
+                "misconceptions": lesson_md.misconceptions,
+                "mcq_stems": mcq_stems,
+            }
+        )
+        short_answers_out = short_answer_result.output_content
+
         return {
             "topic": lesson_md.topic,
             "learner_level": lesson_md.learner_level,
@@ -92,6 +111,7 @@ class LessonCreationFlow(BaseFlow):
             "glossary": [g.model_dump() for g in lesson_md.glossary],
             "mini_lesson": lesson_md.mini_lesson,
             "mcqs": [it.model_dump() for it in mcq_out.mcqs],
+            "short_answers": [it.model_dump() for it in short_answers_out.short_answers],
         }
 
 

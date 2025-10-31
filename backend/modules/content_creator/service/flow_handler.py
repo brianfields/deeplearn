@@ -14,6 +14,8 @@ from modules.content.package_models import (
     MCQExercise,
     MCQOption,
     Meta,
+    ShortAnswerExercise,
+    WrongAnswer,
 )
 from modules.content.public import ContentProvider, LessonCreate, UnitStatus, content_provider
 from modules.infrastructure.public import infrastructure_provider
@@ -364,7 +366,7 @@ class FlowHandler:
             arq_task_id=arq_task_id,
         )
 
-        exercises: list[MCQExercise] = []
+        exercises: list[MCQExercise | ShortAnswerExercise] = []
         for idx, mcq in enumerate(md_res.get("mcqs", []) or []):
             exercise_id = f"mcq_{idx + 1}"
             options_with_ids: list[MCQOption] = []
@@ -427,6 +429,61 @@ class FlowHandler:
                     stem=mcq.get("stem", ""),
                     options=options_with_ids,
                     answer_key=answer_key,
+                )
+            )
+
+        short_answers = md_res.get("short_answers", []) or []
+        for idx, sa in enumerate(short_answers):
+            exercise_id = f"sa_{idx + 1}"
+
+            lo_candidates = sa.get("learning_objectives_covered", []) or []
+            sa_lo_id: str | None = None
+            for candidate_lo in lo_candidates:
+                candidate_str = str(candidate_lo)
+                if candidate_str in lesson_lo_ids:
+                    sa_lo_id = candidate_str
+                    break
+
+            if sa_lo_id is None:
+                if lesson_lo_ids:
+                    sa_lo_id = lesson_lo_ids[0]
+                    logger.warning(
+                        "Short answer %s in lesson %s referenced invalid LO IDs %s, falling back to %s",
+                        exercise_id,
+                        lesson_index + 1,
+                        lo_candidates,
+                        sa_lo_id,
+                    )
+                else:
+                    sa_lo_id = "lo_1"
+                    logger.error(
+                        "Short answer %s in lesson %s has no valid LO IDs, using fallback 'lo_1'",
+                        exercise_id,
+                        lesson_index + 1,
+                    )
+
+            wrong_answers: list[WrongAnswer] = []
+            for wrong in sa.get("wrong_answers", []) or []:
+                wrong_answers.append(
+                    WrongAnswer(
+                        answer=wrong.get("answer", ""),
+                        explanation=wrong.get("explanation", ""),
+                        misconception_ids=list(wrong.get("misconception_ids", []) or []),
+                    )
+                )
+
+            exercises.append(
+                ShortAnswerExercise(
+                    id=exercise_id,
+                    lo_id=sa_lo_id,
+                    cognitive_level=sa.get("cognitive_level"),
+                    estimated_difficulty=None,
+                    misconceptions_used=list(sa.get("misconceptions_used", []) or []),
+                    stem=sa.get("stem", ""),
+                    canonical_answer=sa.get("canonical_answer", ""),
+                    acceptable_answers=list(sa.get("acceptable_answers", []) or []),
+                    wrong_answers=wrong_answers,
+                    explanation_correct=sa.get("explanation_correct", ""),
                 )
             )
 

@@ -32,10 +32,10 @@ from .dtos import (
 )
 from .extractors import (
     ExtractionError,
-    extract_text_from_photo,
     extract_text_from_docx,
     extract_text_from_markdown,
     extract_text_from_pdf,
+    extract_text_from_photo,
     extract_text_from_pptx,
     extract_text_from_txt,
     extract_youtube_transcript,
@@ -169,9 +169,7 @@ class ResourceService:
         normalized_name = data.filename.strip() or "photo.jpg"
         content_type = data.content_type.lower()
         if content_type not in ALLOWED_IMAGE_CONTENT_TYPES:
-            raise ResourceValidationError(
-                f"Unsupported image type: {data.content_type}"
-            )
+            raise ResourceValidationError(f"Unsupported image type: {data.content_type}")
 
         file_size = data.file_size or len(data.content)
         self._validate_file_size(file_size)

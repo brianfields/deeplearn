@@ -269,6 +269,29 @@ class CatalogService:
                         "title": stem[:50] + "..." if len(stem) > 50 else stem,
                     }
                 )
+            elif exercise.exercise_type == "short_answer":
+                stem = getattr(exercise, "stem", "Question")
+                exercises.append(
+                    {
+                        "id": exercise.id,
+                        "exercise_type": "short_answer",
+                        "stem": stem,
+                        "canonical_answer": getattr(exercise, "canonical_answer", ""),
+                        "acceptable_answers": list(getattr(exercise, "acceptable_answers", [])),
+                        "wrong_answers": [
+                            {
+                                "answer": wrong.answer,
+                                "explanation": wrong.explanation,
+                                "misconception_ids": list(wrong.misconception_ids),
+                            }
+                            for wrong in getattr(exercise, "wrong_answers", [])
+                        ],
+                        "explanation_correct": getattr(exercise, "explanation_correct", None),
+                        "cognitive_level": getattr(exercise, "cognitive_level", None),
+                        "misconceptions_used": list(getattr(exercise, "misconceptions_used", [])),
+                        "title": stem[:50] + "..." if len(stem) > 50 else stem,
+                    }
+                )
 
         glossary_terms = [{"id": term.id, "term": term.term, "definition": term.definition} for term in lesson.package.glossary.get("terms", [])]
 

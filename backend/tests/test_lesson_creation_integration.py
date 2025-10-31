@@ -22,7 +22,7 @@ from modules.content.models import UnitResourceModel
 from modules.content.public import content_provider
 from modules.content_creator.public import content_creator_provider
 from modules.content_creator.service import ContentCreatorService
-from modules.content_creator.steps import ExtractLessonMetadataStep, ExtractUnitMetadataStep, GenerateMCQStep, GenerateUnitArtDescriptionStep
+from modules.content_creator.steps import ExtractLessonMetadataStep, ExtractUnitMetadataStep, GenerateMCQStep, GenerateShortAnswerStep, GenerateUnitArtDescriptionStep
 from modules.flow_engine.models import FlowRunModel
 from modules.infrastructure.public import infrastructure_provider
 from modules.llm_services.public import AudioResponse, ImageResponse, LLMResponse
@@ -251,6 +251,39 @@ def _maybe_mock_llm() -> Generator[None, None, None]:
                             "misconceptions_used": [],
                             "confusables_used": [],
                             "glossary_terms_used": [],
+                        }
+                    ],
+                }
+                return response_model.model_validate(payload), None, usage
+
+            if response_model is GenerateShortAnswerStep.Outputs:
+                payload = {
+                    "metadata": {
+                        "lesson_title": "Mocked Lesson",
+                        "lesson_objective": "Learn A",
+                        "learner_level": "beginner",
+                        "coverage": {
+                            "learning_objective_ids": ["lo_1"],
+                            "misconception_ids": ["m1"],
+                        },
+                    },
+                    "short_answers": [
+                        {
+                            "stem": "Define key term?",
+                            "canonical_answer": "definition",
+                            "acceptable_answers": ["explanation", "description"],
+                            "wrong_answers": [
+                                {
+                                    "answer": "wrong_term",
+                                    "explanation": "Confuses related concept",
+                                    "misconception_ids": ["m1"],
+                                }
+                            ],
+                            "learning_objectives_covered": ["lo_1"],
+                            "misconceptions_used": ["m1"],
+                            "glossary_terms_used": [],
+                            "cognitive_level": "remember",
+                            "explanation_correct": "Correct! The term means definition.",
                         }
                     ],
                 }

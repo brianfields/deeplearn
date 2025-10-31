@@ -40,6 +40,7 @@ import type {
   UpdateProgressRequest,
   CompleteSessionRequest,
   LearningSession,
+  ShortAnswerContentDTO,
 } from './models';
 import type { UserIdentityProvider } from '../user/public';
 import type { User } from '../user/models';
@@ -210,6 +211,60 @@ describe('Learning Session Module', () => {
       } as any;
 
       service = new LearningSessionService(mockRepo);
+    });
+
+    describe('validateShortAnswer', () => {
+      let content: ShortAnswerContentDTO;
+
+      beforeEach(() => {
+        content = {
+          question: 'Name the process plants use to make food.',
+          canonicalAnswer: 'photosynthesis',
+          acceptableAnswers: ['photo synthesis', 'plant photosynthesis'],
+          wrongAnswers: [
+            {
+              answer: 'respiration',
+              explanation:
+                'Respiration breaks down food rather than producing it.',
+              misconceptionIds: ['mis-1'],
+            },
+          ],
+          explanationCorrect:
+            'Plants convert sunlight into energy through photosynthesis.',
+        };
+      });
+
+      it('accepts canonical answers regardless of casing and whitespace', () => {
+        const result = service.validateShortAnswer(
+          '  Photosynthesis ',
+          content
+        );
+        expect(result).toEqual({
+          isCorrect: true,
+          matchedAnswer: 'photosynthesis',
+        });
+      });
+
+      it('accepts acceptable answers with fuzzy matching', () => {
+        const result = service.validateShortAnswer('photo syntheses', content);
+        expect(result).toEqual({
+          isCorrect: true,
+          matchedAnswer: 'photo synthesis',
+        });
+      });
+
+      it('provides targeted feedback for common wrong answers', () => {
+        const result = service.validateShortAnswer('respiration', content);
+        expect(result).toEqual({
+          isCorrect: false,
+          wrongAnswerExplanation: content.wrongAnswers[0].explanation,
+        });
+      });
+
+      it('marks unrelated answers as incorrect without explanation', () => {
+        const result = service.validateShortAnswer('gravity', content);
+        expect(result).toEqual({ isCorrect: false });
+      });
     });
 
     describe('startSession', () => {
@@ -431,6 +486,85 @@ describe('Learning Session Module', () => {
           'unit-1',
           'user-1'
         );
+      });
+    });
+
+    describe('getSessionExercises', () => {
+      it('maps multiple exercise types from lesson detail', async () => {
+        const session: LearningSession = {
+          id: 'session-42',
+          lessonId: 'lesson-99',
+          unitId: 'unit-2',
+          lessonTitle: 'Biology Basics',
+          userId: 'user-7',
+          status: 'active',
+          startedAt: '2024-01-01T00:00:00Z',
+          completedAt: undefined,
+          currentExerciseIndex: 0,
+          totalExercises: 2,
+          progressPercentage: 0,
+          sessionData: {},
+          estimatedTimeRemaining: 0,
+          isCompleted: false,
+          canResume: true,
+        };
+
+        mockRepo.getSession.mockResolvedValue(session as any);
+        mockCatalogProvider.getLessonDetail.mockResolvedValue({
+          exercises: [
+            {
+              id: 'mcq-1',
+              exercise_type: 'mcq',
+              stem: 'What is 2 + 2?',
+              options: [
+                { label: 'A', text: '3' },
+                { label: 'B', text: '4' },
+              ],
+              answer_key: { label: 'B', rationale_right: '2 + 2 equals 4.' },
+              title: 'Addition',
+            },
+            {
+              id: 'sa-1',
+              exercise_type: 'short_answer',
+              stem: 'Name the process of cell division.',
+              canonical_answer: 'mitosis',
+              acceptable_answers: ['cell division'],
+              wrong_answers: [
+                {
+                  answer: 'meiosis',
+                  explanation:
+                    'Meiosis is for gamete formation, not general cell replication.',
+                  misconception_ids: ['bio-1'],
+                },
+              ],
+              explanation_correct: 'Mitosis is how most cells replicate.',
+              title: 'Cell Processes',
+            },
+          ],
+        } as any);
+
+        const exercises = await service.getSessionExercises('session-42');
+
+        expect(exercises).toHaveLength(2);
+        expect(exercises[0]).toMatchObject({
+          id: 'mcq-1',
+          type: 'mcq',
+          content: expect.objectContaining({ question: 'What is 2 + 2?' }),
+        });
+        expect(exercises[1]).toMatchObject({
+          id: 'sa-1',
+          type: 'short_answer',
+          content: expect.objectContaining({
+            canonicalAnswer: 'mitosis',
+            acceptableAnswers: ['cell division'],
+            wrongAnswers: [
+              expect.objectContaining({
+                answer: 'meiosis',
+                explanation: expect.stringContaining('Meiosis'),
+              }),
+            ],
+          }),
+        });
       });
     });
 

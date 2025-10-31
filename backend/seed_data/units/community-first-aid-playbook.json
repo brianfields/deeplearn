@@ -71,7 +71,7 @@
           "definition": "Rapid ABC check to find and treat immediate life threats."
         }
       ],
-      "mini_lesson": "Scene size-up keeps volunteers safe: scan hazards, don PPE, and enlist bystanders. The primary survey follows ABC\u2014airway, breathing, circulation\u2014before moving patients. Stabilize the cervical spine only when mechanism suggests injury and you have adequate help. Use SAMPLE to gather clues and track changes. Escalate when airway is compromised, breathing is labored, bleeding is uncontrolled, or mental status worsens. When EMS arrives, hand off with MIST so responders get the essentials in under 30 seconds.",
+      "mini_lesson": "Scene size-up keeps volunteers safe: scan hazards, don PPE, and enlist bystanders. The primary survey follows ABC—airway, breathing, circulation—before moving patients. Stabilize the cervical spine only when mechanism suggests injury and you have adequate help. Use SAMPLE to gather clues and track changes. Escalate when airway is compromised, breathing is labored, bleeding is uncontrolled, or mental status worsens. When EMS arrives, hand off with MIST so responders get the essentials in under 30 seconds.",
       "mcqs": [
         {
           "stem": "Which observation is an immediate trigger to escalate to advanced medical support?",
@@ -98,7 +98,7 @@
           "correct_rationale": "Altered mental status signals compromised perfusion and needs advanced care."
         },
         {
-          "stem": "What information belongs in the \"M\" section of a MIST hand-off?",
+          "stem": "What information belongs in the 'M' section of a MIST hand-off?",
           "options": [
             {
               "text": "Mechanism of injury",
@@ -120,6 +120,78 @@
             "mist_sections_interchangeable"
           ],
           "correct_rationale": "MIST starts with the mechanism so responders anticipate likely injuries."
+        },
+        {
+          "stem": "What is the first action in the primary survey for a conscious patient?",
+          "options": [
+            {
+              "text": "Check airway patency",
+              "rationale_wrong": null
+            },
+            {
+              "text": "Assess circulation for radial pulse",
+              "rationale_wrong": "Airway is checked before circulation in the primary survey."
+            },
+            {
+              "text": "Gather SAMPLE history",
+              "rationale_wrong": "History follows the primary survey once life threats are addressed."
+            }
+          ],
+          "correct_index": 0,
+          "cognitive_level": "Apply",
+          "difficulty": "Medium",
+          "misconceptions": [
+            "history_before_abc"
+          ],
+          "correct_rationale": "The primary survey proceeds ABC; airway must be clear before moving to breathing or circulation."
+        },
+        {
+          "stem": "When should volunteers stabilize the cervical spine on scene?",
+          "options": [
+            {
+              "text": "When mechanism suggests possible neck injury",
+              "rationale_wrong": null
+            },
+            {
+              "text": "For every patient regardless of mechanism",
+              "rationale_wrong": "Routine stabilization wastes time and can harm patients without suspicion of injury."
+            },
+            {
+              "text": "Only after EMS confirms injuries",
+              "rationale_wrong": "Waiting for EMS delays necessary immobilization when mechanism warrants it."
+            }
+          ],
+          "correct_index": 0,
+          "cognitive_level": "Analyze",
+          "difficulty": "Medium",
+          "misconceptions": [
+            "always_stabilize"
+          ],
+          "correct_rationale": "Scene safety guidance calls for cervical stabilization when mechanism or symptoms point to spinal injury."
+        },
+        {
+          "stem": "Which SAMPLE question helps identify underlying conditions affecting care?",
+          "options": [
+            {
+              "text": "Are you taking any medications?",
+              "rationale_wrong": null
+            },
+            {
+              "text": "When did you last eat a full meal?",
+              "rationale_wrong": "Last oral intake corresponds to the L component, not underlying conditions."
+            },
+            {
+              "text": "Who witnessed the incident?",
+              "rationale_wrong": "Witness details are helpful but not part of SAMPLE."
+            }
+          ],
+          "correct_index": 0,
+          "cognitive_level": "Understand",
+          "difficulty": "Medium",
+          "misconceptions": [
+            "sample_is_optional"
+          ],
+          "correct_rationale": "Medication review reveals conditions that affect treatment decisions during stabilization."
         }
       ],
       "misconceptions": [
@@ -136,7 +208,138 @@
           "correction": "The standardized order keeps radio traffic predictable for incoming responders."
         }
       ],
-      "confusables": []
+      "confusables": [],
+      "short_answers": [
+        {
+          "stem": "What phrase describes the initial hazard check before care?",
+          "canonical_answer": "scene size-up",
+          "acceptable_answers": [
+            "scene survey",
+            "scene assessment"
+          ],
+          "wrong_answers": [
+            {
+              "answer": "primary survey",
+              "explanation": "The primary survey begins after the scene is deemed safe.",
+              "misconception_ids": [
+                "history_before_abc"
+              ]
+            },
+            {
+              "answer": "vital signs",
+              "explanation": "Vitals are measured later once immediate hazards are controlled.",
+              "misconception_ids": []
+            }
+          ],
+          "explanation_correct": "A scene size-up checks for hazards, PPE needs, and patient count before contact.",
+          "learning_objectives_covered": [
+            "first_aid_lo_1"
+          ],
+          "cognitive_level": "Remember"
+        },
+        {
+          "stem": "Which mnemonic helps gather a patient's history on scene?",
+          "canonical_answer": "SAMPLE",
+          "acceptable_answers": [
+            "sample"
+          ],
+          "wrong_answers": [
+            {
+              "answer": "ABCDE",
+              "explanation": "ABCDE structures the primary survey; SAMPLE records history.",
+              "misconception_ids": [
+                "history_before_abc"
+              ]
+            },
+            {
+              "answer": "RICE",
+              "explanation": "RICE relates to musculoskeletal care rather than patient history.",
+              "misconception_ids": []
+            }
+          ],
+          "explanation_correct": "SAMPLE captures symptoms, allergies, medications, past history, last intake, and events.",
+          "learning_objectives_covered": [
+            "first_aid_lo_1"
+          ],
+          "cognitive_level": "Understand"
+        },
+        {
+          "stem": "Which letter of MIST summarizes observed injuries?",
+          "canonical_answer": "I",
+          "acceptable_answers": [
+            "injuries"
+          ],
+          "wrong_answers": [
+            {
+              "answer": "M",
+              "explanation": "M reports mechanism; injuries belong in the I portion.",
+              "misconception_ids": [
+                "mist_sections_interchangeable"
+              ]
+            },
+            {
+              "answer": "T",
+              "explanation": "T communicates treatments delivered before hand-off.",
+              "misconception_ids": []
+            }
+          ],
+          "explanation_correct": "The I in MIST captures key injuries so responders can triage quickly.",
+          "learning_objectives_covered": [
+            "first_aid_lo_3"
+          ],
+          "cognitive_level": "Remember"
+        },
+        {
+          "stem": "Which airway status word signals an escalation trigger?",
+          "canonical_answer": "obstructed",
+          "acceptable_answers": [
+            "blocked airway",
+            "airway blocked"
+          ],
+          "wrong_answers": [
+            {
+              "answer": "patent",
+              "explanation": "A patent airway is open and does not require escalation.",
+              "misconception_ids": []
+            },
+            {
+              "answer": "stable",
+              "explanation": "Stable describes overall status, not a compromised airway.",
+              "misconception_ids": []
+            }
+          ],
+          "explanation_correct": "An obstructed airway demands immediate escalation to advanced care.",
+          "learning_objectives_covered": [
+            "first_aid_lo_2"
+          ],
+          "cognitive_level": "Apply"
+        },
+        {
+          "stem": "Which radio phrase ends a concise EMS hand-off?",
+          "canonical_answer": "handoff complete",
+          "acceptable_answers": [
+            "hand-off complete",
+            "report complete"
+          ],
+          "wrong_answers": [
+            {
+              "answer": "over and out",
+              "explanation": "'Over and out' mixes two signals and is not standard EMS phrasing.",
+              "misconception_ids": []
+            },
+            {
+              "answer": "roger",
+              "explanation": "'Roger' merely acknowledges receipt and does not close a report.",
+              "misconception_ids": []
+            }
+          ],
+          "explanation_correct": "Ending with 'handoff complete' signals responders that critical details are finished.",
+          "learning_objectives_covered": [
+            "first_aid_lo_3"
+          ],
+          "cognitive_level": "Apply"
+        }
+      ]
     }
   ],
   "resources": [
@@ -173,6 +376,7 @@
         ]
       }
     },
+    {
       "resource_id": "5f9e8e50-9f5c-4f64-bb86-77a7713dfdd0",
       "resource_type": "photo",
       "filename": "scene-safety-whiteboard.jpg",

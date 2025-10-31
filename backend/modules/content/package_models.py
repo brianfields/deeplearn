@@ -84,6 +84,39 @@ class MCQExercise(Exercise):
         return self
 
 
+class WrongAnswer(BaseModel):
+    """Common wrong answer metadata for short-answer exercises."""
+
+    answer: str
+    explanation: str
+    misconception_ids: list[str] = Field(default_factory=list)
+
+
+class ShortAnswerExercise(Exercise):
+    """Short answer question exercise."""
+
+    exercise_type: str = "short_answer"
+    stem: str
+    canonical_answer: str
+    acceptable_answers: list[str] = Field(default_factory=list)
+    wrong_answers: list[WrongAnswer] = Field(default_factory=list)
+    explanation_correct: str
+
+    @model_validator(mode="after")
+    def _validate_canonical_length(self) -> "ShortAnswerExercise":
+        """Ensure canonical answer respects the 50 character limit."""
+
+        if len(self.canonical_answer) > 50:
+            raise ValueError("Short answer canonical_answer must be 50 characters or fewer")
+        for wrong_answer in self.wrong_answers:
+            if len(wrong_answer.answer) > 50:
+                raise ValueError("Wrong answers must be 50 characters or fewer to stay mobile friendly")
+        for acceptable in self.acceptable_answers:
+            if len(acceptable) > 50:
+                raise ValueError("Acceptable answers must be 50 characters or fewer")
+        return self
+
+
 class LessonPackage(BaseModel):
     """Complete lesson package containing all educational content."""
 
@@ -91,7 +124,7 @@ class LessonPackage(BaseModel):
     unit_learning_objective_ids: list[str]
     glossary: dict[str, list[GlossaryTerm]]
     mini_lesson: str  # Single lesson-wide explanation
-    exercises: list[MCQExercise]  # For now, only MCQ exercises are supported
+    exercises: list[MCQExercise | ShortAnswerExercise]
     misconceptions: list[dict[str, str]] = Field(default_factory=list)
     confusables: list[dict[str, str]] = Field(default_factory=list)
 

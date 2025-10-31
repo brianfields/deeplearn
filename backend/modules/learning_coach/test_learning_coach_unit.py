@@ -15,8 +15,8 @@ from modules.conversation_engine.public import (
 from modules.resource.service import ResourceRead
 
 from .conversation import LearningCoachConversation
-from .service import LearningCoachService, build_resource_context_prompt
 from .dtos import UNSET
+from .service import LearningCoachService, build_resource_context_prompt
 
 
 @pytest.mark.asyncio

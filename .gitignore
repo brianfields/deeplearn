@@ -206,3 +206,5 @@ Thumbs.db
 mobile/ios/Pods/
 mobile/ios/build/
 mobile/ios/*.xcworkspace/
+
+admin/tsconfig.tsbuildinfo

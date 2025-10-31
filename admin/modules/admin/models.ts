@@ -465,12 +465,29 @@ export interface MCQExercise extends Exercise {
   answer_key: MCQAnswerKey;
 }
 
+export interface ShortAnswerWrongAnswer {
+  answer: string;
+  explanation: string;
+  misconception_ids: string[];
+}
+
+export interface ShortAnswerExercise extends Exercise {
+  exercise_type: 'short_answer';
+  stem: string;
+  canonical_answer: string;
+  acceptable_answers: string[];
+  wrong_answers: ShortAnswerWrongAnswer[];
+  explanation_correct: string;
+}
+
+export type LessonExercise = MCQExercise | ShortAnswerExercise;
+
 export interface LessonPackage {
   meta: Meta;
   objectives: Objective[];
   glossary: Record<string, GlossaryTerm[]>;
   mini_lesson: string;
-  exercises: Exercise[];
+  exercises: LessonExercise[];
   misconceptions: Record<string, string>[];
   confusables: Record<string, string>[];
 }

@@ -11,7 +11,16 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from modules.catalog.service import CatalogService, LessonDetail, LessonSummary
-from modules.content.package_models import GlossaryTerm, LessonPackage, MCQAnswerKey, MCQExercise, MCQOption, Meta
+from modules.content.package_models import (
+    GlossaryTerm,
+    LessonPackage,
+    MCQAnswerKey,
+    MCQExercise,
+    MCQOption,
+    Meta,
+    ShortAnswerExercise,
+    WrongAnswer,
+)
 from modules.content.public import LessonRead
 from modules.learning_session.public import ExerciseCorrectness
 
@@ -38,7 +47,16 @@ class TestCatalogService:
                     stem="What is A?",
                     options=[MCQOption(id="opt1", label="A", text="Answer A"), MCQOption(id="opt2", label="B", text="Answer B"), MCQOption(id="opt3", label="C", text="Answer C")],
                     answer_key=MCQAnswerKey(label="A"),
-                )
+                ),
+                ShortAnswerExercise(
+                    id="sa1",
+                    lo_id="obj1",
+                    stem="Name the concept",
+                    canonical_answer="concept",
+                    acceptable_answers=["the concept"],
+                    wrong_answers=[WrongAnswer(answer="idea", explanation="Too broad", misconception_ids=[])],
+                    explanation_correct="Yes",
+                ),
             ],
         )
 
@@ -89,7 +107,7 @@ class TestCatalogService:
         assert len(result.lessons) == 2
         assert result.total == 2
         assert result.lessons[0].id == "lesson-1"
-        assert result.lessons[0].exercise_count == 1  # exercises only
+        assert result.lessons[0].exercise_count == 2
         assert result.lessons[1].exercise_count == 0  # no exercises
         assert result.lessons[0].has_podcast is True
         assert result.lessons[0].podcast_voice == "Narrator"
@@ -116,7 +134,16 @@ class TestCatalogService:
                     stem="What is A?",
                     options=[MCQOption(id="opt1", label="A", text="Answer A"), MCQOption(id="opt2", label="B", text="Answer B"), MCQOption(id="opt3", label="C", text="Answer C")],
                     answer_key=MCQAnswerKey(label="A"),
-                )
+                ),
+                ShortAnswerExercise(
+                    id="sa1",
+                    lo_id="obj1",
+                    stem="Name the concept",
+                    canonical_answer="concept",
+                    acceptable_answers=["the concept"],
+                    wrong_answers=[WrongAnswer(answer="idea", explanation="Too broad", misconception_ids=[])],
+                    explanation_correct="Yes",
+                ),
             ],
         )
 
@@ -148,8 +175,8 @@ class TestCatalogService:
         assert result is not None
         assert result.id == "lesson-1"
         assert result.title == "Lesson 1"
-        assert result.exercise_count == 1  # exercises only
-        assert len(result.exercises) == 1
+        assert result.exercise_count == 2
+        assert len(result.exercises) == 2
         assert result.has_podcast is True
         assert result.podcast_voice == "Narrator"
         assert result.podcast_audio_url == "/api/v1/content/lessons/lesson-1/podcast/audio"

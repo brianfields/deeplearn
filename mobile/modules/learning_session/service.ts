@@ -23,8 +23,101 @@ import type {
   SessionFilters,
   LearningSessionError,
 } from './models';
-import type { SessionExercise, MCQContentDTO } from './models';
+import type {
+  SessionExercise,
+  MCQContentDTO,
+  ShortAnswerContentDTO,
+  ShortAnswerValidationResult,
+  WrongAnswerDTO,
+} from './models';
+import type { LessonExercise } from '../catalog/models';
 import { toLearningSessionDTO } from './models';
+
+function normalizeAnswer(answer: string): string {
+  return answer.toLowerCase().trim().replace(/\s+/g, ' ');
+}
+
+function levenshteinDistance(a: string, b: string): number {
+  if (a === b) {
+    return 0;
+  }
+  if (a.length === 0) {
+    return b.length;
+  }
+  if (b.length === 0) {
+    return a.length;
+  }
+
+  const previousRow = new Array<number>(b.length + 1);
+  const currentRow = new Array<number>(b.length + 1);
+
+  for (let j = 0; j <= b.length; j += 1) {
+    previousRow[j] = j;
+  }
+
+  for (let i = 0; i < a.length; i += 1) {
+    currentRow[0] = i + 1;
+    for (let j = 0; j < b.length; j += 1) {
+      const insertCost = currentRow[j] + 1;
+      const deleteCost = previousRow[j + 1] + 1;
+      const replaceCost = previousRow[j] + (a[i] === b[j] ? 0 : 1);
+      currentRow[j + 1] = Math.min(insertCost, deleteCost, replaceCost);
+    }
+    for (let j = 0; j <= b.length; j += 1) {
+      previousRow[j] = currentRow[j];
+    }
+  }
+
+  return previousRow[b.length];
+}
+
+export function validateShortAnswer(
+  userAnswer: string,
+  content: ShortAnswerContentDTO
+): ShortAnswerValidationResult {
+  const normalized = normalizeAnswer(userAnswer);
+  const acceptableRecords = [
+    {
+      original: content.canonicalAnswer,
+      normalized: normalizeAnswer(content.canonicalAnswer),
+    },
+    ...content.acceptableAnswers.map(answer => ({
+      original: answer,
+      normalized: normalizeAnswer(answer),
+    })),
+  ];
+
+  if (normalized.length === 0) {
+    return { isCorrect: false };
+  }
+
+  for (const record of acceptableRecords) {
+    if (normalized === record.normalized) {
+      return { isCorrect: true, matchedAnswer: record.original };
+    }
+  }
+
+  for (const record of acceptableRecords) {
+    if (levenshteinDistance(normalized, record.normalized) < 2) {
+      return { isCorrect: true, matchedAnswer: record.original };
+    }
+  }
+
+  for (const wrong of content.wrongAnswers) {
+    const normalizedWrong = normalizeAnswer(wrong.answer);
+    if (
+      normalized === normalizedWrong ||
+      levenshteinDistance(normalized, normalizedWrong) < 2
+    ) {
+      return {
+        isCorrect: false,
+        wrongAnswerExplanation: wrong.explanation,
+      };
+    }
+  }
+
+  return { isCorrect: false };
+}
 
 export class LearningSessionService {
   private repo: LearningSessionRepo;
@@ -580,38 +673,74 @@ export class LearningSessionService {
 
       // Build exercise list from package (exclude non-assessment content)
       const exercises = (lessonDetail.exercises || [])
-        .map((ex: any, index: number): SessionExercise | null => {
-          if (ex.exercise_type !== 'mcq') {
-            return null;
+        .map((ex: LessonExercise, index: number): SessionExercise | null => {
+          if (ex.exercise_type === 'mcq') {
+            const options = (ex.options || []).map((opt: any) => ({
+              label: opt.label,
+              text: opt.text,
+            }));
+
+            const content: MCQContentDTO = {
+              question: ex.stem,
+              options,
+              correct_answer: ex.answer_key?.label || 'A',
+              explanation:
+                ex.answer_key?.rationale_right ||
+                `The correct answer is ${ex.answer_key?.label || 'A'}.`,
+            };
+
+            const title = ex.title
+              ? ex.title
+              : ex.stem
+                ? ex.stem.slice(0, 50)
+                : `Exercise ${index + 1}`;
+
+            return {
+              id: ex.id || `exercise-${index}`,
+              type: 'mcq',
+              title,
+              content,
+            };
           }
 
-          const options = (ex.options || []).map((opt: any) => ({
-            label: opt.label,
-            text: opt.text,
-          }));
+          if (ex.exercise_type === 'short_answer') {
+            const wrongAnswers = Array.isArray(ex.wrong_answers)
+              ? ex.wrong_answers.map(
+                  (wrong: any): WrongAnswerDTO => ({
+                    answer: String(wrong.answer ?? ''),
+                    explanation: String(wrong.explanation ?? ''),
+                    misconceptionIds: Array.isArray(wrong.misconception_ids)
+                      ? wrong.misconception_ids.map(String)
+                      : [],
+                  })
+                )
+              : [];
 
-          const content: MCQContentDTO = {
-            question: ex.stem,
-            options,
-            correct_answer: ex.answer_key?.label || 'A',
-            explanation:
-              ex.answer_key?.rationale_right ||
-              `The correct answer is ${ex.answer_key?.label || 'A'}.`,
-          };
+            const content: ShortAnswerContentDTO = {
+              question: String(ex.stem ?? ''),
+              canonicalAnswer: String(ex.canonical_answer ?? ''),
+              acceptableAnswers: Array.isArray(ex.acceptable_answers)
+                ? ex.acceptable_answers.map(String)
+                : [],
+              wrongAnswers,
+              explanationCorrect: String(ex.explanation_correct ?? ''),
+            };
 
-          const title = ex.title
-            ? ex.title
-            : ex.stem
-              ? ex.stem.slice(0, 50)
-              : `Exercise ${index + 1}`;
+            const title = ex.title
+              ? ex.title
+              : ex.stem
+                ? String(ex.stem).slice(0, 50)
+                : `Exercise ${index + 1}`;
 
-          const dto: SessionExercise = {
-            id: ex.id || `exercise-${index}`,
-            type: 'mcq',
-            title,
-            content,
-          };
-          return dto;
+            return {
+              id: ex.id || `exercise-${index}`,
+              type: 'short_answer',
+              title,
+              content,
+            };
+          }
+
+          return null;
         })
         .filter((e): e is SessionExercise => e !== null);
 
@@ -619,6 +748,13 @@ export class LearningSessionService {
     } catch (error) {
       throw this.handleServiceError(error, 'Failed to get session exercises');
     }
+  }
+
+  validateShortAnswer(
+    userAnswer: string,
+    content: ShortAnswerContentDTO
+  ): ShortAnswerValidationResult {
+    return validateShortAnswer(userAnswer, content);
   }
 
   /**

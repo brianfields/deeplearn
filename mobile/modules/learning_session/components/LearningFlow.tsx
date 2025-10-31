@@ -12,7 +12,8 @@ import { useActiveLearningSession } from '../queries';
 import { useLearningSessionStore } from '../store';
 import MiniLesson from './MiniLesson';
 import MultipleChoice from './MultipleChoice';
-import type { MCQContentDTO } from '../models';
+import ShortAnswer from './ShortAnswer';
+import type { MCQContentDTO, ShortAnswerContentDTO } from '../models';
 import { catalogProvider } from '../../catalog/public';
 import { usePodcastPlayer, usePodcastState } from '../../podcast_player/public';
 
@@ -262,6 +263,15 @@ export default function LearningFlow({
         return (
           <MultipleChoice
             question={currentExercise.content as MCQContentDTO}
+            onComplete={handleExerciseComplete}
+            isLoading={isUpdatingProgress}
+          />
+        );
+
+      case 'short_answer':
+        return (
+          <ShortAnswer
+            question={currentExercise.content as ShortAnswerContentDTO}
             onComplete={handleExerciseComplete}
             isLoading={isUpdatingProgress}
           />

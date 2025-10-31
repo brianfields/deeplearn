@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from io import BytesIO
-from unittest.mock import AsyncMock, MagicMock
 import json
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
 import uuid
 
 from pypdf import PdfWriter
@@ -20,7 +20,6 @@ from .service.extractors import (
     extract_text_from_photo,
     extract_text_from_txt,
 )
-from .service.facade import ResourceService
 from .service.facade import MAX_EXTRACTED_TEXT_BYTES
 
 
@@ -126,7 +125,7 @@ async def test_create_generated_source_resource_persists_metadata() -> None:
 
     repo.create.return_value = _FakeResource()
 
-    service = ResourceService(repo=repo, object_store=MagicMock())
+    service = ResourceService(repo=repo, object_store=MagicMock(), llm_services=MagicMock())
 
     result = await service.create_generated_source_resource(
         user_id=1,
@@ -142,15 +141,18 @@ async def test_create_generated_source_resource_persists_metadata() -> None:
     kwargs = repo.create.await_args.kwargs
     assert kwargs["resource_type"] == "generated_source"
     assert kwargs["extracted_text"] == "Combined source text"
+
+
+@pytest.mark.asyncio
 async def test_extract_text_from_photo_parses_response() -> None:
     """Vision extraction should combine description and visible text."""
 
     class FakeLLM:
         async def generate_response(self, *_args, **kwargs):  # type: ignore[override]
             assert kwargs["model"] == "gpt-5-mini"
-            assert kwargs["reasoning"] == {"effort": "medium"}
+            assert kwargs["reasoning"] == {"effort": "low"}
             assert kwargs["text"] == {"verbosity": "medium"}
-            assert kwargs["max_output_tokens"] == 900
+            assert kwargs["max_output_tokens"] == 100000
             return (
                 SimpleNamespace(
                     content=json.dumps(

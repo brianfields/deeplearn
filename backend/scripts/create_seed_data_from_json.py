@@ -30,7 +30,16 @@ from modules.content.models import (
     UnitModel,
     UnitResourceModel,
 )
-from modules.content.package_models import GlossaryTerm, LessonPackage, MCQAnswerKey, MCQExercise, MCQOption, Meta
+from modules.content.package_models import (
+    GlossaryTerm,
+    LessonPackage,
+    MCQAnswerKey,
+    MCQExercise,
+    MCQOption,
+    Meta,
+    ShortAnswerExercise,
+    WrongAnswer,
+)
 from modules.conversation_engine.models import ConversationMessageModel, ConversationModel
 from modules.flow_engine.models import FlowRunModel, FlowStepRunModel
 from modules.infrastructure.public import infrastructure_provider
@@ -56,6 +65,7 @@ def build_lesson_package(
     glossary_terms: list[dict[str, str]],
     mini_lesson: str,
     mcqs: list[dict[str, Any]],
+    short_answers: list[dict[str, Any]] | None = None,
     misconceptions: list[dict[str, str]] | None = None,
     confusables: list[dict[str, str]] | None = None,
 ) -> LessonPackage:
@@ -84,7 +94,7 @@ def build_lesson_package(
         for idx, term in enumerate(glossary_terms, start=1)
     ]
 
-    exercises: list[MCQExercise] = []
+    exercises: list[MCQExercise | ShortAnswerExercise] = []
     for idx, mcq in enumerate(mcqs, start=1):
         if unit_lo_ids:
             lo_index = max(1, min(mcq.get("lo_index", 1), len(unit_lo_ids)))
@@ -124,6 +134,45 @@ def build_lesson_package(
                     option_id=correct_option_id,
                     rationale_right=mcq.get("correct_rationale"),
                 ),
+            )
+        )
+
+    for idx, short_answer in enumerate(short_answers or [], start=1):
+        lo_candidates = list(short_answer.get("learning_objectives_covered", []))
+        sa_lo_id: str | None = None
+
+        if unit_lo_ids:
+            sa_lo_id = next((candidate for candidate in lo_candidates if candidate in unit_lo_ids), None)
+            if sa_lo_id is None:
+                lo_index = short_answer.get("lo_index")
+                sa_lo_id = unit_lo_ids[lo_index - 1] if isinstance(lo_index, int) and 1 <= lo_index <= len(unit_lo_ids) else unit_lo_ids[0]
+        else:
+            sa_lo_id = short_answer.get("lo_id")
+
+        if not sa_lo_id:
+            sa_lo_id = unit_lo_ids[0] if unit_lo_ids else f"{lesson_id}_lo_{idx}"
+
+        wrong_answers = [
+            WrongAnswer(
+                answer=wrong.get("answer", ""),
+                explanation=wrong.get("explanation", ""),
+                misconception_ids=list(wrong.get("misconception_ids", []) or []),
+            )
+            for wrong in short_answer.get("wrong_answers", [])
+        ]
+
+        exercises.append(
+            ShortAnswerExercise(
+                id=f"{lesson_id}_sa_{idx}",
+                lo_id=sa_lo_id,
+                cognitive_level=short_answer.get("cognitive_level"),
+                estimated_difficulty=short_answer.get("difficulty"),
+                misconceptions_used=list(short_answer.get("misconceptions", [])),
+                stem=short_answer.get("stem", ""),
+                canonical_answer=short_answer.get("canonical_answer", ""),
+                acceptable_answers=list(short_answer.get("acceptable_answers", [])),
+                wrong_answers=wrong_answers,
+                explanation_correct=short_answer.get("explanation_correct", ""),
             )
         )
 
@@ -177,8 +226,12 @@ def create_sample_flow_run(
     objectives = [obj.get("text") if isinstance(obj, dict) else str(obj) for obj in raw_unit_objectives]
     objective_ids = [obj.get("id") for obj in raw_unit_objectives if isinstance(obj, dict) and obj.get("id") is not None]
     key_terms = [term["term"] for term in package.get("glossary", {}).get("terms", [])]
-    total_mcqs = len(package.get("exercises", []))
-    lo_coverage = len({exercise["lo_id"] for exercise in package.get("exercises", [])}) if total_mcqs else 0
+    exercises = package.get("exercises", [])
+    mcq_exercises = [ex for ex in exercises if ex.get("exercise_type") == "mcq"]
+    short_answer_exercises = [ex for ex in exercises if ex.get("exercise_type") == "short_answer"]
+    total_mcqs = len(mcq_exercises)
+    total_short_answers = len(short_answer_exercises)
+    lo_coverage = len({exercise.get("lo_id") for exercise in exercises if exercise.get("lo_id")}) if exercises else 0
 
     return {
         "id": flow_run_id,
@@ -187,8 +240,8 @@ def create_sample_flow_run(
         "status": "completed",
         "execution_mode": "sync",
         "current_step": None,
-        "step_progress": total_mcqs,
-        "total_steps": 5,
+        "step_progress": 6,
+        "total_steps": 6,
         "progress_percentage": 100.0,
         "created_at": now,
         "updated_at": now,
@@ -220,7 +273,11 @@ def create_sample_flow_run(
             "mini_lesson": package.get("mini_lesson"),
             "mcqs": {
                 "metadata": {"total_mcqs": total_mcqs, "lo_coverage": lo_coverage},
-                "mcqs": package.get("exercises", []),
+                "mcqs": mcq_exercises,
+            },
+            "short_answers": {
+                "metadata": {"total_short_answers": total_short_answers},
+                "short_answers": short_answer_exercises,
             },
         },
         "flow_metadata": {"lesson_id": lesson_id, "package_version": lesson_data.get("package_version", 1)},
@@ -238,6 +295,9 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, lesson_data: dict[str, Any])
     objective_ids = [obj.get("id") for obj in raw_unit_objectives if isinstance(obj, dict) and obj.get("id") is not None]
     key_terms = [term["term"] for term in package.get("glossary", {}).get("terms", [])]
     exercises = package.get("exercises", [])
+    mcq_exercises = [ex for ex in exercises if ex.get("exercise_type") == "mcq"]
+    short_answer_exercises = [ex for ex in exercises if ex.get("exercise_type") == "short_answer"]
+    short_answer_lo_coverage = len({ex.get("lo_id") for ex in short_answer_exercises if ex.get("lo_id")}) if short_answer_exercises else 0
     misconceptions = package.get("misconceptions", [])
     confusables = package.get("confusables", [])
 
@@ -314,18 +374,43 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, lesson_data: dict[str, Any])
                 "glossary": package.get("glossary", {}),
             },
             "outputs": {
-                "mcqs": {
-                    "metadata": {
-                        "total_mcqs": len(exercises),
-                        "lo_coverage": len({exercise["lo_id"] for exercise in exercises}) if exercises else 0,
-                    },
-                    "mcqs": exercises,
-                }
+                "metadata": {
+                    "total_mcqs": len(mcq_exercises),
+                    "lo_coverage": len({ex.get("lo_id") for ex in mcq_exercises if ex.get("lo_id")}) if mcq_exercises else 0,
+                },
+                "mcqs": mcq_exercises,
             },
             "prompt_file": "generate_mcqs.md",
             "tokens_used": 3500,
             "cost_estimate": 0.0175,
             "execution_time_ms": 8000,
+        },
+        {
+            "step_name": "generate_short_answers",
+            "step_order": 6,
+            "inputs": {
+                "lesson_title": lesson_data["title"],
+                "lesson_objective": objectives[0] if objectives else "",
+                "learner_level": lesson_data["learner_level"],
+                "voice": "narrative",
+                "learning_objectives": objectives,
+                "learning_objective_ids": objective_ids,
+                "mini_lesson": package.get("mini_lesson"),
+                "glossary": package.get("glossary", {}),
+                "misconceptions": misconceptions,
+                "mcq_stems": [ex.get("stem") for ex in mcq_exercises],
+            },
+            "outputs": {
+                "metadata": {
+                    "total_short_answers": len(short_answer_exercises),
+                    "lo_coverage": short_answer_lo_coverage,
+                },
+                "short_answers": short_answer_exercises,
+            },
+            "prompt_file": "generate_short_answers.md",
+            "tokens_used": 3200,
+            "cost_estimate": 0.016,
+            "execution_time_ms": 6500,
         },
     ]
 
@@ -372,6 +457,7 @@ def create_sample_llm_requests(
         "generate_mini_lesson": "Write a cohesive mini-lesson covering the key ideas.",
         "generate_glossary": "Assemble a concise glossary for the important terms.",
         "generate_mcqs": "Create multiple-choice questions with rationales and metadata for each objective.",
+        "generate_short_answers": "Craft short-answer questions with canonical, acceptable, and common wrong responses.",
     }
 
     for step_run in step_runs:
@@ -620,6 +706,7 @@ async def process_unit_from_json(
             glossary_terms=lesson_spec.get("glossary_terms", []),
             mini_lesson=lesson_spec.get("mini_lesson", ""),
             mcqs=lesson_spec.get("mcqs", []),
+            short_answers=lesson_spec.get("short_answers", []),
             misconceptions=lesson_spec.get("misconceptions"),
             confusables=lesson_spec.get("confusables"),
         )
