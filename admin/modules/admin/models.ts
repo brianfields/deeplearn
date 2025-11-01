@@ -286,6 +286,7 @@ export interface ApiUserLLMRequestSummary {
 export interface ApiUserConversationSummary {
   id: string;
   title: string | null;
+  conversation_type: string; // "learning_coach" or "teaching_assistant"
   status: string;
   message_count: number;
   last_message_at: string | null;
@@ -359,6 +360,7 @@ export interface UserLLMRequestSummary {
 export interface UserConversationSummary {
   id: string;
   title: string | null;
+  conversation_type: string; // "learning_coach" or "teaching_assistant"
   status: string;
   message_count: number;
   last_message_at: Date | null;

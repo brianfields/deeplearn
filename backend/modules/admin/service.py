@@ -20,6 +20,10 @@ from modules.llm_services.public import LLMServicesAdminProvider
 from modules.user.public import UserProvider, UserRead
 
 from .models import (
+    ConversationDetail,
+    ConversationMessageAdmin,
+    ConversationsListResponse,
+    ConversationSummaryAdmin,
     FlowRunDetails,
     FlowRunsListResponse,
     FlowRunSummary,
@@ -28,10 +32,6 @@ from .models import (
     LearningCoachConversationsListResponse,
     LearningCoachConversationSummaryAdmin,
     LearningCoachMessageAdmin,
-    ConversationDetail,
-    ConversationsListResponse,
-    ConversationSummaryAdmin,
-    ConversationMessageAdmin,
     LearningSessionsListResponse,
     LearningSessionSummary,
     LessonDetails,
@@ -238,11 +238,7 @@ class AdminService:
                 id=summary.id,
                 user_id=summary.user_id,
                 title=summary.title,
-                conversation_type=summary.conversation_type or (
-                    LEARNING_COACH_CONVERSATION_TYPE
-                    if summary.metadata and "topic" in summary.metadata
-                    else TEACHING_ASSISTANT_CONVERSATION_TYPE
-                ),
+                conversation_type=summary.conversation_type or (LEARNING_COACH_CONVERSATION_TYPE if summary.metadata and "topic" in summary.metadata else TEACHING_ASSISTANT_CONVERSATION_TYPE),
                 status=summary.status,
                 message_count=summary.message_count,
                 created_at=summary.created_at,
@@ -253,9 +249,7 @@ class AdminService:
             for summary in visible
         ]
 
-        total_count = await self._count_conversations(
-            conversation_type=conversation_type, status=status
-        )
+        total_count = await self._count_conversations(conversation_type=conversation_type, status=status)
 
         return ConversationsListResponse(
             conversations=conversations,
@@ -265,9 +259,7 @@ class AdminService:
             has_next=has_next,
         )
 
-    async def get_conversation(
-        self, conversation_id: str
-    ) -> ConversationDetail | None:
+    async def get_conversation(self, conversation_id: str) -> ConversationDetail | None:
         """Return transcript-level detail for any conversation type."""
 
         if not self.conversation_engine:
@@ -322,11 +314,7 @@ class AdminService:
         ]
 
         # Determine conversation type
-        conv_type = (
-            LEARNING_COACH_CONVERSATION_TYPE
-            if metadata.get("topic")
-            else TEACHING_ASSISTANT_CONVERSATION_TYPE
-        )
+        conv_type = LEARNING_COACH_CONVERSATION_TYPE if metadata.get("topic") else TEACHING_ASSISTANT_CONVERSATION_TYPE
 
         return ConversationDetail(
             conversation_id=detail.id,
@@ -476,15 +464,14 @@ class AdminService:
 
         # Combine, sort by last_message_at descending, and take top 'limit'
         all_summaries = coach_summaries + assistant_summaries
-        all_summaries.sort(
-            key=lambda x: x.last_message_at or x.updated_at, reverse=True
-        )
+        all_summaries.sort(key=lambda x: x.last_message_at or x.updated_at, reverse=True)
         recent = all_summaries[:limit]
 
         return [
             UserConversationSummary(
                 id=summary.id,
                 title=summary.title,
+                conversation_type=summary.conversation_type,
                 status=summary.status,
                 message_count=summary.message_count,
                 last_message_at=summary.last_message_at,

@@ -260,6 +260,7 @@ class ConversationsListResponse(BaseModel):
 class UserConversationSummary(BaseModel):
     id: str
     title: str | None
+    conversation_type: str  # "learning_coach" or "teaching_assistant"
     status: str
     message_count: int
     last_message_at: datetime | None

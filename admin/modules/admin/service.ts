@@ -418,6 +418,7 @@ const userConversationToDTO = (
 ): UserConversationSummary => ({
   id: conversation.id,
   title: conversation.title ?? null,
+  conversation_type: conversation.conversation_type,
   status: conversation.status,
   message_count: conversation.message_count,
   last_message_at: conversation.last_message_at
