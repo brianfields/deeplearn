@@ -58,6 +58,14 @@ import {
 import { DownloadPrompt } from '../components/DownloadPrompt';
 import type { LOProgressItem } from '../../learning_session/models';
 import { Headphones } from 'lucide-react-native';
+import { TeachingAssistantButton } from '../../learning_conversations/components/TeachingAssistantButton';
+import { TeachingAssistantModal } from '../../learning_conversations/components/TeachingAssistantModal';
+import {
+  useStartTeachingAssistant,
+  useSubmitTeachingAssistantQuestion,
+  useTeachingAssistantSessionState,
+} from '../../learning_conversations/queries';
+import type { TeachingAssistantStateRequest } from '../../learning_conversations/models';
 
 type UnitDetailScreenNavigationProp = NativeStackNavigationProp<
   LearningStackParamList,
@@ -90,6 +98,29 @@ export function UnitDetailScreen() {
     downloadedAssets: number;
     storageBytes: number;
   }>({ assetCount: 0, downloadedAssets: 0, storageBytes: 0 });
+
+  // Teaching Assistant state
+  const [isAssistantOpen, setAssistantOpen] = useState(false);
+  const [assistantConversationId, setAssistantConversationId] = useState<
+    string | null
+  >(null);
+  const [assistantRequest, setAssistantRequest] =
+    useState<TeachingAssistantStateRequest | null>(null);
+
+  const startTeachingAssistant = useStartTeachingAssistant();
+  const submitTeachingAssistantQuestion = useSubmitTeachingAssistantQuestion();
+  const assistantSessionQuery =
+    useTeachingAssistantSessionState(assistantRequest);
+
+  const assistantState =
+    assistantSessionQuery.data ?? startTeachingAssistant.data ?? null;
+  const assistantMessages = assistantState?.messages ?? [];
+  const assistantQuickReplies = assistantState?.suggestedQuickReplies ?? [];
+  const assistantContext = assistantState?.context ?? null;
+  const isAssistantLoading =
+    startTeachingAssistant.isPending ||
+    submitTeachingAssistantQuestion.isPending ||
+    assistantSessionQuery.isFetching;
 
   const downloadStatus: DownloadStatus = useMemo(() => {
     return (unit?.downloadStatus as DownloadStatus | undefined) ?? 'idle';
@@ -252,6 +283,86 @@ export function UnitDetailScreen() {
       };
     });
   }, [loProgressById, unit?.learningObjectives]);
+
+  // Teaching Assistant handlers
+  const handleOpenAssistant = useCallback(() => {
+    if (!unitId) {
+      Alert.alert('Unavailable', 'Unit context is required to ask questions.');
+      return;
+    }
+
+    setAssistantOpen(true);
+
+    if (assistantConversationId) {
+      setAssistantRequest(prev => {
+        if (!prev || prev.conversationId !== assistantConversationId) {
+          return {
+            conversationId: assistantConversationId,
+            unitId,
+            lessonId: null,
+            sessionId: null,
+            userId: user ? String(user.id) : null,
+          };
+        }
+        return prev;
+      });
+      assistantSessionQuery.refetch();
+      return;
+    }
+
+    startTeachingAssistant.mutate(
+      {
+        unitId,
+        lessonId: null,
+        sessionId: null,
+        userId: user ? String(user.id) : null,
+      },
+      {
+        onSuccess: state => {
+          setAssistantConversationId(state.conversationId);
+          setAssistantRequest({
+            conversationId: state.conversationId,
+            unitId,
+            lessonId: null,
+            sessionId: null,
+            userId: user ? String(user.id) : null,
+          });
+        },
+        onError: () => {
+          setAssistantOpen(false);
+        },
+      }
+    );
+  }, [assistantConversationId, assistantSessionQuery, startTeachingAssistant, unitId, user]);
+
+  const handleAssistantClose = useCallback(() => {
+    setAssistantOpen(false);
+  }, []);
+
+  const handleAssistantSend = useCallback(
+    (message: string) => {
+      if (!assistantConversationId || !unitId) {
+        return;
+      }
+
+      submitTeachingAssistantQuestion.mutate({
+        conversationId: assistantConversationId,
+        message,
+        unitId,
+        lessonId: null,
+        sessionId: null,
+        userId: user ? String(user.id) : null,
+      });
+    },
+    [assistantConversationId, submitTeachingAssistantQuestion, unitId, user]
+  );
+
+  const handleAssistantQuickReply = useCallback(
+    (reply: string) => {
+      handleAssistantSend(reply);
+    },
+    [handleAssistantSend]
+  );
 
   // Resolve absolute podcast URL against API base if backend returned a relative path
   const infra = infrastructureProvider();
@@ -780,51 +891,63 @@ export function UnitDetailScreen() {
         )}
 
         {showLoSection ? (
-          <Box px="lg" mt="lg">
-            <Card variant="outlined" style={styles.loCard}>
-              <Text
-                variant="title"
-                style={[styles.loSectionTitle, { color: theme.colors.text }]}
-              >
-                Learning Objectives
-              </Text>
-              {unitLOProgressQuery.isLoading ? (
-                <View style={styles.loLoadingRow}>
-                  <ActivityIndicator
-                    color={theme.colors.primary}
-                    size="small"
-                  />
-                  <Text
-                    style={[
-                      styles.loLoadingText,
-                      { color: theme.colors.textSecondary },
-                    ]}
-                  >
-                    Updating progress…
-                  </Text>
-                </View>
-              ) : null}
-              <UnitObjectiveSummaryList
-                objectives={compactObjectives}
-                testIDPrefix="unit-lo-compact"
-              />
+          <>
+            <Box px="lg" mt="lg">
               <Button
-                title="View Detailed Progress"
+                title="Ask Questions About This Unit"
+                onPress={handleOpenAssistant}
                 variant="secondary"
-                onPress={() => {
-                  if (!unit?.id) {
-                    return;
-                  }
-                  navigation.navigate('UnitLODetail', {
-                    unitId: unit.id,
-                    unitTitle: unit.title,
-                  });
-                }}
-                style={styles.loDetailButton}
-                testID="view-detailed-progress"
+                size="large"
+                fullWidth
+                testID="unit-ask-questions-button"
               />
-            </Card>
-          </Box>
+            </Box>
+            <Box px="lg" mt="md">
+              <Card variant="outlined" style={styles.loCard}>
+                <Text
+                  variant="title"
+                  style={[styles.loSectionTitle, { color: theme.colors.text }]}
+                >
+                  Learning Objectives
+                </Text>
+                {unitLOProgressQuery.isLoading ? (
+                  <View style={styles.loLoadingRow}>
+                    <ActivityIndicator
+                      color={theme.colors.primary}
+                      size="small"
+                    />
+                    <Text
+                      style={[
+                        styles.loLoadingText,
+                        { color: theme.colors.textSecondary },
+                      ]}
+                    >
+                      Updating progress…
+                    </Text>
+                  </View>
+                ) : null}
+                <UnitObjectiveSummaryList
+                  objectives={compactObjectives}
+                  testIDPrefix="unit-lo-compact"
+                />
+                <Button
+                  title="View Detailed Progress"
+                  variant="secondary"
+                  onPress={() => {
+                    if (!unit?.id) {
+                      return;
+                    }
+                    navigation.navigate('UnitLODetail', {
+                      unitId: unit.id,
+                      unitTitle: unit.title,
+                    });
+                  }}
+                  style={styles.loDetailButton}
+                  testID="view-detailed-progress"
+                />
+              </Card>
+            </Box>
+          </>
         ) : null}
 
         <Box px="lg" mt="lg">
@@ -929,6 +1052,16 @@ export function UnitDetailScreen() {
           />
         </Fragment>
       )}
+      <TeachingAssistantModal
+        visible={isAssistantOpen}
+        messages={assistantMessages}
+        suggestedQuickReplies={assistantQuickReplies}
+        onSend={handleAssistantSend}
+        onSelectReply={handleAssistantQuickReply}
+        context={assistantContext}
+        isLoading={isAssistantLoading}
+        onClose={handleAssistantClose}
+      />
     </SafeAreaView>
   );
 }

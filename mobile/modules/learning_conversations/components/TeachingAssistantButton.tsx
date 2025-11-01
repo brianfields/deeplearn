@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 18,
-    paddingVertical: 14,
+    paddingVertical: 18,
     borderRadius: 999,
     backgroundColor: theme.colors.primary,
     opacity: 0.85,
