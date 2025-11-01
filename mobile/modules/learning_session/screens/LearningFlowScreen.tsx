@@ -366,6 +366,7 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
         const session = await startSessionMutation.mutateAsync({
           lessonId: lesson.id,
           unitId,
+          userId: user ? String(user.id) : undefined,
         });
         setSessionId(session.id);
       } catch (err) {
@@ -518,6 +519,7 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
         const session = await startSessionMutation.mutateAsync({
           lessonId: lesson.id,
           unitId,
+          userId: user ? String(user.id) : undefined,
         });
         setSessionId(session.id);
       } catch (err) {

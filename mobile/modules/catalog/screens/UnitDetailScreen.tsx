@@ -58,7 +58,6 @@ import {
 import { DownloadPrompt } from '../components/DownloadPrompt';
 import type { LOProgressItem } from '../../learning_session/models';
 import { Headphones } from 'lucide-react-native';
-import { TeachingAssistantButton } from '../../learning_conversations/components/TeachingAssistantButton';
 import { TeachingAssistantModal } from '../../learning_conversations/components/TeachingAssistantModal';
 import {
   useStartTeachingAssistant,
@@ -333,7 +332,13 @@ export function UnitDetailScreen() {
         },
       }
     );
-  }, [assistantConversationId, assistantSessionQuery, startTeachingAssistant, unitId, user]);
+  }, [
+    assistantConversationId,
+    assistantSessionQuery,
+    startTeachingAssistant,
+    unitId,
+    user,
+  ]);
 
   const handleAssistantClose = useCallback(() => {
     setAssistantOpen(false);
