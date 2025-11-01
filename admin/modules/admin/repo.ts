@@ -108,14 +108,14 @@ export const AdminRepo = {
 
       const suffix = queryParams.toString() ? `?${queryParams.toString()}` : '';
       const { data } = await apiClient.get<ApiConversationsListResponse>(
-        `${ADMIN_BASE}/learning-coach/conversations${suffix}`
+        `${ADMIN_BASE}/conversations${suffix}`
       );
       return data;
     },
 
     async byId(conversationId: string): Promise<ApiConversationDetail> {
       const { data } = await apiClient.get<ApiConversationDetail>(
-        `${ADMIN_BASE}/learning-coach/conversations/${conversationId}`
+        `${ADMIN_BASE}/conversations/${conversationId}`
       );
       return data;
     },

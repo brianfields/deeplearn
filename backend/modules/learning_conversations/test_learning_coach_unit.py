@@ -14,7 +14,7 @@ from modules.conversation_engine.public import (
 )
 from modules.resource.service import ResourceRead
 
-from .conversation import LearningCoachConversation
+from .conversations.learning_coach import LearningCoachConversation
 from .dtos import UNSET
 from .service import LearningCoachService, build_resource_context_prompt
 
@@ -88,10 +88,10 @@ async def test_start_session_records_topic_and_returns_assistant_turn() -> None:
 
     with (
         patch("modules.conversation_engine.base_conversation.infrastructure_provider", return_value=mock_infra),
-        patch("modules.learning_coach.conversation.infrastructure_provider", return_value=mock_infra),
+        patch("modules.learning_conversations.conversations.learning_coach.infrastructure_provider", return_value=mock_infra),
         patch("modules.conversation_engine.base_conversation.llm_services_provider", return_value=mock_llm_services),
         patch("modules.conversation_engine.base_conversation.ConversationEngineService", return_value=service_instance),
-        patch("modules.learning_coach.service.fetch_resources_for_ids", AsyncMock(return_value=[])),
+        patch("modules.learning_conversations.service.fetch_resources_for_ids", AsyncMock(return_value=[])),
     ):
         state = await conversation.start_session(topic="algebra")
 
@@ -172,7 +172,7 @@ async def test_submit_learner_turn_appends_message() -> None:
     service_instance.update_conversation_metadata.return_value = summary
 
     # Mock the structured LLM response
-    from modules.learning_coach.conversation import CoachResponse
+    from modules.learning_conversations.conversations.learning_coach import CoachResponse
 
     coach_response = CoachResponse(
         message="Noted! I'll include project work in the plan.",
@@ -187,10 +187,10 @@ async def test_submit_learner_turn_appends_message() -> None:
 
     with (
         patch("modules.conversation_engine.base_conversation.infrastructure_provider", return_value=mock_infra),
-        patch("modules.learning_coach.conversation.infrastructure_provider", return_value=mock_infra),
+        patch("modules.learning_conversations.conversations.learning_coach.infrastructure_provider", return_value=mock_infra),
         patch("modules.conversation_engine.base_conversation.llm_services_provider", return_value=mock_llm_services),
         patch("modules.conversation_engine.base_conversation.ConversationEngineService", return_value=service_instance),
-        patch("modules.learning_coach.service.fetch_resources_for_ids", AsyncMock(return_value=[])),
+        patch("modules.learning_conversations.service.fetch_resources_for_ids", AsyncMock(return_value=[])),
     ):
         state = await conversation.submit_learner_turn(
             _conversation_id=str(conversation_id),
@@ -275,10 +275,10 @@ async def test_accept_brief_updates_metadata() -> None:
 
     with (
         patch("modules.conversation_engine.base_conversation.infrastructure_provider", return_value=mock_infra),
-        patch("modules.learning_coach.conversation.infrastructure_provider", return_value=mock_infra),
+        patch("modules.learning_conversations.conversations.learning_coach.infrastructure_provider", return_value=mock_infra),
         patch("modules.conversation_engine.base_conversation.llm_services_provider", return_value=AsyncMock()),
         patch("modules.conversation_engine.base_conversation.ConversationEngineService", return_value=service_instance),
-        patch("modules.learning_coach.service.fetch_resources_for_ids", AsyncMock(return_value=[])),
+        patch("modules.learning_conversations.service.fetch_resources_for_ids", AsyncMock(return_value=[])),
     ):
         state = await conversation.accept_brief(
             _conversation_id=str(conversation_id),
@@ -376,10 +376,10 @@ async def test_add_resource_attaches_metadata_and_returns_state() -> None:
 
     with (
         patch("modules.conversation_engine.base_conversation.infrastructure_provider", return_value=mock_infra),
-        patch("modules.learning_coach.conversation.infrastructure_provider", return_value=mock_infra),
+        patch("modules.learning_conversations.conversations.learning_coach.infrastructure_provider", return_value=mock_infra),
         patch("modules.conversation_engine.base_conversation.llm_services_provider", return_value=mock_llm_services),
         patch("modules.conversation_engine.base_conversation.ConversationEngineService", return_value=service_instance),
-        patch("modules.learning_coach.service.fetch_resources_for_ids", mock_fetch),
+        patch("modules.learning_conversations.service.fetch_resources_for_ids", mock_fetch),
     ):
         state = await conversation.add_resource(
             _conversation_id=str(conversation_id),
@@ -455,7 +455,7 @@ async def test_service_get_session_state_uses_infrastructure() -> None:
     service = LearningCoachService(infrastructure=mock_infra)
     service.get_conversation_resources = AsyncMock(return_value=[])
 
-    with patch("modules.learning_coach.service.conversation_engine_provider", return_value=async_engine):
+    with patch("modules.learning_conversations.service.conversation_engine_provider", return_value=async_engine):
         state = await service.get_session_state(str(conversation_id))
 
     mock_infra.initialize.assert_called_once()
@@ -497,7 +497,7 @@ async def test_service_list_conversations_returns_summaries() -> None:
 
     service = LearningCoachService(infrastructure=mock_infra)
 
-    with patch("modules.learning_coach.service.conversation_engine_provider", return_value=async_engine):
+    with patch("modules.learning_conversations.service.conversation_engine_provider", return_value=async_engine):
         results = await service.list_conversations(limit=10)
 
     async_engine.list_conversations_by_type.assert_awaited_once()

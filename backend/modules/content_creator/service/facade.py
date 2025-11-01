@@ -12,10 +12,10 @@ from datetime import UTC, datetime
 import logging
 
 from modules.content.public import ContentProvider, UnitCreate, UnitRead, UnitStatus
-from modules.learning_coach.public import (
-    LearningCoachProvider,
+from modules.learning_conversations.public import (
     LearningCoachSessionState,
-    learning_coach_provider,
+    LearningConversationsProvider,
+    learning_conversations_provider,
 )
 from modules.resource.public import ResourceProvider, ResourceRead
 
@@ -40,13 +40,13 @@ class ContentCreatorService:
         content: ContentProvider,
         podcast_generator: UnitPodcastGenerator | None = None,
         lesson_podcast_generator: LessonPodcastGenerator | None = None,
-        learning_coach_factory: Callable[[], LearningCoachProvider] | None = None,
+        learning_coach_factory: Callable[[], LearningConversationsProvider] | None = None,
         resource_factory: Callable[[], Awaitable[ResourceProvider]] | None = None,
     ) -> None:
         """Initialize with content storage only - flows handle LLM interactions."""
 
         self.content = content
-        self._learning_coach_factory = learning_coach_factory or learning_coach_provider
+        self._learning_coach_factory = learning_coach_factory or learning_conversations_provider
         self._resource_factory = resource_factory
         self._resource_service: ResourceProvider | None = None
         self._prompt_handler = PromptHandler()

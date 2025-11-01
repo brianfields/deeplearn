@@ -11,9 +11,8 @@ import {
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../../user/public';
 import { uiSystemProvider } from '../../ui_system/public';
-import { ConversationList } from '../components/ConversationList';
-import { QuickReplies } from '../components/QuickReplies';
-import { Composer } from '../components/Composer';
+import { ConversationContainer } from '../components/ConversationContainer';
+import { ConversationHeader } from '../components/ConversationHeader';
 import { BriefCard } from '../components/BriefCard';
 import {
   useAcceptBriefMutation,
@@ -425,19 +424,7 @@ export function LearningCoachScreen({
 
   return (
     <SafeAreaView style={styles.screen}>
-      <View style={styles.header}>
-        <Pressable
-          onPress={handleCancel}
-          style={({ pressed }) => [
-            styles.backButton,
-            { opacity: pressed ? 0.6 : 1 },
-          ]}
-        >
-          <Text style={styles.backButtonText}>✕</Text>
-        </Pressable>
-        <Text style={styles.headerTitle}>Learning Coach</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+      <ConversationHeader title="Learning Coach" onClose={handleCancel} />
       <View style={styles.body}>
         {!hasLearnerMessage ? (
           <View style={styles.uploadPrompt}>
@@ -463,10 +450,23 @@ export function LearningCoachScreen({
             </Pressable>
           </View>
         ) : null}
-        <View style={styles.listWrapper}>
-          <ConversationList
+        <View style={styles.conversationWrapper}>
+          <ConversationContainer
             messages={displayMessages}
+            suggestedReplies={quickReplies}
+            onSendMessage={handleSend}
+            onSelectReply={handleQuickReply}
             isLoading={isCoachLoading}
+            disabled={isCoachLoading || isAccepting}
+            onAttachResource={handleAddResource}
+            attachDisabled={
+              !canAttachResource ||
+              isCoachLoading ||
+              isAccepting ||
+              isProcessingResource
+            }
+            composerPlaceholder="Tell the coach what you need"
+            loadingMessage="Coach is thinking..."
           />
         </View>
       </View>
@@ -541,22 +541,6 @@ export function LearningCoachScreen({
           isAccepting={isAccepting}
         />
       ) : null}
-      <QuickReplies
-        onSelect={handleQuickReply}
-        disabled={isCoachLoading}
-        replies={quickReplies}
-      />
-      <Composer
-        onSend={handleSend}
-        disabled={isCoachLoading || isAccepting}
-        onAttach={handleAddResource}
-        attachDisabled={
-          !canAttachResource ||
-          isCoachLoading ||
-          isAccepting ||
-          isProcessingResource
-        }
-      />
     </SafeAreaView>
   );
 }
@@ -569,7 +553,7 @@ const styles = StyleSheet.create({
   body: {
     flex: 1,
   },
-  listWrapper: {
+  conversationWrapper: {
     flex: 1,
   },
   loadingContainer: {
@@ -582,36 +566,6 @@ const styles = StyleSheet.create({
   loadingText: {
     color: theme.colors.text,
     fontSize: 16,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: theme.colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border ?? 'rgba(0,0,0,0.1)',
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 20,
-  },
-  backButtonText: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: theme.colors.text,
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: theme.colors.text,
-  },
-  headerSpacer: {
-    width: 40,
   },
   uploadPrompt: {
     paddingHorizontal: 16,

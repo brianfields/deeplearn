@@ -177,6 +177,7 @@ export interface ConversationMessage {
 
 export interface ConversationDetail {
   conversation_id: string;
+  conversation_type: string; // "learning_coach" or "teaching_assistant"
   messages: ConversationMessage[];
   metadata: Record<string, any>;
   proposed_brief: Record<string, any> | null;
@@ -188,6 +189,7 @@ export interface ConversationSummary {
   id: string;
   user_id: number | string | null;
   title: string | null;
+  conversation_type: string; // "learning_coach" or "teaching_assistant"
   status: string;
   message_count: number;
   created_at: Date;
@@ -284,6 +286,7 @@ export interface ApiUserLLMRequestSummary {
 export interface ApiUserConversationSummary {
   id: string;
   title: string | null;
+  conversation_type: string; // "learning_coach" or "teaching_assistant"
   status: string;
   message_count: number;
   last_message_at: string | null;
@@ -357,6 +360,7 @@ export interface UserLLMRequestSummary {
 export interface UserConversationSummary {
   id: string;
   title: string | null;
+  conversation_type: string; // "learning_coach" or "teaching_assistant"
   status: string;
   message_count: number;
   last_message_at: Date | null;
@@ -831,6 +835,7 @@ export interface ApiConversationMessage {
 
 export interface ApiConversationDetail {
   conversation_id: string;
+  conversation_type: string; // "learning_coach" or "teaching_assistant"
   messages: ApiConversationMessage[];
   metadata: Record<string, any> | null;
   proposed_brief?: Record<string, any> | null;
@@ -838,20 +843,11 @@ export interface ApiConversationDetail {
   resources?: ApiResourceSummary[];
 }
 
-export interface ApiResourceSummary {
-  id: string;
-  resource_type: string;
-  filename: string | null;
-  source_url: string | null;
-  file_size: number | null;
-  created_at: string;
-  preview_text: string;
-}
-
 export interface ApiConversationSummary {
   id: string;
   user_id: number | string | null;
   title: string | null;
+  conversation_type: string; // "learning_coach" or "teaching_assistant"
   status: string;
   message_count: number;
   created_at: string;

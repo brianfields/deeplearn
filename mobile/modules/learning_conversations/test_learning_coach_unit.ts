@@ -1,4 +1,6 @@
 import { LearningCoachRepo } from './repo';
+import { LearningCoachService } from './service';
+import type { TeachingAssistantSessionState } from './models';
 
 const mockRequest = jest.fn();
 
@@ -160,7 +162,7 @@ describe('LearningCoachRepo', () => {
     });
 
     expect(mockRequest).toHaveBeenLastCalledWith(
-      `/api/v1/learning_coach/conversations/${encodeURIComponent(state.conversationId)}/resources`,
+      `/api/v1/learning_conversations/coach/conversations/${encodeURIComponent(state.conversationId)}/resources`,
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ resource_id: 'resource-9', user_id: null }),
@@ -203,7 +205,7 @@ describe('LearningCoachRepo', () => {
 
     expect(mockRequest).toHaveBeenNthCalledWith(
       2,
-      '/api/v1/learning_coach/session/accept',
+      '/api/v1/learning_conversations/coach/session/accept',
       expect.objectContaining({
         body: JSON.stringify({
           conversation_id: 'conv-9',
@@ -212,5 +214,171 @@ describe('LearningCoachRepo', () => {
         }),
       })
     );
+  });
+
+  it('maps teaching assistant session state to DTO', async () => {
+    mockRequest.mockResolvedValueOnce({
+      conversation_id: 'ta-conv',
+      unit_id: 'unit-1',
+      lesson_id: 'lesson-1',
+      session_id: 'session-1',
+      metadata: { topic: 'fractions' },
+      messages: [
+        {
+          id: 'msg-1',
+          role: 'assistant',
+          content: 'Hello from the assistant',
+          created_at: '2024-02-01T00:00:00Z',
+          metadata: {},
+          suggested_quick_replies: ['Give me a hint', 'Show an example'],
+        },
+      ],
+      suggested_quick_replies: ['Continue lesson'],
+      context: {
+        unit_id: 'unit-1',
+        lesson_id: 'lesson-1',
+        session_id: 'session-1',
+        session: { progress_percentage: 40 },
+        exercise_attempt_history: [{ exercise_id: 'ex-1', is_correct: false }],
+        lesson: { title: 'Lesson 1' },
+        unit: { title: 'Algebra Unit' },
+        unit_session: { id: 'us-1' },
+        unit_resources: [{ id: 'res-1' }],
+      },
+    });
+
+    const repo = new LearningCoachRepo();
+    const state = await repo.startTeachingAssistantSession({
+      unitId: 'unit-1',
+      lessonId: 'lesson-1',
+      sessionId: 'session-1',
+    });
+
+    expect(state.conversationId).toBe('ta-conv');
+    expect(state.unitId).toBe('unit-1');
+    expect(state.messages[0].suggestedQuickReplies).toEqual([
+      'Give me a hint',
+      'Show an example',
+    ]);
+    expect(state.suggestedQuickReplies).toEqual(['Continue lesson']);
+    expect(state.context.lesson?.title).toBe('Lesson 1');
+    expect(state.context.unitResources).toEqual([{ id: 'res-1' }]);
+  });
+
+  it('includes query parameters when fetching teaching assistant session state', async () => {
+    mockRequest.mockResolvedValueOnce({
+      conversation_id: 'ta-conv',
+      unit_id: 'unit-1',
+      lesson_id: 'lesson-1',
+      session_id: 'session-1',
+      metadata: {},
+      messages: [],
+      context: {
+        unit_id: 'unit-1',
+        lesson_id: 'lesson-1',
+        session_id: 'session-1',
+      },
+    });
+
+    const repo = new LearningCoachRepo();
+    await repo.getTeachingAssistantSessionState({
+      conversationId: 'ta-conv',
+      unitId: 'unit-1',
+      lessonId: 'lesson-1',
+      sessionId: 'session-1',
+      userId: '99',
+    });
+
+    expect(mockRequest).toHaveBeenLastCalledWith(
+      '/api/v1/learning_conversations/teaching_assistant/ta-conv?unit_id=unit-1&lesson_id=lesson-1&session_id=session-1&user_id=99',
+      expect.objectContaining({ method: 'GET' })
+    );
+  });
+});
+
+describe('LearningCoachService (teaching assistant)', () => {
+  const exampleState = {
+    conversationId: 'conv-service',
+    unitId: 'unit-service',
+    lessonId: 'lesson-service',
+    sessionId: 'session-service',
+    messages: [],
+    suggestedQuickReplies: [],
+    metadata: {},
+    context: {
+      unitId: 'unit-service',
+      lessonId: 'lesson-service',
+      sessionId: 'session-service',
+      session: null,
+      exerciseAttemptHistory: [],
+      lesson: null,
+      unit: null,
+      unitSession: null,
+      unitResources: [],
+    },
+  } as TeachingAssistantSessionState;
+
+  it('delegates startTeachingAssistantSession', async () => {
+    const repo = {
+      startTeachingAssistantSession: jest.fn().mockResolvedValue(exampleState),
+    } as unknown as LearningCoachRepo;
+
+    const service = new LearningCoachService(repo);
+    const payload = {
+      unitId: 'unit-service',
+      lessonId: 'lesson-service',
+      sessionId: 'session-service',
+      userId: '55',
+    };
+
+    const result = await service.startTeachingAssistantSession(payload);
+
+    expect(repo.startTeachingAssistantSession).toHaveBeenCalledWith(payload);
+    expect(result).toBe(exampleState);
+  });
+
+  it('delegates submitTeachingAssistantQuestion', async () => {
+    const repo = {
+      submitTeachingAssistantQuestion: jest
+        .fn()
+        .mockResolvedValue(exampleState),
+    } as unknown as LearningCoachRepo;
+
+    const service = new LearningCoachService(repo);
+    const payload = {
+      conversationId: 'conv-service',
+      message: 'How do I do this?',
+      unitId: 'unit-service',
+      lessonId: 'lesson-service',
+      sessionId: 'session-service',
+      userId: '55',
+    };
+
+    const result = await service.submitTeachingAssistantQuestion(payload);
+
+    expect(repo.submitTeachingAssistantQuestion).toHaveBeenCalledWith(payload);
+    expect(result).toBe(exampleState);
+  });
+
+  it('delegates getTeachingAssistantSessionState', async () => {
+    const repo = {
+      getTeachingAssistantSessionState: jest
+        .fn()
+        .mockResolvedValue(exampleState),
+    } as unknown as LearningCoachRepo;
+
+    const service = new LearningCoachService(repo);
+    const payload = {
+      conversationId: 'conv-service',
+      unitId: 'unit-service',
+      lessonId: 'lesson-service',
+      sessionId: 'session-service',
+      userId: '55',
+    };
+
+    const result = await service.getTeachingAssistantSessionState(payload);
+
+    expect(repo.getTeachingAssistantSessionState).toHaveBeenCalledWith(payload);
+    expect(result).toBe(exampleState);
   });
 });

@@ -80,7 +80,62 @@
       "confusables": []
     }
   ],
-  "resources": []
+  "resources": [],
+  "learning_conversations": {
+    "coach": [
+      {
+        "id": "00000000-0000-0000-0000-000000000001",
+        "user_key": "brian",
+        "title": "Questions about learning objectives",
+        "status": "active",
+        "metadata": {
+          "topic": "Example unit topic"
+        },
+        "resource_ids": [],
+        "messages": [
+          {
+            "role": "user",
+            "content": "How does this relate to the first learning objective?",
+            "offset_seconds": 0
+          },
+          {
+            "role": "assistant",
+            "content": "This concept directly supports the first learning objective by demonstrating...",
+            "offset_seconds": 5
+          }
+        ]
+      }
+    ],
+    "assistant": [
+      {
+        "id": "00000000-0000-0000-0000-000000000002",
+        "user_key": "brian",
+        "title": "Teaching assistant help on Unit topic",
+        "status": "active",
+        "metadata": {},
+        "messages": [
+          {
+            "role": "user",
+            "content": "Can you explain the concept more simply?",
+            "offset_seconds": 0
+          },
+          {
+            "role": "assistant",
+            "content": "Of course! Let me break it down into simpler steps...",
+            "offset_seconds": 3
+          },
+          {
+            "role": "user",
+            "content": "That makes sense now!",
+            "offset_seconds": 8
+          },
+          {
+            "role": "assistant",
+            "content": "Great! Feel free to ask if you have any other questions.",
+            "offset_seconds": 2
+          }
+        ]
+      }
+    ]
+  }
 }
-
-

@@ -25,6 +25,7 @@ import type {
 export interface InfrastructureProvider {
   request<T>(endpoint: string, config?: RequestConfig): Promise<T>;
   getNetworkStatus(): NetworkStatus;
+  isOnline(): boolean;
   checkHealth(): Promise<InfrastructureHealth>;
   // Simple storage for non-React Query data (user preferences, settings)
   getStorageItem(key: string): Promise<string | null>;
@@ -88,6 +89,7 @@ export function infrastructureProvider(): InfrastructureProvider {
   return {
     request: service.request.bind(service),
     getNetworkStatus: service.getNetworkStatus.bind(service),
+    isOnline: service.isOnline.bind(service),
     checkHealth: service.checkHealth.bind(service),
     getStorageItem: service.getStorageItem.bind(service),
     setStorageItem: service.setStorageItem.bind(service),

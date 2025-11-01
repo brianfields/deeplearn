@@ -13,13 +13,13 @@
     {
       "id": "lo_2",
       "title": "Map Urban Microhabitats",
-      "description": "Map a 50–100 m urban microhabitat to identify food sources, shelters, risks, and human–cat interfaces, and recommend placements for shelters and trap sites.",
+      "description": "Map a 50\u2013100 m urban microhabitat to identify food sources, shelters, risks, and human\u2013cat interfaces, and recommend placements for shelters and trap sites.",
       "bloom_level": null
     },
     {
       "id": "lo_3",
       "title": "Sequence Kitten Triage",
-      "description": "Sequence kitten triage in warmth–hydration–respiration–nutrition order and classify cases into urgent, priority, or routine pathways.",
+      "description": "Sequence kitten triage in warmth\u2013hydration\u2013respiration\u2013nutrition order and classify cases into urgent, priority, or routine pathways.",
       "bloom_level": null
     },
     {
@@ -31,7 +31,7 @@
     {
       "id": "lo_5",
       "title": "Design Seasonal TNR",
-      "description": "Design a Trap–Neuter–Return (TNR) workflow aligned to seasonality, including ear-tipping, return-to-territory, and simple record-keeping.",
+      "description": "Design a Trap\u2013Neuter\u2013Return (TNR) workflow aligned to seasonality, including ear-tipping, return-to-territory, and simple record-keeping.",
       "bloom_level": null
     },
     {
@@ -47,7 +47,7 @@
   "is_global": true,
   "owner_key": "eylem",
   "art_image_description": "Weimar Edge illustration of Street Kittens of Istanbul highlighting Understand Kitten Commons, Map Urban Microhabitats with petrol blue geometry and gilt accents.",
-  "podcast_transcript": "Picture Istanbul at dawn. The call to prayer, the hiss of kettles, and in the alley between a bakery and a barber—two wet-nosed kittens blinking into the day. They don't make it because of luck. They make it because a city of humans manages a commons, whether it knows it or not. That's our unit: from seeing the system to working the system.\n\nStart with classification. Strays tolerate us. Ferals don't. That single split decides how close we get, how we feed, how we trap. Then read the clock on a kitten's body. Neonate, zero to two weeks—eyes closed, heat-dependent. Infant, two to four—eyes open, wobble stance. Transitional, four to eight—teething, learning to eat. Juvenile, eight to twenty-four—fast, curious, hitting surgical weight. Seasonality is the drumbeat. Spring and late summer flood the streets with kittens. Winter tests endurance. If you know the rhythm, you can play ahead of it.\n\nNow shrink your world to a 50–100 meter circle. Walk it. Sketch it. Where's food? Dumpsters behind meyhanes, a feeder's mat of bowls under the fig tree, a cafe's crumbs at closing. Where's shelter? The dry corner under the stairs, a basement vent, an old \"cat house\" near the kiosk. Where's danger? A taxi cut-through, a dog pack's patrol, a gutter that becomes a river when it rains, the shop owner who's had enough. Where do cats meet people? Schools, markets, tourist choke points. Name the actors: the auntie who feeds at dusk, the municipal mobile clinic two streets over, the guy who complains when bowls block his door.\n\nThen place things with intention. Micro-shelters elevated, dry, out of the wind, with two exits. Insulate before the cold; shade and water before the heat. Keep feeding stations tidy and consistent, but not on thresholds. And keep trap sites separate and discreet, pre-baited so trap day isn't a surprise. Four to six weeks before the spring and late-summer waves, turn up the trapping. Prioritize juveniles at weight and intact adults. Lactating queens? Sterilize only if you can return same day to the exact spot.\n\nLesson two starts with a single rule: triage in order—warmth, hydration, respiration, nutrition. Cold and limp, or breathing hard? That's urgent. Warm first. Don't feed a cold kitten. Stable but snotty eyes, underweight? Priority. Bright-eyed, eating, normal vitals? Routine.\n\nFeed by stage. Neonates get kitten milk replacer by bottle, small and frequent, in warmth and dryness. Two to four weeks, gruel. Four to eight, move to wet food. Eight and up, high-protein wet and dry. Micro-shelters get straw in winter, not fabric. Airflow and shade in heat. Begin core vaccines around eight to nine weeks; boost three to four weeks later. Deworm by weight. Add flea control to cut vectors and protect the group.\n\nTNR is choreography. Pre-bait. Trap. Sterilize. Ear-tip. Vaccinate when possible. Recover. Return to the same territory within 24–48 hours. Time campaigns for late winter and late summer to blunt kitten surges. Track everything: photos, locations, ear-tip status, sex, dates, interventions. That ledger is your memory.\n\nEdge cases change the tempo. Lactating queens—same-day return. Late pregnancy—postpone if you can. Panleukopenia—stop mixing, isolate, bleach. Heatwave—shade and water stations. Winter—elevate shelters, add straw, cut drafts. And watch the socialization window: from roughly two to seven weeks, gentle daily handling can turn a life on the street into a home.\n\nSo here's your charge. Map one microhabitat. Place one shelter right. Set one clean feeding routine apart from your future trap line. Run one triage. Plan one season-timed TNR cycle, and write it down. Istanbul's street kittens aren't waiting for perfect. They're waiting for you to start. Next, pick a colony and commit twelve weeks. We'll be here, walking the alley with you.",
+  "podcast_transcript": "Picture Istanbul at dawn. The call to prayer, the hiss of kettles, and in the alley between a bakery and a barber\u2014two wet-nosed kittens blinking into the day. They don't make it because of luck. They make it because a city of humans manages a commons, whether it knows it or not. That's our unit: from seeing the system to working the system.\n\nStart with classification. Strays tolerate us. Ferals don't. That single split decides how close we get, how we feed, how we trap. Then read the clock on a kitten's body. Neonate, zero to two weeks\u2014eyes closed, heat-dependent. Infant, two to four\u2014eyes open, wobble stance. Transitional, four to eight\u2014teething, learning to eat. Juvenile, eight to twenty-four\u2014fast, curious, hitting surgical weight. Seasonality is the drumbeat. Spring and late summer flood the streets with kittens. Winter tests endurance. If you know the rhythm, you can play ahead of it.\n\nNow shrink your world to a 50\u2013100 meter circle. Walk it. Sketch it. Where's food? Dumpsters behind meyhanes, a feeder's mat of bowls under the fig tree, a cafe's crumbs at closing. Where's shelter? The dry corner under the stairs, a basement vent, an old \"cat house\" near the kiosk. Where's danger? A taxi cut-through, a dog pack's patrol, a gutter that becomes a river when it rains, the shop owner who's had enough. Where do cats meet people? Schools, markets, tourist choke points. Name the actors: the auntie who feeds at dusk, the municipal mobile clinic two streets over, the guy who complains when bowls block his door.\n\nThen place things with intention. Micro-shelters elevated, dry, out of the wind, with two exits. Insulate before the cold; shade and water before the heat. Keep feeding stations tidy and consistent, but not on thresholds. And keep trap sites separate and discreet, pre-baited so trap day isn't a surprise. Four to six weeks before the spring and late-summer waves, turn up the trapping. Prioritize juveniles at weight and intact adults. Lactating queens? Sterilize only if you can return same day to the exact spot.\n\nLesson two starts with a single rule: triage in order\u2014warmth, hydration, respiration, nutrition. Cold and limp, or breathing hard? That's urgent. Warm first. Don't feed a cold kitten. Stable but snotty eyes, underweight? Priority. Bright-eyed, eating, normal vitals? Routine.\n\nFeed by stage. Neonates get kitten milk replacer by bottle, small and frequent, in warmth and dryness. Two to four weeks, gruel. Four to eight, move to wet food. Eight and up, high-protein wet and dry. Micro-shelters get straw in winter, not fabric. Airflow and shade in heat. Begin core vaccines around eight to nine weeks; boost three to four weeks later. Deworm by weight. Add flea control to cut vectors and protect the group.\n\nTNR is choreography. Pre-bait. Trap. Sterilize. Ear-tip. Vaccinate when possible. Recover. Return to the same territory within 24\u201348 hours. Time campaigns for late winter and late summer to blunt kitten surges. Track everything: photos, locations, ear-tip status, sex, dates, interventions. That ledger is your memory.\n\nEdge cases change the tempo. Lactating queens\u2014same-day return. Late pregnancy\u2014postpone if you can. Panleukopenia\u2014stop mixing, isolate, bleach. Heatwave\u2014shade and water stations. Winter\u2014elevate shelters, add straw, cut drafts. And watch the socialization window: from roughly two to seven weeks, gentle daily handling can turn a life on the street into a home.\n\nSo here's your charge. Map one microhabitat. Place one shelter right. Set one clean feeding routine apart from your future trap line. Run one triage. Plan one season-timed TNR cycle, and write it down. Istanbul's street kittens aren't waiting for perfect. They're waiting for you to start. Next, pick a colony and commit twelve weeks. We'll be here, walking the alley with you.",
   "podcast_voice": "Plain",
   "lessons": [
     {
@@ -65,7 +65,7 @@
         {
           "id": "lo_2",
           "title": "Map Urban Microhabitats",
-          "description": "Map a 50–100 m urban microhabitat to identify food sources, shelters, risks, and human–cat interfaces, and recommend placements for shelters and trap sites.",
+          "description": "Map a 50\u2013100 m urban microhabitat to identify food sources, shelters, risks, and human\u2013cat interfaces, and recommend placements for shelters and trap sites.",
           "bloom_level": null
         }
       ],
@@ -80,7 +80,7 @@
         },
         {
           "term": "Microhabitat",
-          "definition": "A 50–100 m patch of urban features that shape food, shelter, and risk."
+          "definition": "A 50\u2013100 m patch of urban features that shape food, shelter, and risk."
         },
         {
           "term": "Stray",
@@ -91,7 +91,7 @@
           "definition": "Minimally socialized cat that avoids close human contact."
         },
         {
-          "term": "Trap–Neuter–Return (TNR)",
+          "term": "Trap\u2013Neuter\u2013Return (TNR)",
           "definition": "Capture, sterilize, vaccinate when possible, ear-tip, and return to territory."
         },
         {
@@ -99,7 +99,7 @@
           "definition": "Small surgical notch marking a sterilized free-roaming cat."
         }
       ],
-      "mini_lesson": "Istanbul's street kittens live in a managed commons: survival and population stability come from residents, feeders, and municipal clinics working together. Classify cats first: strays accept human proximity; ferals avoid it. Note kitten life stages—neonate (0–2 w), infant (2–4 w), transitional (4–8 w), juvenile (8–24 w)—because feeding, sheltering, and TNR timing depend on age. Seasonality matters: expect kitten surges in spring and late summer; prepare for thermal stress in winter.\n\nMap a 50–100 m microhabitat. Mark on a sketch: 1) food sources (dumpsters, cafes, feeder spots), 2) shelters (nooks, basements, existing \"cat houses\"), 3) risks (traffic lanes, dogs, flood paths, conflicts), 4) human–cat interfaces (markets, tourist hubs, schools). Add actors: who feeds, who complains, nearest mobile clinic.\n\nRecommendations:\n- Place micro-shelters elevated, dry, wind-sheltered, with two exits; anchor and keep clean. Add insulation before winter; add shade and water in heat.\n- Keep feeding stations consistent and tidy away from doorways; separate them from discreet pre-baited trap sites.\n- Schedule intensified trapping 4–6 weeks before spring/late-summer surges; prioritize juveniles at surgical weight and visibly intact adults; same-day return for lactating queens.\n\nThis map plus rationale guides shelter placement and trap cycles while respecting site fidelity and social license.",
+      "mini_lesson": "Istanbul's street kittens live in a managed commons: survival and population stability come from residents, feeders, and municipal clinics working together. Classify cats first: strays accept human proximity; ferals avoid it. Note kitten life stages\u2014neonate (0\u20132 w), infant (2\u20134 w), transitional (4\u20138 w), juvenile (8\u201324 w)\u2014because feeding, sheltering, and TNR timing depend on age. Seasonality matters: expect kitten surges in spring and late summer; prepare for thermal stress in winter.\n\nMap a 50\u2013100 m microhabitat. Mark on a sketch: 1) food sources (dumpsters, cafes, feeder spots), 2) shelters (nooks, basements, existing \"cat houses\"), 3) risks (traffic lanes, dogs, flood paths, conflicts), 4) human\u2013cat interfaces (markets, tourist hubs, schools). Add actors: who feeds, who complains, nearest mobile clinic.\n\nRecommendations:\n- Place micro-shelters elevated, dry, wind-sheltered, with two exits; anchor and keep clean. Add insulation before winter; add shade and water in heat.\n- Keep feeding stations consistent and tidy away from doorways; separate them from discreet pre-baited trap sites.\n- Schedule intensified trapping 4\u20136 weeks before spring/late-summer surges; prioritize juveniles at surgical weight and visibly intact adults; same-day return for lactating queens.\n\nThis map plus rationale guides shelter placement and trap cycles while respecting site fidelity and social license.",
       "mcqs": [
         {
           "stem": "Which observation best indicates an outdoor cat is a stray rather than feral?",
@@ -287,7 +287,7 @@
       ],
       "short_answers": [
         {
-          "stem": "What term describes the 50–100 meter map you sketch for planning?",
+          "stem": "What term describes the 50\u2013100 meter map you sketch for planning?",
           "canonical_answer": "microhabitat",
           "acceptable_answers": [
             "micro habitat"
@@ -304,7 +304,7 @@
               "misconception_ids": []
             }
           ],
-          "explanation_correct": "A microhabitat map captures food, shelter, risk, and human interfaces within 50–100 meters.",
+          "explanation_correct": "A microhabitat map captures food, shelter, risk, and human interfaces within 50\u2013100 meters.",
           "learning_objectives_covered": [
             "lo_2"
           ],
@@ -419,7 +419,7 @@
         {
           "id": "lo_3",
           "title": "Sequence Kitten Triage",
-          "description": "Sequence kitten triage in warmth–hydration–respiration–nutrition order and classify cases into urgent, priority, or routine pathways.",
+          "description": "Sequence kitten triage in warmth\u2013hydration\u2013respiration\u2013nutrition order and classify cases into urgent, priority, or routine pathways.",
           "bloom_level": null
         },
         {
@@ -431,7 +431,7 @@
         {
           "id": "lo_5",
           "title": "Design Seasonal TNR",
-          "description": "Design a Trap–Neuter–Return (TNR) workflow aligned to seasonality, including ear-tipping, return-to-territory, and simple record-keeping.",
+          "description": "Design a Trap\u2013Neuter\u2013Return (TNR) workflow aligned to seasonality, including ear-tipping, return-to-territory, and simple record-keeping.",
           "bloom_level": null
         },
         {
@@ -459,19 +459,19 @@
           "definition": "Small surgical removal of the ear tip to mark a sterilized free-roaming cat."
         },
         {
-          "term": "Trap–Neuter–Return (TNR)",
+          "term": "Trap\u2013Neuter\u2013Return (TNR)",
           "definition": "Humane population control: trap, sterilize, vaccinate when possible, and return to territory."
         },
         {
           "term": "Socialization Window",
-          "definition": "Peak period (~2–7 weeks) when handling most effectively builds tameness."
+          "definition": "Peak period (~2\u20137 weeks) when handling most effectively builds tameness."
         },
         {
           "term": "Herd Effect",
           "definition": "Lower disease spread when enough individuals are immunized."
         }
       ],
-      "mini_lesson": "Start with triage. Sequence needs: warmth → hydration → respiration → nutrition. Urgent: cold, lethargic, or labored breathing; warm to safe temperature before any feeding. Priority: ocular/nasal discharge or low weight but stable breathing. Routine: active, eating, normal vitals.\n\nMatch care to age. Neonates (0–2 wks): KMR by bottle, tiny frequent feeds; keep dry, draft-free, and warmed. 2–4 wks: introduce gruel; 4–8 wks: transition to wet food; 8+ wks: high-protein wet/dry. Micro-shelter: elevated, insulated box with wind break, dual exits, shade and airflow in heat; straw (not fabric) for winter moisture.\n\nDisease prevention: begin core vaccines around weaning (e.g., 8–9 wks) with a booster in 3–4 weeks; deworm by weight; add flea control to cut vector risks and build herd effect.\n\nTNR workflow: pre-bait, trap, sterilize, ear-tip, vaccinate as possible, recover, return to the same spot within 24–48 hours. Plan campaigns late winter and late summer to blunt kitten surges; log photos, location, ear-tip status, sex, dates, and interventions.\n\nEdge-case adjustments: lactating queens—same-day return or delay surgery; late pregnancy—postpone when feasible; panleukopenia—isolate and pause mixing; heatwaves—shade and water stations; winter—elevate shelters, use straw.",
+      "mini_lesson": "Start with triage. Sequence needs: warmth \u2192 hydration \u2192 respiration \u2192 nutrition. Urgent: cold, lethargic, or labored breathing; warm to safe temperature before any feeding. Priority: ocular/nasal discharge or low weight but stable breathing. Routine: active, eating, normal vitals.\n\nMatch care to age. Neonates (0\u20132 wks): KMR by bottle, tiny frequent feeds; keep dry, draft-free, and warmed. 2\u20134 wks: introduce gruel; 4\u20138 wks: transition to wet food; 8+ wks: high-protein wet/dry. Micro-shelter: elevated, insulated box with wind break, dual exits, shade and airflow in heat; straw (not fabric) for winter moisture.\n\nDisease prevention: begin core vaccines around weaning (e.g., 8\u20139 wks) with a booster in 3\u20134 weeks; deworm by weight; add flea control to cut vector risks and build herd effect.\n\nTNR workflow: pre-bait, trap, sterilize, ear-tip, vaccinate as possible, recover, return to the same spot within 24\u201348 hours. Plan campaigns late winter and late summer to blunt kitten surges; log photos, location, ear-tip status, sex, dates, and interventions.\n\nEdge-case adjustments: lactating queens\u2014same-day return or delay surgery; late pregnancy\u2014postpone when feasible; panleukopenia\u2014isolate and pause mixing; heatwaves\u2014shade and water stations; winter\u2014elevate shelters, use straw.",
       "mcqs": [
         {
           "stem": "Triage a 3-week-old kitten: cold, lethargic, shallow breathing. What is the priority action?",
@@ -589,7 +589,7 @@
           "stem": "After TNR surgery, when should most cats be returned to their territory?",
           "options": [
             {
-              "text": "Within 24–48 hours once stable",
+              "text": "Within 24\u201348 hours once stable",
               "rationale_wrong": null
             },
             {
@@ -611,7 +611,7 @@
           "misconceptions": [
             "weeklong_hold"
           ],
-          "correct_rationale": "Returning within 24–48 hours balances healing with maintaining territory familiarity."
+          "correct_rationale": "Returning within 24\u201348 hours balances healing with maintaining territory familiarity."
         }
       ],
       "misconceptions": [
@@ -619,7 +619,7 @@
           "id": "MC1",
           "misbelief": "Feeding first is safest for weak kittens.",
           "why_plausible": "Hunger is visible and feels most urgent.",
-          "correction": "Triage follows warmth → hydration → respiration → nutrition; warming precedes feeding to prevent aspiration and shock."
+          "correction": "Triage follows warmth \u2192 hydration \u2192 respiration \u2192 nutrition; warming precedes feeding to prevent aspiration and shock."
         },
         {
           "id": "MC2",
@@ -793,7 +793,7 @@
       "user_id": 2,
       "resource_type": "file_upload",
       "filename": "kitten-field-notes.txt",
-      "extracted_text": "Feeding log — Karaköy colony\n05:30 warm goat-milk formula for neonates (24 ml split across four kittens).\n12:15 replaced damp straw in shelter crates; added thermal discs.\n18:40 observed Tomtom alley tomcat guarding trap line; adjust placement tomorrow.\n\nAction items: rotate heat packs every 6 hours, stock extra oral rehydration, photograph ear-tipped adults.",
+      "extracted_text": "Feeding log \u2014 Karak\u00f6y colony\n05:30 warm goat-milk formula for neonates (24 ml split across four kittens).\n12:15 replaced damp straw in shelter crates; added thermal discs.\n18:40 observed Tomtom alley tomcat guarding trap line; adjust placement tomorrow.\n\nAction items: rotate heat packs every 6 hours, stock extra oral rehydration, photograph ear-tipped adults.",
       "extraction_metadata": {},
       "file_size": 364,
       "object_store_document_id": "6a7431f5-6f6e-48e7-9f9a-3569fbe5c923",
@@ -832,8 +832,8 @@
     "file_size": 1991902,
     "width": 1024,
     "height": 1024,
-    "alt_text": "Ear‑tipped street kitten on a crate in a petrol‑blue, rain‑slick Istanbul alley under a tight spotlight; thin gilt lines indicate care stations and an open humane trap.",
-    "description": "Cinematic realism: petrol‑blue, rain‑slick Istanbul alley; ear‑tipped kitten, tiny gauze wrap, on a lacquered crate in a tight spotlight. Hairline gilt lines map care points and humane trap; Art‑Deco geometry, 3% grain.",
+    "alt_text": "Ear\u2011tipped street kitten on a crate in a petrol\u2011blue, rain\u2011slick Istanbul alley under a tight spotlight; thin gilt lines indicate care stations and an open humane trap.",
+    "description": "Cinematic realism: petrol\u2011blue, rain\u2011slick Istanbul alley; ear\u2011tipped kitten, tiny gauze wrap, on a lacquered crate in a tight spotlight. Hairline gilt lines map care points and humane trap; Art\u2011Deco geometry, 3% grain.",
     "created_at": "2025-10-30 00:23:07.914800+00:00",
     "updated_at": "2025-10-30 00:23:07.914800+00:00"
   },
@@ -848,8 +848,85 @@
     "duration_seconds": 233.0,
     "bitrate_kbps": 128,
     "sample_rate_hz": 44100,
-    "transcript": "Picture Istanbul at dawn. The call to prayer, the hiss of kettles, and in the alley between a bakery and a barber—two wet-nosed kittens blinking into the day. They don't make it because of luck. They make it because a city of humans manages a commons, whether it knows it or not. That's our unit: from seeing the system to working the system.\n\nStart with classification. Strays tolerate us. Ferals don't. That single split decides how close we get, how we feed, how we trap. Then read the clock on a kitten's body. Neonate, zero to two weeks—eyes closed, heat-dependent. Infant, two to four—eyes open, wobble stance. Transitional, four to eight—teething, learning to eat. Juvenile, eight to twenty-four—fast, curious, hitting surgical weight. Seasonality is the drumbeat. Spring and late summer flood the streets with kittens. Winter tests endurance. If you know the rhythm, you can play ahead of it.\n\nNow shrink your world to a 50–100 meter circle. Walk it. Sketch it. Where's food? Dumpsters behind meyhanes, a feeder's mat of bowls under the fig tree, a cafe's crumbs at closing. Where's shelter? The dry corner under the stairs, a basement vent, an old \"cat house\" near the kiosk. Where's danger? A taxi cut-through, a dog pack's patrol, a gutter that becomes a river when it rains, the shop owner who's had enough. Where do cats meet people? Schools, markets, tourist choke points. Name the actors: the auntie who feeds at dusk, the municipal mobile clinic two streets over, the guy who complains when bowls block his door.\n\nThen place things with intention. Micro-shelters elevated, dry, out of the wind, with two exits. Insulate before the cold; shade and water before the heat. Keep feeding stations tidy and consistent, but not on thresholds. And keep trap sites separate and discreet, pre-baited so trap day isn't a surprise. Four to six weeks before the spring and late-summer waves, turn up the trapping. Prioritize juveniles at weight and intact adults. Lactating queens? Sterilize only if you can return same day to the exact spot.\n\nLesson two starts with a single rule: triage in order—warmth, hydration, respiration, nutrition. Cold and limp, or breathing hard? That's urgent. Warm first. Don't feed a cold kitten. Stable but snotty eyes, underweight? Priority. Bright-eyed, eating, normal vitals? Routine.\n\nFeed by stage. Neonates get kitten milk replacer by bottle, small and frequent, in warmth and dryness. Two to four weeks, gruel. Four to eight, move to wet food. Eight and up, high-protein wet and dry. Micro-shelters get straw in winter, not fabric. Airflow and shade in heat. Begin core vaccines around eight to nine weeks; boost three to four weeks later. Deworm by weight. Add flea control to cut vectors and protect the group.\n\nTNR is choreography. Pre-bait. Trap. Sterilize. Ear-tip. Vaccinate when possible. Recover. Return to the same territory within 24–48 hours. Time campaigns for late winter and late summer to blunt kitten surges. Track everything: photos, locations, ear-tip status, sex, dates, interventions. That ledger is your memory.\n\nEdge cases change the tempo. Lactating queens—same-day return. Late pregnancy—postpone if you can. Panleukopenia—stop mixing, isolate, bleach. Heatwave—shade and water stations. Winter—elevate shelters, add straw, cut drafts. And watch the socialization window: from roughly two to seven weeks, gentle daily handling can turn a life on the street into a home.\n\nSo here's your charge. Map one microhabitat. Place one shelter right. Set one clean feeding routine apart from your future trap line. Run one triage. Plan one season-timed TNR cycle, and write it down. Istanbul's street kittens aren't waiting for perfect. They're waiting for you to start. Next, pick a colony and commit twelve weeks. We'll be here, walking the alley with you.",
+    "transcript": "Picture Istanbul at dawn. The call to prayer, the hiss of kettles, and in the alley between a bakery and a barber\u2014two wet-nosed kittens blinking into the day. They don't make it because of luck. They make it because a city of humans manages a commons, whether it knows it or not. That's our unit: from seeing the system to working the system.\n\nStart with classification. Strays tolerate us. Ferals don't. That single split decides how close we get, how we feed, how we trap. Then read the clock on a kitten's body. Neonate, zero to two weeks\u2014eyes closed, heat-dependent. Infant, two to four\u2014eyes open, wobble stance. Transitional, four to eight\u2014teething, learning to eat. Juvenile, eight to twenty-four\u2014fast, curious, hitting surgical weight. Seasonality is the drumbeat. Spring and late summer flood the streets with kittens. Winter tests endurance. If you know the rhythm, you can play ahead of it.\n\nNow shrink your world to a 50\u2013100 meter circle. Walk it. Sketch it. Where's food? Dumpsters behind meyhanes, a feeder's mat of bowls under the fig tree, a cafe's crumbs at closing. Where's shelter? The dry corner under the stairs, a basement vent, an old \"cat house\" near the kiosk. Where's danger? A taxi cut-through, a dog pack's patrol, a gutter that becomes a river when it rains, the shop owner who's had enough. Where do cats meet people? Schools, markets, tourist choke points. Name the actors: the auntie who feeds at dusk, the municipal mobile clinic two streets over, the guy who complains when bowls block his door.\n\nThen place things with intention. Micro-shelters elevated, dry, out of the wind, with two exits. Insulate before the cold; shade and water before the heat. Keep feeding stations tidy and consistent, but not on thresholds. And keep trap sites separate and discreet, pre-baited so trap day isn't a surprise. Four to six weeks before the spring and late-summer waves, turn up the trapping. Prioritize juveniles at weight and intact adults. Lactating queens? Sterilize only if you can return same day to the exact spot.\n\nLesson two starts with a single rule: triage in order\u2014warmth, hydration, respiration, nutrition. Cold and limp, or breathing hard? That's urgent. Warm first. Don't feed a cold kitten. Stable but snotty eyes, underweight? Priority. Bright-eyed, eating, normal vitals? Routine.\n\nFeed by stage. Neonates get kitten milk replacer by bottle, small and frequent, in warmth and dryness. Two to four weeks, gruel. Four to eight, move to wet food. Eight and up, high-protein wet and dry. Micro-shelters get straw in winter, not fabric. Airflow and shade in heat. Begin core vaccines around eight to nine weeks; boost three to four weeks later. Deworm by weight. Add flea control to cut vectors and protect the group.\n\nTNR is choreography. Pre-bait. Trap. Sterilize. Ear-tip. Vaccinate when possible. Recover. Return to the same territory within 24\u201348 hours. Time campaigns for late winter and late summer to blunt kitten surges. Track everything: photos, locations, ear-tip status, sex, dates, interventions. That ledger is your memory.\n\nEdge cases change the tempo. Lactating queens\u2014same-day return. Late pregnancy\u2014postpone if you can. Panleukopenia\u2014stop mixing, isolate, bleach. Heatwave\u2014shade and water stations. Winter\u2014elevate shelters, add straw, cut drafts. And watch the socialization window: from roughly two to seven weeks, gentle daily handling can turn a life on the street into a home.\n\nSo here's your charge. Map one microhabitat. Place one shelter right. Set one clean feeding routine apart from your future trap line. Run one triage. Plan one season-timed TNR cycle, and write it down. Istanbul's street kittens aren't waiting for perfect. They're waiting for you to start. Next, pick a colony and commit twelve weeks. We'll be here, walking the alley with you.",
     "created_at": "2025-10-30 00:23:07.914800+00:00",
     "updated_at": "2025-10-30 00:23:07.914800+00:00"
+  },
+  "learning_conversations": {
+    "coach": [
+      {
+        "id": "c5d2e8f1-a4b7-4c9f-8e2d-a1c3e5f7b9d1",
+        "user_key": "eylem",
+        "title": "Seasonality in kitten colonies",
+        "status": "active",
+        "metadata": {
+          "topic": "Managed Commons in Practice"
+        },
+        "resource_ids": [],
+        "messages": [
+          {
+            "role": "user",
+            "content": "How dramatic is the seasonal variation in street kitten populations?",
+            "offset_seconds": 0
+          },
+          {
+            "role": "assistant",
+            "content": "Very significant. Spring and late summer see exponential population growth as breeding season peaks. Winter reduces populations through mortality and reduced breeding. Understanding this rhythm lets you time TNR campaigns to maximum effect\u2014trap before the waves to prevent the surge.",
+            "offset_seconds": 8
+          },
+          {
+            "role": "user",
+            "content": "Should I focus resources differently by season?",
+            "offset_seconds": 15
+          },
+          {
+            "role": "assistant",
+            "content": "Absolutely. Pre-spring (late winter) and pre-late-summer: maximize trapping of juveniles at weight and intact adults. Breeding season: emergency support, maternal care. Late fall/winter: shelter and warmth preparation, reduced trapping unless targeting problematic individuals.",
+            "offset_seconds": 20
+          }
+        ]
+      }
+    ],
+    "assistant": [
+      {
+        "id": "b1d4f6a9-c2e5-4b8a-9d3f-e7a2c4f6b8d0",
+        "user_key": "eylem",
+        "title": "Triage prioritization and kitten age assessment",
+        "status": "active",
+        "metadata": {},
+        "messages": [
+          {
+            "role": "user",
+            "content": "When you say triage in order of warmth, hydration, respiration, nutrition\u2014how do you assess each quickly?",
+            "offset_seconds": 0
+          },
+          {
+            "role": "assistant",
+            "content": "Warmth: Touch the belly\u2014should be warm to the touch. If cold, the kitten is in shock. Hydration: Pinch the skin gently\u2014it should snap back quickly. Slow snap = dehydration. Respiration: Watch the belly rise and fall. Should be 20-40 breaths/minute at rest. Nutrition: Only address after the first three are stable.",
+            "offset_seconds": 6
+          },
+          {
+            "role": "user",
+            "content": "How do you quickly estimate a kitten's age in the field?",
+            "offset_seconds": 15
+          },
+          {
+            "role": "assistant",
+            "content": "Eyes: Closed = newborn to 10 days. Opening = 2-3 weeks. Fully open = 3+ weeks. Teeth: No teeth = first 3 weeks. Incisors only = 3-5 weeks. Canines appearing = 5-7 weeks. All teeth = 8+ weeks. Size and coordination also matter, but eyes and teeth are your quick guides.",
+            "offset_seconds": 20
+          },
+          {
+            "role": "user",
+            "content": "Once I triage, how long should I wait before feeding?",
+            "offset_seconds": 25
+          },
+          {
+            "role": "assistant",
+            "content": "Never feed a cold kitten. Warm first, then hydrate (fluids), stabilize respiration, and only then feed. A cold kitten who eats risks aspiration. Wait 30-60 minutes after warming before introducing food.",
+            "offset_seconds": 28
+          }
+        ]
+      }
+    ]
   }
 }

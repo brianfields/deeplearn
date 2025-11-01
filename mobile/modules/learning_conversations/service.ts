@@ -5,6 +5,10 @@ import type {
   LearningCoachSessionState,
   AttachResourcePayload,
   StartSessionPayload,
+  TeachingAssistantStartPayload,
+  TeachingAssistantSessionState,
+  TeachingAssistantQuestionPayload,
+  TeachingAssistantStateRequest,
 } from './models';
 
 function createDefaultRepo(): LearningCoachRepo {
@@ -40,5 +44,23 @@ export class LearningCoachService {
     payload: AttachResourcePayload
   ): Promise<LearningCoachSessionState> {
     return this.repo.attachResource(payload);
+  }
+
+  async startTeachingAssistantSession(
+    payload: TeachingAssistantStartPayload
+  ): Promise<TeachingAssistantSessionState> {
+    return this.repo.startTeachingAssistantSession(payload);
+  }
+
+  async submitTeachingAssistantQuestion(
+    payload: TeachingAssistantQuestionPayload
+  ): Promise<TeachingAssistantSessionState> {
+    return this.repo.submitTeachingAssistantQuestion(payload);
+  }
+
+  async getTeachingAssistantSessionState(
+    payload: TeachingAssistantStateRequest
+  ): Promise<TeachingAssistantSessionState> {
+    return this.repo.getTeachingAssistantSessionState(payload);
   }
 }

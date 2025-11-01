@@ -14,12 +14,16 @@ from modules.catalog.public import CatalogProvider
 from modules.content.public import ContentProvider
 from modules.conversation_engine.public import ConversationEngineProvider
 from modules.flow_engine.public import FlowEngineAdminProvider
-from modules.learning_coach.public import LearningCoachProvider
+from modules.learning_conversations.public import LearningConversationsProvider
 from modules.learning_session.public import LearningSession, LearningSessionProvider
 from modules.llm_services.public import LLMServicesAdminProvider
 from modules.user.public import UserProvider, UserRead
 
 from .models import (
+    ConversationDetail,
+    ConversationMessageAdmin,
+    ConversationsListResponse,
+    ConversationSummaryAdmin,
     FlowRunDetails,
     FlowRunsListResponse,
     FlowRunSummary,
@@ -48,6 +52,7 @@ from .models import (
 )
 
 LEARNING_COACH_CONVERSATION_TYPE = "learning_coach"
+TEACHING_ASSISTANT_CONVERSATION_TYPE = "teaching_assistant"
 
 
 class AdminService:
@@ -61,7 +66,7 @@ class AdminService:
         content: ContentProvider,
         users: UserProvider,
         learning_sessions: LearningSessionProvider | None = None,
-        learning_coach: LearningCoachProvider | None = None,
+        learning_coach: LearningConversationsProvider | None = None,
         conversation_engine: ConversationEngineProvider | None = None,
     ) -> None:
         """Initialize admin service with required dependencies."""
@@ -174,6 +179,153 @@ class AdminService:
 
         return await self.get_user_detail(user_id)
 
+    async def list_conversations(
+        self,
+        *,
+        page: int = 1,
+        page_size: int = 50,
+        conversation_type: str | None = None,
+        status: str | None = None,
+    ) -> ConversationsListResponse:
+        """Return paginated conversations (both learning coach and teaching assistant)."""
+
+        if not self.conversation_engine:
+            return ConversationsListResponse(
+                conversations=[],
+                total_count=0,
+                page=page,
+                page_size=page_size,
+                has_next=False,
+            )
+
+        page = max(page, 1)
+        page_size = max(page_size, 1)
+        offset = (page - 1) * page_size
+
+        # If no type specified, fetch both types
+        summaries: list[Any] = []
+        if conversation_type is None:
+            # Fetch both types
+            coach_summaries = await self._fetch_conversations_by_type(
+                LEARNING_COACH_CONVERSATION_TYPE,
+                limit=page_size + 1,
+                offset=offset,
+                status=status,
+            )
+            assistant_summaries = await self._fetch_conversations_by_type(
+                TEACHING_ASSISTANT_CONVERSATION_TYPE,
+                limit=page_size + 1,
+                offset=offset,
+                status=status,
+            )
+            # Combine and sort by updated_at descending
+            all_summaries = coach_summaries + assistant_summaries
+            all_summaries.sort(key=lambda x: x.updated_at, reverse=True)
+            summaries = all_summaries[: page_size + 1]
+        else:
+            summaries = await self._fetch_conversations_by_type(
+                conversation_type,
+                limit=page_size + 1,
+                offset=offset,
+                status=status,
+            )
+
+        has_next = len(summaries) > page_size
+        visible = summaries[:page_size]
+
+        conversations = [
+            ConversationSummaryAdmin(
+                id=summary.id,
+                user_id=summary.user_id,
+                title=summary.title,
+                conversation_type=summary.conversation_type or (LEARNING_COACH_CONVERSATION_TYPE if summary.metadata and "topic" in summary.metadata else TEACHING_ASSISTANT_CONVERSATION_TYPE),
+                status=summary.status,
+                message_count=summary.message_count,
+                created_at=summary.created_at,
+                updated_at=summary.updated_at,
+                last_message_at=summary.last_message_at,
+                metadata=dict(summary.metadata or {}),
+            )
+            for summary in visible
+        ]
+
+        total_count = await self._count_conversations(conversation_type=conversation_type, status=status)
+
+        return ConversationsListResponse(
+            conversations=conversations,
+            total_count=total_count,
+            page=page,
+            page_size=page_size,
+            has_next=has_next,
+        )
+
+    async def get_conversation(self, conversation_id: str) -> ConversationDetail | None:
+        """Return transcript-level detail for any conversation type."""
+
+        if not self.conversation_engine:
+            return None
+
+        try:
+            conversation_uuid = uuid.UUID(conversation_id)
+        except ValueError:
+            return None
+
+        detail = await self.conversation_engine.get_conversation(conversation_uuid)
+
+        messages = [
+            ConversationMessageAdmin(
+                id=message.id,
+                role=message.role,
+                content=message.content,
+                created_at=message.created_at,
+                metadata=dict(message.metadata or {}),
+                tokens_used=message.tokens_used,
+                cost_estimate=message.cost_estimate,
+                llm_request_id=message.llm_request_id,
+                message_order=message.message_order,
+            )
+            for message in detail.messages
+        ]
+
+        metadata = dict(detail.metadata or {})
+
+        # Fetch resources attached to this conversation
+        from modules.admin.models import ResourceSummaryAdmin
+        from modules.infrastructure.public import infrastructure_provider
+        from modules.learning_conversations.service import (
+            _extract_resource_ids,
+            fetch_resources_for_ids,
+        )
+
+        resource_ids = _extract_resource_ids(metadata)
+        infra = infrastructure_provider()
+        resources_data = await fetch_resources_for_ids(infra, resource_ids)
+        resources = [
+            ResourceSummaryAdmin(
+                id=str(r.id),
+                resource_type=r.resource_type,
+                filename=r.filename,
+                source_url=r.source_url,
+                file_size=r.file_size,
+                created_at=r.created_at,
+                preview_text=r.extracted_text[:200] if r.extracted_text else "",
+            )
+            for r in resources_data
+        ]
+
+        # Determine conversation type
+        conv_type = LEARNING_COACH_CONVERSATION_TYPE if metadata.get("topic") else TEACHING_ASSISTANT_CONVERSATION_TYPE
+
+        return ConversationDetail(
+            conversation_id=detail.id,
+            conversation_type=conv_type,
+            messages=messages,
+            metadata=metadata,
+            proposed_brief=self._dict_or_none(metadata.get("proposed_brief")),
+            accepted_brief=self._dict_or_none(metadata.get("accepted_brief")),
+            resources=resources,
+        )
+
     async def list_learning_coach_conversations(
         self,
         *,
@@ -263,7 +415,7 @@ class AdminService:
         # Fetch resources attached to this conversation
         from modules.admin.models import ResourceSummaryAdmin
         from modules.infrastructure.public import infrastructure_provider
-        from modules.learning_coach.service import _extract_resource_ids, fetch_resources_for_ids
+        from modules.learning_conversations.service import _extract_resource_ids, fetch_resources_for_ids
 
         resource_ids = _extract_resource_ids(metadata)
         infra = infrastructure_provider()
@@ -291,27 +443,40 @@ class AdminService:
         )
 
     async def get_user_conversations(self, user_id: int, *, limit: int = 5) -> list[UserConversationSummary]:
-        """Return recent learning coach conversations for a user."""
+        """Return recent conversations (both types) for a user."""
 
         if not self.conversation_engine:
             return []
 
-        summaries = await self.conversation_engine.list_conversations_for_user(
+        # Fetch both types
+        coach_summaries = await self.conversation_engine.list_conversations_for_user(
             user_id,
             limit=limit,
             offset=0,
             conversation_type=LEARNING_COACH_CONVERSATION_TYPE,
         )
+        assistant_summaries = await self.conversation_engine.list_conversations_for_user(
+            user_id,
+            limit=limit,
+            offset=0,
+            conversation_type=TEACHING_ASSISTANT_CONVERSATION_TYPE,
+        )
+
+        # Combine, sort by last_message_at descending, and take top 'limit'
+        all_summaries = coach_summaries + assistant_summaries
+        all_summaries.sort(key=lambda x: x.last_message_at or x.updated_at, reverse=True)
+        recent = all_summaries[:limit]
 
         return [
             UserConversationSummary(
                 id=summary.id,
                 title=summary.title,
+                conversation_type=summary.conversation_type,
                 status=summary.status,
                 message_count=summary.message_count,
                 last_message_at=summary.last_message_at,
             )
-            for summary in summaries
+            for summary in recent
         ]
 
     async def _fetch_learning_coach_conversations(
@@ -361,6 +526,66 @@ class AdminService:
     async def _count_learning_coach_conversations(
         self,
         *,
+        status: str | None = None,
+        user_id: int | None = None,
+    ) -> int:
+        if not self.conversation_engine:
+            return 0
+
+        if not await self._has_learning_coach_conversation_at_offset(0, status=status, user_id=user_id):
+            return 0
+
+        low = 1
+        high = 2
+
+        while await self._has_learning_coach_conversation_at_offset(high - 1, status=status, user_id=user_id):
+            low = high
+            high *= 2
+
+        left = low
+        right = high
+
+        while left < right:
+            mid = (left + right) // 2
+            if await self._has_learning_coach_conversation_at_offset(mid, status=status, user_id=user_id):
+                left = mid + 1
+            else:
+                right = mid
+
+        return left
+
+    async def _fetch_conversations_by_type(
+        self,
+        conversation_type: str,
+        *,
+        limit: int,
+        offset: int,
+        status: str | None = None,
+        user_id: int | None = None,
+    ) -> list[Any]:
+        if not self.conversation_engine:
+            return []
+
+        if user_id is not None:
+            return await self.conversation_engine.list_conversations_for_user(
+                user_id,
+                limit=limit,
+                offset=offset,
+                conversation_type=conversation_type,
+                status=status,
+            )
+
+        return await self.conversation_engine.list_conversations_by_type(
+            conversation_type,
+            limit=limit,
+            offset=offset,
+            status=status,
+        )
+
+    async def _count_conversations(
+        self,
+        *,
+        conversation_type: str | None = None,
         status: str | None = None,
         user_id: int | None = None,
     ) -> int:

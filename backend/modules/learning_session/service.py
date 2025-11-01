@@ -6,7 +6,7 @@ This is a migration, not new feature development.
 """
 
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 import logging
@@ -198,6 +198,18 @@ class SessionListResponse:
 
     sessions: list[LearningSession]
     total: int
+
+
+@dataclass(slots=True)
+class AssistantSessionContext:
+    """Aggregated learning session context for the teaching assistant."""
+
+    session: LearningSession
+    exercise_attempt_history: list[dict[str, Any]]
+    lesson: dict[str, Any] | None
+    unit: dict[str, Any] | None
+    unit_session: dict[str, Any] | None = None
+    unit_resources: list[dict[str, Any]] = field(default_factory=list)
 
 
 # ================================
@@ -729,6 +741,36 @@ class LearningSessionService:
         if not session:
             return None
         return self._to_session_dto(session)
+
+    async def get_session_context_for_assistant(self, session_id: str) -> AssistantSessionContext:
+        """Return enriched context for teaching assistant experiences."""
+
+        session = await self.repo.get_session_by_id(session_id)
+        if session is None:
+            raise ValueError(f"Learning session {session_id} not found")
+
+        lesson = await self.content.get_lesson(session.lesson_id)
+        unit = await self.content.get_unit(session.unit_id)
+
+        session_dto = self._to_session_dto(session)
+        session_data = session.session_data or {}
+        exercise_answers = session_data.get("exercise_answers", {})
+
+        attempt_history: list[dict[str, Any]] = []
+        for exercise_id, payload in exercise_answers.items():
+            entry: dict[str, Any] = {"exercise_id": exercise_id}
+            if isinstance(payload, dict):
+                entry.update(payload)
+            else:
+                entry["value"] = payload
+            attempt_history.append(entry)
+
+        return AssistantSessionContext(
+            session=session_dto,
+            exercise_attempt_history=attempt_history,
+            lesson=lesson.model_dump(mode="json") if lesson else None,
+            unit=unit.model_dump(mode="json") if unit else None,
+        )
 
     async def check_health(self) -> bool:
         """Health check for the learning session service"""

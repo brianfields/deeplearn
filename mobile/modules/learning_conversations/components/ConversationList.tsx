@@ -6,21 +6,25 @@ import {
   ActivityIndicator,
   Text,
 } from 'react-native';
-import type { LearningCoachMessage } from '../models';
+import type { LearningCoachMessage, TeachingAssistantMessage } from '../models';
 import { MessageBubble } from './MessageBubble';
 import { uiSystemProvider } from '../../ui_system/public';
 
 const uiSystem = uiSystemProvider();
 const theme = uiSystem.getCurrentTheme();
 
+type ConversationMessage = LearningCoachMessage | TeachingAssistantMessage;
+
 interface Props {
-  readonly messages: LearningCoachMessage[];
+  readonly messages: ConversationMessage[];
   readonly isLoading?: boolean;
+  readonly loadingMessage?: string;
 }
 
 export function ConversationList({
   messages,
   isLoading,
+  loadingMessage,
 }: Props): React.ReactElement {
   return (
     <FlatList
@@ -33,7 +37,9 @@ export function ConversationList({
           {isLoading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="small" color={theme.colors.primary} />
-              <Text style={styles.loadingText}>Coach is thinking...</Text>
+              <Text style={styles.loadingText}>
+                {loadingMessage ?? 'Coach is thinking...'}
+              </Text>
             </View>
           ) : null}
         </View>

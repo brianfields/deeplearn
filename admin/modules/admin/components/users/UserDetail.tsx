@@ -291,7 +291,7 @@ export function UserDetail({ userId }: UserDetailProps) {
           <div>
             <h2 className="text-lg font-medium text-gray-900">Recent conversations</h2>
             <p className="text-sm text-gray-500">
-              Learning coach conversations started by this user.
+              Learning coach and teaching assistant conversations started by this user.
             </p>
           </div>
           {recentConversations.length === 0 ? (
@@ -303,6 +303,9 @@ export function UserDetail({ userId }: UserDetailProps) {
                   <tr>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Conversation
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Type
                     </th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
@@ -325,6 +328,19 @@ export function UserDetail({ userId }: UserDetailProps) {
                         >
                           {conversation.title ?? conversation.id}
                         </Link>
+                      </td>
+                      <td className="px-4 py-2 text-sm text-gray-900">
+                        {(() => {
+                          const isCoach = conversation.conversation_type === 'learning_coach';
+                          const label = isCoach ? 'Coach' : 'Assistant';
+                          const bgColor = isCoach ? 'bg-blue-100' : 'bg-purple-100';
+                          const textColor = isCoach ? 'text-blue-800' : 'text-purple-800';
+                          return (
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${bgColor} ${textColor}`}>
+                              {label}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="px-4 py-2 text-sm text-gray-900">
                         <StatusBadge status={conversation.status} size="sm" />

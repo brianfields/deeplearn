@@ -279,14 +279,6 @@ export default function MiniLesson({
           </Animated.View>
         </Animated.View>
       )}
-
-      {hasPodcast ? (
-        <View style={styles.podcastHintContainer}>
-          <Text style={styles.podcastHintText}>
-            🎧 A narrated version of this lesson is playing below.
-          </Text>
-        </View>
-      ) : null}
     </View>
   );
 }
@@ -430,7 +422,7 @@ const createStyles = (theme: any) =>
       position: 'absolute',
       bottom: 20,
       left: 20,
-      right: 20,
+      right: 115,
     },
 
     continueButton: {},

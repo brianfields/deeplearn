@@ -25,7 +25,7 @@ import {
 import type { ResourceSummary } from '../models';
 import { ResourcePicker } from '../components/ResourcePicker';
 import type { LearningStackParamList } from '../../../types';
-import { useLearningCoachSession } from '../../learning_coach/queries';
+import { useLearningCoachSession } from '../../learning_conversations/queries';
 import { uiSystemProvider } from '../../ui_system/public';
 
 const uiSystem = uiSystemProvider();
