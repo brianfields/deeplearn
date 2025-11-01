@@ -648,8 +648,9 @@ const createStyles = (theme: any) =>
     },
     assistantButtonWrapper: {
       position: 'absolute',
-      bottom: 24,
+      bottom: 100,
       right: 16,
+      zIndex: 1000,
     },
     loadingContainer: {
       flex: 1,

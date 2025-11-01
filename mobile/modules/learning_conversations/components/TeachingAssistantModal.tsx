@@ -1,18 +1,12 @@
 import React from 'react';
-import {
-  Modal,
-  Pressable,
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Modal, SafeAreaView, StyleSheet, View } from 'react-native';
 import type {
   TeachingAssistantContext,
   TeachingAssistantMessage,
 } from '../models';
 import { uiSystemProvider } from '../../ui_system/public';
 import { TeachingAssistantConversation } from './TeachingAssistantConversation';
+import { ConversationHeader } from './ConversationHeader';
 
 interface Props {
   readonly visible: boolean;
@@ -44,6 +38,18 @@ export function TeachingAssistantModal({
   const progressPercentage =
     typeof rawProgress === 'number' ? Math.round(rawProgress) : null;
 
+  // Build subtitle from context
+  const subtitle = (() => {
+    const parts: string[] = [];
+    if (context?.lesson?.title) {
+      parts.push(`Lesson: ${context.lesson.title}`);
+    }
+    if (progressPercentage !== null) {
+      parts.push(`Progress: ${progressPercentage}%`);
+    }
+    return parts.length > 0 ? parts.join(' • ') : undefined;
+  })();
+
   return (
     <Modal
       animationType="slide"
@@ -52,37 +58,11 @@ export function TeachingAssistantModal({
       onRequestClose={onClose}
     >
       <SafeAreaView style={styles.container} testID="teaching-assistant-modal">
-        <View style={styles.header}>
-          <Text style={styles.title}>Teaching Assistant</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Close Assistant"
-            onPress={onClose}
-            style={({ pressed }) => [
-              styles.closeButton,
-              pressed && styles.closePressed,
-            ]}
-          >
-            <Text style={styles.closeText}>Close</Text>
-          </Pressable>
-        </View>
-
-        {context ? (
-          <View style={styles.contextContainer}>
-            {context.lesson?.title ? (
-              <Text style={styles.contextLine}>
-                Lesson:{' '}
-                <Text style={styles.contextValue}>{context.lesson.title}</Text>
-              </Text>
-            ) : null}
-            {progressPercentage !== null ? (
-              <Text style={styles.contextLine}>
-                Progress:{' '}
-                <Text style={styles.contextValue}>{progressPercentage}%</Text>
-              </Text>
-            ) : null}
-          </View>
-        ) : null}
+        <ConversationHeader
+          title="Teaching Assistant"
+          onClose={onClose}
+          subtitle={subtitle}
+        />
 
         <View style={styles.conversationContainer}>
           <TeachingAssistantConversation
@@ -103,50 +83,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.colors.border,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: theme.colors.text,
-  },
-  closeButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: theme.colors.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.colors.border,
-  },
-  closePressed: {
-    opacity: 0.7,
-  },
-  closeText: {
-    color: theme.colors.text,
-    fontWeight: '500',
-  },
-  contextContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-  },
-  contextLine: {
-    color: theme.colors.textSecondary ?? '#666',
-    marginBottom: 4,
-  },
-  contextValue: {
-    color: theme.colors.text,
-    fontWeight: '600',
   },
   conversationContainer: {
     flex: 1,

@@ -1,9 +1,6 @@
 import React from 'react';
 import type { TeachingAssistantMessage } from '../models';
-import { ConversationList } from './ConversationList';
-import { QuickReplies } from './QuickReplies';
-import { Composer } from './Composer';
-import { StyleSheet, View } from 'react-native';
+import { ConversationContainer } from './ConversationContainer';
 
 interface Props {
   readonly messages: TeachingAssistantMessage[];
@@ -29,26 +26,17 @@ export function TeachingAssistantConversation({
   const replies = Array.from(suggestedQuickReplies);
 
   return (
-    <View style={styles.container}>
-      <ConversationList messages={messages} isLoading={isLoading} />
-      <QuickReplies
-        replies={replies}
-        disabled={disabled || replies.length === 0}
-        onSelect={onSelectReply}
-      />
-      <Composer
-        onSend={onSend}
-        disabled={disabled}
-        onAttach={onAttachResource}
-        attachDisabled={attachDisabled}
-        placeholderText="Ask the teaching assistant..."
-      />
-    </View>
+    <ConversationContainer
+      messages={messages}
+      suggestedReplies={replies}
+      onSendMessage={onSend}
+      onSelectReply={onSelectReply}
+      isLoading={isLoading}
+      disabled={disabled}
+      onAttachResource={onAttachResource}
+      attachDisabled={attachDisabled}
+      composerPlaceholder="Ask the teaching assistant..."
+      loadingMessage="Teaching assistant is responding..."
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});

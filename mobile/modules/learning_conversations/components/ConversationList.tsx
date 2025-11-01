@@ -18,11 +18,13 @@ type ConversationMessage = LearningCoachMessage | TeachingAssistantMessage;
 interface Props {
   readonly messages: ConversationMessage[];
   readonly isLoading?: boolean;
+  readonly loadingMessage?: string;
 }
 
 export function ConversationList({
   messages,
   isLoading,
+  loadingMessage,
 }: Props): React.ReactElement {
   return (
     <FlatList
@@ -35,7 +37,9 @@ export function ConversationList({
           {isLoading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="small" color={theme.colors.primary} />
-              <Text style={styles.loadingText}>Coach is thinking...</Text>
+              <Text style={styles.loadingText}>
+                {loadingMessage ?? 'Coach is thinking...'}
+              </Text>
             </View>
           ) : null}
         </View>

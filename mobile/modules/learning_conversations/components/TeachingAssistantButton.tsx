@@ -84,10 +84,10 @@ export function TeachingAssistantButton({
       ]}
       accessibilityRole="button"
       accessibilityState={{ disabled: !isOnline || !!disabled }}
-      accessibilityLabel="Ask Questions"
+      accessibilityLabel="Ask"
     >
       <View style={[styles.statusDot, statusStyles.indicator]} />
-      <Text style={[styles.label, { color: labelColor }]}>Ask Questions</Text>
+      <Text style={[styles.label, { color: labelColor }]}>Ask</Text>
     </Pressable>
   );
 }
@@ -100,6 +100,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 999,
     backgroundColor: theme.colors.primary,
+    opacity: 0.85,
     shadowColor: '#000',
     shadowOpacity: 0.2,
     shadowRadius: 6,
