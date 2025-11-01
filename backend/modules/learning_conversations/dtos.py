@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Final
 
@@ -80,3 +80,44 @@ class LearningCoachConversationSummary:
     last_message_at: datetime | None
     message_count: int
     metadata: dict[str, Any]
+
+
+@dataclass(slots=True)
+class TeachingAssistantMessage:
+    """Message structure for teaching assistant conversations."""
+
+    id: str
+    role: str
+    content: str
+    created_at: datetime
+    metadata: dict[str, Any]
+    suggested_quick_replies: list[str] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class TeachingAssistantContext:
+    """Structured context passed to the teaching assistant."""
+
+    unit_id: str
+    lesson_id: str | None
+    session_id: str | None
+    session: dict[str, Any] | None
+    exercise_attempt_history: list[dict[str, Any]] = field(default_factory=list)
+    lesson: dict[str, Any] | None = None
+    unit: dict[str, Any] | None = None
+    unit_session: dict[str, Any] | None = None
+    unit_resources: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class TeachingAssistantSessionState:
+    """Aggregate state returned to clients for teaching assistant conversations."""
+
+    conversation_id: str
+    unit_id: str
+    lesson_id: str | None
+    session_id: str | None
+    messages: list[TeachingAssistantMessage]
+    suggested_quick_replies: list[str]
+    metadata: dict[str, Any]
+    context: TeachingAssistantContext

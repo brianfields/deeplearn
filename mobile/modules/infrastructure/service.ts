@@ -47,6 +47,10 @@ export class InfrastructureService {
     return this.repo.getNetworkStatus();
   }
 
+  isOnline(): boolean {
+    return this.repo.getNetworkStatus().isConnected !== false;
+  }
+
   async checkHealth(): Promise<InfrastructureHealth> {
     const [httpHealth, storageHealth, networkStatus] = await Promise.allSettled(
       [

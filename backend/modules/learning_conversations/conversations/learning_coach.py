@@ -17,7 +17,7 @@ from modules.conversation_engine.public import (
 )
 from modules.infrastructure.public import infrastructure_provider
 
-from .dtos import (
+from ..dtos import (
     UNSET,
     LearningCoachMessage,
     LearningCoachObjective,
@@ -39,7 +39,7 @@ async def _fetch_resources(resource_ids: Sequence[uuid.UUID]) -> list[ResourceRe
     if not resource_ids:
         return []
 
-    from .service import fetch_resources_for_ids
+    from ..service import fetch_resources_for_ids
 
     infra = infrastructure_provider()
     infra.initialize()
@@ -115,7 +115,7 @@ class LearningCoachConversation(BaseConversation):
     """High-level dialog handler for the learning coach experience."""
 
     conversation_type = "learning_coach"
-    system_prompt_file = "prompts/system_prompt.md"
+    system_prompt_file = "../prompts/system_prompt.md"
 
     @conversation_session
     async def add_resource(
@@ -304,7 +304,7 @@ class LearningCoachConversation(BaseConversation):
         """Generate a structured coach response and persist it."""
 
         resources = await self._load_conversation_resources()
-        from .service import build_resource_context_prompt
+        from ..service import build_resource_context_prompt
 
         base_prompt = self.get_system_prompt()
         resource_context = build_resource_context_prompt(resources)

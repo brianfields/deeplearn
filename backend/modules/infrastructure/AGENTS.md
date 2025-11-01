@@ -45,7 +45,7 @@ Without this registration, your endpoints won't be available in the API.
 - `admin_router` (Admin)
 - `task_queue_router` (Task Queue)
 - `debug_router` (Debug - only active in DEBUG mode)
-- `learning_coach_router` (Learning Coach)
+- `learning_conversations_router` (Learning Conversations)
 
 ## Session Management
 

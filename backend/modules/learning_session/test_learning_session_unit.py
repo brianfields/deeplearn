@@ -22,6 +22,7 @@ from modules.content.package_models import (
 from .models import LearningSessionModel, SessionStatus
 from .repo import LearningSessionRepo
 from .service import (
+    AssistantSessionContext,
     CompleteSessionRequest,
     LearningObjectiveStatus,
     LearningSessionService,
@@ -567,6 +568,73 @@ class TestLearningSessionService:
 
         with pytest.raises(ValueError, match="Unit unit-1 not found"):
             await self.service.get_unit_lo_progress("user-1", "unit-1")
+
+    @pytest.mark.asyncio
+    async def test_get_session_context_for_assistant(self) -> None:
+        """Session context includes lesson, unit, and exercise history."""
+
+        session_model = LearningSessionModel(
+            id="session-ctx",
+            lesson_id="lesson-1",
+            unit_id="unit-1",
+            user_id="user-42",
+            status=SessionStatus.ACTIVE.value,
+            started_at=datetime.utcnow(),
+            completed_at=None,
+            current_exercise_index=2,
+            total_exercises=4,
+            exercises_completed=2,
+            exercises_correct=1,
+            progress_percentage=50.0,
+            session_data={
+                "exercise_answers": {
+                    "exercise-1": {
+                        "exercise_type": "mcq",
+                        "is_correct": True,
+                        "user_answer": "A",
+                        "time_spent_seconds": 20,
+                        "completed_at": "2024-01-01T00:00:00Z",
+                        "attempts": 1,
+                        "started_at": "2024-01-01T00:00:00Z",
+                        "attempt_history": [
+                            {
+                                "attempt_number": 1,
+                                "is_correct": True,
+                                "user_answer": "A",
+                                "time_spent_seconds": 20,
+                                "submitted_at": "2024-01-01T00:00:00Z",
+                            }
+                        ],
+                        "has_been_answered_correctly": True,
+                    }
+                }
+            },
+        )
+
+        self.mock_repo.get_session_by_id.return_value = session_model
+
+        lesson = Mock()
+        lesson.model_dump.return_value = {"id": "lesson-1", "title": "Lesson"}
+        unit = Mock()
+        unit.model_dump.return_value = {"id": "unit-1", "title": "Unit"}
+
+        self.mock_content_provider.get_lesson.return_value = lesson
+        self.mock_content_provider.get_unit.return_value = unit
+
+        context = await self.service.get_session_context_for_assistant("session-ctx")
+
+        assert isinstance(context, AssistantSessionContext)
+        assert context.session.id == "session-ctx"
+        assert context.lesson == {"id": "lesson-1", "title": "Lesson"}
+        assert context.unit == {"id": "unit-1", "title": "Unit"}
+        assert len(context.exercise_attempt_history) == 1
+        attempt = context.exercise_attempt_history[0]
+        assert attempt["exercise_id"] == "exercise-1"
+        assert attempt["is_correct"] is True
+
+        self.mock_repo.get_session_by_id.assert_awaited_once_with("session-ctx")
+        self.mock_content_provider.get_lesson.assert_awaited_once_with("lesson-1")
+        self.mock_content_provider.get_unit.assert_awaited_once_with("unit-1")
 
     @pytest.mark.asyncio
     async def test_check_health(self) -> None:

@@ -33,13 +33,14 @@
  * - Coordinates with React Navigation stack
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
   Text,
   ActivityIndicator,
   SafeAreaView,
+  Alert,
 } from 'react-native';
 
 // Components
@@ -58,6 +59,19 @@ import { catalogProvider } from '../../catalog/public';
 import { infrastructureProvider } from '../../infrastructure/public';
 import { offlineCacheProvider } from '../../offline_cache/public';
 import type { PodcastTrack } from '../../podcast_player/public';
+import NetInfo from '@react-native-community/netinfo';
+import { useAuth } from '../../user/public';
+import { TeachingAssistantButton } from '../../learning_conversations/components/TeachingAssistantButton';
+import { TeachingAssistantModal } from '../../learning_conversations/components/TeachingAssistantModal';
+import {
+  useStartTeachingAssistant,
+  useSubmitTeachingAssistantQuestion,
+  useTeachingAssistantSessionState,
+} from '../../learning_conversations/queries';
+import type {
+  TeachingAssistantStateRequest,
+  TeachingAssistantStartPayload,
+} from '../../learning_conversations/models';
 
 // Types
 import type { LearningStackParamList } from '../../../types';
@@ -72,11 +86,13 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
   const [error, setError] = useState<string | null>(null);
   const unitId = routeUnitId;
 
+  const { user } = useAuth();
+
   const uiSystem = uiSystemProvider();
   const theme = uiSystem.getCurrentTheme();
   const styles = createStyles(theme);
   const haptics = useHaptics();
-  const infrastructure = infrastructureProvider();
+  const infrastructure = React.useMemo(() => infrastructureProvider(), []);
 
   const apiBase = useMemo(() => {
     const base =
@@ -96,11 +112,72 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
   );
   const [_isPlaylistLoading, setIsPlaylistLoading] = useState(false);
 
+  const [isAssistantOpen, setAssistantOpen] = useState(false);
+  const [assistantConversationId, setAssistantConversationId] = useState<
+    string | null
+  >(null);
+  const [assistantRequest, setAssistantRequest] =
+    useState<TeachingAssistantStateRequest | null>(null);
+
+  const startTeachingAssistant = useStartTeachingAssistant();
+  const submitTeachingAssistantQuestion = useSubmitTeachingAssistantQuestion();
+  const assistantSessionQuery =
+    useTeachingAssistantSessionState(assistantRequest);
+
+  const assistantState =
+    assistantSessionQuery.data ?? startTeachingAssistant.data ?? null;
+  const assistantMessages = assistantState?.messages ?? [];
+  const assistantQuickReplies = assistantState?.suggestedQuickReplies ?? [];
+  const assistantContext = assistantState?.context ?? null;
+  const isAssistantLoading =
+    startTeachingAssistant.isPending ||
+    submitTeachingAssistantQuestion.isPending ||
+    assistantSessionQuery.isFetching;
+
+  const [isOnline, setIsOnline] = useState<boolean>(infrastructure.isOnline());
+
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsOnline(state?.isConnected ?? false);
+    });
+    return () => {
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    };
+  }, []);
+
   useEffect(() => {
     if (!unitId) {
       setError('Unit context is required to start this lesson');
     }
   }, [unitId]);
+
+  useEffect(() => {
+    if (!assistantConversationId || !unitId) {
+      return;
+    }
+    const nextRequest: TeachingAssistantStateRequest = {
+      conversationId: assistantConversationId,
+      unitId,
+      lessonId: lesson.id ?? null,
+      sessionId: sessionId ?? null,
+      userId: user ? String(user.id) : null,
+    };
+
+    setAssistantRequest(previous => {
+      if (!previous) {
+        return nextRequest;
+      }
+      const unchanged =
+        previous.conversationId === nextRequest.conversationId &&
+        previous.unitId === nextRequest.unitId &&
+        previous.lessonId === nextRequest.lessonId &&
+        previous.sessionId === nextRequest.sessionId &&
+        previous.userId === nextRequest.userId;
+      return unchanged ? previous : nextRequest;
+    });
+  }, [assistantConversationId, lesson.id, sessionId, unitId, user]);
 
   useEffect(() => {
     if (!unitId) {
@@ -314,6 +391,101 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
     return unsubscribe;
   }, [currentTrack?.unitId, navigation, pause, unitId]);
 
+  const handleOpenAssistant = useCallback(() => {
+    if (!unitId) {
+      Alert.alert('Unavailable', 'Unit context is required to ask questions.');
+      return;
+    }
+    if (!isOnline) {
+      Alert.alert(
+        'Offline',
+        'Reconnect to the internet to chat with the teaching assistant.'
+      );
+      return;
+    }
+
+    const basePayload: TeachingAssistantStartPayload = {
+      unitId,
+      lessonId: lesson.id ?? null,
+      sessionId,
+      userId: user ? String(user.id) : null,
+    };
+
+    setAssistantOpen(true);
+
+    if (assistantConversationId) {
+      setAssistantRequest(prev => {
+        if (!prev || prev.conversationId !== assistantConversationId) {
+          return {
+            conversationId: assistantConversationId,
+            ...basePayload,
+          };
+        }
+        return prev;
+      });
+      assistantSessionQuery.refetch();
+      return;
+    }
+
+    startTeachingAssistant.mutate(basePayload, {
+      onSuccess: state => {
+        setAssistantConversationId(state.conversationId);
+        setAssistantRequest({
+          conversationId: state.conversationId,
+          ...basePayload,
+        });
+      },
+      onError: () => {
+        setAssistantOpen(false);
+      },
+    });
+  }, [
+    assistantConversationId,
+    isOnline,
+    lesson.id,
+    sessionId,
+    assistantSessionQuery,
+    startTeachingAssistant,
+    unitId,
+    user,
+  ]);
+
+  const handleAssistantClose = useCallback(() => {
+    setAssistantOpen(false);
+  }, []);
+
+  const handleAssistantSend = useCallback(
+    (message: string) => {
+      if (!assistantConversationId || !unitId) {
+        return;
+      }
+
+      submitTeachingAssistantQuestion.mutate({
+        conversationId: assistantConversationId,
+        message,
+        unitId,
+        lessonId: lesson.id ?? null,
+        sessionId,
+        userId: user ? String(user.id) : null,
+      });
+    },
+    [
+      assistantConversationId,
+      lesson.id,
+      sessionId,
+      submitTeachingAssistantQuestion,
+      unitId,
+      user,
+    ]
+  );
+
+  const handleAssistantQuickReply = useCallback(
+    (reply: string) => {
+      handleAssistantSend(reply);
+    },
+    [handleAssistantSend]
+  );
+
   const handleComplete = (results: SessionResults) => {
     // Navigate to results screen
     const resolvedUnitId = results.unitId ?? unitId;
@@ -406,23 +578,47 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
 
   // Session created successfully - render learning flow
   if (sessionId) {
+    const assistantDisabled =
+      !isOnline ||
+      submitTeachingAssistantQuestion.isPending ||
+      startTeachingAssistant.isPending;
+
     return (
-      <SafeAreaView style={styles.container}>
-        <LearningFlow
-          sessionId={sessionId}
-          onComplete={handleComplete}
-          onBack={handleBack}
-          unitId={unitId}
-          hasPlayer={hasPlayer}
-        />
-        {hasPlayer && currentTrack && unitId ? (
-          <PodcastPlayer
-            track={currentTrack}
+      <>
+        <SafeAreaView style={styles.container}>
+          <LearningFlow
+            sessionId={sessionId}
+            onComplete={handleComplete}
+            onBack={handleBack}
             unitId={unitId}
-            defaultExpanded={false}
+            hasPlayer={hasPlayer}
           />
-        ) : null}
-      </SafeAreaView>
+          {hasPlayer && currentTrack && unitId ? (
+            <PodcastPlayer
+              track={currentTrack}
+              unitId={unitId}
+              defaultExpanded={false}
+            />
+          ) : null}
+          <View style={styles.assistantButtonWrapper} pointerEvents="box-none">
+            <TeachingAssistantButton
+              onPress={handleOpenAssistant}
+              disabled={assistantDisabled}
+            />
+          </View>
+        </SafeAreaView>
+        <TeachingAssistantModal
+          visible={isAssistantOpen}
+          onClose={handleAssistantClose}
+          messages={assistantMessages}
+          suggestedQuickReplies={assistantQuickReplies}
+          onSend={handleAssistantSend}
+          onSelectReply={handleAssistantQuickReply}
+          context={assistantContext ?? null}
+          isLoading={isAssistantLoading}
+          disabled={assistantDisabled}
+        />
+      </>
     );
   }
 
@@ -449,6 +645,11 @@ const createStyles = (theme: any) =>
   StyleSheet.create({
     container: {
       flex: 1,
+    },
+    assistantButtonWrapper: {
+      position: 'absolute',
+      bottom: 24,
+      right: 16,
     },
     loadingContainer: {
       flex: 1,

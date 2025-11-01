@@ -16,6 +16,7 @@ from modules.content.public import ContentProvider
 from .analytics import ExerciseCorrectness, LearningSessionAnalyticsService
 from .repo import LearningSessionRepo
 from .service import (
+    AssistantSessionContext,
     CompleteSessionRequest,
     LearningObjectiveProgressItem,
     LearningObjectiveStatus,
@@ -99,6 +100,11 @@ class LearningSessionProvider(Protocol):
         """Fetch a session without enforcing user ownership."""
         ...
 
+    @abstractmethod
+    async def get_session_context_for_assistant(self, session_id: str) -> AssistantSessionContext:
+        """Return enriched context for teaching assistant experiences."""
+        ...
+
     # --- Units progress ---
     @abstractmethod
     async def get_unit_progress(self, user_id: str, unit_id: str) -> UnitProgress:
@@ -150,6 +156,7 @@ def learning_session_analytics_provider(session: AsyncSession) -> LearningSessio
 
 # Export DTOs that other modules might need
 __all__ = [
+    "AssistantSessionContext",
     "CompleteSessionRequest",
     "ExerciseCorrectness",
     "LearningObjectiveProgressItem",

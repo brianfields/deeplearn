@@ -843,8 +843,18 @@ async def process_unit_from_json(
             label = resource_spec.get("filename") or resource_spec.get("source_url") or str(resource_id)
             print(f"   • Created resource: {label} ({resource_spec['resource_type']})")
 
-    # Seed optional learning coach conversations tied to the new resources
-    for conversation_spec in unit_spec.get("learning_coach_conversations", []):
+    # Seed optional learning conversations (coach) tied to the new resources
+    conversations_section = unit_spec.get("learning_conversations") or {}
+    if isinstance(conversations_section, dict):
+        coach_conversations = conversations_section.get("coach", [])
+    else:
+        coach_conversations = []
+
+    # Support legacy key until all seed files migrate
+    if not coach_conversations:
+        coach_conversations = unit_spec.get("learning_coach_conversations", [])
+
+    for conversation_spec in coach_conversations:
         conversation_id = uuid.UUID(conversation_spec["id"]) if "id" in conversation_spec else uuid.uuid4()
         existing_conversation = await db_session.get(ConversationModel, conversation_id)
         if existing_conversation:

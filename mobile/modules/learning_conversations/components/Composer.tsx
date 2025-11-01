@@ -7,6 +7,7 @@ interface Props {
   readonly disabled?: boolean;
   readonly onAttach?: () => void;
   readonly attachDisabled?: boolean;
+  readonly placeholderText?: string;
 }
 
 const uiSystem = uiSystemProvider();
@@ -20,6 +21,7 @@ export function Composer({
   disabled,
   onAttach,
   attachDisabled,
+  placeholderText,
 }: Props): React.ReactElement {
   const [value, setValue] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -65,7 +67,7 @@ export function Composer({
       <TextInput
         value={value}
         onChangeText={setValue}
-        placeholder="Tell the coach what you need"
+        placeholder={placeholderText ?? 'Tell the coach what you need'}
         placeholderTextColor={theme.colors.textSecondary ?? '#999'}
         style={styles.input}
         editable={!disabled}

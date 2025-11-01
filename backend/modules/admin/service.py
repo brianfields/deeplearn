@@ -14,7 +14,7 @@ from modules.catalog.public import CatalogProvider
 from modules.content.public import ContentProvider
 from modules.conversation_engine.public import ConversationEngineProvider
 from modules.flow_engine.public import FlowEngineAdminProvider
-from modules.learning_coach.public import LearningCoachProvider
+from modules.learning_conversations.public import LearningConversationsProvider
 from modules.learning_session.public import LearningSession, LearningSessionProvider
 from modules.llm_services.public import LLMServicesAdminProvider
 from modules.user.public import UserProvider, UserRead
@@ -61,7 +61,7 @@ class AdminService:
         content: ContentProvider,
         users: UserProvider,
         learning_sessions: LearningSessionProvider | None = None,
-        learning_coach: LearningCoachProvider | None = None,
+        learning_coach: LearningConversationsProvider | None = None,
         conversation_engine: ConversationEngineProvider | None = None,
     ) -> None:
         """Initialize admin service with required dependencies."""
@@ -263,7 +263,7 @@ class AdminService:
         # Fetch resources attached to this conversation
         from modules.admin.models import ResourceSummaryAdmin
         from modules.infrastructure.public import infrastructure_provider
-        from modules.learning_coach.service import _extract_resource_ids, fetch_resources_for_ids
+        from modules.learning_conversations.service import _extract_resource_ids, fetch_resources_for_ids
 
         resource_ids = _extract_resource_ids(metadata)
         infra = infrastructure_provider()

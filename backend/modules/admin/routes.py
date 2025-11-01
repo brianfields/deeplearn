@@ -16,7 +16,7 @@ from modules.content.public import content_provider
 from modules.conversation_engine.public import conversation_engine_provider
 from modules.flow_engine.public import flow_engine_admin_provider
 from modules.infrastructure.public import infrastructure_provider
-from modules.learning_coach.public import learning_coach_provider
+from modules.learning_conversations.public import learning_conversations_provider
 from modules.learning_session.public import (
     learning_session_analytics_provider,
     learning_session_provider,
@@ -92,7 +92,7 @@ async def get_admin_service(
 
     users = user_provider(sync_session)
     learning_sessions = learning_session_provider(async_session, content)
-    learning_coach = learning_coach_provider()
+    learning_coach = learning_conversations_provider()
     conversations = conversation_engine_provider(sync_session)
 
     # Create admin service with all dependencies

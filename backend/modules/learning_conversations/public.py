@@ -1,4 +1,4 @@
-"""Public provider for the learning coach module."""
+"""Public provider for the learning conversations module."""
 
 from __future__ import annotations
 
@@ -12,12 +12,14 @@ from .dtos import (
     LearningCoachMessage,
     LearningCoachObjective,
     LearningCoachSessionState,
+    TeachingAssistantContext,
+    TeachingAssistantSessionState,
 )
 from .service import LearningCoachService
 
 
-class LearningCoachProvider(Protocol):
-    """Protocol describing the learning coach service surface."""
+class LearningConversationsProvider(Protocol):
+    """Protocol describing the learning conversations service surface."""
 
     async def start_session(
         self,
@@ -66,11 +68,41 @@ class LearningCoachProvider(Protocol):
 
     async def get_conversation_resources(self, conversation_id: str) -> list[ResourceRead]: ...
 
+    async def start_teaching_assistant_session(
+        self,
+        *,
+        unit_id: str,
+        lesson_id: str | None,
+        session_id: str | None,
+        user_id: int | None = None,
+    ) -> TeachingAssistantSessionState: ...
 
-def learning_coach_provider(
+    async def submit_teaching_assistant_question(
+        self,
+        *,
+        conversation_id: str,
+        message: str,
+        unit_id: str,
+        lesson_id: str | None,
+        session_id: str | None,
+        user_id: int | None = None,
+    ) -> TeachingAssistantSessionState: ...
+
+    async def get_teaching_assistant_session_state(
+        self,
+        *,
+        conversation_id: str,
+        unit_id: str,
+        lesson_id: str | None,
+        session_id: str | None,
+        user_id: int | None = None,
+    ) -> TeachingAssistantSessionState: ...
+
+
+def learning_conversations_provider(
     infrastructure: InfrastructureProvider | None = None,
-) -> LearningCoachProvider:
-    """Return a learning coach service bound to infrastructure."""
+) -> LearningConversationsProvider:
+    """Return a learning conversations service bound to infrastructure."""
 
     infra = infrastructure or infrastructure_provider()
     return LearningCoachService(infrastructure=infra)
@@ -80,8 +112,10 @@ __all__ = [
     "LearningCoachConversationSummary",
     "LearningCoachMessage",
     "LearningCoachObjective",
-    "LearningCoachProvider",
     "LearningCoachService",
     "LearningCoachSessionState",
-    "learning_coach_provider",
+    "LearningConversationsProvider",
+    "TeachingAssistantContext",
+    "TeachingAssistantSessionState",
+    "learning_conversations_provider",
 ]

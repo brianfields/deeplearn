@@ -1,4 +1,4 @@
-"""API routes for the learning coach module."""
+"""API routes for learning conversations."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from pydantic_core import PydanticUndefined
 
@@ -17,10 +17,13 @@ from .dtos import (
     LearningCoachMessage,
     LearningCoachResource,
     LearningCoachSessionState,
+    TeachingAssistantContext,
+    TeachingAssistantMessage,
+    TeachingAssistantSessionState,
 )
 from .service import LearningCoachService
 
-router = APIRouter(prefix="/api/v1/learning_coach", tags=["learning_coach"])
+router = APIRouter(prefix="/api/v1/learning_conversations", tags=["learning_conversations"])
 
 
 class LearningCoachMessageModel(BaseModel):
@@ -102,6 +105,63 @@ class ResourceSummaryModel(BaseModel):
     preview_text: str
 
 
+class TeachingAssistantMessageModel(BaseModel):
+    """Serialized teaching assistant message."""
+
+    id: str
+    role: str
+    content: str
+    created_at: datetime
+    metadata: dict[str, Any]
+    suggested_quick_replies: list[str] = Field(default_factory=list)
+
+
+class TeachingAssistantContextModel(BaseModel):
+    """Structured context included with teaching assistant responses."""
+
+    unit_id: str
+    lesson_id: str | None = None
+    session_id: str | None = None
+    session: dict[str, Any] | None = None
+    exercise_attempt_history: list[dict[str, Any]] = Field(default_factory=list)
+    lesson: dict[str, Any] | None = None
+    unit: dict[str, Any] | None = None
+    unit_session: dict[str, Any] | None = None
+    unit_resources: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class TeachingAssistantSessionStateModel(BaseModel):
+    """API response model for teaching assistant session state."""
+
+    conversation_id: str
+    unit_id: str
+    lesson_id: str | None
+    session_id: str | None
+    messages: list[TeachingAssistantMessageModel]
+    suggested_quick_replies: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any]
+    context: TeachingAssistantContextModel
+
+
+class TeachingAssistantStartRequest(BaseModel):
+    """Request payload for starting or resuming a teaching assistant session."""
+
+    unit_id: str = Field(..., description="Unit identifier that scopes the conversation")
+    lesson_id: str | None = Field(default=None, description="Current lesson identifier")
+    session_id: str | None = Field(default=None, description="Active learning session identifier")
+    user_id: int | None = Field(default=None, ge=1, description="Authenticated learner identifier")
+
+
+class TeachingAssistantQuestionRequest(BaseModel):
+    """Request payload for submitting a teaching assistant question."""
+
+    conversation_id: str = Field(..., description="Existing teaching assistant conversation identifier")
+    message: str = Field(..., min_length=1, description="Learner message content")
+    unit_id: str = Field(..., description="Unit identifier that scopes the conversation")
+    lesson_id: str | None = Field(default=None, description="Current lesson identifier")
+    session_id: str | None = Field(default=None, description="Active learning session identifier")
+    user_id: int | None = Field(default=None, ge=1, description="Authenticated learner identifier")
+
 def get_learning_coach_service() -> LearningCoachService:
     """Resolve the learning coach service with shared infrastructure."""
 
@@ -110,7 +170,7 @@ def get_learning_coach_service() -> LearningCoachService:
     return LearningCoachService(infrastructure=infra)
 
 
-@router.post("/session/start", response_model=LearningCoachSessionStateModel, status_code=status.HTTP_201_CREATED)
+@router.post("/coach/session/start", response_model=LearningCoachSessionStateModel, status_code=status.HTTP_201_CREATED)
 async def start_session(
     request: StartSessionRequest,
     service: LearningCoachService = Depends(get_learning_coach_service),
@@ -121,7 +181,7 @@ async def start_session(
     return _serialize_state(state)
 
 
-@router.post("/session/message", response_model=LearningCoachSessionStateModel)
+@router.post("/coach/session/message", response_model=LearningCoachSessionStateModel)
 async def submit_learner_turn(
     request: LearnerTurnRequest,
     service: LearningCoachService = Depends(get_learning_coach_service),
@@ -136,7 +196,7 @@ async def submit_learner_turn(
     return _serialize_state(state)
 
 
-@router.post("/session/accept", response_model=LearningCoachSessionStateModel)
+@router.post("/coach/session/accept", response_model=LearningCoachSessionStateModel)
 async def accept_brief(
     request: AcceptBriefRequest,
     service: LearningCoachService = Depends(get_learning_coach_service),
@@ -154,7 +214,7 @@ async def accept_brief(
     return _serialize_state(state)
 
 
-@router.get("/session/{conversation_id}", response_model=LearningCoachSessionStateModel)
+@router.get("/coach/session/{conversation_id}", response_model=LearningCoachSessionStateModel)
 async def get_session_state(
     conversation_id: str,
     include_system_messages: bool = False,
@@ -167,7 +227,7 @@ async def get_session_state(
 
 
 @router.post(
-    "/conversations/{conversation_id}/resources",
+    "/coach/conversations/{conversation_id}/resources",
     response_model=LearningCoachSessionStateModel,
     status_code=status.HTTP_200_OK,
 )
@@ -190,6 +250,79 @@ async def attach_resource(
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
 
     return _serialize_state(state)
+
+
+@router.post(
+    "/teaching_assistant/start",
+    response_model=TeachingAssistantSessionStateModel,
+    status_code=status.HTTP_201_CREATED,
+)
+async def start_teaching_assistant(
+    request: TeachingAssistantStartRequest,
+    service: LearningCoachService = Depends(get_learning_coach_service),
+) -> TeachingAssistantSessionStateModel:
+    """Start or resume a teaching assistant conversation."""
+
+    state = await service.start_teaching_assistant_session(
+        unit_id=request.unit_id,
+        lesson_id=request.lesson_id,
+        session_id=request.session_id,
+        user_id=request.user_id,
+    )
+    return _serialize_teaching_assistant_state(state)
+
+
+@router.post(
+    "/teaching_assistant/ask",
+    response_model=TeachingAssistantSessionStateModel,
+)
+async def submit_teaching_assistant_question(
+    request: TeachingAssistantQuestionRequest,
+    service: LearningCoachService = Depends(get_learning_coach_service),
+) -> TeachingAssistantSessionStateModel:
+    """Submit a learner turn to the teaching assistant."""
+
+    try:
+        state = await service.submit_teaching_assistant_question(
+            conversation_id=request.conversation_id,
+            message=request.message,
+            unit_id=request.unit_id,
+            lesson_id=request.lesson_id,
+            session_id=request.session_id,
+            user_id=request.user_id,
+        )
+    except LookupError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    return _serialize_teaching_assistant_state(state)
+
+
+@router.get(
+    "/teaching_assistant/{conversation_id}",
+    response_model=TeachingAssistantSessionStateModel,
+)
+async def get_teaching_assistant_session_state(
+    conversation_id: str,
+    unit_id: str = Query(..., description="Unit identifier that scopes the conversation"),
+    lesson_id: str | None = Query(None, description="Current lesson identifier"),
+    session_id: str | None = Query(None, description="Active learning session identifier"),
+    user_id: int | None = Query(None, ge=1, description="Authenticated learner identifier"),
+    service: LearningCoachService = Depends(get_learning_coach_service),
+) -> TeachingAssistantSessionStateModel:
+    """Return the latest teaching assistant session state."""
+
+    try:
+        state = await service.get_teaching_assistant_session_state(
+            conversation_id=conversation_id,
+            unit_id=unit_id,
+            lesson_id=lesson_id,
+            session_id=session_id,
+            user_id=user_id,
+        )
+    except LookupError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    return _serialize_teaching_assistant_state(state)
 
 
 def _serialize_state(state: LearningCoachSessionState) -> LearningCoachSessionStateModel:
@@ -227,6 +360,50 @@ def _serialize_message(message: LearningCoachMessage) -> LearningCoachMessageMod
         content=message.content,
         created_at=message.created_at,
         metadata=message.metadata,
+    )
+
+
+def _serialize_teaching_assistant_state(state: TeachingAssistantSessionState) -> TeachingAssistantSessionStateModel:
+    """Convert the teaching assistant DTO into an API response model."""
+
+    return TeachingAssistantSessionStateModel(
+        conversation_id=state.conversation_id,
+        unit_id=state.unit_id,
+        lesson_id=state.lesson_id,
+        session_id=state.session_id,
+        messages=[_serialize_teaching_assistant_message(message) for message in state.messages],
+        suggested_quick_replies=state.suggested_quick_replies,
+        metadata=state.metadata,
+        context=_serialize_teaching_assistant_context(state.context),
+    )
+
+
+def _serialize_teaching_assistant_message(message: TeachingAssistantMessage) -> TeachingAssistantMessageModel:
+    """Convert a teaching assistant message DTO into response format."""
+
+    return TeachingAssistantMessageModel(
+        id=message.id,
+        role=message.role,
+        content=message.content,
+        created_at=message.created_at,
+        metadata=message.metadata,
+        suggested_quick_replies=message.suggested_quick_replies,
+    )
+
+
+def _serialize_teaching_assistant_context(context: TeachingAssistantContext) -> TeachingAssistantContextModel:
+    """Convert teaching assistant context data into the API model."""
+
+    return TeachingAssistantContextModel(
+        unit_id=context.unit_id,
+        lesson_id=context.lesson_id,
+        session_id=context.session_id,
+        session=context.session,
+        exercise_attempt_history=context.exercise_attempt_history,
+        lesson=context.lesson,
+        unit=context.unit,
+        unit_session=context.unit_session,
+        unit_resources=context.unit_resources,
     )
 
 

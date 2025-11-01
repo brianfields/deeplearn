@@ -10,6 +10,10 @@ export interface LearningCoachMessage {
   readonly metadata: Record<string, any>;
 }
 
+export interface TeachingAssistantMessage extends LearningCoachMessage {
+  readonly suggestedQuickReplies: string[];
+}
+
 export interface LearningCoachBrief {
   readonly title: string;
   readonly description: string;
@@ -38,14 +42,61 @@ export interface LearningCoachSessionState {
   readonly uncoveredLearningObjectiveIds?: string[] | null;
 }
 
+export interface TeachingAssistantContext {
+  readonly unitId: string;
+  readonly lessonId: string | null;
+  readonly sessionId: string | null;
+  readonly session: Record<string, any> | null;
+  readonly exerciseAttemptHistory: ReadonlyArray<Record<string, any>>;
+  readonly lesson: Record<string, any> | null;
+  readonly unit: Record<string, any> | null;
+  readonly unitSession: Record<string, any> | null;
+  readonly unitResources: ReadonlyArray<Record<string, any>>;
+}
+
+export interface TeachingAssistantSessionState {
+  readonly conversationId: string;
+  readonly unitId: string;
+  readonly lessonId: string | null;
+  readonly sessionId: string | null;
+  readonly messages: TeachingAssistantMessage[];
+  readonly suggestedQuickReplies: string[];
+  readonly metadata: Record<string, any>;
+  readonly context: TeachingAssistantContext;
+}
+
 export interface StartSessionPayload {
   readonly topic?: string | null;
+  readonly userId?: string | null;
+}
+
+export interface TeachingAssistantStartPayload {
+  readonly unitId: string;
+  readonly lessonId?: string | null;
+  readonly sessionId?: string | null;
   readonly userId?: string | null;
 }
 
 export interface LearnerTurnPayload {
   readonly conversationId: string;
   readonly message: string;
+  readonly userId?: string | null;
+}
+
+export interface TeachingAssistantQuestionPayload {
+  readonly conversationId: string;
+  readonly message: string;
+  readonly unitId: string;
+  readonly lessonId?: string | null;
+  readonly sessionId?: string | null;
+  readonly userId?: string | null;
+}
+
+export interface TeachingAssistantStateRequest {
+  readonly conversationId: string;
+  readonly unitId: string;
+  readonly lessonId?: string | null;
+  readonly sessionId?: string | null;
   readonly userId?: string | null;
 }
 

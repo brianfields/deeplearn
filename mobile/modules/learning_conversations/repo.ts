@@ -9,10 +9,19 @@ import type {
   LearningCoachLearningObjective,
   LearningCoachError,
   AttachResourcePayload,
+  TeachingAssistantStartPayload,
+  TeachingAssistantSessionState,
+  TeachingAssistantQuestionPayload,
+  TeachingAssistantStateRequest,
+  TeachingAssistantMessage,
+  TeachingAssistantContext,
 } from './models';
 import type { ResourceSummary, ResourceType } from '../resource/public';
 
-const LEARNING_COACH_BASE = '/api/v1/learning_coach';
+const LEARNING_CONVERSATIONS_BASE = '/api/v1/learning_conversations';
+
+const COACH_PREFIX = `${LEARNING_CONVERSATIONS_BASE}/coach`;
+const TEACHING_ASSISTANT_PREFIX = `${LEARNING_CONVERSATIONS_BASE}/teaching_assistant`;
 
 interface ApiMessage {
   readonly id: string;
@@ -53,6 +62,33 @@ interface ApiResourceSummary {
   readonly preview_text?: string | null;
 }
 
+interface ApiTeachingAssistantMessage extends ApiMessage {
+  readonly suggested_quick_replies?: string[] | null;
+}
+
+interface ApiTeachingAssistantContext {
+  readonly unit_id: string;
+  readonly lesson_id: string | null;
+  readonly session_id: string | null;
+  readonly session?: Record<string, any> | null;
+  readonly exercise_attempt_history?: Record<string, any>[] | null;
+  readonly lesson?: Record<string, any> | null;
+  readonly unit?: Record<string, any> | null;
+  readonly unit_session?: Record<string, any> | null;
+  readonly unit_resources?: Record<string, any>[] | null;
+}
+
+interface ApiTeachingAssistantState {
+  readonly conversation_id: string;
+  readonly unit_id: string;
+  readonly lesson_id: string | null;
+  readonly session_id: string | null;
+  readonly messages: ApiTeachingAssistantMessage[];
+  readonly suggested_quick_replies?: string[] | null;
+  readonly metadata: Record<string, any>;
+  readonly context: ApiTeachingAssistantContext;
+}
+
 function toMessage(dto: ApiMessage): LearningCoachMessage {
   return {
     id: dto.id,
@@ -60,6 +96,17 @@ function toMessage(dto: ApiMessage): LearningCoachMessage {
     content: dto.content,
     createdAt: dto.created_at,
     metadata: dto.metadata ?? {},
+  };
+}
+
+function toTeachingAssistantMessage(
+  dto: ApiTeachingAssistantMessage
+): TeachingAssistantMessage {
+  return {
+    ...toMessage(dto),
+    suggestedQuickReplies: Array.isArray(dto.suggested_quick_replies)
+      ? dto.suggested_quick_replies.filter(isNonEmptyString)
+      : [],
   };
 }
 
@@ -96,6 +143,40 @@ function toSessionState(dto: ApiSessionState): LearningCoachSessionState {
     uncoveredLearningObjectiveIds: normalizeUncoveredLearningObjectiveIds(
       dto.uncovered_learning_objective_ids
     ),
+  };
+}
+
+function toTeachingAssistantContext(
+  dto: ApiTeachingAssistantContext
+): TeachingAssistantContext {
+  return {
+    unitId: dto.unit_id,
+    lessonId: dto.lesson_id,
+    sessionId: dto.session_id,
+    session: dto.session ?? null,
+    exerciseAttemptHistory:
+      dto.exercise_attempt_history?.map(entry => ({ ...entry })) ?? [],
+    lesson: dto.lesson ?? null,
+    unit: dto.unit ?? null,
+    unitSession: dto.unit_session ?? null,
+    unitResources: dto.unit_resources ?? [],
+  };
+}
+
+function toTeachingAssistantState(
+  dto: ApiTeachingAssistantState
+): TeachingAssistantSessionState {
+  return {
+    conversationId: dto.conversation_id,
+    unitId: dto.unit_id,
+    lessonId: dto.lesson_id,
+    sessionId: dto.session_id,
+    messages: dto.messages.map(toTeachingAssistantMessage),
+    suggestedQuickReplies: Array.isArray(dto.suggested_quick_replies)
+      ? dto.suggested_quick_replies.filter(isNonEmptyString)
+      : [],
+    metadata: dto.metadata ?? {},
+    context: toTeachingAssistantContext(dto.context),
   };
 }
 
@@ -188,6 +269,10 @@ function normalizeUncoveredLearningObjectiveIds(
   return normalized;
 }
 
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
 export class LearningCoachRepo {
   private infrastructure = infrastructureProvider();
 
@@ -196,7 +281,7 @@ export class LearningCoachRepo {
   ): Promise<LearningCoachSessionState> {
     try {
       const response = await this.infrastructure.request<ApiSessionState>(
-        `${LEARNING_COACH_BASE}/session/start`,
+        `${COACH_PREFIX}/session/start`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -217,7 +302,7 @@ export class LearningCoachRepo {
   ): Promise<LearningCoachSessionState> {
     try {
       const response = await this.infrastructure.request<ApiSessionState>(
-        `${LEARNING_COACH_BASE}/session/message`,
+        `${COACH_PREFIX}/session/message`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -239,7 +324,7 @@ export class LearningCoachRepo {
   ): Promise<LearningCoachSessionState> {
     try {
       const response = await this.infrastructure.request<ApiSessionState>(
-        `${LEARNING_COACH_BASE}/session/accept`,
+        `${COACH_PREFIX}/session/accept`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -259,7 +344,7 @@ export class LearningCoachRepo {
   async getSession(conversationId: string): Promise<LearningCoachSessionState> {
     try {
       const response = await this.infrastructure.request<ApiSessionState>(
-        `${LEARNING_COACH_BASE}/session/${encodeURIComponent(conversationId)}`,
+        `${COACH_PREFIX}/session/${encodeURIComponent(conversationId)}`,
         {
           method: 'GET',
         }
@@ -275,7 +360,7 @@ export class LearningCoachRepo {
   ): Promise<LearningCoachSessionState> {
     try {
       const response = await this.infrastructure.request<ApiSessionState>(
-        `${LEARNING_COACH_BASE}/conversations/${encodeURIComponent(payload.conversationId)}/resources`,
+        `${COACH_PREFIX}/conversations/${encodeURIComponent(payload.conversationId)}/resources`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -291,19 +376,108 @@ export class LearningCoachRepo {
     }
   }
 
+  async startTeachingAssistantSession(
+    payload: TeachingAssistantStartPayload
+  ): Promise<TeachingAssistantSessionState> {
+    try {
+      const response =
+        await this.infrastructure.request<ApiTeachingAssistantState>(
+          `${TEACHING_ASSISTANT_PREFIX}/start`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              unit_id: payload.unitId,
+              lesson_id: payload.lessonId ?? null,
+              session_id: payload.sessionId ?? null,
+              user_id: payload.userId ?? null,
+            }),
+          }
+        );
+      return toTeachingAssistantState(response);
+    } catch (error) {
+      throw this.handleError(
+        error,
+        'Failed to start teaching assistant session'
+      );
+    }
+  }
+
+  async submitTeachingAssistantQuestion(
+    payload: TeachingAssistantQuestionPayload
+  ): Promise<TeachingAssistantSessionState> {
+    try {
+      const response =
+        await this.infrastructure.request<ApiTeachingAssistantState>(
+          `${TEACHING_ASSISTANT_PREFIX}/ask`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              conversation_id: payload.conversationId,
+              message: payload.message,
+              unit_id: payload.unitId,
+              lesson_id: payload.lessonId ?? null,
+              session_id: payload.sessionId ?? null,
+              user_id: payload.userId ?? null,
+            }),
+          }
+        );
+      return toTeachingAssistantState(response);
+    } catch (error) {
+      throw this.handleError(
+        error,
+        'Failed to submit teaching assistant question'
+      );
+    }
+  }
+
+  async getTeachingAssistantSessionState(
+    payload: TeachingAssistantStateRequest
+  ): Promise<TeachingAssistantSessionState> {
+    try {
+      const query = new URLSearchParams({
+        unit_id: payload.unitId,
+      });
+      if (payload.lessonId) {
+        query.set('lesson_id', payload.lessonId);
+      }
+      if (payload.sessionId) {
+        query.set('session_id', payload.sessionId);
+      }
+      if (payload.userId) {
+        query.set('user_id', String(payload.userId));
+      }
+
+      const response =
+        await this.infrastructure.request<ApiTeachingAssistantState>(
+          `${TEACHING_ASSISTANT_PREFIX}/${encodeURIComponent(payload.conversationId)}?${query.toString()}`,
+          {
+            method: 'GET',
+          }
+        );
+      return toTeachingAssistantState(response);
+    } catch (error) {
+      throw this.handleError(
+        error,
+        'Failed to fetch teaching assistant session state'
+      );
+    }
+  }
+
   private handleError(error: any, message: string): LearningCoachError {
-    console.error('[LearningCoachRepo]', message, error);
+    console.error('[LearningConversationsRepo]', message, error);
     if (error && typeof error === 'object') {
       return {
         message: (error as any).message ?? message,
         statusCode: (error as any).status ?? (error as any).statusCode,
-        code: (error as any).code ?? 'LEARNING_COACH_ERROR',
+        code: (error as any).code ?? 'LEARNING_CONVERSATIONS_ERROR',
         details: error,
       };
     }
     return {
       message,
-      code: 'LEARNING_COACH_ERROR',
+      code: 'LEARNING_CONVERSATIONS_ERROR',
       details: error,
     };
   }

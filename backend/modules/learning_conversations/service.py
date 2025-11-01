@@ -3,14 +3,18 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from dataclasses import asdict
 from typing import Any
 import uuid
 
+from modules.content.public import content_provider
 from modules.conversation_engine.public import conversation_engine_provider
 from modules.infrastructure.public import InfrastructureProvider, infrastructure_provider
+from modules.learning_session.public import AssistantSessionContext, learning_session_provider
 from modules.resource.public import ResourceRead, resource_provider
 
-from .conversation import LearningCoachConversation
+from .conversations.learning_coach import LearningCoachConversation
+from .conversations.teaching_assistant import TeachingAssistantConversation
 from .dtos import (
     UNSET,
     LearningCoachConversationSummary,
@@ -19,6 +23,8 @@ from .dtos import (
     LearningCoachResource,
     LearningCoachSessionState,
     UncoveredLearningObjectiveIds,
+    TeachingAssistantContext,
+    TeachingAssistantSessionState,
 )
 
 
@@ -30,9 +36,11 @@ class LearningCoachService:
         *,
         infrastructure: InfrastructureProvider | None = None,
         conversation_factory: Callable[[], LearningCoachConversation] | None = None,
+        teaching_assistant_factory: Callable[[], TeachingAssistantConversation] | None = None,
     ) -> None:
         self._infrastructure = infrastructure
         self._conversation_factory = conversation_factory or LearningCoachConversation
+        self._teaching_assistant_factory = teaching_assistant_factory or TeachingAssistantConversation
 
     async def start_session(
         self,
@@ -194,6 +202,210 @@ class LearningCoachService:
             )
             for summary in summaries
         ]
+
+    async def start_teaching_assistant_session(
+        self,
+        *,
+        unit_id: str,
+        lesson_id: str | None,
+        session_id: str | None,
+        user_id: int | None = None,
+    ) -> TeachingAssistantSessionState:
+        """Start or resume a teaching assistant conversation for the given unit."""
+
+        context = await self._build_teaching_assistant_context(
+            unit_id=unit_id,
+            lesson_id=lesson_id,
+            session_id=session_id,
+            user_id=user_id,
+        )
+
+        metadata = self._teaching_assistant_metadata(context)
+        existing_conversation_id = await self._find_existing_teaching_assistant_conversation(
+            unit_id=context.unit_id,
+            user_id=user_id,
+        )
+
+        conversation = self._teaching_assistant_factory()
+        return await conversation.start_session(
+            unit_id=context.unit_id,
+            lesson_id=context.lesson_id,
+            session_id=context.session_id,
+            context=context,
+            _user_id=user_id,
+            _conversation_id=str(existing_conversation_id) if existing_conversation_id else None,
+            _conversation_metadata=metadata,
+        )
+
+    async def submit_teaching_assistant_question(
+        self,
+        *,
+        conversation_id: str,
+        message: str,
+        unit_id: str,
+        lesson_id: str | None,
+        session_id: str | None,
+        user_id: int | None = None,
+    ) -> TeachingAssistantSessionState:
+        """Append a learner turn and fetch the updated teaching assistant state."""
+
+        context = await self._build_teaching_assistant_context(
+            unit_id=unit_id,
+            lesson_id=lesson_id,
+            session_id=session_id,
+            user_id=user_id,
+        )
+
+        conversation = self._teaching_assistant_factory()
+        return await conversation.submit_question(
+            _conversation_id=conversation_id,
+            message=message,
+            context=context,
+            _user_id=user_id,
+        )
+
+    async def get_teaching_assistant_session_state(
+        self,
+        *,
+        conversation_id: str,
+        unit_id: str,
+        lesson_id: str | None,
+        session_id: str | None,
+        user_id: int | None = None,
+    ) -> TeachingAssistantSessionState:
+        """Return the latest state for an existing teaching assistant conversation."""
+
+        context = await self._build_teaching_assistant_context(
+            unit_id=unit_id,
+            lesson_id=lesson_id,
+            session_id=session_id,
+            user_id=user_id,
+        )
+
+        conversation = self._teaching_assistant_factory()
+        return await conversation.get_session_state(
+            _conversation_id=conversation_id,
+            context=context,
+            _user_id=user_id,
+        )
+
+    async def _build_teaching_assistant_context(
+        self,
+        *,
+        unit_id: str,
+        lesson_id: str | None,
+        session_id: str | None,
+        user_id: int | None,
+    ) -> TeachingAssistantContext:
+        """Collect lesson, unit, and session context for the teaching assistant."""
+
+        infra = self._get_infrastructure()
+        infra.initialize()
+
+        async with infra.get_async_session_context() as session:
+            content = content_provider(session)
+            resource = await resource_provider(session)
+            learning_sessions = learning_session_provider(session, content)
+
+            assistant_session: AssistantSessionContext | None = None
+            if session_id:
+                try:
+                    assistant_session = await learning_sessions.get_session_context_for_assistant(session_id)
+                except ValueError:
+                    assistant_session = None
+
+            session_payload: dict[str, Any] | None = None
+            exercise_history: list[dict[str, Any]] = []
+            lesson_payload: dict[str, Any] | None = None
+            unit_payload: dict[str, Any] | None = None
+
+            if assistant_session is not None:
+                session_payload = self._convert_learning_session(assistant_session)
+                exercise_history = assistant_session.exercise_attempt_history
+                lesson_payload = assistant_session.lesson
+                unit_payload = assistant_session.unit
+
+            if lesson_payload is None and lesson_id:
+                lesson_model = await content.get_lesson(lesson_id)
+                lesson_payload = lesson_model.model_dump(mode="json") if lesson_model else None
+
+            if unit_payload is None:
+                unit_model = await content.get_unit(unit_id)
+                unit_payload = unit_model.model_dump(mode="json") if unit_model else None
+
+            unit_session_payload: dict[str, Any] | None = None
+            learner_key = str(user_id) if user_id is not None else None
+            if learner_key is not None:
+                try:
+                    unit_session = await content.get_or_create_unit_session(user_id=learner_key, unit_id=unit_id)
+                    unit_session_payload = unit_session.model_dump(mode="json")
+                except Exception:
+                    unit_session_payload = None
+
+            resource_summaries = await resource.get_resources_for_unit(unit_id)
+            unit_resources = [summary.model_dump(mode="json") for summary in resource_summaries]
+
+        return TeachingAssistantContext(
+            unit_id=unit_id,
+            lesson_id=lesson_id,
+            session_id=session_id,
+            session=session_payload,
+            exercise_attempt_history=exercise_history,
+            lesson=lesson_payload,
+            unit=unit_payload,
+            unit_session=unit_session_payload,
+            unit_resources=unit_resources,
+        )
+
+    async def _find_existing_teaching_assistant_conversation(
+        self,
+        *,
+        unit_id: str,
+        user_id: int | None,
+    ) -> uuid.UUID | None:
+        """Return the existing conversation identifier for the unit/user pair, if any."""
+
+        if user_id is None:
+            return None
+
+        infra = self._get_infrastructure()
+        with infra.get_session_context() as session:
+            engine = conversation_engine_provider(session)
+            summaries = await engine.list_conversations_for_user(
+                user_id,
+                conversation_type=TeachingAssistantConversation.conversation_type,
+                limit=50,
+            )
+
+        for summary in summaries:
+            metadata = summary.metadata or {}
+            if metadata.get("unit_id") == unit_id:
+                try:
+                    return uuid.UUID(str(summary.id))
+                except ValueError:
+                    continue
+        return None
+
+    def _teaching_assistant_metadata(self, context: TeachingAssistantContext) -> dict[str, Any]:
+        """Build metadata payload persisted alongside the teaching assistant conversation."""
+
+        metadata: dict[str, Any] = {
+            "unit_id": context.unit_id,
+            "current_lesson_id": context.lesson_id,
+            "current_session_id": context.session_id,
+        }
+        unit_session = context.unit_session if isinstance(context.unit_session, dict) else None
+        unit_session_id = unit_session.get("id") if unit_session else None
+        if unit_session_id:
+            metadata["unit_session_id"] = unit_session_id
+        return metadata
+
+    def _convert_learning_session(self, context: AssistantSessionContext) -> dict[str, Any] | None:
+        """Convert the assistant session DTO into a serializable mapping."""
+
+        if context.session is None:
+            return None
+        return asdict(context.session)
 
     def _get_infrastructure(self) -> InfrastructureProvider:
         if self._infrastructure is None:

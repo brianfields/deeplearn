@@ -1,10 +1,12 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import type { LearningCoachMessage } from '../models';
+import type { LearningCoachMessage, TeachingAssistantMessage } from '../models';
 import { uiSystemProvider } from '../../ui_system/public';
 
+type ConversationMessage = LearningCoachMessage | TeachingAssistantMessage;
+
 interface Props {
-  readonly message: LearningCoachMessage;
+  readonly message: ConversationMessage;
 }
 
 const uiSystem = uiSystemProvider();

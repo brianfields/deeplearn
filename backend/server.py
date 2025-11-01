@@ -11,6 +11,7 @@ import logging
 from pathlib import Path
 import sys
 from typing import Annotated
+from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -31,7 +32,7 @@ from modules.infrastructure.exception_handlers import (
     setup_exception_handlers,
 )
 from modules.infrastructure.public import DatabaseSession, infrastructure_provider
-from modules.learning_coach.routes import router as learning_coach_router
+from modules.learning_conversations.routes import router as learning_conversations_router
 from modules.learning_session.routes import router as learning_session_router
 from modules.resource.routes import router as resource_router
 from modules.task_queue.routes import router as task_queue_router
@@ -98,11 +99,38 @@ logger = logging.getLogger(__name__)
 # Initialize infrastructure service
 infrastructure = infrastructure_provider()
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):  # type: ignore[no-untyped-def]
+    """Manage application lifecycle events."""
+    # Startup
+    try:
+        # Initialize the infrastructure service
+        infrastructure.initialize()
+
+        # Validate environment
+        env_status = infrastructure.validate_environment()
+        if not env_status.is_valid:
+            logger.warning(f"Environment validation issues: {env_status.errors}")
+
+        logger.info("Learning API server started successfully")
+        logger.info("Modular architecture: content_creator, learning_session, catalog, infrastructure")
+
+    except Exception as e:
+        logger.error(f"Failed to initialize services: {e}")
+        raise
+
+    yield
+
+    # Shutdown (if needed in the future)
+
+
 # Initialize FastAPI app
 app = FastAPI(
     title="Conversational Learning API",
     description="AI-powered conversational learning platform with clean modular architecture",
     version="2.0.0",
+    lifespan=lifespan,
 )
 
 # Add CORS middleware
@@ -149,27 +177,7 @@ app.include_router(admin_router, tags=["Admin"])
 app.include_router(task_queue_router, tags=["Task Queue"])
 app.include_router(flow_engine_router, tags=["Flow Engine"])
 app.include_router(debug_router, tags=["Debug"])  # Only active in DEBUG mode
-app.include_router(learning_coach_router, tags=["Learning Coach"])
-
-
-@app.on_event("startup")
-async def startup_event() -> None:
-    """Initialize services on startup."""
-    try:
-        # Initialize the infrastructure service
-        infrastructure.initialize()
-
-        # Validate environment
-        env_status = infrastructure.validate_environment()
-        if not env_status.is_valid:
-            logger.warning(f"Environment validation issues: {env_status.errors}")
-
-        logger.info("Learning API server started successfully")
-        logger.info("Modular architecture: content_creator, learning_session, catalog, infrastructure")
-
-    except Exception as e:
-        logger.error(f"Failed to initialize services: {e}")
-        raise
+app.include_router(learning_conversations_router, tags=["Learning Conversations"])
 
 
 @app.get("/")
