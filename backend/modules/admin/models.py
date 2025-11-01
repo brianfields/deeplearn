@@ -180,6 +180,10 @@ class LearningCoachMessageAdmin(BaseModel):
     message_order: int | None = None
 
 
+# Alias for backwards compatibility
+ConversationMessageAdmin = LearningCoachMessageAdmin
+
+
 class ResourceSummaryAdmin(BaseModel):
     id: str
     resource_type: str
@@ -199,6 +203,17 @@ class LearningCoachConversationDetail(BaseModel):
     resources: list[ResourceSummaryAdmin] = []
 
 
+# Generic conversation detail
+class ConversationDetail(BaseModel):
+    conversation_id: str
+    conversation_type: str  # "learning_coach" or "teaching_assistant"
+    messages: list[ConversationMessageAdmin]
+    metadata: dict[str, Any]
+    proposed_brief: dict[str, Any] | None = None
+    accepted_brief: dict[str, Any] | None = None
+    resources: list[ResourceSummaryAdmin] = []
+
+
 class LearningCoachConversationSummaryAdmin(BaseModel):
     id: str
     user_id: int | None
@@ -211,8 +226,31 @@ class LearningCoachConversationSummaryAdmin(BaseModel):
     metadata: dict[str, Any]
 
 
+# Generic conversation summary with type field
+class ConversationSummaryAdmin(BaseModel):
+    id: str
+    user_id: int | None
+    title: str | None
+    conversation_type: str  # "learning_coach" or "teaching_assistant"
+    status: str
+    message_count: int
+    created_at: datetime
+    updated_at: datetime
+    last_message_at: datetime | None
+    metadata: dict[str, Any]
+
+
 class LearningCoachConversationsListResponse(BaseModel):
     conversations: list[LearningCoachConversationSummaryAdmin]
+    total_count: int
+    page: int
+    page_size: int
+    has_next: bool
+
+
+# Generic conversations list response
+class ConversationsListResponse(BaseModel):
+    conversations: list[ConversationSummaryAdmin]
     total_count: int
     page: int
     page_size: int

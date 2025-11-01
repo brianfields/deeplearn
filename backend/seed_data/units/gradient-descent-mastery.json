@@ -89,15 +89,15 @@
           "stem": "Which equation represents one gradient descent step?",
           "options": [
             {
-              "text": "θ := θ - α ∇J(θ)",
+              "text": "\u03b8 := \u03b8 - \u03b1 \u2207J(\u03b8)",
               "rationale_wrong": null
             },
             {
-              "text": "θ := θ + α θ",
+              "text": "\u03b8 := \u03b8 + \u03b1 \u03b8",
               "rationale_wrong": "This ignores the gradient information entirely."
             },
             {
-              "text": "θ := θ / α",
+              "text": "\u03b8 := \u03b8 / \u03b1",
               "rationale_wrong": "Dividing by the learning rate is unrelated to descent."
             }
           ],
@@ -107,7 +107,7 @@
           "misconceptions": [
             "missing_gradient"
           ],
-          "correct_rationale": "The gradient guides the step direction while α scales it."
+          "correct_rationale": "The gradient guides the step direction while \u03b1 scales it."
         },
         {
           "stem": "Which quantity determines the direction of the update?",
@@ -604,7 +604,7 @@
       "user_id": 1,
       "resource_type": "file_upload",
       "filename": "gradient-descent-cheatsheet.md",
-      "extracted_text": "Gradient descent tuning cheatsheet\n• Start with learning rate 0.1 for convex demos, decay by 0.5 when oscillations persist.\n• Clip gradients above 5.0 to stabilize mini-batch updates.\n• Log validation loss every 10 steps; trigger warm restart if plateau > 30 steps.",
+      "extracted_text": "Gradient descent tuning cheatsheet\n\u2022 Start with learning rate 0.1 for convex demos, decay by 0.5 when oscillations persist.\n\u2022 Clip gradients above 5.0 to stabilize mini-batch updates.\n\u2022 Log validation loss every 10 steps; trigger warm restart if plateau > 30 steps.",
       "extraction_metadata": {},
       "file_size": 271,
       "object_store_document_id": "51a7e0ce-b53a-4bca-8f24-2e03b8153b35",
@@ -661,5 +661,82 @@
     "transcript": "Welcome to Gradient Descent Mastery. This intro podcast previews the lessons and invites learners into the unit's narrative arc.",
     "created_at": "2025-10-30 00:23:07.850994+00:00",
     "updated_at": "2025-10-30 00:23:07.850994+00:00"
+  },
+  "learning_conversations": {
+    "coach": [
+      {
+        "id": "f1e3b5d2-8a4e-4f2c-b1a3-c9d5e7f2a1b4",
+        "user_key": "brian",
+        "title": "Understanding learning rate selection",
+        "status": "active",
+        "metadata": {
+          "topic": "Gradient Descent Fundamentals"
+        },
+        "resource_ids": [],
+        "messages": [
+          {
+            "role": "user",
+            "content": "I'm struggling with how to choose an appropriate learning rate. What's the relationship between learning rate and convergence?",
+            "offset_seconds": 0
+          },
+          {
+            "role": "assistant",
+            "content": "Great question! The learning rate controls the step size in each update. A learning rate that's too high causes the algorithm to overshoot the minimum and diverge. Too low, and convergence becomes extremely slow. A good starting point is often 0.01 or 0.001, then adjust based on whether the loss is decreasing smoothly.",
+            "offset_seconds": 10
+          },
+          {
+            "role": "user",
+            "content": "How can I tell if my learning rate is too high?",
+            "offset_seconds": 15
+          },
+          {
+            "role": "assistant",
+            "content": "Watch your loss curve during training. If you see the loss jumping around wildly or increasing instead of decreasing, your learning rate is likely too high. You might also see NaN values appearing in your loss. In that case, reduce the learning rate by a factor of 10 and retry.",
+            "offset_seconds": 20
+          }
+        ]
+      }
+    ],
+    "assistant": [
+      {
+        "id": "a2c4d6e8-f0b2-4e6a-8c3d-b5f7e9a1c3d5",
+        "user_key": "brian",
+        "title": "Mini-batch vs batch gradient descent clarification",
+        "status": "active",
+        "metadata": {},
+        "messages": [
+          {
+            "role": "user",
+            "content": "What's the practical difference between batch and mini-batch gradient descent? When should I use each?",
+            "offset_seconds": 0
+          },
+          {
+            "role": "assistant",
+            "content": "Batch gradient descent uses the entire dataset for each update, giving very stable gradient estimates but being slow. Mini-batch uses small subsets (typically 32-256 examples), balancing stability and speed. In practice, mini-batch is almost always better because it's faster and the noise actually helps escape local minima.",
+            "offset_seconds": 5
+          },
+          {
+            "role": "user",
+            "content": "So I should always use mini-batch?",
+            "offset_seconds": 10
+          },
+          {
+            "role": "assistant",
+            "content": "Essentially yes, for modern deep learning. Batch gradient descent is mostly historical. Stochastic (size=1) is too noisy for most cases. Mini-batch is the Goldilocks approach that works well for almost all problems.",
+            "offset_seconds": 12
+          },
+          {
+            "role": "user",
+            "content": "What batch size do you recommend for starting?",
+            "offset_seconds": 15
+          },
+          {
+            "role": "assistant",
+            "content": "Start with 32 or 64. These sizes are compatible with modern GPUs and provide a good balance. Adjust based on your GPU memory and dataset size. Larger batches can be more efficient but may generalize worse.",
+            "offset_seconds": 17
+          }
+        ]
+      }
+    ]
   }
 }

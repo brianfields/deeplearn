@@ -394,6 +394,7 @@ const conversationSummaryToDTO = (summary: ApiConversationSummary): Conversation
   id: summary.id,
   user_id: summary.user_id ?? null,
   title: summary.title ?? null,
+  conversation_type: summary.conversation_type,
   status: summary.status,
   message_count: summary.message_count,
   created_at: new Date(summary.created_at),
@@ -404,6 +405,7 @@ const conversationSummaryToDTO = (summary: ApiConversationSummary): Conversation
 
 const conversationDetailToDTO = (detail: ApiConversationDetail): ConversationDetail => ({
   conversation_id: detail.conversation_id,
+  conversation_type: detail.conversation_type,
   messages: detail.messages.map(conversationMessageToDTO),
   metadata: normalizeMetadata(detail.metadata),
   proposed_brief: detail.proposed_brief ?? null,

@@ -1,7 +1,7 @@
 /**
  * Conversations List Component
  *
- * Displays a paginated list of learning coach conversations with expandable detail rows.
+ * Displays a paginated list of conversations (learning coach and teaching assistant) with expandable detail rows.
  */
 
 'use client';
@@ -16,6 +16,19 @@ import { ReloadButton } from '../shared/ReloadButton';
 import { StatusBadge } from '../shared/StatusBadge';
 import { ConversationDetails } from './ConversationDetails';
 import { formatDate } from '@/lib/utils';
+
+function ConversationTypeBadge({ type }: { type: string }) {
+  const isCoach = type === 'learning_coach';
+  const label = isCoach ? 'Coach' : 'Assistant';
+  const bgColor = isCoach ? 'bg-blue-100' : 'bg-purple-100';
+  const textColor = isCoach ? 'text-blue-800' : 'text-purple-800';
+
+  return (
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${bgColor} ${textColor}`}>
+      {label}
+    </span>
+  );
+}
 
 export function ConversationsList() {
   const filters = useConversationFilters();
@@ -106,7 +119,7 @@ export function ConversationsList() {
             </svg>
             <h3 className="mt-2 text-sm font-medium text-gray-900">No conversations</h3>
             <p className="mt-1 text-sm text-gray-500">
-              Learning coach conversations will appear here once they are started by learners.
+              Conversations will appear here once they are started by learners.
             </p>
           </div>
         ) : (
@@ -116,6 +129,9 @@ export function ConversationsList() {
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Title
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Type
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     User
@@ -170,6 +186,9 @@ export function ConversationsList() {
                             </div>
                           </div>
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <ConversationTypeBadge type={conversation.conversation_type} />
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {conversation.user_id ? (
                             <Link
@@ -202,7 +221,7 @@ export function ConversationsList() {
                       </tr>
                       {isExpanded && (
                         <tr>
-                          <td colSpan={7} className="px-6 pb-6 pt-2">
+                          <td colSpan={8} className="px-6 pb-6 pt-2">
                             <ConversationDetails
                               conversationId={conversation.id}
                               summary={conversation}

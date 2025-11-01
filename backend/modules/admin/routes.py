@@ -34,6 +34,8 @@ from .models import (
     LearningSessionSummary,
     LessonDetails,
     LessonsListResponse,
+    ConversationDetail,
+    ConversationsListResponse,
     LLMRequestDetails,
     LLMRequestsListResponse,
     UserDetail,
@@ -255,6 +257,44 @@ async def get_llm_request_details(
 
 
 # ---- Learning Coach Conversation Routes ----
+
+
+@router.get(
+    "/conversations",
+    response_model=ConversationsListResponse,
+)
+async def list_conversations(
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(50, ge=1, le=200, description="Items per page"),
+    conversation_type: str | None = Query(
+        None, description="Filter by type: 'learning_coach', 'teaching_assistant', or None for all"
+    ),
+    admin_service: AdminService = Depends(get_admin_service),
+) -> ConversationsListResponse:
+    """List conversations (both learning coach and teaching assistant) for admin review."""
+
+    return await admin_service.list_conversations(
+        page=page, page_size=page_size, conversation_type=conversation_type
+    )
+
+
+@router.get(
+    "/conversations/{conversation_id}",
+    response_model=ConversationDetail,
+)
+async def get_conversation_detail(
+    conversation_id: str,
+    admin_service: AdminService = Depends(get_admin_service),
+) -> ConversationDetail:
+    """Get detailed view of any conversation type."""
+
+    detail = await admin_service.get_conversation(conversation_id)
+    if not detail:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Conversation {conversation_id} not found",
+        )
+    return detail
 
 
 @router.get(
