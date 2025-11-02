@@ -53,7 +53,7 @@ export class InfrastructureRepo {
         );
         this.networkStatus = { isConnected: true } as any;
       }
-    } catch (error) {
+    } catch {
       // Expo Go may not include this native module; fail open for dev
       console.warn('[NetInfo] Listener unavailable; assuming online');
       this.networkStatus = { isConnected: true } as any;

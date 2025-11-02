@@ -26,6 +26,7 @@ import {
   useHaptics,
 } from '../../ui_system/public';
 import type { LearningStackParamList } from '../../../types';
+import { layoutStyles } from '../../ui_system/styles/layout';
 
 type FileSystemDetailNavigation = NativeStackNavigationProp<
   LearningStackParamList,
@@ -208,28 +209,31 @@ export function FileSystemDetailScreen(): React.ReactElement {
               </Box>
             ) : (
               <Box px="lg">
-                <Text variant="title" style={{ marginBottom: 12 }}>
-                  All Files
+                <Text variant="title" style={localStyles.marginBottom12}>
+                  Cached Files
                 </Text>
-                {fsInfo.files.map((file, index) => (
+                {fsInfo.files.map(item => (
                   <Card
-                    key={file.path}
+                    key={item.path}
                     variant="outlined"
-                    style={{ marginBottom: 12 }}
+                    style={localStyles.marginBottom12}
                   >
-                    <View style={styles.fileHeader}>
+                    <View style={styles.itemHeader}>
                       <Text
                         variant="body"
-                        style={{ fontWeight: '600', flex: 1, marginRight: 8 }}
-                        numberOfLines={2}
+                        style={[
+                          layoutStyles.fontWeightSemibold,
+                          layoutStyles.flex1,
+                          localStyles.marginRight8,
+                        ]}
                       >
-                        {file.name}
+                        {item.name}
                       </Text>
                       <Text
                         variant="caption"
                         color={theme.colors.textSecondary}
                       >
-                        {formatBytes(file.size)}
+                        {formatBytes(item.size)}
                       </Text>
                     </View>
                     <Text
@@ -238,16 +242,16 @@ export function FileSystemDetailScreen(): React.ReactElement {
                       style={styles.filePath}
                       selectable
                     >
-                      {file.path}
+                      {item.path}
                     </Text>
-                    {file.modificationTime && (
+                    {item.modificationTime && (
                       <Text
                         variant="caption"
                         color={theme.colors.textSecondary}
-                        style={{ marginTop: 4 }}
+                        style={localStyles.marginTop4}
                       >
                         Modified:{' '}
-                        {new Date(file.modificationTime).toLocaleString()}
+                        {new Date(item.modificationTime).toLocaleString()}
                       </Text>
                     )}
                   </Card>
@@ -313,6 +317,24 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  itemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+});
+
+const localStyles = StyleSheet.create({
+  marginBottom12: {
+    marginBottom: 12,
+  },
+  marginRight8: {
+    marginRight: 8,
+  },
+  marginTop4: {
+    marginTop: 4,
   },
 });
 

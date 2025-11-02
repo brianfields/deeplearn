@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import asdict
 from datetime import UTC, datetime
-from typing import Any, Sequence
 import json
+from typing import Any
 
 from pydantic import BaseModel, Field, ValidationError
 
@@ -176,22 +177,14 @@ class TeachingAssistantConversation(BaseConversation):
         base_prompt = self.get_system_prompt()
         context_block = self._render_context_block(context)
         prompt = base_prompt.replace("{{CONTEXT}}", context_block)
-        event_note = (
-            "The learner just opened the teaching assistant. Offer a contextual greeting that references their current progress."
-            if event == "introduction"
-            else "Respond to the latest learner message while maintaining continuity."
-        )
+        event_note = "The learner just opened the teaching assistant. Offer a contextual greeting that references their current progress." if event == "introduction" else "Respond to the latest learner message while maintaining continuity."
         return f"{prompt}\n\n# Event Guidance\n{event_note}"
 
     def _render_context_block(self, context: TeachingAssistantContext) -> str:
         """Serialize the teaching assistant context into a prompt-friendly JSON block."""
 
         raw = asdict(context)
-        sanitized = {
-            key: value
-            for key, value in raw.items()
-            if value not in (None, [], {})
-        }
+        sanitized = {key: value for key, value in raw.items() if value not in (None, [], {})}
         return json.dumps(sanitized, ensure_ascii=False, indent=2, sort_keys=True)
 
     def _normalize_quick_replies(self, replies: Sequence[str]) -> list[str]:

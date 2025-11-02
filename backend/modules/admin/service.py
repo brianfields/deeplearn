@@ -249,7 +249,7 @@ class AdminService:
             for summary in visible
         ]
 
-        total_count = await self._count_conversations(conversation_type=conversation_type, status=status)
+        total_count = await self._count_conversations(status=status)
 
         return ConversationsListResponse(
             conversations=conversations,
@@ -585,7 +585,6 @@ class AdminService:
     async def _count_conversations(
         self,
         *,
-        conversation_type: str | None = None,
         status: str | None = None,
         user_id: int | None = None,
     ) -> int:

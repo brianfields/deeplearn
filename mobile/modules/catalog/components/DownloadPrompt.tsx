@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import type { DownloadStatus } from '../../offline_cache/public';
 import {
   Card,
@@ -8,6 +8,7 @@ import {
   Button,
   uiSystemProvider,
 } from '../../ui_system/public';
+import { layoutStyles } from '../../ui_system/styles/layout';
 
 interface DownloadPromptProps {
   readonly title: string;
@@ -90,15 +91,14 @@ export function DownloadPrompt({
   return (
     <Card
       variant="default"
-      style={{
-        margin: 0,
-        padding: ui.getSpacing('lg'),
-        gap: ui.getSpacing('lg'),
-      }}
+      style={[
+        localStyles.card,
+        { padding: ui.getSpacing('lg'), gap: ui.getSpacing('lg') },
+      ]}
       testID="download-prompt"
     >
       <Box style={{ gap: ui.getSpacing('sm') }}>
-        <Text variant="h2" style={{ fontWeight: '600' }}>
+        <Text variant="h2" style={layoutStyles.fontWeightSemibold}>
           Download required
         </Text>
         <Text variant="body" color={theme.colors.textSecondary}>
@@ -126,13 +126,7 @@ export function DownloadPrompt({
       </Box>
 
       {statusLabel ? (
-        <Box
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: ui.getSpacing('sm'),
-          }}
-        >
+        <Box style={[layoutStyles.row, { gap: ui.getSpacing('sm') }]}>
           {isInProgress ? (
             <ActivityIndicator size="small" color={statusColor} />
           ) : null}
@@ -142,7 +136,7 @@ export function DownloadPrompt({
         </Box>
       ) : null}
 
-      <View style={{ flexDirection: 'column', gap: ui.getSpacing('sm') }}>
+      <View style={[layoutStyles.column, { gap: ui.getSpacing('sm') }]}>
         <Button
           title={isFailed ? 'Retry download' : 'Download unit'}
           onPress={() => onDownload?.()}
@@ -184,3 +178,9 @@ function formatBytes(bytes: number): string {
   const precision = value < 10 && unitIndex > 0 ? 1 : 0;
   return `${value.toFixed(precision)} ${units[unitIndex]}`;
 }
+
+const localStyles = StyleSheet.create({
+  card: {
+    margin: 0,
+  },
+});

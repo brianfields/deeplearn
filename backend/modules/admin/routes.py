@@ -25,6 +25,8 @@ from modules.llm_services.public import llm_services_admin_provider
 from modules.user.public import user_provider
 
 from .models import (
+    ConversationDetail,
+    ConversationsListResponse,
     FlowRunDetails,
     FlowRunsListResponse,
     FlowStepDetails,
@@ -34,8 +36,6 @@ from .models import (
     LearningSessionSummary,
     LessonDetails,
     LessonsListResponse,
-    ConversationDetail,
-    ConversationsListResponse,
     LLMRequestDetails,
     LLMRequestsListResponse,
     UserDetail,
@@ -266,16 +266,12 @@ async def get_llm_request_details(
 async def list_conversations(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(50, ge=1, le=200, description="Items per page"),
-    conversation_type: str | None = Query(
-        None, description="Filter by type: 'learning_coach', 'teaching_assistant', or None for all"
-    ),
+    conversation_type: str | None = Query(None, description="Filter by type: 'learning_coach', 'teaching_assistant', or None for all"),
     admin_service: AdminService = Depends(get_admin_service),
 ) -> ConversationsListResponse:
     """List conversations (both learning coach and teaching assistant) for admin review."""
 
-    return await admin_service.list_conversations(
-        page=page, page_size=page_size, conversation_type=conversation_type
-    )
+    return await admin_service.list_conversations(page=page, page_size=page_size, conversation_type=conversation_type)
 
 
 @router.get(

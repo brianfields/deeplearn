@@ -273,9 +273,7 @@ async def test_build_teaching_assistant_context_aggregates_sources() -> None:
     )
 
     mock_resource = AsyncMock()
-    mock_resource.get_resources_for_unit.return_value = [
-        MagicMock(model_dump=MagicMock(return_value={"id": "res-1", "resource_type": "file_upload"}))
-    ]
+    mock_resource.get_resources_for_unit.return_value = [MagicMock(model_dump=MagicMock(return_value={"id": "res-1", "resource_type": "file_upload"}))]
 
     with (
         patch("modules.learning_conversations.service.content_provider", return_value=mock_content),

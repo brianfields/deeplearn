@@ -23,6 +23,8 @@ import {
 
 import { LessonSummary } from '../models';
 import { uiSystemProvider, Text, useHaptics } from '../../ui_system/public';
+import { layoutStyles } from '../../ui_system/styles/layout';
+import { spacingPatterns } from '../../ui_system/styles/spacing';
 
 interface LessonCardProps {
   lesson: LessonSummary;
@@ -47,6 +49,7 @@ export function LessonCard({
   const ui = uiSystemProvider();
   const theme = ui.getCurrentTheme();
   const haptics = useHaptics();
+  const spacing = spacingPatterns();
 
   const handlePressIn = () => {
     scaleValue.value = withSpring(0.98);
@@ -80,11 +83,11 @@ export function LessonCard({
           animatedStyle,
           {
             backgroundColor: theme.colors.surface,
-            borderRadius: 12,
             padding: ui.getSpacing('md'),
             // Raised elevation per Weimar Edge
             ...(ui.getDesignSystem().shadows.medium as any),
           },
+          layoutStyles.radiusMd,
         ]}
       >
         <View style={styles.header}>
@@ -94,21 +97,22 @@ export function LessonCard({
               weight="700"
               color={theme.colors.text}
               numberOfLines={2}
-              style={{ marginBottom: 4 }}
+              style={spacing.marginBottom4}
             >
               {lesson.title}
             </Text>
             {/* coreConcept removed in new model; keep spacer */}
             {unitTitle && (
               <View
-                style={{
-                  alignSelf: 'flex-start',
-                  marginTop: 6,
-                  backgroundColor: theme.colors.border,
-                  paddingHorizontal: 8,
-                  paddingVertical: 2,
-                  borderRadius: 6,
-                }}
+                style={[
+                  layoutStyles.selfStart,
+                  spacing.marginTop6,
+                  {
+                    backgroundColor: theme.colors.border,
+                  },
+                  layoutStyles.radiusSm,
+                  spacing.paddingVertical6Horizontal8,
+                ]}
               >
                 <Text
                   variant="caption"
@@ -127,7 +131,7 @@ export function LessonCard({
               <Headphones
                 size={16}
                 color={theme.colors.textSecondary}
-                style={{ marginRight: 6 }}
+                style={spacing.marginRight6}
                 accessibilityLabel="Lesson podcast available"
               />
             )}
@@ -171,22 +175,16 @@ export function LessonCard({
         </View>
 
         {showProgress && progressPercentage > 0 && (
-          <View style={{ marginBottom: ui.getSpacing('sm') }}>
-            <View
-              style={{
-                height: 4,
-                backgroundColor: theme.colors.border,
-                borderRadius: 2,
-                marginBottom: 4,
-              }}
-            >
+          <View style={spacing.marginBottom8}>
+            <View style={styles.progressContainer}>
               <View
-                style={{
-                  height: '100%',
-                  backgroundColor: theme.colors.primary,
-                  borderRadius: 2,
-                  width: `${progressPercentage}%`,
-                }}
+                style={[
+                  styles.progressBar,
+                  {
+                    backgroundColor: theme.colors.primary,
+                    width: `${progressPercentage}%`,
+                  },
+                ]}
               />
             </View>
             <Text variant="caption" color={theme.colors.textSecondary}>
@@ -199,12 +197,13 @@ export function LessonCard({
           {lesson.tags.slice(0, 3).map((tag, index) => (
             <View
               key={index}
-              style={{
-                backgroundColor: theme.colors.border,
-                paddingHorizontal: 8,
-                paddingVertical: 4,
-                borderRadius: 6,
-              }}
+              style={[
+                {
+                  backgroundColor: theme.colors.border,
+                },
+                layoutStyles.radiusSm,
+                spacing.paddingVertical6Horizontal8,
+              ]}
             >
               <Text variant="caption" color={theme.colors.text} weight="500">
                 {tag}
@@ -219,40 +218,51 @@ export function LessonCard({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 16,
+    marginBottom: 12,
   },
   card: {
-    // colors and elevation pulled from theme dynamically
+    overflow: 'hidden' as const,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'flex-start' as const,
     marginBottom: 12,
   },
   lessonInfo: {
     flex: 1,
-    marginRight: 12,
   },
   meta: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
     gap: 8,
+    marginLeft: 8,
+    flexShrink: 0,
   },
   details: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
+    flexDirection: 'row' as const,
+    gap: 12,
     marginBottom: 12,
+    flexWrap: 'wrap' as const,
   },
   detailItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
     gap: 4,
   },
+  progressContainer: {
+    height: 4,
+    borderRadius: 2,
+    marginBottom: 4,
+    overflow: 'hidden' as const,
+  },
+  progressBar: {
+    height: '100%' as const,
+    borderRadius: 2,
+  },
   tags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: 'row' as const,
     gap: 8,
+    flexWrap: 'wrap' as const,
   },
 });

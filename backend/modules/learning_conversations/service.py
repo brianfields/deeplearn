@@ -22,9 +22,9 @@ from .dtos import (
     LearningCoachObjective,
     LearningCoachResource,
     LearningCoachSessionState,
-    UncoveredLearningObjectiveIds,
     TeachingAssistantContext,
     TeachingAssistantSessionState,
+    UncoveredLearningObjectiveIds,
 )
 
 

@@ -6,7 +6,7 @@ module.exports = new Proxy(
   }
 );
 const noop = () => {};
-const noopPromise = async () => {};
+const _noopPromise = async () => {};
 
 const defaultPermissions = { alert: true, badge: true, sound: true };
 

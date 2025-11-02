@@ -5,6 +5,7 @@ import type {
   TeachingAssistantMessage,
 } from '../models';
 import { uiSystemProvider } from '../../ui_system/public';
+import { reducedMotion } from '../../ui_system/utils/motion';
 import { TeachingAssistantConversation } from './TeachingAssistantConversation';
 import { ConversationHeader } from './ConversationHeader';
 
@@ -23,6 +24,20 @@ interface Props {
 const uiSystem = uiSystemProvider();
 const theme = uiSystem.getCurrentTheme();
 
+/**
+ * TeachingAssistantModal
+ *
+ * Displays an overlay modal for the teaching assistant conversation.
+ *
+ * NOTE: Future refactoring - This component should be migrated to a proper
+ * React Navigation modal screen for better consistency, accessibility, and
+ * Android back button handling. See the architecture audit for details.
+ *
+ * Animation & Accessibility:
+ * - Respects reduced motion setting (no animation when enabled)
+ * - Uses appropriate animation timing
+ * - On Android: hardware back button handled via onRequestClose
+ */
 export function TeachingAssistantModal({
   visible,
   onClose,
@@ -50,14 +65,18 @@ export function TeachingAssistantModal({
     return parts.length > 0 ? parts.join(' • ') : undefined;
   })();
 
+  // Use no animation if reduced motion is enabled
+  const animationType = reducedMotion.enabled ? 'none' : 'slide';
+
   return (
     <Modal
-      animationType="slide"
+      animationType={animationType}
       visible={visible}
       presentationStyle="pageSheet"
       onRequestClose={onClose}
+      testID="teaching-assistant-modal"
     >
-      <SafeAreaView style={styles.container} testID="teaching-assistant-modal">
+      <SafeAreaView style={styles.container}>
         <ConversationHeader
           title="Teaching Assistant"
           onClose={onClose}

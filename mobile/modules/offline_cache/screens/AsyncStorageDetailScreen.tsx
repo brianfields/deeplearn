@@ -26,6 +26,7 @@ import {
   useHaptics,
 } from '../../ui_system/public';
 import type { LearningStackParamList } from '../../../types';
+import { layoutStyles } from '../../ui_system/styles/layout';
 
 type AsyncStorageDetailNavigation = NativeStackNavigationProp<
   LearningStackParamList,
@@ -200,19 +201,23 @@ export function AsyncStorageDetailScreen(): React.ReactElement {
               </Box>
             ) : (
               <Box px="lg">
-                <Text variant="title" style={{ marginBottom: 12 }}>
+                <Text variant="title" style={localStyles.marginBottom12}>
                   All Keys & Values
                 </Text>
-                {asyncInfo.items.map((item, index) => (
+                {asyncInfo.items.map(item => (
                   <Card
                     key={item.key}
                     variant="outlined"
-                    style={{ marginBottom: 12 }}
+                    style={localStyles.marginBottom12}
                   >
                     <View style={styles.itemHeader}>
                       <Text
                         variant="body"
-                        style={{ fontWeight: '600', flex: 1, marginRight: 8 }}
+                        style={[
+                          layoutStyles.fontWeightSemibold,
+                          layoutStyles.flex1,
+                          localStyles.marginRight8,
+                        ]}
                       >
                         {item.key}
                       </Text>
@@ -290,6 +295,15 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: 'rgba(0, 0, 0, 0.1)',
+  },
+});
+
+const localStyles = StyleSheet.create({
+  marginBottom12: {
+    marginBottom: 12,
+  },
+  marginRight8: {
+    marginRight: 8,
   },
 });
 

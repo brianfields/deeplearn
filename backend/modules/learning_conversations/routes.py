@@ -162,6 +162,7 @@ class TeachingAssistantQuestionRequest(BaseModel):
     session_id: str | None = Field(default=None, description="Active learning session identifier")
     user_id: int | None = Field(default=None, ge=1, description="Authenticated learner identifier")
 
+
 def get_learning_coach_service() -> LearningCoachService:
     """Resolve the learning coach service with shared infrastructure."""
 

@@ -11,6 +11,7 @@ import {
   uiSystemProvider,
   useHaptics,
 } from '../../ui_system/public';
+import { layoutStyles } from '../../ui_system/styles/layout';
 
 interface CatalogUnitCardProps {
   readonly unit: Unit;
@@ -98,52 +99,50 @@ export function CatalogUnitCard({
     >
       <Card variant="default" disabled={disabled}>
         <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'flex-start',
-            columnGap: ui.getSpacing('md'),
-          }}
+          style={[layoutStyles.rowStart, { columnGap: ui.getSpacing('md') }]}
         >
           <ArtworkImage
             title={unit.title}
             imageUrl={unit.artImageUrl ?? undefined}
             description={unit.artImageDescription ?? undefined}
             variant="thumbnail"
-            style={{ flexShrink: 0 }}
+            style={layoutStyles.flexShrink0}
             testID={
               index !== undefined
                 ? `catalog-unit-art-${index}`
                 : 'catalog-unit-art'
             }
           />
-          <View style={{ flex: 1 }}>
+          <View style={layoutStyles.flex1}>
             <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'flex-start',
-                justifyContent: 'space-between',
-                marginBottom: ui.getSpacing('sm'),
-              }}
+              style={[
+                layoutStyles.rowBetweenStart,
+                { marginBottom: ui.getSpacing('sm') },
+              ]}
             >
               <Text
                 variant="title"
                 weight="700"
                 color={titleColor}
                 numberOfLines={2}
-                style={{ flex: 1, marginRight: ui.getSpacing('sm') }}
+                style={[
+                  layoutStyles.flex1,
+                  { marginRight: ui.getSpacing('sm') },
+                ]}
               >
                 {unit.title}
               </Text>
               {isInMyUnits ? (
                 <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    paddingHorizontal: ui.getSpacing('xs'),
-                    paddingVertical: ui.getSpacing('xs'),
-                    backgroundColor: theme.colors.success,
-                    borderRadius: 999,
-                  }}
+                  style={[
+                    layoutStyles.row,
+                    {
+                      paddingHorizontal: ui.getSpacing('xs'),
+                      paddingVertical: ui.getSpacing('xs'),
+                      backgroundColor: theme.colors.success,
+                    },
+                    layoutStyles.radiusRound,
+                  ]}
                   testID={
                     index !== undefined
                       ? `catalog-unit-badge-${index}`
@@ -178,12 +177,10 @@ export function CatalogUnitCard({
             ) : null}
 
             <View
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginTop: ui.getSpacing('sm'),
-              }}
+              style={[
+                layoutStyles.rowBetween,
+                { marginTop: ui.getSpacing('sm') },
+              ]}
             >
               <Text variant="caption" color={theme.colors.textSecondary}>
                 {unit.lessonCount} lessons
