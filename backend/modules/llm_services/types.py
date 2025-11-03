@@ -33,6 +33,7 @@ class LLMProviderType(str, Enum):
     ANTHROPIC = "anthropic"
     AZURE_OPENAI = "azure_openai"
     BEDROCK = "bedrock"
+    GEMINI = "gemini"
 
 
 class LLMRequestMode(str, Enum):

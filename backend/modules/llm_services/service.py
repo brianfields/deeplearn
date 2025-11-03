@@ -96,6 +96,17 @@ MODEL_PROVIDER_MAP: dict[str, LLMProviderType] = {
     "claude-3-opus-20240229": LLMProviderType.ANTHROPIC,
     "claude-3-sonnet-20240229": LLMProviderType.ANTHROPIC,
     "claude-3-haiku-20240307": LLMProviderType.ANTHROPIC,
+    # Gemini 2.5 family
+    "gemini-2.5-pro": LLMProviderType.GEMINI,
+    "gemini-2.5-flash": LLMProviderType.GEMINI,
+    "gemini-2.5-flash-preview": LLMProviderType.GEMINI,
+    "gemini-2.5-flash-lite": LLMProviderType.GEMINI,
+    "gemini-2.5-flash-lite-preview": LLMProviderType.GEMINI,
+    "gemini-2.5-flash-native-audio": LLMProviderType.GEMINI,
+    "gemini-2.5-flash-image": LLMProviderType.GEMINI,
+    "gemini-2.5-flash-preview-tts": LLMProviderType.GEMINI,
+    "gemini-2.5-pro-preview-tts": LLMProviderType.GEMINI,
+    "gemini-2.5-computer-use-preview": LLMProviderType.GEMINI,
 }
 
 
@@ -374,6 +385,10 @@ class LLMService:
                 raise RuntimeError(f"Model '{model}' requires Bedrock provider (CLAUDE_PROVIDER=bedrock), but it's not configured. Please set AWS credentials or change CLAUDE_PROVIDER to 'anthropic'.") from e
             elif provider_type == LLMProviderType.AZURE_OPENAI:
                 raise RuntimeError(f"Model '{model}' requires Azure OpenAI provider, but it's not configured. Please set AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT environment variables.") from e
+            elif provider_type == LLMProviderType.GEMINI:
+                raise RuntimeError(
+                    f"Model '{model}' requires Gemini provider, but it's not configured. Please set GEMINI_API_KEY (or GOOGLE_API_KEY) and optional GEMINI_API_BASE_URL environment variables.",
+                ) from e
             else:
                 raise RuntimeError(f"Model '{model}' requires {provider_type.value} provider, but it's not configured.") from e
 

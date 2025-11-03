@@ -41,6 +41,7 @@ class LLMConfig(BaseModel):
     # Image generation settings
     image_model: str = Field(default="dall-e-3", description="Image generation model")
     image_quality: ImageQuality = Field(default=ImageQuality.STANDARD, description="Image quality setting")
+    audio_model: str | None = Field(default=None, description="Default audio generation model")
 
     # Web search settings
     web_search_config: WebSearchConfig = Field(default_factory=WebSearchConfig, description="Web search configuration")
@@ -87,8 +88,13 @@ class LLMConfig(BaseModel):
 
     def validate_config(self) -> bool:
         """Validate that configuration is complete and valid"""
-        if self.provider in {LLMProviderType.OPENAI, LLMProviderType.ANTHROPIC, LLMProviderType.AZURE_OPENAI} and not self.api_key:
-            raise ValueError("API key is required for OpenAI and Anthropic providers")
+        if self.provider in {
+            LLMProviderType.OPENAI,
+            LLMProviderType.ANTHROPIC,
+            LLMProviderType.AZURE_OPENAI,
+            LLMProviderType.GEMINI,
+        } and not self.api_key:
+            raise ValueError("API key is required for OpenAI, Anthropic, Azure OpenAI, and Gemini providers")
 
         if self.provider == LLMProviderType.ANTHROPIC and not (self.anthropic_api_key or self.api_key):
             raise ValueError("Anthropic provider requires ANTHROPIC_API_KEY to be set")
@@ -164,6 +170,12 @@ def create_llm_config_from_env(
     azure_openai_api_key = os.getenv("AZURE_OPENAI_API_KEY")
     azure_openai_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
 
+    gemini_api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    gemini_model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    gemini_base_url = os.getenv("GEMINI_API_BASE_URL", "https://generativelanguage.googleapis.com/v1beta")
+    gemini_image_model = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
+    gemini_tts_model = os.getenv("GEMINI_TTS_MODEL", "gemini-2.5-flash-preview-tts")
+
     anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
     anthropic_model = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5")
     anthropic_base_url = os.getenv("ANTHROPIC_BASE_URL", "https://api.anthropic.com")
@@ -198,6 +210,8 @@ def create_llm_config_from_env(
     cache_enabled = os.getenv("LLM_CACHE_ENABLED", "true").lower() == "true"
     cache_dir = os.getenv("LLM_CACHE_DIR", ".llm_cache")
 
+    audio_model_env = os.getenv("AUDIO_MODEL")
+
     # Logging settings
     log_level = os.getenv("LOG_LEVEL", "INFO")
     log_requests = os.getenv("LOG_REQUESTS", "true").lower() == "true"
@@ -214,16 +228,32 @@ def create_llm_config_from_env(
         normalized_hint = provider_hint
         return bool(normalized_hint and normalized_hint in aliases)
 
+    def is_gemini_model(name: str | None) -> bool:
+        if not name:
+            return False
+        lowered = name.lower()
+        return lowered.startswith("gemini-2.5") or lowered.startswith("imagen")
+
     if provider_override == LLMProviderType.ANTHROPIC and not anthropic_api_key:
         raise ValueError("ANTHROPIC_API_KEY must be set to use the Anthropic provider")
     if provider_override == LLMProviderType.BEDROCK and not (aws_access_key_id and aws_secret_access_key) and not os.getenv("AWS_PROFILE"):
         raise ValueError("AWS credentials are required to use the Bedrock provider")
+    if provider_override == LLMProviderType.GEMINI and not gemini_api_key:
+        raise ValueError("GEMINI_API_KEY must be set to use the Gemini provider")
 
     if azure_openai_api_key and azure_openai_endpoint and wants(LLMProviderType.AZURE_OPENAI, "azure", "azure_openai"):
         provider = LLMProviderType.AZURE_OPENAI
         api_key = azure_openai_api_key
         base_url = azure_openai_endpoint
         model_name = model_override or openai_model
+    elif gemini_api_key and (
+        wants(LLMProviderType.GEMINI, "gemini", "google", "google_ai")
+        or is_gemini_model(model_override)
+    ):
+        provider = LLMProviderType.GEMINI
+        api_key = gemini_api_key
+        base_url = gemini_base_url
+        model_name = model_override or gemini_model
     elif wants(LLMProviderType.ANTHROPIC, "anthropic", "claude") and anthropic_api_key:
         provider = LLMProviderType.ANTHROPIC
         api_key = anthropic_api_key
@@ -242,6 +272,11 @@ def create_llm_config_from_env(
         api_key = anthropic_api_key
         base_url = anthropic_base_url
         model_name = model_override or anthropic_model
+    elif gemini_api_key and provider_override == LLMProviderType.GEMINI:
+        provider = LLMProviderType.GEMINI
+        api_key = gemini_api_key
+        base_url = gemini_base_url
+        model_name = model_override or gemini_model
     elif provider_override == LLMProviderType.BEDROCK and ((aws_access_key_id and aws_secret_access_key) or os.getenv("AWS_PROFILE")):
         provider = LLMProviderType.BEDROCK
         model_name = model_override or anthropic_model
@@ -258,6 +293,11 @@ def create_llm_config_from_env(
     elif (aws_access_key_id and aws_secret_access_key) and not openai_api_key:
         provider = LLMProviderType.BEDROCK
         model_name = model_override or anthropic_model
+    elif gemini_api_key:
+        provider = LLMProviderType.GEMINI
+        api_key = gemini_api_key
+        base_url = gemini_base_url
+        model_name = model_override or gemini_model
     elif openai_api_key:
         provider = LLMProviderType.OPENAI
         api_key = openai_api_key
@@ -265,11 +305,17 @@ def create_llm_config_from_env(
         model_name = model_override or openai_model
     else:
         raise ValueError(
-            "No LLM provider credentials found. Please set OPENAI_API_KEY, AZURE_OPENAI_API_KEY, ANTHROPIC_API_KEY, or AWS credentials",
+            "No LLM provider credentials found. Please set OPENAI_API_KEY, AZURE_OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY, or AWS credentials",
         )
 
     # Create and validate config
     resolved_bedrock_model_id = _CLAUDE_BEDROCK_MODEL_IDS.get(model_name, bedrock_model_id) if provider == LLMProviderType.BEDROCK else bedrock_model_id
+
+    resolved_image_model = image_model
+    resolved_audio_model = audio_model_env
+    if provider == LLMProviderType.GEMINI:
+        resolved_image_model = gemini_image_model
+        resolved_audio_model = gemini_tts_model
 
     config = LLMConfig(
         provider=provider,
@@ -288,8 +334,9 @@ def create_llm_config_from_env(
         max_output_tokens=max_output_tokens,
         timeout=request_timeout,
         max_retries=max_retries,
-        image_model=image_model,
+        image_model=resolved_image_model,
         image_quality=image_quality,
+        audio_model=resolved_audio_model,
         web_search_config=web_search_config,
         cache_enabled=cache_enabled,
         cache_dir=cache_dir,

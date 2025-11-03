@@ -231,6 +231,42 @@ async def test_generate_response_supports_vision_messages(db_session: Session, m
     assert stored_request.messages[0]["content"][1]["image_url"]["url"] == image_url
 
 
+@pytest.mark.asyncio()
+async def test_generate_response_supports_gemini_models(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Selecting a Gemini model should initialise the Gemini provider."""
+
+    repo = LLMRequestRepo(db_session)
+    config = LLMConfig(
+        provider=LLMProviderType.GEMINI,
+        model="gemini-2.5-flash",
+        api_key="key",
+        base_url="https://generativelanguage.googleapis.com/v1beta",
+        image_model="gemini-2.5-flash-image",
+        audio_model="gemini-2.5-flash-preview-tts",
+    )
+
+    provider_factory = _ProviderFactory(lambda cfg, session: _RecordingProvider(cfg, session))
+
+    monkeypatch.setattr("modules.llm_services.service.create_llm_config_from_env", lambda **_: config)
+    monkeypatch.setattr("modules.llm_services.service.create_llm_provider", provider_factory)
+
+    service = LLMService(repo)
+
+    response, request_id = await service.generate_response(
+        messages=[LLMMessage(role="user", content="hi Gemini")],
+        model="gemini-2.5-pro",
+    )
+
+    provider = provider_factory.last_provider
+    assert isinstance(provider, _RecordingProvider)
+    assert provider.config.provider is LLMProviderType.GEMINI
+    assert response.provider == LLMProviderType.GEMINI.value
+
+    stored_request = repo.by_id(request_id)
+    assert stored_request is not None
+    assert stored_request.model == "gemini-2.5-pro"
+
+
 def test_convert_to_claude_messages_includes_system_prompt() -> None:
     """Claude message conversion should separate system prompt from chat history."""
 
