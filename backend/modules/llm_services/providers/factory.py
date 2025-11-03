@@ -8,6 +8,7 @@ from .base import LLMProvider
 
 # Import provider classes
 from .claude import AnthropicProvider, BedrockProvider
+from .gemini import GeminiProvider
 from .openai import OpenAIProvider
 
 __all__ = ["LLMProviderError", "create_llm_provider"]
@@ -42,6 +43,8 @@ def create_llm_provider(config: LLMConfig, db_session: Session) -> LLMProvider:
         return AnthropicProvider(config, db_session)
     if config.provider == LLMProviderType.BEDROCK:
         return BedrockProvider(config, db_session)
+    if config.provider == LLMProviderType.GEMINI:
+        return GeminiProvider(config, db_session)
     else:
         raise LLMProviderError(f"Unsupported provider: {config.provider}")
 
@@ -58,4 +61,5 @@ def get_available_providers() -> list[LLMProviderType]:
         LLMProviderType.AZURE_OPENAI,
         LLMProviderType.ANTHROPIC,
         LLMProviderType.BEDROCK,
+        LLMProviderType.GEMINI,
     ]
