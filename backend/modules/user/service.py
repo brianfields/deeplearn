@@ -161,6 +161,18 @@ class UserService:
         saved = self.repo.save(user)
         return UserRead.model_validate(saved)
 
+    def count_users_since(self, since: datetime) -> int:
+        """Count users created since the given datetime. [ADMIN ONLY]"""
+        from sqlalchemy import func, select
+
+        from .models import UserModel
+
+        # Handle timezone-aware datetime for naive database field
+        since_naive = since.replace(tzinfo=None) if since.tzinfo is not None else since
+
+        stmt = select(func.count(UserModel.id)).where(UserModel.created_at >= since_naive)
+        return self.repo.session.execute(stmt).scalar() or 0
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------

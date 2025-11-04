@@ -279,28 +279,27 @@ export function LLMRequestDetails({ requestId }: LLMRequestDetailsProps) {
         </div>
       )}
 
-      {/* Raw Data */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {request.request_payload && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <JSONViewer
-              data={request.request_payload}
-              title="Request Payload"
-              maxHeight="max-h-96"
-            />
-          </div>
-        )}
+      {/* Request Payload */}
+      {request.request_payload && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <JSONViewer
+            data={request.request_payload}
+            title="Request Payload"
+            maxHeight="max-h-96"
+          />
+        </div>
+      )}
 
-        {request.response_raw && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <JSONViewer
-              data={request.response_raw}
-              title="Raw Response"
-              maxHeight="max-h-96"
-            />
-          </div>
-        )}
-      </div>
+      {/* Raw Response */}
+      {request.response_raw && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <JSONViewer
+            data={request.response_raw}
+            title="Raw Response"
+            maxHeight="max-h-96"
+          />
+        </div>
+      )}
 
       {/* Additional Parameters */}
       {request.additional_params && (

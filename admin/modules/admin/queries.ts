@@ -79,8 +79,7 @@ export function useFlowRuns(params?: FlowRunsQuery) {
   return useQuery({
     queryKey: adminKeys.flowsList(params),
     queryFn: () => service.getFlowRuns(params),
-    staleTime: 2 * 1000, // 2 seconds - keep data fresh for real-time visibility
-    refetchInterval: 3 * 1000, // Poll every 3 seconds for running flows
+    staleTime: 30 * 1000, // 30 seconds - user controls refresh with reload button
   });
 }
 
@@ -89,8 +88,7 @@ export function useFlowRun(id: string, options?: { enabled?: boolean }) {
     queryKey: adminKeys.flowDetail(id),
     queryFn: () => service.getFlowRun(id),
     enabled: !!id && (options?.enabled ?? true),
-    staleTime: 2 * 1000, // 2 seconds - keep fresh for step-by-step monitoring
-    refetchInterval: 3 * 1000, // Poll every 3 seconds to see steps completing
+    staleTime: 30 * 1000, // 30 seconds - user controls refresh with reload button
   });
 }
 
@@ -149,8 +147,7 @@ export function useLLMRequests(params?: LLMRequestsQuery) {
   return useQuery<LLMRequestsListResponse>({
     queryKey: adminKeys.llmRequestsList(params),
     queryFn: () => service.getLLMRequests(params),
-    staleTime: 2 * 1000, // 2 seconds - keep fresh for real-time visibility
-    refetchInterval: 3 * 1000, // Poll every 3 seconds during active flows
+    staleTime: 30 * 1000, // 30 seconds - user controls refresh with reload button
   });
 }
 
@@ -290,8 +287,7 @@ export function useQueueStatus() {
   return useQuery({
     queryKey: adminKeys.queueStatus(),
     queryFn: () => service.getQueueStatus(),
-    staleTime: 5 * 1000, // 5 seconds - queue status changes frequently
-    refetchInterval: 10 * 1000, // Auto-refresh every 10 seconds
+    staleTime: 30 * 1000, // 30 seconds - user controls refresh with reload button
   });
 }
 
@@ -299,8 +295,7 @@ export function useQueueStats() {
   return useQuery({
     queryKey: adminKeys.queueStats(),
     queryFn: () => service.getQueueStats(),
-    staleTime: 10 * 1000, // 10 seconds
-    refetchInterval: 15 * 1000, // Auto-refresh every 15 seconds
+    staleTime: 30 * 1000, // 30 seconds - user controls refresh with reload button
   });
 }
 
@@ -308,8 +303,7 @@ export function useWorkers() {
   return useQuery({
     queryKey: adminKeys.workers(),
     queryFn: () => service.getWorkers(),
-    staleTime: 10 * 1000, // 10 seconds
-    refetchInterval: 15 * 1000, // Auto-refresh every 15 seconds
+    staleTime: 30 * 1000, // 30 seconds - user controls refresh with reload button
   });
 }
 
@@ -317,8 +311,7 @@ export function useQueueHealth() {
   return useQuery({
     queryKey: adminKeys.queueHealth(),
     queryFn: () => service.getQueueHealth(),
-    staleTime: 10 * 1000, // 10 seconds
-    refetchInterval: 30 * 1000, // Auto-refresh every 30 seconds
+    staleTime: 30 * 1000, // 30 seconds - user controls refresh with reload button
   });
 }
 
@@ -328,8 +321,7 @@ export function useTasks(limit: number = 50, queueName?: string) {
   return useQuery({
     queryKey: adminKeys.taskList(limit, queueName),
     queryFn: () => service.getTasks(limit, queueName),
-    staleTime: 5 * 1000,
-    refetchInterval: 10 * 1000,
+    staleTime: 30 * 1000, // 30 seconds - user controls refresh with reload button
   });
 }
 
@@ -338,8 +330,7 @@ export function useTask(taskId: string | null) {
     queryKey: adminKeys.taskDetail(taskId ?? 'unknown'),
     queryFn: () => (taskId ? service.getTask(taskId) : Promise.resolve(null)),
     enabled: !!taskId,
-    staleTime: 5 * 1000,
-    refetchInterval: 10 * 1000,
+    staleTime: 30 * 1000, // 30 seconds - user controls refresh with reload button
   });
 }
 
@@ -348,8 +339,7 @@ export function useTaskFlowRuns(taskId: string | null) {
     queryKey: adminKeys.taskFlowRuns(taskId ?? 'unknown'),
     queryFn: () => (taskId ? service.getTaskFlowRuns(taskId) : Promise.resolve([])),
     enabled: !!taskId,
-    staleTime: 10 * 1000,
-    refetchInterval: 15 * 1000,
+    staleTime: 30 * 1000, // 30 seconds - user controls refresh with reload button
   });
 }
 

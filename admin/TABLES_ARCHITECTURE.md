@@ -27,6 +27,7 @@ Use this component when clicking on a table row should expand inline details bel
 - Custom render functions for expanded content
 - Loading, error, and empty states
 - Smooth animations for expand/collapse toggle
+- Click anywhere on the row to expand (including pressing Enter or Space for keyboard accessibility)
 
 ### Usage
 
@@ -64,11 +65,12 @@ Use this component when clicking on a table row should expand inline details bel
 Use this component when clicking "View details" should navigate to a separate detail page.
 
 ### Features
-- Link-based navigation to detail pages
+- Click anywhere on the row to navigate to detail page
 - Built-in pagination controls
 - Custom render functions for cell content
 - Loading, error, and empty states
 - Works with and without pagination
+- Keyboard accessible (Enter or Space to navigate)
 
 ### Usage
 

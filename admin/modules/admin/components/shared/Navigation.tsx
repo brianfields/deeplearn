@@ -65,7 +65,7 @@ export function Navigation() {
           {/* Logo/Brand */}
           <div className="flex items-center space-x-4">
             <Link href="/" className="text-xl font-bold text-gray-900">
-              Lantern Room Admin
+              Lantern Room
             </Link>
           </div>
 

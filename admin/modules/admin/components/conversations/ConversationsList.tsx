@@ -1,7 +1,7 @@
 /**
  * Conversations List Component
  *
- * Displays a paginated list of conversations (learning coach and teaching assistant) with expandable detail rows.
+ * Displays a paginated list of conversations with links to detail pages.
  */
 
 'use client';
@@ -9,12 +9,9 @@
 import Link from 'next/link';
 import { useConversations } from '../../queries';
 import { useAdminStore, useConversationFilters } from '../../store';
-import { LoadingSpinner } from '../shared/LoadingSpinner';
-import { ReloadButton } from '../shared/ReloadButton';
 import { StatusBadge } from '../shared/StatusBadge';
-import { ExpandableTable, type ExpandableTableColumn } from '../shared/ExpandableTable';
-import { ConversationDetails } from './ConversationDetails';
-import { formatDate } from '@/lib/utils';
+import { DetailViewTable, type DetailViewTableColumn } from '../shared/DetailViewTable';
+import { formatDate, formatCost } from '@/lib/utils';
 import type { ConversationSummary } from '../../models';
 
 function ConversationTypeBadge({ type }: { type: string }): JSX.Element {
@@ -38,7 +35,7 @@ export function ConversationsList(): JSX.Element {
   const conversations = data?.conversations ?? [];
   const totalCount = data?.total_count ?? 0;
   const currentPage = data?.page ?? filters.page ?? 1;
-  const pageSize = data?.page_size ?? filters.page_size ?? 50;
+  const pageSize = data?.page_size ?? filters.page_size ?? 10;
   const hasNext = data?.has_next ?? false;
   const totalPages = pageSize > 0 ? Math.max(1, Math.ceil(totalCount / pageSize)) : 1;
 
@@ -50,6 +47,8 @@ export function ConversationsList(): JSX.Element {
   const handlePageSizeChange = (newSize: number) => {
     setConversationFilters({ page: 1, page_size: newSize });
   };
+
+  const PAGE_SIZE_OPTIONS = [10, 25, 50];
 
   const emptyIcon = (
     <svg
@@ -67,7 +66,7 @@ export function ConversationsList(): JSX.Element {
     </svg>
   );
 
-  const columns: ExpandableTableColumn<ConversationSummary>[] = [
+  const columns: DetailViewTableColumn<ConversationSummary>[] = [
     {
       key: 'title',
       label: 'Title',
@@ -91,18 +90,18 @@ export function ConversationsList(): JSX.Element {
     {
       key: 'user',
       label: 'User',
-      render: (conversation) => (
+      render: (conversation) =>
         conversation.user_id ? (
           <Link
             href={`/users/${conversation.user_id}`}
             className="text-blue-600 hover:text-blue-500"
+            onClick={(e) => e.stopPropagation()}
           >
             {conversation.user_id}
           </Link>
         ) : (
           <span className="text-gray-500">—</span>
-        )
-      ),
+        ),
     },
     {
       key: 'status',
@@ -113,6 +112,11 @@ export function ConversationsList(): JSX.Element {
       key: 'message_count',
       label: 'Messages',
       render: (conversation) => conversation.message_count,
+    },
+    {
+      key: 'cost',
+      label: 'Cost',
+      render: (conversation) => formatCost(conversation.total_cost),
     },
     {
       key: 'created_at',
@@ -133,64 +137,30 @@ export function ConversationsList(): JSX.Element {
           <span>
             Showing {conversations.length} of {totalCount} conversations
           </span>
-          <ReloadButton onReload={() => refetch()} isLoading={isLoading} />
-        </div>
-        <div className="flex items-center gap-2 text-sm text-gray-700">
-          <label htmlFor="conversation-page-size">Per page:</label>
-          <select
-            id="conversation-page-size"
-            value={pageSize}
-            onChange={(event) => handlePageSizeChange(Number(event.target.value))}
-            className="rounded-md border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500"
-          >
-            <option value={25}>25</option>
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-          </select>
         </div>
       </div>
 
-      <ExpandableTable
+      <DetailViewTable
         data={conversations}
         columns={columns}
         getRowId={(conversation) => conversation.id}
-        renderExpandedContent={(conversation) => (
-          <ConversationDetails
-            conversationId={conversation.id}
-            summary={conversation}
-          />
-        )}
+        getDetailHref={(conversation) => `/conversations/${conversation.id}`}
         isLoading={isLoading && conversations.length === 0}
         error={error}
         emptyMessage="Conversations will appear here once they are started by learners."
         emptyIcon={emptyIcon}
         onRetry={() => refetch()}
+        pagination={{
+          currentPage,
+          totalPages,
+          totalCount,
+          pageSize,
+          hasNext,
+        }}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
+        pageOptions={PAGE_SIZE_OPTIONS}
       />
-
-      {totalPages > 1 && (
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-              className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Previous
-            </button>
-            <span className="text-sm text-gray-700">
-              Page {currentPage} of {totalPages}
-            </span>
-            <button
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={!hasNext}
-              className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Next
-            </button>
-          </div>
-          <div className="text-sm text-gray-500">Total: {totalCount} conversations</div>
-        </div>
-      )}
     </div>
   );
 }

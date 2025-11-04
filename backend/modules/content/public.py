@@ -151,6 +151,10 @@ class ContentProvider(Protocol):
         progress_percentage: float | None = None,
     ) -> ContentService.UnitSessionRead: ...
 
+    async def count_units_since(self, since: datetime) -> int:
+        """Count units created since the given datetime. [ADMIN ONLY]"""
+        ...
+
 
 def content_provider(session: AsyncSession) -> ContentProvider:
     """Create a content service backed by the provided async session."""

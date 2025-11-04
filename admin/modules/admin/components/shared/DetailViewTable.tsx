@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ReactNode } from 'react';
 import { LoadingSpinner } from './LoadingSpinner';
 import { ErrorMessage } from './ErrorMessage';
@@ -32,6 +33,8 @@ interface DetailViewTableProps<T> {
   readonly onRetry?: () => void;
   readonly pagination?: PaginationInfo;
   readonly onPageChange?: (page: number) => void;
+  readonly onPageSizeChange?: (pageSize: number) => void;
+  readonly pageOptions?: number[];
   readonly className?: string;
   readonly rowClassName?: string;
 }
@@ -72,9 +75,13 @@ export function DetailViewTable<T>({
   onRetry,
   pagination,
   onPageChange,
+  onPageSizeChange,
+  pageOptions,
   className = '',
   rowClassName = '',
 }: DetailViewTableProps<T>): JSX.Element {
+  const router = useRouter();
+
   if (isLoading && data.length === 0) {
     return <LoadingSpinner size="lg" text="Loading..." />;
   }
@@ -128,7 +135,21 @@ export function DetailViewTable<T>({
                 const detailHref = getDetailHref(item);
 
                 return (
-                  <tr key={id} className={`hover:bg-gray-50 ${rowClassName}`}>
+                  <tr
+                    key={id}
+                    onClick={() => {
+                      router.push(detailHref);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        router.push(detailHref);
+                      }
+                    }}
+                    className={`cursor-pointer hover:bg-gray-50 ${rowClassName}`}
+                    role="button"
+                    tabIndex={0}
+                  >
                     {columns.map((column) => (
                       <td
                         key={`${id}-${column.key}`}
@@ -138,8 +159,25 @@ export function DetailViewTable<T>({
                       </td>
                     ))}
                     <td className="relative px-6 py-4 text-right text-sm font-medium whitespace-nowrap">
-                      <Link href={detailHref} className="text-blue-600 hover:text-blue-500">
-                        View details
+                      <Link
+                        href={detailHref}
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center justify-center w-6 h-6 text-gray-400 hover:text-gray-600 transition-colors"
+                        title="Open details"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 5l7 7-7 7"
+                          />
+                        </svg>
                       </Link>
                     </td>
                   </tr>
@@ -150,31 +188,56 @@ export function DetailViewTable<T>({
         </div>
       </div>
 
-      {pagination && pagination.totalPages > 1 && onPageChange && (
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-gray-500">
-            Showing page {pagination.currentPage} of {pagination.totalPages} ({pagination.totalCount}{' '}
-            {pagination.totalCount === 1 ? 'item' : 'items'})
+      {pagination && (
+        <div className="flex items-center justify-between bg-white rounded-lg shadow px-6 py-4">
+          <div className="flex items-center gap-6">
+            <div className="text-sm text-gray-500">
+              Showing {(pagination.currentPage - 1) * pagination.pageSize + 1} to {Math.min(pagination.currentPage * pagination.pageSize, pagination.totalCount)} of {pagination.totalCount}{' '}
+              {pagination.totalCount === 1 ? 'item' : 'items'}
+            </div>
+
+            {pageOptions && onPageSizeChange && (
+              <div className="flex items-center gap-2">
+                <label htmlFor="page-size" className="text-sm text-gray-600">
+                  Per page:
+                </label>
+                <select
+                  id="page-size"
+                  value={pagination.pageSize}
+                  onChange={(e) => onPageSizeChange(parseInt(e.target.value))}
+                  className="rounded-md border border-gray-300 px-2 py-1 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  {pageOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => onPageChange(pagination.currentPage - 1)}
-              disabled={pagination.currentPage === 1}
-              className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Previous
-            </button>
-            <span className="text-sm text-gray-700">
-              Page {pagination.currentPage} of {pagination.totalPages}
-            </span>
-            <button
-              onClick={() => onPageChange(pagination.currentPage + 1)}
-              disabled={!pagination.hasNext}
-              className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Next
-            </button>
-          </div>
+
+          {pagination.totalPages > 1 && onPageChange && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => onPageChange(pagination.currentPage - 1)}
+                disabled={pagination.currentPage === 1}
+                className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <span className="text-sm text-gray-700">
+                Page {pagination.currentPage} of {pagination.totalPages}
+              </span>
+              <button
+                onClick={() => onPageChange(pagination.currentPage + 1)}
+                disabled={!pagination.hasNext}
+                className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

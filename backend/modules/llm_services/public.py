@@ -1,5 +1,8 @@
 """Public interface for LLM services module."""
 
+from __future__ import annotations
+
+from datetime import datetime
 from typing import Any, Protocol, TypeVar
 import uuid
 
@@ -229,6 +232,14 @@ class LLMServicesAdminProvider(Protocol):
 
     def get_user_requests(self, user_id: int, limit: int = 50, offset: int = 0) -> list[LLMRequest]:
         """Get recent requests for a user. FOR ADMIN USE ONLY."""
+        ...
+
+    def count_requests_since(self, since: datetime) -> int:
+        """Count LLM requests created since the given datetime. [ADMIN ONLY]"""
+        ...
+
+    def sum_request_costs_since(self, since: datetime) -> float:
+        """Sum total cost of LLM requests created since the given datetime. [ADMIN ONLY]"""
         ...
 
 

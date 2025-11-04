@@ -1,7 +1,7 @@
 /**
  * Learning Sessions List Component
  *
- * Displays a paginated table of learning sessions with expandable details.
+ * Displays a paginated table of learning sessions with links to detail pages.
  */
 
 'use client';
@@ -9,10 +9,8 @@
 import Link from 'next/link';
 import { useLearningSessions } from '../../queries';
 import { useAdminStore, useLearningSessionFilters } from '../../store';
-import { ReloadButton } from '../shared/ReloadButton';
 import { StatusBadge } from '../shared/StatusBadge';
-import { ExpandableTable, type ExpandableTableColumn } from '../shared/ExpandableTable';
-import { LearningSessionDetails } from './LearningSessionDetails';
+import { DetailViewTable, type DetailViewTableColumn } from '../shared/DetailViewTable';
 import { formatDate } from '@/lib/utils';
 import type { LearningSessionSummary } from '../../models';
 
@@ -26,7 +24,7 @@ export function LearningSessionsList(): JSX.Element {
   const sessions = data?.sessions ?? [];
   const totalCount = data?.total_count ?? 0;
   const currentPage = data?.page ?? filters.page ?? 1;
-  const pageSize = data?.page_size ?? filters.page_size ?? 25;
+  const pageSize = data?.page_size ?? filters.page_size ?? 10;
   const hasNext = data?.has_next ?? false;
   const totalPages = pageSize > 0 ? Math.max(1, Math.ceil(totalCount / pageSize)) : 1;
 
@@ -38,6 +36,8 @@ export function LearningSessionsList(): JSX.Element {
   const handlePageSizeChange = (size: number) => {
     setLearningSessionFilters({ page: 1, page_size: size });
   };
+
+  const PAGE_SIZE_OPTIONS = [10, 25, 50];
 
   const emptyIcon = (
     <svg
@@ -55,7 +55,7 @@ export function LearningSessionsList(): JSX.Element {
     </svg>
   );
 
-  const columns: ExpandableTableColumn<LearningSessionSummary>[] = [
+  const columns: DetailViewTableColumn<LearningSessionSummary>[] = [
     {
       key: 'lesson',
       label: 'Lesson',
@@ -74,6 +74,7 @@ export function LearningSessionsList(): JSX.Element {
           <Link
             href={`/users/${session.user_id}`}
             className="text-blue-600 hover:text-blue-500"
+            onClick={(e) => e.stopPropagation()}
           >
             {session.user_id}
           </Link>
@@ -115,59 +116,30 @@ export function LearningSessionsList(): JSX.Element {
           <span>
             Showing {sessions.length} of {totalCount} sessions
           </span>
-          <ReloadButton onReload={() => refetch()} isLoading={isLoading} />
-        </div>
-        <div className="flex items-center gap-2 text-sm text-gray-700">
-          <label htmlFor="learning-session-page-size">Per page:</label>
-          <select
-            id="learning-session-page-size"
-            value={pageSize}
-            onChange={(event) => handlePageSizeChange(Number(event.target.value))}
-            className="rounded-md border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500"
-          >
-            <option value={10}>10</option>
-            <option value={25}>25</option>
-            <option value={50}>50</option>
-          </select>
         </div>
       </div>
 
-      <ExpandableTable
+      <DetailViewTable
         data={sessions}
         columns={columns}
         getRowId={(session) => session.id}
-        renderExpandedContent={(session) => <LearningSessionDetails session={session} />}
+        getDetailHref={(session) => `/learning-sessions/${session.id}`}
         isLoading={isLoading && sessions.length === 0}
         error={error}
         emptyMessage="Learning sessions will appear here once learners begin working through lessons."
         emptyIcon={emptyIcon}
         onRetry={() => refetch()}
+        pagination={{
+          currentPage,
+          totalPages,
+          totalCount,
+          pageSize,
+          hasNext,
+        }}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
+        pageOptions={PAGE_SIZE_OPTIONS}
       />
-
-      {totalPages > 1 && (
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-              className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Previous
-            </button>
-            <span className="text-sm text-gray-700">
-              Page {currentPage} of {totalPages}
-            </span>
-            <button
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={!hasNext}
-              className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Next
-            </button>
-          </div>
-          <div className="text-sm text-gray-500">Total: {totalCount} sessions</div>
-        </div>
-      )}
     </div>
   );
 }

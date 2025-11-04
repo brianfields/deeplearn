@@ -4,17 +4,25 @@
  * Presents the admin view of all conversations (learning coach and teaching assistant).
  */
 
+'use client';
+
 import { ConversationsList } from '@/modules/admin/components/conversations/ConversationsList';
+import { PageHeader } from '@/modules/admin/components/shared/PageHeader';
+import { useConversations } from '@/modules/admin/queries';
+import { useConversationFilters } from '@/modules/admin/store';
 
 export default function ConversationsPage() {
+  const filters = useConversationFilters();
+  const { refetch, isLoading } = useConversations(filters);
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Conversations</h1>
-        <p className="mt-2 text-gray-600">
-          Review learning coach and teaching assistant conversations, and inspect message transcripts.
-        </p>
-      </div>
+      <PageHeader
+        title="Conversations"
+        description="Review learning coach and teaching assistant conversations, and inspect message transcripts."
+        onReload={() => refetch()}
+        isReloading={isLoading}
+      />
 
       <ConversationsList />
     </div>

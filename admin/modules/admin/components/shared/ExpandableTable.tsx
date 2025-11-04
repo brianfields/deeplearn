@@ -120,11 +120,24 @@ export function ExpandableTable<T>({
 
               return (
                 <Fragment key={id}>
-                  <tr className={`hover:bg-gray-50 ${rowClassName}`}>
+                  <tr
+                    onClick={() => toggleExpanded(id)}
+                    className={`cursor-pointer hover:bg-gray-50 ${rowClassName}`}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        toggleExpanded(id);
+                      }
+                    }}
+                  >
                     <td className="w-10 px-4 py-4 text-center">
                       <button
                         type="button"
-                        onClick={() => toggleExpanded(id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                        }}
                         className="rounded-full border border-gray-200 p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
                         aria-label={isExpanded ? 'Collapse row' : 'Expand row'}
                       >

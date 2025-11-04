@@ -42,11 +42,22 @@ export function UserList(): JSX.Element {
     setPage(1);
   };
 
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPage(1);
+    // Note: pageSize state is managed through useMemo
+  };
+
   const users = data?.users ?? [];
   const totalCount = data?.total_count ?? 0;
   const hasNext = data?.has_next ?? false;
   const currentPage = data?.page ?? page;
   const totalPages = totalCount > 0 ? Math.ceil(totalCount / pageSize) : 1;
+
+  const PAGE_SIZE_OPTIONS = [10, 25, 50];
 
   const emptyIcon = (
     <svg
@@ -124,12 +135,6 @@ export function UserList(): JSX.Element {
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-semibold text-gray-900">Users</h2>
-          <p className="text-gray-600 mt-1">
-            Search and manage users, their ownership, and recent activity.
-          </p>
-        </div>
         <form onSubmit={handleSearchSubmit} className="flex items-center space-x-2">
           <input
             type="search"
@@ -173,7 +178,9 @@ export function UserList(): JSX.Element {
           pageSize,
           hasNext,
         }}
-        onPageChange={(newPage) => setPage(newPage)}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
+        pageOptions={PAGE_SIZE_OPTIONS}
       />
     </div>
   );

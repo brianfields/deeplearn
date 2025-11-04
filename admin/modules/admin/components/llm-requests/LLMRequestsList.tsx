@@ -34,6 +34,8 @@ export function LLMRequestsList(): JSX.Element {
   const hasNext = data?.has_next ?? false;
   const totalPages = pageSize > 0 ? Math.ceil(totalCount / pageSize) : 1;
 
+  const PAGE_SIZE_OPTIONS = [10, 25, 50];
+
   const emptyIcon = (
     <svg
       className="h-12 w-12 text-gray-400"
@@ -128,21 +130,6 @@ export function LLMRequestsList(): JSX.Element {
             Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalCount)} of {totalCount} LLM requests
           </p>
         </div>
-        <div className="flex items-center space-x-2">
-          <label htmlFor="pageSize" className="text-sm text-gray-700">
-            Per page:
-          </label>
-          <select
-            id="pageSize"
-            value={pageSize}
-            onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-            className="rounded-md border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500"
-          >
-            <option value={10}>10</option>
-            <option value={25}>25</option>
-            <option value={50}>50</option>
-          </select>
-        </div>
       </div>
 
       {/* LLM requests table */}
@@ -164,6 +151,8 @@ export function LLMRequestsList(): JSX.Element {
           hasNext,
         }}
         onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
+        pageOptions={PAGE_SIZE_OPTIONS}
       />
     </div>
   );
