@@ -73,14 +73,18 @@ export default function RegisterScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
-            <Text style={styles.title}>Create your account</Text>
-            <Text style={styles.subtitle}>
+            <Text variant="h1" style={styles.title}>
+              Create your account
+            </Text>
+            <Text variant="body" style={styles.subtitle}>
               Start building and tracking your learning journey.
             </Text>
           </View>
 
           <View style={styles.formGroup}>
-            <Text style={styles.label}>Full name</Text>
+            <Text variant="body" style={styles.label}>
+              Full name
+            </Text>
             <TextInput
               accessibilityLabel="Full name"
               style={styles.input}
@@ -92,7 +96,9 @@ export default function RegisterScreen() {
           </View>
 
           <View style={styles.formGroup}>
-            <Text style={styles.label}>Email</Text>
+            <Text variant="body" style={styles.label}>
+              Email
+            </Text>
             <TextInput
               accessibilityLabel="Email address"
               style={styles.input}
@@ -107,7 +113,9 @@ export default function RegisterScreen() {
           </View>
 
           <View style={styles.formGroup}>
-            <Text style={styles.label}>Password</Text>
+            <Text variant="body" style={styles.label}>
+              Password
+            </Text>
             <TextInput
               accessibilityLabel="Password"
               style={styles.input}
@@ -120,7 +128,9 @@ export default function RegisterScreen() {
           </View>
 
           <View style={styles.formGroup}>
-            <Text style={styles.label}>Confirm password</Text>
+            <Text variant="body" style={styles.label}>
+              Confirm password
+            </Text>
             <TextInput
               accessibilityLabel="Confirm password"
               style={styles.input}
@@ -140,9 +150,10 @@ export default function RegisterScreen() {
           />
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>
+            <Text variant="caption" style={styles.footerText}>
               Already have an account?{' '}
               <Text
+                variant="caption"
                 style={[styles.footerText, styles.link]}
                 onPress={() => navigation.navigate('Login')}
               >
@@ -174,12 +185,10 @@ const createStyles = (theme: Theme) =>
       marginBottom: 12,
     },
     title: {
-      fontSize: 28,
       fontWeight: '600',
       color: theme.colors.text,
     },
     subtitle: {
-      fontSize: 16,
       color: theme.colors.textSecondary,
       opacity: 0.9,
     },
@@ -187,7 +196,6 @@ const createStyles = (theme: Theme) =>
       gap: 6,
     },
     label: {
-      fontSize: 14,
       color: theme.colors.textSecondary,
     },
     input: {
@@ -205,7 +213,6 @@ const createStyles = (theme: Theme) =>
       alignItems: 'center',
     },
     footerText: {
-      fontSize: 14,
       color: theme.colors.textSecondary,
     },
     link: {

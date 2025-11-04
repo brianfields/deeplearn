@@ -5,6 +5,76 @@
 
 ---
 
+## Current Implementation Status Summary
+
+### ✅ COMPLETE (Phase 9)
+- All inline styles eliminated (94 warnings → 0)
+- All hook dependency warnings fixed (8 warnings → 0)
+- Backend linting errors fixed
+- 100% linting compliance across all packages
+
+### 🟢 READY TO IMPLEMENT (Can be automated)
+1. **Phase 1: Typography** - ✅ Tokens already defined in `tokens/index.ts` and `theme/theme.ts`
+   - Display (32pt), H1 (28pt), H2 (22pt), Title (18pt), Body (16pt), Secondary (14pt), Caption (12pt)
+   - Status: Tokens exist; need to apply to 13 screens via UI updates
+
+2. **Phase 3: Spacing** - ✅ Tokens already defined and applied via `layout.ts` and `spacing.ts`
+   - 8pt grid system implemented (xs=4, sm=8, md=16, lg=24, xl=32, xxl=48)
+   - Status: Tokens complete; need to audit screens for consistency
+
+3. **Phase 4: Animation Timing** - ✅ Already correct in `navigationOptions.ts`
+   - Micro: 160ms, UI: 220ms ✓, Modal/View: 320ms ✓
+   - Easing curves: `easeInOut`, `easeIn`, `easeOut` already defined in `animations`
+   - Status: Complete; no changes needed
+
+### 🟡 NEEDS HUMAN DESIGN REVIEW (Requires careful decisions)
+1. **Phase 2: Color Enforcement & "One Bold Move"** - ⚠️ Requires design review
+   - Color tokens exist in `tokens` but "one bold move per screen" strategy needs UX/Design sign-off
+   - Risk: Over-constraining colors could harm usability on certain screens
+   - Recommendation: Review mockups for each screen before implementing
+
+2. **Phase 5: Loading/Empty/Error States** - ⚠️ Requires design review
+   - No existing components; would need new component library
+   - Recommendation: Create components post-UX validation
+
+3. **Phase 6: Accessibility** - ⚠️ Critical but requires testing
+   - VoiceOver, Dynamic Type, contrast ratios need real device testing
+   - Cannot be fully automated; requires QA + accessibility audit
+
+4. **Phase 7: Component Extraction** - ⚠️ Requires architectural review
+   - Creating shared components may conflict with existing modular structure
+   - Recommendation: Plan with architecture in mind per workspace rules
+
+---
+
+## Quick Implementation Guide
+
+### For Phase 1 (Typography) Updates:
+Use existing `Text` component with variants:
+```typescript
+<Text variant="display">Large Title</Text>  // 32pt
+<Text variant="h1">Section Title</Text>     // 28pt
+<Text variant="h2">Subsection</Text>        // 22pt
+<Text variant="title">Heading</Text>        // 18pt
+<Text variant="body">Paragraph text</Text>  // 16pt
+<Text variant="secondary">Small text</Text> // 14pt
+<Text variant="caption">Metadata</Text>     // 12pt
+```
+
+### For Phase 3 (Spacing) Updates:
+Use theme utilities:
+```typescript
+import { spacing } from '../ui_system/theme/theme';
+// xs (4) | sm (8) | md (16) | lg (24) | xl (32) | xxl (48)
+padding: spacing.md;      // 16pt
+marginTop: spacing.sm;    // 8pt
+```
+
+### For Phase 4 (Animation):
+Already implemented in `navigationOptions.ts` - no action needed.
+
+---
+
 ## Phase 1: Typography & Hierarchy (Quick Wins)
 
 ### Typography Scale Standardization
@@ -743,3 +813,119 @@ This implementation directly aligns with the **Weimar Edge** design language pri
 5. Achieved 100% linting compliance across all packages
 
 **Ready for production deployment! 🚀**
+
+---
+
+## Recommended Next Steps (Priority Order)
+
+### 🟢 QUICK WINS (Can start immediately)
+
+#### 1. Phase 1: Typography Standardization (2-3 hours)
+**What's ready**: All typography tokens are defined and the `Text` component supports all variants.
+**What to do**:
+- [ ] Audit `UnitListScreen` - apply H2 to unit titles, Caption to metadata
+- [ ] Audit `UnitDetailScreen` - apply H1 to main title, H2 to section headers
+- [ ] Audit `LearningCoachScreen` - apply H2 to header, Body to messages
+- [ ] Audit remaining 10 screens using the spec in lines 21-33
+- [ ] Test Dynamic Type scaling (150% and 200% sizes) on each screen
+
+**Implementation pattern**:
+```typescript
+// Before
+<Text>{unit.title}</Text>
+
+// After
+<Text variant="h2">{unit.title}</Text>
+<Text variant="caption">{unit.progress}%</Text>
+```
+
+#### 2. Phase 3: Spacing Audit (1-2 hours)
+**What's ready**: 8pt grid system fully implemented via `layout.ts` and `spacing.ts`.
+**What to do**:
+- [ ] Review `UnitListScreen` - ensure 16pt vertical spacing between cards
+- [ ] Review `ResourceLibraryScreen` - verify consistent 16pt spacing
+- [ ] Use `spacing` utilities consistently (xs=4, sm=8, md=16, lg=24)
+- [ ] Remove any raw magic numbers (e.g., `padding: 12` should be `spacing.sm`)
+
+**Verification**: `grep -r "padding: [0-9]\|margin: [0-9]" mobile/modules --include="*.tsx"` should find only necessary cases.
+
+---
+
+### 🟡 MEDIUM PRIORITY (Needs design review first)
+
+#### 3. Phase 2: Color Enforcement & "One Bold Move" (4-6 hours)
+**Status**: ⚠️ Requires UX/Design sign-off before implementation
+
+**Questions for design review**:
+1. Which screens absolutely need multiple accent colors for clarity?
+2. Should secondary buttons use neutral gray or outlined style instead of color?
+3. For `LearningCoachScreen`, can assistant messages use subtle background instead of blue accent?
+
+**Once approved**, implement using pattern:
+```typescript
+// UnitDetailScreen - one blue button, neutrals elsewhere
+<Button variant="primary" label="Start Learning" />        // Blue
+<Button variant="secondary" label="View Resources" />      // Neutral outline
+```
+
+---
+
+### 🔴 LONGER-TERM (Post-Phase 2)
+
+#### 4. Phase 5: Loading/Empty/Error States (6-8 hours)
+**Current state**: No dedicated components; handled ad-hoc in screens.
+**Recommendation**:
+- Create `components/states/LoadingState.tsx`
+- Create `components/states/EmptyState.tsx`
+- Create `components/states/ErrorState.tsx`
+- Refactor screens to use these components
+
+#### 5. Phase 6: Accessibility Audit (4-5 hours)
+**Cannot be skipped**, but requires real device testing:
+- [ ] VoiceOver navigation on iOS
+- [ ] Dynamic Type testing (XS, S, M, L, XL, XXL, Accessibility Sizes)
+- [ ] Color contrast verification (use accessibility inspector)
+- [ ] Focus ring implementation for keyboard navigation
+- [ ] Testing on Android TalkBack
+
+#### 6. Phase 7: Component Extraction (Depends on Phase 5)
+**Watch out**: Don't create components just "in case" - only extract when needed.
+**Focus on**: `StandardCard`, `PrimaryButton`, `StatusBadge`, `ListItem`
+
+---
+
+## Summary: What's Complete vs. What's Next
+
+| Phase | Status | Effort | Notes |
+|-------|--------|--------|-------|
+| Phase 1 (Typography) | 🟢 Ready | 2-3h | Tokens ready, need screen updates |
+| Phase 2 (Color) | 🟡 Review needed | 4-6h | Tokens exist, strategy needs approval |
+| Phase 3 (Spacing) | 🟢 Ready | 1-2h | Grid system complete, audit screens |
+| Phase 4 (Animation) | ✅ Complete | — | Already correct in codebase |
+| Phase 5 (States) | 🟡 Design review | 6-8h | Post-Phase 2 |
+| Phase 6 (Accessibility) | 🟡 Testing | 4-5h | Critical, needs real devices |
+| Phase 7 (Components) | 🟡 Architectural | Varies | Depends on earlier phases |
+| Phase 8 (Polish) | 🟡 Design review | Varies | Per-screen decisions needed |
+| Phase 9 (Inline Styles) | ✅ Complete | ~8-10h | **All done** ✅ |
+
+**Total remaining**: ~20-30 hours of work (mostly Phases 2, 5, 6, 7 with design/QA involvement)
+
+---
+
+## Key Decision Points Needing Human Input
+
+1. **"One Bold Move" per screen** (Phase 2) - Review with designer
+2. **Empty state messaging tone** (Phase 5) - Brand voice decision
+3. **Accessibility priorities** (Phase 6) - What's critical vs. nice-to-have?
+4. **Shared component scope** (Phase 7) - Risk of over-engineering vs. maintainability
+
+---
+
+## Long-term Maintenance
+
+Once all phases complete:
+- Add eslint rule to prevent raw hex colors in components
+- Add storybook or similar for component documentation
+- Schedule quarterly design language audits
+- Document "do/don't" examples from real screens
+- Update onboarding for new designers/developers on the team
