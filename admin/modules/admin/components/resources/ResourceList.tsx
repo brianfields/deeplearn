@@ -3,6 +3,7 @@ import type {
   ResourceSummary,
   ResourceUsageSummary,
 } from '@/modules/admin/models';
+import { DetailViewTable, type DetailViewTableColumn } from '../shared/DetailViewTable';
 import { formatDate } from '@/lib/utils';
 
 const BADGE_BASE_CLASSES =
@@ -100,107 +101,84 @@ export function ResourceList({
     );
   }
 
+  const columns: DetailViewTableColumn<ResourceListItem>[] = [
+    {
+      key: 'resource',
+      label: 'Resource',
+      render: (resource) => (
+        <div>
+          <div className="font-medium text-gray-900">{resourceLabel(resource)}</div>
+          <div className="mt-1">
+            <ResourceTypeBadge resourceType={resource.resource_type} />
+          </div>
+          {resource.source_url && (
+            <div className="mt-1 text-xs">
+              <a
+                href={resource.source_url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-blue-600 hover:text-blue-500"
+              >
+                Open source →
+              </a>
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'created_at',
+      label: 'Added',
+      render: (resource) => formatDate(resource.created_at),
+    },
+    {
+      key: 'file_size',
+      label: 'Size',
+      render: (resource) => formatFileSize(resource.file_size ?? null),
+    },
+    {
+      key: 'preview',
+      label: 'Preview',
+      render: (resource) => (
+        <div className="max-w-xs whitespace-pre-wrap break-words text-sm text-gray-700">
+          {normalizePreview(resource.preview_text)}
+        </div>
+      ),
+    },
+    ...(showUsageColumn
+      ? [
+          {
+            key: 'usage',
+            label: 'Used In Units',
+            render: (resource: ResourceListItem) =>
+              resource.used_in_units && resource.used_in_units.length > 0 ? (
+                <ul className="space-y-1">
+                  {resource.used_in_units.map((unit) => (
+                    <li key={`${resource.id}-${unit.unit_id}`}>
+                      <Link
+                        href={`/units/${unit.unit_id}`}
+                        className="text-blue-600 hover:text-blue-500"
+                      >
+                        {unit.unit_title}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <span className="text-gray-500">—</span>
+              ),
+          } as DetailViewTableColumn<ResourceListItem>,
+        ]
+      : []),
+  ];
+
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
-          <tr>
-            <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-              Resource
-            </th>
-            <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-              Added
-            </th>
-            <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-              Size
-            </th>
-            <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-              Preview
-            </th>
-            <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-              Actions
-            </th>
-            {showUsageColumn && (
-              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Used In Units
-              </th>
-            )}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-200 bg-white">
-          {resources.map((resource) => (
-            <tr key={resource.id}>
-              <td className="px-4 py-2 align-top text-sm text-gray-900">
-                <div className="font-medium text-gray-900">{resourceLabel(resource)}</div>
-                <div className="mt-1">
-                  <ResourceTypeBadge resourceType={resource.resource_type} />
-                </div>
-                {resource.source_url && (
-                  <div className="mt-1 text-xs">
-                    <a
-                      href={resource.source_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-blue-600 hover:text-blue-500"
-                    >
-                      Open source →
-                    </a>
-                  </div>
-                )}
-              </td>
-              <td className="px-4 py-2 align-top text-sm text-gray-900">
-                {formatDate(resource.created_at)}
-              </td>
-              <td className="px-4 py-2 align-top text-sm text-gray-900">
-                {formatFileSize(resource.file_size ?? null)}
-              </td>
-              <td className="px-4 py-2 align-top text-sm text-gray-700">
-                <div className="max-w-xs whitespace-pre-wrap break-words">
-                  {normalizePreview(resource.preview_text)}
-                </div>
-              </td>
-              <td className="px-4 py-2 align-top text-sm text-gray-700">
-                <div className="flex flex-col gap-1">
-                  <Link
-                    href={`/resources/${resource.id}`}
-                    className="text-blue-600 hover:text-blue-500"
-                  >
-                    View details
-                  </Link>
-                  {resource.resource_type === 'generated_source' && (
-                    <Link
-                      href={`/resources/${resource.id}?download=1`}
-                      className="text-violet-700 hover:text-violet-600"
-                    >
-                      Download text
-                    </Link>
-                  )}
-                </div>
-              </td>
-              {showUsageColumn && (
-                <td className="px-4 py-2 align-top text-sm text-gray-900">
-                  {resource.used_in_units && resource.used_in_units.length > 0 ? (
-                    <ul className="space-y-1">
-                      {resource.used_in_units.map((unit) => (
-                        <li key={`${resource.id}-${unit.unit_id}`}>
-                          <Link
-                            href={`/units/${unit.unit_id}`}
-                            className="text-blue-600 hover:text-blue-500"
-                          >
-                            {unit.unit_title}
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <span className="text-gray-500">—</span>
-                  )}
-                </td>
-              )}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <DetailViewTable
+      data={resources}
+      columns={columns}
+      getRowId={(resource) => resource.id}
+      getDetailHref={(resource) => `/resources/${resource.id}`}
+      emptyMessage={emptyMessage ?? 'No resources available.'}
+    />
   );
 }

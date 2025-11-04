@@ -1,5 +1,11 @@
 import React from 'react';
-import { ActivityIndicator, Alert, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  TouchableOpacity,
+  View,
+  StyleSheet,
+} from 'react-native';
 import { Download, Trash2 } from 'lucide-react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import type { Unit } from '../../content/public';
@@ -14,6 +20,7 @@ import {
   uiSystemProvider,
   useHaptics,
 } from '../../ui_system/public';
+import { layoutStyles } from '../../ui_system/styles/layout';
 
 interface Props {
   unit: Unit;
@@ -171,12 +178,7 @@ export function UnitCard({
   const renderRemoveAction = (): React.ReactElement => (
     <TouchableOpacity
       onPress={handleRemoveFromMyUnits}
-      style={{
-        width: ui.getSpacing('xl') * 2,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: theme.colors.error,
-      }}
+      style={[styles.removeAction, { backgroundColor: theme.colors.error }]}
       disabled={isRemoveActionPending}
       testID={
         index !== undefined ? `unit-remove-swipe-${index}` : 'unit-remove-swipe'
@@ -206,34 +208,29 @@ export function UnitCard({
       disabled={isDisabled}
       style={[
         unit.status === 'failed'
-          ? { borderLeftWidth: 4, borderLeftColor: theme.colors.error }
+          ? {
+              borderLeftColor: theme.colors.error,
+              ...styles.borderLeftError,
+            }
           : null,
       ]}
     >
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'flex-start',
-          columnGap: ui.getSpacing('md'),
-        }}
-      >
+      <View style={[layoutStyles.rowStart, { columnGap: ui.getSpacing('md') }]}>
         <ArtworkImage
           title={unit.title}
           imageUrl={unit.artImageUrl ?? undefined}
           description={unit.artImageDescription ?? undefined}
           variant="thumbnail"
-          style={{ flexShrink: 0 }}
+          style={layoutStyles.flexShrink0}
           testID={index !== undefined ? `unit-art-${index}` : undefined}
         />
 
-        <View style={{ flex: 1 }}>
+        <View style={layoutStyles.flex1}>
           <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'flex-start',
-              justifyContent: 'space-between',
-              marginBottom: ui.getSpacing('sm'),
-            }}
+            style={[
+              layoutStyles.rowBetweenStart,
+              { marginBottom: ui.getSpacing('sm') },
+            ]}
           >
             <Text
               variant="title"
@@ -241,7 +238,7 @@ export function UnitCard({
               color={
                 isDisabled ? theme.colors.textSecondary : theme.colors.text
               }
-              style={{ flex: 1, marginRight: ui.getSpacing('sm') }}
+              style={[layoutStyles.flex1, { marginRight: ui.getSpacing('sm') }]}
               numberOfLines={2}
             >
               {unit.title}
@@ -270,13 +267,14 @@ export function UnitCard({
 
           {showFailedActions && (
             <View
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'flex-end',
-                marginTop: ui.getSpacing('sm'),
-                marginBottom: ui.getSpacing('xs'),
-                columnGap: ui.getSpacing('sm'),
-              }}
+              style={[
+                layoutStyles.rowEnd,
+                {
+                  marginTop: ui.getSpacing('sm'),
+                  marginBottom: ui.getSpacing('xs'),
+                  columnGap: ui.getSpacing('sm'),
+                },
+              ]}
             >
               {onRetry && (
                 <Button
@@ -305,12 +303,13 @@ export function UnitCard({
 
           {showDownloadStatusInfo && downloadStatusText && (
             <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                columnGap: ui.getSpacing('xs'),
-                marginBottom: downloadStatusSpacing,
-              }}
+              style={[
+                layoutStyles.row,
+                {
+                  columnGap: ui.getSpacing('xs'),
+                  marginBottom: downloadStatusSpacing,
+                },
+              ]}
             >
               {isDownloadInProgress && (
                 <ActivityIndicator size="small" color={theme.colors.primary} />
@@ -330,7 +329,7 @@ export function UnitCard({
               loading={isDownloadActionPending}
               icon={<Download size={16} color={theme.colors.surface} />}
               style={[
-                { alignSelf: 'flex-start' },
+                layoutStyles.selfStart,
                 !showDownloadStatusInfo
                   ? { marginTop: ui.getSpacing('sm') }
                   : null,
@@ -340,11 +339,7 @@ export function UnitCard({
           )}
 
           <View
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              marginTop: metadataMarginTop,
-            }}
+            style={[layoutStyles.rowBetween, { marginTop: metadataMarginTop }]}
           >
             <Text
               variant="caption"
@@ -393,3 +388,14 @@ function formatBytes(bytes: number): string {
   const precision = value < 10 && unitIndex > 0 ? 1 : 0;
   return `${value.toFixed(precision)} ${units[unitIndex]}`;
 }
+
+const styles = StyleSheet.create({
+  removeAction: {
+    width: 80, // ui.getSpacing('xl') * 2 ≈ 40 * 2 = 80
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+  },
+  borderLeftError: {
+    borderLeftWidth: 4,
+  },
+});

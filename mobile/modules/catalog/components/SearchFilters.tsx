@@ -15,6 +15,8 @@ import {
   uiSystemProvider,
   useHaptics,
 } from '../../ui_system/public';
+import { layoutStyles } from '../../ui_system/styles/layout';
+import { spacingPatterns } from '../../ui_system/styles/spacing';
 
 interface SearchFiltersProps {
   filters: LessonFilters;
@@ -31,6 +33,7 @@ export function SearchFilters({
   const ui = uiSystemProvider();
   const theme = ui.getCurrentTheme();
   const { trigger } = useHaptics();
+  const spacing = spacingPatterns();
 
   const handleApplyFilters = () => {
     onFiltersChange(localFilters);
@@ -62,26 +65,17 @@ export function SearchFilters({
         styles.container,
         {
           backgroundColor: theme.colors.surface,
-          borderTopLeftRadius: 20,
-          borderTopRightRadius: 20,
         },
+        layoutStyles.radiusTopLarge,
       ]}
     >
       {/* Grabber bar for sheet affordance */}
-      <View
-        style={{
-          alignItems: 'center',
-          paddingTop: ui.getSpacing('sm'),
-        }}
-      >
+      <View style={[layoutStyles.centered, spacing.paddingVertical8]}>
         <View
-          style={{
-            width: 36,
-            height: 4,
-            borderRadius: 2,
-            backgroundColor: theme.colors.textSecondary,
-            opacity: 0.2,
-          }}
+          style={[
+            styles.grabber,
+            { backgroundColor: theme.colors.textSecondary },
+          ]}
         />
       </View>
 
@@ -118,14 +112,14 @@ export function SearchFilters({
                 key={level}
                 style={[
                   styles.option,
+                  styles.filterOption,
                   {
-                    borderRadius: 12,
                     borderWidth: StyleSheet.hairlineWidth,
                     borderColor: theme.colors.border,
                     backgroundColor: theme.colors.surface,
-                    minHeight: 44,
                     padding: ui.getSpacing('sm'),
                   },
+                  layoutStyles.radiusMd,
                   localFilters.learnerLevel === level && {
                     backgroundColor: theme.colors.primary,
                     borderColor: theme.colors.primary,
@@ -140,7 +134,7 @@ export function SearchFilters({
                 }}
               >
                 <Text
-                  style={{ flex: 1 }}
+                  style={layoutStyles.flex1}
                   variant="body"
                   color={
                     localFilters.learnerLevel === level
@@ -170,14 +164,14 @@ export function SearchFilters({
             <TouchableOpacity
               style={[
                 styles.option,
+                styles.filterOption,
                 {
-                  borderRadius: 12,
                   borderWidth: StyleSheet.hairlineWidth,
                   borderColor: theme.colors.border,
                   backgroundColor: theme.colors.surface,
-                  minHeight: 44,
                   padding: ui.getSpacing('sm'),
                 },
+                layoutStyles.radiusMd,
                 localFilters.maxDuration === 15 && {
                   backgroundColor: theme.colors.primary,
                   borderColor: theme.colors.primary,
@@ -210,14 +204,14 @@ export function SearchFilters({
             <TouchableOpacity
               style={[
                 styles.option,
+                styles.filterOption,
                 {
-                  borderRadius: 12,
                   borderWidth: StyleSheet.hairlineWidth,
                   borderColor: theme.colors.border,
                   backgroundColor: theme.colors.surface,
-                  minHeight: 44,
                   padding: ui.getSpacing('sm'),
                 },
+                layoutStyles.radiusMd,
                 localFilters.minDuration === 16 &&
                   localFilters.maxDuration === 30 && {
                     backgroundColor: theme.colors.primary,
@@ -264,14 +258,14 @@ export function SearchFilters({
             <TouchableOpacity
               style={[
                 styles.option,
+                styles.filterOption,
                 {
-                  borderRadius: 12,
                   borderWidth: StyleSheet.hairlineWidth,
                   borderColor: theme.colors.border,
                   backgroundColor: theme.colors.surface,
-                  minHeight: 44,
                   padding: ui.getSpacing('sm'),
                 },
+                layoutStyles.radiusMd,
                 localFilters.minDuration === 31 && {
                   backgroundColor: theme.colors.primary,
                   borderColor: theme.colors.primary,
@@ -311,14 +305,14 @@ export function SearchFilters({
           <TouchableOpacity
             style={[
               styles.option,
+              styles.filterOption,
               {
-                borderRadius: 12,
                 borderWidth: StyleSheet.hairlineWidth,
                 borderColor: theme.colors.border,
                 backgroundColor: theme.colors.surface,
-                minHeight: 44,
                 padding: ui.getSpacing('sm'),
               },
+              layoutStyles.radiusMd,
               localFilters.readyOnly === true && {
                 backgroundColor: theme.colors.primary,
                 borderColor: theme.colors.primary,
@@ -351,13 +345,15 @@ export function SearchFilters({
       </ScrollView>
 
       <View
-        style={{
-          flexDirection: 'row',
-          padding: ui.getSpacing('lg'),
-          gap: ui.getSpacing('sm'),
-          borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: theme.colors.border,
-        }}
+        style={[
+          layoutStyles.row,
+          {
+            padding: ui.getSpacing('lg'),
+            gap: ui.getSpacing('sm'),
+            borderTopWidth: StyleSheet.hairlineWidth,
+            borderTopColor: theme.colors.border,
+          },
+        ]}
       >
         <Button
           title="Clear All"
@@ -383,9 +379,15 @@ const styles = StyleSheet.create({
     maxHeight: '80%',
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+  },
+  grabber: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    opacity: 0.2,
   },
   closeButton: {
     padding: 4,
@@ -400,8 +402,11 @@ const styles = StyleSheet.create({
     // gap provided dynamically
   },
   option: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+  },
+  filterOption: {
+    minHeight: 44,
   },
 });

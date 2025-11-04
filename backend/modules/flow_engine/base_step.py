@@ -393,7 +393,7 @@ class ImageStep(BaseStep):
 
         # Generate image using LLM services
         llm_services = context.service.get_llm_services()
-        image_response, request_id = await llm_services.generate_image(prompt=prompt, size=size, quality=quality, style=style)
+        image_response, request_id = await llm_services.generate_image(prompt=prompt, size=size, quality=quality, style=style, user_id=context.user_id)
 
         # Update context with usage info
         context.last_tokens_used = 0  # Images don't use tokens

@@ -117,7 +117,7 @@ export const Button: React.FC<ButtonProps> = ({
             style={[
               ...textStyleArray,
               variant === 'tertiary' && isPressed
-                ? { textDecorationLine: 'underline' }
+                ? styles.tertiaryPressed
                 : null,
             ]}
           >
@@ -254,6 +254,9 @@ const styles = StyleSheet.create({
   },
   icon: {
     // marginRight is set dynamically based on theme
+  },
+  tertiaryPressed: {
+    textDecorationLine: 'underline',
   },
 });
 

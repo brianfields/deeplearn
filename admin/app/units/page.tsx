@@ -1,196 +1,165 @@
 /**
  * Units Page
  *
- * Accordion view of units with inline lesson summaries.
+ * Displays a table of units with clickable rows linking to detail pages.
  */
 
 'use client';
 
-import Link from 'next/link';
-import { useState } from 'react';
-import { useUnit, useUnits } from '@/modules/admin/queries';
-import { LoadingSpinner } from '@/modules/admin/components/shared/LoadingSpinner';
-import { ErrorMessage } from '@/modules/admin/components/shared/ErrorMessage';
-import { ReloadButton } from '@/modules/admin/components/shared/ReloadButton';
+import { useMemo, useState } from 'react';
+import { useUnits } from '@/modules/admin/queries';
+import { DetailViewTable, type DetailViewTableColumn } from '@/modules/admin/components/shared/DetailViewTable';
 import { StatusBadge } from '@/modules/admin/components/shared/StatusBadge';
+import { PageHeader } from '@/modules/admin/components/shared/PageHeader';
 import { formatDate } from '@/lib/utils';
 import type { UnitSummary } from '@/modules/admin/models';
 
-interface UnitAccordionItemProps {
-  unit: UnitSummary;
-  isExpanded: boolean;
-  onToggle: () => void;
-}
+export default function UnitsPage(): JSX.Element {
+  const { data: allUnits, isLoading, error, refetch } = useUnits();
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
-function UnitAccordionItem({ unit, isExpanded, onToggle }: UnitAccordionItemProps) {
-  const {
-    data: detail,
-    isLoading,
-    error,
-    refetch,
-  } = useUnit(unit.id, { enabled: isExpanded });
+  const PAGE_SIZE_OPTIONS = [10, 25, 50];
 
-  return (
-    <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-center justify-between px-5 py-4 text-left"
-        aria-expanded={isExpanded}
-      >
-        <div>
-          <div className="flex items-center gap-2">
-            <h3 className="text-lg font-semibold text-gray-900">{unit.title}</h3>
-            {unit.status && <StatusBadge status={unit.status} size="sm" />}
-          </div>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
-            <span>{unit.learner_level}</span>
-            <span>Lessons: {unit.lesson_count}</span>
-            {unit.target_lesson_count !== null && <span>Target: {unit.target_lesson_count}</span>}
-            <span>{unit.flow_type === 'fast' ? 'Fast flow' : 'Standard flow'}</span>
-            {unit.generated_from_topic && <span>Topic-generated</span>}
-          </div>
-          <div className="mt-1 text-xs text-gray-400">
-            Updated {unit.updated_at ? formatDate(unit.updated_at) : '—'}
-          </div>
-        </div>
-        <svg
-          className={`h-5 w-5 text-gray-500 transition-transform ${isExpanded ? 'rotate-90' : 'rotate-0'}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-        </svg>
-      </button>
-      {isExpanded && (
-        <div className="border-t border-gray-200 px-5 py-4">
-          {isLoading && !detail && <LoadingSpinner size="sm" text="Loading unit…" />}
-          {error && (
-            <ErrorMessage
-              message="Failed to load unit details."
-              details={error instanceof Error ? error.message : undefined}
-              onRetry={() => refetch()}
-            />
-          )}
-          {detail && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-gray-600">
-                  <span className="font-medium">Created:</span> {formatDate(unit.created_at)}
-                </div>
-                <ReloadButton onReload={() => void refetch()} isLoading={isLoading} label="Reload unit" />
-              </div>
-              {detail.learning_objectives && detail.learning_objectives.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-900">Learning objectives</h4>
-                  <ul className="mt-2 space-y-3">
-                    {detail.learning_objectives.map((objective) => (
-                      <li key={objective.id} className="border-l-2 border-blue-200 pl-3">
-                        <p className="text-sm font-medium text-gray-900">
-                          {objective.title || objective.description || objective.id}
-                        </p>
-                        {objective.description && (
-                          <p className="mt-0.5 text-xs text-gray-600">{objective.description}</p>
-                        )}
-                        {objective.bloom_level && (
-                          <p className="mt-0.5 text-[11px] uppercase tracking-wide text-gray-400">
-                            Bloom level: {objective.bloom_level}
-                          </p>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              <div>
-                <h4 className="text-sm font-semibold text-gray-900">Lessons</h4>
-                <ul className="mt-2 divide-y divide-gray-200 text-sm text-gray-700">
-                  {detail.lessons.map((lesson, index) => (
-                    <li key={lesson.id} className="py-2">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-gray-900">{index + 1}. {lesson.title}</p>
-                          <p className="text-xs text-gray-500">Level: {lesson.learner_level} • Exercises: {lesson.exercise_count}</p>
-                        </div>
-                        <Link
-                          href={`/units/${detail.id}?lesson=${lesson.id}`}
-                          className="text-xs text-blue-600 hover:text-blue-500"
-                        >
-                          View details
-                        </Link>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                <Link href={`/units/${detail.id}`} className="text-blue-600 hover:text-blue-500">
-                  Open full unit →
-                </Link>
-                {unit.arq_task_id && (
-                  <Link href={`/tasks?taskId=${unit.arq_task_id}`} className="text-blue-600 hover:text-blue-500">
-                    View task →
-                  </Link>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
+  // Client-side pagination
+  const { units, totalCount, totalPages } = useMemo(() => {
+    const all = allUnits ?? [];
+    const total = all.length;
+    const pages = Math.max(1, Math.ceil(total / pageSize));
+    const startIdx = (page - 1) * pageSize;
+    const endIdx = startIdx + pageSize;
+    const paginated = all.slice(startIdx, endIdx);
 
-export default function UnitsPage() {
-  const { data: units, isLoading, error, refetch } = useUnits();
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+    return {
+      units: paginated,
+      totalCount: total,
+      totalPages: pages,
+    };
+  }, [allUnits, page, pageSize]);
 
-  const toggleUnit = (unitId: string) => {
-    setExpanded((current) => {
-      const next = new Set(current);
-      if (next.has(unitId)) {
-        next.delete(unitId);
-      } else {
-        next.add(unitId);
-      }
-      return next;
-    });
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
   };
 
-  if (isLoading && !units) {
-    return <LoadingSpinner size="lg" text="Loading units…" />;
-  }
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setPage(1); // Reset to first page when changing page size
+  };
 
-  if (error) {
-    return (
-      <ErrorMessage
-        message="Failed to load units."
-        onRetry={() => refetch()}
+  const emptyIcon = (
+    <svg
+      className="h-12 w-12 text-gray-400"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M12 6.253v13m0-13C6.5 6.253 2 10.753 2 16.253s4.5 10 10 10 10-4.5 10-10S17.5 6.253 12 6.253z"
       />
-    );
-  }
+    </svg>
+  );
+
+  const columns: DetailViewTableColumn<UnitSummary>[] = [
+    {
+      key: 'title',
+      label: 'Unit Title',
+      render: (unit) => (
+        <div>
+          <div className="text-sm font-medium text-gray-900">{unit.title}</div>
+          {unit.description && (
+            <div className="mt-1 text-xs text-gray-500 line-clamp-2">{unit.description}</div>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'learner_level',
+      label: 'Level',
+      render: (unit) => (
+        <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">
+          {unit.learner_level}
+        </span>
+      ),
+    },
+    {
+      key: 'lessons',
+      label: 'Lessons',
+      render: (unit) => (
+        <div className="flex flex-col">
+          <span>{unit.lesson_count} lessons</span>
+          {unit.target_lesson_count !== null && (
+            <span className="text-xs text-gray-500">Target: {unit.target_lesson_count}</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'flow_type',
+      label: 'Type',
+      render: (unit) => (
+        <span className="inline-flex items-center gap-1">
+          {unit.flow_type === 'fast' ? (
+            <span className="inline-flex items-center rounded-full bg-purple-50 px-2 py-1 text-xs font-medium text-purple-700">
+              Fast flow
+            </span>
+          ) : (
+            <span className="inline-flex items-center rounded-full bg-gray-50 px-2 py-1 text-xs font-medium text-gray-700">
+              Standard
+            </span>
+          )}
+          {unit.generated_from_topic && (
+            <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">
+              Topic-generated
+            </span>
+          )}
+        </span>
+      ),
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (unit) => unit.status ? <StatusBadge status={unit.status} size="sm" /> : <span className="text-gray-500">—</span>,
+    },
+    {
+      key: 'updated_at',
+      label: 'Updated',
+      render: (unit) => unit.updated_at ? formatDate(unit.updated_at) : '—',
+    },
+  ];
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Units</h1>
-          <p className="mt-2 text-gray-600">Expand a unit to view its lessons inline.</p>
-        </div>
-        <ReloadButton onReload={() => void refetch()} isLoading={isLoading} />
-      </div>
+      <PageHeader
+        title="Units"
+        description="Browse units and click to view details."
+        onReload={() => refetch()}
+        isReloading={isLoading}
+      />
 
-      <div className="space-y-3">
-        {(units ?? []).map((unit) => (
-          <UnitAccordionItem
-            key={unit.id}
-            unit={unit}
-            isExpanded={expanded.has(unit.id)}
-            onToggle={() => toggleUnit(unit.id)}
-          />
-        ))}
-      </div>
+      <DetailViewTable
+        data={units}
+        columns={columns}
+        getRowId={(unit) => unit.id}
+        getDetailHref={(unit) => `/units/${unit.id}`}
+        isLoading={isLoading}
+        error={error}
+        emptyMessage="No units available."
+        emptyIcon={emptyIcon}
+        onRetry={() => refetch()}
+        pagination={{
+          currentPage: page,
+          totalPages,
+          totalCount,
+          pageSize,
+          hasNext: page < totalPages,
+        }}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
+        pageOptions={PAGE_SIZE_OPTIONS}
+      />
     </div>
   );
 }

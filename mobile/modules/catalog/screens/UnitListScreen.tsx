@@ -46,6 +46,7 @@ import {
   type CacheOverview,
   type DownloadStatus,
 } from '../../offline_cache/public';
+import { layoutStyles } from '../../ui_system/styles/layout';
 
 type LessonListScreenNavigationProp = NativeStackNavigationProp<
   LearningStackParamList,
@@ -101,7 +102,7 @@ export function LessonListScreen() {
   );
   const hasLoadedCacheRef = useRef(false);
 
-  const allUnits = collections?.units ?? [];
+  const allUnits = useMemo(() => collections?.units ?? [], [collections]);
   const totalUnits = allUnits.length;
   const ownedUnitIds = useMemo(
     () => new Set(collections?.ownedUnitIds ?? []),
@@ -185,13 +186,16 @@ export function LessonListScreen() {
     }
   }, [content, loadCacheOverview, refetch]);
 
-  const matchesSearch = (unit: Unit) =>
-    !searchQuery.trim() ||
-    unit.title.toLowerCase().includes(searchQuery.trim().toLowerCase());
+  const matchesSearch = useCallback(
+    (unit: Unit) =>
+      !searchQuery.trim() ||
+      unit.title.toLowerCase().includes(searchQuery.trim().toLowerCase()),
+    [searchQuery]
+  );
 
   const filteredUnits = useMemo(
     () => allUnits.filter(matchesSearch),
-    [allUnits, searchQuery]
+    [allUnits, matchesSearch]
   );
 
   const cacheMetricsById = useMemo(() => {
@@ -340,11 +344,11 @@ export function LessonListScreen() {
     >
       {/* Header */}
       <View style={[styles.header, styles.headerRow]}>
-        <View style={{ flex: 1 }}>
+        <View style={layoutStyles.flex1}>
           <Text
             variant="h1"
             testID="units-title"
-            style={{ fontWeight: 'normal' }}
+            style={layoutStyles.fontWeightNormal}
           >
             My Units
           </Text>
@@ -389,10 +393,8 @@ export function LessonListScreen() {
               borderColor: isSearchFocused
                 ? theme.colors.secondary
                 : theme.colors.border,
-              shadowOpacity: 0,
-              elevation: 0,
-              borderRadius: 20,
-              minHeight: 44,
+              ...layoutStyles.searchReset,
+              ...localStyles.searchInput,
             },
           ]}
         >
@@ -506,7 +508,7 @@ export function LessonListScreen() {
           hasResults ? null : (
             <View style={styles.emptyState}>
               <Search size={48} color={theme.colors.textSecondary} />
-              <Text variant="title" style={{ marginTop: 16 }}>
+              <Text variant="title" style={layoutStyles.marginTop16}>
                 No Units Found
               </Text>
               <Text variant="body" color={theme.colors.textSecondary}>
@@ -601,5 +603,12 @@ const styles = StyleSheet.create({
   },
   sectionFooter: {
     marginBottom: 16,
+  },
+});
+
+const localStyles = StyleSheet.create({
+  searchInput: {
+    borderRadius: 20,
+    minHeight: 44,
   },
 });

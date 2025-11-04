@@ -810,13 +810,14 @@ class OpenAIProvider(LLMProvider):
             audio_base64 = base64.b64encode(audio_bytes).decode("ascii")
             mime_type = "audio/mpeg" if request.audio_format == "mp3" else f"audio/{request.audio_format}"
             duration_seconds = self._estimate_audio_duration_seconds(request.text)
+            cost_estimate = self._estimate_audio_cost(request.text, resolved_model)
 
             audio_response = AudioResponse(
                 audio_base64=audio_base64,
                 mime_type=mime_type,
                 voice=request.voice,
                 model=request.model,
-                cost_estimate=None,
+                cost_estimate=cost_estimate,
                 duration_seconds=duration_seconds,
             )
 
@@ -915,6 +916,39 @@ class OpenAIProvider(LLMProvider):
             return 0.040  # Standard
         else:
             return 0.080  # Standard + large size
+
+    def _estimate_audio_cost(self, text: str, model: str | None = None) -> float:
+        """Estimate cost for OpenAI Text-to-Speech generation.
+
+        Pricing is based on character count:
+        - tts-1: $15.00 / 1M characters
+        - tts-1-hd: $30.00 / 1M characters
+
+        Args:
+            text: The input text to be synthesized
+            model: The TTS model (tts-1 or tts-1-hd), defaults to tts-1
+
+        Returns:
+            Estimated cost in USD
+        """
+        # Default to tts-1 if not specified
+        model_name = (model or "tts-1").lower()
+
+        # Pricing per 1M characters
+        pricing_map: dict[str, float] = {
+            "tts-1": 15.00,
+            "tts-1-hd": 30.00,
+            "gpt-4o-mini-tts": 15.00,  # Default TTS model maps to tts-1
+        }
+
+        # Get pricing, with tts-1 as default
+        price_per_million = pricing_map.get(model_name, 15.00)
+
+        # Calculate cost based on character count
+        character_count = len(text)
+        cost = (character_count / 1_000_000) * price_per_million
+
+        return round(cost, 6)
 
     def _estimate_audio_duration_seconds(self, transcript: str) -> int:
         """Estimate narration duration based on transcript length."""

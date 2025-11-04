@@ -51,12 +51,22 @@ export default function LoginScreen() {
         behavior={Platform.select({ ios: 'padding', android: undefined })}
       >
         <View style={styles.header}>
-          <Text style={styles.title}>Welcome back</Text>
-          <Text style={styles.subtitle}>Sign in to continue your learning</Text>
+          <Text variant="h1" style={styles.title}>
+            Welcome back
+          </Text>
+          <Text
+            variant="body"
+            color={theme.colors.textSecondary}
+            style={styles.subtitle}
+          >
+            Sign in to continue your learning
+          </Text>
         </View>
 
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Email</Text>
+          <Text variant="body" style={styles.label}>
+            Email
+          </Text>
           <TextInput
             accessibilityLabel="Email address"
             autoCapitalize="none"
@@ -72,7 +82,9 @@ export default function LoginScreen() {
         </View>
 
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Password</Text>
+          <Text variant="body" style={styles.label}>
+            Password
+          </Text>
           <TextInput
             accessibilityLabel="Password"
             secureTextEntry
@@ -96,14 +108,17 @@ export default function LoginScreen() {
         {loginMutation.isPending && (
           <View style={styles.loadingRow}>
             <ActivityIndicator />
-            <Text style={styles.loadingText}>Authenticating…</Text>
+            <Text variant="caption" style={styles.loadingText}>
+              Authenticating…
+            </Text>
           </View>
         )}
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>
+          <Text variant="caption" style={styles.footerText}>
             Don&apos;t have an account?{' '}
             <Text
+              variant="caption"
               style={[styles.footerText, styles.link]}
               onPress={() => navigation.navigate('Register')}
             >
@@ -132,23 +147,18 @@ const createStyles = (theme: Theme) =>
       gap: 4,
     },
     title: {
-      fontSize: 28,
-      fontWeight: '600',
       color: theme.colors.text,
+      fontWeight: '600',
     },
     subtitle: {
-      fontSize: 16,
       opacity: 0.75,
-      color: theme.colors.textSecondary,
     },
     formGroup: {
       marginBottom: 20,
     },
     label: {
-      fontSize: 14,
       marginBottom: 6,
       opacity: 0.8,
-      color: theme.colors.textSecondary,
     },
     input: {
       borderRadius: 10,
@@ -167,7 +177,6 @@ const createStyles = (theme: Theme) =>
       marginTop: 20,
     },
     loadingText: {
-      fontSize: 14,
       color: theme.colors.textSecondary,
     },
     footer: {
@@ -175,7 +184,6 @@ const createStyles = (theme: Theme) =>
       alignItems: 'center',
     },
     footerText: {
-      fontSize: 14,
       color: theme.colors.textSecondary,
     },
     link: {

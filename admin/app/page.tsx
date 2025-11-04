@@ -4,19 +4,35 @@
  * Main dashboard page showing system overview and quick access to key features.
  */
 
+'use client';
+
+import { useState } from 'react';
 import { DashboardOverview } from '@/modules/admin/components/dashboard/DashboardOverview';
+import { PageHeader } from '@/modules/admin/components/shared/PageHeader';
 
 export default function DashboardPage() {
+  const [refetchMetrics, setRefetchMetrics] = useState<(() => void) | null>(null);
+  const [isReloading, setIsReloading] = useState(false);
+
+  const handleReload = () => {
+    if (refetchMetrics) {
+      setIsReloading(true);
+      refetchMetrics();
+      // Reset loading state after a brief delay
+      setTimeout(() => setIsReloading(false), 500);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-        <p className="text-gray-600 mt-2">
-          Monitor and manage your learning platform
-        </p>
-      </div>
+      <PageHeader
+        title="Admin Dashboard"
+        description="Monitor and manage your learning platform"
+        onReload={handleReload}
+        isReloading={isReloading}
+      />
 
-      <DashboardOverview />
+      <DashboardOverview onRefetchChange={setRefetchMetrics} />
     </div>
   );
 }

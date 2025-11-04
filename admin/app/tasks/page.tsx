@@ -1,21 +1,20 @@
 /**
  * Tasks Page
  *
- * Unified view of background tasks, workers, and related flow runs.
+ * Main view of background tasks with queue summary and stats.
  */
 
 'use client';
 
-import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { TasksList } from '@/modules/admin/components/tasks/TasksList';
-import { TaskDetails } from '@/modules/admin/components/tasks/TaskDetails';
-import { useQueueStats, useQueueStatus, useWorkers } from '@/modules/admin/queries';
+import { useQueueStats, useQueueStatus, useWorkers, useTasks } from '@/modules/admin/queries';
 import { StatusBadge } from '@/modules/admin/components/shared/StatusBadge';
 import { LoadingSpinner } from '@/modules/admin/components/shared/LoadingSpinner';
-import { ReloadButton } from '@/modules/admin/components/shared/ReloadButton';
+import { PageHeader } from '@/modules/admin/components/shared/PageHeader';
 
-export default function TasksPage() {
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+export default function TasksPage(): JSX.Element {
+  const queryClient = useQueryClient();
 
   const {
     data: queueStatus,
@@ -32,31 +31,30 @@ export default function TasksPage() {
     isLoading: workersLoading,
     refetch: refetchWorkers,
   } = useWorkers();
+  const {
+    refetch: refetchTasks,
+    isLoading: tasksLoading,
+  } = useTasks();
 
-  const handleReloadSummary = () => {
+  const handleReloadAll = () => {
     void refetchStatus();
     void refetchStats();
     void refetchWorkers();
+    void refetchTasks();
   };
 
+  const isReloading = statusLoading || statsLoading || workersLoading || tasksLoading;
   const status = queueStatus?.[0];
   const stats = queueStats?.[0];
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Tasks</h1>
-          <p className="mt-2 text-gray-600">
-            Monitor ARQ background tasks, worker activity, and linked flow runs.
-          </p>
-        </div>
-        <ReloadButton
-          onReload={handleReloadSummary}
-          isLoading={statusLoading || statsLoading || workersLoading}
-          label="Reload summary"
-        />
-      </div>
+      <PageHeader
+        title="Tasks"
+        description="Monitor ARQ background tasks, worker activity, and linked flow runs."
+        onReload={handleReloadAll}
+        isReloading={isReloading}
+      />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
@@ -111,10 +109,7 @@ export default function TasksPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-        <TasksList selectedTaskId={selectedTaskId} onSelectTask={setSelectedTaskId} />
-        <TaskDetails taskId={selectedTaskId} />
-      </div>
+      <TasksList />
     </div>
   );
 }

@@ -772,6 +772,37 @@ class LearningSessionService:
             unit=unit.model_dump(mode="json") if unit else None,
         )
 
+    async def count_completed_sessions_since(self, since: datetime) -> int:
+        """Count learning sessions marked as completed since the given datetime. [ADMIN ONLY]"""
+        from sqlalchemy import and_, func, select
+
+        from .models import LearningSessionModel
+
+        # Handle timezone-aware datetime for naive database field
+        since_naive = since.replace(tzinfo=None) if since.tzinfo is not None else since
+
+        stmt = select(func.count(LearningSessionModel.id)).where(
+            and_(
+                LearningSessionModel.status == "completed",
+                LearningSessionModel.completed_at >= since_naive,
+            )
+        )
+        result = await self.repo.db.execute(stmt)
+        return result.scalar() or 0
+
+    async def count_started_sessions_since(self, since: datetime) -> int:
+        """Count learning sessions started since the given datetime. [ADMIN ONLY]"""
+        from sqlalchemy import func, select
+
+        from .models import LearningSessionModel
+
+        # Handle timezone-aware datetime for naive database field
+        since_naive = since.replace(tzinfo=None) if since.tzinfo is not None else since
+
+        stmt = select(func.count(LearningSessionModel.id)).where(LearningSessionModel.started_at >= since_naive)
+        result = await self.repo.db.execute(stmt)
+        return result.scalar() or 0
+
     async def check_health(self) -> bool:
         """Health check for the learning session service"""
         return await self.repo.health_check()

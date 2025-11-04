@@ -299,7 +299,7 @@ export function ManageCacheScreen(): React.ReactElement {
             {/* Total Storage */}
             <Box px="lg" mb="md">
               <Card variant="default">
-                <Text variant="title" style={{ marginBottom: 8 }}>
+                <Text variant="title" style={localStyles.marginBottom8}>
                   Total Storage Used
                 </Text>
                 <Text variant="h2" color={theme.colors.primary}>
@@ -328,7 +328,7 @@ export function ManageCacheScreen(): React.ReactElement {
                   <Text
                     variant="h2"
                     color={theme.colors.primary}
-                    style={{ marginTop: 8 }}
+                    style={localStyles.marginTop8}
                   >
                     {formatBytes(summary.sqlite.dbSize)}
                   </Text>
@@ -518,6 +518,15 @@ const styles = StyleSheet.create({
   },
   statItem: {
     flex: 1,
+  },
+});
+
+const localStyles = StyleSheet.create({
+  marginBottom8: {
+    marginBottom: 8,
+  },
+  marginTop8: {
+    marginTop: 8,
   },
 });
 

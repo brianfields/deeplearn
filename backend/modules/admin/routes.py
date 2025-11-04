@@ -25,6 +25,9 @@ from modules.llm_services.public import llm_services_admin_provider
 from modules.user.public import user_provider
 
 from .models import (
+    ConversationDetail,
+    ConversationsListResponse,
+    DashboardMetrics,
     FlowRunDetails,
     FlowRunsListResponse,
     FlowStepDetails,
@@ -34,8 +37,6 @@ from .models import (
     LearningSessionSummary,
     LessonDetails,
     LessonsListResponse,
-    ConversationDetail,
-    ConversationsListResponse,
     LLMRequestDetails,
     LLMRequestsListResponse,
     UserDetail,
@@ -98,7 +99,9 @@ async def get_admin_service(
     conversations = conversation_engine_provider(sync_session)
 
     # Create admin service with all dependencies
+    # Includes both legacy dependencies (for flow runs, users, etc.) and new dashboard metrics providers
     return AdminService(
+        session=sync_session,
         flow_engine_admin=flow_engine_admin,
         llm_services_admin=llm_services_admin,
         catalog=catalog,
@@ -107,6 +110,12 @@ async def get_admin_service(
         learning_sessions=learning_sessions,
         learning_coach=learning_coach,
         conversation_engine=conversations,
+        # New dashboard metrics providers (can be same as legacy)
+        user_provider=users,
+        content_provider=content,
+        conversation_engine_provider=conversations,
+        learning_session_provider=learning_sessions,
+        llm_services_admin_provider=llm_services_admin,
     )
 
 
@@ -234,6 +243,14 @@ async def get_learning_session(
 # ---- LLM Request Management Routes ----
 
 
+@router.get("/dashboard-metrics", response_model=DashboardMetrics)
+async def get_dashboard_metrics(
+    admin_service: AdminService = Depends(get_admin_service),
+) -> DashboardMetrics:
+    """Get dashboard metrics for last 24 hours and 7 days."""
+    return await admin_service.get_dashboard_metrics()
+
+
 @router.get("/llm-requests", response_model=LLMRequestsListResponse)
 async def list_llm_requests(
     page: int = Query(1, ge=1, description="Page number"),
@@ -266,16 +283,12 @@ async def get_llm_request_details(
 async def list_conversations(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(50, ge=1, le=200, description="Items per page"),
-    conversation_type: str | None = Query(
-        None, description="Filter by type: 'learning_coach', 'teaching_assistant', or None for all"
-    ),
+    conversation_type: str | None = Query(None, description="Filter by type: 'learning_coach', 'teaching_assistant', or None for all"),
     admin_service: AdminService = Depends(get_admin_service),
 ) -> ConversationsListResponse:
     """List conversations (both learning coach and teaching assistant) for admin review."""
 
-    return await admin_service.list_conversations(
-        page=page, page_size=page_size, conversation_type=conversation_type
-    )
+    return await admin_service.list_conversations(page=page, page_size=page_size, conversation_type=conversation_type)
 
 
 @router.get(

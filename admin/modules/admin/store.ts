@@ -111,11 +111,11 @@ export const useAdminStore = create<AdminState & AdminActions>((set, get) => ({
   },
   conversationFilters: {
     page: 1,
-    page_size: 50,
+    page_size: 10,
   },
   learningSessionFilters: {
     page: 1,
-    page_size: 25,
+    page_size: 10,
   },
   llmRequestFilters: {
     page: 1,
@@ -165,7 +165,7 @@ export const useAdminStore = create<AdminState & AdminActions>((set, get) => ({
     set({
       conversationFilters: {
         page: 1,
-        page_size: 50,
+        page_size: 10,
       },
     }),
 
@@ -179,7 +179,7 @@ export const useAdminStore = create<AdminState & AdminActions>((set, get) => ({
     set({
       learningSessionFilters: {
         page: 1,
-        page_size: 25,
+        page_size: 10,
       },
     }),
 

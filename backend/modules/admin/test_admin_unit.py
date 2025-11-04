@@ -209,7 +209,11 @@ class TestAdminService:
         ) -> list[ConversationSummaryDTO]:
             if user_id != summary.user_id or offset > 0:
                 return []
-            return [summary][: max(0, min(limit, 1))]
+            # Return summary only for learning_coach type, empty for teaching_assistant
+            # to ensure we get exactly 1 result when both types are queried
+            if conversation_type == "learning_coach":
+                return [summary][: max(0, min(limit, 1))]
+            return []
 
         async def get_conversation(conversation_uuid: uuid.UUID) -> ConversationDetailDTO | None:
             if str(conversation_uuid) == conversation_id:
@@ -590,6 +594,7 @@ class TestAdminService:
         conversation_summary = UserConversationSummary(
             id="conv-1",
             title="Exploring Algebra",
+            conversation_type="learning_coach",
             status="active",
             message_count=3,
             last_message_at=datetime.now(UTC),

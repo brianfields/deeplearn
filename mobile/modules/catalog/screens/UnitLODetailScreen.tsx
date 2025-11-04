@@ -24,6 +24,7 @@ import {
 import { useAuth } from '../../user/public';
 import { useUnitLOProgress } from '../../learning_session/queries';
 import type { LOProgressItem, LOStatus } from '../../learning_session/models';
+import { layoutStyles } from '../../ui_system/styles/layout';
 
 type UnitLODetailRoute = RouteProp<LearningStackParamList, 'UnitLODetail'>;
 type UnitLODetailNavigation = NativeStackNavigationProp<
@@ -81,25 +82,29 @@ export function UnitLODetailScreen(): React.ReactElement {
             }}
             accessibilityRole="button"
             accessibilityLabel="Go back to unit"
-            style={{ paddingVertical: 6, paddingRight: 12 }}
+            style={localStyles.backButton}
           >
             <Text variant="body" color={theme.colors.primary}>
               {'‹ Back'}
             </Text>
           </TouchableOpacity>
-          <Text variant="h1" style={{ marginTop: 8, fontWeight: 'normal' }}>
+          <Text variant="h1" style={localStyles.titleText}>
             {unitTitle || 'Learning Objectives'}
           </Text>
         </Box>
 
         {(isLoading || isFetching) && items.length === 0 ? (
           <Box px="lg" mt="lg">
-            <Card variant="outlined" style={{ margin: 0 }}>
+            <Card variant="outlined" style={localStyles.noMargin}>
               <View style={styles.loadingRow}>
                 <ActivityIndicator color={theme.colors.primary} />
                 <Text
                   variant="body"
-                  style={{ marginLeft: 12, color: theme.colors.textSecondary }}
+                  style={[
+                    layoutStyles.selfStart,
+                    localStyles.marginLeft12,
+                    { color: theme.colors.textSecondary },
+                  ]}
                 >
                   Loading progress…
                 </Text>
@@ -110,7 +115,7 @@ export function UnitLODetailScreen(): React.ReactElement {
 
         {items.length === 0 && !(isLoading || isFetching) ? (
           <Box px="lg" mt="lg">
-            <Card variant="outlined" style={{ margin: 0 }}>
+            <Card variant="outlined" style={localStyles.noMargin}>
               <Text variant="body" color={theme.colors.textSecondary}>
                 No learning objective progress is available yet. Complete lesson
                 exercises to start tracking your mastery.
@@ -133,7 +138,7 @@ export function UnitLODetailScreen(): React.ReactElement {
               mt="md"
               testID={`unit-lo-detail-${item.loId}`}
             >
-              <Card variant="outlined" style={{ margin: 0 }}>
+              <Card variant="outlined" style={localStyles.noMargin}>
                 <View style={styles.itemHeader}>
                   <View
                     style={[
@@ -169,10 +174,11 @@ export function UnitLODetailScreen(): React.ReactElement {
                       {meta.label}
                     </Text>
                     <Text
-                      style={{
-                        color: theme.colors.textSecondary,
-                        marginTop: 2,
-                      }}
+                      style={[
+                        styles.statusLabel,
+                        { color: theme.colors.textSecondary },
+                        localStyles.marginTop2,
+                      ]}
                     >
                       {`${item.exercisesCorrect}/${item.exercisesTotal} correct`}
                     </Text>
@@ -271,6 +277,26 @@ const styles = StyleSheet.create({
   statusLabel: {
     fontSize: 14,
     fontWeight: '600',
+  },
+});
+
+const localStyles = StyleSheet.create({
+  backButton: {
+    paddingVertical: 6,
+    paddingRight: 12,
+  },
+  titleText: {
+    marginTop: 8,
+    fontWeight: 'normal',
+  },
+  noMargin: {
+    margin: 0,
+  },
+  marginTop2: {
+    marginTop: 2,
+  },
+  marginLeft12: {
+    marginLeft: 12,
   },
 });
 

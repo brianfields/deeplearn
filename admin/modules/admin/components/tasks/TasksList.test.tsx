@@ -34,7 +34,7 @@ describe('TasksList', () => {
     } as any);
 
     render(
-      <TasksList selectedTaskId={null} onSelectTask={vi.fn()} />
+      <TasksList />
     );
 
     expect(screen.getByText('No background tasks found.')).toBeInTheDocument();
@@ -105,7 +105,7 @@ describe('TasksList', () => {
     } as any);
 
     render(
-      <TasksList selectedTaskId="task-2" onSelectTask={handleSelect} />
+      <TasksList />
     );
 
     expect(screen.getByText('generate_unit')).toBeInTheDocument();

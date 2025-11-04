@@ -312,6 +312,7 @@ feedback = await tutor.submit_answer(
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Protocol
 import uuid
 
@@ -516,6 +517,10 @@ class ConversationEngineProvider(Protocol):
         **kwargs: Any,
     ) -> tuple[ConversationMessageDTO, uuid.UUID, LLMResponse]:
         """Generate an assistant response and record it."""
+        ...
+
+    def count_assistant_conversations_since(self, since: datetime) -> int:
+        """Count learning_coach and teaching_assistant conversations created since datetime. [ADMIN ONLY]"""
         ...
 
 
