@@ -88,12 +88,16 @@ class LLMConfig(BaseModel):
 
     def validate_config(self) -> bool:
         """Validate that configuration is complete and valid"""
-        if self.provider in {
-            LLMProviderType.OPENAI,
-            LLMProviderType.ANTHROPIC,
-            LLMProviderType.AZURE_OPENAI,
-            LLMProviderType.GEMINI,
-        } and not self.api_key:
+        if (
+            self.provider
+            in {
+                LLMProviderType.OPENAI,
+                LLMProviderType.ANTHROPIC,
+                LLMProviderType.AZURE_OPENAI,
+                LLMProviderType.GEMINI,
+            }
+            and not self.api_key
+        ):
             raise ValueError("API key is required for OpenAI, Anthropic, Azure OpenAI, and Gemini providers")
 
         if self.provider == LLMProviderType.ANTHROPIC and not (self.anthropic_api_key or self.api_key):
@@ -246,10 +250,7 @@ def create_llm_config_from_env(
         api_key = azure_openai_api_key
         base_url = azure_openai_endpoint
         model_name = model_override or openai_model
-    elif gemini_api_key and (
-        wants(LLMProviderType.GEMINI, "gemini", "google", "google_ai")
-        or is_gemini_model(model_override)
-    ):
+    elif gemini_api_key and (wants(LLMProviderType.GEMINI, "gemini", "google", "google_ai") or is_gemini_model(model_override)):
         provider = LLMProviderType.GEMINI
         api_key = gemini_api_key
         base_url = gemini_base_url
