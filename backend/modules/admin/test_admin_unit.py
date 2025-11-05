@@ -239,7 +239,9 @@ class TestAdminService:
         mock_learning_sessions_provider: Mock,
     ) -> AdminService:
         """Create AdminService with mocked dependencies."""
+        mock_session = Mock()
         return AdminService(
+            session=mock_session,
             flow_engine_admin=mock_flow_engine_admin,
             llm_services_admin=mock_llm_services_admin,
             catalog=mock_catalog_provider,
@@ -260,8 +262,10 @@ class TestAdminService:
         mock_conversation_engine_provider: AsyncMock,
     ) -> AdminService:
         """Admin service including conversation engine provider."""
+        mock_session = Mock()
 
         return AdminService(
+            session=mock_session,
             flow_engine_admin=mock_flow_engine_admin,
             llm_services_admin=mock_llm_services_admin,
             catalog=mock_catalog_provider,
@@ -520,7 +524,7 @@ class TestAdminService:
         mock_llm_services_admin.get_request_count_by_user.return_value = 5
 
         # Ensure llm count is evaluated by returning uuid-compatible user id
-        admin_service.users.list_users.return_value = [
+        admin_service.user_provider.list_users.return_value = [
             UserRead.model_construct(
                 id=str(user_uuid),
                 email="user@example.com",
@@ -531,7 +535,7 @@ class TestAdminService:
                 updated_at=datetime.now(UTC),
             )
         ]
-        admin_service.users.get_profile.return_value = admin_service.users.list_users.return_value[0]
+        admin_service.user_provider.get_profile.return_value = admin_service.user_provider.list_users.return_value[0]
 
         result = await admin_service.get_users()
 
@@ -603,7 +607,7 @@ class TestAdminService:
         admin_service_with_conversations.get_user_conversations = AsyncMock(return_value=[conversation_summary])
 
         user_uuid = uuid.uuid4()
-        admin_service_with_conversations.users.get_profile.return_value = UserRead.model_construct(
+        admin_service_with_conversations.user_provider.get_profile.return_value = UserRead.model_construct(
             id=str(user_uuid),
             email="user@example.com",
             name="Test User",
