@@ -85,11 +85,13 @@ appId: host.exp.Exponent
     id: 'short-answer-input'
 - tapOn:
     id: 'short-answer-input'
-- inputText: 'microhabitat'
+- inputText: 'wrong answer'
 - tapOn:
     id: 'short-answer-submit'
 - assertVisible:
     id: 'short-answer-feedback'
+- assertVisible:
+    text: 'Correct answers'
 - tapOn:
     id: 'short-answer-continue'
 

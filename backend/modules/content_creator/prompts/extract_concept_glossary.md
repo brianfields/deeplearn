@@ -6,14 +6,17 @@ Extract a **focused, LO-aligned set of key concepts** from the source material. 
 ## Topic
 {{topic}}
 
-## Source Material
-{{source_material}}
+## Lesson Objective
+{{lesson_objective}}
 
-## Learning Objectives (LOs)
-{{learning_objectives}}
+## Lesson Source Material
+{{lesson_source_material}}
+
+## Lesson Learning Objectives (LOs)
+{{lesson_learning_objectives}}
 
 # Goal
-Identify *central* concepts that advance the LOs and will seed a concept glossary for assessment design.
+Identify *central* concepts that advance the lesson objective and provided LOs and will seed a concept glossary for assessment design.
 
 ## Concept Selection Rules
 1) Include ideas that explain mechanisms/relationships relevant to ≥1 LO.
@@ -51,6 +54,7 @@ Identify *central* concepts that advance the LOs and will seed a concept glossar
   ],
   "meta": {
     "topic": "{{topic}}",
+    "lesson_objective": "{{lesson_objective}}",
     "total_concepts": 0,
     "selection_rationale": [
       "Central, distinct, transferable; each tied to ≥1 LO.",

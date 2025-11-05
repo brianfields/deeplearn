@@ -1,9 +1,9 @@
 # Task
 
 You are an expert assessment designer.
-Using the refined, LO-aligned concept glossary below, create **short-answer** and **multiple-choice** questions that test both factual recall and conceptual understanding in relation to the stated **Learning Objectives (LOs)**.
+Using the refined, LO-aligned concept glossary below, create **short-answer** and **multiple-choice** exercises that test factual recall and conceptual comprehension for the lesson.
 
-**Closed-set rule:** All short-answer questions must have **closed-set answers** that exactly match the `term` field in the glossary. Multiple-choice questions should explore meaning, application, or discrimination between related concepts while remaining traceable to at least one LO.
+**Closed-set rule:** All short-answer exercises must have **closed-set answers** that exactly match the glossary concept's `canonical_answer` (or an accepted alias). Multiple-choice exercises should explore meaning, application, or discrimination between related concepts while remaining traceable to exactly one Learning Objective (LO id).
 
 # Inputs (use these when generating your output below)
 
@@ -11,63 +11,72 @@ Using the refined, LO-aligned concept glossary below, create **short-answer** an
 
 {{topic}}
 
-## Source Material
+## Lesson Objective
 
-{{source_material}}
+{{lesson_objective}}
+
+## Lesson Source Material
+
+{{lesson_source_material}}
 
 ## Refined Concept Glossary
 
 {{refined_concept_glossary}}
 
-## Learning Objectives
+## Lesson Learning Objectives
 
-{{learning_objectives}}
+{{lesson_learning_objectives}}
 
 # Goal
 
-Generate **short-answer** and **multiple-choice** questions that assess comprehension and conceptual reasoning for all refined concepts in the glossary, with explicit Learning Objective alignment and varied cognitive complexity.
+Generate **short-answer** and **multiple-choice** exercises that assess comprehension for all refined concepts in the glossary, with explicit Learning Objective alignment, varied cognitive complexity, and closed-answer feedback.
 
-## Question Design Requirements
+## Exercise Design Requirements
 
-### Short-Answer Questions
+### Short-Answer Exercises
 
 * Must have a single correct answer equal to the concept's `canonical_answer` (or accepted aliases).
 * Present a definition, description, or short scenario that clearly calls for that term.
 * Keep stems under 25 words.
-* Tag with the LO(s) it measures.
-* **Example:** "What process summarizes earlier context so long conversations can continue?" → *Compaction* (LO2)
+* Provide 2–4 wrong answers, each with a learner-facing `rationale_wrong`.
+* Assign a unique `id` using the format `ex-comp-sa-###`.
 
-### Multiple-Choice Questions
+### Multiple-Choice Exercises
 
 * Provide exactly 4 options (1 correct + 3 plausible distractors).
 * Use `plausible_distractors` or `related_concepts` fields where possible.
-* Vary cognitive level across questions:
+* Vary cognitive level across exercises:
   * **Recall:** "Which term means …?"
   * **Comprehension:** "Which statement best describes …?"
   * **Application / Transfer:** Scenario-based: "In this situation, which concept applies?"
-* Include a rationale that explains why the correct answer is right and which LO(s) it demonstrates.
+* Include a rationale that explains why the correct answer is right and how it supports the aligned LO.
+* Assign a unique `id` using the format `ex-comp-mc-###`.
 
 ## Generation Rules
 
-1. **Per-concept coverage:** Produce at least one short-answer and one multiple-choice question per concept.
-2. **Cognitive levels:** Tag each question with an appropriate level (Recall, Comprehension, Application, Transfer).
-3. **LO alignment:** Connect each question to one or more Learning Objectives.
+1. **Per-concept coverage:** Produce at least one short-answer and one multiple-choice exercise per concept.
+2. **Single LO alignment:** Set `aligned_learning_objective` to exactly one LO id from `lesson_learning_objectives`.
+3. **Cognitive levels:** Tag each exercise with an appropriate level (Recall, Comprehension, Application, Transfer).
 4. **Difficulty variation:** Vary difficulty through stem complexity or distractor similarity, not through answer openness.
 5. **Clarity:** Keep stems concise, unambiguous, and free of trivia.
-6. **Rationale:** Provide a one-sentence explanation linking the question intent to the Learning Objective(s).
+6. **Rationales:** Provide learner-facing rationales for correct answers and every wrong answer/distractor.
+7. **Traceability:** Reference the source concept via `concept_slug` (use the glossary slug) and include `concept_term` for readability.
 
 # Output
 
 ## Output Schema Specification
 
-Each question in the output must conform to one of the two structures below.
+Each exercise in the output must conform to one of the two structures below. All exercises must include `exercise_category = "comprehension"`.
 
-### Short-Answer Question Schema
+### Short-Answer Exercise Schema
 
 {
-  "concept": "term from glossary",
+  "id": "ex-comp-sa-001",
+  "exercise_category": "comprehension",
   "type": "short-answer",
-  "stem": "question stem (≤ 25 words)",
+  "concept_slug": "slug-from-glossary",
+  "concept_term": "term from glossary",
+  "stem": "exercise prompt (≤ 25 words)",
   "canonical_answer": "primary correct answer",
   "acceptable_answers": ["variant 1", "variant 2", "synonym"],
   "rationale_right": "learner-facing explanation why this is correct (≤ 25 words)",
@@ -80,15 +89,18 @@ Each question in the output must conform to one of the two structures below.
   "answer_type": "closed",
   "cognitive_level": "Recall | Comprehension | Application | Transfer",
   "difficulty": "easy | medium | hard",
-  "aligned_learning_objectives": ["LO1", "LO2"]
+  "aligned_learning_objective": "LO1"
 }
 
-### Multiple-Choice Question Schema
+### Multiple-Choice Exercise Schema
 
 {
-  "concept": "term from glossary",
+  "id": "ex-comp-mc-001",
+  "exercise_category": "comprehension",
   "type": "multiple-choice",
-  "stem": "question stem",
+  "concept_slug": "slug-from-glossary",
+  "concept_term": "term from glossary",
+  "stem": "exercise prompt",
   "options": [
     { "label": "A", "text": "correct answer or variant", "rationale_wrong": null },
     { "label": "B", "text": "plausible distractor", "rationale_wrong": "learner-facing explanation (≤ 25 words)" },
@@ -101,7 +113,7 @@ Each question in the output must conform to one of the two structures below.
   },
   "cognitive_level": "Recall | Comprehension | Application | Transfer",
   "difficulty": "easy | medium | hard",
-  "aligned_learning_objectives": ["LO1", "LO2"]
+  "aligned_learning_objective": "LO1"
 }
 
 ## Field Definitions & Rules
@@ -113,7 +125,7 @@ Each question in the output must conform to one of the two structures below.
 * `wrong_answers`: Array of common misconceptions or errors with learner-facing explanations:
   * `answer`: The incorrect response to anticipate.
   * `rationale_wrong`: Explanation of the misconception or why this answer is wrong (≤ 25 words).
-* Include 2–4 wrong answers per question when possible.
+* Include 2–4 wrong answers per exercise when possible.
 
 **Multiple-Choice Rationales**
 * `rationale_right`: Learner-facing explanation of why the correct answer is right (≤ 25 words).
@@ -123,16 +135,17 @@ Each question in the output must conform to one of the two structures below.
 ## Output Format (JSON)
 
 {
-  "questions": [
-    /* array of short-answer and multiple-choice question objects conforming to schemas above */
+  "exercises": [
+    /* array of short-answer and multiple-choice exercise objects conforming to schemas above */
   ],
   "meta": {
-    "question_count": "integer",
+    "exercise_category": "comprehension",
+    "exercise_count": 0,
     "generation_notes": [
-      "Short-answer items use glossary terms as canonical answers with acceptable variants.",
+      "Short-answer exercises use glossary terms as canonical answers with acceptable variants.",
       "MCQs emphasize reasoning, application, and conceptual contrast.",
-      "Each question explicitly aligns to one or more Learning Objectives.",
-      "Cognitive levels and difficulty vary across questions to support scaffolded assessment.",
+      "Each exercise explicitly aligns to exactly one Learning Objective.",
+      "Cognitive levels and difficulty vary across exercises to support scaffolded assessment.",
       "Learner-facing rationales support formative feedback for both correct and incorrect responses."
     ]
   }

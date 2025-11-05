@@ -210,43 +210,99 @@ class TestContentCreatorService:
             "voice": "Guide",
             "learning_objectives": ["Explain"],
             "learning_objective_ids": ["lo_1"],
-            "misconceptions": [],
-            "confusables": [],
-            "glossary": [],
+            "lesson_source_material": "Excerpt",
             "mini_lesson": "Body",
-            "mcqs": [
+            "concept_glossary": [
                 {
-                    "stem": "What is it?",
-                    "options": [
-                        {"label": "A", "text": "Answer"},
-                        {"label": "B", "text": "Other"},
-                        {"label": "C", "text": "Another"},
-                    ],
-                    "answer_key": {"label": "A"},
-                    "learning_objectives_covered": ["lo_1"],
-                    "misconceptions_used": [],
-                    "glossary_terms_used": [],
+                    "id": "c1",
+                    "term": "Mean",
+                    "slug": "mean",
+                    "aliases": [],
+                    "definition": "Average",
+                    "example_from_source": None,
+                    "source_span": None,
+                    "category": "Technical",
+                    "centrality": 5,
+                    "distinctiveness": 4,
+                    "transferability": 4,
+                    "clarity": 5,
+                    "assessment_potential": 5,
+                    "cognitive_domain": "Knowledge",
+                    "difficulty_potential": {"min_level": "Recall", "max_level": "Comprehension"},
+                    "learning_role": "Core",
+                    "aligned_learning_objectives": ["lo_1"],
+                    "canonical_answer": "Mean",
+                    "accepted_phrases": ["average"],
+                    "answer_type": "closed",
+                    "closed_answer": True,
+                    "example_exercise_stem": "Define mean",
+                    "plausible_distractors": ["median"],
+                    "misconception_note": None,
+                    "contrast_with": ["median"],
+                    "related_concepts": ["median"],
+                    "review_notes": None,
+                    "source_reference": None,
+                    "version": "v1",
                 }
             ],
-            "short_answers": [
+            "exercise_bank": [
                 {
-                    "stem": "Name it",
-                    "canonical_answer": "term",
-                    "acceptable_answers": ["the term"],
+                    "id": "ex-comp-sa-001",
+                    "exercise_category": "comprehension",
+                    "type": "short-answer",
+                    "concept_slug": "mean",
+                    "concept_term": "Mean",
+                    "stem": "Define the mean",
+                    "canonical_answer": "Mean",
+                    "acceptable_answers": ["average"],
+                    "rationale_right": "Explains term",
                     "wrong_answers": [
                         {
-                            "answer": "mistake",
-                            "explanation": "Not exact",
-                            "misconception_ids": ["m1"],
+                            "answer": "Median",
+                            "rationale_wrong": "Different concept",
+                            "misconception_ids": [],
                         }
                     ],
-                    "learning_objectives_covered": ["lo_1"],
-                    "misconceptions_used": ["m1"],
-                    "glossary_terms_used": [],
-                    "cognitive_level": "remember",
-                    "explanation_correct": "Yes",
-                }
+                    "answer_type": "closed",
+                    "cognitive_level": "Recall",
+                    "difficulty": "easy",
+                    "aligned_learning_objective": "lo_1",
+                },
+                {
+                    "id": "ex-trans-mc-001",
+                    "exercise_category": "transfer",
+                    "type": "multiple-choice",
+                    "concept_slug": "mean",
+                    "concept_term": "Mean",
+                    "stem": "Which concept applies?",
+                    "options": [
+                        {"label": "A", "text": "Mean", "rationale_wrong": None},
+                        {"label": "B", "text": "Median", "rationale_wrong": "Different measure"},
+                        {"label": "C", "text": "Mode", "rationale_wrong": "Counts frequency"},
+                        {"label": "D", "text": "Range", "rationale_wrong": "Spread metric"},
+                    ],
+                    "answer_key": {"label": "A", "rationale_right": "Matches scenario"},
+                    "cognitive_level": "Application",
+                    "difficulty": "medium",
+                    "aligned_learning_objective": "lo_1",
+                },
             ],
+            "quiz": ["ex-comp-sa-001", "ex-trans-mc-001"],
+            "quiz_metadata": {
+                "quiz_type": "Formative",
+                "total_items": 2,
+                "difficulty_distribution_target": {"easy": 0.5, "medium": 0.5, "hard": 0.0},
+                "difficulty_distribution_actual": {"easy": 0.5, "medium": 0.5, "hard": 0.0},
+                "cognitive_mix_target": {"Recall": 0.5, "Application": 0.5},
+                "cognitive_mix_actual": {"Recall": 0.5, "Application": 0.5},
+                "coverage_by_LO": {"lo_1": {"exercise_ids": ["ex-comp-sa-001"], "concepts": ["mean"]}},
+                "coverage_by_concept": {
+                    "mean": {"exercise_ids": ["ex-comp-sa-001", "ex-trans-mc-001"], "types": ["short-answer", "multiple-choice"]}
+                },
+                "normalizations_applied": [],
+                "selection_rationale": [],
+                "gaps_identified": [],
+            },
         }
         mock_lesson_flow_cls.return_value = mock_flow
 
@@ -271,9 +327,14 @@ class TestContentCreatorService:
 
         assert content.save_lesson.await_count == 1
         saved_package = content.save_lesson.await_args.args[0].package
-        short_answers = [ex for ex in saved_package.exercises if ex.exercise_type == "short_answer"]
+        assert len(saved_package.concept_glossary) == 1
+        assert saved_package.concept_glossary[0].term == "Mean"
+        assert len(saved_package.exercise_bank) == 2
+        short_answers = [ex for ex in saved_package.exercise_bank if ex.exercise_type == "short_answer"]
         assert len(short_answers) == 1
-        assert short_answers[0].canonical_answer == "term"
+        assert short_answers[0].canonical_answer == "Mean"
+        assert saved_package.quiz == ["ex-comp-sa-001", "ex-trans-mc-001"]
+        assert saved_package.quiz_metadata.total_items == 2
 
     @pytest.mark.asyncio
     async def test_create_unit_with_conversation_resources(self) -> None:

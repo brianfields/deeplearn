@@ -204,15 +204,15 @@ class UnitHandler:
             if not objectives and package.meta and package.meta.title:
                 objectives.append(package.meta.title)
 
-            glossary_terms = package.glossary.get("terms", []) if package.glossary else []
+            concept_entries = getattr(package, "concept_glossary", []) or []
             key_concepts: list[str] = []
-            for term in glossary_terms:
-                if hasattr(term, "term"):
-                    key_concepts.append(str(term.term))
-                elif isinstance(term, dict):
-                    key_concepts.append(str(term.get("term") or term.get("label") or term))
+            for concept in concept_entries:
+                if hasattr(concept, "term"):
+                    key_concepts.append(str(concept.term))
+                elif isinstance(concept, dict):
+                    key_concepts.append(str(concept.get("term") or concept.get("slug") or concept))
                 else:
-                    key_concepts.append(str(term))
+                    key_concepts.append(str(concept))
 
             podcast_meta = self.media.build_lesson_podcast_payload(lesson, include_transcript=False)
             summary = UnitLessonSummary(
@@ -222,7 +222,7 @@ class UnitHandler:
                 learning_objective_ids=lesson_lo_ids,
                 learning_objectives=objectives,
                 key_concepts=key_concepts,
-                exercise_count=len(package.exercises),
+                exercise_count=len(getattr(package, "quiz", []) or []),
                 has_podcast=podcast_meta["has_podcast"],
                 podcast_voice=podcast_meta["podcast_voice"],
                 podcast_duration_seconds=podcast_meta["podcast_duration_seconds"],

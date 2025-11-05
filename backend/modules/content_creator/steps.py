@@ -1,30 +1,9 @@
 # /backend/modules/content_creator/steps.py
 """Content creation steps for the four active prompts."""
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from modules.flow_engine.public import AudioStep, ImageStep, StructuredStep, UnstructuredStep
-
-
-# ---------- Shared simple models used by current prompts ----------
-class ConfusablePair(BaseModel):
-    id: str
-    a: str
-    b: str
-    contrast: str
-
-
-class GlossaryTerm(BaseModel):
-    term: str
-    definition: str
-    micro_check: str | None = None
-
-
-class LessonMisconception(BaseModel):
-    id: str
-    misbelief: str
-    why_plausible: str
-    correction: str
 
 
 # ---------- 1) Generate Unit Source Material ----------
@@ -124,120 +103,246 @@ class ExtractLessonMetadataStep(StructuredStep):
         voice: str
         learning_objectives: list[str]
         learning_objective_ids: list[str]
-        misconceptions: list[LessonMisconception]
-        confusables: list[ConfusablePair]
-        glossary: list[GlossaryTerm]
+        lesson_source_material: str
         mini_lesson: str
 
 
-# ---------- 4) Generate MCQs ----------
-class MCQOption(BaseModel):
-    label: str  # "A" | "B" | "C" | "D"
+# ---------- Concept & Exercise Pipeline Steps ----------
+class ConceptGlossaryItem(BaseModel):
+    id: str
+    term: str
+    slug: str
+    aliases: list[str] = Field(default_factory=list)
+    definition: str
+    example_from_source: str | None = None
+    source_span: str | None = None
+    related_terms: list[str] = Field(default_factory=list)
+    aligned_learning_objectives: list[str] = Field(default_factory=list)
+
+
+class ConceptGlossaryMeta(BaseModel):
+    topic: str
+    lesson_objective: str
+    total_concepts: int
+    selection_rationale: list[str] = Field(default_factory=list)
+    selection_notes: list[str] = Field(default_factory=list)
+    version: str
+
+
+class ExtractConceptGlossaryStep(StructuredStep):
+    """Extract lesson-specific concept glossary entries."""
+
+    step_name = "extract_concept_glossary"
+    prompt_file = "extract_concept_glossary.md"
+    reasoning_effort = "medium"
+    verbosity = "low"
+    model = "gpt-5-mini"
+
+    class Inputs(BaseModel):
+        topic: str
+        lesson_objective: str
+        lesson_source_material: str
+        lesson_learning_objectives: list[dict]
+
+    class Outputs(BaseModel):
+        concepts: list[ConceptGlossaryItem]
+        meta: ConceptGlossaryMeta
+
+
+class RefinedConceptDifficultyRange(BaseModel):
+    min_level: str
+    max_level: str
+
+
+class RefinedConceptItem(BaseModel):
+    id: str
+    term: str
+    slug: str
+    aliases: list[str] = Field(default_factory=list)
+    definition: str
+    example_from_source: str | None = None
+    source_span: str | None = None
+    category: str | None = None
+    centrality: int
+    distinctiveness: int
+    transferability: int
+    clarity: int
+    assessment_potential: int
+    cognitive_domain: str
+    difficulty_potential: RefinedConceptDifficultyRange
+    learning_role: str | None = None
+    aligned_learning_objectives: list[str] = Field(default_factory=list)
+    canonical_answer: str
+    accepted_phrases: list[str] = Field(default_factory=list)
+    answer_type: str
+    closed_answer: bool
+    example_exercise_stem: str | None = None
+    plausible_distractors: list[str] = Field(default_factory=list)
+    misconception_note: str | None = None
+    contrast_with: list[str] = Field(default_factory=list)
+    related_concepts: list[str] = Field(default_factory=list)
+    review_notes: str | None = None
+    source_reference: str | None = None
+    version: str
+
+
+class RefinedConceptMeta(BaseModel):
+    topic: str
+    lesson_objective: str
+    total_retained: int
+    removed_or_merged: int
+    selection_rationale: list[str] = Field(default_factory=list)
+    selection_notes: list[str] = Field(default_factory=list)
+    version: str
+
+
+class AnnotateConceptGlossaryStep(StructuredStep):
+    """Refine and annotate concept glossary entries for assessment use."""
+
+    step_name = "annotate_concept_glossary"
+    prompt_file = "annotate_concept_glossary.md"
+    reasoning_effort = "medium"
+    verbosity = "low"
+    model = "gpt-5-mini"
+
+    class Inputs(BaseModel):
+        topic: str
+        lesson_objective: str
+        lesson_source_material: str
+        concept_glossary: list[dict]
+        lesson_learning_objectives: list[dict]
+
+    class Outputs(BaseModel):
+        refined_concepts: list[RefinedConceptItem]
+        meta: RefinedConceptMeta
+
+
+class ExerciseItemWrongAnswer(BaseModel):
+    answer: str
+    rationale_wrong: str
+    misconception_ids: list[str] = Field(default_factory=list)
+
+
+class ExerciseItemOption(BaseModel):
+    label: str
     text: str
     rationale_wrong: str | None = None
 
 
-class MCQAnswerKey(BaseModel):
+class ExerciseItemAnswerKey(BaseModel):
     label: str
     rationale_right: str
 
 
-class MCQItem(BaseModel):
+class ExerciseItem(BaseModel):
+    id: str
+    exercise_category: str
+    type: str
+    concept_slug: str
+    concept_term: str
     stem: str
-    options: list[MCQOption]
-    answer_key: MCQAnswerKey
-    learning_objectives_covered: list[str]
-    misconceptions_used: list[str] = []
-    confusables_used: list[str] = []
-    glossary_terms_used: list[str] = []
+    canonical_answer: str | None = None
+    acceptable_answers: list[str] = Field(default_factory=list)
+    rationale_right: str | None = None
+    wrong_answers: list[ExerciseItemWrongAnswer] = Field(default_factory=list)
+    answer_type: str | None = None
+    cognitive_level: str
+    difficulty: str
+    aligned_learning_objective: str
+    options: list[ExerciseItemOption] | None = None
+    answer_key: ExerciseItemAnswerKey | None = None
 
 
-class MCQsMetadata(BaseModel):
-    lesson_title: str
-    lesson_objective: str
-    learner_level: str
-    voice: str | None = None
+class ExerciseBankMeta(BaseModel):
+    exercise_category: str
+    exercise_count: int
+    generation_notes: list[str] = Field(default_factory=list)
 
 
-class ShortAnswerWrongAnswer(BaseModel):
-    answer: str
-    explanation: str
-    misconception_ids: list[str] = []
+class GenerateComprehensionExercisesStep(StructuredStep):
+    """Generate comprehension-focused exercises from refined concepts."""
 
-
-class ShortAnswerItem(BaseModel):
-    stem: str
-    canonical_answer: str
-    acceptable_answers: list[str]
-    wrong_answers: list[ShortAnswerWrongAnswer]
-    learning_objectives_covered: list[str]
-    misconceptions_used: list[str] = []
-    glossary_terms_used: list[str] = []
-    cognitive_level: str | None = None
-    explanation_correct: str
-
-
-class ShortAnswersCoverage(BaseModel):
-    learning_objective_ids: list[str]
-    misconception_ids: list[str]
-
-
-class ShortAnswersMetadata(BaseModel):
-    lesson_title: str
-    lesson_objective: str
-    learner_level: str
-    coverage: ShortAnswersCoverage
-
-
-class GenerateMCQStep(StructuredStep):
-    """Generate 5 MCQs covering all learning objectives for the lesson."""
-
-    step_name = "generate_mcqs"
-    prompt_file = "generate_mcqs.md"
+    step_name = "generate_comprehension_exercises"
+    prompt_file = "generate_comprehension_exercises.md"
     reasoning_effort = "high"
     verbosity = "low"
     model = "gpt-5-mini"
 
     class Inputs(BaseModel):
-        learner_level: str
-        voice: str
-        lesson_title: str
+        topic: str
         lesson_objective: str
-        learning_objectives: list[str]
-        mini_lesson: str
-        misconceptions: list[LessonMisconception]
-        confusables: list[ConfusablePair]
-        glossary: list[GlossaryTerm]
+        lesson_source_material: str
+        refined_concept_glossary: list[dict]
+        lesson_learning_objectives: list[dict]
 
     class Outputs(BaseModel):
-        metadata: MCQsMetadata
-        mcqs: list[MCQItem]
+        exercises: list[ExerciseItem]
+        meta: ExerciseBankMeta
 
 
-class GenerateShortAnswerStep(StructuredStep):
-    """Generate short-answer exercises that complement the MCQs."""
+class GenerateTransferExercisesStep(StructuredStep):
+    """Generate transfer-focused exercises from refined concepts."""
 
-    step_name = "generate_short_answers"
-    prompt_file = "generate_short_answers.md"
+    step_name = "generate_transfer_exercises"
+    prompt_file = "generate_transfer_exercises.md"
     reasoning_effort = "high"
     verbosity = "low"
     model = "gpt-5-mini"
 
     class Inputs(BaseModel):
-        learner_level: str
-        voice: str
-        lesson_title: str
+        topic: str
         lesson_objective: str
-        learning_objectives: list[str]
-        learning_objective_ids: list[str]
-        mini_lesson: str
-        glossary: list[GlossaryTerm]
-        misconceptions: list[LessonMisconception]
-        mcq_stems: list[str]
+        lesson_source_material: str
+        refined_concept_glossary: list[dict]
+        lesson_learning_objectives: list[dict]
 
     class Outputs(BaseModel):
-        metadata: ShortAnswersMetadata
-        short_answers: list[ShortAnswerItem]
+        exercises: list[ExerciseItem]
+        meta: ExerciseBankMeta
+
+
+class QuizCoverageItem(BaseModel):
+    exercise_ids: list[str] = Field(default_factory=list)
+    concepts: list[str] = Field(default_factory=list)
+
+
+class QuizConceptCoverageItem(BaseModel):
+    exercise_ids: list[str] = Field(default_factory=list)
+    types: list[str] = Field(default_factory=list)
+
+
+class QuizMetadataOutput(BaseModel):
+    quiz_type: str
+    total_items: int
+    difficulty_distribution_target: dict[str, float]
+    difficulty_distribution_actual: dict[str, float]
+    cognitive_mix_target: dict[str, float]
+    cognitive_mix_actual: dict[str, float]
+    coverage_by_LO: dict[str, QuizCoverageItem] = Field(default_factory=dict)
+    coverage_by_concept: dict[str, QuizConceptCoverageItem] = Field(default_factory=dict)
+    normalizations_applied: list[str] = Field(default_factory=list)
+    selection_rationale: list[str] = Field(default_factory=list)
+    gaps_identified: list[str] = Field(default_factory=list)
+
+
+class GenerateQuizFromExercisesStep(StructuredStep):
+    """Assemble a quiz from the generated exercise bank."""
+
+    step_name = "generate_quiz_from_exercises"
+    prompt_file = "generate_quiz_from_exercises.md"
+    reasoning_effort = "medium"
+    verbosity = "low"
+    model = "gpt-5-mini"
+
+    class Inputs(BaseModel):
+        exercise_bank: list[dict]
+        refined_concept_glossary: list[dict]
+        lesson_learning_objectives: list[dict]
+        target_question_count: int
+
+    class Outputs(BaseModel):
+        quiz: list[str]
+        meta: QuizMetadataOutput
 
 
 # ---------- 5) Generate Unit Podcast Transcript ----------

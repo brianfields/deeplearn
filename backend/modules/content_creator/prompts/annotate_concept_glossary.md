@@ -4,9 +4,9 @@ You are an expert instructional designer and learning-science analyst.
 Refine and annotate the extracted concept glossary so each concept is:
 - high-value, distinct, and transferable,
 - clearly aligned to one or more **Learning Objectives (LOs)**, and
-- ready for **closed-answer** question generation and curriculum planning.
+- ready for **closed-answer** exercise generation and curriculum planning.
 
-**Closed-set rule:** All later short-answer items will use the glossary **term** as the correct answer. Ensure every retained concept has a **unique, unambiguous term** that can stand alone as the canonical label.
+**Closed-set rule:** All later short-answer exercises will use the glossary **term** as the correct answer. Ensure every retained concept has a **unique, unambiguous term** that can stand alone as the canonical label.
 
 # Inputs (use these when generating Your Output below)
 
@@ -14,17 +14,21 @@ Refine and annotate the extracted concept glossary so each concept is:
 
 {{topic}}
 
-## Source Material
+## Lesson Objective
 
-{{source_material}}
+{{lesson_objective}}
+
+## Lesson Source Material
+
+{{lesson_source_material}}
 
 ## Extracted Concept Glossary
 
 {{concept_glossary}}
 
-## Learning Objectives
+## Lesson Learning Objectives
 
-{{learning_objectives}}
+{{lesson_learning_objectives}}
 
 # Goal
 
@@ -97,7 +101,7 @@ Each retained concept MUST conform to the following structure. This is a specifi
   "answer_type": "closed",
   "closed_answer": true,
 
-  "example_question_stem": "≤ 25 words; clear call for the term",
+  "example_exercise_stem": "≤ 25 words; clear call for the term",
   "plausible_distractors": ["near-neighbor-slug-1","near-neighbor-slug-2"],
   "misconception_note": "1–2 lines: typical overgeneralization or near-miss",
   "contrast_with": ["related-slug-1","related-slug-2"],
@@ -116,6 +120,7 @@ Each retained concept MUST conform to the following structure. This is a specifi
   ],
   "meta": {
     "topic": "{{topic}}",
+    "lesson_objective": "{{lesson_objective}}",
     "total_retained": 0,
     "removed_or_merged": 0,
     "selection_rationale": [
