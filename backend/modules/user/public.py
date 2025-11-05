@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Protocol
 
 from sqlalchemy.orm import Session
@@ -38,6 +39,10 @@ class UserProvider(Protocol):
         role: str | None = None,
         is_active: bool | None = None,
     ) -> UserRead: ...
+
+    def count_users_since(self, since: datetime) -> int:
+        """Count users created since the given datetime. [ADMIN ONLY]"""
+        ...
 
 
 def user_provider(session: Session) -> UserProvider:

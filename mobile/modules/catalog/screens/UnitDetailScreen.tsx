@@ -65,6 +65,7 @@ import {
   useTeachingAssistantSessionState,
 } from '../../learning_conversations/queries';
 import type { TeachingAssistantStateRequest } from '../../learning_conversations/models';
+import { layoutStyles } from '../../ui_system/styles/layout';
 
 type UnitDetailScreenNavigationProp = NativeStackNavigationProp<
   LearningStackParamList,
@@ -642,7 +643,7 @@ export function UnitDetailScreen() {
                   Alert.alert('Removed', 'Unit removed from your collection.', [
                     {
                       text: 'OK',
-                      onPress: () => navigation.navigate('LessonList'),
+                      onPress: () => navigation.goBack(),
                     },
                   ]);
                 },
@@ -686,7 +687,7 @@ export function UnitDetailScreen() {
               await offlineCache.deleteUnit(unit.id);
               await content.syncNow();
               await Promise.all([refetch(), loadUnitMetrics()]);
-              navigation.navigate('LessonList');
+              navigation.goBack();
             } catch (error) {
               console.error(
                 '[UnitDetailScreen] Failed to delete download',
@@ -742,17 +743,17 @@ export function UnitDetailScreen() {
             <TouchableOpacity
               onPress={() => {
                 haptics.trigger('light');
-                navigation.navigate('LessonList');
+                navigation.goBack();
               }}
               accessibilityRole="button"
               accessibilityLabel="Go to unit list"
-              style={{ paddingVertical: 6, paddingRight: 12 }}
+              style={localStyles.backButton}
             >
               <Text variant="body" color={theme.colors.primary}>
                 {'‹ Units'}
               </Text>
             </TouchableOpacity>
-            <Text variant="h1" style={{ marginTop: 8, fontWeight: 'normal' }}>
+            <Text variant="h1" style={localStyles.titleText}>
               {unit.title}
             </Text>
           </Box>
@@ -780,7 +781,7 @@ export function UnitDetailScreen() {
               onCancel={
                 isDownloadInProgress
                   ? handleCancelDownload
-                  : () => navigation.navigate('LessonList')
+                  : () => navigation.goBack()
               }
               isDownloadActionPending={isDownloadActionPending}
               isCancelPending={isCancelPending}
@@ -789,7 +790,7 @@ export function UnitDetailScreen() {
 
           {isDownloadFailed ? (
             <Box px="lg" mt="md">
-              <Card variant="outlined" style={{ margin: 0 }}>
+              <Card variant="outlined" style={localStyles.noMargin}>
                 <Text variant="secondary" color={theme.colors.error}>
                   Something went wrong downloading this unit. Please retry.
                 </Text>
@@ -828,17 +829,17 @@ export function UnitDetailScreen() {
           <TouchableOpacity
             onPress={() => {
               haptics.trigger('light');
-              navigation.navigate('LessonList');
+              navigation.goBack();
             }}
             accessibilityRole="button"
             accessibilityLabel="Go to unit list"
-            style={{ paddingVertical: 6, paddingRight: 12 }}
+            style={localStyles.backButton}
           >
             <Text variant="body" color={theme.colors.primary}>
               {'‹ Units'}
             </Text>
           </TouchableOpacity>
-          <Text variant="h1" style={{ marginTop: 8, fontWeight: 'normal' }}>
+          <Text variant="h1" style={localStyles.titleText}>
             {unit.title}
           </Text>
         </Box>
@@ -854,10 +855,10 @@ export function UnitDetailScreen() {
         </Box>
 
         <Box px="lg">
-          <Card variant="default" style={{ margin: 0 }}>
+          <Card variant="default" style={localStyles.noMargin}>
             {nextLessonTitle && (
               <Box mb="md">
-                <Text variant="title" style={{ fontWeight: 'normal' }}>
+                <Text variant="title" style={localStyles.fontWeightNormal}>
                   {nextLessonTitle}
                 </Text>
               </Box>
@@ -889,7 +890,7 @@ export function UnitDetailScreen() {
 
         {ownershipDescription && !unit.isOwnedByCurrentUser && (
           <Box px="lg" mt="md">
-            <Card variant="outlined" style={{ margin: 0 }}>
+            <Card variant="outlined" style={localStyles.noMargin}>
               <Text variant="body">{ownershipDescription}</Text>
             </Card>
           </Box>
@@ -908,22 +909,25 @@ export function UnitDetailScreen() {
               />
             </Box>
             <Box px="lg" mt="md">
-              <Card variant="outlined" style={styles.loCard}>
+              <Card variant="outlined" style={localStyles.loCard}>
                 <Text
                   variant="title"
-                  style={[styles.loSectionTitle, { color: theme.colors.text }]}
+                  style={[
+                    localStyles.loSectionTitle,
+                    { color: theme.colors.text },
+                  ]}
                 >
                   Learning Objectives
                 </Text>
                 {unitLOProgressQuery.isLoading ? (
-                  <View style={styles.loLoadingRow}>
+                  <View style={localStyles.loLoadingRow}>
                     <ActivityIndicator
                       color={theme.colors.primary}
                       size="small"
                     />
                     <Text
                       style={[
-                        styles.loLoadingText,
+                        localStyles.loLoadingText,
                         { color: theme.colors.textSecondary },
                       ]}
                     >
@@ -947,7 +951,7 @@ export function UnitDetailScreen() {
                       unitTitle: unit.title,
                     });
                   }}
-                  style={styles.loDetailButton}
+                  style={localStyles.loDetailButton}
                   testID="view-detailed-progress"
                 />
               </Card>
@@ -956,7 +960,7 @@ export function UnitDetailScreen() {
         ) : null}
 
         <Box px="lg" mt="lg">
-          <Text variant="title" style={{ marginBottom: 8 }}>
+          <Text variant="title" style={localStyles.marginBottom8}>
             Lessons
           </Text>
         </Box>
@@ -965,17 +969,20 @@ export function UnitDetailScreen() {
           <Box key={item.id} px="lg" testID="lesson-card">
             <Card
               variant="outlined"
-              style={{ margin: 0, marginBottom: 12 }}
+              style={localStyles.noMargin}
               onPress={() => {
                 haptics.trigger('light');
                 handleLessonPress(item.id);
               }}
             >
-              <View style={styles.lessonRowInner}>
-                <Text variant="body" style={{ flex: 1, marginRight: 12 }}>
+              <View style={localStyles.lessonRowInner}>
+                <Text
+                  variant="body"
+                  style={[layoutStyles.flex1, localStyles.marginRight12]}
+                >
                   {item.title}
                 </Text>
-                <View style={styles.lessonRight}>
+                <View style={localStyles.lessonRight}>
                   {item.hasPodcast ? (
                     <Headphones
                       size={18}
@@ -1018,9 +1025,9 @@ export function UnitDetailScreen() {
 
         {unit.isOwnedByCurrentUser && (
           <Box px="lg" mt="md">
-            <Card variant="outlined" style={{ margin: 0 }}>
-              <View style={styles.sharingRow}>
-                <Text variant="body" style={{ flex: 1 }}>
+            <Card variant="outlined" style={localStyles.noMargin}>
+              <View style={localStyles.sharingRow}>
+                <Text variant="body" style={layoutStyles.flex1}>
                   Share globally
                 </Text>
                 <Switch
@@ -1093,11 +1100,45 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollView: { flex: 1 },
   scrollContent: { paddingBottom: 96 }, // Extra padding for podcast player
-  loCard: { margin: 0 },
-  loSectionTitle: { marginBottom: 12 },
+});
+
+const localStyles = StyleSheet.create({
+  // Navigation
+  backButton: {
+    paddingVertical: 6,
+    paddingRight: 12,
+  },
+
+  // Titles and text
+  titleText: {
+    marginTop: 8,
+    fontWeight: 'normal' as const,
+  },
+  fontWeightNormal: {
+    fontWeight: 'normal' as const,
+  },
+  marginBottom8: {
+    marginBottom: 8,
+  },
+  marginRight12: {
+    marginRight: 12,
+  },
+
+  // Card resets
+  noMargin: {
+    margin: 0,
+  },
+
+  // Learning Objectives section
+  loCard: {
+    margin: 0,
+  },
+  loSectionTitle: {
+    marginBottom: 12,
+  },
   loLoadingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
     marginBottom: 12,
   },
   loLoadingText: {
@@ -1107,16 +1148,23 @@ const styles = StyleSheet.create({
   loDetailButton: {
     marginTop: 16,
   },
-  lessonRight: { alignItems: 'flex-end', minWidth: 24 },
+
+  // Lesson row
   lessonRowInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
   },
+  lessonRight: {
+    alignItems: 'flex-end' as const,
+    minWidth: 24,
+  },
+
+  // Sharing row
   sharingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
     marginBottom: 8,
   },
 });

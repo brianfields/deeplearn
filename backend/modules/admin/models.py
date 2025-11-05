@@ -212,6 +212,7 @@ class ConversationDetail(BaseModel):
     proposed_brief: dict[str, Any] | None = None
     accepted_brief: dict[str, Any] | None = None
     resources: list[ResourceSummaryAdmin] = []
+    total_cost: float = 0.0
 
 
 class LearningCoachConversationSummaryAdmin(BaseModel):
@@ -224,6 +225,7 @@ class LearningCoachConversationSummaryAdmin(BaseModel):
     updated_at: datetime
     last_message_at: datetime | None
     metadata: dict[str, Any]
+    total_cost: float = 0.0
 
 
 # Generic conversation summary with type field
@@ -238,6 +240,7 @@ class ConversationSummaryAdmin(BaseModel):
     updated_at: datetime
     last_message_at: datetime | None
     metadata: dict[str, Any]
+    total_cost: float = 0.0
 
 
 class LearningCoachConversationsListResponse(BaseModel):
@@ -373,3 +376,22 @@ class UserListResponse(BaseModel):
     page: int
     page_size: int
     has_next: bool
+
+
+class MetricValue(BaseModel):
+    """Container for a metric with 24h and 7d values."""
+
+    last_24h: int | float
+    last_7d: int | float
+
+
+class DashboardMetrics(BaseModel):
+    """Dashboard metrics for admin overview."""
+
+    signups: MetricValue
+    new_units: MetricValue
+    assistant_conversations: MetricValue
+    learning_sessions_started: MetricValue
+    learning_sessions_completed: MetricValue
+    llm_requests: MetricValue
+    llm_requests_cost: MetricValue

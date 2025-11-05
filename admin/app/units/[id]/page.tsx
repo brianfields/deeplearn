@@ -7,6 +7,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useState } from 'react';
 import { useUnit, useRetryUnit, useLesson } from '@/modules/admin/queries';
 import {
@@ -359,10 +360,11 @@ export default function UnitDetailsPage({ params }: UnitDetailsPageProps) {
         <div className="px-6 py-6 grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
           <div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-slate-900 text-white min-h-[220px] flex items-center justify-center">
             {unit.art_image_url ? (
-              <img
+              <Image
                 src={unit.art_image_url}
                 alt={`${unit.title} artwork`}
-                className="w-full h-full object-cover"
+                layout="fill"
+                objectFit="cover"
               />
             ) : (
               <div className="text-center space-y-2">

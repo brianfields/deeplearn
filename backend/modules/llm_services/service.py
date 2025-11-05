@@ -570,3 +570,11 @@ class LLMService:
     def count_all_requests(self) -> int:
         """Get total count of LLM requests. FOR ADMIN USE ONLY."""
         return self.repo.count_all()
+
+    def count_requests_since(self, since: datetime) -> int:
+        """Count LLM requests created since the given datetime. [ADMIN ONLY]"""
+        return self.repo.count_since(since)
+
+    def sum_request_costs_since(self, since: datetime) -> float:
+        """Sum total cost of LLM requests created since the given datetime. [ADMIN ONLY]"""
+        return self.repo.sum_costs_since(since)

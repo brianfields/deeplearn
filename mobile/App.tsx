@@ -37,6 +37,8 @@ import { uiSystemProvider } from './modules/ui_system/public';
 import { reducedMotion } from './modules/ui_system/utils/motion';
 import { AuthProvider, useAuth } from './modules/user/public';
 import { useTrackPlayer } from './modules/podcast_player/public';
+import { getScreenOptions } from './utils/navigationOptions';
+import { getDevScreenOptions } from './utils/devToolsNavigation';
 
 // Create navigators
 const RootStack = createNativeStackNavigator<RootStackParamList>();
@@ -64,6 +66,7 @@ function LearningStackNavigator(): React.ReactElement {
         headerShown: false,
         animation: 'slide_from_right',
         animationDuration: 220,
+        gestureDirection: 'horizontal',
         contentStyle: { backgroundColor: theme.colors.background },
       }}
     >
@@ -77,33 +80,26 @@ function LearningStackNavigator(): React.ReactElement {
       <LearningStack.Screen
         name="CatalogBrowser"
         component={CatalogBrowserScreen}
-        options={{
-          presentation: 'modal',
-          animation: reducedMotion.enabled ? 'none' : 'slide_from_bottom',
-          gestureDirection: 'vertical',
-          headerShown: false,
-        }}
+        options={getScreenOptions('modal')}
       />
       <LearningStack.Screen
         name="LearningCoach"
         component={LearningCoachScreen}
         options={{
+          ...getScreenOptions('stack'),
           title: 'Learning Coach',
         }}
       />
       <LearningStack.Screen
         name="AddResource"
         component={AddResourceScreen}
-        options={{
-          presentation: 'modal',
-          animation: reducedMotion.enabled ? 'none' : 'slide_from_bottom',
-          headerShown: false,
-        }}
+        options={getScreenOptions('modal')}
       />
       <LearningStack.Screen
         name="UnitDetail"
         component={UnitDetailScreen}
         options={{
+          ...getScreenOptions('stack'),
           title: 'Unit',
         }}
       />
@@ -111,51 +107,60 @@ function LearningStackNavigator(): React.ReactElement {
         name="UnitLODetail"
         component={UnitLODetailScreen}
         options={{
+          ...getScreenOptions('stack'),
           title: 'Learning Objectives',
         }}
       />
-      <LearningStack.Screen
-        name="ManageCache"
-        component={ManageCacheScreen}
-        options={{
-          title: 'Manage Cache',
-        }}
-      />
-      <LearningStack.Screen
-        name="SQLiteDetail"
-        component={SQLiteDetailScreen}
-        options={{
-          title: 'SQLite Database',
-        }}
-      />
-      <LearningStack.Screen
-        name="AsyncStorageDetail"
-        component={AsyncStorageDetailScreen}
-        options={{
-          title: 'AsyncStorage',
-        }}
-      />
-      <LearningStack.Screen
-        name="FileSystemDetail"
-        component={FileSystemDetailScreen}
-        options={{
-          title: 'File System',
-        }}
-      />
+      {__DEV__ && (
+        <>
+          <LearningStack.Screen
+            name="ManageCache"
+            component={ManageCacheScreen}
+            options={{
+              ...getDevScreenOptions(),
+              title: 'Manage Cache (Dev)',
+            }}
+          />
+          <LearningStack.Screen
+            name="SQLiteDetail"
+            component={SQLiteDetailScreen}
+            options={{
+              ...getDevScreenOptions(),
+              title: 'SQLite Database (Dev)',
+            }}
+          />
+          <LearningStack.Screen
+            name="AsyncStorageDetail"
+            component={AsyncStorageDetailScreen}
+            options={{
+              ...getDevScreenOptions(),
+              title: 'AsyncStorage (Dev)',
+            }}
+          />
+          <LearningStack.Screen
+            name="FileSystemDetail"
+            component={FileSystemDetailScreen}
+            options={{
+              ...getDevScreenOptions(),
+              title: 'File System (Dev)',
+            }}
+          />
+        </>
+      )}
       <LearningStack.Screen
         name="LearningFlow"
         component={LearningFlowScreen}
         options={{
+          ...getScreenOptions('locked'),
           title: 'Learning Session',
-          gestureEnabled: false, // Prevent swipe back during learning
         }}
       />
       <LearningStack.Screen
         name="Results"
         component={ResultsScreen}
         options={{
+          ...getScreenOptions('locked'),
           title: 'Results',
-          gestureEnabled: false, // Prevent swipe back from results
         }}
       />
     </LearningStack.Navigator>
@@ -188,6 +193,7 @@ function RootNavigator(): React.ReactElement {
         headerShown: false,
         animation: 'slide_from_right',
         animationDuration: 220,
+        gestureDirection: 'horizontal',
         contentStyle: { backgroundColor: theme.colors.background },
       }}
     >
@@ -205,7 +211,7 @@ function RootNavigator(): React.ReactElement {
           <RootStack.Screen
             name="LessonDetail"
             component={LearningFlowScreen as any}
-            options={{ gestureEnabled: false }}
+            options={getScreenOptions('locked')}
           />
         </>
       )}

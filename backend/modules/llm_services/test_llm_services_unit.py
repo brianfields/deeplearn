@@ -21,6 +21,7 @@ from modules.llm_services.providers.claude import (
     convert_to_claude_messages,
     estimate_claude_cost,
 )
+from modules.llm_services.providers.openai import OpenAIProvider
 from modules.llm_services.repo import LLMRequestRepo
 from modules.llm_services.service import LLMMessage, LLMService
 from modules.llm_services.types import LLMMessage as InternalLLMMessage
@@ -392,3 +393,46 @@ async def test_anthropic_provider_structured_output(db_session: Session, monkeyp
     stored = repo.by_id(request_id)
     assert stored is not None
     assert stored.provider == LLMProviderType.ANTHROPIC.value
+
+
+@pytest.mark.asyncio()
+async def test_openai_tts_audio_cost_estimation() -> None:
+    """OpenAI TTS audio cost estimation should calculate cost based on character count."""
+
+    # Create a dummy config and session for provider initialization
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    SessionLocal = sessionmaker(bind=engine)
+    db_session = SessionLocal()
+
+    config = LLMConfig(
+        provider=LLMProviderType.OPENAI,
+        model="tts-1",
+        api_key="test-key",
+    )
+
+    provider = OpenAIProvider(config, db_session)
+
+    # Test tts-1 (standard) pricing: $15.00 / 1M characters
+    text_100_chars = "a" * 100
+    cost_standard = provider._estimate_audio_cost(text_100_chars, "tts-1")
+    expected_standard = (100 / 1_000_000) * 15.00
+    assert cost_standard == pytest.approx(expected_standard, rel=1e-6)
+
+    # Test tts-1-hd pricing: $30.00 / 1M characters
+    cost_hd = provider._estimate_audio_cost(text_100_chars, "tts-1-hd")
+    expected_hd = (100 / 1_000_000) * 30.00
+    assert cost_hd == pytest.approx(expected_hd, rel=1e-6)
+
+    # Test that HD cost is double the standard cost
+    assert cost_hd == pytest.approx(cost_standard * 2, rel=1e-6)
+
+    # Test with larger text
+    text_1m_chars = "a" * 1_000_000
+    cost_1m_standard = provider._estimate_audio_cost(text_1m_chars, "tts-1")
+    assert cost_1m_standard == pytest.approx(15.00, rel=1e-6)  # Should be approximately $15.00
+
+    db_session.close()

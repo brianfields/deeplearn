@@ -23,8 +23,10 @@ export default function AuthLandingScreen(): React.ReactElement {
     >
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.title}>DeepLearn</Text>
-          <Text style={styles.subtitle}>
+          <Text variant="display" style={styles.title}>
+            DeepLearn
+          </Text>
+          <Text variant="body" style={styles.subtitle}>
             Personalized learning journeys powered by AI. Sign in or create an
             account to get started.
           </Text>
@@ -47,7 +49,7 @@ export default function AuthLandingScreen(): React.ReactElement {
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>
+          <Text variant="caption" style={styles.footerText}>
             Need help? Contact support@deeplearn.app
           </Text>
         </View>
@@ -71,12 +73,10 @@ const createStyles = (theme: Theme) =>
       gap: 16,
     },
     title: {
-      fontSize: 32,
       fontWeight: '700',
       color: theme.colors.text,
     },
     subtitle: {
-      fontSize: 16,
       color: theme.colors.textSecondary,
       lineHeight: 24,
     },
@@ -87,7 +87,6 @@ const createStyles = (theme: Theme) =>
       alignItems: 'center',
     },
     footerText: {
-      fontSize: 13,
       color: theme.colors.textSecondary,
     },
   });

@@ -23,6 +23,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { Difficulty } from '../../content/public';
 import { useCreateUnit } from '../queries';
 import { useAuth } from '../../user/public';
+import { layoutStyles } from '../../ui_system/styles/layout';
 
 interface CreateUnitFormData {
   topic: string;
@@ -171,7 +172,8 @@ export function CreateUnitScreen() {
           <Text
             style={[
               styles.title,
-              { color: theme.colors.text, fontWeight: 'normal' },
+              { color: theme.colors.text },
+              layoutStyles.fontWeightNormal,
             ]}
           >
             Create New Unit
@@ -190,7 +192,8 @@ export function CreateUnitScreen() {
             <Text
               style={[
                 styles.fieldLabel,
-                { color: theme.colors.text, fontWeight: 'normal' },
+                { color: theme.colors.text },
+                layoutStyles.fontWeightNormal,
               ]}
             >
               Topic *
@@ -231,7 +234,8 @@ export function CreateUnitScreen() {
             <Text
               style={[
                 styles.fieldLabel,
-                { color: theme.colors.text, fontWeight: 'normal' },
+                { color: theme.colors.text },
+                layoutStyles.fontWeightNormal,
               ]}
             >
               Learner Level
@@ -279,7 +283,8 @@ export function CreateUnitScreen() {
               <Text
                 style={[
                   styles.fieldLabel,
-                  { color: theme.colors.text, fontWeight: 'normal' },
+                  { color: theme.colors.text },
+                  layoutStyles.fontWeightNormal,
                 ]}
               >
                 Share globally
@@ -303,7 +308,8 @@ export function CreateUnitScreen() {
             <Text
               style={[
                 styles.fieldLabel,
-                { color: theme.colors.text, fontWeight: 'normal' },
+                { color: theme.colors.text },
+                layoutStyles.fontWeightNormal,
               ]}
             >
               Target Lesson Count (Optional)

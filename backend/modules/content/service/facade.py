@@ -208,6 +208,19 @@ class ContentService:
     async def get_units_by_status(self, status: str, limit: int = 100, offset: int = 0) -> list[UnitRead]:
         return await self._units.get_units_by_status(status, limit=limit, offset=offset)
 
+    async def count_units_since(self, since: datetime) -> int:
+        """Count units created since the given datetime. [ADMIN ONLY]"""
+        from sqlalchemy import func, select
+
+        from ..models import UnitModel
+
+        # Handle timezone-aware datetime for naive database field
+        since_naive = since.replace(tzinfo=None) if since.tzinfo is not None else since
+
+        stmt = select(func.count(UnitModel.id)).where(UnitModel.created_at >= since_naive)
+        result = await self.repo.s.execute(stmt)
+        return result.scalar() or 0
+
     async def update_unit_status(
         self,
         unit_id: str,

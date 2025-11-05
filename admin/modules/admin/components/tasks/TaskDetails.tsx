@@ -35,6 +35,12 @@ export function TaskDetails({ taskId }: TaskDetailsProps) {
 
   // All hooks must be called before any conditional returns
   const flowSummary = useMemo(() => flowRuns ?? [], [flowRuns]);
+  const totalCost = useMemo(() => {
+    if (!flowRuns || flowRuns.length === 0) {
+      return '—';
+    }
+    return flowRuns.reduce((sum, flow) => sum + flow.total_cost, 0);
+  }, [flowRuns]);
 
   const isLoading = taskLoading && !task;
 

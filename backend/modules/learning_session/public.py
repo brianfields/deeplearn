@@ -7,6 +7,7 @@ This is a migration, not new feature development.
 
 from abc import abstractmethod
 from collections.abc import Iterable
+from datetime import datetime
 from typing import Protocol
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -103,6 +104,16 @@ class LearningSessionProvider(Protocol):
     @abstractmethod
     async def get_session_context_for_assistant(self, session_id: str) -> AssistantSessionContext:
         """Return enriched context for teaching assistant experiences."""
+        ...
+
+    @abstractmethod
+    async def count_completed_sessions_since(self, since: datetime) -> int:
+        """Count learning sessions marked as completed since the given datetime. [ADMIN ONLY]"""
+        ...
+
+    @abstractmethod
+    async def count_started_sessions_since(self, since: datetime) -> int:
+        """Count learning sessions started since the given datetime. [ADMIN ONLY]"""
         ...
 
     # --- Units progress ---

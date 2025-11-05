@@ -46,7 +46,7 @@ interface MiniLessonProps {
   lessonTitle?: string;
   onContinue: () => void;
   isLoading?: boolean;
-  hasPodcast?: boolean;
+  _hasPodcast?: boolean;
 }
 
 export default function MiniLesson({
@@ -54,7 +54,7 @@ export default function MiniLesson({
   lessonTitle,
   onContinue,
   isLoading = false,
-  hasPodcast = false,
+  _hasPodcast = false,
 }: MiniLessonProps) {
   const uiSystem = uiSystemProvider();
   const theme = uiSystem.getCurrentTheme();

@@ -368,7 +368,7 @@ export default function LearningFlow({
               setCurrentExercise(0);
             }}
             isLoading={isUpdatingProgress}
-            hasPodcast={hasPlayer}
+            _hasPodcast={hasPlayer}
           />
         )}
         {!shouldShowDidactic && renderCurrentExercise()}

@@ -120,3 +120,14 @@ class LLMRequestRepo:
         self.save(request)
         with contextlib.suppress(Exception):
             self.s.flush()
+
+    def count_since(self, since: datetime) -> int:
+        """Count LLM requests created since the given datetime. [ADMIN ONLY]"""
+        return self.s.query(LLMRequestModel).filter(LLMRequestModel.created_at >= since).count()
+
+    def sum_costs_since(self, since: datetime) -> float:
+        """Sum total cost of LLM requests created since the given datetime. [ADMIN ONLY]"""
+        from sqlalchemy import func
+
+        result = self.s.query(func.sum(LLMRequestModel.cost_estimate)).filter(LLMRequestModel.created_at >= since).scalar()
+        return float(result) if result else 0.0

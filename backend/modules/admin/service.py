@@ -6,7 +6,7 @@ Minimal service for admin dashboard functionality.
 Returns DTOs for all admin functionality.
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 import uuid
 
@@ -24,6 +24,7 @@ from .models import (
     ConversationMessageAdmin,
     ConversationsListResponse,
     ConversationSummaryAdmin,
+    DashboardMetrics,
     FlowRunDetails,
     FlowRunsListResponse,
     FlowRunSummary,
@@ -40,6 +41,7 @@ from .models import (
     LLMRequestDetails,
     LLMRequestsListResponse,
     LLMRequestSummary,
+    MetricValue,
     UserAssociationSummary,
     UserConversationSummary,
     UserDetail,
@@ -56,28 +58,41 @@ TEACHING_ASSISTANT_CONVERSATION_TYPE = "teaching_assistant"
 
 
 class AdminService:
-    """Minimal service layer for admin dashboard functionality."""
+    """Service layer for admin operations including dashboard metrics."""
 
     def __init__(
         self,
-        flow_engine_admin: FlowEngineAdminProvider,
-        llm_services_admin: LLMServicesAdminProvider,
-        catalog: CatalogProvider,
-        content: ContentProvider,
-        users: UserProvider,
+        session: Any,
+        flow_engine_admin: FlowEngineAdminProvider | None = None,
+        llm_services_admin: LLMServicesAdminProvider | None = None,
+        catalog: CatalogProvider | None = None,
+        content: ContentProvider | None = None,
+        users: UserProvider | None = None,
         learning_sessions: LearningSessionProvider | None = None,
         learning_coach: LearningConversationsProvider | None = None,
         conversation_engine: ConversationEngineProvider | None = None,
+        # New dashboard metrics providers
+        user_provider: UserProvider | None = None,
+        content_provider: ContentProvider | None = None,
+        conversation_engine_provider: ConversationEngineProvider | None = None,
+        learning_session_provider: LearningSessionProvider | None = None,
+        llm_services_admin_provider: LLMServicesAdminProvider | None = None,
     ) -> None:
-        """Initialize admin service with required dependencies."""
-        self.flow_engine_admin = flow_engine_admin
-        self.llm_services_admin = llm_services_admin
-        self.catalog = catalog
-        self.content = content
-        self.users = users
-        self.learning_sessions = learning_sessions
+        """Initialize admin service with dependencies.
+
+        Supports both legacy dependencies (for flow runs, users, conversations, etc.)
+        and new dashboard metrics providers.
+        """
+        self.session = session
+        # Legacy dependencies
+        self.flow_engine_admin_provider = flow_engine_admin
+        self.llm_services_admin_provider = llm_services_admin or llm_services_admin_provider
+        self.catalog_provider = catalog
+        self.content_provider = content or content_provider
+        self.user_provider = users or user_provider
+        self.learning_session_provider = learning_sessions or learning_session_provider
         self.learning_coach = learning_coach
-        self.conversation_engine = conversation_engine
+        self.conversation_engine_provider = conversation_engine or conversation_engine_provider
 
     # ---- User Management ----
 
@@ -90,7 +105,7 @@ class AdminService:
     ) -> UserListResponse:
         """Return paginated user summaries with association counts."""
 
-        all_users = self.users.list_users(search=search)
+        all_users = self.user_provider.list_users(search=search)
         total = len(all_users)
         page = max(page, 1)
         start = (page - 1) * page_size
@@ -125,13 +140,13 @@ class AdminService:
     async def get_user_detail(self, user_id: int) -> UserDetail | None:
         """Return detailed user profile with associations for admin view."""
 
-        user = self.users.get_profile(user_id)
+        user = self.user_provider.get_profile(user_id)
         if not user:
             return None
 
         associations = await self._build_user_associations(user)
 
-        owned_units_data = await self.content.list_units_for_user(user.id, limit=100)
+        owned_units_data = await self.content_provider.list_units_for_user(user.id, limit=100)
         owned_units = [
             UserOwnedUnitSummary(
                 id=unit.id,
@@ -168,7 +183,7 @@ class AdminService:
         """Apply admin-controlled updates and return refreshed detail."""
 
         try:
-            self.users.update_user_admin(
+            self.user_provider.update_user_admin(
                 user_id,
                 name=payload.name,
                 role=payload.role,
@@ -189,7 +204,7 @@ class AdminService:
     ) -> ConversationsListResponse:
         """Return paginated conversations (both learning coach and teaching assistant)."""
 
-        if not self.conversation_engine:
+        if not self.conversation_engine_provider:
             return ConversationsListResponse(
                 conversations=[],
                 total_count=0,
@@ -233,23 +248,26 @@ class AdminService:
         has_next = len(summaries) > page_size
         visible = summaries[:page_size]
 
-        conversations = [
-            ConversationSummaryAdmin(
-                id=summary.id,
-                user_id=summary.user_id,
-                title=summary.title,
-                conversation_type=summary.conversation_type or (LEARNING_COACH_CONVERSATION_TYPE if summary.metadata and "topic" in summary.metadata else TEACHING_ASSISTANT_CONVERSATION_TYPE),
-                status=summary.status,
-                message_count=summary.message_count,
-                created_at=summary.created_at,
-                updated_at=summary.updated_at,
-                last_message_at=summary.last_message_at,
-                metadata=dict(summary.metadata or {}),
+        conversations = []
+        for summary in visible:
+            total_cost = await self._get_conversation_total_cost(uuid.UUID(summary.id))
+            conversations.append(
+                ConversationSummaryAdmin(
+                    id=summary.id,
+                    user_id=summary.user_id,
+                    title=summary.title,
+                    conversation_type=summary.conversation_type or (LEARNING_COACH_CONVERSATION_TYPE if summary.metadata and "topic" in summary.metadata else TEACHING_ASSISTANT_CONVERSATION_TYPE),
+                    status=summary.status,
+                    message_count=summary.message_count,
+                    created_at=summary.created_at,
+                    updated_at=summary.updated_at,
+                    last_message_at=summary.last_message_at,
+                    metadata=dict(summary.metadata or {}),
+                    total_cost=total_cost,
+                )
             )
-            for summary in visible
-        ]
 
-        total_count = await self._count_conversations(conversation_type=conversation_type, status=status)
+        total_count = await self._count_conversations(status=status)
 
         return ConversationsListResponse(
             conversations=conversations,
@@ -262,7 +280,7 @@ class AdminService:
     async def get_conversation(self, conversation_id: str) -> ConversationDetail | None:
         """Return transcript-level detail for any conversation type."""
 
-        if not self.conversation_engine:
+        if not self.conversation_engine_provider:
             return None
 
         try:
@@ -270,7 +288,7 @@ class AdminService:
         except ValueError:
             return None
 
-        detail = await self.conversation_engine.get_conversation(conversation_uuid)
+        detail = await self.conversation_engine_provider.get_conversation(conversation_uuid)
 
         messages = [
             ConversationMessageAdmin(
@@ -316,6 +334,9 @@ class AdminService:
         # Determine conversation type
         conv_type = LEARNING_COACH_CONVERSATION_TYPE if metadata.get("topic") else TEACHING_ASSISTANT_CONVERSATION_TYPE
 
+        # Calculate total cost from all messages
+        total_cost = sum(msg.cost_estimate or 0.0 for msg in messages)
+
         return ConversationDetail(
             conversation_id=detail.id,
             conversation_type=conv_type,
@@ -324,6 +345,7 @@ class AdminService:
             proposed_brief=self._dict_or_none(metadata.get("proposed_brief")),
             accepted_brief=self._dict_or_none(metadata.get("accepted_brief")),
             resources=resources,
+            total_cost=total_cost,
         )
 
     async def list_learning_coach_conversations(
@@ -335,7 +357,7 @@ class AdminService:
     ) -> LearningCoachConversationsListResponse:
         """Return paginated learning coach conversations for QA."""
 
-        if not self.conversation_engine:
+        if not self.conversation_engine_provider:
             return LearningCoachConversationsListResponse(
                 conversations=[],
                 total_count=0,
@@ -357,20 +379,23 @@ class AdminService:
         has_next = len(summaries) > page_size
         visible = summaries[:page_size]
 
-        conversations = [
-            LearningCoachConversationSummaryAdmin(
-                id=summary.id,
-                user_id=summary.user_id,
-                title=summary.title,
-                status=summary.status,
-                message_count=summary.message_count,
-                created_at=summary.created_at,
-                updated_at=summary.updated_at,
-                last_message_at=summary.last_message_at,
-                metadata=dict(summary.metadata or {}),
+        conversations = []
+        for summary in visible:
+            total_cost = await self._get_conversation_total_cost(uuid.UUID(summary.id))
+            conversations.append(
+                LearningCoachConversationSummaryAdmin(
+                    id=summary.id,
+                    user_id=summary.user_id,
+                    title=summary.title,
+                    status=summary.status,
+                    message_count=summary.message_count,
+                    created_at=summary.created_at,
+                    updated_at=summary.updated_at,
+                    last_message_at=summary.last_message_at,
+                    metadata=dict(summary.metadata or {}),
+                    total_cost=total_cost,
+                )
             )
-            for summary in visible
-        ]
 
         total_count = await self._count_learning_coach_conversations(status=status)
 
@@ -385,7 +410,7 @@ class AdminService:
     async def get_learning_coach_conversation(self, conversation_id: str) -> LearningCoachConversationDetail | None:
         """Return transcript-level detail for a learning coach conversation."""
 
-        if not self.conversation_engine:
+        if not self.conversation_engine_provider:
             return None
 
         try:
@@ -393,7 +418,7 @@ class AdminService:
         except ValueError:
             return None
 
-        detail = await self.conversation_engine.get_conversation(conversation_uuid)
+        detail = await self.conversation_engine_provider.get_conversation(conversation_uuid)
 
         messages = [
             LearningCoachMessageAdmin(
@@ -445,17 +470,17 @@ class AdminService:
     async def get_user_conversations(self, user_id: int, *, limit: int = 5) -> list[UserConversationSummary]:
         """Return recent conversations (both types) for a user."""
 
-        if not self.conversation_engine:
+        if not self.conversation_engine_provider:
             return []
 
         # Fetch both types
-        coach_summaries = await self.conversation_engine.list_conversations_for_user(
+        coach_summaries = await self.conversation_engine_provider.list_conversations_for_user(
             user_id,
             limit=limit,
             offset=0,
             conversation_type=LEARNING_COACH_CONVERSATION_TYPE,
         )
-        assistant_summaries = await self.conversation_engine.list_conversations_for_user(
+        assistant_summaries = await self.conversation_engine_provider.list_conversations_for_user(
             user_id,
             limit=limit,
             offset=0,
@@ -487,11 +512,11 @@ class AdminService:
         status: str | None = None,
         user_id: int | None = None,
     ) -> list[Any]:
-        if not self.conversation_engine:
+        if not self.conversation_engine_provider:
             return []
 
         if user_id is not None:
-            return await self.conversation_engine.list_conversations_for_user(
+            return await self.conversation_engine_provider.list_conversations_for_user(
                 user_id,
                 limit=limit,
                 offset=offset,
@@ -499,7 +524,7 @@ class AdminService:
                 status=status,
             )
 
-        return await self.conversation_engine.list_conversations_by_type(
+        return await self.conversation_engine_provider.list_conversations_by_type(
             LEARNING_COACH_CONVERSATION_TYPE,
             limit=limit,
             offset=offset,
@@ -529,7 +554,7 @@ class AdminService:
         status: str | None = None,
         user_id: int | None = None,
     ) -> int:
-        if not self.conversation_engine:
+        if not self.conversation_engine_provider:
             return 0
 
         if not await self._has_learning_coach_conversation_at_offset(0, status=status, user_id=user_id):
@@ -554,6 +579,17 @@ class AdminService:
 
         return left
 
+    async def _get_conversation_total_cost(self, conversation_id: uuid.UUID) -> float:
+        """Calculate total cost for a conversation by summing message costs."""
+        if not self.conversation_engine_provider:
+            return 0.0
+
+        try:
+            detail = await self.conversation_engine_provider.get_conversation(conversation_id)
+            return sum(msg.cost_estimate or 0.0 for msg in detail.messages)
+        except Exception:
+            return 0.0
+
     async def _fetch_conversations_by_type(
         self,
         conversation_type: str,
@@ -563,11 +599,11 @@ class AdminService:
         status: str | None = None,
         user_id: int | None = None,
     ) -> list[Any]:
-        if not self.conversation_engine:
+        if not self.conversation_engine_provider:
             return []
 
         if user_id is not None:
-            return await self.conversation_engine.list_conversations_for_user(
+            return await self.conversation_engine_provider.list_conversations_for_user(
                 user_id,
                 limit=limit,
                 offset=offset,
@@ -575,7 +611,7 @@ class AdminService:
                 status=status,
             )
 
-        return await self.conversation_engine.list_conversations_by_type(
+        return await self.conversation_engine_provider.list_conversations_by_type(
             conversation_type,
             limit=limit,
             offset=offset,
@@ -588,7 +624,7 @@ class AdminService:
         status: str | None = None,
         user_id: int | None = None,
     ) -> int:
-        if not self.conversation_engine:
+        if not self.conversation_engine_provider:
             return 0
 
         if not await self._has_learning_coach_conversation_at_offset(0, status=status, user_id=user_id):
@@ -616,7 +652,7 @@ class AdminService:
     async def _build_user_associations(self, user: UserRead) -> UserAssociationSummary:
         """Aggregate association counts for a user."""
 
-        owned_units = await self.content.list_units_for_user(user.id, limit=100)
+        owned_units = await self.content_provider.list_units_for_user(user.id, limit=100)
         owned_global_unit_count = sum(1 for unit in owned_units if getattr(unit, "is_global", False))
         learning_session_count = await self._get_learning_session_count(user)
         llm_request_count = self._get_llm_request_count(user)
@@ -628,10 +664,10 @@ class AdminService:
         )
 
     async def _get_learning_session_count(self, user: UserRead) -> int:
-        if not self.learning_sessions:
+        if not self.learning_session_provider:
             return 0
         try:
-            response = await self.learning_sessions.get_user_sessions(
+            response = await self.learning_session_provider.get_user_sessions(
                 user_id=str(user.id),
                 limit=1,
                 offset=0,
@@ -641,10 +677,10 @@ class AdminService:
         return response.total
 
     async def _get_recent_sessions(self, user: UserRead, limit: int = 5) -> list[UserSessionSummary]:
-        if not self.learning_sessions:
+        if not self.learning_session_provider:
             return []
         try:
-            response = await self.learning_sessions.get_user_sessions(
+            response = await self.learning_session_provider.get_user_sessions(
                 user_id=str(user.id),
                 limit=limit,
                 offset=0,
@@ -671,7 +707,7 @@ class AdminService:
         if not user_uuid:
             return 0
         try:
-            return self.llm_services_admin.get_request_count_by_user(user_uuid)
+            return self.llm_services_admin_provider.get_request_count_by_user(user_uuid)
         except Exception:
             return 0
 
@@ -680,7 +716,7 @@ class AdminService:
         if not user_uuid:
             return []
         try:
-            requests = self.llm_services_admin.get_user_requests(user_uuid, limit=limit, offset=0)
+            requests = self.llm_services_admin_provider.get_user_requests(user_uuid, limit=limit, offset=0)
         except Exception:
             return []
 
@@ -762,8 +798,8 @@ class AdminService:
         """Get paginated list of flow runs (minimal implementation)."""
         try:
             # Get flow runs through public interface
-            flow_models = self.flow_engine_admin.get_recent_flow_runs(limit=page_size, offset=(page - 1) * page_size)
-            total_count = self.flow_engine_admin.count_flow_runs()
+            flow_models = self.flow_engine_admin_provider.get_recent_flow_runs(limit=page_size, offset=(page - 1) * page_size)
+            total_count = self.flow_engine_admin_provider.count_flow_runs()
 
             # Convert to DTOs
             flow_summaries = []
@@ -771,7 +807,7 @@ class AdminService:
                 # Get step count for this flow
                 try:
                     flow_uuid = uuid.UUID(str(flow_model.id))
-                    steps = self.flow_engine_admin.get_flow_steps_by_run_id(flow_uuid)
+                    steps = self.flow_engine_admin_provider.get_flow_steps_by_run_id(flow_uuid)
                 except (ValueError, TypeError):
                     steps = []
 
@@ -826,7 +862,7 @@ class AdminService:
             return None
 
         # Get flow run through public interface
-        flow_model = self.flow_engine_admin.get_flow_run_by_id(flow_uuid)
+        flow_model = self.flow_engine_admin_provider.get_flow_run_by_id(flow_uuid)
         if not flow_model:
             return None
 
@@ -834,7 +870,7 @@ class AdminService:
         try:
             if flow_model.id:
                 flow_uuid = uuid.UUID(flow_model.id) if isinstance(flow_model.id, str) else flow_model.id
-                step_models = self.flow_engine_admin.get_flow_steps_by_run_id(flow_uuid)
+                step_models = self.flow_engine_admin_provider.get_flow_steps_by_run_id(flow_uuid)
             else:
                 step_models = []
         except (ValueError, TypeError):
@@ -910,7 +946,7 @@ class AdminService:
             return None
 
         # Get step through public interface
-        step_model = self.flow_engine_admin.get_flow_step_by_id(step_uuid)
+        step_model = self.flow_engine_admin_provider.get_flow_step_by_id(step_uuid)
         if not step_model:
             return None
 
@@ -950,7 +986,7 @@ class AdminService:
         page_size = max(page_size, 1)
         offset = (page - 1) * page_size
 
-        if not self.learning_sessions:
+        if not self.learning_session_provider:
             return LearningSessionsListResponse(
                 sessions=[],
                 total_count=0,
@@ -960,7 +996,7 @@ class AdminService:
             )
 
         try:
-            response = await self.learning_sessions.list_sessions(
+            response = await self.learning_session_provider.list_sessions(
                 user_id=user_id,
                 status=status,
                 lesson_id=lesson_id,
@@ -990,11 +1026,11 @@ class AdminService:
     async def get_learning_session_detail(self, session_id: str) -> LearningSessionSummary | None:
         """Return detailed learning session data for a specific session."""
 
-        if not self.learning_sessions:
+        if not self.learning_session_provider:
             return None
 
         try:
-            session = await self.learning_sessions.get_session_admin(session_id)
+            session = await self.learning_session_provider.get_session_admin(session_id)
         except Exception:
             return None
 
@@ -1013,7 +1049,7 @@ class AdminService:
             return None
 
         # Get LLM request through public interface
-        llm_request = self.llm_services_admin.get_request(request_uuid)
+        llm_request = self.llm_services_admin_provider.get_request(request_uuid)
         if not llm_request:
             return None
 
@@ -1057,8 +1093,8 @@ class AdminService:
         """Get paginated list of LLM requests."""
         try:
             # Get LLM requests through public interface
-            llm_requests = self.llm_services_admin.get_recent_requests(limit=page_size, offset=(page - 1) * page_size)
-            total_count = self.llm_services_admin.count_all_requests()
+            llm_requests = self.llm_services_admin_provider.get_recent_requests(limit=page_size, offset=(page - 1) * page_size)
+            total_count = self.llm_services_admin_provider.count_all_requests()
 
             # Convert to DTOs
             request_summaries = []
@@ -1115,7 +1151,7 @@ class AdminService:
         """Get paginated list of lessons with optional filtering."""
         try:
             # Use search_lessons to get lessons with filtering
-            search_response = await self.catalog.search_lessons(
+            search_response = await self.catalog_provider.search_lessons(
                 query=search,
                 learner_level=learner_level,
                 limit=page_size,
@@ -1126,7 +1162,7 @@ class AdminService:
             lesson_summaries = []
             for lesson in search_response.lessons:
                 # Get the full lesson data from content module to access package_version, created_at, etc.
-                full_lesson = await self.content.get_lesson(lesson.id)
+                full_lesson = await self.content_provider.get_lesson(lesson.id)
                 if full_lesson:
                     lesson_summaries.append(
                         LessonSummary(
@@ -1168,7 +1204,7 @@ class AdminService:
 
         try:
             # Get lesson from content provider directly to get full package structure
-            lesson = await self.content.get_lesson(lesson_id)
+            lesson = await self.content_provider.get_lesson(lesson_id)
             if not lesson:
                 return None
 
@@ -1196,3 +1232,91 @@ class AdminService:
 
         except Exception:
             return None
+
+    async def get_dashboard_metrics(self) -> "DashboardMetrics":
+        """
+        Get metrics for the admin dashboard, including 24h and 7d trends.
+
+        Returns actual metrics by querying each module via public provider interfaces.
+        All cross-module access follows architecture rule: only access via public interfaces.
+        """
+        from datetime import datetime
+
+        now = datetime.now(UTC)
+        since_24h = now - timedelta(hours=24)
+        since_7d = now - timedelta(days=7)
+
+        # Get all metrics in parallel for efficiency
+        signups_24h, signups_7d = await self._count_signups(since_24h, since_7d)
+        new_units_24h, new_units_7d = await self._count_new_units(since_24h, since_7d)
+        assistant_convs_24h, assistant_convs_7d = await self._count_assistant_conversations(since_24h, since_7d)
+        sessions_started_24h, sessions_started_7d = await self._count_learning_sessions_started(since_24h, since_7d)
+        sessions_completed_24h, sessions_completed_7d = await self._count_learning_sessions_completed(since_24h, since_7d)
+        llm_reqs_24h, llm_reqs_7d = await self._count_llm_requests(since_24h, since_7d)
+        llm_cost_24h, llm_cost_7d = await self._sum_llm_costs(since_24h, since_7d)
+
+        return DashboardMetrics(
+            signups=MetricValue(last_24h=signups_24h, last_7d=signups_7d),
+            new_units=MetricValue(last_24h=new_units_24h, last_7d=new_units_7d),
+            assistant_conversations=MetricValue(last_24h=assistant_convs_24h, last_7d=assistant_convs_7d),
+            learning_sessions_started=MetricValue(last_24h=sessions_started_24h, last_7d=sessions_started_7d),
+            learning_sessions_completed=MetricValue(last_24h=sessions_completed_24h, last_7d=sessions_completed_7d),
+            llm_requests=MetricValue(last_24h=llm_reqs_24h, last_7d=llm_reqs_7d),
+            llm_requests_cost=MetricValue(last_24h=llm_cost_24h, last_7d=llm_cost_7d),
+        )
+
+    async def _count_signups(self, since_24h: datetime, since_7d: datetime) -> tuple[int, int]:
+        """Count new user signups in the last 24h and 7d."""
+        if not self.user_provider:
+            return (0, 0)
+        count_24h = self.user_provider.count_users_since(since_24h)
+        count_7d = self.user_provider.count_users_since(since_7d)
+        return (count_24h, count_7d)
+
+    async def _count_new_units(self, since_24h: datetime, since_7d: datetime) -> tuple[int, int]:
+        """Count newly created units in the last 24h and 7d."""
+        if not self.content_provider:
+            return (0, 0)
+        count_24h = await self.content_provider.count_units_since(since_24h)
+        count_7d = await self.content_provider.count_units_since(since_7d)
+        return (count_24h, count_7d)
+
+    async def _count_assistant_conversations(self, since_24h: datetime, since_7d: datetime) -> tuple[int, int]:
+        """Count assistant-type conversations created in the last 24h and 7d."""
+        if not self.conversation_engine_provider:
+            return (0, 0)
+        count_24h = self.conversation_engine_provider.count_assistant_conversations_since(since_24h)
+        count_7d = self.conversation_engine_provider.count_assistant_conversations_since(since_7d)
+        return (count_24h, count_7d)
+
+    async def _count_learning_sessions_started(self, since_24h: datetime, since_7d: datetime) -> tuple[int, int]:
+        """Count learning sessions started in the last 24h and 7d."""
+        if not self.learning_session_provider:
+            return (0, 0)
+        count_24h = await self.learning_session_provider.count_started_sessions_since(since_24h)
+        count_7d = await self.learning_session_provider.count_started_sessions_since(since_7d)
+        return (count_24h, count_7d)
+
+    async def _count_learning_sessions_completed(self, since_24h: datetime, since_7d: datetime) -> tuple[int, int]:
+        """Count learning sessions marked as completed in the last 24h and 7d."""
+        if not self.learning_session_provider:
+            return (0, 0)
+        count_24h = await self.learning_session_provider.count_completed_sessions_since(since_24h)
+        count_7d = await self.learning_session_provider.count_completed_sessions_since(since_7d)
+        return (count_24h, count_7d)
+
+    async def _count_llm_requests(self, since_24h: datetime, since_7d: datetime) -> tuple[int, int]:
+        """Count LLM requests created in the last 24h and 7d."""
+        if not self.llm_services_admin_provider:
+            return (0, 0)
+        count_24h = self.llm_services_admin_provider.count_requests_since(since_24h)
+        count_7d = self.llm_services_admin_provider.count_requests_since(since_7d)
+        return (count_24h, count_7d)
+
+    async def _sum_llm_costs(self, since_24h: datetime, since_7d: datetime) -> tuple[float, float]:
+        """Sum total cost of LLM requests created in the last 24h and 7d."""
+        if not self.llm_services_admin_provider:
+            return (0.0, 0.0)
+        cost_24h = self.llm_services_admin_provider.sum_request_costs_since(since_24h)
+        cost_7d = self.llm_services_admin_provider.sum_request_costs_since(since_7d)
+        return (cost_24h, cost_7d)

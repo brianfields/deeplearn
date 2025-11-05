@@ -64,13 +64,13 @@ else
 fi
 
 # Backend: Ruff format and lint
-if run_command "backend ruff format" "${BACKEND_PREFIX}python3 -m ruff format" "backend"; then
+if run_command "backend ruff format" "ruff format" "backend"; then
     echo "[PASS] Backend formatting completed"
 else
     echo "[FAIL] Backend formatting failed"
 fi
 
-if run_command "backend ruff lint fix" "${BACKEND_PREFIX}python3 -m ruff check --fix" "backend"; then
+if run_command "backend ruff lint fix" "ruff check --fix" "backend"; then
     echo "[PASS] Backend linting completed"
 else
     echo "[FAIL] Backend linting failed"

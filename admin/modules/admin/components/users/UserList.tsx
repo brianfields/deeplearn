@@ -7,14 +7,13 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import Link from 'next/link';
 import { useAdminUsers } from '../../queries';
 import type { UserListQuery } from '../../models';
-import { LoadingSpinner } from '../shared/LoadingSpinner';
-import { ErrorMessage } from '../shared/ErrorMessage';
+import { DetailViewTable, type DetailViewTableColumn } from '../shared/DetailViewTable';
 import { formatDate } from '@/lib/utils';
+import type { UserSummary } from '../../models';
 
-export function UserList() {
+export function UserList(): JSX.Element {
   const [searchValue, setSearchValue] = useState('');
   const [activeSearch, setActiveSearch] = useState<string | undefined>(undefined);
   const [page, setPage] = useState(1);
@@ -43,34 +42,99 @@ export function UserList() {
     setPage(1);
   };
 
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPage(1);
+    // Note: pageSize state is managed through useMemo
+  };
+
   const users = data?.users ?? [];
   const totalCount = data?.total_count ?? 0;
   const hasNext = data?.has_next ?? false;
   const currentPage = data?.page ?? page;
   const totalPages = totalCount > 0 ? Math.ceil(totalCount / pageSize) : 1;
 
-  if (isLoading) {
-    return <LoadingSpinner size="lg" text="Loading users..." />;
-  }
+  const PAGE_SIZE_OPTIONS = [10, 25, 50];
 
-  if (error) {
-    return (
-      <ErrorMessage
-        message="Failed to load users. Please try again."
-        onRetry={() => refetch()}
+  const emptyIcon = (
+    <svg
+      className="h-12 w-12 text-gray-400"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M12 4.354a4 4 0 110 5.292M15 21H3a6 6 0 016-6h6a6 6 0 016 6m0 0h6"
       />
-    );
-  }
+    </svg>
+  );
+
+  const columns: DetailViewTableColumn<UserSummary>[] = [
+    {
+      key: 'name',
+      label: 'User',
+      render: (user) => (
+        <div className="flex flex-col">
+          <span className="text-sm font-medium text-gray-900">{user.name || 'Unnamed user'}</span>
+          <span className="text-sm text-gray-500">{user.email}</span>
+        </div>
+      ),
+    },
+    {
+      key: 'role',
+      label: 'Role',
+      render: (user) => <span className="capitalize">{user.role || 'user'}</span>,
+    },
+    {
+      key: 'units',
+      label: 'Units',
+      render: (user) => (
+        <div className="flex flex-col">
+          <span>{user.associations.owned_unit_count} total</span>
+          <span className="text-xs text-gray-500">{user.associations.owned_global_unit_count} shared</span>
+        </div>
+      ),
+    },
+    {
+      key: 'sessions',
+      label: 'Sessions',
+      render: (user) => user.associations.learning_session_count,
+    },
+    {
+      key: 'llm_requests',
+      label: 'LLM Requests',
+      render: (user) => user.associations.llm_request_count,
+    },
+    {
+      key: 'created_at',
+      label: 'Created',
+      render: (user) => formatDate(user.created_at),
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (user) =>
+        user.is_active ? (
+          <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
+            Active
+          </span>
+        ) : (
+          <span className="inline-flex items-center rounded-full bg-gray-200 px-2.5 py-0.5 text-xs font-medium text-gray-700">
+            Inactive
+          </span>
+        ),
+    },
+  ];
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-semibold text-gray-900">Users</h2>
-          <p className="text-gray-600 mt-1">
-            Search and manage users, their ownership, and recent activity.
-          </p>
-        </div>
         <form onSubmit={handleSearchSubmit} className="flex items-center space-x-2">
           <input
             type="search"
@@ -97,117 +161,27 @@ export function UserList() {
         </form>
       </div>
 
-      <div className="bg-white shadow rounded-lg overflow-hidden">
-        {users.length === 0 ? (
-          <div className="px-6 py-12 text-center">
-            <h3 className="text-lg font-medium text-gray-900">No users found</h3>
-            <p className="mt-2 text-gray-600">Try adjusting your search or filters.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    User
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Role
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Units
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Sessions
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    LLM Requests
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Created
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 bg-white">
-                {users.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium text-gray-900">{user.name || 'Unnamed user'}</span>
-                        <span className="text-sm text-gray-500">{user.email}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 capitalize">
-                      {user.role || 'user'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <div className="flex flex-col">
-                        <span>{user.associations.owned_unit_count} total</span>
-                        <span className="text-xs text-gray-500">{user.associations.owned_global_unit_count} shared</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {user.associations.learning_session_count}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {user.associations.llm_request_count}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatDate(user.created_at)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {user.is_active ? (
-                        <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
-                          Active
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center rounded-full bg-gray-200 px-2.5 py-0.5 text-xs font-medium text-gray-700">
-                          Inactive
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <Link href={`/users/${user.id}`} className="text-blue-600 hover:text-blue-900">
-                        View
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div className="text-sm text-gray-500">
-          Showing page {currentPage} of {totalPages} ({totalCount} users)
-        </div>
-        <div className="flex items-center space-x-2">
-          <button
-            type="button"
-            onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-            disabled={currentPage <= 1}
-            className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Previous
-          </button>
-          <button
-            type="button"
-            onClick={() => setPage((prev) => (hasNext ? prev + 1 : prev))}
-            disabled={!hasNext}
-            className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Next
-          </button>
-        </div>
-      </div>
+      <DetailViewTable
+        data={users}
+        columns={columns}
+        getRowId={(user) => user.id.toString()}
+        getDetailHref={(user) => `/users/${user.id}`}
+        isLoading={isLoading}
+        error={error}
+        emptyMessage="Try adjusting your search or filters."
+        emptyIcon={emptyIcon}
+        onRetry={() => refetch()}
+        pagination={{
+          currentPage,
+          totalPages,
+          totalCount,
+          pageSize,
+          hasNext,
+        }}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
+        pageOptions={PAGE_SIZE_OPTIONS}
+      />
     </div>
   );
 }

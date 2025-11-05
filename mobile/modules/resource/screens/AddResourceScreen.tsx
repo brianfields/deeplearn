@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useMemo } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import {
   ActivityIndicator,
@@ -69,8 +69,9 @@ export function AddResourceScreen({
   const sessionQuery = useLearningCoachSession(
     attachToConversation ? conversationId : null
   );
-  const sharedResourceIds = new Set(
-    sessionQuery.data?.resources?.map(r => r.id) ?? []
+  const sharedResourceIds = useMemo(
+    () => new Set(sessionQuery.data?.resources?.map(r => r.id) ?? []),
+    [sessionQuery.data?.resources]
   );
 
   const handleResourceAttached = useCallback(
@@ -152,7 +153,13 @@ export function AddResourceScreen({
           : 'Unable to pick the selected file.';
       Alert.alert('File selection error', message);
     }
-  }, [navigation, uploadMutation, userId]);
+  }, [
+    navigation,
+    uploadMutation,
+    userId,
+    attachToConversation,
+    handleResourceAttached,
+  ]);
 
   const handleUrlSubmit = useCallback(() => {
     if (!userId) {
@@ -192,7 +199,14 @@ export function AddResourceScreen({
         },
       }
     );
-  }, [navigation, url, urlMutation, userId]);
+  }, [
+    navigation,
+    url,
+    urlMutation,
+    userId,
+    attachToConversation,
+    handleResourceAttached,
+  ]);
 
   const handleSelectResource = useCallback(
     (resource: ResourceSummary) => {

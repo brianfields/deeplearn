@@ -15,7 +15,7 @@ import { ErrorMessage } from '../shared/ErrorMessage';
 import { ReloadButton } from '../shared/ReloadButton';
 import { StatusBadge } from '../shared/StatusBadge';
 import { MessageTranscript } from './MessageTranscript';
-import { formatDate, formatJSON } from '@/lib/utils';
+import { formatDate, formatJSON, formatCost } from '@/lib/utils';
 
 interface ConversationDetailsProps {
   conversationId: string;
@@ -138,6 +138,10 @@ export function ConversationDetails({ conversationId, summary }: ConversationDet
         <div>
           <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Last message</dt>
           <dd className="text-sm text-gray-900">{formatDate(lastMessageAt)}</dd>
+        </div>
+        <div>
+          <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Total Cost</dt>
+          <dd className="text-sm text-gray-900">{formatCost(conversation.total_cost)}</dd>
         </div>
       </dl>
 

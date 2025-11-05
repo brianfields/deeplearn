@@ -28,6 +28,7 @@ import {
 import { infrastructureProvider } from '../../infrastructure/public';
 import type { LearningStackParamList } from '../../../types';
 import { OFFLINE_CACHE_MIGRATIONS } from '../repo';
+import { layoutStyles } from '../../ui_system/styles/layout';
 
 type SQLiteDetailNavigation = NativeStackNavigationProp<
   LearningStackParamList,
@@ -280,7 +281,7 @@ export function SQLiteDetailScreen(): React.ReactElement {
               </Box>
             ) : (
               <Box px="lg">
-                <Text variant="title" style={{ marginBottom: 12 }}>
+                <Text variant="title" style={localStyles.marginBottom12}>
                   Tables & Data
                 </Text>
                 {sqliteInfo.tables.map(table => {
@@ -289,7 +290,7 @@ export function SQLiteDetailScreen(): React.ReactElement {
                     <Card
                       key={table.name}
                       variant="outlined"
-                      style={{ marginBottom: 12 }}
+                      style={localStyles.marginBottom12}
                     >
                       <TouchableOpacity
                         onPress={() => {
@@ -301,7 +302,10 @@ export function SQLiteDetailScreen(): React.ReactElement {
                         <View style={styles.tableHeader}>
                           <Text
                             variant="body"
-                            style={{ fontWeight: '600', flex: 1 }}
+                            style={[
+                              layoutStyles.fontWeightSemibold,
+                              layoutStyles.flex1,
+                            ]}
                           >
                             {table.name}
                           </Text>
@@ -319,7 +323,7 @@ export function SQLiteDetailScreen(): React.ReactElement {
                           <Text
                             variant="caption"
                             color={theme.colors.textSecondary}
-                            style={{ marginBottom: 8 }}
+                            style={localStyles.marginBottom8}
                           >
                             {table.sampleRows.length < table.rowCount
                               ? `Showing first ${table.sampleRows.length} of ${table.rowCount} rows:`
@@ -330,7 +334,7 @@ export function SQLiteDetailScreen(): React.ReactElement {
                               <Text
                                 variant="caption"
                                 color={theme.colors.textSecondary}
-                                style={{ marginBottom: 4 }}
+                                style={localStyles.marginBottom4}
                               >
                                 Row {idx + 1}:
                               </Text>
@@ -339,7 +343,10 @@ export function SQLiteDetailScreen(): React.ReactElement {
                                   <Text
                                     variant="caption"
                                     color={theme.colors.textSecondary}
-                                    style={{ fontWeight: '600', minWidth: 100 }}
+                                    style={[
+                                      layoutStyles.fontWeightSemibold,
+                                      localStyles.minWidth100,
+                                    ]}
                                   >
                                     {key}:
                                   </Text>
@@ -455,6 +462,21 @@ const styles = StyleSheet.create({
   fieldValue: {
     flex: 1,
     fontFamily: 'monospace',
+  },
+});
+
+const localStyles = StyleSheet.create({
+  marginBottom12: {
+    marginBottom: 12,
+  },
+  marginBottom8: {
+    marginBottom: 8,
+  },
+  marginBottom4: {
+    marginBottom: 4,
+  },
+  minWidth100: {
+    minWidth: 100,
   },
 });
 

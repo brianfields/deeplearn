@@ -183,6 +183,7 @@ export interface ConversationDetail {
   proposed_brief: Record<string, any> | null;
   accepted_brief: Record<string, any> | null;
   resources: ResourceSummary[];
+  total_cost: number;
 }
 
 export interface ConversationSummary {
@@ -196,6 +197,7 @@ export interface ConversationSummary {
   updated_at: Date;
   last_message_at: Date | null;
   metadata: Record<string, any>;
+  total_cost: number;
 }
 
 export interface ConversationsListResponse {
@@ -841,6 +843,7 @@ export interface ApiConversationDetail {
   proposed_brief?: Record<string, any> | null;
   accepted_brief?: Record<string, any> | null;
   resources?: ApiResourceSummary[];
+  total_cost: number;
 }
 
 export interface ApiConversationSummary {
@@ -854,6 +857,7 @@ export interface ApiConversationSummary {
   updated_at: string;
   last_message_at: string | null;
   metadata: Record<string, any> | null;
+  total_cost: number;
 }
 
 export interface ApiConversationsListResponse {
