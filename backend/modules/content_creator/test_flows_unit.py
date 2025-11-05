@@ -103,14 +103,10 @@ async def test_lesson_creation_flow_runs_concept_pipeline(
         lesson_source_material="Scaffolded excerpt",
         mini_lesson="Body",
     )
-    mock_extract_lesson_step.return_value.execute = AsyncMock(
-        return_value=SimpleNamespace(output_content=lesson_md)
-    )
+    mock_extract_lesson_step.return_value.execute = AsyncMock(return_value=SimpleNamespace(output_content=lesson_md))
 
     concept_items = [_FakeModel(id="c1", term="Mean", slug="mean", definition="Avg", aliases=[], example_from_source=None, source_span=None, related_terms=[], aligned_learning_objectives=["lo_1"])]
-    mock_extract_concepts_step.return_value.execute = AsyncMock(
-        return_value=SimpleNamespace(output_content=_FakeModel(concepts=concept_items, meta=_FakeModel(total_concepts=1)))
-    )
+    mock_extract_concepts_step.return_value.execute = AsyncMock(return_value=SimpleNamespace(output_content=_FakeModel(concepts=concept_items, meta=_FakeModel(total_concepts=1))))
 
     refined_concepts = [
         _FakeModel(
@@ -145,9 +141,7 @@ async def test_lesson_creation_flow_runs_concept_pipeline(
             version="v1",
         )
     ]
-    mock_annotate_step.return_value.execute = AsyncMock(
-        return_value=SimpleNamespace(output_content=_FakeModel(refined_concepts=refined_concepts, meta=_FakeModel(total_retained=1)))
-    )
+    mock_annotate_step.return_value.execute = AsyncMock(return_value=SimpleNamespace(output_content=_FakeModel(refined_concepts=refined_concepts, meta=_FakeModel(total_retained=1))))
 
     comprehension_exercises = [
         _FakeModel(
@@ -167,9 +161,7 @@ async def test_lesson_creation_flow_runs_concept_pipeline(
             aligned_learning_objective="lo_1",
         )
     ]
-    mock_comprehension_step.return_value.execute = AsyncMock(
-        return_value=SimpleNamespace(output_content=_FakeModel(exercises=comprehension_exercises, meta=_FakeModel(exercise_category="comprehension")))
-    )
+    mock_comprehension_step.return_value.execute = AsyncMock(return_value=SimpleNamespace(output_content=_FakeModel(exercises=comprehension_exercises, meta=_FakeModel(exercise_category="comprehension"))))
 
     transfer_exercises = [
         _FakeModel(
@@ -186,9 +178,7 @@ async def test_lesson_creation_flow_runs_concept_pipeline(
             aligned_learning_objective="lo_1",
         )
     ]
-    mock_transfer_step.return_value.execute = AsyncMock(
-        return_value=SimpleNamespace(output_content=_FakeModel(exercises=transfer_exercises, meta=_FakeModel(exercise_category="transfer")))
-    )
+    mock_transfer_step.return_value.execute = AsyncMock(return_value=SimpleNamespace(output_content=_FakeModel(exercises=transfer_exercises, meta=_FakeModel(exercise_category="transfer"))))
 
     quiz_meta = _FakeModel(
         quiz_type="Formative",
@@ -203,9 +193,7 @@ async def test_lesson_creation_flow_runs_concept_pipeline(
         selection_rationale=[],
         gaps_identified=[],
     )
-    mock_quiz_step.return_value.execute = AsyncMock(
-        return_value=SimpleNamespace(output_content=_FakeModel(quiz=["ex-comp-sa-001", "ex-trans-mc-001"], meta=quiz_meta))
-    )
+    mock_quiz_step.return_value.execute = AsyncMock(return_value=SimpleNamespace(output_content=_FakeModel(quiz=["ex-comp-sa-001", "ex-trans-mc-001"], meta=quiz_meta)))
 
     flow = LessonCreationFlow()
     result = await flow._execute_flow_logic(

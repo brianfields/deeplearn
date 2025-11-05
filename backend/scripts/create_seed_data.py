@@ -152,18 +152,14 @@ def _build_concept_glossary_from_terms(
                 clarity=int(term_data.get("clarity", 4)),
                 assessment_potential=int(term_data.get("assessment_potential", 4)),
                 cognitive_domain=term_data.get("cognitive_domain") or "Knowledge",
-                difficulty_potential=term_data.get("difficulty_potential")
-                or {"min_level": "Recall", "max_level": "Comprehension"},
+                difficulty_potential=term_data.get("difficulty_potential") or {"min_level": "Recall", "max_level": "Comprehension"},
                 learning_role=term_data.get("learning_role") or "Core",
                 aligned_learning_objectives=list(aligned_objectives),
-                canonical_answer=term_data.get("canonical_answer")
-                or term_data.get("definition")
-                or term,
+                canonical_answer=term_data.get("canonical_answer") or term_data.get("definition") or term,
                 accepted_phrases=list(term_data.get("accepted_phrases", [term])),
                 answer_type=term_data.get("answer_type") or "definition",
                 closed_answer=bool(term_data.get("closed_answer", True)),
-                example_question_stem=term_data.get("example_question_stem")
-                or f"What is {term}?",
+                example_question_stem=term_data.get("example_question_stem") or f"What is {term}?",
                 plausible_distractors=plausible_distractors,
                 misconception_note=term_data.get("misconception_note"),
                 contrast_with=list(term_data.get("contrast_with", [])),
@@ -190,11 +186,7 @@ def _build_exercise_bank_from_specs(
     for index, mcq in enumerate(mcqs, start=1):
         exercise_id = mcq.get("id") or f"{lesson_id}_mcq_{index}"
         mapped_cognitive = _map_cognitive_level(mcq.get("cognitive_level"))
-        exercise_category = (
-            "comprehension"
-            if mapped_cognitive in {"Recall", "Comprehension"}
-            else "transfer"
-        )
+        exercise_category = "comprehension" if mapped_cognitive in {"Recall", "Comprehension"} else "transfer"
         options: list[ExerciseOption] = []
         option_specs = mcq.get("options", [])
         for option_index, option_spec in enumerate(option_specs):
@@ -221,9 +213,7 @@ def _build_exercise_bank_from_specs(
                 id=exercise_id,
                 exercise_type="mcq",
                 exercise_category=exercise_category,
-                aligned_learning_objective=_choose_aligned_lo(
-                    mcq.get("learning_objectives_covered"), unit_lo_ids
-                ),
+                aligned_learning_objective=_choose_aligned_lo(mcq.get("learning_objectives_covered"), unit_lo_ids),
                 cognitive_level=mapped_cognitive,
                 difficulty=_map_difficulty(mcq.get("difficulty")),
                 stem=mcq.get("stem", ""),
@@ -245,9 +235,7 @@ def _build_exercise_bank_from_specs(
             wrong_answers.append(
                 WrongAnswerWithRationale(
                     answer=wrong_spec.get("answer", ""),
-                    rationale_wrong=wrong_spec.get("rationale_wrong")
-                    or wrong_spec.get("explanation")
-                    or "Review the concept again.",
+                    rationale_wrong=wrong_spec.get("rationale_wrong") or wrong_spec.get("explanation") or "Review the concept again.",
                     misconception_ids=list(wrong_spec.get("misconception_ids", [])),
                 )
             )
@@ -257,17 +245,14 @@ def _build_exercise_bank_from_specs(
                 id=exercise_id,
                 exercise_type="short_answer",
                 exercise_category="transfer",
-                aligned_learning_objective=_choose_aligned_lo(
-                    short_answer.get("learning_objectives_covered"), unit_lo_ids
-                ),
+                aligned_learning_objective=_choose_aligned_lo(short_answer.get("learning_objectives_covered"), unit_lo_ids),
                 cognitive_level=mapped_cognitive,
                 difficulty=_map_difficulty(short_answer.get("difficulty")),
                 stem=short_answer.get("stem", ""),
                 canonical_answer=short_answer.get("canonical_answer", ""),
                 acceptable_answers=list(short_answer.get("acceptable_answers", [])),
                 wrong_answers=wrong_answers,
-                explanation_correct=short_answer.get("explanation_correct")
-                or "Great job!",
+                explanation_correct=short_answer.get("explanation_correct") or "Great job!",
             )
         )
 
@@ -319,14 +304,8 @@ def _build_quiz_metadata_from_bank(
     difficulty_keys = ["easy", "medium", "hard"]
     cognitive_keys = ["Recall", "Comprehension", "Application", "Transfer"]
 
-    difficulty_distribution_actual = {
-        key: (difficulty_counts[key] / total_items if total_items else 0.0)
-        for key in difficulty_keys
-    }
-    cognitive_mix_actual = {
-        key: (cognitive_counts[key] / total_items if total_items else 0.0)
-        for key in cognitive_keys
-    }
+    difficulty_distribution_actual = {key: (difficulty_counts[key] / total_items if total_items else 0.0) for key in difficulty_keys}
+    cognitive_mix_actual = {key: (cognitive_counts[key] / total_items if total_items else 0.0) for key in cognitive_keys}
 
     return QuizMetadata(
         quiz_type="formative_seed",
@@ -547,8 +526,7 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, lesson_data: dict[str, Any])
             "cognitive_level": exercise.get("cognitive_level", "Comprehension"),
             "difficulty": exercise.get("difficulty", "medium"),
             "aligned_learning_objective": exercise.get("aligned_learning_objective"),
-            "answer_type": exercise.get("answer_type")
-            or ("multiple_choice" if exercise.get("exercise_type") == "mcq" else "short_answer"),
+            "answer_type": exercise.get("answer_type") or ("multiple_choice" if exercise.get("exercise_type") == "mcq" else "short_answer"),
         }
 
         if exercise.get("exercise_type") == "mcq":

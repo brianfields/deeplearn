@@ -235,9 +235,7 @@ class LearningSessionService:
         if not package:
             return []
 
-        exercise_bank = {
-            exercise.id: exercise for exercise in getattr(package, "exercise_bank", []) or []
-        }
+        exercise_bank = {exercise.id: exercise for exercise in getattr(package, "exercise_bank", []) or []}
         quiz_ids: list[str] = list(getattr(package, "quiz", []) or [])
         resolved: list[Any] = []
         for exercise_id in quiz_ids:

@@ -483,7 +483,6 @@ def _maybe_mock_llm() -> Generator[None, None, None]:
             except Exception as exc:
                 raise RuntimeError(f"Mock LLM cannot synthesize response for model: {response_model}: {exc}") from None
 
-
         async def generate_audio(self, text: str, voice: str, _user_id: Any | None = None, model: str | None = None, _audio_format: str = "mp3", _speed: float | None = None, **_kwargs: Any) -> tuple[AudioResponse, uuid.UUID | None]:  # noqa: ARG002
             audio_base64 = base64.b64encode(b"FAKEAUDIO").decode()
             dto = AudioResponse(audio_base64=audio_base64, mime_type="audio/mpeg", voice=voice, model=model or "mock-tts", cost_estimate=0.0, duration_seconds=8.5)

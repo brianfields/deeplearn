@@ -183,9 +183,7 @@ class TestContentService:
             cognitive_mix_target={"Recall": 1.0},
             cognitive_mix_actual={"Recall": 1.0},
             coverage_by_LO={"lo_1": QuizCoverageByLO(exercise_ids=["ex1"], concepts=["mean"])},
-            coverage_by_concept={
-                "mean": QuizCoverageByConcept(exercise_ids=["ex1"], types=["mcq"])
-            },
+            coverage_by_concept={"mean": QuizCoverageByConcept(exercise_ids=["ex1"], types=["mcq"])},
             normalizations_applied=[],
             selection_rationale=[],
             gaps_identified=[],

@@ -401,8 +401,7 @@ class FlowHandler:
                     accepted_phrases=list(concept.get("accepted_phrases", []) or []),
                     answer_type=str(concept.get("answer_type") or "closed"),
                     closed_answer=bool(concept.get("closed_answer", True)),
-                    example_question_stem=concept.get("example_question_stem")
-                    or concept.get("example_exercise_stem"),
+                    example_question_stem=concept.get("example_question_stem") or concept.get("example_exercise_stem"),
                     plausible_distractors=list(concept.get("plausible_distractors", []) or []),
                     misconception_note=concept.get("misconception_note"),
                     contrast_with=list(concept.get("contrast_with", []) or []),
@@ -497,11 +496,7 @@ class FlowHandler:
             }
 
             if exercise_type == "short_answer":
-                canonical_answer = str(
-                    exercise_data.get("canonical_answer")
-                    or exercise_data.get("concept_term")
-                    or ""
-                )
+                canonical_answer = str(exercise_data.get("canonical_answer") or exercise_data.get("concept_term") or "")
                 exercise_kwargs.update(
                     {
                         "canonical_answer": canonical_answer,
@@ -516,22 +511,10 @@ class FlowHandler:
         quiz_ids = [str(ex_id) for ex_id in md_res.get("quiz", []) or []]
         quiz_meta_payload = md_res.get("quiz_metadata") or {}
 
-        difficulty_distribution_target = {
-            str(key): float(value)
-            for key, value in (quiz_meta_payload.get("difficulty_distribution_target") or {}).items()
-        }
-        difficulty_distribution_actual = {
-            str(key): float(value)
-            for key, value in (quiz_meta_payload.get("difficulty_distribution_actual") or {}).items()
-        }
-        cognitive_mix_target = {
-            str(key): float(value)
-            for key, value in (quiz_meta_payload.get("cognitive_mix_target") or {}).items()
-        }
-        cognitive_mix_actual = {
-            str(key): float(value)
-            for key, value in (quiz_meta_payload.get("cognitive_mix_actual") or {}).items()
-        }
+        difficulty_distribution_target = {str(key): float(value) for key, value in (quiz_meta_payload.get("difficulty_distribution_target") or {}).items()}
+        difficulty_distribution_actual = {str(key): float(value) for key, value in (quiz_meta_payload.get("difficulty_distribution_actual") or {}).items()}
+        cognitive_mix_target = {str(key): float(value) for key, value in (quiz_meta_payload.get("cognitive_mix_target") or {}).items()}
+        cognitive_mix_actual = {str(key): float(value) for key, value in (quiz_meta_payload.get("cognitive_mix_actual") or {}).items()}
 
         coverage_by_lo = {
             str(lo_id): QuizCoverageByLO(
@@ -543,9 +526,7 @@ class FlowHandler:
 
         coverage_by_concept = {}
         for concept_slug, entry in (quiz_meta_payload.get("coverage_by_concept") or {}).items():
-            normalized_types = [
-                _normalize_exercise_type(t) for t in (entry or {}).get("types", [])
-            ]
+            normalized_types = [_normalize_exercise_type(t) for t in (entry or {}).get("types", [])]
             coverage_by_concept[str(concept_slug)] = QuizCoverageByConcept(
                 exercise_ids=[str(ex_id) for ex_id in (entry or {}).get("exercise_ids", [])],
                 types=normalized_types,
@@ -589,11 +570,7 @@ class FlowHandler:
             )
             await self._media_handler.save_lesson_podcast(content, created_lesson.id, lesson_podcast_result)
 
-        covered_lo_ids = {
-            str(exercise.aligned_learning_objective)
-            for exercise in exercise_bank
-            if getattr(exercise, "aligned_learning_objective", None)
-        }
+        covered_lo_ids = {str(exercise.aligned_learning_objective) for exercise in exercise_bank if getattr(exercise, "aligned_learning_objective", None)}
 
         logger.debug(
             "         ✓ Lesson %s complete - %s exercises, %s LOs covered",

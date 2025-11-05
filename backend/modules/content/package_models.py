@@ -108,7 +108,7 @@ class Exercise(BaseModel):
     explanation_correct: str | None = None
 
     @model_validator(mode="after")
-    def _validate_type_specific_fields(self) -> "Exercise":
+    def _validate_type_specific_fields(self) -> Exercise:
         """Ensure each exercise contains the fields required for its type."""
 
         if self.exercise_type == "mcq":
@@ -167,7 +167,7 @@ class LessonPackage(BaseModel):
     quiz_metadata: QuizMetadata
 
     @model_validator(mode="after")
-    def _cross_checks(self) -> "LessonPackage":
+    def _cross_checks(self) -> LessonPackage:
         """Validate cross-references between package components."""
 
         allowed_lo_ids = set(self.unit_learning_objective_ids)
@@ -176,17 +176,12 @@ class LessonPackage(BaseModel):
 
         for exercise in self.exercise_bank:
             if exercise.aligned_learning_objective not in allowed_lo_ids:
-                raise ValueError(
-                    f"Exercise '{exercise.id}' references unknown aligned_learning_objective "
-                    f"'{exercise.aligned_learning_objective}'"
-                )
+                raise ValueError(f"Exercise '{exercise.id}' references unknown aligned_learning_objective '{exercise.aligned_learning_objective}'")
 
         bank_ids = {exercise.id for exercise in self.exercise_bank}
         missing = [exercise_id for exercise_id in self.quiz if exercise_id not in bank_ids]
         if missing:
-            raise ValueError(
-                "Quiz references exercise IDs not present in exercise_bank: " + ", ".join(sorted(missing))
-            )
+            raise ValueError("Quiz references exercise IDs not present in exercise_bank: " + ", ".join(sorted(missing)))
 
         if self.quiz_metadata.total_items != len(self.quiz):
             raise ValueError("quiz_metadata.total_items must match length of quiz")

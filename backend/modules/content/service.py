@@ -895,17 +895,8 @@ class ContentService:
 
             lesson_lo_ids = list(package.unit_learning_objective_ids)
             if not lesson_lo_ids:
-                lesson_lo_ids = sorted(
-                    {
-                        exercise.aligned_learning_objective
-                        for exercise in package.exercise_bank
-                        if exercise.aligned_learning_objective
-                    }
-                )
-            objectives = [
-                (lo_obj.description if (lo_obj := lo_lookup.get(lo_id)) else lo_id)
-                for lo_id in lesson_lo_ids
-            ]
+                lesson_lo_ids = sorted({exercise.aligned_learning_objective for exercise in package.exercise_bank if exercise.aligned_learning_objective})
+            objectives = [(lo_obj.description if (lo_obj := lo_lookup.get(lo_id)) else lo_id) for lo_id in lesson_lo_ids]
 
             concept_entries = getattr(package, "concept_glossary", []) or []
             key_concepts: list[str] = []

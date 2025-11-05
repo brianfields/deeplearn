@@ -63,17 +63,19 @@ function LessonExpandedDetails({ lessonId }: { lessonId: string }) {
     );
   }
 
-  const exercises = lesson.package.exercises || [];
+  const exerciseBank = lesson.package.exercise_bank || [];
+  const quizIds = new Set(lesson.package.quiz || []);
+  const quizExercises = exerciseBank.filter((ex) => quizIds.has(ex.id));
 
-  const mcqExercises = exercises.filter(
+  const mcqExercises = exerciseBank.filter(
     (ex): ex is MCQExercise => ex.exercise_type === 'mcq'
   );
 
-  const shortAnswerExercises = exercises.filter(
+  const shortAnswerExercises = exerciseBank.filter(
     (ex): ex is ShortAnswerExercise => ex.exercise_type === 'short_answer'
   );
 
-  const allExercises = exercises;
+  const allExercises = exerciseBank;
 
   return (
     <div className="px-6 pb-4 pt-2 bg-gray-50 border-t border-gray-100 space-y-6 max-h-[70vh] overflow-y-auto">
@@ -88,50 +90,35 @@ function LessonExpandedDetails({ lessonId }: { lessonId: string }) {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Learning Objectives */}
-        {lesson.package.objectives && lesson.package.objectives.length > 0 && (
+        {/* Quiz Info */}
+        {lesson.package.quiz && lesson.package.quiz.length > 0 && (
           <div>
             <h3 className="text-xs font-semibold text-gray-700 uppercase mb-1.5">
-              Learning Objectives ({lesson.package.objectives.length})
+              Quiz ({lesson.package.quiz.length} exercises)
             </h3>
-            <ul className="space-y-2 text-xs">
-              {lesson.package.objectives.map((obj) => (
-                <li key={obj.id} className="text-gray-700">
-                  <p className="font-semibold text-gray-800">
-                    {obj.title || obj.text || obj.description || obj.id}
-                  </p>
-                  {(obj.description || obj.text) && (
-                    <p className="mt-0.5 text-gray-600">
-                      {obj.description || obj.text}
-                    </p>
-                  )}
-                  {obj.bloom_level && (
-                    <p className="mt-0.5 text-gray-400 uppercase tracking-wide">
-                      Bloom level: {obj.bloom_level}
-                    </p>
-                  )}
-                </li>
-              ))}
-            </ul>
+            <div className="text-xs text-gray-600 space-y-1">
+              <p>Exercise IDs in quiz order:</p>
+              <div className="bg-gray-100 rounded p-2 font-mono text-xs overflow-y-auto max-h-20">
+                {lesson.package.quiz.join(', ')}
+              </div>
+            </div>
           </div>
         )}
 
         {/* Key Concepts from Glossary */}
-        {lesson.package.glossary && Object.keys(lesson.package.glossary).length > 0 && (
+        {lesson.package.concept_glossary && lesson.package.concept_glossary.length > 0 && (
           <div>
             <h3 className="text-xs font-semibold text-gray-700 uppercase mb-1.5">
-              Key Concepts ({Object.values(lesson.package.glossary).flat().length})
+              Key Concepts ({lesson.package.concept_glossary.length})
             </h3>
             <div className="flex flex-wrap gap-1.5">
-              {Object.values(lesson.package.glossary)
-                .flat()
-                .map((term) => (
+              {lesson.package.concept_glossary.map((concept) => (
                   <span
-                    key={term.id}
+                    key={concept.id}
                     className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
-                    title={term.definition}
+                    title={concept.definition}
                   >
-                    {term.term}
+                    {concept.term}
                   </span>
                 ))}
             </div>
@@ -242,7 +229,7 @@ function LessonExpandedDetails({ lessonId }: { lessonId: string }) {
                               </p>
                               <p className="text-xs text-gray-700 mb-1">
                                 <span className="font-semibold">Why: </span>
-                                {wrongAnswer.explanation || '—'}
+                                {wrongAnswer.rationale_wrong || '—'}
                               </p>
                               {wrongAnswer.misconception_ids && wrongAnswer.misconception_ids.length > 0 && (
                                 <p className="text-xs text-gray-500">

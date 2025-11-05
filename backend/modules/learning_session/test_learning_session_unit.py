@@ -16,7 +16,6 @@ from modules.content.package_models import (
     LessonPackage,
     Meta,
     QuizMetadata,
-    RefinedConcept,
     WrongAnswerWithRationale,
 )
 

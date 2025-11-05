@@ -96,7 +96,7 @@ Each retained concept MUST conform to the following structure. This is a specifi
 
   "aligned_learning_objectives": ["LO1","LO2"],
 
-  "canonical_answer": "{{term}}",
+  "canonical_answer": "the term value (auto-filled with the term field)",
   "accepted_phrases": ["exact term","common synonym"],
   "answer_type": "closed",
   "closed_answer": true,
@@ -109,7 +109,7 @@ Each retained concept MUST conform to the following structure. This is a specifi
   "related_concepts": ["other-slug-1","other-slug-2"],
   "review_notes": "",
   "source_reference": "",
-  "version": "stage-b.v3-{{current_date}}"
+  "version": "stage-b.v3"
 }
 
 ## Output Format (JSON)
@@ -132,7 +132,7 @@ Each retained concept MUST conform to the following structure. This is a specifi
       "Merged C03/C07 due to overlapping boundaries.",
       "Dropped items lacking clear LO fit."
     ],
-    "version": "stage-b.v3-{{current_date}}"
+    "version": "stage-b.v3"
   }
 }
 

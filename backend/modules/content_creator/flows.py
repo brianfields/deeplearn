@@ -79,21 +79,13 @@ class LessonCreationFlow(BaseFlow):
         for idx, lo_id in enumerate(lesson_lo_ids):
             raw_item = raw_los[idx] if idx < len(raw_los) else lo_id
             if isinstance(raw_item, dict):
-                title = str(
-                    raw_item.get("title")
-                    or raw_item.get("name")
-                    or raw_item.get("short_title")
-                    or raw_item.get("description")
-                    or lo_id
-                )
+                title = str(raw_item.get("title") or raw_item.get("name") or raw_item.get("short_title") or raw_item.get("description") or lo_id)
                 description = str(raw_item.get("description") or title)
             else:
                 text_value = str(raw_item)
                 title = text_value
                 description = text_value
-            lesson_learning_objectives.append(
-                {"id": str(lo_id), "title": title, "description": description}
-            )
+            lesson_learning_objectives.append({"id": str(lo_id), "title": title, "description": description})
 
         # Step 3: Extract concept glossary
         concept_result = await ExtractConceptGlossaryStep().execute(

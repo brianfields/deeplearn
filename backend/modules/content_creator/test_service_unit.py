@@ -296,9 +296,7 @@ class TestContentCreatorService:
                 "cognitive_mix_target": {"Recall": 0.5, "Application": 0.5},
                 "cognitive_mix_actual": {"Recall": 0.5, "Application": 0.5},
                 "coverage_by_LO": {"lo_1": {"exercise_ids": ["ex-comp-sa-001"], "concepts": ["mean"]}},
-                "coverage_by_concept": {
-                    "mean": {"exercise_ids": ["ex-comp-sa-001", "ex-trans-mc-001"], "types": ["short-answer", "multiple-choice"]}
-                },
+                "coverage_by_concept": {"mean": {"exercise_ids": ["ex-comp-sa-001", "ex-trans-mc-001"], "types": ["short-answer", "multiple-choice"]}},
                 "normalizations_applied": [],
                 "selection_rationale": [],
                 "gaps_identified": [],
