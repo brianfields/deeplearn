@@ -42,6 +42,17 @@ from .base import LLMProvider
 
 _GEMINI_BASE_URL_DEFAULT = "https://generativelanguage.googleapis.com/v1beta"
 
+_GEMINI_GENERATION_CONFIG_KEY_MAP: Mapping[str, str] = {
+    "max_output_tokens": "maxOutputTokens",
+    "top_p": "topP",
+    "top_k": "topK",
+    "candidate_count": "candidateCount",
+    "stop_sequences": "stopSequences",
+    "presence_penalty": "presencePenalty",
+    "frequency_penalty": "frequencyPenalty",
+    "response_mime_type": "responseMimeType",
+}
+
 # Pricing map (USD per 1M tokens) derived from https://ai.google.dev/gemini-api/docs/pricing
 _GEMINI_PRICING: Mapping[str, tuple[float, float]] = {
     "gemini-2.5-pro": (1.25, 10.00),
@@ -194,6 +205,11 @@ class GeminiProvider(LLMProvider):
 
         return {"fileData": {"fileUri": uri}}
 
+    def _map_generation_config_key(self, key: str) -> str:
+        """Convert internal snake_case keys to Gemini's camelCase schema."""
+
+        return _GEMINI_GENERATION_CONFIG_KEY_MAP.get(key, key)
+
     def _split_generation_kwargs(self, kwargs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         """Separate generationConfig values from top-level overrides."""
 
@@ -204,7 +220,8 @@ class GeminiProvider(LLMProvider):
             if value is None:
                 continue
             if key in {"top_p", "top_k", "candidate_count", "stop_sequences", "presence_penalty", "frequency_penalty", "response_mime_type"}:
-                generation_config[key] = value
+                mapped_key = self._map_generation_config_key(key)
+                generation_config[mapped_key] = value
             elif key == "safety_settings":
                 payload_overrides["safetySettings"] = value
             else:
@@ -226,9 +243,12 @@ class GeminiProvider(LLMProvider):
         if temperature is not None:
             generation_config["temperature"] = temperature
         if max_output_tokens is not None:
-            generation_config["max_output_tokens"] = max_output_tokens
+            mapped_key = self._map_generation_config_key("max_output_tokens")
+            generation_config[mapped_key] = max_output_tokens
         if generation_overrides:
-            generation_config.update(generation_overrides)
+            for key, value in generation_overrides.items():
+                mapped_key = self._map_generation_config_key(key)
+                generation_config[mapped_key] = value
         if generation_config:
             payload["generationConfig"] = generation_config
 
@@ -375,7 +395,7 @@ class GeminiProvider(LLMProvider):
         temperature = kwargs.pop("temperature", None)
         max_output_tokens = kwargs.pop("max_output_tokens", None)
         extra_generation, payload_overrides = self._split_generation_kwargs(kwargs)
-        extra_generation["response_mime_type"] = "application/json"
+        extra_generation[self._map_generation_config_key("response_mime_type")] = "application/json"
 
         try:
             llm_request = self._create_llm_request(
