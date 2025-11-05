@@ -3,6 +3,14 @@ const nextConfig = {
   env: {
     BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:8000',
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'lantern-room.s3.amazonaws.com',
+      },
+    ],
+  },
   async rewrites() {
     // Ensure backend URL has protocol
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000';
