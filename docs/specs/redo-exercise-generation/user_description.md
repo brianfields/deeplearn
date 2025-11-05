@@ -5,8 +5,8 @@ Note that we are already generating MCQ and short answer exercises as part of le
 The new prompt flow is:
 1. extract_concept_glossary.md
 2. annotate_concept_glossary.md
-3. generate_comprehension_questions.md
-4. generate_transfer_questions.md
+3. generate_comprehension_exercises.md
+4. generate_transfer_exercises.md
 5. generate_quiz_from_questions.md
 
 Note that the output structures are a bit different for these prompts; so code in both front and backend might need to change. 

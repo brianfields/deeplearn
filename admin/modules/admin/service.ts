@@ -45,8 +45,12 @@ import type {
   LessonSummary,
   LessonPackage,
   LessonExercise,
-  Objective,
-  GlossaryTerm,
+  RefinedConcept,
+  ExerciseOption,
+  WrongAnswerWithRationale,
+  QuizCoverageByLO,
+  QuizCoverageByConcept,
+  QuizMetadata,
   ResourceSummary,
   ResourceDetail,
   ResourceUsageSummary,
@@ -194,22 +198,54 @@ const resourceDetailToDTO = (apiResource: ApiResourceDetail): ResourceDetail => 
   updated_at: new Date(apiResource.updated_at),
 });
 
-const normalizeDifficulty = (value: unknown): 'Easy' | 'Medium' | 'Hard' | null => {
-  if (typeof value !== 'string') {
-    return null;
-  }
+const DIFFICULTY_LEVELS = ['easy', 'medium', 'hard'] as const;
+const EXERCISE_CATEGORIES = ['comprehension', 'transfer'] as const;
+const COGNITIVE_LEVELS = ['Recall', 'Comprehension', 'Application', 'Transfer'] as const;
+const EXERCISE_TYPES = ['mcq', 'short_answer'] as const;
 
-  const normalized = value.trim().toLowerCase();
-  if (normalized === 'easy') {
-    return 'Easy';
+type DifficultyLevel = (typeof DIFFICULTY_LEVELS)[number];
+type ExerciseCategory = (typeof EXERCISE_CATEGORIES)[number];
+type CognitiveLevelValue = (typeof COGNITIVE_LEVELS)[number];
+type ExerciseTypeValue = (typeof EXERCISE_TYPES)[number];
+
+const normalizeDifficulty = (value: unknown): DifficultyLevel => {
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (DIFFICULTY_LEVELS.includes(normalized as DifficultyLevel)) {
+      return normalized as DifficultyLevel;
+    }
   }
-  if (normalized === 'medium') {
-    return 'Medium';
+  return 'medium';
+};
+
+const normalizeExerciseCategory = (value: unknown): ExerciseCategory => {
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (EXERCISE_CATEGORIES.includes(normalized as ExerciseCategory)) {
+      return normalized as ExerciseCategory;
+    }
   }
-  if (normalized === 'hard') {
-    return 'Hard';
+  return 'comprehension';
+};
+
+const normalizeExerciseType = (value: unknown): ExerciseTypeValue => {
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (EXERCISE_TYPES.includes(normalized as ExerciseTypeValue)) {
+      return normalized as ExerciseTypeValue;
+    }
   }
-  return null;
+  return 'mcq';
+};
+
+const normalizeCognitiveLevel = (value: unknown): CognitiveLevelValue => {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (COGNITIVE_LEVELS.includes(trimmed as CognitiveLevelValue)) {
+      return trimmed as CognitiveLevelValue;
+    }
+  }
+  return 'Recall';
 };
 
 const normalizeStringArray = (value: unknown): string[] => {
@@ -220,89 +256,231 @@ const normalizeStringArray = (value: unknown): string[] => {
   return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
 };
 
-const lessonExerciseToDTO = (exercise: any): LessonExercise => {
-  if (!exercise || typeof exercise !== 'object') {
-    return {
-      id: '',
-      exercise_type: 'mcq',
-      lo_id: '',
-      cognitive_level: null,
-      estimated_difficulty: null,
-      misconceptions_used: [],
-      stem: '',
-      options: [],
-      answer_key: { label: '', option_id: null, rationale_right: null },
-    };
+const normalizeStringRecord = (value: unknown): Record<string, string> | null => {
+  if (!value || typeof value !== 'object') {
+    return null;
   }
 
-  const rawType = typeof exercise.exercise_type === 'string' ? exercise.exercise_type : 'mcq';
-  const exerciseType = rawType === 'short_answer' ? 'short_answer' : 'mcq';
-  const base = {
-    id: typeof exercise.id === 'string' ? exercise.id : '',
-    exercise_type: exerciseType,
-    lo_id: typeof exercise.lo_id === 'string' ? exercise.lo_id : '',
-    cognitive_level: typeof exercise.cognitive_level === 'string' ? exercise.cognitive_level : null,
-    estimated_difficulty: normalizeDifficulty(exercise.estimated_difficulty),
-    misconceptions_used: normalizeStringArray(exercise.misconceptions_used),
+  const entries = Object.entries(value as Record<string, unknown>)
+    .filter(([, val]) => typeof val === 'string');
+  if (entries.length === 0) {
+    return null;
+  }
+  return Object.fromEntries(entries as Array<[string, string]>);
+};
+
+const normalizeNumberRecord = (value: unknown): Record<string, number> => {
+  if (!value || typeof value !== 'object') {
+    return {};
+  }
+
+  const entries = Object.entries(value as Record<string, unknown>)
+    .filter(([, val]) => typeof val === 'number' && Number.isFinite(val));
+  return Object.fromEntries(entries as Array<[string, number]>);
+};
+
+const refinedConceptToDTO = (concept: any): RefinedConcept => {
+  const difficultyPotential = normalizeStringRecord(concept?.difficulty_potential);
+
+  return {
+    id: typeof concept?.id === 'string' ? concept.id : '',
+    term: typeof concept?.term === 'string' ? concept.term : '',
+    slug: typeof concept?.slug === 'string' ? concept.slug : '',
+    aliases: normalizeStringArray(concept?.aliases),
+    definition: typeof concept?.definition === 'string' ? concept.definition : '',
+    example_from_source:
+      typeof concept?.example_from_source === 'string' ? concept.example_from_source : null,
+    source_span: typeof concept?.source_span === 'string' ? concept.source_span : null,
+    category: typeof concept?.category === 'string' ? concept.category : null,
+    centrality: typeof concept?.centrality === 'number' ? concept.centrality : 0,
+    distinctiveness: typeof concept?.distinctiveness === 'number' ? concept.distinctiveness : 0,
+    transferability: typeof concept?.transferability === 'number' ? concept.transferability : 0,
+    clarity: typeof concept?.clarity === 'number' ? concept.clarity : 0,
+    assessment_potential:
+      typeof concept?.assessment_potential === 'number' ? concept.assessment_potential : 0,
+    cognitive_domain: typeof concept?.cognitive_domain === 'string' ? concept.cognitive_domain : '',
+    difficulty_potential: difficultyPotential,
+    learning_role: typeof concept?.learning_role === 'string' ? concept.learning_role : null,
+    aligned_learning_objectives: normalizeStringArray(concept?.aligned_learning_objectives),
+    canonical_answer: typeof concept?.canonical_answer === 'string' ? concept.canonical_answer : '',
+    accepted_phrases: normalizeStringArray(concept?.accepted_phrases),
+    answer_type: typeof concept?.answer_type === 'string' ? concept.answer_type : null,
+    closed_answer: typeof concept?.closed_answer === 'boolean' ? concept.closed_answer : true,
+    example_question_stem:
+      typeof concept?.example_question_stem === 'string' ? concept.example_question_stem : null,
+    plausible_distractors: normalizeStringArray(concept?.plausible_distractors),
+    misconception_note:
+      typeof concept?.misconception_note === 'string' ? concept.misconception_note : null,
+    contrast_with: normalizeStringArray(concept?.contrast_with),
+    related_concepts: normalizeStringArray(concept?.related_concepts),
+    review_notes: typeof concept?.review_notes === 'string' ? concept.review_notes : null,
+    source_reference: typeof concept?.source_reference === 'string' ? concept.source_reference : null,
+    version: typeof concept?.version === 'string' ? concept.version : null,
   };
+};
+
+const normalizeWrongAnswers = (value: unknown): WrongAnswerWithRationale[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map((wrong: any) => ({
+    answer: typeof wrong?.answer === 'string' ? wrong.answer : '',
+    rationale_wrong:
+      typeof wrong?.rationale_wrong === 'string'
+        ? wrong.rationale_wrong
+        : typeof wrong?.explanation === 'string'
+          ? wrong.explanation
+          : '',
+    misconception_ids: normalizeStringArray(wrong?.misconception_ids),
+  }));
+};
+
+const normalizeExerciseOptions = (value: unknown): ExerciseOption[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map((option: any) => ({
+    id: typeof option?.id === 'string' ? option.id : '',
+    label: typeof option?.label === 'string' ? option.label : '',
+    text: typeof option?.text === 'string' ? option.text : '',
+    rationale_wrong: typeof option?.rationale_wrong === 'string' ? option.rationale_wrong : null,
+  }));
+};
+
+const lessonExerciseToDTO = (exercise: any): LessonExercise => {
+  const exerciseType = normalizeExerciseType(exercise?.exercise_type);
+  const exerciseCategory = normalizeExerciseCategory(exercise?.exercise_category);
+  const alignedLearningObjective =
+    typeof exercise?.aligned_learning_objective === 'string'
+      ? exercise.aligned_learning_objective
+      : '';
+  const stem = typeof exercise?.stem === 'string' ? exercise.stem : '';
+  const cognitiveLevel = normalizeCognitiveLevel(exercise?.cognitive_level);
+  const difficulty = normalizeDifficulty(exercise?.difficulty);
 
   if (exerciseType === 'short_answer') {
-    const acceptableAnswers = normalizeStringArray(exercise.acceptable_answers);
-    const wrongAnswers = Array.isArray(exercise.wrong_answers)
-      ? exercise.wrong_answers.map((wrong: any) => ({
-          answer: typeof wrong?.answer === 'string' ? wrong.answer : '',
-          explanation: typeof wrong?.explanation === 'string' ? wrong.explanation : '',
-          misconception_ids: normalizeStringArray(wrong?.misconception_ids),
-        }))
-      : [];
-
     return {
-      ...base,
+      id: typeof exercise?.id === 'string' ? exercise.id : '',
       exercise_type: 'short_answer',
-      stem: typeof exercise.stem === 'string' ? exercise.stem : '',
-      canonical_answer: typeof exercise.canonical_answer === 'string' ? exercise.canonical_answer : '',
-      acceptable_answers: acceptableAnswers,
-      wrong_answers: wrongAnswers,
-      explanation_correct: typeof exercise.explanation_correct === 'string' ? exercise.explanation_correct : '',
+      exercise_category: exerciseCategory,
+      aligned_learning_objective: alignedLearningObjective,
+      cognitive_level: cognitiveLevel,
+      difficulty,
+      stem,
+      canonical_answer: typeof exercise?.canonical_answer === 'string' ? exercise.canonical_answer : '',
+      acceptable_answers: normalizeStringArray(exercise?.acceptable_answers),
+      wrong_answers: normalizeWrongAnswers(exercise?.wrong_answers),
+      explanation_correct:
+        typeof exercise?.explanation_correct === 'string' ? exercise.explanation_correct : '',
     };
   }
 
-  const options = Array.isArray(exercise.options)
-    ? exercise.options.map((option: any) => ({
-        id: typeof option?.id === 'string' ? option.id : '',
-        label: typeof option?.label === 'string' ? option.label : '',
-        text: typeof option?.text === 'string' ? option.text : '',
-        rationale: typeof option?.rationale === 'string' ? option.rationale : null,
-        rationale_wrong: typeof option?.rationale_wrong === 'string' ? option.rationale_wrong : null,
-      }))
-    : [];
-
+  const options = normalizeExerciseOptions(exercise?.options);
   const answerKey = exercise?.answer_key ?? {};
 
   return {
-    ...base,
+    id: typeof exercise?.id === 'string' ? exercise.id : '',
     exercise_type: 'mcq',
-    stem: typeof exercise.stem === 'string' ? exercise.stem : '',
+    exercise_category: exerciseCategory,
+    aligned_learning_objective: alignedLearningObjective,
+    cognitive_level: cognitiveLevel,
+    difficulty,
+    stem,
     options,
     answer_key: {
       label: typeof answerKey.label === 'string' ? answerKey.label : '',
       option_id: typeof answerKey.option_id === 'string' ? answerKey.option_id : null,
-      rationale_right: typeof answerKey.rationale_right === 'string' ? answerKey.rationale_right : null,
+      rationale_right:
+        typeof answerKey.rationale_right === 'string' ? answerKey.rationale_right : null,
     },
   };
 };
 
+const normalizeQuizCoverageByLO = (value: unknown): QuizCoverageByLO => {
+  if (!value || typeof value !== 'object') {
+    return { exercise_ids: [], concepts: [] };
+  }
+  const record = value as Record<string, unknown>;
+  return {
+    exercise_ids: normalizeStringArray(record.exercise_ids),
+    concepts: normalizeStringArray(record.concepts),
+  };
+};
+
+const normalizeQuizCoverageByConcept = (value: unknown): QuizCoverageByConcept => {
+  if (!value || typeof value !== 'object') {
+    return { exercise_ids: [], types: [] };
+  }
+  const record = value as Record<string, unknown>;
+  const rawTypes = Array.isArray(record.types) ? record.types : [];
+  const types = rawTypes
+    .map((item) => (typeof item === 'string' ? item.trim().toLowerCase() : null))
+    .filter((item): item is ExerciseTypeValue =>
+      Boolean(item) && EXERCISE_TYPES.includes(item as ExerciseTypeValue)
+    );
+  return {
+    exercise_ids: normalizeStringArray(record.exercise_ids),
+    types,
+  };
+};
+
+const quizMetadataToDTO = (metadata: any): QuizMetadata => {
+  const coverageByLOEntries = metadata?.coverage_by_LO && typeof metadata.coverage_by_LO === 'object'
+    ? Object.entries(metadata.coverage_by_LO as Record<string, unknown>)
+    : [];
+  const coverageByConceptEntries =
+    metadata?.coverage_by_concept && typeof metadata.coverage_by_concept === 'object'
+      ? Object.entries(metadata.coverage_by_concept as Record<string, unknown>)
+      : [];
+
+  const coverage_by_LO = Object.fromEntries(
+    coverageByLOEntries.map(([key, value]) => [key, normalizeQuizCoverageByLO(value)])
+  );
+  const coverage_by_concept = Object.fromEntries(
+    coverageByConceptEntries.map(([key, value]) => [key, normalizeQuizCoverageByConcept(value)])
+  );
+
+  return {
+    quiz_type: typeof metadata?.quiz_type === 'string' ? metadata.quiz_type : '',
+    total_items: typeof metadata?.total_items === 'number' ? metadata.total_items : 0,
+    difficulty_distribution_target: normalizeNumberRecord(metadata?.difficulty_distribution_target),
+    difficulty_distribution_actual: normalizeNumberRecord(metadata?.difficulty_distribution_actual),
+    cognitive_mix_target: normalizeNumberRecord(metadata?.cognitive_mix_target),
+    cognitive_mix_actual: normalizeNumberRecord(metadata?.cognitive_mix_actual),
+    coverage_by_LO,
+    coverage_by_concept,
+    normalizations_applied: normalizeStringArray(metadata?.normalizations_applied),
+    selection_rationale: normalizeStringArray(metadata?.selection_rationale),
+    gaps_identified: normalizeStringArray(metadata?.gaps_identified),
+  };
+};
+
 const lessonPackageToDTO = (pkg: any): LessonPackage => {
-  const exercises = Array.isArray(pkg?.exercises)
-    ? pkg.exercises.map(lessonExerciseToDTO)
+  const meta = pkg?.meta ?? {};
+
+  const conceptGlossary = Array.isArray(pkg?.concept_glossary)
+    ? pkg.concept_glossary.map(refinedConceptToDTO)
     : [];
 
-  const meta = pkg?.meta ?? {};
-  const objectives = Array.isArray(pkg?.objectives) ? pkg.objectives : [];
-  const glossary =
-    pkg && typeof pkg.glossary === 'object' && pkg.glossary !== null ? pkg.glossary : {};
-  const misconceptions = Array.isArray(pkg?.misconceptions) ? pkg.misconceptions : [];
-  const confusables = Array.isArray(pkg?.confusables) ? pkg.confusables : [];
+  const exerciseBank = Array.isArray(pkg?.exercise_bank)
+    ? pkg.exercise_bank.map(lessonExerciseToDTO)
+    : [];
+
+  const quiz = Array.isArray(pkg?.quiz)
+    ? pkg.quiz.filter((item: unknown): item is string => typeof item === 'string')
+    : [];
+
+  const rawQuizMetadata = quizMetadataToDTO(pkg?.quiz_metadata ?? {});
+  const quizMetadata = {
+    ...rawQuizMetadata,
+    total_items: rawQuizMetadata.total_items > 0 ? rawQuizMetadata.total_items : quiz.length,
+  };
+
+  const unitLearningObjectiveIds = Array.isArray(pkg?.unit_learning_objective_ids)
+    ? pkg.unit_learning_objective_ids.filter((item: unknown): item is string => typeof item === 'string')
+    : [];
 
   return {
     meta: {
@@ -313,15 +491,14 @@ const lessonPackageToDTO = (pkg: any): LessonPackage => {
         typeof meta.package_schema_version === 'number' ? meta.package_schema_version : 1,
       content_version: typeof meta.content_version === 'number' ? meta.content_version : 1,
     },
-    objectives: objectives as Objective[],
-    glossary: glossary as Record<string, GlossaryTerm[]>,
+    unit_learning_objective_ids: unitLearningObjectiveIds,
     mini_lesson: typeof pkg?.mini_lesson === 'string' ? pkg.mini_lesson : '',
-    exercises,
-    misconceptions: misconceptions as Record<string, string>[],
-    confusables: confusables as Record<string, string>[],
+    concept_glossary: conceptGlossary,
+    exercise_bank: exerciseBank,
+    quiz,
+    quiz_metadata: quizMetadata,
   };
 };
-
 const stepToDTO = (apiStep: ApiFlowStepDetails): FlowStepDetails => ({
   id: apiStep.id,
   flow_run_id: apiStep.flow_run_id,

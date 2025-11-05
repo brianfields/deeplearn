@@ -31,8 +31,8 @@ Located in `backend/modules/content/package_models.py`:
 ### User's New Prompts
 1. `extract_concept_glossary.md` - Extract 8-20 key concepts from source material, each linked to LOs
 2. `annotate_concept_glossary.md` - Refine concepts with ratings (centrality, distinctiveness, transferability, clarity, assessment_potential), difficulty levels, closed-answer metadata
-3. `generate_comprehension_questions.md` - Create SA + MCQ questions that test recall/comprehension
-4. `generate_transfer_questions.md` - Create SA + MCQ questions that test transfer/application in new contexts
+3. `generate_comprehension_exercises.md` - Create SA + MCQ exercises that test recall/comprehension
+4. `generate_transfer_exercises.md` - Create SA + MCQ exercises that test transfer/application in new contexts
 5. `generate_quiz_from_questions.md` - Assemble balanced quiz from question bank with explicit selection/normalization
 
 ## Key Changes in New Structure
@@ -41,16 +41,17 @@ Located in `backend/modules/content/package_models.py`:
 - More metadata: ratings, cognitive_domain, difficulty_potential, canonical_answer, accepted_phrases, plausible_distractors, related_concepts, contrast_with
 - Closed-set answers only (all SA questions must map to glossary terms)
 
-### Questions (Not just Exercises)
-- Two types of questions: comprehension vs transfer
-- Each question has:
-  - `concept` (maps to glossary term)
+### Exercises (Refined Question Bank)
+- Two exercise categories: comprehension vs transfer
+- Each exercise has:
+  - `concept_slug` / `concept_term` (map to glossary entry)
+  - `exercise_category` (comprehension or transfer)
   - `type` (short-answer or multiple-choice)
   - `cognitive_level` (Recall, Comprehension, Application, Transfer)
   - `difficulty` (easy, medium, hard)
   - `rationale_right` (learner-facing explanation)
   - `rationale_wrong` (for SA wrong_answers and MCQ distractors)
-  - `aligned_learning_objectives` (explicit LO linkage)
+  - `aligned_learning_objective` (single LO id)
 
 ### Quiz (New Explicit Structure)
 - Output of `generate_quiz_from_questions.md` is a selected subset of questions

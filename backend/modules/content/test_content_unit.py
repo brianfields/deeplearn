@@ -18,14 +18,16 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from modules.content.models import LessonModel, UnitModel
 from modules.content.package_models import (
-    GlossaryTerm,
+    Exercise,
+    ExerciseAnswerKey,
+    ExerciseOption,
     LessonPackage,
-    MCQAnswerKey,
-    MCQExercise,
-    MCQOption,
     Meta,
-    ShortAnswerExercise,
-    WrongAnswer,
+    QuizCoverageByConcept,
+    QuizCoverageByLO,
+    QuizMetadata,
+    RefinedConcept,
+    WrongAnswerWithRationale,
 )
 from modules.content.repo import ContentRepo
 from modules.content.routes import get_content_service
@@ -37,6 +39,33 @@ from modules.shared_models import Base
 from modules.user.models import UserModel
 
 pytestmark = pytest.mark.asyncio
+
+
+def _empty_package(lesson_id: str, lo_ids: list[str] | None = None) -> LessonPackage:
+    """Create a minimal lesson package for tests."""
+
+    lo_ids = lo_ids or ["lo_1"]
+    return LessonPackage(
+        meta=Meta(lesson_id=lesson_id, title=f"Lesson {lesson_id}", learner_level="beginner"),
+        unit_learning_objective_ids=lo_ids,
+        mini_lesson="",
+        concept_glossary=[],
+        exercise_bank=[],
+        quiz=[],
+        quiz_metadata=QuizMetadata(
+            quiz_type="Formative",
+            total_items=0,
+            difficulty_distribution_target={"easy": 0.0, "medium": 0.0, "hard": 0.0},
+            difficulty_distribution_actual={"easy": 0.0, "medium": 0.0, "hard": 0.0},
+            cognitive_mix_target={},
+            cognitive_mix_actual={},
+            coverage_by_LO={},
+            coverage_by_concept={},
+            normalizations_applied=[],
+            selection_rationale=[],
+            gaps_identified=[],
+        ),
+    )
 
 
 @pytest_asyncio.fixture
@@ -77,39 +106,99 @@ class TestContentService:
         repo = AsyncMock(spec=ContentRepo)
 
         # Create a sample package
+        concept = RefinedConcept(
+            id="c1",
+            term="Mean",
+            slug="mean",
+            aliases=["average"],
+            definition="Sum divided by count",
+            example_from_source="Example",
+            source_span=None,
+            category="Technical",
+            centrality=5,
+            distinctiveness=4,
+            transferability=4,
+            clarity=5,
+            assessment_potential=5,
+            cognitive_domain="Knowledge",
+            difficulty_potential={"min_level": "Recall", "max_level": "Comprehension"},
+            learning_role="Core",
+            aligned_learning_objectives=["lo_1"],
+            canonical_answer="Mean",
+            accepted_phrases=["average"],
+            answer_type="closed",
+            closed_answer=True,
+            example_question_stem="Define the mean",
+            plausible_distractors=["median"],
+            misconception_note=None,
+            contrast_with=["median"],
+            related_concepts=["median"],
+            review_notes=None,
+            source_reference=None,
+            version="v1",
+        )
+
+        exercise_mcq = Exercise(
+            id="ex1",
+            exercise_type="mcq",
+            exercise_category="comprehension",
+            aligned_learning_objective="lo_1",
+            cognitive_level="Recall",
+            difficulty="easy",
+            stem="What is the mean?",
+            options=[
+                ExerciseOption(id="ex1_a", label="A", text="Mean", rationale_wrong=None),
+                ExerciseOption(id="ex1_b", label="B", text="Median", rationale_wrong="Different measure"),
+                ExerciseOption(id="ex1_c", label="C", text="Mode", rationale_wrong="Counts frequency"),
+                ExerciseOption(id="ex1_d", label="D", text="Range", rationale_wrong="Spread metric"),
+            ],
+            answer_key=ExerciseAnswerKey(label="A", option_id="ex1_a", rationale_right="Definition"),
+        )
+
+        exercise_sa = Exercise(
+            id="ex2",
+            exercise_type="short_answer",
+            exercise_category="transfer",
+            aligned_learning_objective="lo_1",
+            cognitive_level="Application",
+            difficulty="medium",
+            stem="Calculate the mean when scores are given.",
+            canonical_answer="Mean",
+            acceptable_answers=["average"],
+            wrong_answers=[
+                WrongAnswerWithRationale(
+                    answer="Median",
+                    rationale_wrong="Orders values instead of averaging",
+                    misconception_ids=["m1"],
+                )
+            ],
+            explanation_correct="Add and divide",
+        )
+
+        quiz_metadata = QuizMetadata(
+            quiz_type="Formative",
+            total_items=1,
+            difficulty_distribution_target={"easy": 1.0, "medium": 0.0, "hard": 0.0},
+            difficulty_distribution_actual={"easy": 1.0, "medium": 0.0, "hard": 0.0},
+            cognitive_mix_target={"Recall": 1.0},
+            cognitive_mix_actual={"Recall": 1.0},
+            coverage_by_LO={"lo_1": QuizCoverageByLO(exercise_ids=["ex1"], concepts=["mean"])},
+            coverage_by_concept={
+                "mean": QuizCoverageByConcept(exercise_ids=["ex1"], types=["mcq"])
+            },
+            normalizations_applied=[],
+            selection_rationale=[],
+            gaps_identified=[],
+        )
+
         package = LessonPackage(
             meta=Meta(lesson_id="test-id", title="Test Lesson", learner_level="beginner"),
             unit_learning_objective_ids=["lo_1"],
-            glossary={"terms": [GlossaryTerm(id="term_1", term="Test Term", definition="Test Definition")]},
             mini_lesson="Test explanation",
-            exercises=[
-                MCQExercise(
-                    id="mcq_1",
-                    lo_id="lo_1",
-                    stem="What is X?",
-                    options=[
-                        MCQOption(id="opt_a", label="A", text="Option A"),
-                        MCQOption(id="opt_b", label="B", text="Option B"),
-                        MCQOption(id="opt_c", label="C", text="Option C"),
-                    ],
-                    answer_key=MCQAnswerKey(label="A"),
-                ),
-                ShortAnswerExercise(
-                    id="sa_1",
-                    lo_id="lo_1",
-                    stem="Name the core idea",
-                    canonical_answer="concept",
-                    acceptable_answers=["the concept"],
-                    wrong_answers=[
-                        WrongAnswer(
-                            answer="wrong concept",
-                            explanation="Focus on the main concept",
-                            misconception_ids=["m1"],
-                        )
-                    ],
-                    explanation_correct="Great recall!",
-                ),
-            ],
+            concept_glossary=[concept],
+            exercise_bank=[exercise_mcq, exercise_sa],
+            quiz=["ex1"],
+            quiz_metadata=quiz_metadata,
         )
 
         # Mock lesson with package
@@ -141,32 +230,160 @@ class TestContentService:
         assert result.id == "test-id"
         assert result.title == "Test Lesson"
         assert result.package_version == 1
-        assert len(result.package.exercises) == 2
+        assert len(result.package.exercise_bank) == 2
         assert result.package.unit_learning_objective_ids == ["lo_1"]
-        assert any(getattr(ex, "exercise_type", None) == "short_answer" for ex in result.package.exercises)
+        assert any(ex.exercise_type == "short_answer" for ex in result.package.exercise_bank)
 
-    async def test_short_answer_validates_character_limits(self) -> None:
-        """Short answer exercises enforce canonical and alternative lengths."""
+    async def test_exercise_validates_type_specific_fields(self) -> None:
+        """Exercise model enforces required fields for MCQ and short-answer types."""
 
-        ShortAnswerExercise(
-            id="sa_1",
-            lo_id="lo_1",
-            stem="Explain the term",
-            canonical_answer="term",
-            acceptable_answers=["key term"],
-            wrong_answers=[WrongAnswer(answer="wrong", explanation="Not quite", misconception_ids=[])],
-            explanation_correct="Nice work",
+        Exercise(
+            id="ex-mc",
+            exercise_type="mcq",
+            exercise_category="comprehension",
+            aligned_learning_objective="lo_1",
+            cognitive_level="Recall",
+            difficulty="easy",
+            stem="What is the mean?",
+            options=[
+                ExerciseOption(id="ex-mc-a", label="A", text="Mean"),
+                ExerciseOption(id="ex-mc-b", label="B", text="Median", rationale_wrong="Different"),
+                ExerciseOption(id="ex-mc-c", label="C", text="Mode", rationale_wrong="Counts frequency"),
+                ExerciseOption(id="ex-mc-d", label="D", text="Range", rationale_wrong="Spread"),
+            ],
+            answer_key=ExerciseAnswerKey(label="A", option_id="ex-mc-a", rationale_right="Definition"),
         )
 
         with pytest.raises(ValueError):
-            ShortAnswerExercise(
-                id="sa_2",
-                lo_id="lo_1",
-                stem="Too long",
-                canonical_answer="x" * 51,
+            Exercise(
+                id="invalid-mc",
+                exercise_type="mcq",
+                exercise_category="comprehension",
+                aligned_learning_objective="lo_1",
+                cognitive_level="Recall",
+                difficulty="easy",
+                stem="Missing pieces",
+            )
+
+        Exercise(
+            id="ex-sa",
+            exercise_type="short_answer",
+            exercise_category="transfer",
+            aligned_learning_objective="lo_1",
+            cognitive_level="Application",
+            difficulty="medium",
+            stem="Explain the concept",
+            canonical_answer="Mean",
+            acceptable_answers=["average"],
+            wrong_answers=[WrongAnswerWithRationale(answer="Median", rationale_wrong="Orders values", misconception_ids=[])],
+            explanation_correct="Add and divide",
+        )
+
+        with pytest.raises(ValueError):
+            Exercise(
+                id="invalid-sa",
+                exercise_type="short_answer",
+                exercise_category="transfer",
+                aligned_learning_objective="lo_1",
+                cognitive_level="Application",
+                difficulty="medium",
+                stem="Explain the concept",
                 acceptable_answers=[],
                 wrong_answers=[],
                 explanation_correct="",
+            )
+
+    async def test_refined_concept_handles_numeric_ratings(self) -> None:
+        """RefinedConcept converts numeric ratings and retains metadata."""
+
+        concept = RefinedConcept(
+            id="c1",
+            term="Mean",
+            slug="mean",
+            aliases=[],
+            definition="Average",
+            example_from_source=None,
+            source_span=None,
+            category="Technical",
+            centrality=5,
+            distinctiveness=4,
+            transferability=4,
+            clarity=5,
+            assessment_potential=5,
+            cognitive_domain="Knowledge",
+            difficulty_potential={"min_level": "Recall", "max_level": "Comprehension"},
+            learning_role="Core",
+            aligned_learning_objectives=["lo_1"],
+            canonical_answer="Mean",
+            accepted_phrases=["average"],
+            answer_type="closed",
+            closed_answer=True,
+            example_question_stem="Define the mean",
+            plausible_distractors=["median"],
+            misconception_note=None,
+            contrast_with=["median"],
+            related_concepts=["median"],
+            review_notes=None,
+            source_reference=None,
+            version="v1",
+        )
+
+        assert concept.centrality == 5
+        assert concept.cognitive_domain == "Knowledge"
+
+    async def test_lesson_package_validator_checks_quiz_ids(self) -> None:
+        """LessonPackage ensures quiz IDs reference the exercise bank."""
+
+        exercise = Exercise(
+            id="ex1",
+            exercise_type="mcq",
+            exercise_category="comprehension",
+            aligned_learning_objective="lo_1",
+            cognitive_level="Recall",
+            difficulty="easy",
+            stem="What is mean?",
+            options=[
+                ExerciseOption(id="ex1_a", label="A", text="Mean"),
+                ExerciseOption(id="ex1_b", label="B", text="Median", rationale_wrong="Different"),
+                ExerciseOption(id="ex1_c", label="C", text="Mode", rationale_wrong="Counts frequency"),
+                ExerciseOption(id="ex1_d", label="D", text="Range", rationale_wrong="Spread"),
+            ],
+            answer_key=ExerciseAnswerKey(label="A", option_id="ex1_a", rationale_right="Definition"),
+        )
+
+        quiz_metadata = QuizMetadata(
+            quiz_type="Formative",
+            total_items=1,
+            difficulty_distribution_target={"easy": 1.0, "medium": 0.0, "hard": 0.0},
+            difficulty_distribution_actual={"easy": 1.0, "medium": 0.0, "hard": 0.0},
+            cognitive_mix_target={"Recall": 1.0},
+            cognitive_mix_actual={"Recall": 1.0},
+            coverage_by_LO={"lo_1": QuizCoverageByLO(exercise_ids=["ex1"], concepts=["mean"])},
+            coverage_by_concept={"mean": QuizCoverageByConcept(exercise_ids=["ex1"], types=["mcq"])},
+            normalizations_applied=[],
+            selection_rationale=[],
+            gaps_identified=[],
+        )
+
+        LessonPackage(
+            meta=Meta(lesson_id="lesson", title="Lesson", learner_level="beginner"),
+            unit_learning_objective_ids=["lo_1"],
+            mini_lesson="Body",
+            concept_glossary=[],
+            exercise_bank=[exercise],
+            quiz=["ex1"],
+            quiz_metadata=quiz_metadata,
+        )
+
+        with pytest.raises(ValueError):
+            LessonPackage(
+                meta=Meta(lesson_id="lesson", title="Lesson", learner_level="beginner"),
+                unit_learning_objective_ids=["lo_1"],
+                mini_lesson="Body",
+                concept_glossary=[],
+                exercise_bank=[exercise],
+                quiz=["missing"],
+                quiz_metadata=quiz_metadata,
             )
 
     async def test_save_lesson_podcast_from_bytes_persists_metadata(self) -> None:
@@ -176,13 +393,7 @@ class TestContentService:
         object_store = AsyncMock()
 
         now = datetime.now(UTC)
-        package = LessonPackage(
-            meta=Meta(lesson_id="lesson-1", title="Lesson", learner_level="beginner"),
-            unit_learning_objective_ids=["lo_1"],
-            glossary={"terms": []},
-            mini_lesson="Body",
-            exercises=[],
-        )
+        package = _empty_package("lesson-1")
         lesson_model = LessonModel(
             id="lesson-1",
             title="Lesson",
@@ -251,13 +462,9 @@ class TestContentService:
         service = ContentService(repo)
 
         # Create a sample package
-        package = LessonPackage(
-            meta=Meta(lesson_id="test-id", title="Test Lesson", learner_level="beginner"),
-            unit_learning_objective_ids=["lo_1"],
-            glossary={"terms": []},
-            mini_lesson="Test explanation",
-            exercises=[],
-        )
+        package = _empty_package("test-id", ["lo_1"])
+        package.meta.title = "Test Lesson"
+        package.mini_lesson = "Test explanation"
 
         lesson_data = LessonCreate(id="test-id", title="Test Lesson", learner_level="beginner", package=package, package_version=1)
 
@@ -860,13 +1067,7 @@ class TestContentService:
         )
 
         audio_id = uuid.uuid4()
-        lesson_package = LessonPackage(
-            meta=Meta(lesson_id="lesson-1", title="Lesson 1", learner_level="beginner"),
-            unit_learning_objective_ids=["lo-1"],
-            glossary={"terms": []},
-            mini_lesson="Body",
-            exercises=[],
-        )
+        lesson_package = _empty_package("lesson-1", ["lo-1"])
         lesson_model = LessonModel(
             id="lesson-1",
             title="Lesson 1",
@@ -906,13 +1107,7 @@ class TestContentService:
 
         now = datetime.now(UTC)
         audio_id = uuid.uuid4()
-        lesson_package = LessonPackage(
-            meta=Meta(lesson_id="lesson-1", title="Lesson 1", learner_level="beginner"),
-            unit_learning_objective_ids=["lo-1"],
-            glossary={"terms": []},
-            mini_lesson="Body",
-            exercises=[],
-        )
+        lesson_package = _empty_package("lesson-1", ["lo-1"])
 
         lesson_model = LessonModel(
             id="lesson-1",
@@ -980,13 +1175,7 @@ class TestContentService:
             updated_at=now,
         )
 
-        package = LessonPackage(
-            meta=Meta(lesson_id=lesson_id, title="Lesson", learner_level="beginner"),
-            unit_learning_objective_ids=["lo_1"],
-            glossary={"terms": []},
-            mini_lesson="Mini lesson",
-            exercises=[],
-        )
+        package = _empty_package(lesson_id)
 
         lesson_model = LessonModel(
             id=lesson_id,

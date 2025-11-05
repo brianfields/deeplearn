@@ -1,7 +1,20 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ResourceList } from './ResourceList';
 import type { ResourceSummary } from '@/modules/admin/models';
+
+const pushMock = vi.fn();
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: pushMock,
+    prefetch: vi.fn(),
+    replace: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+    refresh: vi.fn(),
+  }),
+}));
 
 vi.mock('next/link', () => ({
   __esModule: true,
@@ -13,7 +26,11 @@ vi.mock('next/link', () => ({
 }));
 
 describe('ResourceList', () => {
-  it('highlights generated source resources with badge and download action', () => {
+  beforeEach(() => {
+    pushMock.mockReset();
+  });
+
+  it('highlights generated source resources with badge and open details action', () => {
     const resources: ResourceSummary[] = [
       {
         id: 'gen-1',
@@ -31,14 +48,7 @@ describe('ResourceList', () => {
     expect(screen.getByText('Generated Source')).toBeInTheDocument();
     const badge = screen.getByTestId('resource-type-generated_source');
     expect(badge).toHaveClass('bg-violet-100');
-    expect(screen.getByRole('link', { name: /View details/i })).toHaveAttribute(
-      'href',
-      '/resources/gen-1'
-    );
-    expect(screen.getByRole('link', { name: /Download text/i })).toHaveAttribute(
-      'href',
-      '/resources/gen-1?download=1'
-    );
+    expect(screen.getByRole('link', { name: /Open details/i })).toHaveAttribute('href', '/resources/gen-1');
   });
 
   it('falls back to default styling for unknown resource types', () => {

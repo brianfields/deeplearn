@@ -10,11 +10,13 @@ Usage:
 """
 
 import argparse
+from collections import defaultdict
 from datetime import UTC, datetime, timedelta
 import json
 import logging
 import os
 from pathlib import Path
+import re
 import sys
 import traceback
 from typing import Any, cast
@@ -31,14 +33,16 @@ from modules.content.models import (
     UnitResourceModel,
 )
 from modules.content.package_models import (
-    GlossaryTerm,
+    Exercise,
+    ExerciseAnswerKey,
+    ExerciseOption,
     LessonPackage,
-    MCQAnswerKey,
-    MCQExercise,
-    MCQOption,
     Meta,
-    ShortAnswerExercise,
-    WrongAnswer,
+    QuizCoverageByConcept,
+    QuizCoverageByLO,
+    QuizMetadata,
+    RefinedConcept,
+    WrongAnswerWithRationale,
 )
 from modules.conversation_engine.models import ConversationMessageModel, ConversationModel
 from modules.flow_engine.models import FlowRunModel, FlowStepRunModel
@@ -48,6 +52,295 @@ from modules.object_store.models import AudioModel, DocumentModel, ImageModel
 from modules.resource.models import ResourceModel
 from modules.user.repo import UserRepo
 from modules.user.service import UserService
+
+
+def _slugify(value: str) -> str:
+    """Generate a URL-safe slug for concept identifiers."""
+
+    normalized = re.sub(r"[^a-z0-9]+", "-", value.lower())
+    slug = normalized.strip("-")
+    return slug or "concept"
+
+
+def _map_cognitive_level(raw: str | None) -> str:
+    """Map legacy cognitive level strings to the new taxonomy."""
+
+    if not raw:
+        return "Comprehension"
+
+    normalized = raw.strip().lower()
+    mapping = {
+        "remember": "Recall",
+        "recall": "Recall",
+        "understand": "Comprehension",
+        "comprehension": "Comprehension",
+        "analyze": "Application",
+        "apply": "Application",
+        "application": "Application",
+        "evaluate": "Transfer",
+        "synthesize": "Transfer",
+        "transfer": "Transfer",
+    }
+    return mapping.get(normalized, "Transfer")
+
+
+def _map_difficulty(raw: str | None) -> str:
+    """Normalize difficulty labels to easy/medium/hard."""
+
+    if not raw:
+        return "medium"
+
+    normalized = raw.strip().lower()
+    if normalized in {"easy", "medium", "hard"}:
+        return normalized
+    mapping = {
+        "beginner": "easy",
+        "basic": "easy",
+        "intermediate": "medium",
+        "moderate": "medium",
+        "advanced": "hard",
+        "challenging": "hard",
+    }
+    return mapping.get(normalized, "medium")
+
+
+def _choose_aligned_lo(candidate_ids: list[str] | None, unit_lo_ids: list[str]) -> str:
+    """Pick the first valid learning objective id for an exercise."""
+
+    candidates = candidate_ids or []
+    for candidate in candidates:
+        if candidate in unit_lo_ids:
+            return candidate
+    return unit_lo_ids[0] if unit_lo_ids else "lesson_lo_1"
+
+
+def _build_concept_glossary_from_terms(
+    lesson_id: str,
+    glossary_terms: list[dict[str, Any]],
+    unit_lo_ids: list[str],
+) -> list[RefinedConcept]:
+    """Convert legacy glossary term specs into refined concept models."""
+
+    concepts: list[RefinedConcept] = []
+    other_terms = [term.get("term", "") for term in glossary_terms]
+
+    for index, term_data in enumerate(glossary_terms, start=1):
+        term = term_data.get("term", f"Concept {index}")
+        concept_id = term_data.get("id") or f"{lesson_id}_concept_{index}"
+        slug = term_data.get("slug") or _slugify(term)
+        aligned_objectives = term_data.get("aligned_learning_objectives")
+        if not aligned_objectives:
+            aligned_objectives = unit_lo_ids
+
+        plausible_distractors = term_data.get("plausible_distractors")
+        if not plausible_distractors:
+            plausible_distractors = [other for other in other_terms if other and other != term][:2]
+
+        concepts.append(
+            RefinedConcept(
+                id=concept_id,
+                term=term,
+                slug=slug,
+                aliases=list(term_data.get("aliases", [])),
+                definition=term_data.get("definition", term),
+                example_from_source=term_data.get("example_from_source"),
+                source_span=term_data.get("source_span"),
+                category=term_data.get("category") or "Key Concept",
+                centrality=int(term_data.get("centrality", 4)),
+                distinctiveness=int(term_data.get("distinctiveness", 3)),
+                transferability=int(term_data.get("transferability", 3)),
+                clarity=int(term_data.get("clarity", 4)),
+                assessment_potential=int(term_data.get("assessment_potential", 4)),
+                cognitive_domain=term_data.get("cognitive_domain") or "Knowledge",
+                difficulty_potential=term_data.get("difficulty_potential")
+                or {"min_level": "Recall", "max_level": "Comprehension"},
+                learning_role=term_data.get("learning_role") or "Core",
+                aligned_learning_objectives=list(aligned_objectives),
+                canonical_answer=term_data.get("canonical_answer")
+                or term_data.get("definition")
+                or term,
+                accepted_phrases=list(term_data.get("accepted_phrases", [term])),
+                answer_type=term_data.get("answer_type") or "definition",
+                closed_answer=bool(term_data.get("closed_answer", True)),
+                example_question_stem=term_data.get("example_question_stem")
+                or f"What is {term}?",
+                plausible_distractors=plausible_distractors,
+                misconception_note=term_data.get("misconception_note"),
+                contrast_with=list(term_data.get("contrast_with", [])),
+                related_concepts=list(term_data.get("related_concepts", [])),
+                review_notes=term_data.get("review_notes"),
+                source_reference=term_data.get("source_reference"),
+                version=term_data.get("version") or "seed.v1",
+            )
+        )
+
+    return concepts
+
+
+def _build_exercise_bank_from_specs(
+    lesson_id: str,
+    mcqs: list[dict[str, Any]],
+    short_answers: list[dict[str, Any]],
+    unit_lo_ids: list[str],
+) -> list[Exercise]:
+    """Construct unified Exercise models from legacy MCQ/short answer specs."""
+
+    exercises: list[Exercise] = []
+
+    for index, mcq in enumerate(mcqs, start=1):
+        exercise_id = mcq.get("id") or f"{lesson_id}_mcq_{index}"
+        mapped_cognitive = _map_cognitive_level(mcq.get("cognitive_level"))
+        exercise_category = (
+            "comprehension"
+            if mapped_cognitive in {"Recall", "Comprehension"}
+            else "transfer"
+        )
+        options: list[ExerciseOption] = []
+        option_specs = mcq.get("options", [])
+        for option_index, option_spec in enumerate(option_specs):
+            label = option_spec.get("label") or chr(ord("A") + option_index)
+            option_id = option_spec.get("id") or f"{exercise_id}_{label.lower()}"
+            options.append(
+                ExerciseOption(
+                    id=option_id,
+                    label=label,
+                    text=option_spec.get("text", ""),
+                    rationale_wrong=option_spec.get("rationale_wrong"),
+                )
+            )
+
+        correct_index = mcq.get("correct_index", 0)
+        if not isinstance(correct_index, int) or not (0 <= correct_index < len(options)):
+            correct_index = 0
+        answer_option = options[correct_index] if options else None
+        answer_label = answer_option.label if answer_option else "A"
+        answer_option_id = answer_option.id if answer_option else None
+
+        exercises.append(
+            Exercise(
+                id=exercise_id,
+                exercise_type="mcq",
+                exercise_category=exercise_category,
+                aligned_learning_objective=_choose_aligned_lo(
+                    mcq.get("learning_objectives_covered"), unit_lo_ids
+                ),
+                cognitive_level=mapped_cognitive,
+                difficulty=_map_difficulty(mcq.get("difficulty")),
+                stem=mcq.get("stem", ""),
+                options=options,
+                answer_key=ExerciseAnswerKey(
+                    label=answer_label,
+                    option_id=answer_option_id,
+                    rationale_right=mcq.get("correct_rationale"),
+                ),
+            )
+        )
+
+    for index, short_answer in enumerate(short_answers, start=1):
+        exercise_id = short_answer.get("id") or f"{lesson_id}_sa_{index}"
+        mapped_cognitive = _map_cognitive_level(short_answer.get("cognitive_level"))
+        wrong_answers_specs = short_answer.get("wrong_answers", [])
+        wrong_answers: list[WrongAnswerWithRationale] = []
+        for wrong_spec in wrong_answers_specs:
+            wrong_answers.append(
+                WrongAnswerWithRationale(
+                    answer=wrong_spec.get("answer", ""),
+                    rationale_wrong=wrong_spec.get("rationale_wrong")
+                    or wrong_spec.get("explanation")
+                    or "Review the concept again.",
+                    misconception_ids=list(wrong_spec.get("misconception_ids", [])),
+                )
+            )
+
+        exercises.append(
+            Exercise(
+                id=exercise_id,
+                exercise_type="short_answer",
+                exercise_category="transfer",
+                aligned_learning_objective=_choose_aligned_lo(
+                    short_answer.get("learning_objectives_covered"), unit_lo_ids
+                ),
+                cognitive_level=mapped_cognitive,
+                difficulty=_map_difficulty(short_answer.get("difficulty")),
+                stem=short_answer.get("stem", ""),
+                canonical_answer=short_answer.get("canonical_answer", ""),
+                acceptable_answers=list(short_answer.get("acceptable_answers", [])),
+                wrong_answers=wrong_answers,
+                explanation_correct=short_answer.get("explanation_correct")
+                or "Great job!",
+            )
+        )
+
+    return exercises
+
+
+def _build_quiz_metadata_from_bank(
+    quiz_ids: list[str],
+    exercise_bank: list[Exercise],
+    concept_glossary: list[RefinedConcept],
+) -> QuizMetadata:
+    """Assemble quiz metadata summaries from seed exercises."""
+
+    exercise_map = {exercise.id: exercise for exercise in exercise_bank}
+    total_items = len(quiz_ids)
+
+    difficulty_counts: defaultdict[str, int] = defaultdict(int)
+    cognitive_counts: defaultdict[str, int] = defaultdict(int)
+
+    concept_ids = [concept.id for concept in concept_glossary]
+    concept_assignments: dict[str, str] = {}
+    if concept_ids:
+        for index, exercise in enumerate(exercise_bank):
+            concept_assignments[exercise.id] = concept_ids[index % len(concept_ids)]
+
+    coverage_by_lo: dict[str, QuizCoverageByLO] = {}
+    coverage_by_concept: dict[str, QuizCoverageByConcept] = {}
+
+    for exercise_id in quiz_ids:
+        exercise = exercise_map.get(exercise_id)
+        if exercise is None:
+            continue
+
+        difficulty_counts[exercise.difficulty] += 1
+        cognitive_counts[exercise.cognitive_level] += 1
+
+        lo_entry = coverage_by_lo.setdefault(exercise.aligned_learning_objective, QuizCoverageByLO())
+        lo_entry.exercise_ids.append(exercise.id)
+
+        concept_id = concept_assignments.get(exercise.id)
+        if concept_id:
+            if concept_id not in lo_entry.concepts:
+                lo_entry.concepts.append(concept_id)
+            concept_entry = coverage_by_concept.setdefault(concept_id, QuizCoverageByConcept())
+            concept_entry.exercise_ids.append(exercise.id)
+            if exercise.exercise_type not in concept_entry.types:
+                concept_entry.types.append(exercise.exercise_type)
+
+    difficulty_keys = ["easy", "medium", "hard"]
+    cognitive_keys = ["Recall", "Comprehension", "Application", "Transfer"]
+
+    difficulty_distribution_actual = {
+        key: (difficulty_counts[key] / total_items if total_items else 0.0)
+        for key in difficulty_keys
+    }
+    cognitive_mix_actual = {
+        key: (cognitive_counts[key] / total_items if total_items else 0.0)
+        for key in cognitive_keys
+    }
+
+    return QuizMetadata(
+        quiz_type="formative_seed",
+        total_items=total_items,
+        difficulty_distribution_target=difficulty_distribution_actual,
+        difficulty_distribution_actual=difficulty_distribution_actual,
+        cognitive_mix_target=cognitive_mix_actual,
+        cognitive_mix_actual=cognitive_mix_actual,
+        coverage_by_LO=coverage_by_lo,
+        coverage_by_concept=coverage_by_concept,
+        normalizations_applied=["Seed data curated for demo"],
+        selection_rationale=["Exercises selected from curated seed dataset."],
+        gaps_identified=[],
+    )
 
 
 def load_json_file(file_path: Path) -> Any:
@@ -62,12 +355,14 @@ def build_lesson_package(
     title: str,
     learner_level: str,
     objectives: list[dict[str, str]],
-    glossary_terms: list[dict[str, str]],
+    glossary_terms: list[dict[str, Any]],
     mini_lesson: str,
-    mcqs: list[dict[str, Any]],
+    mcqs: list[dict[str, Any]] | None = None,
     short_answers: list[dict[str, Any]] | None = None,
-    misconceptions: list[dict[str, str]] | None = None,
-    confusables: list[dict[str, str]] | None = None,
+    concept_glossary: list[dict[str, Any]] | None = None,
+    exercise_bank: list[dict[str, Any]] | None = None,
+    quiz: list[str] | None = None,
+    quiz_metadata: dict[str, Any] | None = None,
 ) -> LessonPackage:
     """Build a structured lesson package from declarative descriptors."""
 
@@ -75,7 +370,7 @@ def build_lesson_package(
         lesson_id=lesson_id,
         title=title,
         learner_level=learner_level,
-        package_schema_version=1,
+        package_schema_version=2,
         content_version=1,
     )
 
@@ -84,106 +379,35 @@ def build_lesson_package(
         lo_id = obj.get("id") or f"{lesson_id}_lo_{idx}"
         unit_lo_ids.append(lo_id)
 
-    glossary_models = [
-        GlossaryTerm(
-            id=f"{lesson_id}_term_{idx}",
-            term=term["term"],
-            definition=term["definition"],
-            micro_check=term.get("micro_check"),
-        )
-        for idx, term in enumerate(glossary_terms, start=1)
-    ]
+    glossary_terms = glossary_terms or []
+    mcqs = mcqs or []
+    short_answers = short_answers or []
 
-    exercises: list[MCQExercise | ShortAnswerExercise] = []
-    for idx, mcq in enumerate(mcqs, start=1):
-        if unit_lo_ids:
-            lo_index = max(1, min(mcq.get("lo_index", 1), len(unit_lo_ids)))
-            lo_id = unit_lo_ids[lo_index - 1]
-        else:
-            lo_id = f"{lesson_id}_lo_{idx}"
+    if concept_glossary:
+        refined_concepts = [RefinedConcept.model_validate(item) for item in concept_glossary]
+    else:
+        refined_concepts = _build_concept_glossary_from_terms(lesson_id, glossary_terms, unit_lo_ids)
 
-        options: list[MCQOption] = []
-        correct_index = mcq.get("correct_index", 0)
-        for option_idx, option in enumerate(mcq["options"], start=0):
-            label = chr(ord("A") + option_idx)
-            option_id = f"{lesson_id}_mcq_{idx}_{label.lower()}"
-            rationale_wrong = option.get("rationale_wrong") if option_idx != correct_index else None
-            options.append(
-                MCQOption(
-                    id=option_id,
-                    label=label,
-                    text=option["text"],
-                    rationale_wrong=rationale_wrong,
-                )
-            )
+    if exercise_bank:
+        exercises = [Exercise.model_validate(item) for item in exercise_bank]
+    else:
+        exercises = _build_exercise_bank_from_specs(lesson_id, mcqs, short_answers, unit_lo_ids)
 
-        correct_label = chr(ord("A") + correct_index)
-        correct_option_id = options[correct_index].id if options else None
+    quiz_ids = quiz or [exercise.id for exercise in exercises]
 
-        exercises.append(
-            MCQExercise(
-                id=f"{lesson_id}_mcq_{idx}",
-                lo_id=lo_id,
-                cognitive_level=mcq.get("cognitive_level"),
-                estimated_difficulty=mcq.get("difficulty", "Medium"),
-                misconceptions_used=mcq.get("misconceptions", []),
-                stem=mcq["stem"],
-                options=options,
-                answer_key=MCQAnswerKey(
-                    label=correct_label,
-                    option_id=correct_option_id,
-                    rationale_right=mcq.get("correct_rationale"),
-                ),
-            )
-        )
-
-    for idx, short_answer in enumerate(short_answers or [], start=1):
-        lo_candidates = list(short_answer.get("learning_objectives_covered", []))
-        sa_lo_id: str | None = None
-
-        if unit_lo_ids:
-            sa_lo_id = next((candidate for candidate in lo_candidates if candidate in unit_lo_ids), None)
-            if sa_lo_id is None:
-                lo_index = short_answer.get("lo_index")
-                sa_lo_id = unit_lo_ids[lo_index - 1] if isinstance(lo_index, int) and 1 <= lo_index <= len(unit_lo_ids) else unit_lo_ids[0]
-        else:
-            sa_lo_id = short_answer.get("lo_id")
-
-        if not sa_lo_id:
-            sa_lo_id = unit_lo_ids[0] if unit_lo_ids else f"{lesson_id}_lo_{idx}"
-
-        wrong_answers = [
-            WrongAnswer(
-                answer=wrong.get("answer", ""),
-                explanation=wrong.get("explanation", ""),
-                misconception_ids=list(wrong.get("misconception_ids", []) or []),
-            )
-            for wrong in short_answer.get("wrong_answers", [])
-        ]
-
-        exercises.append(
-            ShortAnswerExercise(
-                id=f"{lesson_id}_sa_{idx}",
-                lo_id=sa_lo_id,
-                cognitive_level=short_answer.get("cognitive_level"),
-                estimated_difficulty=short_answer.get("difficulty"),
-                misconceptions_used=list(short_answer.get("misconceptions", [])),
-                stem=short_answer.get("stem", ""),
-                canonical_answer=short_answer.get("canonical_answer", ""),
-                acceptable_answers=list(short_answer.get("acceptable_answers", [])),
-                wrong_answers=wrong_answers,
-                explanation_correct=short_answer.get("explanation_correct", ""),
-            )
-        )
+    if quiz_metadata:
+        quiz_meta = QuizMetadata.model_validate(quiz_metadata)
+    else:
+        quiz_meta = _build_quiz_metadata_from_bank(quiz_ids, exercises, refined_concepts)
 
     return LessonPackage(
         meta=meta,
         unit_learning_objective_ids=unit_lo_ids,
-        glossary={"terms": glossary_models},
         mini_lesson=mini_lesson,
-        exercises=exercises,
-        misconceptions=misconceptions or [],
-        confusables=confusables or [],
+        concept_glossary=refined_concepts,
+        exercise_bank=exercises,
+        quiz=quiz_ids,
+        quiz_metadata=quiz_meta,
     )
 
 
@@ -225,13 +449,13 @@ def create_sample_flow_run(
     raw_unit_objectives = lesson_data.get("unit_learning_objectives", []) or []
     objectives = [obj.get("text") if isinstance(obj, dict) else str(obj) for obj in raw_unit_objectives]
     objective_ids = [obj.get("id") for obj in raw_unit_objectives if isinstance(obj, dict) and obj.get("id") is not None]
-    key_terms = [term["term"] for term in package.get("glossary", {}).get("terms", [])]
-    exercises = package.get("exercises", [])
-    mcq_exercises = [ex for ex in exercises if ex.get("exercise_type") == "mcq"]
-    short_answer_exercises = [ex for ex in exercises if ex.get("exercise_type") == "short_answer"]
-    total_mcqs = len(mcq_exercises)
-    total_short_answers = len(short_answer_exercises)
-    lo_coverage = len({exercise.get("lo_id") for exercise in exercises if exercise.get("lo_id")}) if exercises else 0
+    concept_glossary = package.get("concept_glossary", []) or []
+    exercise_bank = package.get("exercise_bank", []) or []
+    quiz_ids = list(package.get("quiz", []) or [])
+    quiz_metadata = package.get("quiz_metadata", {}) or {}
+    comprehension_count = sum(1 for exercise in exercise_bank if exercise.get("exercise_category") == "comprehension")
+    transfer_count = sum(1 for exercise in exercise_bank if exercise.get("exercise_category") == "transfer")
+    lesson_source_material = lesson_data.get("source_material") or ""
 
     return {
         "id": flow_run_id,
@@ -253,7 +477,7 @@ def create_sample_flow_run(
         "execution_time_ms": 45000,
         "inputs": {
             "topic": lesson_data["title"],
-            "source_material": lesson_data["source_material"],
+            "source_material": lesson_source_material,
             "learner_level": lesson_data["learner_level"],
             "voice": "narrative",
             "learning_objectives": objectives,
@@ -266,18 +490,15 @@ def create_sample_flow_run(
             "voice": "narrative",
             "learning_objectives": objectives,
             "learning_objective_ids": objective_ids,
-            "key_concepts": key_terms,
-            "misconceptions": package.get("misconceptions", []),
-            "confusables": package.get("confusables", []),
-            "glossary": package.get("glossary", {}),
+            "lesson_source_material": lesson_source_material,
             "mini_lesson": package.get("mini_lesson"),
-            "mcqs": {
-                "metadata": {"total_mcqs": total_mcqs, "lo_coverage": lo_coverage},
-                "mcqs": mcq_exercises,
-            },
-            "short_answers": {
-                "metadata": {"total_short_answers": total_short_answers},
-                "short_answers": short_answer_exercises,
+            "concept_glossary": concept_glossary,
+            "exercise_bank": exercise_bank,
+            "quiz": quiz_ids,
+            "quiz_metadata": quiz_metadata,
+            "exercise_summary": {
+                "comprehension": comprehension_count,
+                "transfer": transfer_count,
             },
         },
         "flow_metadata": {"lesson_id": lesson_id, "package_version": lesson_data.get("package_version", 1)},
@@ -293,23 +514,151 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, lesson_data: dict[str, Any])
     raw_unit_objectives = lesson_data.get("unit_learning_objectives", []) or []
     objectives = [obj.get("text") if isinstance(obj, dict) else str(obj) for obj in raw_unit_objectives]
     objective_ids = [obj.get("id") for obj in raw_unit_objectives if isinstance(obj, dict) and obj.get("id") is not None]
-    key_terms = [term["term"] for term in package.get("glossary", {}).get("terms", [])]
-    exercises = package.get("exercises", [])
-    mcq_exercises = [ex for ex in exercises if ex.get("exercise_type") == "mcq"]
-    short_answer_exercises = [ex for ex in exercises if ex.get("exercise_type") == "short_answer"]
-    short_answer_lo_coverage = len({ex.get("lo_id") for ex in short_answer_exercises if ex.get("lo_id")}) if short_answer_exercises else 0
-    misconceptions = package.get("misconceptions", [])
-    confusables = package.get("confusables", [])
+    lesson_objective = objectives[0] if objectives else ""
+    lesson_source_material = lesson_data.get("source_material") or ""
+    concept_glossary = package.get("concept_glossary", []) or []
+    exercise_bank = package.get("exercise_bank", []) or []
+    quiz_ids = list(package.get("quiz", []) or [])
+    quiz_metadata = package.get("quiz_metadata", {}) or {}
+
+    comprehension_exercises = [ex for ex in exercise_bank if ex.get("exercise_category") == "comprehension"]
+    transfer_exercises = [ex for ex in exercise_bank if ex.get("exercise_category") == "transfer"]
+
+    concept_assignments: dict[str, dict[str, Any]] = {}
+    if concept_glossary:
+        for index, exercise in enumerate(exercise_bank):
+            concept_assignments[exercise["id"]] = concept_glossary[index % len(concept_glossary)]
+
+    def _map_concept_for_exercise(exercise_id: str) -> tuple[str, str]:
+        concept = concept_assignments.get(exercise_id)
+        if not concept:
+            return "concept", "Seed Concept"
+        return concept.get("slug", "concept"), concept.get("term", "Seed Concept")
+
+    def _to_step_exercise(exercise: dict[str, Any]) -> dict[str, Any]:
+        concept_slug, concept_term = _map_concept_for_exercise(exercise.get("id", "exercise"))
+        base: dict[str, Any] = {
+            "id": exercise.get("id"),
+            "exercise_category": exercise.get("exercise_category"),
+            "type": exercise.get("exercise_type"),
+            "concept_slug": concept_slug,
+            "concept_term": concept_term,
+            "stem": exercise.get("stem", ""),
+            "cognitive_level": exercise.get("cognitive_level", "Comprehension"),
+            "difficulty": exercise.get("difficulty", "medium"),
+            "aligned_learning_objective": exercise.get("aligned_learning_objective"),
+            "answer_type": exercise.get("answer_type")
+            or ("multiple_choice" if exercise.get("exercise_type") == "mcq" else "short_answer"),
+        }
+
+        if exercise.get("exercise_type") == "mcq":
+            options = exercise.get("options", []) or []
+            answer_key = exercise.get("answer_key", {}) or {}
+            base["options"] = [
+                {
+                    "label": option.get("label"),
+                    "text": option.get("text", ""),
+                    "rationale_wrong": option.get("rationale_wrong"),
+                }
+                for option in options
+            ]
+            base["answer_key"] = {
+                "label": answer_key.get("label", "A"),
+                "rationale_right": answer_key.get("rationale_right") or "Seed answer rationale.",
+            }
+            base["rationale_right"] = answer_key.get("rationale_right") or "Seed answer rationale."
+            base["canonical_answer"] = None
+            base["acceptable_answers"] = []
+            base["wrong_answers"] = []
+        else:
+            base["canonical_answer"] = exercise.get("canonical_answer", "")
+            base["acceptable_answers"] = list(exercise.get("acceptable_answers", []))
+            base["rationale_right"] = exercise.get("explanation_correct")
+            base["wrong_answers"] = [
+                {
+                    "answer": wrong.get("answer", ""),
+                    "rationale_wrong": wrong.get("rationale_wrong") or "Review the concept again.",
+                    "misconception_ids": list(wrong.get("misconception_ids", [])),
+                }
+                for wrong in exercise.get("wrong_answers", [])
+            ]
+            base["options"] = None
+            base["answer_key"] = None
+
+        return base
+
+    concept_meta = {
+        "topic": lesson_data["title"],
+        "lesson_objective": lesson_objective,
+        "total_concepts": len(concept_glossary),
+        "selection_rationale": ["Seed data concepts curated by content team."],
+        "selection_notes": [],
+        "version": "seed.v1",
+    }
+
+    refined_meta = {
+        "topic": lesson_data["title"],
+        "lesson_objective": lesson_objective,
+        "total_retained": len(concept_glossary),
+        "removed_or_merged": 0,
+        "selection_rationale": ["All extracted concepts retained for seed data."],
+        "selection_notes": [],
+        "version": "seed.v1",
+    }
+
+    comprehension_meta = {
+        "exercise_category": "comprehension",
+        "exercise_count": len(comprehension_exercises),
+        "generation_notes": ["Exercises curated from seed data."],
+    }
+
+    transfer_meta = {
+        "exercise_category": "transfer",
+        "exercise_count": len(transfer_exercises),
+        "generation_notes": ["Exercises curated from seed data."],
+    }
+
+    extracted_concepts = [
+        {
+            "id": concept.get("id"),
+            "term": concept.get("term"),
+            "slug": concept.get("slug"),
+            "aliases": concept.get("aliases", []),
+            "definition": concept.get("definition"),
+            "example_from_source": concept.get("example_from_source"),
+            "source_span": concept.get("source_span"),
+            "related_terms": concept.get("related_concepts", []),
+            "aligned_learning_objectives": concept.get("aligned_learning_objectives", []),
+        }
+        for concept in concept_glossary
+    ]
+
+    refined_concepts = concept_glossary
+
+    comprehension_items = [_to_step_exercise(ex) for ex in comprehension_exercises]
+    transfer_items = [_to_step_exercise(ex) for ex in transfer_exercises]
 
     step_definitions = [
         {
             "step_name": "extract_lesson_metadata",
             "step_order": 1,
-            "inputs": {"title": lesson_data["title"]},
-            "outputs": {
+            "inputs": {
+                "topic": lesson_data["title"],
+                "learner_level": lesson_data["learner_level"],
+                "voice": "narrative",
                 "learning_objectives": objectives,
                 "learning_objective_ids": objective_ids,
-                "key_concepts": key_terms[:3],
+                "lesson_objective": lesson_objective,
+                "source_material": lesson_source_material,
+            },
+            "outputs": {
+                "topic": lesson_data["title"],
+                "learner_level": lesson_data["learner_level"],
+                "voice": "narrative",
+                "learning_objectives": objectives,
+                "learning_objective_ids": objective_ids,
+                "lesson_source_material": lesson_source_material,
+                "mini_lesson": package.get("mini_lesson"),
             },
             "prompt_file": "extract_lesson_metadata.md",
             "tokens_used": 2100,
@@ -317,100 +666,82 @@ def create_sample_step_runs(flow_run_id: uuid.UUID, lesson_data: dict[str, Any])
             "execution_time_ms": 3500,
         },
         {
-            "step_name": "generate_misconception_bank",
+            "step_name": "extract_concept_glossary",
             "step_order": 2,
             "inputs": {
-                "learning_objectives": objectives,
-                "learning_objective_ids": objective_ids,
-                "key_concepts": key_terms[:3],
+                "topic": lesson_data["title"],
+                "lesson_objective": lesson_objective,
+                "lesson_source_material": lesson_source_material,
+                "lesson_learning_objectives": [obj for obj in raw_unit_objectives if isinstance(obj, dict)],
             },
-            "outputs": {"misconceptions": misconceptions},
-            "prompt_file": "generate_misconception_bank.md",
-            "tokens_used": 2200,
-            "cost_estimate": 0.011,
-            "execution_time_ms": 5000,
+            "outputs": {"concepts": extracted_concepts, "meta": concept_meta},
+            "prompt_file": "extract_concept_glossary.md",
+            "tokens_used": 2600,
+            "cost_estimate": 0.013,
+            "execution_time_ms": 5200,
         },
         {
-            "step_name": "generate_mini_lesson",
+            "step_name": "annotate_concept_glossary",
             "step_order": 3,
             "inputs": {
                 "topic": lesson_data["title"],
-                "learner_level": lesson_data["learner_level"],
-                "voice": "narrative",
-                "learning_objectives": objectives,
-                "learning_objective_ids": objective_ids,
-                "source_material": lesson_data["source_material"],
+                "lesson_objective": lesson_objective,
+                "lesson_source_material": lesson_source_material,
+                "concept_glossary": extracted_concepts,
+                "lesson_learning_objectives": [obj for obj in raw_unit_objectives if isinstance(obj, dict)],
             },
-            "outputs": {"mini_lesson": package.get("mini_lesson")},
-            "prompt_file": "generate_mini_lesson.md",
-            "tokens_used": 1800,
-            "cost_estimate": 0.009,
-            "execution_time_ms": 4200,
+            "outputs": {"refined_concepts": refined_concepts, "meta": refined_meta},
+            "prompt_file": "annotate_concept_glossary.md",
+            "tokens_used": 3400,
+            "cost_estimate": 0.017,
+            "execution_time_ms": 6400,
         },
         {
-            "step_name": "generate_glossary",
+            "step_name": "generate_comprehension_exercises",
             "step_order": 4,
             "inputs": {
-                "lesson_title": lesson_data["title"],
-                "key_concepts": key_terms,
+                "topic": lesson_data["title"],
+                "lesson_objective": lesson_objective,
+                "lesson_source_material": lesson_source_material,
+                "refined_concept_glossary": refined_concepts,
+                "lesson_learning_objectives": [obj for obj in raw_unit_objectives if isinstance(obj, dict)],
             },
-            "outputs": {"terms": package.get("glossary", {}).get("terms", [])},
-            "prompt_file": "generate_glossary.md",
-            "tokens_used": 1600,
-            "cost_estimate": 0.008,
-            "execution_time_ms": 3800,
+            "outputs": {"exercises": comprehension_items, "meta": comprehension_meta},
+            "prompt_file": "generate_comprehension_exercises.md",
+            "tokens_used": 4200,
+            "cost_estimate": 0.021,
+            "execution_time_ms": 7800,
         },
         {
-            "step_name": "generate_mcqs",
+            "step_name": "generate_transfer_exercises",
             "step_order": 5,
             "inputs": {
                 "topic": lesson_data["title"],
-                "learner_level": lesson_data["learner_level"],
-                "voice": "narrative",
-                "learning_objectives": objectives,
-                "learning_objective_ids": objective_ids,
-                "misconceptions": misconceptions,
-                "confusables": confusables,
-                "glossary": package.get("glossary", {}),
+                "lesson_objective": lesson_objective,
+                "lesson_source_material": lesson_source_material,
+                "refined_concept_glossary": refined_concepts,
+                "lesson_learning_objectives": [obj for obj in raw_unit_objectives if isinstance(obj, dict)],
             },
-            "outputs": {
-                "metadata": {
-                    "total_mcqs": len(mcq_exercises),
-                    "lo_coverage": len({ex.get("lo_id") for ex in mcq_exercises if ex.get("lo_id")}) if mcq_exercises else 0,
-                },
-                "mcqs": mcq_exercises,
-            },
-            "prompt_file": "generate_mcqs.md",
-            "tokens_used": 3500,
-            "cost_estimate": 0.0175,
+            "outputs": {"exercises": transfer_items, "meta": transfer_meta},
+            "prompt_file": "generate_transfer_exercises.md",
+            "tokens_used": 4300,
+            "cost_estimate": 0.0215,
             "execution_time_ms": 8000,
         },
         {
-            "step_name": "generate_short_answers",
+            "step_name": "generate_quiz_from_exercises",
             "step_order": 6,
             "inputs": {
-                "lesson_title": lesson_data["title"],
-                "lesson_objective": objectives[0] if objectives else "",
-                "learner_level": lesson_data["learner_level"],
-                "voice": "narrative",
-                "learning_objectives": objectives,
-                "learning_objective_ids": objective_ids,
-                "mini_lesson": package.get("mini_lesson"),
-                "glossary": package.get("glossary", {}),
-                "misconceptions": misconceptions,
-                "mcq_stems": [ex.get("stem") for ex in mcq_exercises],
+                "exercise_bank": exercise_bank,
+                "refined_concept_glossary": refined_concepts,
+                "lesson_learning_objectives": [obj for obj in raw_unit_objectives if isinstance(obj, dict)],
+                "target_question_count": len(quiz_ids),
             },
-            "outputs": {
-                "metadata": {
-                    "total_short_answers": len(short_answer_exercises),
-                    "lo_coverage": short_answer_lo_coverage,
-                },
-                "short_answers": short_answer_exercises,
-            },
-            "prompt_file": "generate_short_answers.md",
-            "tokens_used": 3200,
-            "cost_estimate": 0.016,
-            "execution_time_ms": 6500,
+            "outputs": {"quiz": quiz_ids, "meta": quiz_metadata},
+            "prompt_file": "generate_quiz_from_exercises.md",
+            "tokens_used": 2800,
+            "cost_estimate": 0.014,
+            "execution_time_ms": 4600,
         },
     ]
 
@@ -452,12 +783,12 @@ def create_sample_llm_requests(
     llm_requests: list[dict[str, Any]] = []
 
     prompt_map = {
-        "extract_lesson_metadata": "Extract learning objectives and key concepts from the provided source material.",
-        "generate_misconception_bank": "Produce likely misconceptions learners might hold about this lesson.",
-        "generate_mini_lesson": "Write a cohesive mini-lesson covering the key ideas.",
-        "generate_glossary": "Assemble a concise glossary for the important terms.",
-        "generate_mcqs": "Create multiple-choice questions with rationales and metadata for each objective.",
-        "generate_short_answers": "Craft short-answer questions with canonical, acceptable, and common wrong responses.",
+        "extract_lesson_metadata": "Extract scoped source material and mini-lesson details for the lesson.",
+        "extract_concept_glossary": "Identify high-value lesson concepts aligned to the learning objectives.",
+        "annotate_concept_glossary": "Enrich each concept with pedagogical metadata for assessment design.",
+        "generate_comprehension_exercises": "Produce comprehension exercises with rationales for each distractor.",
+        "generate_transfer_exercises": "Create transfer exercises with canonical answers and wrong-answer rationales.",
+        "generate_quiz_from_exercises": "Assemble a balanced quiz with coverage metadata and selection rationale.",
     }
 
     for step_run in step_runs:
@@ -707,8 +1038,10 @@ async def process_unit_from_json(
             mini_lesson=lesson_spec.get("mini_lesson", ""),
             mcqs=lesson_spec.get("mcqs", []),
             short_answers=lesson_spec.get("short_answers", []),
-            misconceptions=lesson_spec.get("misconceptions"),
-            confusables=lesson_spec.get("confusables"),
+            concept_glossary=lesson_spec.get("concept_glossary"),
+            exercise_bank=lesson_spec.get("exercise_bank"),
+            quiz=lesson_spec.get("quiz"),
+            quiz_metadata=lesson_spec.get("quiz_metadata"),
         )
 
         lesson_data = create_lesson_data(

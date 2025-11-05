@@ -4,6 +4,19 @@ import type { TaskStatus } from '../../models';
 import { TasksList } from './TasksList';
 import { useTasks } from '../../queries';
 
+const pushMock = vi.fn();
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: pushMock,
+    prefetch: vi.fn(),
+    replace: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+    refresh: vi.fn(),
+  }),
+}));
+
 vi.mock('next/link', () => ({
   __esModule: true,
   default: ({ href, children, ...rest }: any) => (
@@ -22,9 +35,10 @@ const useTasksMock = vi.mocked(useTasks);
 describe('TasksList', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    pushMock.mockReset();
   });
 
-  it('renders empty state and triggers reload', () => {
+  it('renders empty state when no tasks are returned', () => {
     const refetch = vi.fn();
     useTasksMock.mockReturnValue({
       data: [],
@@ -38,14 +52,11 @@ describe('TasksList', () => {
     );
 
     expect(screen.getByText('No background tasks found.')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: /reload/i }));
-    expect(refetch).toHaveBeenCalledTimes(1);
+    expect(refetch).not.toHaveBeenCalled();
   });
 
   it('renders tasks and allows selecting a task', () => {
     const refetch = vi.fn();
-    const handleSelect = vi.fn();
     const baseDates = {
       submitted: new Date('2024-01-01T00:00:00Z'),
       started: new Date('2024-01-01T00:05:00Z'),
@@ -111,12 +122,8 @@ describe('TasksList', () => {
     expect(screen.getByText('generate_unit')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Unit unit-1' })).toHaveAttribute('href', '/units/unit-1');
 
-    const reloadButtons = screen.getAllByRole('button', { name: /reload/i });
-    fireEvent.click(reloadButtons[0]);
-    expect(refetch).toHaveBeenCalledTimes(1);
-
     const taskTypeCell = screen.getByText('generate_unit');
     fireEvent.click(taskTypeCell.closest('tr')!);
-    expect(handleSelect).toHaveBeenCalledWith('task-1');
+    expect(pushMock).toHaveBeenCalledWith('/tasks/task-1');
   });
 });

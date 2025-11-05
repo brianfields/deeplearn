@@ -88,23 +88,23 @@ Replace the existing 2-step exercise generation (MCQ + ShortAnswer) with a new 5
 ### Phase 1: Backend
 
 #### Update Existing Prompt
-- [ ] Modify `backend/modules/content_creator/prompts/extract_lesson_metadata.md`:
+- [x] Modify `backend/modules/content_creator/prompts/extract_lesson_metadata.md`:
   - Remove outputs: `misconceptions`, `confusables`, `glossary`
   - Add output: `lesson_source_material` (lesson-scoped excerpt from unit source material)
   - Keep output: `mini_lesson`
 
 #### Create New Prompts (rename from "question" to "exercise")
-- [ ] Rename and update `backend/modules/content_creator/prompts/extract_concept_glossary.md`:
+- [x] Rename and update `backend/modules/content_creator/prompts/extract_concept_glossary.md`:
   - Change terminology from "question" to "exercise" throughout
   - Update inputs: add `lesson_objective`, rename `source_material` to `lesson_source_material`, rename `learning_objectives` to `lesson_learning_objectives` (expect full LO objects)
   - Ensure output is 8-20 concepts with LO alignment
 
-- [ ] Rename and update `backend/modules/content_creator/prompts/annotate_concept_glossary.md`:
+- [x] Rename and update `backend/modules/content_creator/prompts/annotate_concept_glossary.md`:
   - Change terminology from "question" to "exercise" throughout
   - Update inputs: add `lesson_objective`, rename `source_material` to `lesson_source_material`, rename `learning_objectives` to `lesson_learning_objectives`
   - Ensure concepts have ratings, canonical answers, closed-answer metadata
 
-- [ ] Rename and update `backend/modules/content_creator/prompts/generate_comprehension_exercises.md` (from `generate_comprehension_questions.md`):
+- [x] Rename and update `backend/modules/content_creator/prompts/generate_comprehension_exercises.md` (from `generate_comprehension_questions.md`):
   - Change terminology from "question" to "exercise" throughout
   - Update inputs: add `lesson_objective`, rename `source_material` to `lesson_source_material`, rename `learning_objectives` to `lesson_learning_objectives`
   - Change output: `aligned_learning_objectives: list[str]` → `aligned_learning_objective: str` (single LO ID)
@@ -112,7 +112,7 @@ Replace the existing 2-step exercise generation (MCQ + ShortAnswer) with a new 5
   - Ensure short-answer exercises have `rationale_wrong` for each wrong answer
   - Ensure MCQ options have `rationale_wrong` for distractors
 
-- [ ] Rename and update `backend/modules/content_creator/prompts/generate_transfer_exercises.md` (from `generate_transfer_questions.md`):
+- [x] Rename and update `backend/modules/content_creator/prompts/generate_transfer_exercises.md` (from `generate_transfer_questions.md`):
   - Change terminology from "question" to "exercise" throughout
   - Update inputs: add `lesson_objective`, rename `source_material` to `lesson_source_material`, rename `learning_objectives` to `lesson_learning_objectives`
   - Change output: `aligned_learning_objectives: list[str]` → `aligned_learning_objective: str` (single LO ID)
@@ -120,14 +120,14 @@ Replace the existing 2-step exercise generation (MCQ + ShortAnswer) with a new 5
   - Ensure short-answer exercises have `rationale_wrong` for each wrong answer
   - Ensure MCQ options have `rationale_wrong` for distractors
 
-- [ ] Rename and update `backend/modules/content_creator/prompts/generate_quiz_from_exercises.md` (from `generate_quiz_from_questions.md`):
+- [x] Rename and update `backend/modules/content_creator/prompts/generate_quiz_from_exercises.md` (from `generate_quiz_from_questions.md`):
   - Change terminology from "question" to "exercise" throughout
   - Update inputs: rename `question_bank` to `exercise_bank`, rename `learning_objectives` to `lesson_learning_objectives`
   - Change output: `quiz` should be `list[str]` (exercise IDs) instead of full exercise objects
   - Ensure quiz metadata includes difficulty_distribution, cognitive_mix, coverage_by_LO, coverage_by_concept, normalizations_applied, selection_rationale, gaps_identified
 
 #### Update Package Models
-- [ ] Modify `backend/modules/content/package_models.py`:
+- [x] Modify `backend/modules/content/package_models.py`:
   - Remove old models: `GlossaryTerm`, `MCQExercise`, `ShortAnswerExercise`, `MCQOption`, `MCQAnswerKey`, `WrongAnswer`
   - Add `RefinedConcept` model with fields: `id`, `term`, `slug`, `aliases`, `definition`, `example_from_source`, `source_span`, `category`, `centrality`, `distinctiveness`, `transferability`, `clarity`, `assessment_potential`, `cognitive_domain`, `difficulty_potential`, `learning_role`, `aligned_learning_objectives`, `canonical_answer`, `accepted_phrases`, `answer_type`, `closed_answer`, `example_question_stem`, `plausible_distractors`, `misconception_note`, `contrast_with`, `related_concepts`, `review_notes`, `source_reference`, `version`
   - Add `ExerciseOption` model (for MCQ) with fields: `id`, `label`, `text`, `rationale_wrong`
@@ -142,7 +142,7 @@ Replace the existing 2-step exercise generation (MCQ + ShortAnswer) with a new 5
   - Add validator to ensure all `quiz` IDs reference exercises in `exercise_bank`
 
 #### Update Content Creator Steps
-- [ ] Modify `backend/modules/content_creator/steps.py`:
+- [x] Modify `backend/modules/content_creator/steps.py`:
   - Update `ExtractLessonMetadataStep.Outputs`:
     - Remove: `misconceptions`, `confusables`, `glossary`
     - Add: `lesson_source_material: str`
@@ -184,7 +184,7 @@ Replace the existing 2-step exercise generation (MCQ + ShortAnswer) with a new 5
     - Outputs: `quiz: list[str]` (exercise IDs), `meta: QuizMetadataOutput`
 
 #### Update Content Creator Flow
-- [ ] Modify `backend/modules/content_creator/flows.py`:
+- [x] Modify `backend/modules/content_creator/flows.py`:
   - Update `LessonCreationFlow._execute_flow_logic`:
     - Step 1: Call `ExtractLessonMetadataStep` (now returns `lesson_source_material` and `mini_lesson` only)
     - Step 2: Build full LO objects from `learning_objective_ids` and `learning_objectives` input
@@ -197,13 +197,13 @@ Replace the existing 2-step exercise generation (MCQ + ShortAnswer) with a new 5
     - Return structure with: `topic`, `learner_level`, `voice`, `learning_objectives`, `learning_objective_ids`, `mini_lesson`, `lesson_source_material`, `concept_glossary`, `exercise_bank`, `quiz`, `quiz_metadata`
 
 #### Update Content Creator Service
-- [ ] Modify `backend/modules/content_creator/service/facade.py` (or relevant service file):
+- [x] Modify `backend/modules/content_creator/service/facade.py` (or relevant service file):
   - Update `_build_lesson_package` method to map flow output to new `LessonPackage` structure
   - Ensure `concept_glossary`, `exercise_bank`, `quiz`, `quiz_metadata` are correctly populated
   - Remove references to `misconceptions`, `confusables`, old `glossary`
 
 #### Update Learning Session Service
-- [ ] Modify `backend/modules/learning_session/service.py`:
+- [x] Modify `backend/modules/learning_session/service.py`:
   - Update method that extracts exercises from lesson package:
     - Read `quiz: list[str]` from lesson package
     - Filter `exercise_bank` to only exercises with IDs in `quiz`
@@ -214,14 +214,14 @@ Replace the existing 2-step exercise generation (MCQ + ShortAnswer) with a new 5
     - Ensure exercise-to-LO mapping uses the single LO ID per exercise
 
 #### Update Learning Session Tests
-- [ ] Modify `backend/modules/learning_session/test_learning_session_unit.py`:
+- [x] Modify `backend/modules/learning_session/test_learning_session_unit.py`:
   - Update test fixtures to use new lesson package structure (concept_glossary, exercise_bank, quiz, quiz_metadata)
   - Update tests that verify exercise extraction to expect quiz-based filtering
   - Update tests that calculate LO progress to use single `aligned_learning_objective`
   - Update tests that verify session length to use quiz length
 
 #### Update Content Creator Tests
-- [ ] Modify `backend/modules/content_creator/test_flows_unit.py`:
+- [x] Modify `backend/modules/content_creator/test_flows_unit.py`:
   - Update `test_lesson_creation_flow_generates_short_answers` to expect new 6-step pipeline
   - Add test for `ExtractConceptGlossaryStep` execution
   - Add test for `AnnotateConceptGlossaryStep` execution
@@ -230,13 +230,13 @@ Replace the existing 2-step exercise generation (MCQ + ShortAnswer) with a new 5
   - Add test for `GenerateQuizFromExercisesStep` execution
   - Verify flow output includes concept_glossary, exercise_bank, quiz, quiz_metadata
 
-- [ ] Modify `backend/modules/content_creator/test_service_unit.py`:
+- [x] Modify `backend/modules/content_creator/test_service_unit.py`:
   - Update tests that verify lesson package structure
   - Add tests for new prompt orchestration
   - Verify quiz IDs reference exercise_bank
 
 #### Update Content Tests
-- [ ] Modify `backend/modules/content/test_content_unit.py`:
+- [x] Modify `backend/modules/content/test_content_unit.py`:
   - Update tests that create/validate lesson packages
   - Add tests for `RefinedConcept` model validation
   - Add tests for unified `Exercise` model validation (MCQ and SA types)
@@ -244,13 +244,13 @@ Replace the existing 2-step exercise generation (MCQ + ShortAnswer) with a new 5
   - Verify `LessonPackage` validator that checks quiz IDs reference exercise_bank
   - Remove tests for old models (GlossaryTerm, MCQExercise, ShortAnswerExercise)
 
-- [ ] Generate Alembic migration:
+- [x] Generate Alembic migration:
   - Run `cd backend && alembic revision --autogenerate -m "Update lesson package structure for new exercise generation"`
   - Review migration (should be no-op for schema since package is JSON)
   - Add comment documenting package structure change
 
 - [ ] Run migration:
-  - `cd backend && alembic upgrade head`
+  - `cd backend && alembic upgrade head` *(blocked in dev container: existing migrations require PostgreSQL constraint support unavailable in SQLite; run in production environment)*
 
 ### Phase 2: Frontend (Mobile)
 
@@ -330,23 +330,23 @@ Replace the existing 2-step exercise generation (MCQ + ShortAnswer) with a new 5
 ### Phase 3: Frontend (Admin)
 
 #### Update Admin Module Models
-- [ ] Modify `admin/modules/admin/models.ts`:
+- [x] Modify `admin/modules/admin/models.ts`:
   - Add types for `RefinedConcept`, `Exercise`, `QuizMetadata` (matching mobile/backend structures)
   - Update lesson detail type to include concept_glossary, exercise_bank, quiz, quiz_metadata
 
 #### Update Admin Module Service
-- [ ] Modify `admin/modules/admin/service.ts`:
+- [x] Modify `admin/modules/admin/service.ts`:
   - Update lesson detail fetching/mapping to include new fields
   - Ensure concept_glossary, exercise_bank, quiz, quiz_metadata are properly typed
 
 #### Create Admin Content Review Components
-- [ ] Create `admin/modules/admin/components/content/ConceptGlossaryView.tsx`:
+- [x] Create `admin/modules/admin/components/content/ConceptGlossaryView.tsx`:
   - Display table/list of refined concepts from lesson
   - Show columns: term, definition, centrality, distinctiveness, transferability, clarity, assessment_potential, cognitive_domain, difficulty_potential, canonical_answer, plausible_distractors
   - Expandable rows to show full details (example_from_source, related_concepts, contrast_with, etc.)
   - Read-only view (no editing)
 
-- [ ] Create `admin/modules/admin/components/content/ExerciseBankView.tsx`:
+- [x] Create `admin/modules/admin/components/content/ExerciseBankView.tsx`:
   - Display table of all exercises from exercise_bank
   - Show columns: id, exercise_type, exercise_category (comprehension/transfer), cognitive_level, difficulty, aligned_learning_objective, stem (truncated)
   - Filter controls: by exercise_category, cognitive_level, difficulty
@@ -354,13 +354,13 @@ Replace the existing 2-step exercise generation (MCQ + ShortAnswer) with a new 5
   - Indicate which exercises are in the quiz (checkmark or badge)
   - Read-only view
 
-- [ ] Create `admin/modules/admin/components/content/QuizStructureView.tsx`:
+- [x] Create `admin/modules/admin/components/content/QuizStructureView.tsx`:
   - Display ordered list of quiz exercise IDs with position numbers
   - For each quiz exercise, show: id, type, category, cognitive_level, difficulty, stem (truncated)
   - Link to expand/view full exercise details
   - Read-only view
 
-- [ ] Create `admin/modules/admin/components/content/QuizMetadataView.tsx`:
+- [x] Create `admin/modules/admin/components/content/QuizMetadataView.tsx`:
   - Display quiz metadata in sections:
     - **Difficulty Distribution**: target vs actual (easy/medium/hard percentages)
     - **Cognitive Mix**: target vs actual (Recall/Comprehension/Application/Transfer percentages)
@@ -372,7 +372,7 @@ Replace the existing 2-step exercise generation (MCQ + ShortAnswer) with a new 5
   - Read-only view
 
 #### Update Admin Lesson Detail Page
-- [ ] Modify `admin/app/lessons/[id]/page.tsx` (or equivalent lesson detail page):
+- [x] Modify `admin/app/lessons/[id]/page.tsx` (or equivalent lesson detail page):
   - Add tabs/sections for new content views:
     - Mini Lesson (existing)
     - Concept Glossary (new - use `ConceptGlossaryView`)
@@ -383,18 +383,18 @@ Replace the existing 2-step exercise generation (MCQ + ShortAnswer) with a new 5
 
 ### Phase 4: Testing and Verification
 
-- [ ] Update `backend/scripts/create_seed_data.py`:
+- [x] Update `backend/scripts/create_seed_data.py`:
   - Ensure seed data generation uses new lesson creation flow
   - Verify generated lessons have concept_glossary, exercise_bank, quiz, quiz_metadata
   - Remove any code that creates old glossary, misconceptions, confusables structures
   - Test seed data creation: `cd backend && python scripts/create_seed_data.py`
 
-- [ ] Review and update backend integration tests in `backend/tests/`:
+- [x] Review and update backend integration tests in `backend/tests/`:
   - Update any integration tests that verify lesson generation end-to-end
   - Update any tests that verify learning session flow with exercises
   - Ensure tests use new lesson package structure
 
-- [ ] Review and fix mobile Maestro tests in `mobile/e2e/`:
+- [x] Review and fix mobile Maestro tests in `mobile/e2e/`:
   - Update any flows that interact with exercises/quizzes
   - Add testID attributes to new components if needed for Maestro to find them
   - Do NOT create new Maestro tests (only fix existing ones)

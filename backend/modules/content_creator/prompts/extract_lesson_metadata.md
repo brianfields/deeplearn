@@ -32,10 +32,8 @@ Return a single JSON object (and nothing else) with exactly these keys, in this 
 2. learner_level
 3. voice
 4. lesson_objective
-5. misconceptions
-6. confusables
-7. glossary
-8. mini_lesson
+5. lesson_source_material
+6. mini_lesson
 
 ## Field Definitions
 
@@ -43,20 +41,11 @@ Return a single JSON object (and nothing else) with exactly these keys, in this 
 * learner_level: string (copy from LEARNER_LEVEL input provided)
 * voice: string (copy from VOICE input provided; use this to shape tone and style)
 * lesson_objective: string (copy from LESSON_OBJECTIVE input provided; use this along with SOURCE_MATERIAL and LEARNING_OBJECTIVES to produce the mini_lesson)
-* misconceptions: array of 2–4 objects. Each object:
-  * id: “MC1”, “MC2”, …
-  * misbelief: plausible incorrect idea drawn from/near the source_material
-  * why_plausible: realistic reason a learner might believe it
-  * correction: crisp, accurate fix
-* confusables: array of 1–3 objects. Each object:
-  * id: “CF1”, “CF2”, …
-  * a: concept/term
-  * b: concept/term commonly confused with a
-  * contrast: one-sentence discriminator that distinguishes a vs b
-* glossary: array of 4–8 objects. Each object:
-  * term: essential term for this mini-lesson
-  * definition: plain-language definition
-  * micro_check: a one-sentence self-check line (may be declarative or a short prompt; this is not part of the mini_lesson)
+* lesson_source_material: string excerpt (≈180–260 words) distilled from SOURCE_MATERIAL and laser-focused on the lesson_objective:
+  * Summarize only the portions of SOURCE_MATERIAL that directly teach the lesson_objective and associated LEARNING_OBJECTIVES.
+  * Preserve factual accuracy; do not invent new claims.
+  * Write in neutral narration (no learner-facing tone or directions).
+  * Use light Markdown (short paragraphs, bullet lists) only if the source naturally suggests it.
 * mini_lesson: string in Markdown format (≈120–220 words). This is the learner-facing explanation:
   * Write in the specified voice; engaging, concrete, professional.
   * Must enable the “evidence” for every learning objective (cover all LOs).
@@ -74,9 +63,9 @@ Return a single JSON object (and nothing else) with exactly these keys, in this 
 
 ## Quality & Validation Check (self-check before finalizing)
 
-* Exactly eight top-level keys, in the specified order.
+* Exactly six top-level keys, in the specified order.
 * learning_objectives are copied verbatim from input (≤3 total).
-* 2–4 misconceptions; 1–3 confusables; 4–8 glossary entries.
+* lesson_source_material is 180–260 words, objective in tone, and limited to content present in SOURCE_MATERIAL.
 * mini_lesson length ≈120–220 words, covers ALL input LOs, contains no questions.
 
 # Example Output (for structure & intent; your output will be for the "Inputs" provided above)
@@ -86,67 +75,7 @@ Return a single JSON object (and nothing else) with exactly these keys, in this 
   "learner_level": "beginner",
   "voice": "Friendly and playful",
   "lesson_objective": "Define mean and median precisely, how they are affected by outliers, and understand when one is preferred over the other.",
-  "misconceptions": [
-    {
-      "id": "MC1",
-      "misbelief": "Median is the midpoint between the smallest and largest values.",
-      "why_plausible": "The word ‘middle’ suggests averaging the extremes.",
-      "correction": "Median is the middle value after sorting (or the average of the two middle values)."
-    },
-    {
-      "id": "MC2",
-      "misbelief": "Mean and median are interchangeable summaries.",
-      "why_plausible": "Both are called ‘averages’ in everyday speech.",
-      "correction": "Mean is sensitive to outliers; median is robust and better for skewed data."
-    },
-    {
-      "id": "MC3",
-      "misbelief": "Outliers should always be removed before analysis.",
-      "why_plausible": "Outliers look like ‘bad data’ that distort results.",
-      "correction": "Only remove outliers with justification; otherwise report metrics that resist them, like the median."
-    }
-  ],
-  "confusables": [
-    {
-      "id": "CF1",
-      "a": "mean",
-      "b": "median",
-      "contrast": "Mean shifts toward extremes; median stays near the center of a sorted list."
-    },
-    {
-      "id": "CF2",
-      "a": "skew",
-      "b": "outlier",
-      "contrast": "Skew describes overall tail direction; an outlier is a single extreme point."
-    }
-  ],
-  "glossary": [
-    {
-      "term": "mean",
-      "definition": "Sum of values divided by the number of values.",
-      "micro_check": "Mean equals total divided by count."
-    },
-    {
-      "term": "median",
-      "definition": "Middle value after sorting (or average of the two middle values).",
-      "micro_check": "Median comes from ordered data, not extremes."
-    },
-    {
-      "term": "outlier",
-      "definition": "An unusually large or small value relative to the rest.",
-      "micro_check": "Outliers can pull the mean away from the pack."
-    },
-    {
-      "term": "robust",
-      "definition": "Unaffected (or less affected) by extreme values.",
-      "micro_check": "Median is robust; mean is not."
-    },
-    {
-      "term": "skew",
-      "definition": "Asymmetry in a distribution; a long tail to one side.",
-      "micro_check": "Right skew often makes mean greater than median."
-    }
-  ],
+  "lesson_source_material": "The mean is calculated by summing all values and dividing by the count, while the median is the middle value after sorting the list (or the average of the two middle values when the list length is even). Outliers—extreme values far from the rest—can drag the mean toward them, whereas the median stays close to the center because it relies on order rather than magnitude. When a dataset is symmetric with few extremes, mean and median will be similar. In skewed datasets, such as incomes where a few people earn far more than everyone else, the mean shifts toward the high earners while the median still represents the typical person. Analysts choose the summary statistic that best communicates the “typical” value given the distribution. A transparent workflow includes scanning for skew, identifying outliers, and explaining which measure better reflects most cases.",
   "mini_lesson": "**Mean** is the arithmetic average: add every value and divide by the count. **Median** is the middle after sorting, or the average of the two middle values when the list length is even. **Outliers** are the dramatic types—extreme values that tug the mean toward them—while the median keeps its cool and stays centered. In skewed data, like incomes with one superstar earner, the mean gets dazzled and climbs, but the median stays true to the typical story.\n\n- **Mean:** sum ÷ count; crisp on tidy, symmetric datasets with few extremes.  \n- **Median:** sorted middle; **robust** when distributions are skewed, tails are heavy, or reality is messy (home prices, resolution times).  \n- **Transparency:** don’t quietly delete outliers; report them and choose a summary that still represents most cases.\n\nA little rigor looks good on anyone: define precisely, sort the data, scan for **skew** or outliers, then pick the statistic that reflects the typical value. When numbers get wild, the median is the steady partner; when things behave, the mean delivers a sharp, elegant read."
 }
 
