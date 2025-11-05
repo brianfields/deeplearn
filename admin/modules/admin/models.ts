@@ -481,6 +481,7 @@ export interface ExerciseAnswerKey {
 export interface WrongAnswerWithRationale {
   answer: string;
   rationale_wrong: string;
+  explanation?: string; // alias for rationale_wrong
   misconception_ids: string[];
 }
 
@@ -489,8 +490,10 @@ interface LessonExerciseBase {
   exercise_type: 'mcq' | 'short_answer';
   exercise_category: 'comprehension' | 'transfer';
   aligned_learning_objective: string;
+  lo_id?: string; // alias for aligned_learning_objective
   cognitive_level: 'Recall' | 'Comprehension' | 'Application' | 'Transfer';
   difficulty: 'easy' | 'medium' | 'hard';
+  estimated_difficulty?: string; // alias for difficulty
   stem: string;
 }
 
@@ -498,6 +501,7 @@ export interface MCQExercise extends LessonExerciseBase {
   exercise_type: 'mcq';
   options: ExerciseOption[];
   answer_key: ExerciseAnswerKey;
+  misconceptions_used?: string[]; // derived from wrong_answers
 }
 
 export interface ShortAnswerExercise extends LessonExerciseBase {
@@ -506,6 +510,7 @@ export interface ShortAnswerExercise extends LessonExerciseBase {
   acceptable_answers: string[];
   wrong_answers: WrongAnswerWithRationale[];
   explanation_correct: string;
+  misconceptions_used?: string[]; // derived from wrong_answers
 }
 
 export type LessonExercise = MCQExercise | ShortAnswerExercise;
@@ -540,6 +545,7 @@ export interface LessonPackage {
   mini_lesson: string;
   concept_glossary: RefinedConcept[];
   exercise_bank: LessonExercise[];
+  exercises?: LessonExercise[]; // alias for exercise_bank
   quiz: string[];
   quiz_metadata: QuizMetadata;
 }

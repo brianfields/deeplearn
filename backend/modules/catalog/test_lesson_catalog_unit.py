@@ -39,7 +39,9 @@ class TestCatalogService:
         package1 = LessonPackage(
             meta=Meta(lesson_id="lesson-1", title="Lesson 1", learner_level="beginner"),
             unit_learning_objective_ids=["obj1"],
-            concept_glossary=[RefinedConcept(id="term1", term="Key A", slug="key-a", definition="Definition A", canonical_answer="Key A", centrality=3, distinctiveness=3, transferability=3, clarity=3, assessment_potential=3, cognitive_domain="Knowledge")],
+            concept_glossary=[
+                RefinedConcept(id="term1", term="Key A", slug="key-a", definition="Definition A", canonical_answer="Key A", centrality=3, distinctiveness=3, transferability=3, clarity=3, assessment_potential=3, cognitive_domain="Knowledge")
+            ],
             mini_lesson="Test explanation",
             exercise_bank=[
                 Exercise(
@@ -140,7 +142,9 @@ class TestCatalogService:
         package = LessonPackage(
             meta=Meta(lesson_id="lesson-1", title="Lesson 1", learner_level="beginner"),
             unit_learning_objective_ids=["obj1"],
-            concept_glossary=[RefinedConcept(id="term1", term="Key A", slug="key-a", definition="Definition A", canonical_answer="Key A", centrality=3, distinctiveness=3, transferability=3, clarity=3, assessment_potential=3, cognitive_domain="Knowledge")],
+            concept_glossary=[
+                RefinedConcept(id="term1", term="Key A", slug="key-a", definition="Definition A", canonical_answer="Key A", centrality=3, distinctiveness=3, transferability=3, clarity=3, assessment_potential=3, cognitive_domain="Knowledge")
+            ],
             mini_lesson="Test explanation",
             exercise_bank=[
                 Exercise(
@@ -472,7 +476,10 @@ class TestCatalogService:
         package1 = LessonPackage(
             meta=Meta(lesson_id="lesson-1", title="React Basics", learner_level="beginner"),
             unit_learning_objective_ids=["obj1"],
-            concept_glossary=[RefinedConcept(id="term1", term="JSX", slug="jsx", definition="JSX definition", canonical_answer="JSX", centrality=3, distinctiveness=3, transferability=3, clarity=3, assessment_potential=3, cognitive_domain="Knowledge"), RefinedConcept(id="term2", term="Props", slug="props", definition="Props definition", canonical_answer="Props", centrality=3, distinctiveness=3, transferability=3, clarity=3, assessment_potential=3, cognitive_domain="Knowledge")],
+            concept_glossary=[
+                RefinedConcept(id="term1", term="JSX", slug="jsx", definition="JSX definition", canonical_answer="JSX", centrality=3, distinctiveness=3, transferability=3, clarity=3, assessment_potential=3, cognitive_domain="Knowledge"),
+                RefinedConcept(id="term2", term="Props", slug="props", definition="Props definition", canonical_answer="Props", centrality=3, distinctiveness=3, transferability=3, clarity=3, assessment_potential=3, cognitive_domain="Knowledge"),
+            ],
             mini_lesson="Test explanation",
             exercise_bank=[
                 Exercise(
@@ -494,7 +501,11 @@ class TestCatalogService:
         package2 = LessonPackage(
             meta=Meta(lesson_id="lesson-2", title="Python Basics", learner_level="beginner"),
             unit_learning_objective_ids=["obj2"],
-            concept_glossary=[RefinedConcept(id="term3", term="Variables", slug="variables", definition="Variables definition", canonical_answer="Variables", centrality=3, distinctiveness=3, transferability=3, clarity=3, assessment_potential=3, cognitive_domain="Knowledge")],
+            concept_glossary=[
+                RefinedConcept(
+                    id="term3", term="Variables", slug="variables", definition="Variables definition", canonical_answer="Variables", centrality=3, distinctiveness=3, transferability=3, clarity=3, assessment_potential=3, cognitive_domain="Knowledge"
+                )
+            ],
             mini_lesson="Test explanation",
             exercise_bank=[],
             quiz=[],

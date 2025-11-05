@@ -5,6 +5,7 @@ import type {
   LessonSummary,
   ResourceWithUsage,
   UserDetail,
+  ShortAnswerExercise,
 } from './models';
 import { AdminService } from './service';
 
@@ -396,7 +397,8 @@ describe('AdminService resource-aware mappings', () => {
     expect(lesson?.package.concept_glossary[0].term).toBe('Photosynthesis');
     expect(lesson?.package.exercise_bank[0].exercise_category).toBe('comprehension');
     expect(lesson?.package.exercise_bank[1].exercise_type).toBe('short_answer');
-    expect(lesson?.package.exercise_bank[1].wrong_answers[0].rationale_wrong).toBe('Mixes up respiration');
+    const shortAnswerExercise = lesson?.package.exercise_bank[1] as ShortAnswerExercise;
+    expect(shortAnswerExercise?.wrong_answers[0].rationale_wrong).toBe('Mixes up respiration');
     expect(lesson?.package.quiz).toEqual(['ex-1', 'ex-2']);
     expect(lesson?.package.quiz_metadata.total_items).toBe(2);
     expect(lesson?.package.quiz_metadata.coverage_by_LO['lo-1'].concepts).toContain('concept-1');

@@ -362,22 +362,13 @@ def build_lesson_package(
     mcqs = mcqs or []
     short_answers = short_answers or []
 
-    if concept_glossary:
-        refined_concepts = [RefinedConcept.model_validate(item) for item in concept_glossary]
-    else:
-        refined_concepts = _build_concept_glossary_from_terms(lesson_id, glossary_terms, unit_lo_ids)
+    refined_concepts = [RefinedConcept.model_validate(item) for item in concept_glossary] if concept_glossary else _build_concept_glossary_from_terms(lesson_id, glossary_terms, unit_lo_ids)
 
-    if exercise_bank:
-        exercises = [Exercise.model_validate(item) for item in exercise_bank]
-    else:
-        exercises = _build_exercise_bank_from_specs(lesson_id, mcqs, short_answers, unit_lo_ids)
+    exercises = [Exercise.model_validate(item) for item in exercise_bank] if exercise_bank else _build_exercise_bank_from_specs(lesson_id, mcqs, short_answers, unit_lo_ids)
 
     quiz_ids = quiz or [exercise.id for exercise in exercises]
 
-    if quiz_metadata:
-        quiz_meta = QuizMetadata.model_validate(quiz_metadata)
-    else:
-        quiz_meta = _build_quiz_metadata_from_bank(quiz_ids, exercises, refined_concepts)
+    quiz_meta = QuizMetadata.model_validate(quiz_metadata) if quiz_metadata else _build_quiz_metadata_from_bank(quiz_ids, exercises, refined_concepts)
 
     return LessonPackage(
         meta=meta,

@@ -373,10 +373,7 @@ class FlowHandler:
         refined_concepts: list[RefinedConcept] = []
         for idx, concept in enumerate(concept_items):
             difficulty_potential = concept.get("difficulty_potential")
-            if isinstance(difficulty_potential, dict):
-                normalized_difficulty = {str(k): str(v) for k, v in difficulty_potential.items()}
-            else:
-                normalized_difficulty = None
+            normalized_difficulty = {str(k): str(v) for k, v in difficulty_potential.items()} if isinstance(difficulty_potential, dict) else None
 
             refined_concepts.append(
                 RefinedConcept(
