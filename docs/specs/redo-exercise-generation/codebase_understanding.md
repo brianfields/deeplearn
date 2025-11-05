@@ -8,7 +8,7 @@
   - `LessonCreationFlow` orchestrates lesson content generation
   - Steps: `ExtractLessonMetadataStep` → `GenerateMCQStep` → `GenerateShortAnswerStep`
   - Prompts: `extract_lesson_metadata.md`, `generate_mcqs.md`, `generate_short_answers.md`
-  
+
 ### Current Exercise Models (Backend)
 Located in `backend/modules/content/package_models.py`:
 - `Exercise` (base class)
@@ -33,7 +33,7 @@ Located in `backend/modules/content/package_models.py`:
 2. `annotate_concept_glossary.md` - Refine concepts with ratings (centrality, distinctiveness, transferability, clarity, assessment_potential), difficulty levels, closed-answer metadata
 3. `generate_comprehension_exercises.md` - Create SA + MCQ exercises that test recall/comprehension
 4. `generate_transfer_exercises.md` - Create SA + MCQ exercises that test transfer/application in new contexts
-5. `generate_quiz_from_questions.md` - Assemble balanced quiz from question bank with explicit selection/normalization
+5. `generate_quiz_from_exercises.md` - Assemble balanced quiz from exercise bank with explicit selection/normalization
 
 ## Key Changes in New Structure
 
@@ -41,7 +41,7 @@ Located in `backend/modules/content/package_models.py`:
 - More metadata: ratings, cognitive_domain, difficulty_potential, canonical_answer, accepted_phrases, plausible_distractors, related_concepts, contrast_with
 - Closed-set answers only (all SA questions must map to glossary terms)
 
-### Exercises (Refined Question Bank)
+### Exercises (Refined Exercise Bank)
 - Two exercise categories: comprehension vs transfer
 - Each exercise has:
   - `concept_slug` / `concept_term` (map to glossary entry)
@@ -54,7 +54,7 @@ Located in `backend/modules/content/package_models.py`:
   - `aligned_learning_objective` (single LO id)
 
 ### Quiz (New Explicit Structure)
-- Output of `generate_quiz_from_questions.md` is a selected subset of questions
+- Output of `generate_quiz_from_exercises.md` is a selected subset of exercises
 - Metadata includes:
   - `difficulty_distribution_target` vs `difficulty_distribution_actual`
   - `cognitive_mix_target` vs `cognitive_mix_actual`
@@ -82,7 +82,7 @@ Located in `backend/modules/content/package_models.py`:
 
 ## Questions to Clarify Before Design
 1. Concept glossary storage and usage
-2. Question bank vs quiz distinction
+2. Exercise bank vs quiz distinction
 3. Backward compatibility and data migration
 4. UI changes for new quiz structure
 5. LO alignment and progress tracking changes

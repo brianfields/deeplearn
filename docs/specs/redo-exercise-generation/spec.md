@@ -129,7 +129,7 @@ Replace the existing 2-step exercise generation (MCQ + ShortAnswer) with a new 5
 #### Update Package Models
 - [x] Modify `backend/modules/content/package_models.py`:
   - Remove old models: `GlossaryTerm`, `MCQExercise`, `ShortAnswerExercise`, `MCQOption`, `MCQAnswerKey`, `WrongAnswer`
-  - Add `RefinedConcept` model with fields: `id`, `term`, `slug`, `aliases`, `definition`, `example_from_source`, `source_span`, `category`, `centrality`, `distinctiveness`, `transferability`, `clarity`, `assessment_potential`, `cognitive_domain`, `difficulty_potential`, `learning_role`, `aligned_learning_objectives`, `canonical_answer`, `accepted_phrases`, `answer_type`, `closed_answer`, `example_question_stem`, `plausible_distractors`, `misconception_note`, `contrast_with`, `related_concepts`, `review_notes`, `source_reference`, `version`
+  - Add `RefinedConcept` model with fields: `id`, `term`, `slug`, `aliases`, `definition`, `example_from_source`, `source_span`, `category`, `centrality`, `distinctiveness`, `transferability`, `clarity`, `assessment_potential`, `cognitive_domain`, `difficulty_potential`, `learning_role`, `aligned_learning_objectives`, `canonical_answer`, `accepted_phrases`, `answer_type`, `closed_answer`, `example_exercise_stem`, `plausible_distractors`, `misconception_note`, `contrast_with`, `related_concepts`, `review_notes`, `source_reference`, `version`
   - Add `ExerciseOption` model (for MCQ) with fields: `id`, `label`, `text`, `rationale_wrong`
   - Add `ExerciseAnswerKey` model (for MCQ) with fields: `label`, `option_id`, `rationale_right`
   - Add `WrongAnswerWithRationale` model (for SA) with fields: `answer`, `rationale_wrong`, `misconception_ids`
