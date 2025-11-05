@@ -585,7 +585,6 @@ class AdminService:
     async def _count_conversations(
         self,
         *,
-        conversation_type: str | None = None,
         status: str | None = None,
         user_id: int | None = None,
     ) -> int:

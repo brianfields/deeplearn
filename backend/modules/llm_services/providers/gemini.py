@@ -3,15 +3,17 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Mapping
 import contextlib
+from datetime import UTC, datetime
 import json
 import logging
-from datetime import UTC, datetime
-from typing import Any, Mapping
+from typing import Any
 import uuid
 
 try:  # pragma: no cover - optional dependency
     import httpx
+
     _HTTPX_AVAILABLE = True
 except Exception:  # pragma: no cover - guard when httpx is missing
     httpx = None  # type: ignore[assignment]
@@ -99,7 +101,7 @@ class GeminiProvider(LLMProvider):
 
         url = f"{self._base_url}/models/{model}:{endpoint}"
         params = {"key": self.config.api_key}
-        timeout = httpx.Timeout(self.config.timeout) if isinstance(self.config.timeout, (int, float)) else self.config.timeout
+        timeout = httpx.Timeout(self.config.timeout) if isinstance(self.config.timeout, int | float) else self.config.timeout
 
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
@@ -117,7 +119,7 @@ class GeminiProvider(LLMProvider):
         except ValueError as exc:  # pragma: no cover - unexpected payload
             raise LLMError("Gemini returned a non-JSON response") from exc
 
-    def _convert_http_error(self, exc: "httpx.HTTPStatusError") -> Exception:
+    def _convert_http_error(self, exc: httpx.HTTPStatusError) -> Exception:
         """Map HTTP status codes to module-specific exceptions."""
 
         status = exc.response.status_code
@@ -131,9 +133,7 @@ class GeminiProvider(LLMProvider):
             return LLMValidationError(f"Gemini request validation failed: {exc.response.text}")
         return LLMError(f"Gemini request failed with status {status}: {exc.response.text}")
 
-    def _convert_messages(
-        self, messages: list[LLMMessage]
-    ) -> tuple[str | None, list[dict[str, Any]]]:
+    def _convert_messages(self, messages: list[LLMMessage]) -> tuple[str | None, list[dict[str, Any]]]:
         """Convert internal messages into Gemini payload format."""
 
         system_parts: list[str] = []
@@ -379,7 +379,7 @@ class GeminiProvider(LLMProvider):
             execution_time_ms = int((datetime.now(UTC) - start_time).total_seconds() * 1000)
             if "llm_request" in locals():
                 self._update_llm_request_error(llm_request, exc, execution_time_ms)
-            if isinstance(exc, (LLMError, LLMAuthenticationError, LLMRateLimitError, LLMTimeoutError, LLMValidationError)):
+            if isinstance(exc, LLMError | LLMAuthenticationError | LLMRateLimitError | LLMTimeoutError | LLMValidationError):
                 raise
             raise LLMError(f"Gemini text generation failed: {exc}") from exc
 
@@ -469,7 +469,7 @@ class GeminiProvider(LLMProvider):
             execution_time_ms = int((datetime.now(UTC) - start_time).total_seconds() * 1000)
             if "llm_request" in locals():
                 self._update_llm_request_error(llm_request, exc, execution_time_ms)
-            if isinstance(exc, (LLMError, LLMAuthenticationError, LLMRateLimitError, LLMTimeoutError, LLMValidationError)):
+            if isinstance(exc, LLMError | LLMAuthenticationError | LLMRateLimitError | LLMTimeoutError | LLMValidationError):
                 raise
             raise LLMError(f"Gemini structured generation failed: {exc}") from exc
 
@@ -507,7 +507,7 @@ class GeminiProvider(LLMProvider):
             candidates = response_data.get("candidates") or []
             image_data = None
             for candidate in candidates:
-                parts = ((candidate.get("content") or {}).get("parts") or [])
+                parts = (candidate.get("content") or {}).get("parts") or []
                 for part in parts:
                     inline_data = part.get("inlineData") if isinstance(part, dict) else None
                     if inline_data:
@@ -549,7 +549,7 @@ class GeminiProvider(LLMProvider):
             execution_time_ms = int((datetime.now(UTC) - start_time).total_seconds() * 1000)
             if "llm_request" in locals():
                 self._update_llm_request_error(llm_request, exc, execution_time_ms)
-            if isinstance(exc, (LLMError, LLMAuthenticationError, LLMRateLimitError, LLMTimeoutError, LLMValidationError)):
+            if isinstance(exc, LLMError | LLMAuthenticationError | LLMRateLimitError | LLMTimeoutError | LLMValidationError):
                 raise
             raise LLMError(f"Gemini image generation failed: {exc}") from exc
 
@@ -595,7 +595,7 @@ class GeminiProvider(LLMProvider):
             candidates = response_data.get("candidates") or []
             audio_payload = None
             for candidate in candidates:
-                parts = ((candidate.get("content") or {}).get("parts") or [])
+                parts = (candidate.get("content") or {}).get("parts") or []
                 for part in parts:
                     inline_data = part.get("inlineData") if isinstance(part, dict) else None
                     if inline_data and inline_data.get("mimeType", "").startswith("audio/"):
@@ -641,7 +641,7 @@ class GeminiProvider(LLMProvider):
             execution_time_ms = int((datetime.now(UTC) - start_time).total_seconds() * 1000)
             if "llm_request" in locals():
                 self._update_llm_request_error(llm_request, exc, execution_time_ms)
-            if isinstance(exc, (LLMError, LLMAuthenticationError, LLMRateLimitError, LLMTimeoutError, LLMValidationError)):
+            if isinstance(exc, LLMError | LLMAuthenticationError | LLMRateLimitError | LLMTimeoutError | LLMValidationError):
                 raise
             raise LLMError(f"Gemini audio generation failed: {exc}") from exc
 

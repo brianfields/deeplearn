@@ -6,12 +6,13 @@ Clean modular architecture using only the new /modules/ structure.
 No legacy code - fresh start with proper separation of concerns.
 """
 
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from datetime import datetime
 import logging
 from pathlib import Path
 import sys
 from typing import Annotated
-from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -101,7 +102,7 @@ infrastructure = infrastructure_provider()
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):  # type: ignore[no-untyped-def]
+async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     """Manage application lifecycle events."""
     # Startup
     try:
