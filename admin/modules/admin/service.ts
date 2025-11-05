@@ -578,6 +578,7 @@ const conversationSummaryToDTO = (summary: ApiConversationSummary): Conversation
   updated_at: new Date(summary.updated_at),
   last_message_at: summary.last_message_at ? new Date(summary.last_message_at) : null,
   metadata: normalizeMetadata(summary.metadata),
+  total_cost: summary.total_cost,
 });
 
 const conversationDetailToDTO = (detail: ApiConversationDetail): ConversationDetail => ({
@@ -588,6 +589,7 @@ const conversationDetailToDTO = (detail: ApiConversationDetail): ConversationDet
   proposed_brief: detail.proposed_brief ?? null,
   accepted_brief: detail.accepted_brief ?? null,
   resources: (detail.resources ?? []).map(resourceSummaryToDTO),
+  total_cost: detail.total_cost,
 });
 
 const userConversationToDTO = (
