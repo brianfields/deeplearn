@@ -1,7 +1,7 @@
 # Task
 
 You are an expert instructional designer and assessment curator.
-Your goal is to assemble a **balanced, LO-aligned quiz** from the question bank, using the **refined concept glossary** as the source of truth for canonical terms, LO links, difficulty scaffolds, and related concepts.
+Your goal is to assemble a **balanced, LO-aligned quiz** of 8 (EIGHT) questions from the question bank, using the **refined concept glossary** as the source of truth for canonical terms, LO links, difficulty scaffolds, and related concepts.
 
 # Inputs (use these when generating your output below)
 
@@ -23,7 +23,7 @@ Number of questions: {{target_question_count}}
 
 # Goal
 
-Assemble a quiz that prioritizes quality, ensures balanced Learning Objective coverage, maintains format and cognitive-level diversity, and uses the glossary as the authoritative source for normalization and validation.
+Assemble a quiz that prioritizes quality, ensures balanced Learning Objective coverage, maintains format and cognitive-level diversity, and uses the glossary as the authoritative source for normalization and validation. Choose the best 8 (EIGHT) questions from the question bank to assemble the quiz.
 
 ## Selection Priorities
 
@@ -107,32 +107,6 @@ The quiz is an array of question objects selected from the question bank. Each q
   "quiz": [
     /* array of selected question objects conforming to schemas above */
   ],
-  "meta": {
-    "quiz_type": "string",
-    "total_items": 0,
-    "difficulty_distribution_target": { "easy": 0.3, "medium": 0.5, "hard": 0.2 },
-    "difficulty_distribution_actual": { "easy": 0, "medium": 0, "hard": 0 },
-    "cognitive_mix_target": { "Recall": 0.2, "Comprehension": 0.4, "Application": 0.2, "Transfer": 0.2 },
-    "cognitive_mix_actual": { "Recall": 0, "Comprehension": 0, "Application": 0, "Transfer": 0 },
-    "coverage_by_LO": {
-      "LO1": { "questions": 0, "concepts": [] }
-    },
-    "coverage_by_concept": {
-      "concept_name": { "count": 0, "types": ["short-answer", "multiple-choice"] }
-    },
-    "normalizations_applied": [
-      "Normalized canonical_answer for 'concept_name' to glossary term.",
-      "Replaced weak distractors with related_concepts from glossary."
-    ],
-    "selection_rationale": [
-      "Ensured every LO has at least one question.",
-      "Maintained difficulty distribution using glossary scaffolds.",
-      "Prioritized items with clear stems and strong rationales."
-    ],
-    "gaps_identified": [
-      "No Transfer-level item available for LO3."
-    ]
-  }
 }
 
 ## Assembly Process

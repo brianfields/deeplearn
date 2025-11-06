@@ -52,10 +52,12 @@ Return a JSON object with two top-level keys:
 
 * `quiz_type`: Descriptive label (e.g., "Formative", "Summative", "Mixed Cognitive Levels").
 * `total_items`: Number of exercises selected (must equal `len(quiz)`).
-* `difficulty_distribution_target` / `difficulty_distribution_actual`: Target vs actual percentages across easy/medium/hard.
-* `cognitive_mix_target` / `cognitive_mix_actual`: Target vs actual percentages across Recall/Comprehension/Application/Transfer.
-* `coverage_by_LO`: Map of LO ID → `{ "exercise_ids": string[], "concepts": string[] }`.
-* `coverage_by_concept`: Map of concept slug → `{ "exercise_ids": string[], "types": ["mcq" | "short_answer"] }`.
+* `difficulty_distribution_target`: Object with keys `easy`, `medium`, `hard` (float percentages summing to ~1.0).
+* `difficulty_distribution_actual`: Object with keys `easy`, `medium`, `hard` (float percentages summing to ~1.0).
+* `cognitive_mix_target`: Object with keys `Recall`, `Comprehension`, `Application`, `Transfer` (float percentages summing to ~1.0).
+* `cognitive_mix_actual`: Object with keys `Recall`, `Comprehension`, `Application`, `Transfer` (float percentages summing to ~1.0).
+* `coverage_by_LO`: Array of objects with keys `learning_objective_id` (string), `exercise_count` (int), `exercise_ids` (string[]), `concepts` (string[]).
+* `coverage_by_concept`: Array of objects with keys `concept_slug` (string), `exercise_count` (int), `exercise_ids` (string[]), `types` (string[]).
 * `normalizations_applied`: Array of specific adjustments made during quiz assembly.
 * `selection_rationale`: Array summarizing why exercises were selected or excluded.
 * `gaps_identified`: Array describing unmet targets or missing coverage if the bank could not satisfy requirements.
@@ -71,12 +73,22 @@ Return a JSON object with two top-level keys:
     "difficulty_distribution_actual": { "easy": 0.5, "medium": 0.5, "hard": 0.0 },
     "cognitive_mix_target": { "Recall": 0.2, "Comprehension": 0.4, "Application": 0.2, "Transfer": 0.2 },
     "cognitive_mix_actual": { "Recall": 0.5, "Comprehension": 0.5, "Application": 0.0, "Transfer": 0.0 },
-    "coverage_by_LO": {
-      "LO1": { "exercise_ids": ["exercise_id_1"], "concepts": ["mean"] }
-    },
-    "coverage_by_concept": {
-      "mean": { "exercise_ids": ["exercise_id_1"], "types": ["mcq"] }
-    },
+    "coverage_by_LO": [
+      {
+        "learning_objective_id": "LO1",
+        "exercise_count": 1,
+        "exercise_ids": ["exercise_id_1"],
+        "concepts": ["mean"]
+      }
+    ],
+    "coverage_by_concept": [
+      {
+        "concept_slug": "mean",
+        "exercise_count": 1,
+        "exercise_ids": ["exercise_id_1"],
+        "types": ["mcq"]
+      }
+    ],
     "normalizations_applied": [
       "Normalized terminology to glossary canonical answer for 'median'."
     ],

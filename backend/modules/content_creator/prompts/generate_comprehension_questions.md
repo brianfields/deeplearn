@@ -25,7 +25,7 @@ Using the refined, LO-aligned concept glossary below, create **short-answer** an
 
 # Goal
 
-Generate **short-answer** and **multiple-choice** questions that assess comprehension and conceptual reasoning for all refined concepts in the glossary, with explicit Learning Objective alignment and varied cognitive complexity.
+Generate **short-answer** and **multiple-choice** questions that assess comprehension and conceptual reasoning for all refined concepts in the glossary, with explicit Learning Objective alignment and varied cognitive complexity. Aim for 8 to 10 high quality questions.
 
 ## Question Design Requirements
 
@@ -49,7 +49,7 @@ Generate **short-answer** and **multiple-choice** questions that assess comprehe
 
 ## Generation Rules
 
-1. **Per-concept coverage:** Produce at least one short-answer and one multiple-choice question per concept.
+1. **Per-concept coverage:** Aim for maximum coverage of concepts within the 8 to 10 questions.
 2. **Cognitive levels:** Tag each question with an appropriate level (Recall, Comprehension, Application, Transfer).
 3. **LO alignment:** Connect each question to one or more Learning Objectives.
 4. **Difficulty variation:** Vary difficulty through stem complexity or distractor similarity, not through answer openness.

@@ -25,7 +25,7 @@ Your goal is to create **transfer-level** questions that test whether learners c
 
 # Goal
 
-Generate **short-answer** and **multiple-choice** transfer-level questions that test whether learners can recognize and apply concepts in new, unfamiliar, or cross-domain contexts, with explicit Learning Objective alignment and analogical reasoning requirements.
+Generate **short-answer** and **multiple-choice** transfer-level questions that test whether learners can recognize and apply concepts in new, unfamiliar, or cross-domain contexts, with explicit Learning Objective alignment and analogical reasoning requirements. Aim for 8 to 10 high quality questions.
 
 ## Question Design Requirements
 
@@ -48,7 +48,7 @@ Generate **short-answer** and **multiple-choice** transfer-level questions that 
 
 ## Generation Rules
 
-1. **Per-concept coverage:** Produce at least one short-answer and one multiple-choice question per concept at the Transfer level.
+1. **Per-concept coverage:** Aim for maximum coverage of concepts within the 8 to 10 questions.
 2. **Analogical reasoning:** Questions must require learners to map the concept to a novel context or recognize an underlying principle across domains.
 3. **LO alignment:** Connect each question to one or more Learning Objectives.
 4. **Context variation:** Ensure each scenario differs clearly from the domain in which the concept was originally described.

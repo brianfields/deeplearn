@@ -301,12 +301,29 @@ class GenerateTransferExercisesStep(StructuredStep):
         meta: ExerciseBankMeta
 
 
+class DifficultyDistribution(BaseModel):
+    easy: float
+    medium: float
+    hard: float
+
+
+class CognitiveMix(BaseModel):
+    Recall: float
+    Comprehension: float
+    Application: float
+    Transfer: float
+
+
 class QuizCoverageItem(BaseModel):
+    learning_objective_id: str
+    exercise_count: int
     exercise_ids: list[str] = Field(default_factory=list)
     concepts: list[str] = Field(default_factory=list)
 
 
 class QuizConceptCoverageItem(BaseModel):
+    concept_slug: str
+    exercise_count: int
     exercise_ids: list[str] = Field(default_factory=list)
     types: list[str] = Field(default_factory=list)
 
@@ -314,12 +331,12 @@ class QuizConceptCoverageItem(BaseModel):
 class QuizMetadataOutput(BaseModel):
     quiz_type: str
     total_items: int
-    difficulty_distribution_target: dict[str, float]
-    difficulty_distribution_actual: dict[str, float]
-    cognitive_mix_target: dict[str, float]
-    cognitive_mix_actual: dict[str, float]
-    coverage_by_LO: dict[str, QuizCoverageItem] = Field(default_factory=dict)
-    coverage_by_concept: dict[str, QuizConceptCoverageItem] = Field(default_factory=dict)
+    difficulty_distribution_target: DifficultyDistribution
+    difficulty_distribution_actual: DifficultyDistribution
+    cognitive_mix_target: CognitiveMix
+    cognitive_mix_actual: CognitiveMix
+    coverage_by_LO: list[QuizCoverageItem] = Field(default_factory=list)
+    coverage_by_concept: list[QuizConceptCoverageItem] = Field(default_factory=list)
     normalizations_applied: list[str] = Field(default_factory=list)
     selection_rationale: list[str] = Field(default_factory=list)
     gaps_identified: list[str] = Field(default_factory=list)

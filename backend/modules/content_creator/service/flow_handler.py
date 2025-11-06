@@ -508,26 +508,54 @@ class FlowHandler:
         quiz_ids = [str(ex_id) for ex_id in md_res.get("quiz", []) or []]
         quiz_meta_payload = md_res.get("quiz_metadata") or {}
 
-        difficulty_distribution_target = {str(key): float(value) for key, value in (quiz_meta_payload.get("difficulty_distribution_target") or {}).items()}
-        difficulty_distribution_actual = {str(key): float(value) for key, value in (quiz_meta_payload.get("difficulty_distribution_actual") or {}).items()}
-        cognitive_mix_target = {str(key): float(value) for key, value in (quiz_meta_payload.get("cognitive_mix_target") or {}).items()}
-        cognitive_mix_actual = {str(key): float(value) for key, value in (quiz_meta_payload.get("cognitive_mix_actual") or {}).items()}
-
-        coverage_by_lo = {
-            str(lo_id): QuizCoverageByLO(
-                exercise_ids=[str(ex_id) for ex_id in (entry or {}).get("exercise_ids", [])],
-                concepts=[str(concept) for concept in (entry or {}).get("concepts", [])],
-            )
-            for lo_id, entry in (quiz_meta_payload.get("coverage_by_LO") or {}).items()
+        # Convert structured distribution objects to dicts
+        dd_target = quiz_meta_payload.get("difficulty_distribution_target") or {}
+        difficulty_distribution_target = {
+            "easy": float(dd_target.get("easy", 0.0)),
+            "medium": float(dd_target.get("medium", 0.0)),
+            "hard": float(dd_target.get("hard", 0.0)),
+        }
+        dd_actual = quiz_meta_payload.get("difficulty_distribution_actual") or {}
+        difficulty_distribution_actual = {
+            "easy": float(dd_actual.get("easy", 0.0)),
+            "medium": float(dd_actual.get("medium", 0.0)),
+            "hard": float(dd_actual.get("hard", 0.0)),
         }
 
+        cm_target = quiz_meta_payload.get("cognitive_mix_target") or {}
+        cognitive_mix_target = {
+            "Recall": float(cm_target.get("Recall", 0.0)),
+            "Comprehension": float(cm_target.get("Comprehension", 0.0)),
+            "Application": float(cm_target.get("Application", 0.0)),
+            "Transfer": float(cm_target.get("Transfer", 0.0)),
+        }
+        cm_actual = quiz_meta_payload.get("cognitive_mix_actual") or {}
+        cognitive_mix_actual = {
+            "Recall": float(cm_actual.get("Recall", 0.0)),
+            "Comprehension": float(cm_actual.get("Comprehension", 0.0)),
+            "Application": float(cm_actual.get("Application", 0.0)),
+            "Transfer": float(cm_actual.get("Transfer", 0.0)),
+        }
+
+        # Convert list-based coverage to dict-based coverage for package model
+        coverage_by_lo = {}
+        for entry in quiz_meta_payload.get("coverage_by_LO") or []:
+            lo_id = str(entry.get("learning_objective_id", ""))
+            if lo_id:
+                coverage_by_lo[lo_id] = QuizCoverageByLO(
+                    exercise_ids=[str(ex_id) for ex_id in entry.get("exercise_ids", [])],
+                    concepts=[str(concept) for concept in entry.get("concepts", [])],
+                )
+
         coverage_by_concept = {}
-        for concept_slug, entry in (quiz_meta_payload.get("coverage_by_concept") or {}).items():
-            normalized_types = [_normalize_exercise_type(t) for t in (entry or {}).get("types", [])]
-            coverage_by_concept[str(concept_slug)] = QuizCoverageByConcept(
-                exercise_ids=[str(ex_id) for ex_id in (entry or {}).get("exercise_ids", [])],
-                types=normalized_types,
-            )
+        for entry in quiz_meta_payload.get("coverage_by_concept") or []:
+            concept_slug = str(entry.get("concept_slug", ""))
+            if concept_slug:
+                normalized_types = [_normalize_exercise_type(t) for t in entry.get("types", [])]
+                coverage_by_concept[concept_slug] = QuizCoverageByConcept(
+                    exercise_ids=[str(ex_id) for ex_id in entry.get("exercise_ids", [])],
+                    types=normalized_types,
+                )
 
         quiz_metadata = QuizMetadata(
             quiz_type=str(quiz_meta_payload.get("quiz_type") or "Formative"),

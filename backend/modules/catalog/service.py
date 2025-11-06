@@ -250,8 +250,16 @@ class CatalogService:
 
         # Package-aligned fields
         mini_lesson = lesson.package.mini_lesson
+
+        # Build exercise map for quick lookup
+        exercise_map = {ex.id: ex for ex in lesson.package.exercise_bank}
+
+        # Filter exercises to only those in quiz, preserving quiz order
         exercises = []
-        for exercise in lesson.package.exercise_bank:
+        for exercise_id in lesson.package.quiz:
+            exercise = exercise_map.get(exercise_id)
+            if not exercise:
+                continue
             if exercise.exercise_type == "mcq":
                 stem = getattr(exercise, "stem", "Question")
                 options = getattr(exercise, "options", [])

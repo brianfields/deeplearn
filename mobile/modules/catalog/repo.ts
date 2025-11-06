@@ -441,6 +441,19 @@ export class CatalogRepo {
                     podcastVoice
                 );
 
+          // Extract exercises from the new package structure (exercise_bank + quiz)
+          // or fall back to old structure (exercises array) for backward compatibility
+          const exerciseBank = lessonPackage.exercise_bank || [];
+          const quiz = lessonPackage.quiz || [];
+          const exercises =
+            quiz.length > 0 && exerciseBank.length > 0
+              ? quiz
+                  .map((id: string) =>
+                    exerciseBank.find((ex: any) => ex.id === id)
+                  )
+                  .filter((ex: any) => ex !== undefined)
+              : lessonPackage.exercises || [];
+
           return {
             id: cachedLesson.id,
             title: cachedLesson.title,
@@ -451,9 +464,9 @@ export class CatalogRepo {
             learningObjectives,
             keyConcepts: lessonPackage.key_concepts || [],
             miniLesson: lessonPackage.mini_lesson || '',
-            exercises: lessonPackage.exercises || [],
+            exercises,
             glossaryTerms: lessonPackage.glossary || {},
-            exerciseCount: lessonPackage.exercises?.length || 0,
+            exerciseCount: exercises.length || 0,
             createdAt: new Date(cachedLesson.updatedAt).toISOString(),
             estimatedDuration: payload.duration_minutes || 0,
             isReadyForLearning: true,
