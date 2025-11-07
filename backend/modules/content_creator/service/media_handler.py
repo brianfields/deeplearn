@@ -52,7 +52,11 @@ class MediaHandler:
             learning_objectives.append(str(description or ""))
         key_concepts = self._prompt_handler.extract_key_concepts(unit_detail)
 
+        # Get learner_desires from unit detail
+        learner_desires = getattr(unit_detail, "learner_desires", None) or unit_detail.description or ""
+
         flow_inputs = {
+            "learner_desires": learner_desires,
             "unit_title": unit_detail.title,
             "unit_description": unit_detail.description or "",
             "learning_objectives": learning_objectives,
@@ -103,6 +107,7 @@ class MediaHandler:
     async def generate_lesson_podcast(
         self,
         *,
+        learner_desires: str,
         lesson_index: int,
         lesson_title: str,
         lesson_objective: str,
@@ -115,6 +120,7 @@ class MediaHandler:
         generator = self._lesson_podcast_generator or LessonPodcastGenerator()
         self._lesson_podcast_generator = generator
         podcast = await generator.create_podcast(
+            learner_desires=learner_desires,
             lesson_index=lesson_index,
             lesson_title=lesson_title,
             lesson_objective=lesson_objective,
@@ -128,6 +134,7 @@ class MediaHandler:
     async def generate_unit_podcast(
         self,
         *,
+        learner_desires: str,
         unit_title: str,
         voice_label: str,
         unit_summary: str,
@@ -139,6 +146,7 @@ class MediaHandler:
         generator = self._podcast_generator or UnitPodcastGenerator()
         self._podcast_generator = generator
         return await generator.create_podcast(
+            learner_desires=learner_desires,
             unit_title=unit_title,
             voice_label=voice_label,
             unit_summary=unit_summary,

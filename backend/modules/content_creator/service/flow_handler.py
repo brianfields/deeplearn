@@ -141,7 +141,10 @@ class FlowHandler:
         )
         await self._content.commit_session()
 
-        unit_los: dict[str, str] = {lo.id: lo.description for lo in unit_learning_objectives}
+        unit_los: dict[str, dict] = {
+            lo.id: {"id": lo.id, "title": lo.title, "description": lo.description}
+            for lo in unit_learning_objectives
+        }
 
         lesson_ids: list[str] = []
         podcast_lessons: list[PodcastLesson] = []
@@ -257,6 +260,7 @@ class FlowHandler:
             try:
                 logger.info("   🎧 Generating unit intro podcast...")
                 podcast = await self._media_handler.generate_unit_podcast(
+                    learner_desires=learner_desires,
                     unit_title=final_title,
                     voice_label=podcast_voice_label or "Plain",
                     unit_summary=summary_text,
@@ -340,7 +344,10 @@ class FlowHandler:
 
         lesson_title = lesson_plan.get("title") or f"Lesson {lesson_index + 1}"
         lesson_lo_ids: list[str] = list(lesson_plan.get("learning_objective_ids", []) or [])
-        lesson_lo_descriptions: list[str] = [unit_los.get(lid, lid) for lid in lesson_lo_ids]
+        lesson_lo_objects: list[dict] = [
+            unit_los.get(lid, {"id": lid, "title": lid, "description": lid})
+            for lid in lesson_lo_ids
+        ]
         lesson_objective_text: str = lesson_plan.get("lesson_objective", "")
 
         logger.info(f"      📝 Lesson {lesson_index + 1}: {lesson_title[:60]}{'...' if len(lesson_title) > 60 else ''}")
@@ -348,7 +355,7 @@ class FlowHandler:
         md_res = await LessonCreationFlow().execute(
             {
                 "learner_desires": learner_desires,
-                "learning_objectives": lesson_lo_descriptions,
+                "learning_objectives": lesson_lo_objects,
                 "learning_objective_ids": lesson_lo_ids,
                 "lesson_objective": lesson_objective_text,
                 "source_material": unit_material,
@@ -381,6 +388,7 @@ class FlowHandler:
 
         mini_lesson_text = str(md_res.get("mini_lesson") or "")
         podcast_lesson, lesson_podcast_result = await self._media_handler.generate_lesson_podcast(
+            learner_desires=learner_desires,
             lesson_index=lesson_index,
             lesson_title=lesson_title,
             lesson_objective=lesson_objective_text,

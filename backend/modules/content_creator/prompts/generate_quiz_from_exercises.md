@@ -5,6 +5,9 @@ Assemble a **balanced, LO-aligned quiz** of 8 (EIGHT) exercises from the provide
 
 # Inputs (reference these when generating your output)
 
+**LEARNER_DESIRES:**
+{{learner_desires}}
+
 ## Exercise Bank
 
 {{exercise_bank}}
@@ -24,6 +27,8 @@ Number of exercises: {{target_question_count}}
 # Goal
 
 Select the best combination of exercises that preserves learning objective coverage, maintains variety across formats and cognitive levels, and documents every normalization you apply. The quiz should contain 8 (EIGHT) exercises.
+
+**Guide selection using LEARNER_DESIRES:** Prioritize exercises that align with the learner's level, interests, and goals. Favor exercises whose contexts and scenarios match their intended application domain.
 
 ## Selection Priorities
 

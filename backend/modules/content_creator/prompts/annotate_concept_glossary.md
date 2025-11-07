@@ -10,6 +10,9 @@ Refine and annotate the extracted concept glossary so each concept is:
 
 # Inputs (use these when generating Your Output below)
 
+**LEARNER_DESIRES:**
+{{learner_desires}}
+
 ## Topic
 
 {{topic}}
@@ -33,6 +36,8 @@ Refine and annotate the extracted concept glossary so each concept is:
 # Goal
 
 Evaluate, normalize, and annotate each concept so it is LO-aligned, assessment-ready (closed answers), and traceable for downstream quiz assembly.
+
+**Guide refinement using LEARNER_DESIRES:** Ensure definitions, examples, and difficulty ratings reflect the learner's level and context. Tailor assessment potential to their stated goals.
 
 ## Refinement & Annotation Rules
 

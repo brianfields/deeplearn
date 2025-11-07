@@ -1,6 +1,7 @@
 # /backend/modules/content_creator/steps.py
 """Content creation steps for the four active prompts."""
 
+import uuid
 from pydantic import BaseModel, Field
 
 from modules.flow_engine.public import AudioStep, ImageStep, StructuredStep, UnstructuredStep
@@ -144,6 +145,7 @@ class ExtractConceptGlossaryStep(StructuredStep):
     model = "gpt-5-mini"
 
     class Inputs(BaseModel):
+        learner_desires: str
         topic: str
         lesson_objective: str
         lesson_source_material: str
@@ -211,6 +213,7 @@ class AnnotateConceptGlossaryStep(StructuredStep):
     model = "gpt-5-mini"
 
     class Inputs(BaseModel):
+        learner_desires: str
         topic: str
         lesson_objective: str
         lesson_source_material: str
@@ -239,6 +242,20 @@ class ExerciseItemAnswerKey(BaseModel):
     rationale_right: str
 
 
+# Simplified model for LLM output (before adding metadata in code)
+class SimplifiedExerciseFromLLM(BaseModel):
+    concept_slug: str
+    concept_term: str
+    stem: str
+    options: list[ExerciseItemOption]
+    correct_answer: str
+    rationale_right: str
+    cognitive_level: str
+    difficulty: str
+    aligned_learning_objective: str
+
+
+# Full exercise model with metadata added in code
 class ExerciseItem(BaseModel):
     id: str
     exercise_category: str
@@ -259,7 +276,6 @@ class ExerciseItem(BaseModel):
 
 
 class ExerciseBankMeta(BaseModel):
-    exercise_category: str
     exercise_count: int
     generation_notes: list[str] = Field(default_factory=list)
 
@@ -274,6 +290,7 @@ class GenerateComprehensionExercisesStep(StructuredStep):
     model = "gpt-5-mini"
 
     class Inputs(BaseModel):
+        learner_desires: str
         topic: str
         lesson_objective: str
         lesson_source_material: str
@@ -281,8 +298,50 @@ class GenerateComprehensionExercisesStep(StructuredStep):
         lesson_learning_objectives: list[dict]
 
     class Outputs(BaseModel):
-        exercises: list[ExerciseItem]
+        """Output from LLM - simplified schema."""
+        exercises: list[SimplifiedExerciseFromLLM]
         meta: ExerciseBankMeta
+
+    async def _execute_step_logic(self, inputs: BaseModel, context: "FlowContext") -> tuple[BaseModel, uuid.UUID | None]:
+        """Execute structured LLM generation and add metadata to exercises."""
+        # Call parent to get LLM output with simplified schema
+        llm_output, request_id = await super()._execute_step_logic(inputs, context)
+
+        # Add metadata to each exercise
+        enriched_exercises = []
+        for idx, simple_ex in enumerate(llm_output.exercises):
+            # Create answer_key from correct_answer and rationale_right
+            answer_key = ExerciseItemAnswerKey(
+                label=simple_ex.correct_answer,
+                rationale_right=simple_ex.rationale_right
+            )
+
+            enriched_exercises.append(
+                ExerciseItem(
+                    id=f"ex-comp-mc-{idx + 1:03d}",
+                    exercise_category="comprehension",
+                    type="multiple-choice",
+                    concept_slug=simple_ex.concept_slug,
+                    concept_term=simple_ex.concept_term,
+                    stem=simple_ex.stem,
+                    options=simple_ex.options,
+                    answer_key=answer_key,
+                    rationale_right=simple_ex.rationale_right,
+                    cognitive_level=simple_ex.cognitive_level,
+                    difficulty=simple_ex.difficulty,
+                    aligned_learning_objective=simple_ex.aligned_learning_objective,
+                )
+            )
+
+        # Create enriched output (reusing the Outputs model structure but with enriched exercises)
+        from pydantic import create_model
+        EnrichedOutputs = create_model(
+            "EnrichedOutputs",
+            exercises=(list[ExerciseItem], ...),
+            meta=(ExerciseBankMeta, ...)
+        )
+
+        return EnrichedOutputs(exercises=enriched_exercises, meta=llm_output.meta), request_id
 
 
 class GenerateTransferExercisesStep(StructuredStep):
@@ -295,6 +354,7 @@ class GenerateTransferExercisesStep(StructuredStep):
     model = "gpt-5-mini"
 
     class Inputs(BaseModel):
+        learner_desires: str
         topic: str
         lesson_objective: str
         lesson_source_material: str
@@ -302,8 +362,50 @@ class GenerateTransferExercisesStep(StructuredStep):
         lesson_learning_objectives: list[dict]
 
     class Outputs(BaseModel):
-        exercises: list[ExerciseItem]
+        """Output from LLM - simplified schema."""
+        exercises: list[SimplifiedExerciseFromLLM]
         meta: ExerciseBankMeta
+
+    async def _execute_step_logic(self, inputs: BaseModel, context: "FlowContext") -> tuple[BaseModel, uuid.UUID | None]:
+        """Execute structured LLM generation and add metadata to exercises."""
+        # Call parent to get LLM output with simplified schema
+        llm_output, request_id = await super()._execute_step_logic(inputs, context)
+
+        # Add metadata to each exercise
+        enriched_exercises = []
+        for idx, simple_ex in enumerate(llm_output.exercises):
+            # Create answer_key from correct_answer and rationale_right
+            answer_key = ExerciseItemAnswerKey(
+                label=simple_ex.correct_answer,
+                rationale_right=simple_ex.rationale_right
+            )
+
+            enriched_exercises.append(
+                ExerciseItem(
+                    id=f"ex-trans-mc-{idx + 1:03d}",
+                    exercise_category="transfer",
+                    type="multiple-choice",
+                    concept_slug=simple_ex.concept_slug,
+                    concept_term=simple_ex.concept_term,
+                    stem=simple_ex.stem,
+                    options=simple_ex.options,
+                    answer_key=answer_key,
+                    rationale_right=simple_ex.rationale_right,
+                    cognitive_level=simple_ex.cognitive_level,
+                    difficulty=simple_ex.difficulty,
+                    aligned_learning_objective=simple_ex.aligned_learning_objective,
+                )
+            )
+
+        # Create enriched output (reusing the Outputs model structure but with enriched exercises)
+        from pydantic import create_model
+        EnrichedOutputs = create_model(
+            "EnrichedOutputs",
+            exercises=(list[ExerciseItem], ...),
+            meta=(ExerciseBankMeta, ...)
+        )
+
+        return EnrichedOutputs(exercises=enriched_exercises, meta=llm_output.meta), request_id
 
 
 class DifficultyDistribution(BaseModel):
@@ -357,6 +459,7 @@ class GenerateQuizFromExercisesStep(StructuredStep):
     model = "gpt-5-mini"
 
     class Inputs(BaseModel):
+        learner_desires: str
         exercise_bank: list[dict]
         refined_concept_glossary: list[dict]
         lesson_learning_objectives: list[dict]
@@ -383,6 +486,7 @@ class GenerateUnitPodcastTranscriptStep(UnstructuredStep):
     model = "gpt-5-mini"
 
     class Inputs(BaseModel):
+        learner_desires: str
         unit_title: str
         voice: str
         unit_summary: str
@@ -399,6 +503,7 @@ class GenerateLessonPodcastTranscriptStep(UnstructuredStep):
     model = "gpt-5-mini"
 
     class Inputs(BaseModel):
+        learner_desires: str
         lesson_number: int
         lesson_title: str
         lesson_objective: str
@@ -430,6 +535,7 @@ class GenerateUnitArtDescriptionStep(StructuredStep):
     verbosity = "low"
 
     class Inputs(BaseModel):
+        learner_desires: str
         unit_title: str
         unit_description: str | None = None
         learning_objectives: str = ""

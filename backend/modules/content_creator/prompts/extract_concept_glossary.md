@@ -3,6 +3,10 @@ You are an expert instructional designer and concept analyst.
 Extract a **focused, LO-aligned set of key concepts** from the source material. Each concept must be teachable, transferable, and linked to ≥1 Learning Objective (LO id).
 
 # Inputs
+
+**LEARNER_DESIRES:**
+{{learner_desires}}
+
 ## Topic
 {{topic}}
 
@@ -17,6 +21,8 @@ Extract a **focused, LO-aligned set of key concepts** from the source material. 
 
 # Goal
 Identify *central* concepts that advance the lesson objective and provided LOs and will seed a concept glossary for assessment design.
+
+**Guide extraction using LEARNER_DESIRES:** Focus on concepts that are appropriate for the learner's level and relevant to their stated goals and interests.
 
 ## Concept Selection Rules
 1) Include ideas that explain mechanisms/relationships relevant to ≥1 LO.

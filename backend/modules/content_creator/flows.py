@@ -48,7 +48,7 @@ class LessonCreationFlow(BaseFlow):
 
     class Inputs(BaseModel):
         learner_desires: str  # Replaces topic + learner_level + voice
-        learning_objectives: list[str]
+        learning_objectives: list[str] | list[dict]  # Now accepts full LO objects or strings
         learning_objective_ids: list[str]
         lesson_objective: str
         source_material: str
@@ -86,6 +86,7 @@ class LessonCreationFlow(BaseFlow):
         # Step 3: Extract concept glossary
         concept_result = await ExtractConceptGlossaryStep().execute(
             {
+                "learner_desires": inputs["learner_desires"],
                 "topic": lesson_md.topic,
                 "lesson_objective": inputs["lesson_objective"],
                 "lesson_source_material": lesson_md.lesson_source_material,
@@ -98,6 +99,7 @@ class LessonCreationFlow(BaseFlow):
         # Step 4: Annotate concept glossary
         refined_result = await AnnotateConceptGlossaryStep().execute(
             {
+                "learner_desires": inputs["learner_desires"],
                 "topic": lesson_md.topic,
                 "lesson_objective": inputs["lesson_objective"],
                 "lesson_source_material": lesson_md.lesson_source_material,
@@ -111,6 +113,7 @@ class LessonCreationFlow(BaseFlow):
         # Step 5: Generate comprehension exercises
         comprehension_result = await GenerateComprehensionExercisesStep().execute(
             {
+                "learner_desires": inputs["learner_desires"],
                 "topic": lesson_md.topic,
                 "lesson_objective": inputs["lesson_objective"],
                 "lesson_source_material": lesson_md.lesson_source_material,
@@ -123,6 +126,7 @@ class LessonCreationFlow(BaseFlow):
         # Step 6: Generate transfer exercises
         transfer_result = await GenerateTransferExercisesStep().execute(
             {
+                "learner_desires": inputs["learner_desires"],
                 "topic": lesson_md.topic,
                 "lesson_objective": inputs["lesson_objective"],
                 "lesson_source_material": lesson_md.lesson_source_material,
@@ -139,6 +143,7 @@ class LessonCreationFlow(BaseFlow):
         # Step 7: Assemble quiz from combined exercise bank
         quiz_result = await GenerateQuizFromExercisesStep().execute(
             {
+                "learner_desires": inputs["learner_desires"],
                 "exercise_bank": exercise_bank_payload,
                 "refined_concept_glossary": refined_concepts_payload,
                 "lesson_learning_objectives": lesson_learning_objectives,
@@ -240,6 +245,7 @@ class LessonPodcastFlow(BaseFlow):
     flow_name = "lesson_podcast"
 
     class Inputs(BaseModel):
+        learner_desires: str
         lesson_number: int
         lesson_title: str
         lesson_objective: str
@@ -258,6 +264,7 @@ class LessonPodcastFlow(BaseFlow):
 
         transcript_result = await GenerateLessonPodcastTranscriptStep().execute(
             {
+                "learner_desires": inputs["learner_desires"],
                 "lesson_number": inputs["lesson_number"],
                 "lesson_title": inputs["lesson_title"],
                 "lesson_objective": inputs["lesson_objective"],
@@ -290,6 +297,7 @@ class UnitPodcastFlow(BaseFlow):
     flow_name = "unit_podcast"
 
     class Inputs(BaseModel):
+        learner_desires: str
         unit_title: str
         voice: str
         unit_summary: str
@@ -303,6 +311,7 @@ class UnitPodcastFlow(BaseFlow):
 
         transcript_result = await GenerateUnitPodcastTranscriptStep().execute(
             {
+                "learner_desires": inputs["learner_desires"],
                 "unit_title": inputs["unit_title"],
                 "voice": inputs["voice"],
                 "unit_summary": inputs["unit_summary"],
@@ -334,6 +343,7 @@ class UnitArtCreationFlow(BaseFlow):
     flow_name = "unit_art_creation"
 
     class Inputs(BaseModel):
+        learner_desires: str
         unit_title: str
         unit_description: str | None = None
         learning_objectives: list[str] = []
@@ -351,6 +361,7 @@ class UnitArtCreationFlow(BaseFlow):
         key_concepts_str = "\n".join(f"- {concept}" for concept in key_concepts) if key_concepts else "- (None specified)"
 
         description_inputs = {
+            "learner_desires": inputs.get("learner_desires", ""),
             "unit_title": inputs.get("unit_title", ""),
             "unit_description": inputs.get("unit_description"),
             "learning_objectives": learning_objectives_str,
