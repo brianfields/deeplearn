@@ -31,6 +31,17 @@ interface UnitDetailsPageProps {
   params: { id: string };
 }
 
+function resolveAudioHref(url: string | null): string | null {
+  if (!url) {
+    return null;
+  }
+  if (url.startsWith('http')) {
+    return url;
+  }
+  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? '';
+  return `${baseUrl}${url}`;
+}
+
 function computeInitials(title: string): string {
   return (
     title
@@ -77,9 +88,53 @@ function LessonExpandedDetails({ lessonId }: { lessonId: string }) {
   );
 
   const allExercises = exerciseBank;
+  const lessonAudioHref = resolveAudioHref(lesson.podcast_audio_url ?? null);
 
   return (
     <div className="px-6 pb-4 pt-2 bg-gray-50 border-t border-gray-100 space-y-6 max-h-[70vh] overflow-y-auto">
+      {/* Lesson Podcast */}
+      {lesson.has_podcast && (
+        <div className="border-b border-gray-200 pb-6">
+          <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
+            <h3 className="text-xs font-semibold text-gray-700 uppercase">Lesson Podcast</h3>
+            <div className="flex items-center gap-2 flex-wrap">
+              {lesson.podcast_voice && (
+                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                  Voice: {lesson.podcast_voice}
+                </span>
+              )}
+              {lesson.podcast_duration_seconds && (
+                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-indigo-100 text-indigo-800">
+                  {Math.floor(lesson.podcast_duration_seconds / 60)}:{(lesson.podcast_duration_seconds % 60).toString().padStart(2, '0')} min
+                </span>
+              )}
+              {lessonAudioHref && (
+                <Link
+                  href={lessonAudioHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded"
+                >
+                  Listen
+                </Link>
+              )}
+            </div>
+          </div>
+          {lesson.podcast_transcript && (
+            <div>
+              <h4 className="text-xs font-semibold text-gray-700 uppercase mb-2">Transcript</h4>
+              <div className="border border-gray-200 rounded">
+                <ResizablePanel defaultHeight={192} minHeight={96} maxHeight={400}>
+                  <div className="p-3 bg-white text-xs text-gray-700 whitespace-pre-wrap">
+                    {lesson.podcast_transcript}
+                  </div>
+                </ResizablePanel>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Mini Lesson */}
       {lesson.package.mini_lesson && (
         <div>
