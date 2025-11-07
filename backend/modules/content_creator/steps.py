@@ -1,9 +1,12 @@
 # /backend/modules/content_creator/steps.py
 """Content creation steps for the four active prompts."""
 
+from typing import cast
 import uuid
+
 from pydantic import BaseModel, Field
 
+from modules.flow_engine.context import FlowContext
 from modules.flow_engine.public import AudioStep, ImageStep, StructuredStep, UnstructuredStep
 
 
@@ -19,7 +22,7 @@ class GenerateUnitSourceMaterialStep(UnstructuredStep):
     prompt_file = "generate_source_material.md"
     reasoning_effort = "low"
     verbosity = "low"
-    model = "gpt-5-mini"
+    model = "gemini-2.5-flash"
 
     class Inputs(BaseModel):
         learner_desires: str
@@ -33,7 +36,7 @@ class GenerateSupplementalSourceMaterialStep(UnstructuredStep):
     prompt_file = "generate_supplemental_source_material.md"
     reasoning_effort = "low"
     verbosity = "low"
-    model = "gpt-5-mini"
+    model = "gemini-2.5-flash"
 
     class Inputs(BaseModel):
         learner_desires: str
@@ -44,10 +47,22 @@ class GenerateSupplementalSourceMaterialStep(UnstructuredStep):
 # ---------- 2) Extract Unit Metadata ----------
 class UnitLearningObjective(BaseModel):
     id: str
-    title: str
-    description: str
+    title: str | None = None
+    description: str | None = None
     bloom_level: str | None = None
     evidence_of_mastery: str | None = None
+
+    class Config:
+        populate_by_name = True  # Allow both field name and alias
+
+    def __init__(self, **data: dict) -> None:
+        # For backward compatibility: map old field names to current names
+        # Old prompts may return 'lo_id' → 'id' or 'text' → 'description'
+        if "lo_id" in data and "id" not in data:
+            data["id"] = data.pop("lo_id")
+        if "text" in data and "description" not in data:
+            data["description"] = data.pop("text")
+        super().__init__(**data)
 
 
 class LessonPlanItem(BaseModel):
@@ -66,7 +81,7 @@ class ExtractUnitMetadataStep(StructuredStep):
     step_name = "extract_unit_metadata"
     prompt_file = "extract_unit_metadata.md"
     reasoning_effort = "low"
-    model = "gpt-5-mini"
+    model = "gemini-2.5-flash"
     verbosity = "low"
 
     class Inputs(BaseModel):
@@ -93,12 +108,12 @@ class ExtractLessonMetadataStep(StructuredStep):
     step_name = "extract_lesson_metadata"
     prompt_file = "extract_lesson_metadata.md"
     reasoning_effort = "low"
-    model = "gpt-5-mini"
+    model = "gemini-2.5-flash"
     verbosity = "low"
 
     class Inputs(BaseModel):
         learner_desires: str
-        learning_objectives: list[str]
+        learning_objectives: list[dict]  # Now receives full LO objects with id, title, description
         learning_objective_ids: list[str]
         lesson_objective: str
         source_material: str
@@ -142,7 +157,7 @@ class ExtractConceptGlossaryStep(StructuredStep):
     prompt_file = "extract_concept_glossary.md"
     reasoning_effort = "medium"
     verbosity = "low"
-    model = "gpt-5-mini"
+    model = "gemini-2.5-flash"
 
     class Inputs(BaseModel):
         learner_desires: str
@@ -210,7 +225,7 @@ class AnnotateConceptGlossaryStep(StructuredStep):
     prompt_file = "annotate_concept_glossary.md"
     reasoning_effort = "medium"
     verbosity = "low"
-    model = "gpt-5-mini"
+    model = "gemini-2.5-flash"
 
     class Inputs(BaseModel):
         learner_desires: str
@@ -287,7 +302,7 @@ class GenerateComprehensionExercisesStep(StructuredStep):
     prompt_file = "generate_comprehension_exercises.md"
     reasoning_effort = "high"
     verbosity = "low"
-    model = "gpt-5-mini"
+    model = "gemini-2.5-flash"
 
     class Inputs(BaseModel):
         learner_desires: str
@@ -299,22 +314,22 @@ class GenerateComprehensionExercisesStep(StructuredStep):
 
     class Outputs(BaseModel):
         """Output from LLM - simplified schema."""
+
         exercises: list[SimplifiedExerciseFromLLM]
         meta: ExerciseBankMeta
 
     async def _execute_step_logic(self, inputs: BaseModel, context: "FlowContext") -> tuple[BaseModel, uuid.UUID | None]:
         """Execute structured LLM generation and add metadata to exercises."""
         # Call parent to get LLM output with simplified schema
-        llm_output, request_id = await super()._execute_step_logic(inputs, context)
+        result = await super()._execute_step_logic(inputs, context)
+        llm_output = cast(GenerateComprehensionExercisesStep.Outputs, result[0])
+        request_id = result[1]
 
         # Add metadata to each exercise
         enriched_exercises = []
         for idx, simple_ex in enumerate(llm_output.exercises):
             # Create answer_key from correct_answer and rationale_right
-            answer_key = ExerciseItemAnswerKey(
-                label=simple_ex.correct_answer,
-                rationale_right=simple_ex.rationale_right
-            )
+            answer_key = ExerciseItemAnswerKey(label=simple_ex.correct_answer, rationale_right=simple_ex.rationale_right)
 
             enriched_exercises.append(
                 ExerciseItem(
@@ -335,11 +350,8 @@ class GenerateComprehensionExercisesStep(StructuredStep):
 
         # Create enriched output (reusing the Outputs model structure but with enriched exercises)
         from pydantic import create_model
-        EnrichedOutputs = create_model(
-            "EnrichedOutputs",
-            exercises=(list[ExerciseItem], ...),
-            meta=(ExerciseBankMeta, ...)
-        )
+
+        EnrichedOutputs = create_model("EnrichedOutputs", exercises=(list[ExerciseItem], ...), meta=(ExerciseBankMeta, ...))
 
         return EnrichedOutputs(exercises=enriched_exercises, meta=llm_output.meta), request_id
 
@@ -351,7 +363,7 @@ class GenerateTransferExercisesStep(StructuredStep):
     prompt_file = "generate_transfer_exercises.md"
     reasoning_effort = "high"
     verbosity = "low"
-    model = "gpt-5-mini"
+    model = "gemini-2.5-flash"
 
     class Inputs(BaseModel):
         learner_desires: str
@@ -363,22 +375,22 @@ class GenerateTransferExercisesStep(StructuredStep):
 
     class Outputs(BaseModel):
         """Output from LLM - simplified schema."""
+
         exercises: list[SimplifiedExerciseFromLLM]
         meta: ExerciseBankMeta
 
     async def _execute_step_logic(self, inputs: BaseModel, context: "FlowContext") -> tuple[BaseModel, uuid.UUID | None]:
         """Execute structured LLM generation and add metadata to exercises."""
         # Call parent to get LLM output with simplified schema
-        llm_output, request_id = await super()._execute_step_logic(inputs, context)
+        result = await super()._execute_step_logic(inputs, context)
+        llm_output = cast(GenerateTransferExercisesStep.Outputs, result[0])
+        request_id = result[1]
 
         # Add metadata to each exercise
         enriched_exercises = []
         for idx, simple_ex in enumerate(llm_output.exercises):
             # Create answer_key from correct_answer and rationale_right
-            answer_key = ExerciseItemAnswerKey(
-                label=simple_ex.correct_answer,
-                rationale_right=simple_ex.rationale_right
-            )
+            answer_key = ExerciseItemAnswerKey(label=simple_ex.correct_answer, rationale_right=simple_ex.rationale_right)
 
             enriched_exercises.append(
                 ExerciseItem(
@@ -399,11 +411,8 @@ class GenerateTransferExercisesStep(StructuredStep):
 
         # Create enriched output (reusing the Outputs model structure but with enriched exercises)
         from pydantic import create_model
-        EnrichedOutputs = create_model(
-            "EnrichedOutputs",
-            exercises=(list[ExerciseItem], ...),
-            meta=(ExerciseBankMeta, ...)
-        )
+
+        EnrichedOutputs = create_model("EnrichedOutputs", exercises=(list[ExerciseItem], ...), meta=(ExerciseBankMeta, ...))
 
         return EnrichedOutputs(exercises=enriched_exercises, meta=llm_output.meta), request_id
 
@@ -456,7 +465,7 @@ class GenerateQuizFromExercisesStep(StructuredStep):
     prompt_file = "generate_quiz_from_exercises.md"
     reasoning_effort = "medium"
     verbosity = "low"
-    model = "gpt-5-mini"
+    model = "gemini-2.5-flash"
 
     class Inputs(BaseModel):
         learner_desires: str
@@ -483,7 +492,7 @@ class GenerateUnitPodcastTranscriptStep(UnstructuredStep):
     prompt_file = "generate_intro_podcast_transcript.md"
     reasoning_effort = "medium"
     verbosity = "low"
-    model = "gpt-5-mini"
+    model = "gemini-2.5-flash"
 
     class Inputs(BaseModel):
         learner_desires: str
@@ -500,7 +509,7 @@ class GenerateLessonPodcastTranscriptStep(UnstructuredStep):
     prompt_file = "generate_lesson_podcast_transcript.md"
     reasoning_effort = "medium"
     verbosity = "low"
-    model = "gpt-5-mini"
+    model = "gemini-2.5-flash"
 
     class Inputs(BaseModel):
         learner_desires: str
@@ -531,7 +540,7 @@ class GenerateUnitArtDescriptionStep(StructuredStep):
     step_name = "generate_unit_art_description"
     prompt_file = "unit_art_description.md"
     reasoning_effort = "medium"
-    model = "gpt-5-mini"
+    model = "gemini-2.5-flash"
     verbosity = "low"
 
     class Inputs(BaseModel):

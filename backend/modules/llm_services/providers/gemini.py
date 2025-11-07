@@ -211,13 +211,23 @@ class GeminiProvider(LLMProvider):
         return _GEMINI_GENERATION_CONFIG_KEY_MAP.get(key, key)
 
     def _split_generation_kwargs(self, kwargs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
-        """Separate generationConfig values from top-level overrides."""
+        """Separate generationConfig values from top-level overrides.
+
+        Filters out provider-specific parameters that Gemini doesn't support (e.g., OpenAI's reasoning/verbosity).
+        """
 
         generation_config: dict[str, Any] = {}
         payload_overrides: dict[str, Any] = {}
 
+        # Parameters that are not supported by Gemini (from other providers like OpenAI)
+        unsupported_keys = {"reasoning", "verbosity"}
+
         for key, value in kwargs.items():
             if value is None:
+                continue
+            if key in unsupported_keys:
+                # Skip provider-specific parameters not supported by Gemini
+                self._logger.debug(f"Skipping unsupported Gemini parameter: {key}")
                 continue
             if key in {"top_p", "top_k", "candidate_count", "stop_sequences", "presence_penalty", "frequency_penalty", "response_mime_type"}:
                 mapped_key = self._map_generation_config_key(key)
@@ -283,10 +293,26 @@ class GeminiProvider(LLMProvider):
         return "".join(full_text_parts).strip(), response_parts
 
     def _extract_usage(self, response: Mapping[str, Any]) -> tuple[int | None, int | None, int | None]:
+        """Extract token usage from Gemini response.
+
+        Returns: (total_tokens, input_tokens, output_tokens)
+        Note: Gemini also provides cache stats in usageMetadata.cachedContentInputTokens
+              and usageMetadata.cacheCreationInputTokens if prompt caching is enabled.
+        """
         usage = response.get("usageMetadata") or {}
         input_tokens = usage.get("promptTokenCount")
         output_tokens = usage.get("candidatesTokenCount")
         total_tokens = usage.get("totalTokenCount")
+
+        # Log cache stats if available (for visibility in logs)
+        cached_input_tokens = usage.get("cachedContentInputTokens")
+        cache_creation_tokens = usage.get("cacheCreationInputTokens")
+        if cached_input_tokens or cache_creation_tokens:
+            self._logger.debug(
+                f"Gemini cache stats - cached_input: {cached_input_tokens}, "
+                f"cache_creation: {cache_creation_tokens}"
+            )
+
         if total_tokens is None and (input_tokens is not None or output_tokens is not None):
             total_tokens = (input_tokens or 0) + (output_tokens or 0)
         return total_tokens, input_tokens, output_tokens
@@ -303,6 +329,54 @@ class GeminiProvider(LLMProvider):
             except ValueError:
                 return None
         return None
+
+    def _flatten_json_schema(self, schema: dict[str, Any]) -> dict[str, Any]:
+        """Transform Pydantic JSON schema into Gemini-compatible format.
+
+        Gemini's responseSchema doesn't support JSON Schema $ref or $defs.
+        This method inlines all definitions and removes unsupported fields.
+        """
+        # Inline $defs into the schema
+        defs = schema.pop("$defs", {})
+
+        def resolve_refs(obj: Any) -> Any:
+            """Recursively resolve $ref references."""
+            if isinstance(obj, dict):
+                # If this object has a $ref, replace it with the definition
+                if "$ref" in obj:
+                    ref_path = obj["$ref"]
+                    # Extract definition name from #/$defs/DefinitionName
+                    if ref_path.startswith("#/$defs/"):
+                        def_name = ref_path.split("/")[-1]
+                        if def_name in defs:
+                            return resolve_refs(defs[def_name])
+                    return obj
+
+                # Otherwise, recursively process all values
+                return {k: resolve_refs(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [resolve_refs(item) for item in obj]
+            else:
+                return obj
+
+        # Resolve all references
+        flattened = resolve_refs(schema)
+
+        # Remove JSON Schema meta fields that Gemini doesn't support
+        def remove_meta_fields(obj: Any) -> Any:
+            """Remove $schema, $defs, and other meta fields."""
+            if isinstance(obj, dict):
+                return {
+                    k: remove_meta_fields(v)
+                    for k, v in obj.items()
+                    if not k.startswith("$") and k not in {"examples", "default"}
+                }
+            elif isinstance(obj, list):
+                return [remove_meta_fields(item) for item in obj]
+            else:
+                return obj
+
+        return remove_meta_fields(flattened)
 
     # ------------------------------------------------------------------
     # Text and structured generation
@@ -346,6 +420,11 @@ class GeminiProvider(LLMProvider):
             cost_estimate = self.estimate_cost(input_tokens or 0, output_tokens or 0, model)
             created_at = self._parse_timestamp(response_data.get("createTime"))
 
+            # Extract cache token information if available
+            usage = response_data.get("usageMetadata") or {}
+            cached_input_tokens = usage.get("cachedContentInputTokens")
+            cache_creation_tokens = usage.get("cacheCreationInputTokens")
+
             llm_response = LLMResponse(
                 content=content,
                 provider=LLMProviderType.GEMINI,
@@ -355,10 +434,12 @@ class GeminiProvider(LLMProvider):
                 output_tokens=output_tokens,
                 cost_estimate=cost_estimate,
                 response_time_ms=int((datetime.now(UTC) - start_time).total_seconds() * 1000),
-                cached=False,
+                cached=cached_input_tokens is not None and cached_input_tokens > 0,
                 provider_response_id=response_data.get("responseId"),
                 response_output=response_parts,
                 response_created_at=created_at,
+                cached_input_tokens=cached_input_tokens,
+                cache_creation_tokens=cache_creation_tokens,
             )
 
             with contextlib.suppress(Exception):  # pragma: no cover - best effort persistence
@@ -397,6 +478,16 @@ class GeminiProvider(LLMProvider):
         extra_generation, payload_overrides = self._split_generation_kwargs(kwargs)
         extra_generation[self._map_generation_config_key("response_mime_type")] = "application/json"
 
+        # Add JSON schema to constrain structured output (Gemini 2.0+ support)
+        try:
+            schema = response_model.model_json_schema()
+            # Transform to Gemini-compatible format (no $ref, $defs, etc.)
+            flattened_schema = self._flatten_json_schema(schema)
+            extra_generation["responseSchema"] = flattened_schema
+            self._logger.debug(f"Using JSON schema for structured output: {response_model.__name__}")
+        except (AttributeError, TypeError) as exc:  # pragma: no cover
+            self._logger.warning(f"Could not extract schema from response model: {exc}")
+
         try:
             llm_request = self._create_llm_request(
                 messages=messages,
@@ -425,12 +516,60 @@ class GeminiProvider(LLMProvider):
             try:
                 parsed_payload = json.loads(content)
                 structured_obj = response_model(**parsed_payload)
-            except (json.JSONDecodeError, TypeError, ValueError) as exc:
-                raise LLMValidationError(f"Failed to parse structured Gemini response: {exc}") from exc
+            except json.JSONDecodeError as exc:
+                # Log the problematic content for debugging
+                self._logger.error(f"JSON parse error at char {exc.pos}: {exc.msg}")
+                self._logger.error(f"Full raw response length: {len(content)} chars")
+                # Show context around the error position
+                context_start = max(0, exc.pos - 100)
+                context_end = min(len(content), exc.pos + 100)
+                self._logger.error(
+                    f"Context around error position:\n"
+                    f"  [chars {context_start}-{context_end}]:\n"
+                    f"  ...{content[context_start:context_end]}..."
+                )
+                self._logger.error(f"Full raw response:\n{content}")
+
+                # Try to extract JSON from markdown code block if present
+                if "```json" in content:
+                    try:
+                        json_start = content.find("```json") + 7
+                        json_end = content.find("```", json_start)
+                        if json_end > json_start:
+                            content = content[json_start:json_end].strip()
+                            parsed_payload = json.loads(content)
+                            structured_obj = response_model(**parsed_payload)
+                    except (json.JSONDecodeError, ValueError):
+                        pass  # Fall through to main error below
+                else:
+                    # Try to find JSON object boundaries { ... }
+                    try:
+                        json_start = content.find("{")
+                        json_end = content.rfind("}")
+                        if json_start >= 0 and json_end > json_start:
+                            content = content[json_start:json_end + 1]
+                            parsed_payload = json.loads(content)
+                            structured_obj = response_model(**parsed_payload)
+                    except (json.JSONDecodeError, ValueError):
+                        pass  # Fall through to main error below
+
+                # If we get here, JSON extraction failed
+                raise LLMValidationError(
+                    f"Failed to parse structured Gemini response: {exc.msg} at position {exc.pos}. "
+                    f"Total response length: {len(content)} chars. "
+                    f"Check logs for full response output."
+                ) from exc
+            except (TypeError, ValueError) as exc:
+                raise LLMValidationError(f"Failed to validate Gemini response model: {exc}") from exc
 
             total_tokens, input_tokens, output_tokens = self._extract_usage(response_data)
             cost_estimate = self.estimate_cost(input_tokens or 0, output_tokens or 0, model)
             created_at = self._parse_timestamp(response_data.get("createTime"))
+
+            # Extract cache token information if available
+            usage = response_data.get("usageMetadata") or {}
+            cached_input_tokens = usage.get("cachedContentInputTokens")
+            cache_creation_tokens = usage.get("cacheCreationInputTokens")
 
             llm_response = LLMResponse(
                 content=content,
@@ -441,10 +580,12 @@ class GeminiProvider(LLMProvider):
                 output_tokens=output_tokens,
                 cost_estimate=cost_estimate,
                 response_time_ms=int((datetime.now(UTC) - start_time).total_seconds() * 1000),
-                cached=False,
+                cached=cached_input_tokens is not None and cached_input_tokens > 0,
                 provider_response_id=response_data.get("responseId"),
                 response_output=response_parts,
                 response_created_at=created_at,
+                cached_input_tokens=cached_input_tokens,
+                cache_creation_tokens=cache_creation_tokens,
             )
 
             with contextlib.suppress(Exception):  # pragma: no cover - best effort persistence

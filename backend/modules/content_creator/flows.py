@@ -56,19 +56,7 @@ class LessonCreationFlow(BaseFlow):
     async def _execute_flow_logic(self, inputs: dict[str, Any]) -> dict[str, Any]:
         logger.info(f"🧪 Lesson Creation Flow - {inputs.get('learner_desires', 'Unknown')[:50]}")
 
-        # Step 1: Extract lesson metadata and scoped source material
-        md_result = await ExtractLessonMetadataStep().execute(
-            {
-                "learner_desires": inputs["learner_desires"],
-                "learning_objectives": inputs["learning_objectives"],
-                "learning_objective_ids": inputs["learning_objective_ids"],
-                "lesson_objective": inputs["lesson_objective"],
-                "source_material": inputs["source_material"],
-            }
-        )
-        lesson_md = md_result.output_content
-
-        # Step 2: Build full lesson learning objective objects
+        # Step 1: Build full lesson learning objective objects FIRST
         lesson_lo_ids = list(inputs.get("learning_objective_ids", []))
         raw_los = list(inputs.get("learning_objectives", []))
         lesson_learning_objectives: list[dict[str, str]] = []
@@ -82,6 +70,18 @@ class LessonCreationFlow(BaseFlow):
                 title = text_value
                 description = text_value
             lesson_learning_objectives.append({"id": str(lo_id), "title": title, "description": description})
+
+        # Step 2: Extract lesson metadata and scoped source material
+        md_result = await ExtractLessonMetadataStep().execute(
+            {
+                "learner_desires": inputs["learner_desires"],
+                "learning_objectives": lesson_learning_objectives,
+                "learning_objective_ids": lesson_lo_ids,
+                "lesson_objective": inputs["lesson_objective"],
+                "source_material": inputs["source_material"],
+            }
+        )
+        lesson_md = md_result.output_content
 
         # Step 3: Extract concept glossary
         concept_result = await ExtractConceptGlossaryStep().execute(
