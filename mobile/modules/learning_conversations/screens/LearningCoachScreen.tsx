@@ -271,32 +271,23 @@ export function LearningCoachScreen({
     });
   };
 
-  const normalizeDifficulty = (
-    level: string | null | undefined
-  ): 'beginner' | 'intermediate' | 'advanced' => {
-    if (!level) {
-      return 'intermediate';
-    }
-    const normalized = level.toLowerCase();
-    if (normalized.includes('beginner')) {
-      return 'beginner';
-    }
-    if (normalized.includes('advanced')) {
-      return 'advanced';
-    }
-    return 'intermediate';
-  };
-
-  const handleCreateUnit = () => {
+  const handleCreateUnit = (): void => {
     console.log('[LearningCoach] handleCreateUnit called', {
       conversationId,
-      finalizedTopic: sessionState?.finalizedTopic,
+      learnerDesires: sessionState?.learnerDesires,
       unitTitle: sessionState?.unitTitle,
       learningObjectives: sessionState?.learningObjectives,
       suggestedLessonCount: sessionState?.suggestedLessonCount,
     });
 
-    if (!conversationId || !sessionState?.finalizedTopic) {
+    // Guard: Require all fields that coach should have finalized
+    if (
+      !conversationId ||
+      !sessionState?.learnerDesires ||
+      !sessionState?.unitTitle ||
+      !sessionState?.learningObjectives ||
+      !sessionState?.suggestedLessonCount
+    ) {
       console.log('[LearningCoach] Early return - missing required data');
       return;
     }
@@ -312,21 +303,21 @@ export function LearningCoachScreen({
             // Navigate back to units list
             navigation.navigate('LessonList');
 
-            // Start unit creation in background
+            // Start unit creation in background with all required coach-driven fields
+            // Non-null assertions are safe due to guard above
             createUnit.mutate(
               {
-                topic: sessionState.finalizedTopic ?? '',
-                difficulty: 'intermediate',
-                unitTitle: sessionState.unitTitle ?? undefined,
-                targetLessonCount:
-                  sessionState.suggestedLessonCount ?? undefined,
+                learnerDesires: sessionState.learnerDesires!,
+                unitTitle: sessionState.unitTitle!,
+                learningObjectives: sessionState.learningObjectives!,
+                targetLessonCount: sessionState.suggestedLessonCount!,
+                conversationId: conversationId,
                 ownerUserId: user?.id ?? undefined,
-                conversationId: conversationId ?? undefined,
               },
               {
                 onError: error => {
                   console.error(
-                    'Failed to create unit from finalized topic',
+                    'Failed to create unit from learning coach',
                     error
                   );
                 },
@@ -339,7 +330,7 @@ export function LearningCoachScreen({
     );
   };
 
-  const handleAccept = () => {
+  const handleAccept = (): void => {
     if (!conversationId || !sessionState?.proposedBrief) {
       return;
     }
@@ -353,39 +344,9 @@ export function LearningCoachScreen({
         userId: user ? String(user.id) : null,
       },
       {
-        onSuccess: state => {
-          const accepted = state.acceptedBrief ?? state.proposedBrief;
-          if (!accepted) {
-            return;
-          }
-
-          const difficulty = normalizeDifficulty(accepted.level ?? null);
-          createUnit.mutate(
-            {
-              topic: accepted.title,
-              difficulty,
-              targetLessonCount:
-                (state.metadata?.target_lesson_count as number | undefined) ??
-                undefined,
-              ownerUserId: user?.id ?? undefined,
-              conversationId: conversationId ?? undefined,
-            },
-            {
-              onSuccess: () => {
-                Alert.alert(
-                  'Unit creation started',
-                  'We will notify you when your unit is ready.'
-                );
-                navigation.navigate('LessonList');
-              },
-              onError: error => {
-                console.error(
-                  'Failed to create unit from learning coach brief',
-                  error
-                );
-              },
-            }
-          );
+        onSuccess: () => {
+          // Brief accepted; user can now proceed to create unit via handleCreateUnit
+          // when coach has finalized all required fields
         },
         onError: error => {
           console.error('Failed to accept learning coach brief', error);

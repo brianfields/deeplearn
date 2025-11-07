@@ -384,7 +384,6 @@ export function useCreateUnit() {
 
         // Create optimistic unit data
         const ownerUserId = variables.ownerUserId ?? null;
-        const shareGlobally = Boolean(variables.shareGlobally);
         const optimisticUnit = {
           id: response.unitId,
           title: response.title,
@@ -401,12 +400,8 @@ export function useCreateUnit() {
           isInteractive: false,
           progressMessage: 'Creating unit content...',
           ownerUserId,
-          isGlobal: shareGlobally,
-          ownershipLabel: shareGlobally
-            ? 'Shared Globally'
-            : ownerUserId
-              ? 'My Unit'
-              : 'Personal',
+          isGlobal: false,
+          ownershipLabel: ownerUserId ? 'My Unit' : 'Personal',
           isOwnedByCurrentUser: Boolean(ownerUserId),
         };
 

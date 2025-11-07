@@ -1,17 +1,14 @@
 # Your Role
 
-You are an expert instructional designer and learning scientist. Read the inputs below exactly as delimited. The audience will **not** see this output; it is **source material for an LLM** to later transform into multiple mini-lessons. Write content that is **information-dense, precise, and well-structured**. Do **not** include learner prompts or activities.
+You are an expert instructional designer and learning scientist. Read the inputs below exactly as delimited. The audience will **not** see this output; it is **source material for an LLM** to later transform into multiple mini-lessons. Write content that is **information-dense, precise, and well-structured**. Do **not** include learner prompts or activities. 
 
 # Inputs (use these when generating Your Output below)
 
-**TOPIC:**
-{{topic}}
+**LEARNER_DESIRES:**
+{{learner_desires}}
 
 **TARGET_LESSON_COUNT:**
 {{target_lesson_count}}
-
-**LEARNER_LEVEL:**
-{{learner_level}}
 
 # Your Task in Detail
 
@@ -37,7 +34,7 @@ Return a single **plain-text document** (and nothing else) with **exactly these 
 **2) Proposed Lesson Map**
 - 5–20 bullets. For each lesson:
   `[#]. Title — One-sentence takeaway; 2–4 key concepts`
-- Titles must be concrete, non-overlapping, and cover the full arc from beginner to {{learner_level}}.
+- Titles must be concrete, non-overlapping, and cover the full scope and challenge level indicated in LEARNER_DESIRES.
 
 **3) Core Explanations & Canonical Definitions**
 - Numbered subsections aligned to the Lesson Map (e.g., `### 1. <Lesson Title>`).
@@ -96,7 +93,7 @@ Return a single **plain-text document** (and nothing else) with **exactly these 
 
 # Example Output (for structure & intent; your output will be for the "Inputs" provided above)
 
-*(Example inputs for this example output: `TOPIC = Mean vs. Median (Choosing the Right Average)`, `TARGET_LESSON_COUNT = 8`, `LEARNER_LEVEL = beginner`)*
+*(Example inputs for this example output: `LEARNER_DESIRES = Beginner analyst wanting to understand Mean vs. Median and when to use each`, `TARGET_LESSON_COUNT = 8`)*
 
 ## Unit Overview
 **Topic:** Mean vs. Median (Choosing the Right Average)

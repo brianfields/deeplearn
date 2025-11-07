@@ -31,61 +31,35 @@ class StatusHandler:
         self,
         *,
         unit_id: str,
-        topic: str,
-        source_material: str | None,
-        target_lesson_count: int | None,
-        learner_level: str,
+        learner_desires: str,
+        learning_objectives: list,
+        source_material: str | None = None,
+        target_lesson_count: int | None = None,
     ) -> str:
-        """Submit the ARQ flow responsible for background unit creation."""
+        """Submit the ARQ flow responsible for background unit creation (coach-driven only)."""
 
         task_queue_service = self._task_queue_factory()
+
         task_result = await task_queue_service.submit_flow_task(
             flow_name="content_creator.unit_creation",
             flow_run_id=uuid.UUID(unit_id),
             inputs={
                 "unit_id": unit_id,
-                "topic": topic,
+                "learner_desires": learner_desires,
+                "learning_objectives": learning_objectives,
                 "source_material": source_material,
                 "target_lesson_count": target_lesson_count,
-                "learner_level": learner_level,
             },
         )
+
         await self._content.set_unit_task(unit_id, task_result.task_id)
         return str(task_result.task_id)
 
-    async def retry_unit_creation(self, unit_id: str) -> MobileUnitCreationResult | None:
-        """Retry a failed unit creation by resubmitting its task."""
+    async def retry_unit_creation(self, unit_id: str) -> MobileUnitCreationResult | None:  # noqa: ARG002
+        """Retry a failed coach-driven unit creation (legacy retry no longer supported)."""
 
-        unit = await self._content.get_unit(unit_id)
-        if not unit:
-            return None
-        if unit.status != UnitStatus.FAILED.value:
-            raise ValueError(f"Unit {unit_id} is not in failed state (current: {unit.status})")
-        if not unit.generated_from_topic:
-            raise ValueError(f"Unit {unit_id} was not generated from a topic and cannot be retried")
-
-        await self._content.update_unit_status(
-            unit_id=unit_id,
-            status=UnitStatus.IN_PROGRESS.value,
-            error_message=None,
-            creation_progress={"stage": "retrying", "message": "Retrying unit creation..."},
-        )
-
-        task_queue_service = self._task_queue_factory()
-        task_result = await task_queue_service.submit_flow_task(
-            flow_name="content_creator.unit_creation",
-            flow_run_id=uuid.UUID(unit_id),
-            inputs={
-                "unit_id": unit_id,
-                "topic": unit.title,
-                "source_material": unit.source_material,
-                "target_lesson_count": unit.target_lesson_count,
-                "learner_level": unit.learner_level,
-            },
-        )
-        await self._content.set_unit_task(unit_id, task_result.task_id)
-        logger.info("✅ Unit retry initiated: unit_id=%s", unit_id)
-        return MobileUnitCreationResult(unit_id=unit_id, title=unit.title, status=UnitStatus.IN_PROGRESS.value)
+        logger.warning("❌ Unit retry not supported for coach-driven units (must regenerate from new conversation)")
+        return None
 
     async def dismiss_unit(self, unit_id: str) -> bool:
         """Dismiss (delete) a unit or mark it as dismissed when deletion is unavailable."""

@@ -51,6 +51,7 @@ class LearningCoachSessionStateModel(BaseModel):
     messages: list[LearningCoachMessageModel]
     metadata: dict[str, Any]
     finalized_topic: str | None = None
+    learner_desires: str | None = None
     unit_title: str | None = None
     learning_objectives: list[LearningObjectiveModel] | None = None
     suggested_lesson_count: int | None = None
@@ -333,6 +334,7 @@ def _serialize_state(state: LearningCoachSessionState) -> LearningCoachSessionSt
         "messages": [_serialize_message(message) for message in state.messages],
         "metadata": state.metadata,
         "finalized_topic": state.finalized_topic,
+        "learner_desires": state.learner_desires,
         "unit_title": state.unit_title,
         "learning_objectives": [LearningObjectiveModel(id=obj.id, title=obj.title, description=obj.description) for obj in state.learning_objectives or []] if state.learning_objectives else None,
         "suggested_lesson_count": state.suggested_lesson_count,

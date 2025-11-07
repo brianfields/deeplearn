@@ -102,29 +102,13 @@ export function CreateUnitScreen() {
     });
 
     try {
-      const response = await createUnit.mutateAsync({
-        topic: formData.topic.trim(),
-        difficulty: formData.learner_level,
-        targetLessonCount: formData.targetLessonCount,
-        shareGlobally: formData.shareGlobally,
-        ownerUserId: currentUserId,
-      });
+      // NOTE: This screen uses the legacy form-based unit creation.
+      // In the new world, unit creation should happen via LearningCoachScreen.
+      // This redirects to the coach to maintain functionality.
 
-      console.log('Unit creation response:', response);
-
-      // Navigate back immediately and show success message
-      navigation.goBack();
-
-      // Show a brief success alert that doesn't block navigation
-      setTimeout(() => {
-        Alert.alert(
-          'Unit Creation Started! 🎉',
-          `Your unit "${response.title}" is being created in the background. You can track its progress in the Units list.`,
-          [{ text: 'Got it!' }]
-        );
-      }, 100);
+      (navigation as any).navigate('LearningCoach');
     } catch (error: any) {
-      console.error('Unit creation error:', error);
+      console.error('Navigation error:', error);
 
       // Extract more detailed error information
       const errorMessage =

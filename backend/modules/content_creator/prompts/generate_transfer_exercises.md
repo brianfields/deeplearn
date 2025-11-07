@@ -1,7 +1,7 @@
 # Task
 
 You are an expert assessment designer.
-Using the refined, LO-aligned concept glossary below, create **scenario-based short-answer** and **multiple-choice** exercises that require learners to transfer concepts to new contexts.
+Using the refined, LO-aligned concept glossary below, create **scenario-based short-answer** and **multiple-choice** exercises that require learners to transfer concepts to new contexts. Aim for a total of 8 to 10 exercises.
 
 **Closed-set rule:** All short-answer exercises must have **closed-set answers** that exactly match the glossary concept's `canonical_answer` (or an accepted alias). Multiple-choice exercises should focus on selecting the best concept-driven response or strategy for a novel situation while remaining traceable to exactly one Learning Objective (LO id).
 
@@ -29,7 +29,7 @@ Using the refined, LO-aligned concept glossary below, create **scenario-based sh
 
 # Goal
 
-Generate **transfer-level** exercises that test application and adaptation of the refined concepts in novel, authentic scenarios, with explicit Learning Objective alignment and closed-answer feedback.
+Generate **transfer-level** exercises that test application and adaptation of the refined concepts in novel, authentic scenarios, with explicit Learning Objective alignment and closed-answer feedback. Aim for a total of 8 to 10 exercises.
 
 ## Exercise Design Requirements
 
@@ -51,7 +51,7 @@ Generate **transfer-level** exercises that test application and adaptation of th
 
 ## Generation Rules
 
-1. **Per-concept coverage:** Produce at least one short-answer and one multiple-choice transfer exercise for each concept selected for advanced practice (focus on concepts with `assessment_potential ≥ 4`).
+1. **Per-concept coverage:** Aim to cover as many concepts as possible while staying within the target exercise count.
 2. **Single LO alignment:** Set `aligned_learning_objective` to exactly one LO id from `lesson_learning_objectives`.
 3. **Cognitive levels:** Tag each exercise with `cognitive_level = Application` or `Transfer` (never lower than Comprehension).
 4. **Difficulty variation:** Balance difficulty via scenario complexity, data provided, or distractor plausibility.

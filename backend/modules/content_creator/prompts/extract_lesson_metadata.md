@@ -5,18 +5,11 @@ You are an expert instructional designer and learning scientist. Read the inputs
 
 # Inputs (use these when generating Your Output below)
 
-**TOPIC:**
-{{topic}}
-
-**LEARNER_LEVEL:**
-{{learner_level}}
-
-**VOICE:**
-{{voice}}
+**LEARNER_DESIRES:**
+{{learner_desires}}
 
 **LESSON_OBJECTIVE:**
 {{lesson_objective}}
-
 
 **LEARNING_OBJECTIVES:**
 {{learning_objectives}}
@@ -37,9 +30,9 @@ Return a single JSON object (and nothing else) with exactly these keys, in this 
 
 ## Field Definitions
 
-* topic: string (copy from TOPIC input provided)
-* learner_level: string (copy from LEARNER_LEVEL input provided)
-* voice: string (copy from VOICE input provided; use this to shape tone and style)
+* topic: string (extract concise topic from LEARNER_DESIRES)
+* learner_level: string (extract learner level from LEARNER_DESIRES, or infer as 'intermediate' if unclear)
+* voice: string (extract voice/tone preference from LEARNER_DESIRES; shape the mini_lesson tone accordingly)
 * lesson_objective: string (copy from LESSON_OBJECTIVE input provided; use this along with SOURCE_MATERIAL and LEARNING_OBJECTIVES to produce the mini_lesson)
 * lesson_source_material: string excerpt (≈180–260 words) distilled from SOURCE_MATERIAL and laser-focused on the lesson_objective:
   * Summarize only the portions of SOURCE_MATERIAL that directly teach the lesson_objective and associated LEARNING_OBJECTIVES.
@@ -47,9 +40,9 @@ Return a single JSON object (and nothing else) with exactly these keys, in this 
   * Write in neutral narration (no learner-facing tone or directions).
   * Use light Markdown (short paragraphs, bullet lists) only if the source naturally suggests it.
 * mini_lesson: string in Markdown format (≈120–220 words). This is the learner-facing explanation:
-  * Write in the specified voice; engaging, concrete, professional.
-  * Must enable the “evidence” for every learning objective (cover all LOs).
-  * Tune depth, vocabulary, and examples to LEARNER_LEVEL.
+  * Write in the voice preference indicated in LEARNER_DESIRES; engaging, concrete, professional.
+  * Must enable the "evidence" for every learning objective (cover all LOs).
+  * Tune depth, vocabulary, and examples to the learner_level extracted from LEARNER_DESIRES.
   * May use light Markdown for readability (short paragraphs or 2–4 bullets). No headings. No code fences unless the topic genuinely requires code.
   * Do not ask the learner any questions. No calls to action or reflective prompts.
   * Define unavoidable jargon inline (align with glossary). Prefer concrete examples and near-miss discriminators.

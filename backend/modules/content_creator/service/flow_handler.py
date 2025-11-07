@@ -51,19 +51,24 @@ class FlowHandler:
         self,
         *,
         unit_id: str,
-        topic: str,
-        source_material: str | None,
+        learner_desires: str,
+        learning_objectives: list,
         target_lesson_count: int | None,
-        learner_level: str,
+        source_material: str | None = None,
         arq_task_id: str | None = None,
     ) -> UnitCreationResult:
-        """Execute the end-to-end unit creation using the active prompt-aligned flows."""
+        """Execute the end-to-end unit creation pipeline.
+
+        All parameters are required because the learning coach must finalize them
+        before unit creation is allowed.
+        """
 
         logger.info("=" * 80)
         logger.info("🧱 UNIT CREATION START")
         logger.info(f"   Unit ID: {unit_id}")
-        logger.info(f"   Topic: {topic}")
-        logger.info(f"   Level: {learner_level}")
+        logger.info(f"   Learner Desires: {learner_desires[:50]}...")
+        logger.info(f"   Learning Objectives PARAM: {learning_objectives}")
+        logger.info(f"   Learning Objectives COUNT: {len(learning_objectives) if learning_objectives else 0}")
         logger.info(f"   Target Lessons: {target_lesson_count or 'auto'}")
         logger.info(f"   Source Material: {'provided' if source_material else 'will generate'}")
         logger.info("=" * 80)
@@ -77,19 +82,32 @@ class FlowHandler:
 
         logger.info("📋 Phase 1: Unit Planning")
         flow = UnitCreationFlow()
-        unit_plan = await flow.execute(
-            {
-                "topic": topic,
-                "source_material": source_material,
-                "target_lesson_count": target_lesson_count,
-                "learner_level": learner_level,
-            },
-            arq_task_id=arq_task_id,
-        )
 
-        final_title = str(unit_plan.get("unit_title") or f"{topic}")
+        # Build flow inputs with coach-provided context
+        # Handle both UnitLearningObjective objects and dicts
+        coach_los = []
+        for lo in learning_objectives or []:
+            if isinstance(lo, dict):
+                coach_los.append(lo)
+            else:
+                coach_los.append(lo.model_dump())
+
+        # Store original coach LOs for fallback
+        original_coach_los = coach_los.copy()
+
+        flow_inputs: dict[str, Any] = {
+            "learner_desires": learner_desires,
+            "coach_learning_objectives": coach_los,
+            "source_material": source_material,
+            "target_lesson_count": target_lesson_count,
+        }
+
+        unit_plan = await flow.execute(flow_inputs, arq_task_id=arq_task_id)
+
+        final_title = str(unit_plan.get("unit_title") or "Unit")
         logger.info(f"   ✓ Unit title: {final_title}")
-        raw_unit_learning_objectives = unit_plan.get("learning_objectives", []) or []
+        # Always use original coach LOs (flow should return them but we use originals as source of truth)
+        raw_unit_learning_objectives = original_coach_los if original_coach_los else (unit_plan.get("learning_objectives") or [])
         unit_learning_objectives: list[UnitLearningObjective] = []
         for item in raw_unit_learning_objectives:
             if isinstance(item, UnitLearningObjective):
@@ -152,7 +170,7 @@ class FlowHandler:
                     lesson_index=i,
                     unit_los=unit_los,
                     unit_material=unit_material,
-                    learner_level=learner_level,
+                    learner_desires=learner_desires,
                     arq_task_id=arq_task_id,
                 )
                 for i, lp in enumerate(batch, start=batch_start)
@@ -304,6 +322,8 @@ class FlowHandler:
             target_lesson_count=unit_plan.get("lesson_count"),
             generated_from_topic=(source_material is None),
             lesson_ids=lesson_ids,
+            learning_objectives=[lo.model_dump() if hasattr(lo, "model_dump") else lo for lo in unit_learning_objectives],
+            lessons=lessons_plan,
         )
 
     async def _create_single_lesson(
@@ -313,7 +333,7 @@ class FlowHandler:
         lesson_index: int,
         unit_los: dict[str, str],
         unit_material: str,
-        learner_level: str,
+        learner_desires: str,
         arq_task_id: str | None,
     ) -> tuple[str, PodcastLesson, str, set[str]]:
         """Create a single lesson and return (lesson_id, podcast_lesson, voice, covered_lo_ids)."""
@@ -327,9 +347,7 @@ class FlowHandler:
 
         md_res = await LessonCreationFlow().execute(
             {
-                "topic": lesson_title,
-                "learner_level": learner_level,
-                "voice": "Plain",
+                "learner_desires": learner_desires,
                 "learning_objectives": lesson_lo_descriptions,
                 "learning_objective_ids": lesson_lo_ids,
                 "lesson_objective": lesson_objective_text,
@@ -351,10 +369,12 @@ class FlowHandler:
             return value if value in {"comprehension", "transfer"} else "comprehension"
 
         db_lesson_id = str(uuid.uuid4())
+        # Extract learner level from learner_desires or use value from flow response
+        extracted_learner_level = str(md_res.get("learner_level") or "intermediate")
         meta = Meta(
             lesson_id=db_lesson_id,
             title=lesson_title,
-            learner_level=learner_level,
+            learner_level=extracted_learner_level,
             package_schema_version=2,
             content_version=1,
         )
@@ -537,25 +557,48 @@ class FlowHandler:
             "Transfer": float(cm_actual.get("Transfer", 0.0)),
         }
 
-        # Convert list-based coverage to dict-based coverage for package model
+        # Convert list-based or dict-based coverage to dict-based coverage for package model
         coverage_by_lo = {}
-        for entry in quiz_meta_payload.get("coverage_by_LO") or []:
-            lo_id = str(entry.get("learning_objective_id", ""))
-            if lo_id:
-                coverage_by_lo[lo_id] = QuizCoverageByLO(
-                    exercise_ids=[str(ex_id) for ex_id in entry.get("exercise_ids", [])],
-                    concepts=[str(concept) for concept in entry.get("concepts", [])],
-                )
+        coverage_by_lo_data = quiz_meta_payload.get("coverage_by_LO")
+        if isinstance(coverage_by_lo_data, dict):
+            # Handle dict format: {"lo_id": {"exercise_ids": [...], "concepts": [...]}}
+            for lo_id, coverage_data in coverage_by_lo_data.items():
+                if isinstance(coverage_data, dict):
+                    coverage_by_lo[str(lo_id)] = QuizCoverageByLO(
+                        exercise_ids=[str(ex_id) for ex_id in coverage_data.get("exercise_ids", [])],
+                        concepts=[str(concept) for concept in coverage_data.get("concepts", [])],
+                    )
+        else:
+            # Handle list format: [{"learning_objective_id": "lo_1", "exercise_ids": [...], ...}]
+            for entry in coverage_by_lo_data or []:
+                lo_id = str(entry.get("learning_objective_id", ""))
+                if lo_id:
+                    coverage_by_lo[lo_id] = QuizCoverageByLO(
+                        exercise_ids=[str(ex_id) for ex_id in entry.get("exercise_ids", [])],
+                        concepts=[str(concept) for concept in entry.get("concepts", [])],
+                    )
 
         coverage_by_concept = {}
-        for entry in quiz_meta_payload.get("coverage_by_concept") or []:
-            concept_slug = str(entry.get("concept_slug", ""))
-            if concept_slug:
-                normalized_types = [_normalize_exercise_type(t) for t in entry.get("types", [])]
-                coverage_by_concept[concept_slug] = QuizCoverageByConcept(
-                    exercise_ids=[str(ex_id) for ex_id in entry.get("exercise_ids", [])],
-                    types=normalized_types,
-                )
+        coverage_by_concept_data = quiz_meta_payload.get("coverage_by_concept")
+        if isinstance(coverage_by_concept_data, dict):
+            # Handle dict format: {"concept_slug": {"exercise_ids": [...], "types": [...]}}
+            for concept_slug, coverage_data in coverage_by_concept_data.items():
+                if isinstance(coverage_data, dict):
+                    normalized_types = [_normalize_exercise_type(t) for t in coverage_data.get("types", [])]
+                    coverage_by_concept[str(concept_slug)] = QuizCoverageByConcept(
+                        exercise_ids=[str(ex_id) for ex_id in coverage_data.get("exercise_ids", [])],
+                        types=normalized_types,
+                    )
+        else:
+            # Handle list format: [{"concept_slug": "mean", "exercise_ids": [...], "types": [...]}]
+            for entry in coverage_by_concept_data or []:
+                concept_slug = str(entry.get("concept_slug", ""))
+                if concept_slug:
+                    normalized_types = [_normalize_exercise_type(t) for t in entry.get("types", [])]
+                    coverage_by_concept[concept_slug] = QuizCoverageByConcept(
+                        exercise_ids=[str(ex_id) for ex_id in entry.get("exercise_ids", [])],
+                        types=normalized_types,
+                    )
 
         quiz_metadata = QuizMetadata(
             quiz_type=str(quiz_meta_payload.get("quiz_type") or "Formative"),
@@ -589,7 +632,7 @@ class FlowHandler:
                 LessonCreate(
                     id=db_lesson_id,
                     title=lesson_title,
-                    learner_level=learner_level,
+                    learner_level=extracted_learner_level,
                     package=lesson_package,
                 )
             )

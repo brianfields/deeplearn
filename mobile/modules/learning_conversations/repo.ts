@@ -36,6 +36,7 @@ interface ApiSessionState {
   readonly messages: ApiMessage[];
   readonly metadata: Record<string, any>;
   readonly finalized_topic?: string | null;
+  readonly learner_desires?: string | null;
   readonly unit_title?: string | null;
   readonly learning_objectives?: ApiLearningObjective[] | null;
   readonly suggested_lesson_count?: number | null;
@@ -134,6 +135,7 @@ function toSessionState(dto: ApiSessionState): LearningCoachSessionState {
     messages: dto.messages.map(toMessage),
     metadata: dto.metadata ?? {},
     finalizedTopic: dto.finalized_topic ?? null,
+    learnerDesires: dto.learner_desires ?? null,
     unitTitle: dto.unit_title ?? null,
     learningObjectives: normalizeLearningObjectives(dto.learning_objectives),
     suggestedLessonCount: dto.suggested_lesson_count ?? null,

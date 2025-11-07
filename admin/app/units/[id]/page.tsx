@@ -24,6 +24,7 @@ import { ErrorMessage } from '@/modules/admin/components/shared/ErrorMessage';
 import { ReloadButton } from '@/modules/admin/components/shared/ReloadButton';
 import { StatusBadge } from '@/modules/admin/components/shared/StatusBadge';
 import { ResourceList } from '@/modules/admin/components/resources/ResourceList';
+import { ResizablePanel } from '@/modules/admin/components/shared/ResizablePanel';
 import { formatDate } from '@/lib/utils';
 
 interface UnitDetailsPageProps {
@@ -83,8 +84,12 @@ function LessonExpandedDetails({ lessonId }: { lessonId: string }) {
       {lesson.package.mini_lesson && (
         <div>
           <h3 className="text-xs font-semibold text-gray-700 uppercase mb-1.5">Mini Lesson</h3>
-          <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap bg-white rounded border border-gray-200 p-3 max-h-48 overflow-y-auto">
-            {lesson.package.mini_lesson}
+          <div className="border border-gray-200 rounded">
+            <ResizablePanel defaultHeight={192} minHeight={96} maxHeight={600}>
+              <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap bg-white p-3">
+                {lesson.package.mini_lesson}
+              </div>
+            </ResizablePanel>
           </div>
         </div>
       )}
@@ -98,8 +103,12 @@ function LessonExpandedDetails({ lessonId }: { lessonId: string }) {
             </h3>
             <div className="text-xs text-gray-600 space-y-1">
               <p>Exercise IDs in quiz order:</p>
-              <div className="bg-gray-100 rounded p-2 font-mono text-xs overflow-y-auto max-h-20">
-                {lesson.package.quiz.join(', ')}
+              <div className="border border-gray-200 rounded">
+                <ResizablePanel defaultHeight={80} minHeight={48} maxHeight={300}>
+                  <div className="bg-gray-100 p-2 font-mono text-xs">
+                    {lesson.package.quiz.join(', ')}
+                  </div>
+                </ResizablePanel>
               </div>
             </div>
           </div>
@@ -473,8 +482,12 @@ export default function UnitDetailsPage({ params }: UnitDetailsPageProps) {
                 Download
               </a>
             </div>
-            <div className="bg-gray-50 rounded border border-gray-200 p-4 text-xs text-gray-700 whitespace-pre-wrap max-h-96 overflow-y-auto leading-relaxed">
-              {unit.source_material}
+            <div className="bg-gray-50 rounded border border-gray-200">
+              <ResizablePanel defaultHeight={384} minHeight={192} maxHeight={800}>
+                <div className="p-4 text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">
+                  {unit.source_material}
+                </div>
+              </ResizablePanel>
             </div>
           </div>
         )}

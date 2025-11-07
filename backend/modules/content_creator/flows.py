@@ -47,23 +47,19 @@ class LessonCreationFlow(BaseFlow):
     flow_name = "lesson_creation"
 
     class Inputs(BaseModel):
-        topic: str
-        learner_level: str
-        voice: str
+        learner_desires: str  # Replaces topic + learner_level + voice
         learning_objectives: list[str]
         learning_objective_ids: list[str]
         lesson_objective: str
         source_material: str
 
     async def _execute_flow_logic(self, inputs: dict[str, Any]) -> dict[str, Any]:
-        logger.info(f"🧪 Lesson Creation Flow - {inputs.get('topic', 'Unknown')}")
+        logger.info(f"🧪 Lesson Creation Flow - {inputs.get('learner_desires', 'Unknown')[:50]}")
 
         # Step 1: Extract lesson metadata and scoped source material
         md_result = await ExtractLessonMetadataStep().execute(
             {
-                "topic": inputs["topic"],
-                "learner_level": inputs["learner_level"],
-                "voice": inputs["voice"],
+                "learner_desires": inputs["learner_desires"],
                 "learning_objectives": inputs["learning_objectives"],
                 "learning_objective_ids": inputs["learning_objective_ids"],
                 "lesson_objective": inputs["lesson_objective"],
@@ -90,7 +86,7 @@ class LessonCreationFlow(BaseFlow):
         # Step 3: Extract concept glossary
         concept_result = await ExtractConceptGlossaryStep().execute(
             {
-                "topic": inputs["topic"],
+                "topic": lesson_md.topic,
                 "lesson_objective": inputs["lesson_objective"],
                 "lesson_source_material": lesson_md.lesson_source_material,
                 "lesson_learning_objectives": lesson_learning_objectives,
@@ -102,7 +98,7 @@ class LessonCreationFlow(BaseFlow):
         # Step 4: Annotate concept glossary
         refined_result = await AnnotateConceptGlossaryStep().execute(
             {
-                "topic": inputs["topic"],
+                "topic": lesson_md.topic,
                 "lesson_objective": inputs["lesson_objective"],
                 "lesson_source_material": lesson_md.lesson_source_material,
                 "concept_glossary": concept_glossary_payload,
@@ -115,7 +111,7 @@ class LessonCreationFlow(BaseFlow):
         # Step 5: Generate comprehension exercises
         comprehension_result = await GenerateComprehensionExercisesStep().execute(
             {
-                "topic": inputs["topic"],
+                "topic": lesson_md.topic,
                 "lesson_objective": inputs["lesson_objective"],
                 "lesson_source_material": lesson_md.lesson_source_material,
                 "refined_concept_glossary": refined_concepts_payload,
@@ -127,7 +123,7 @@ class LessonCreationFlow(BaseFlow):
         # Step 6: Generate transfer exercises
         transfer_result = await GenerateTransferExercisesStep().execute(
             {
-                "topic": inputs["topic"],
+                "topic": lesson_md.topic,
                 "lesson_objective": inputs["lesson_objective"],
                 "lesson_source_material": lesson_md.lesson_source_material,
                 "refined_concept_glossary": refined_concepts_payload,
@@ -171,62 +167,67 @@ class UnitCreationFlow(BaseFlow):
 
     Pipeline:
     1) Generate unit source material if not provided
-    2) Extract unit-level metadata (title, objectives, lessons, count)
+    2) Extract unit-level metadata (title, lesson plan) using coach-provided LOs
     """
 
     flow_name = "unit_creation"
 
     class Inputs(BaseModel):
-        topic: str
+        learner_desires: str
+        coach_learning_objectives: list[dict]
         source_material: str | None = None
         target_lesson_count: int | None = None
-        learner_level: str = "beginner"
 
     async def _execute_flow_logic(self, inputs: dict[str, Any]) -> dict[str, Any]:
         """
         Execute the unit creation pipeline.
 
         Args:
-            inputs: Dictionary matching `Inputs` with optional `topic` or
-                `source_material`, plus user context and duration targets.
+            inputs: Dictionary with:
+              - learner_desires: str (unified learner context)
+              - coach_learning_objectives: list[dict] (LOs from coach)
+              - source_material: optional pre-generated material
+              - target_lesson_count: optional lesson count target
 
         Returns:
             Dict containing unit metadata and chunked lesson materials.
         """
         logger.info("🧱 Unit Creation Flow - Starting")
 
+        learner_desires: str = inputs.get("learner_desires") or ""
+        coach_learning_objectives: list[dict] = inputs.get("coach_learning_objectives") or []
+
         # Step 0: Ensure we have source material
         material: str | None = inputs.get("source_material")
-        topic: str | None = inputs.get("topic")
+
         if not material:
-            logger.info("📝 Generating source material from topic…")
+            logger.info("📝 Generating source material…")
             gen_result = await GenerateUnitSourceMaterialStep().execute(
                 {
-                    "topic": topic or "",
+                    "learner_desires": learner_desires,
                     "target_lesson_count": inputs.get("target_lesson_count"),
-                    "learner_level": inputs.get("learner_level", "beginner"),
                 }
             )
             material = str(gen_result.output_content)
 
         assert material is not None  # for type checkers
 
-        # Step 1: Extract unit metadata (LOs, lesson plan)
+        # Step 1: Extract unit metadata (lesson plan using coach LOs)
         logger.info("📋 Extracting unit metadata…")
         md_result = await ExtractUnitMetadataStep().execute(
             {
-                "topic": topic or "",
-                "learner_level": inputs.get("learner_level", "beginner"),
+                "learner_desires": learner_desires,
+                "coach_learning_objectives": coach_learning_objectives,
                 "target_lesson_count": inputs.get("target_lesson_count"),
                 "source_material": material,
             }
         )
         unit_md = md_result.output_content
 
-        # Final assembly (no chunking in active prompt set)
+        # Final assembly - use coach LOs directly (no regeneration)
         return {
             "unit_title": unit_md.unit_title,
-            "learning_objectives": [lo.model_dump() for lo in unit_md.learning_objectives],
+            "learning_objectives": coach_learning_objectives,
             "lessons": [ls.model_dump() for ls in unit_md.lessons],
             "lesson_count": int(unit_md.lesson_count),
             "source_material": material,

@@ -6,12 +6,14 @@
  * - Scrollable content with height limits
  * - Syntax highlighting options
  * - Word wrapping
+ * - Drag-resizable height
  */
 
 'use client';
 
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
+import { ResizablePanel } from './ResizablePanel';
 
 interface CodeBlockProps {
   content: string;
@@ -126,14 +128,14 @@ export function CodeBlock({
 
       {/* Content */}
       {!isCollapsed && (
-        <div className={cn('overflow-auto scrollbar-thin', maxHeight)}>
+        <ResizablePanel defaultHeight={384} minHeight={96} maxHeight={1200}>
           <pre className={cn(
             'p-4 text-sm font-mono bg-gray-50',
             wrap ? 'whitespace-pre-wrap break-words' : 'whitespace-pre'
           )}>
             {content}
           </pre>
-        </div>
+        </ResizablePanel>
       )}
     </div>
   );

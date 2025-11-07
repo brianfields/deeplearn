@@ -94,18 +94,25 @@ class ContentCreatorService:
     async def create_unit(
         self,
         *,
-        topic: str,
+        learner_desires: str,
+        learning_objectives: list,
+        unit_title: str | None = None,
+        target_lesson_count: int | None = None,
+        conversation_id: str | None = None,
         source_material: str | None = None,
         background: bool = False,
-        target_lesson_count: int | None = None,
-        learner_level: str = "beginner",
         user_id: int | None = None,
-        unit_title: str | None = None,
-        conversation_id: str | None = None,
     ) -> UnitCreationResult | MobileUnitCreationResult:
-        """Create a learning unit (foreground or background)."""
+        """Create a learning unit from coach-driven context (required).
 
-        provisional_title = self._truncate_title(unit_title if unit_title else topic, max_length=200)
+        All parameters are required because the coach conversation must finalize them.
+        """
+        if not learning_objectives:
+            raise ValueError("learning_objectives must be provided")
+
+        # Use coach title if provided, otherwise generate from learner_desires
+        title_source = unit_title if unit_title else learner_desires
+        provisional_title = self._truncate_title(title_source, max_length=200)
 
         combined_source_material = source_material
         conversation_resources: list[ResourceRead] = []
@@ -124,8 +131,7 @@ class ContentCreatorService:
 
                     if uncovered_lo_ids:
                         supplemental_text = await self._generate_supplemental_source_material(
-                            topic=topic,
-                            learner_level=learner_level,
+                            learner_desires=learner_desires,
                             target_lesson_count=target_lesson_count,
                             uncovered_lo_ids=uncovered_lo_ids,
                             session_state=session_state,
@@ -136,17 +142,37 @@ class ContentCreatorService:
                                 supplemental_text,
                             )
 
+        # Convert learning_objectives to dicts early (for UnitCreate, background queue, and flow handler)
+        lo_list = []
+        for lo in learning_objectives:
+            if hasattr(lo, "model_dump"):
+                lo_list.append(lo.model_dump())
+            elif isinstance(lo, dict):
+                lo_list.append(lo)
+            else:
+                # Handle plain objects with attributes
+                lo_list.append(
+                    {
+                        "id": getattr(lo, "id", str(lo)),
+                        "title": getattr(lo, "title", ""),
+                        "description": getattr(lo, "description", ""),
+                        "bloom_level": getattr(lo, "bloom_level", None),
+                        "evidence_of_mastery": getattr(lo, "evidence_of_mastery", None),
+                    }
+                )
+
+        # Create unit with coach LOs
         unit = await self.content.create_unit(
             UnitCreate(
                 title=provisional_title,
-                description=topic,
-                learner_level=learner_level,
+                description=learner_desires,
+                learner_level="beginner",  # Default for coach-driven units
                 lesson_order=[],
                 user_id=user_id,
-                learning_objectives=None,
+                learning_objectives=lo_list,
                 target_lesson_count=target_lesson_count,
                 source_material=combined_source_material,
-                generated_from_topic=(combined_source_material is None),
+                generated_from_topic=False,  # Coach-driven units don't generate from topic
                 flow_type="standard",
             )
         )
@@ -171,44 +197,23 @@ class ContentCreatorService:
         if background:
             await self._status_handler.enqueue_unit_creation(
                 unit_id=unit.id,
-                topic=topic,
+                learner_desires=learner_desires,
+                learning_objectives=lo_list,
                 source_material=combined_source_material,
                 target_lesson_count=target_lesson_count,
-                learner_level=learner_level,
             )
             return MobileUnitCreationResult(unit_id=unit.id, title=unit.title, status=UnitStatus.IN_PROGRESS.value)
 
         result = await self._flow_handler.execute_unit_creation_pipeline(
             unit_id=unit.id,
-            topic=topic,
+            learner_desires=learner_desires,
+            learning_objectives=lo_list,
             source_material=combined_source_material,
             target_lesson_count=target_lesson_count,
-            learner_level=learner_level,
             arq_task_id=None,
         )
 
         return result
-
-    async def _execute_unit_creation_pipeline(
-        self,
-        *,
-        unit_id: str,
-        topic: str,
-        source_material: str | None,
-        target_lesson_count: int | None,
-        learner_level: str,
-        arq_task_id: str | None = None,
-    ) -> UnitCreationResult:
-        """Delegate to the flow handler for unit creation."""
-
-        return await self._flow_handler.execute_unit_creation_pipeline(
-            unit_id=unit_id,
-            topic=topic,
-            source_material=source_material,
-            target_lesson_count=target_lesson_count,
-            learner_level=learner_level,
-            arq_task_id=arq_task_id,
-        )
 
     async def retry_unit_creation(self, unit_id: str) -> MobileUnitCreationResult | None:
         """Retry failed unit creation."""
@@ -317,11 +322,10 @@ class ContentCreatorService:
     async def _generate_supplemental_source_material(
         self,
         *,
-        topic: str,
-        learner_level: str,
-        target_lesson_count: int | None,
-        uncovered_lo_ids: list[str],
-        session_state: LearningCoachSessionState | None,
+        learner_desires: str,
+        target_lesson_count: int | None = None,
+        uncovered_lo_ids: list[str] | None = None,
+        session_state: LearningCoachSessionState | None = None,
     ) -> str | None:
         """Generate supplemental source material focused on uncovered learning objectives."""
 
@@ -346,8 +350,7 @@ class ContentCreatorService:
         objectives_outline = "\n".join(f"- {obj.id}: {obj.title} — {obj.description}" for obj in filtered_objectives)
 
         inputs = GenerateSupplementalSourceMaterialStep.Inputs(
-            topic=topic,
-            learner_level=learner_level,
+            learner_desires=learner_desires,
             target_lesson_count=(target_lesson_count if target_lesson_count is not None else getattr(session_state, "suggested_lesson_count", None)),
             objectives_outline=objectives_outline,
         )

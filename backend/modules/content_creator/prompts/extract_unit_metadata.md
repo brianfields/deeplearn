@@ -4,31 +4,35 @@ You are an expert instructional designer. Extract a **structured unit plan** fro
 
 # Inputs (use these when generating Your Output below)
 
-- **TOPIC:**
-  {{topic}}
-
-- **LEARNER_LEVEL:**
-  {{learner_level}}   // beginner | intermediate | advanced
+- **LEARNER_DESIRES:**
+  {{learner_desires}}
 
 - **TARGET_LESSON_COUNT:**
   {{target_lesson_count}}   // optional; if absent, target 5–10 lessons
+
+- **COACH_LEARNING_OBJECTIVES (from learning coach conversation):**
+  {{coach_learning_objectives}}   // Optional; if provided, use these as-is; otherwise generate from material
 
 - **SOURCE_MATERIAL:**
   {{source_material}}
 
 # Your Task in Detail
 
-1) Derive a **concise, specific unit title** that clearly reflects the TOPIC and intended ramp to `{{learner_level}}`.
-2) Define **3–8 unit-level learning objectives**. For each, include:
-   - `lo_id` in the form **"UO1"**, **"UO2"** … (sequential, no gaps)
-   - `title` (3–8 word, scannable headline)
-   - `description` (precise, observable outcome written for learners)
-   - `bloom_level` (one of: **Remember, Understand, Apply, Analyze, Evaluate, Create**)
-   - `evidence_of_mastery` (short, concrete indicator; may be omitted only if truly redundant)
+1) Derive a **concise, specific unit title** that clearly reflects the learner's desires and intended learning scope.
+
+2) **Handle learning objectives based on COACH_LEARNING_OBJECTIVES:**
+   - **IF coach_learning_objectives provided:** Use them as-is; do not regenerate. Map them to the provided IDs and ensure lesson plans cover all of them.
+   - **IF coach_learning_objectives is empty or null:** Define **3–8 unit-level learning objectives** from the source material. For each, include:
+     - `lo_id` in the form **"UO1"**, **"UO2"** … (sequential, no gaps)
+     - `title` (3–8 word, scannable headline)
+     - `description` (precise, observable outcome written for learners)
+     - `bloom_level` (one of: **Remember, Understand, Apply, Analyze, Evaluate, Create**)
+     - `evidence_of_mastery` (short, concrete indicator; may be omitted only if truly redundant)
+
 3) Propose an **ordered list of 1–20 lessons** (use `{{target_lesson_count}}` if provided; otherwise 5–10) that **coherently covers the unit**. For each lesson, provide:
    - `title` (unique, concrete, non-overlapping)
    - `lesson_objective` (**one** precise, measurable objective for the lesson; 1–2 sentences; plain text; no questions)
-   - `learning_objectives` (array of **UO ids** this lesson advances; at least one per lesson)
+   - `learning_objective_ids` (array of **UO ids** this lesson advances; at least one per lesson; all UOs must be covered)
 
 # Output (JSON schema and key order — return **only** this JSON)
 
@@ -62,7 +66,7 @@ Top-level keys in this **exact order**:
 
 # Field Definitions & Rules
 
-* **unit\_title:** Short, specific, aligned to TOPIC and `{{learner_level}}` outcome.
+* **unit\_title:** Short, specific, aligned to learner desires and intended learning scope.
 * **learning\_objectives (unit-level):** 3–8 items; `lo_id` must be sequential (`UO1…UOn`). `title` is a concise 3–8 word phrase. `description` is action-oriented and measurable. `bloom_level` ∈ (Remember, Understand, Apply, Analyze, Evaluate, Create).
 * **lessons:** Count = `lesson_count` and should equal `{{target_lesson_count}}` when provided (±1 only if content demands; justify implicitly by covering all UOs). Each lesson:
 

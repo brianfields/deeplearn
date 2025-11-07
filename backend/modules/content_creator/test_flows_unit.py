@@ -198,9 +198,7 @@ async def test_lesson_creation_flow_runs_concept_pipeline(
     flow = LessonCreationFlow()
     result = await flow._execute_flow_logic(
         {
-            "topic": "Lesson",
-            "learner_level": "beginner",
-            "voice": "Guide",
+            "learner_desires": "Beginner student learning Lesson with Guide voice",
             "learning_objectives": ["Explain"],
             "learning_objective_ids": ["lo_1"],
             "lesson_objective": "Explain it",
@@ -404,7 +402,14 @@ class TestServiceFlows:
             }
             mock_lcf_cls.return_value = mock_lcf
 
-            result = await svc.create_unit(topic="Topic", target_lesson_count=1, learner_level="beginner", background=False)
+            result = await svc.create_unit(
+                learner_desires="Beginner learning Topic",
+                unit_title="Unit T",
+                learning_objectives=[{"id": "u_lo_1", "title": "Understand the Topic", "description": "Understand the topic"}],
+                target_lesson_count=1,
+                conversation_id="conv-123",
+                background=False,
+            )
         assert result.title == "Unit T"
         content.save_lesson.assert_awaited()
         content.assign_lessons_to_unit.assert_awaited_once()
@@ -518,7 +523,14 @@ class TestServiceFlows:
             }
             mock_lcf_cls.return_value = mock_lcf
 
-            await svc.create_unit(topic="Topic", target_lesson_count=1, learner_level="beginner", background=False)
+            await svc.create_unit(
+                learner_desires="Beginner learning Topic",
+                unit_title="Unit B",
+                learning_objectives=[{"id": "u_lo_1", "title": "Understand the Topic", "description": "Understand the topic"}],
+                target_lesson_count=1,
+                conversation_id="conv-456",
+                background=False,
+            )
 
             content.save_lesson.assert_awaited()
             content.assign_lessons_to_unit.assert_awaited()

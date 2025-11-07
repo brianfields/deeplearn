@@ -8,9 +8,10 @@ from modules.flow_engine.public import AudioStep, ImageStep, StructuredStep, Uns
 
 # ---------- 1) Generate Unit Source Material ----------
 class GenerateUnitSourceMaterialStep(UnstructuredStep):
-    """Generate comprehensive source material for a unit from a topic.
+    """Generate comprehensive source material for a unit from learner context.
 
     Output is plain-text with markdown headings as described in the prompt.
+    Accepts learner_desires (unified context) instead of separate topic/learner_level.
     """
 
     step_name = "generate_source_material"
@@ -20,9 +21,8 @@ class GenerateUnitSourceMaterialStep(UnstructuredStep):
     model = "gpt-5-mini"
 
     class Inputs(BaseModel):
-        topic: str
+        learner_desires: str
         target_lesson_count: int | None = None
-        learner_level: str
 
 
 class GenerateSupplementalSourceMaterialStep(UnstructuredStep):
@@ -35,8 +35,7 @@ class GenerateSupplementalSourceMaterialStep(UnstructuredStep):
     model = "gpt-5-mini"
 
     class Inputs(BaseModel):
-        topic: str
-        learner_level: str
+        learner_desires: str
         target_lesson_count: int | None = None
         objectives_outline: str
 
@@ -57,7 +56,11 @@ class LessonPlanItem(BaseModel):
 
 
 class ExtractUnitMetadataStep(StructuredStep):
-    """Extract unit-level learning objectives and ordered lesson plan as strict JSON."""
+    """Extract unit-level metadata and ordered lesson plan as strict JSON.
+
+    Uses coach-provided learning objectives directly (no regeneration).
+    Focuses on generating lesson plan that covers all coach LOs.
+    """
 
     step_name = "extract_unit_metadata"
     prompt_file = "extract_unit_metadata.md"
@@ -66,21 +69,25 @@ class ExtractUnitMetadataStep(StructuredStep):
     verbosity = "low"
 
     class Inputs(BaseModel):
-        topic: str
-        learner_level: str
+        learner_desires: str
+        coach_learning_objectives: list[dict]
         target_lesson_count: int | None = None
         source_material: str
 
     class Outputs(BaseModel):
         unit_title: str
-        learning_objectives: list[UnitLearningObjective]
+        # NOTE: Lesson plan only; LOs come directly from coach (not regenerated)
+        learning_objectives: list[UnitLearningObjective] = []
         lessons: list[LessonPlanItem]
         lesson_count: int
 
 
 # ---------- 3) Extract Lesson Metadata ----------
 class ExtractLessonMetadataStep(StructuredStep):
-    """Extract lesson metadata and produce a mini-lesson as strict JSON."""
+    """Extract lesson metadata and produce a mini-lesson as strict JSON.
+
+    Accepts learner_desires (unified context) instead of separate topic/learner_level/voice.
+    """
 
     step_name = "extract_lesson_metadata"
     prompt_file = "extract_lesson_metadata.md"
@@ -89,9 +96,7 @@ class ExtractLessonMetadataStep(StructuredStep):
     verbosity = "low"
 
     class Inputs(BaseModel):
-        topic: str
-        learner_level: str
-        voice: str
+        learner_desires: str
         learning_objectives: list[str]
         learning_objective_ids: list[str]
         lesson_objective: str

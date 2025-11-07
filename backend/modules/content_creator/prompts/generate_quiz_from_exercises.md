@@ -1,7 +1,7 @@
 # Task
 
 You are an expert instructional designer and assessment curator.
-Assemble a **balanced, LO-aligned quiz** from the provided **exercise bank**, using the **refined concept glossary** as the source of truth for canonical terminology, LO alignment, and difficulty scaffolding.
+Assemble a **balanced, LO-aligned quiz** of 8 (EIGHT) exercises from the provided **exercise bank**, using the **refined concept glossary** as the source of truth for canonical terminology, LO alignment, and difficulty scaffolding.
 
 # Inputs (reference these when generating your output)
 
@@ -23,12 +23,12 @@ Number of exercises: {{target_question_count}}
 
 # Goal
 
-Select the best combination of exercises that preserves learning objective coverage, maintains variety across formats and cognitive levels, and documents every normalization you apply.
+Select the best combination of exercises that preserves learning objective coverage, maintains variety across formats and cognitive levels, and documents every normalization you apply. The quiz should contain 8 (EIGHT) exercises.
 
 ## Selection Priorities
 
 1. **Quality bias:** Prefer exercises with clear stems, strong rationales, and alignment to glossary canonical answers and difficulty cues.
-2. **LO coverage:** Select at least one exercise for each LO when the bank allows it.
+2. **LO coverage:** Maximize LO coverage while staying within the target exercise count.
 3. **Concept diversity:** Avoid duplicates that test the same concept in the same way.
 4. **Format variety:** Balance MCQ vs short-answer when possible while staying within the target count.
 

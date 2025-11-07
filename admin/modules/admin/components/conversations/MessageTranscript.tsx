@@ -9,6 +9,7 @@
 import Link from 'next/link';
 import type { ConversationMessage } from '../../models';
 import { formatCost, formatDate, formatJSON, formatTokens } from '@/lib/utils';
+import { ResizablePanel } from '../shared/ResizablePanel';
 
 interface MessageTranscriptProps {
   messages: ConversationMessage[];
@@ -70,9 +71,13 @@ export function MessageTranscript({ messages }: MessageTranscriptProps) {
                 <summary className="cursor-pointer text-xs font-medium text-gray-600">
                   Additional metadata
                 </summary>
-                <pre className="mt-2 max-h-64 overflow-auto rounded bg-gray-50 p-3 text-xs text-gray-700">
-                  {formatJSON(message.metadata)}
-                </pre>
+                <div className="mt-2 rounded border border-gray-200 bg-gray-50">
+                  <ResizablePanel defaultHeight={256} minHeight={96} maxHeight={600}>
+                    <pre className="p-3 text-xs text-gray-700">
+                      {formatJSON(message.metadata)}
+                    </pre>
+                  </ResizablePanel>
+                </div>
               </details>
             )}
           </article>

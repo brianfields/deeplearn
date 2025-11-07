@@ -1,7 +1,7 @@
 # Task
 
 You are an expert assessment designer.
-Using the refined, LO-aligned concept glossary below, create **short-answer** and **multiple-choice** exercises that test factual recall and conceptual comprehension for the lesson.
+Using the refined, LO-aligned concept glossary below, create **short-answer** and **multiple-choice** exercises that test factual recall and conceptual comprehension for the lesson. Aim for a total of 8 to 10 exercises.
 
 **Closed-set rule:** All short-answer exercises must have **closed-set answers** that exactly match the glossary concept's `canonical_answer` (or an accepted alias). Multiple-choice exercises should explore meaning, application, or discrimination between related concepts while remaining traceable to exactly one Learning Objective (LO id).
 
@@ -29,7 +29,7 @@ Using the refined, LO-aligned concept glossary below, create **short-answer** an
 
 # Goal
 
-Generate **short-answer** and **multiple-choice** exercises that assess comprehension for all refined concepts in the glossary, with explicit Learning Objective alignment, varied cognitive complexity, and closed-answer feedback.
+Generate **short-answer** and **multiple-choice** exercises that assess comprehension for all refined concepts in the glossary, with explicit Learning Objective alignment, varied cognitive complexity, and closed-answer feedback. Aim for a total of 8 to 10 exercises.
 
 ## Exercise Design Requirements
 
@@ -54,7 +54,7 @@ Generate **short-answer** and **multiple-choice** exercises that assess comprehe
 
 ## Generation Rules
 
-1. **Per-concept coverage:** Produce at least one short-answer and one multiple-choice exercise per concept.
+1. **Per-concept coverage:** Aim to cover as many concepts as possible while staying within the target exercise count.
 2. **Single LO alignment:** Set `aligned_learning_objective` to exactly one LO id from `lesson_learning_objectives`.
 3. **Cognitive levels:** Tag each exercise with an appropriate level (Recall, Comprehension, Application, Transfer).
 4. **Difficulty variation:** Vary difficulty through stem complexity or distractor similarity, not through answer openness.
