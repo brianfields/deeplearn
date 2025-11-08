@@ -17,9 +17,11 @@ _CLAUDE_BEDROCK_MODEL_IDS = {
     "claude-opus-4-1": "us.anthropic.claude-opus-4-1-20250805-v1:0",
 }
 
+_OPENROUTER_BASE_URL_DEFAULT = "https://openrouter.ai/api/v1"
+
 
 class LLMConfig(BaseModel):
-    """Configuration for LLM providers"""
+    """Configuration for all supported LLM providers, including OpenRouter."""
 
     provider: LLMProviderType = Field(default=LLMProviderType.OPENAI, description="LLM provider to use")
     model: str = Field(default="gpt-5", description="Model name to use")
@@ -33,6 +35,8 @@ class LLMConfig(BaseModel):
     aws_session_token: str | None = Field(default=None, description="AWS session token for Bedrock")
     aws_region: str | None = Field(default=None, description="AWS region for Bedrock access")
     bedrock_model_id: str | None = Field(default=None, description="Bedrock-specific model identifier")
+    openrouter_api_key: str | None = Field(default=None, description="OpenRouter API key")
+    openrouter_base_url: str | None = Field(default=None, description="OpenRouter base URL")
     temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="Temperature for generation")
     max_output_tokens: int | None = Field(default=None, gt=0, description="Maximum output tokens per request")
     timeout: int = Field(default=180, gt=0, description="Request timeout in seconds")
@@ -112,6 +116,12 @@ class LLMConfig(BaseModel):
             if not self.bedrock_model_id:
                 raise ValueError("Bedrock provider requires a model identifier")
 
+        if self.provider == LLMProviderType.OPENROUTER:
+            if not (self.openrouter_api_key or self.api_key):
+                raise ValueError("OpenRouter provider requires OPENROUTER_API_KEY to be set")
+            if not (self.openrouter_base_url or self.base_url):
+                raise ValueError("OpenRouter provider requires OPENROUTER_BASE_URL to be set")
+
         return True
 
     def to_dict(self) -> dict[str, Any]:
@@ -147,6 +157,8 @@ def create_llm_config_from_env(
     - AWS_ACCESS_KEY_ID: AWS access key (required for CLAUDE_PROVIDER=bedrock)
     - AWS_SECRET_ACCESS_KEY: AWS secret key (required for CLAUDE_PROVIDER=bedrock)
     - AWS_REGION: AWS region (default: us-west-2)
+    - OPENROUTER_API_KEY: OpenRouter API key (enables OpenRouter provider)
+    - OPENROUTER_BASE_URL: Optional OpenRouter base URL override (default: https://openrouter.ai/api/v1)
     - TEMPERATURE: Generation temperature (default: 0.7)
     - MAX_OUTPUT_TOKENS: Maximum output tokens
     - REQUEST_TIMEOUT: Request timeout (default: 180)
@@ -178,6 +190,11 @@ def create_llm_config_from_env(
     gemini_model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
     gemini_base_url = os.getenv("GEMINI_API_BASE_URL", "https://generativelanguage.googleapis.com/v1beta")
     gemini_tts_model = os.getenv("GEMINI_TTS_MODEL", "gemini-2.5-flash-preview-tts")
+
+    openrouter_api_key_raw = os.getenv("OPENROUTER_API_KEY")
+    openrouter_api_key = openrouter_api_key_raw.strip() if openrouter_api_key_raw else None
+    openrouter_base_url_raw = os.getenv("OPENROUTER_BASE_URL")
+    openrouter_base_url = _OPENROUTER_BASE_URL_DEFAULT if openrouter_base_url_raw is None else openrouter_base_url_raw.strip() or _OPENROUTER_BASE_URL_DEFAULT
 
     anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
     anthropic_model = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5")
@@ -243,6 +260,8 @@ def create_llm_config_from_env(
         raise ValueError("AWS credentials are required to use the Bedrock provider")
     if provider_override == LLMProviderType.GEMINI and not gemini_api_key:
         raise ValueError("GEMINI_API_KEY must be set to use the Gemini provider")
+    if provider_override == LLMProviderType.OPENROUTER and not openrouter_api_key:
+        raise ValueError("OPENROUTER_API_KEY must be set to use the OpenRouter provider")
 
     if azure_openai_api_key and azure_openai_endpoint and wants(LLMProviderType.AZURE_OPENAI, "azure", "azure_openai"):
         provider = LLMProviderType.AZURE_OPENAI
@@ -262,6 +281,11 @@ def create_llm_config_from_env(
     elif wants(LLMProviderType.BEDROCK, "bedrock") and ((aws_access_key_id and aws_secret_access_key) or os.getenv("AWS_PROFILE")):
         provider = LLMProviderType.BEDROCK
         model_name = model_override or anthropic_model
+    elif openrouter_api_key and wants(LLMProviderType.OPENROUTER, "openrouter"):
+        provider = LLMProviderType.OPENROUTER
+        api_key = openrouter_api_key
+        base_url = openrouter_base_url
+        model_name = model_override or "openrouter/anthropic/claude-3-opus"
     elif openai_api_key and provider_override == LLMProviderType.OPENAI:
         provider = LLMProviderType.OPENAI
         api_key = openai_api_key
@@ -282,6 +306,11 @@ def create_llm_config_from_env(
         api_key = gemini_api_key
         base_url = gemini_base_url
         model_name = model_override or gemini_model
+    elif openrouter_api_key and provider_override == LLMProviderType.OPENROUTER:
+        provider = LLMProviderType.OPENROUTER
+        api_key = openrouter_api_key
+        base_url = openrouter_base_url
+        model_name = model_override or "openrouter/anthropic/claude-3-opus"
     elif provider_override == LLMProviderType.BEDROCK and ((aws_access_key_id and aws_secret_access_key) or os.getenv("AWS_PROFILE")):
         provider = LLMProviderType.BEDROCK
         model_name = model_override or anthropic_model
@@ -308,6 +337,11 @@ def create_llm_config_from_env(
         api_key = openai_api_key
         base_url = openai_base_url
         model_name = model_override or openai_model
+    elif openrouter_api_key:
+        provider = LLMProviderType.OPENROUTER
+        api_key = openrouter_api_key
+        base_url = openrouter_base_url
+        model_name = model_override or "openrouter/anthropic/claude-3-opus"
     else:
         raise ValueError(
             "No LLM provider credentials found. Please set OPENAI_API_KEY, AZURE_OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY, or AWS credentials",
@@ -336,6 +370,8 @@ def create_llm_config_from_env(
         aws_session_token=aws_session_token,
         aws_region=aws_region if provider == LLMProviderType.BEDROCK else None,
         bedrock_model_id=resolved_bedrock_model_id,
+        openrouter_api_key=openrouter_api_key if provider == LLMProviderType.OPENROUTER else None,
+        openrouter_base_url=openrouter_base_url if provider == LLMProviderType.OPENROUTER else None,
         temperature=temperature,
         max_output_tokens=max_output_tokens,
         timeout=request_timeout,

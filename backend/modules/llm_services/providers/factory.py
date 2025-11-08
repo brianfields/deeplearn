@@ -10,6 +10,7 @@ from .base import LLMProvider
 from .claude import AnthropicProvider, BedrockProvider
 from .gemini import GeminiProvider
 from .openai import OpenAIProvider
+from .openrouter import OpenRouterProvider
 
 __all__ = ["LLMProviderError", "create_llm_provider"]
 
@@ -45,6 +46,8 @@ def create_llm_provider(config: LLMConfig, db_session: Session) -> LLMProvider:
         return BedrockProvider(config, db_session)
     if config.provider == LLMProviderType.GEMINI:
         return GeminiProvider(config, db_session)
+    if config.provider == LLMProviderType.OPENROUTER:
+        return OpenRouterProvider(config, db_session)
     else:
         raise LLMProviderError(f"Unsupported provider: {config.provider}")
 
@@ -62,4 +65,5 @@ def get_available_providers() -> list[LLMProviderType]:
         LLMProviderType.ANTHROPIC,
         LLMProviderType.BEDROCK,
         LLMProviderType.GEMINI,
+        LLMProviderType.OPENROUTER,
     ]

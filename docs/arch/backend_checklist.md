@@ -49,7 +49,7 @@
 
 ## 8) Typing & Contracts
 
-* [x] All public/service methods have full type annotations. (Phase 8: Confirmed while editing services that annotations remain complete.)
+* [x] All public/service methods have full type annotations. (Phase 8: Confirmed while editing services that annotations remain complete. Phase OpenRouter: Added explicit LLMRequestModel typing within the OpenRouter provider helper to keep the new code aligned.)
 * [x] Provider functions include explicit return types (no inference at the boundary). (Phase 8: Reviewed providers for modules touched; no changes needed.)
 * [x] Protocols in public.py expose only what consumers need; no leaking internals. (Phase 8: Verified no protocol adjustments were required by renames.)
 * [x] DTO optionality matches reality at the boundary (no gratuitous `Optional`). (Phase 8: Ensured renamed fields retain correct optionality.)
