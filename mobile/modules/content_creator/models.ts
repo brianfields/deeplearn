@@ -1,13 +1,17 @@
 import type { UnitStatus } from '../content/public';
+import type { LearningCoachLearningObjective } from '../learning_conversations/models';
 
+/**
+ * UnitCreationRequest: Coach-driven unit creation from learning coach conversation.
+ * All fields are required because the coach must finalize them before unit creation.
+ */
 export interface UnitCreationRequest {
-  readonly topic: string;
-  readonly difficulty: 'beginner' | 'intermediate' | 'advanced';
-  readonly unitTitle?: string | null;
-  readonly targetLessonCount?: number | null;
-  readonly shareGlobally?: boolean;
+  readonly learnerDesires: string; // Unified learner context (topic, difficulty, preferences, etc.)
+  readonly unitTitle: string; // From learning coach
+  readonly learningObjectives: readonly LearningCoachLearningObjective[]; // From learning coach (required)
+  readonly targetLessonCount: number; // From learning coach
+  readonly conversationId: string; // For traceability and resource lookup
   readonly ownerUserId?: number | null;
-  readonly conversationId?: string | null;
 }
 
 export interface UnitCreationResponse {

@@ -229,6 +229,21 @@ class LearningSessionService:
         self.content = content_provider
         self.catalog = None
 
+    def _resolve_quiz_exercises(self, package: Any) -> list[Any]:
+        """Return exercises referenced by the quiz in package order."""
+
+        if not package:
+            return []
+
+        exercise_bank = {exercise.id: exercise for exercise in getattr(package, "exercise_bank", []) or []}
+        quiz_ids: list[str] = list(getattr(package, "quiz", []) or [])
+        resolved: list[Any] = []
+        for exercise_id in quiz_ids:
+            exercise = exercise_bank.get(exercise_id)
+            if exercise is not None:
+                resolved.append(exercise)
+        return resolved
+
     async def start_session(self, request: StartSessionRequest) -> LearningSession:
         """Start a new learning session"""
         if not request.user_id:
@@ -267,7 +282,7 @@ class LearningSessionService:
                 existing_session = await self._ensure_session_user(existing_session, request.user_id)
                 return self._to_session_dto(existing_session)
 
-        total_exercises = len(lesson_content.package.exercises) if lesson_content else 0
+        total_exercises = len(getattr(lesson_content.package, "quiz", []) or []) if lesson_content else 0
 
         # Create new session (use client-provided ID if available for offline-first support)
         session = await self.repo.create_session(
@@ -419,7 +434,7 @@ class LearningSessionService:
             if not lesson_content:
                 raise ValueError(f"Lesson {request.lesson_id} not found")
 
-            total_exercises = len(lesson_content.package.exercises) if lesson_content else 0
+            total_exercises = len(getattr(lesson_content.package, "quiz", []) or []) if lesson_content else 0
             lesson_unit_id = getattr(lesson_content, "unit_id", None)
             if not lesson_unit_id:
                 raise ValueError(f"Lesson {request.lesson_id} is missing unit context")
@@ -522,7 +537,7 @@ class LearningSessionService:
             sessions, _ = await self.repo.get_user_sessions(user_id=user_id, lesson_id=lesson.id, limit=1, offset=0)
             if sessions:
                 s = sessions[0]
-                total_exercises = len(lesson.package.exercises)
+                total_exercises = len(getattr(lesson.package, "quiz", []) or [])
                 completed_exercises = s.exercises_completed or 0
                 correct_exercises = s.exercises_correct or 0
                 progress_percentage = min(
@@ -533,7 +548,7 @@ class LearningSessionService:
                 if progress_percentage >= 100.0:
                     lessons_completed += 1
             else:
-                total_exercises = len(lesson.package.exercises)
+                total_exercises = len(getattr(lesson.package, "quiz", []) or [])
                 completed_exercises = 0
                 correct_exercises = 0
                 progress_percentage = 0.0
@@ -585,12 +600,12 @@ class LearningSessionService:
             package = getattr(lesson, "package", None)
             if not package:
                 continue
-            for exercise in getattr(package, "exercises", []) or []:
-                lo_id = getattr(exercise, "lo_id", None)
+            for exercise in self._resolve_quiz_exercises(package):
+                lo_id = getattr(exercise, "aligned_learning_objective", None)
                 if not lo_id:
                     continue
                 exercise_to_objective[exercise.id] = lo_id
-                totals_by_objective[lo_id] += 1
+                totals_by_objective[str(lo_id)] += 1
 
         sessions = await self.repo.get_sessions_for_user_and_lessons(user_id, [lesson.id for lesson in lessons])
         attempted_exercises: set[str] = set()

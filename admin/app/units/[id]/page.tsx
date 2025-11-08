@@ -10,20 +10,36 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useState } from 'react';
 import { useUnit, useRetryUnit, useLesson } from '@/modules/admin/queries';
+import type { MCQExercise, ShortAnswerExercise } from '@/modules/admin/models';
 import {
   UnitPodcastList,
   derivePodcastPropsFromUnit,
 } from '@/modules/admin/components/content/UnitPodcastList';
+import { ConceptGlossaryView } from '@/modules/admin/components/content/ConceptGlossaryView';
+import { ExerciseBankView } from '@/modules/admin/components/content/ExerciseBankView';
+import { QuizStructureView } from '@/modules/admin/components/content/QuizStructureView';
+import { QuizMetadataView } from '@/modules/admin/components/content/QuizMetadataView';
 import { LoadingSpinner } from '@/modules/admin/components/shared/LoadingSpinner';
 import { ErrorMessage } from '@/modules/admin/components/shared/ErrorMessage';
 import { ReloadButton } from '@/modules/admin/components/shared/ReloadButton';
 import { StatusBadge } from '@/modules/admin/components/shared/StatusBadge';
 import { ResourceList } from '@/modules/admin/components/resources/ResourceList';
+import { ResizablePanel } from '@/modules/admin/components/shared/ResizablePanel';
 import { formatDate } from '@/lib/utils';
-import type { MCQExercise, ShortAnswerExercise } from '@/modules/admin/models';
 
 interface UnitDetailsPageProps {
   params: { id: string };
+}
+
+function resolveAudioHref(url: string | null): string | null {
+  if (!url) {
+    return null;
+  }
+  if (url.startsWith('http')) {
+    return url;
+  }
+  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? '';
+  return `${baseUrl}${url}`;
 }
 
 function computeInitials(title: string): string {
@@ -59,73 +75,114 @@ function LessonExpandedDetails({ lessonId }: { lessonId: string }) {
     );
   }
 
-  const mcqExercises = lesson.package.exercises.filter(
+  const exerciseBank = lesson.package.exercise_bank || [];
+  const quizIds = new Set(lesson.package.quiz || []);
+  const quizExercises = exerciseBank.filter((ex) => quizIds.has(ex.id));
+
+  const mcqExercises = exerciseBank.filter(
     (ex): ex is MCQExercise => ex.exercise_type === 'mcq'
   );
 
-  const shortAnswerExercises = lesson.package.exercises.filter(
+  const shortAnswerExercises = exerciseBank.filter(
     (ex): ex is ShortAnswerExercise => ex.exercise_type === 'short_answer'
   );
 
-  const allExercises = lesson.package.exercises;
+  const allExercises = exerciseBank;
+  const lessonAudioHref = resolveAudioHref(lesson.podcast_audio_url ?? null);
 
   return (
     <div className="px-6 pb-4 pt-2 bg-gray-50 border-t border-gray-100 space-y-6 max-h-[70vh] overflow-y-auto">
+      {/* Lesson Podcast */}
+      {lesson.has_podcast && (
+        <div className="border-b border-gray-200 pb-6">
+          <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
+            <h3 className="text-xs font-semibold text-gray-700 uppercase">Lesson Podcast</h3>
+            <div className="flex items-center gap-2 flex-wrap">
+              {lesson.podcast_voice && (
+                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                  Voice: {lesson.podcast_voice}
+                </span>
+              )}
+              {lesson.podcast_duration_seconds && (
+                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-indigo-100 text-indigo-800">
+                  {Math.floor(lesson.podcast_duration_seconds / 60)}:{(lesson.podcast_duration_seconds % 60).toString().padStart(2, '0')} min
+                </span>
+              )}
+              {lessonAudioHref && (
+                <Link
+                  href={lessonAudioHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded"
+                >
+                  Listen
+                </Link>
+              )}
+            </div>
+          </div>
+          {lesson.podcast_transcript && (
+            <div>
+              <h4 className="text-xs font-semibold text-gray-700 uppercase mb-2">Transcript</h4>
+              <div className="border border-gray-200 rounded">
+                <ResizablePanel defaultHeight={192} minHeight={96} maxHeight={400}>
+                  <div className="p-3 bg-white text-xs text-gray-700 whitespace-pre-wrap">
+                    {lesson.podcast_transcript}
+                  </div>
+                </ResizablePanel>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Mini Lesson */}
       {lesson.package.mini_lesson && (
         <div>
           <h3 className="text-xs font-semibold text-gray-700 uppercase mb-1.5">Mini Lesson</h3>
-          <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap bg-white rounded border border-gray-200 p-3 max-h-48 overflow-y-auto">
-            {lesson.package.mini_lesson}
+          <div className="border border-gray-200 rounded">
+            <ResizablePanel defaultHeight={192} minHeight={96} maxHeight={600}>
+              <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap bg-white p-3">
+                {lesson.package.mini_lesson}
+              </div>
+            </ResizablePanel>
           </div>
         </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Learning Objectives */}
-        {lesson.package.objectives && lesson.package.objectives.length > 0 && (
+        {/* Quiz Info */}
+        {lesson.package.quiz && lesson.package.quiz.length > 0 && (
           <div>
             <h3 className="text-xs font-semibold text-gray-700 uppercase mb-1.5">
-              Learning Objectives ({lesson.package.objectives.length})
+              Quiz ({lesson.package.quiz.length} exercises)
             </h3>
-            <ul className="space-y-2 text-xs">
-              {lesson.package.objectives.map((obj) => (
-                <li key={obj.id} className="text-gray-700">
-                  <p className="font-semibold text-gray-800">
-                    {obj.title || obj.text || obj.description || obj.id}
-                  </p>
-                  {(obj.description || obj.text) && (
-                    <p className="mt-0.5 text-gray-600">
-                      {obj.description || obj.text}
-                    </p>
-                  )}
-                  {obj.bloom_level && (
-                    <p className="mt-0.5 text-gray-400 uppercase tracking-wide">
-                      Bloom level: {obj.bloom_level}
-                    </p>
-                  )}
-                </li>
-              ))}
-            </ul>
+            <div className="text-xs text-gray-600 space-y-1">
+              <p>Exercise IDs in quiz order:</p>
+              <div className="border border-gray-200 rounded">
+                <ResizablePanel defaultHeight={80} minHeight={48} maxHeight={300}>
+                  <div className="bg-gray-100 p-2 font-mono text-xs">
+                    {lesson.package.quiz.join(', ')}
+                  </div>
+                </ResizablePanel>
+              </div>
+            </div>
           </div>
         )}
 
         {/* Key Concepts from Glossary */}
-        {lesson.package.glossary && Object.keys(lesson.package.glossary).length > 0 && (
+        {lesson.package.concept_glossary && lesson.package.concept_glossary.length > 0 && (
           <div>
             <h3 className="text-xs font-semibold text-gray-700 uppercase mb-1.5">
-              Key Concepts ({Object.values(lesson.package.glossary).flat().length})
+              Key Concepts ({lesson.package.concept_glossary.length})
             </h3>
             <div className="flex flex-wrap gap-1.5">
-              {Object.values(lesson.package.glossary)
-                .flat()
-                .map((term) => (
+              {lesson.package.concept_glossary.map((concept) => (
                   <span
-                    key={term.id}
+                    key={concept.id}
                     className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
-                    title={term.definition}
+                    title={concept.definition}
                   >
-                    {term.term}
+                    {concept.term}
                   </span>
                 ))}
             </div>
@@ -236,7 +293,7 @@ function LessonExpandedDetails({ lessonId }: { lessonId: string }) {
                               </p>
                               <p className="text-xs text-gray-700 mb-1">
                                 <span className="font-semibold">Why: </span>
-                                {wrongAnswer.explanation || '—'}
+                                {wrongAnswer.rationale_wrong || '—'}
                               </p>
                               {wrongAnswer.misconception_ids && wrongAnswer.misconception_ids.length > 0 && (
                                 <p className="text-xs text-gray-500">
@@ -352,58 +409,6 @@ export default function UnitDetailsPage({ params }: UnitDetailsPageProps) {
         />
       </div>
 
-      <div className="bg-white rounded-lg shadow">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-medium text-gray-900">Unit Artwork</h2>
-          <p className="text-sm text-gray-600">AI-generated hero image and prompt</p>
-        </div>
-        <div className="px-6 py-6 grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-          <div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-slate-900 text-white min-h-[220px] flex items-center justify-center">
-            {unit.art_image_url ? (
-              <Image
-                src={unit.art_image_url}
-                alt={`${unit.title} artwork`}
-                layout="fill"
-                objectFit="cover"
-              />
-            ) : (
-              <div className="text-center space-y-2">
-                <div className="text-4xl font-semibold tracking-[0.4em]">
-                  {computeInitials(unit.title)}
-                </div>
-                <p className="text-sm text-slate-300">Artwork not available</p>
-              </div>
-            )}
-          </div>
-          <div className="space-y-2">
-            <h3 className="text-sm font-semibold text-gray-700">Generation Prompt</h3>
-            {unit.art_image_description ? (
-              <p className="text-sm leading-relaxed text-gray-700 whitespace-pre-line">
-                {unit.art_image_description}
-              </p>
-            ) : (
-              <p className="text-sm text-gray-500">No generation prompt provided.</p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <UnitPodcastList {...podcastProps} />
-
-      <div className="bg-white rounded-lg shadow p-6 space-y-4">
-        <div>
-          <h2 className="text-lg font-medium text-gray-900">Source Resources</h2>
-          <p className="text-sm text-gray-500">
-            Learner-provided resources and any generated supplemental material used to build this
-            unit.
-          </p>
-        </div>
-        <ResourceList
-          resources={resourceSummaries}
-          emptyMessage="No source resources attached to this unit yet."
-        />
-      </div>
-
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
           <p className="text-xs uppercase text-gray-500">Status</p>
@@ -462,12 +467,94 @@ export default function UnitDetailsPage({ params }: UnitDetailsPageProps) {
         </div>
       </div>
 
+      <div className="bg-white rounded-lg shadow">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-medium text-gray-900">Unit Artwork</h2>
+          <p className="text-sm text-gray-600">AI-generated hero image and prompt</p>
+        </div>
+        <div className="px-6 py-6 grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+          <div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-slate-900 text-white min-h-[220px] flex items-center justify-center">
+            {unit.art_image_url ? (
+              <Image
+                src={unit.art_image_url}
+                alt={`${unit.title} artwork`}
+                layout="fill"
+                objectFit="cover"
+              />
+            ) : (
+              <div className="text-center space-y-2">
+                <div className="text-4xl font-semibold tracking-[0.4em]">
+                  {computeInitials(unit.title)}
+                </div>
+                <p className="text-sm text-slate-300">Artwork not available</p>
+              </div>
+            )}
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold text-gray-700">Generation Prompt</h3>
+            {unit.art_image_description ? (
+              <p className="text-sm leading-relaxed text-gray-700 whitespace-pre-line">
+                {unit.art_image_description}
+              </p>
+            ) : (
+              <p className="text-sm text-gray-500">No generation prompt provided.</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <UnitPodcastList {...podcastProps} />
+
+      <div className="bg-white rounded-lg shadow p-6 space-y-6">
+        <div>
+          <h2 className="text-lg font-medium text-gray-900">Source Resources</h2>
+          <p className="text-sm text-gray-500">
+            Learner-provided resources and any generated supplemental material used to build this
+            unit.
+          </p>
+        </div>
+
+        {/* Resource List */}
+        <div>
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Resources</h3>
+          <ResourceList
+            resources={resourceSummaries}
+            emptyMessage="No source resources attached to this unit yet."
+          />
+        </div>
+
+        {/* Source Material Preview */}
+        {unit.source_material && (
+          <div className="border-t border-gray-200 pt-6">
+            <div className="flex items-center justify-between mb-3 gap-4">
+              <h3 className="text-sm font-semibold text-gray-700">Consolidated Source Material</h3>
+              <a
+                href={`data:text/plain;charset=utf-8,${encodeURIComponent(unit.source_material)}`}
+                download={`${unit.title || 'source-material'}.txt`}
+                className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded border border-blue-200"
+              >
+                <span>↓</span>
+                Download
+              </a>
+            </div>
+            <div className="bg-gray-50 rounded border border-gray-200">
+              <ResizablePanel defaultHeight={384} minHeight={192} maxHeight={800}>
+                <div className="p-4 text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">
+                  {unit.source_material}
+                </div>
+              </ResizablePanel>
+            </div>
+          </div>
+        )}
+      </div>
+
+
       {/* Unit-level Learning Objectives & Source Material */}
-      {(unit.learning_objectives || unit.source_material) && (
+      {(unit.learning_objectives) && (
         <div className="bg-white rounded-lg shadow">
           <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">Unit Overview</h2>
-            <p className="text-sm text-gray-600">Learning objectives and source material</p>
+            <h2 className="text-lg font-medium text-gray-900">Learning Objectives</h2>
+            <p className="text-sm text-gray-600">Unit-level learning objectives</p>
           </div>
           <div className="px-6 py-4 grid grid-cols-1 md:grid-cols-2 gap-6">
             {unit.learning_objectives && unit.learning_objectives.length > 0 && (
@@ -493,14 +580,7 @@ export default function UnitDetailsPage({ params }: UnitDetailsPageProps) {
                 </ul>
               </div>
             )}
-            {unit.source_material && (
-              <div className="md:col-span-1">
-                <h3 className="text-sm font-semibold text-gray-700 mb-2">Source Material</h3>
-                <div className="p-3 bg-gray-50 rounded border border-gray-200 text-sm text-gray-700 whitespace-pre-wrap max-h-72 overflow-auto">
-                  {unit.source_material}
-                </div>
-              </div>
-            )}
+
           </div>
         </div>
       )}

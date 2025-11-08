@@ -6,12 +6,14 @@
  * - Copy to clipboard functionality
  * - Scrollable content with height limits
  * - Collapsible sections
+ * - Drag-resizable height
  */
 
 'use client';
 
 import { useState } from 'react';
 import { cn, formatJSON } from '@/lib/utils';
+import { ResizablePanel } from './ResizablePanel';
 
 interface JSONViewerProps {
   data: any;
@@ -119,11 +121,11 @@ export function JSONViewer({
 
       {/* Content */}
       {!isCollapsed && (
-        <div className={cn('overflow-auto scrollbar-thin', maxHeight)}>
+        <ResizablePanel defaultHeight={384} minHeight={96} maxHeight={1200}>
           <pre className="json-viewer p-4 text-xs font-mono whitespace-pre-wrap break-words">
             {jsonString}
           </pre>
-        </div>
+        </ResizablePanel>
       )}
     </div>
   );

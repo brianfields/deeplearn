@@ -12,6 +12,7 @@ from modules.infrastructure.public import infrastructure_provider
 from modules.resource.public import ResourceProvider, resource_provider
 
 from .service import ContentCreatorService
+from .steps import UnitLearningObjective
 
 logger = logging.getLogger(__name__)
 
@@ -38,13 +39,18 @@ async def get_content_creator_service(session: AsyncSession = Depends(get_async_
 
 # DTOs for mobile unit creation
 class MobileUnitCreateRequest(BaseModel):
-    """Request to create a unit from mobile app."""
+    """Request to create a unit from mobile app via learning coach.
 
-    topic: str
-    difficulty: str = "beginner"  # beginner, intermediate, advanced
-    unit_title: str | None = None
-    target_lesson_count: int | None = None
-    conversation_id: str | None = None
+    All fields are required because the coach conversation finalizes them
+    before allowing unit creation.
+    """
+
+    learner_desires: str
+    unit_title: str
+    learning_objectives: list[UnitLearningObjective]
+    target_lesson_count: int
+    conversation_id: str
+    owner_user_id: int | None = None
 
 
 class MobileUnitCreateResponse(BaseModel):
@@ -61,23 +67,22 @@ async def create_unit_from_mobile(
     user_id: int | None = Query(None, ge=1, description="Authenticated user identifier"),
     service: ContentCreatorService = Depends(get_content_creator_service),
 ) -> MobileUnitCreateResponse:
-    """
-    Create a unit from mobile app with topic and difficulty.
+    """Create a unit from learning coach conversation.
 
     Unit creation happens in the background and returns immediately with in_progress status.
     The client should poll the units endpoint to check for completion.
     """
     try:
-        logger.info("🔥 Mobile unit creation request: topic='%s', difficulty='%s'", request.topic, request.difficulty)
+        logger.info("🔥 Mobile unit creation request from coach: conversation_id='%s', title='%s'", request.conversation_id, request.unit_title)
 
         result = await service.create_unit(
-            topic=request.topic,
-            learner_level=request.difficulty,
+            learner_desires=request.learner_desires,
             unit_title=request.unit_title,
+            learning_objectives=request.learning_objectives,
             target_lesson_count=request.target_lesson_count,
-            background=True,
-            user_id=user_id,
             conversation_id=request.conversation_id,
+            background=True,
+            user_id=user_id or request.owner_user_id,
         )
 
         logger.info("✅ Mobile unit creation started: unit_id=%s", result.unit_id)

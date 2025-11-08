@@ -106,6 +106,8 @@ class LLMResponse:
     response_output: dict[str, Any] | list[dict[str, Any]] | None = None
     response_created_at: datetime | None = None
     finish_reason: str | None = None
+    cached_input_tokens: int | None = None  # Gemini: tokens from cache (prompt caching)
+    cache_creation_tokens: int | None = None  # Gemini: tokens used to create cache entry
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary format"""
@@ -126,6 +128,8 @@ class LLMResponse:
             "response_output": self.response_output,
             "response_created_at": self.response_created_at.isoformat() if self.response_created_at else None,
             "finish_reason": self.finish_reason,
+            "cached_input_tokens": self.cached_input_tokens,
+            "cache_creation_tokens": self.cache_creation_tokens,
         }
 
 

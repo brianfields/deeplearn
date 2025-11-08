@@ -641,6 +641,8 @@ class TestAdminService:
         lesson_summary = SimpleNamespace(id="lesson-1", title="Lesson 1", learner_level="beginner")
         mock_catalog_provider.search_lessons = AsyncMock(return_value=SimpleNamespace(lessons=[lesson_summary], total=1))
 
+        from modules.content.package_models import QuizMetadata
+
         generated_at = datetime.now(UTC)
         lesson_read = LessonRead(
             id="lesson-1",
@@ -649,9 +651,11 @@ class TestAdminService:
             package=LessonPackage(
                 meta=Meta(lesson_id="lesson-1", title="Lesson 1", learner_level="beginner"),
                 unit_learning_objective_ids=["obj1"],
-                glossary={"terms": []},
+                concept_glossary=[],
                 mini_lesson="",
-                exercises=[],
+                exercise_bank=[],
+                quiz=[],
+                quiz_metadata=QuizMetadata(quiz_type="comprehensive", total_items=0, difficulty_distribution_target={}, difficulty_distribution_actual={}, cognitive_mix_target={}, cognitive_mix_actual={}),
             ),
             package_version=1,
             created_at=generated_at,
@@ -683,6 +687,8 @@ class TestAdminService:
     ) -> None:
         """Lesson detail payload includes podcast fields for playback."""
 
+        from modules.content.package_models import QuizMetadata
+
         generated_at = datetime.now(UTC)
         lesson_read = LessonRead(
             id="lesson-1",
@@ -691,9 +697,11 @@ class TestAdminService:
             package=LessonPackage(
                 meta=Meta(lesson_id="lesson-1", title="Lesson 1", learner_level="beginner"),
                 unit_learning_objective_ids=["obj1"],
-                glossary={"terms": []},
+                concept_glossary=[],
                 mini_lesson="",
-                exercises=[],
+                exercise_bank=[],
+                quiz=[],
+                quiz_metadata=QuizMetadata(quiz_type="comprehensive", total_items=0, difficulty_distribution_target={}, difficulty_distribution_actual={}, cognitive_mix_target={}, cognitive_mix_actual={}),
             ),
             package_version=1,
             created_at=generated_at,

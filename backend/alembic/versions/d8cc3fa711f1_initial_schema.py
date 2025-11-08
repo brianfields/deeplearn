@@ -1,8 +1,8 @@
 """initial_schema
 
-Revision ID: 95283d11506f
+Revision ID: d8cc3fa711f1
 Revises: 
-Create Date: 2025-10-29 09:34:48.418555
+Create Date: 2025-11-05 14:59:39.512848
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '95283d11506f'
+revision: str = 'd8cc3fa711f1'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -252,13 +252,16 @@ def upgrade() -> None:
     sa.Column('extraction_metadata', sa.JSON(), nullable=False),
     sa.Column('file_size', sa.Integer(), nullable=True),
     sa.Column('object_store_document_id', sa.UUID(), nullable=True),
+    sa.Column('object_store_image_id', sa.UUID(), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.ForeignKeyConstraint(['object_store_document_id'], ['documents.id'], ),
+    sa.ForeignKeyConstraint(['object_store_image_id'], ['images.id'], ),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index('ix_resources_created_at', 'resources', ['created_at'], unique=False)
+    op.create_index('ix_resources_object_store_image_id', 'resources', ['object_store_image_id'], unique=False)
     op.create_index('ix_resources_user_id', 'resources', ['user_id'], unique=False)
     op.create_table('units',
     sa.Column('id', sa.String(length=36), nullable=False),
@@ -397,6 +400,7 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_units_arq_task_id'), table_name='units')
     op.drop_table('units')
     op.drop_index('ix_resources_user_id', table_name='resources')
+    op.drop_index('ix_resources_object_store_image_id', table_name='resources')
     op.drop_index('ix_resources_created_at', table_name='resources')
     op.drop_table('resources')
     op.drop_index(op.f('ix_conversation_messages_role'), table_name='conversation_messages')

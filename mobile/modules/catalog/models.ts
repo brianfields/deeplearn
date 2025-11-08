@@ -245,11 +245,28 @@ export function toLessonSummaryDTO(api: ApiLessonSummary): LessonSummary {
 export function toLessonDetailDTO(api: ApiLessonDetail): LessonDetail {
   const estimatedDuration = Math.max(5, api.exercise_count * 3);
   const isReadyForLearning = api.exercise_count > 0;
+
+  // Debug logging
+  console.log('[toLessonDetailDTO] API response:', {
+    lessonId: api.id,
+    title: api.title,
+    exerciseCount: api.exercise_count,
+    exercisesArrayLength: api.exercises?.length ?? 0,
+    hasExercises: Array.isArray(api.exercises),
+    firstExercise: api.exercises?.[0],
+  });
+
   const exercises = Array.isArray(api.exercises)
     ? api.exercises
         .map((exercise, index) => mapLessonExercise(exercise, index))
         .filter((exercise): exercise is LessonExercise => exercise !== null)
     : [];
+
+  // Debug logging after mapping
+  console.log('[toLessonDetailDTO] After mapping:', {
+    mappedCount: exercises.length,
+    types: exercises.map(e => e.exercise_type),
+  });
 
   return {
     id: api.id,
@@ -425,7 +442,11 @@ function mapLessonExercise(
           (wrong: any): LessonWrongAnswer => ({
             answer: typeof wrong?.answer === 'string' ? wrong.answer : '',
             explanation:
-              typeof wrong?.explanation === 'string' ? wrong.explanation : '',
+              typeof wrong?.rationale_wrong === 'string'
+                ? wrong.rationale_wrong
+                : typeof wrong?.explanation === 'string'
+                  ? wrong.explanation
+                  : '',
             misconception_ids: Array.isArray(wrong?.misconception_ids)
               ? wrong.misconception_ids.map((idValue: any) => String(idValue))
               : [],

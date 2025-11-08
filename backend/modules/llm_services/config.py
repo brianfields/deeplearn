@@ -177,7 +177,6 @@ def create_llm_config_from_env(
     gemini_api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     gemini_model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
     gemini_base_url = os.getenv("GEMINI_API_BASE_URL", "https://generativelanguage.googleapis.com/v1beta")
-    gemini_image_model = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
     gemini_tts_model = os.getenv("GEMINI_TTS_MODEL", "gemini-2.5-flash-preview-tts")
 
     anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
@@ -263,6 +262,11 @@ def create_llm_config_from_env(
     elif wants(LLMProviderType.BEDROCK, "bedrock") and ((aws_access_key_id and aws_secret_access_key) or os.getenv("AWS_PROFILE")):
         provider = LLMProviderType.BEDROCK
         model_name = model_override or anthropic_model
+    elif openai_api_key and provider_override == LLMProviderType.OPENAI:
+        provider = LLMProviderType.OPENAI
+        api_key = openai_api_key
+        base_url = openai_base_url
+        model_name = model_override or openai_model
     elif azure_openai_api_key and azure_openai_endpoint and provider_override == LLMProviderType.AZURE_OPENAI:
         provider = LLMProviderType.AZURE_OPENAI
         api_key = azure_openai_api_key
@@ -312,10 +316,11 @@ def create_llm_config_from_env(
     # Create and validate config
     resolved_bedrock_model_id = _CLAUDE_BEDROCK_MODEL_IDS.get(model_name, bedrock_model_id) if provider == LLMProviderType.BEDROCK else bedrock_model_id
 
+    # Always use OpenAI's DALL-E for image generation (don't use Gemini)
     resolved_image_model = image_model
     resolved_audio_model = audio_model_env
-    if provider == LLMProviderType.GEMINI:
-        resolved_image_model = gemini_image_model
+    # Note: Gemini audio model can still be used if explicitly configured
+    if provider == LLMProviderType.GEMINI and audio_model_env is None:
         resolved_audio_model = gemini_tts_model
 
     config = LLMConfig(

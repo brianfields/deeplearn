@@ -422,40 +422,45 @@ describe('CatalogService', () => {
   describe('createUnit', () => {
     it('validates request and calls content creator', async () => {
       const request: UnitCreationRequest = {
-        topic: 'Machine Learning',
-        difficulty: 'beginner',
+        learnerDesires: 'I want to learn machine learning for beginners',
+        unitTitle: 'Machine Learning Basics',
+        learningObjectives: [
+          {
+            id: 'lo1',
+            title: 'Understand ML',
+            description: 'Learn ML fundamentals',
+          },
+        ],
         targetLessonCount: 3,
-        shareGlobally: true,
-        ownerUserId: 7,
         conversationId: 'conv-789',
+        ownerUserId: 7,
       };
       const response: UnitCreationResponse = {
         unitId: 'new-unit',
         status: 'in_progress',
-        title: 'Machine Learning',
+        title: 'Machine Learning Basics',
       };
       mockContentCreator.createUnit.mockResolvedValue(response);
-      mockContent.updateUnitSharing.mockResolvedValue({} as Unit);
 
       const result = await service.createUnit(request);
 
       expect(result).toBe(response);
       expect(mockContentCreator.createUnit).toHaveBeenCalledWith(request);
-      expect(mockContent.updateUnitSharing).toHaveBeenCalledWith(
-        'new-unit',
-        { isGlobal: true, actingUserId: 7 },
-        7
-      );
     });
 
-    it('rejects invalid topics', async () => {
+    it('rejects invalid learner desires', async () => {
       const request: UnitCreationRequest = {
-        topic: '  ',
-        difficulty: 'beginner',
+        learnerDesires: '  ',
+        unitTitle: 'ML Basics',
+        learningObjectives: [
+          { id: 'lo1', title: 'Learn', description: 'desc' },
+        ],
+        targetLessonCount: 3,
+        conversationId: 'conv-123',
       };
 
       await expect(service.createUnit(request)).rejects.toMatchObject({
-        message: 'Topic is required',
+        message: 'Learner desires required',
         code: 'CATALOG_SERVICE_ERROR',
       });
       expect(mockContentCreator.createUnit).not.toHaveBeenCalled();

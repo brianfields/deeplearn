@@ -66,6 +66,7 @@ class UnitPodcastGenerator:
     async def create_podcast(
         self,
         *,
+        learner_desires: str,
         unit_title: str,
         voice_label: str,
         unit_summary: str,
@@ -81,6 +82,7 @@ class UnitPodcastGenerator:
         # Build plain-JSON lesson inputs to avoid Pydantic instances leaking into DB JSON columns
         lesson_inputs = [{"title": lesson.title, "mini_lesson": lesson.mini_lesson} for lesson in lessons]
         flow_inputs = {
+            "learner_desires": learner_desires,
             "unit_title": unit_title,
             "voice": resolved_voice,
             "unit_summary": unit_summary,
@@ -153,6 +155,7 @@ class LessonPodcastGenerator:
     async def create_podcast(
         self,
         *,
+        learner_desires: str,
         lesson_index: int,
         lesson_title: str,
         lesson_objective: str,
@@ -164,6 +167,7 @@ class LessonPodcastGenerator:
 
         resolved_voice = voice_label or self.default_voice_id
         flow_inputs = {
+            "learner_desires": learner_desires,
             "lesson_number": lesson_index + 1,
             "lesson_title": lesson_title,
             "lesson_objective": lesson_objective,

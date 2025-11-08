@@ -7,6 +7,7 @@ import { useResource } from '@/modules/admin/queries';
 import { LoadingSpinner } from '@/modules/admin/components/shared/LoadingSpinner';
 import { ErrorMessage } from '@/modules/admin/components/shared/ErrorMessage';
 import { ResourceTypeBadge } from '@/modules/admin/components/resources/ResourceList';
+import { ResizablePanel } from '@/modules/admin/components/shared/ResizablePanel';
 import { formatDate } from '@/lib/utils';
 
 interface ResourceDetailPageProps {
@@ -227,8 +228,12 @@ export default function ResourceDetailPage({ params }: ResourceDetailPageProps):
           <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">
             Extracted text
           </h2>
-          <div className="max-h-[32rem] overflow-y-auto rounded border border-gray-200 bg-gray-50 p-4 text-sm text-gray-800 whitespace-pre-wrap">
-            {resource.extracted_text?.trim() ? resource.extracted_text : 'No extracted text available.'}
+          <div className="rounded border border-gray-200 bg-gray-50">
+            <ResizablePanel defaultHeight={512} minHeight={192} maxHeight={1000}>
+              <div className="p-4 text-sm text-gray-800 whitespace-pre-wrap">
+                {resource.extracted_text?.trim() ? resource.extracted_text : 'No extracted text available.'}
+              </div>
+            </ResizablePanel>
           </div>
         </div>
       </div>

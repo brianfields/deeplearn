@@ -23,11 +23,19 @@ describe('ContentCreatorRepo', () => {
 
     const repo = new ContentCreatorRepo();
     const request: UnitCreationRequest = {
-      topic: 'Physics',
-      difficulty: 'intermediate',
+      learnerDesires:
+        'I want to learn physics at intermediate level with practical examples',
+      unitTitle: 'Physics Fundamentals',
+      learningObjectives: [
+        {
+          id: 'lo1',
+          title: 'Understand motion',
+          description: 'Master basic physics concepts',
+        },
+      ],
       targetLessonCount: 5,
-      ownerUserId: 42,
       conversationId: 'conv-abc',
+      ownerUserId: 42,
     };
 
     const response = await repo.createUnit(request);
@@ -48,10 +56,19 @@ describe('ContentCreatorRepo', () => {
     const [, options] = mockRequest.mock.calls[0];
     const body = JSON.parse((options as { body: string }).body);
     expect(body).toEqual({
-      topic: 'Physics',
-      difficulty: 'intermediate',
+      learner_desires:
+        'I want to learn physics at intermediate level with practical examples',
+      unit_title: 'Physics Fundamentals',
+      learning_objectives: [
+        {
+          id: 'lo1',
+          title: 'Understand motion',
+          description: 'Master basic physics concepts',
+        },
+      ],
       target_lesson_count: 5,
       conversation_id: 'conv-abc',
+      owner_user_id: 42,
     });
   });
 });

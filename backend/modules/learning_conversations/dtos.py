@@ -59,6 +59,7 @@ class LearningCoachSessionState:
     messages: list[LearningCoachMessage]
     metadata: dict[str, Any]
     finalized_topic: str | None
+    learner_desires: str | None
     unit_title: str | None
     learning_objectives: list[LearningCoachObjective] | None
     suggested_lesson_count: int | None

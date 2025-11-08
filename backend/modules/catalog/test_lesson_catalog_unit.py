@@ -12,14 +12,13 @@ import pytest
 
 from modules.catalog.service import CatalogService, LessonDetail, LessonSummary
 from modules.content.package_models import (
-    GlossaryTerm,
+    Exercise,
+    ExerciseAnswerKey,
+    ExerciseOption,
     LessonPackage,
-    MCQAnswerKey,
-    MCQExercise,
-    MCQOption,
     Meta,
-    ShortAnswerExercise,
-    WrongAnswer,
+    RefinedConcept,
+    WrongAnswerWithRationale,
 )
 from modules.content.public import LessonRead
 from modules.learning_session.public import ExerciseCorrectness
@@ -35,37 +34,53 @@ class TestCatalogService:
         content = Mock()
 
         # Create mock packages
+        from modules.content.package_models import QuizMetadata
+
         package1 = LessonPackage(
             meta=Meta(lesson_id="lesson-1", title="Lesson 1", learner_level="beginner"),
             unit_learning_objective_ids=["obj1"],
-            glossary={"terms": [GlossaryTerm(id="term1", term="Key A", definition="Definition A")]},
+            concept_glossary=[
+                RefinedConcept(id="term1", term="Key A", slug="key-a", definition="Definition A", canonical_answer="Key A", centrality=3, distinctiveness=3, transferability=3, clarity=3, assessment_potential=3, cognitive_domain="Knowledge")
+            ],
             mini_lesson="Test explanation",
-            exercises=[
-                MCQExercise(
+            exercise_bank=[
+                Exercise(
                     id="mcq1",
-                    lo_id="obj1",
+                    exercise_type="mcq",
+                    exercise_category="comprehension",
+                    aligned_learning_objective="obj1",
+                    cognitive_level="Recall",
+                    difficulty="easy",
                     stem="What is A?",
-                    options=[MCQOption(id="opt1", label="A", text="Answer A"), MCQOption(id="opt2", label="B", text="Answer B"), MCQOption(id="opt3", label="C", text="Answer C")],
-                    answer_key=MCQAnswerKey(label="A"),
+                    options=[ExerciseOption(id="opt1", label="A", text="Answer A"), ExerciseOption(id="opt2", label="B", text="Answer B"), ExerciseOption(id="opt3", label="C", text="Answer C")],
+                    answer_key=ExerciseAnswerKey(label="A"),
                 ),
-                ShortAnswerExercise(
+                Exercise(
                     id="sa1",
-                    lo_id="obj1",
+                    exercise_type="short_answer",
+                    exercise_category="comprehension",
+                    aligned_learning_objective="obj1",
+                    cognitive_level="Recall",
+                    difficulty="easy",
                     stem="Name the concept",
                     canonical_answer="concept",
                     acceptable_answers=["the concept"],
-                    wrong_answers=[WrongAnswer(answer="idea", explanation="Too broad", misconception_ids=[])],
+                    wrong_answers=[WrongAnswerWithRationale(answer="idea", rationale_wrong="Too broad", misconception_ids=[])],
                     explanation_correct="Yes",
                 ),
             ],
+            quiz=["mcq1", "sa1"],
+            quiz_metadata=QuizMetadata(quiz_type="comprehensive", total_items=2, difficulty_distribution_target={}, difficulty_distribution_actual={}, cognitive_mix_target={}, cognitive_mix_actual={}),
         )
 
         package2 = LessonPackage(
             meta=Meta(lesson_id="lesson-2", title="Lesson 2", learner_level="intermediate"),
             unit_learning_objective_ids=["obj2"],
-            glossary={"terms": []},
+            concept_glossary=[],
             mini_lesson="Test explanation",
-            exercises=[],
+            exercise_bank=[],
+            quiz=[],
+            quiz_metadata=QuizMetadata(quiz_type="comprehensive", total_items=0, difficulty_distribution_target={}, difficulty_distribution_actual={}, cognitive_mix_target={}, cognitive_mix_actual={}),
         )
 
         # Mock lessons from content module
@@ -122,29 +137,43 @@ class TestCatalogService:
         content = Mock()
 
         # Create mock package with components
+        from modules.content.package_models import QuizMetadata
+
         package = LessonPackage(
             meta=Meta(lesson_id="lesson-1", title="Lesson 1", learner_level="beginner"),
             unit_learning_objective_ids=["obj1"],
-            glossary={"terms": [GlossaryTerm(id="term1", term="Key A", definition="Definition A")]},
+            concept_glossary=[
+                RefinedConcept(id="term1", term="Key A", slug="key-a", definition="Definition A", canonical_answer="Key A", centrality=3, distinctiveness=3, transferability=3, clarity=3, assessment_potential=3, cognitive_domain="Knowledge")
+            ],
             mini_lesson="Test explanation",
-            exercises=[
-                MCQExercise(
+            exercise_bank=[
+                Exercise(
                     id="mcq1",
-                    lo_id="obj1",
+                    exercise_type="mcq",
+                    exercise_category="comprehension",
+                    aligned_learning_objective="obj1",
+                    cognitive_level="Recall",
+                    difficulty="easy",
                     stem="What is A?",
-                    options=[MCQOption(id="opt1", label="A", text="Answer A"), MCQOption(id="opt2", label="B", text="Answer B"), MCQOption(id="opt3", label="C", text="Answer C")],
-                    answer_key=MCQAnswerKey(label="A"),
+                    options=[ExerciseOption(id="opt1", label="A", text="Answer A"), ExerciseOption(id="opt2", label="B", text="Answer B"), ExerciseOption(id="opt3", label="C", text="Answer C")],
+                    answer_key=ExerciseAnswerKey(label="A"),
                 ),
-                ShortAnswerExercise(
+                Exercise(
                     id="sa1",
-                    lo_id="obj1",
+                    exercise_type="short_answer",
+                    exercise_category="comprehension",
+                    aligned_learning_objective="obj1",
+                    cognitive_level="Recall",
+                    difficulty="easy",
                     stem="Name the concept",
                     canonical_answer="concept",
                     acceptable_answers=["the concept"],
-                    wrong_answers=[WrongAnswer(answer="idea", explanation="Too broad", misconception_ids=[])],
+                    wrong_answers=[WrongAnswerWithRationale(answer="idea", rationale_wrong="Too broad", misconception_ids=[])],
                     explanation_correct="Yes",
                 ),
             ],
+            quiz=["mcq1", "sa1"],
+            quiz_metadata=QuizMetadata(quiz_type="comprehensive", total_items=2, difficulty_distribution_target={}, difficulty_distribution_actual={}, cognitive_mix_target={}, cognitive_mix_actual={}),
         )
 
         generated_at = datetime.now(UTC)
@@ -247,24 +276,32 @@ class TestCatalogService:
             )
         )
 
+        from modules.content.package_models import QuizMetadata
+
         package = LessonPackage(
             meta=Meta(lesson_id="lesson-1", title="Lesson 1", learner_level="beginner"),
             unit_learning_objective_ids=["lo_1"],
-            glossary={"terms": []},
+            concept_glossary=[],
             mini_lesson="",
-            exercises=[
-                MCQExercise(
+            exercise_bank=[
+                Exercise(
                     id="ex-1",
-                    lo_id="lo_1",
+                    exercise_type="mcq",
+                    exercise_category="comprehension",
+                    aligned_learning_objective="lo_1",
+                    cognitive_level="Recall",
+                    difficulty="easy",
                     stem="What is A?",
                     options=[
-                        MCQOption(id="opt1", label="A", text="Answer A"),
-                        MCQOption(id="opt2", label="B", text="Answer B"),
-                        MCQOption(id="opt3", label="C", text="Answer C"),
+                        ExerciseOption(id="opt1", label="A", text="Answer A"),
+                        ExerciseOption(id="opt2", label="B", text="Answer B"),
+                        ExerciseOption(id="opt3", label="C", text="Answer C"),
                     ],
-                    answer_key=MCQAnswerKey(label="A"),
+                    answer_key=ExerciseAnswerKey(label="A"),
                 )
             ],
+            quiz=["ex-1"],
+            quiz_metadata=QuizMetadata(quiz_type="comprehensive", total_items=1, difficulty_distribution_target={}, difficulty_distribution_actual={}, cognitive_mix_target={}, cognitive_mix_actual={}),
         )
 
         lesson_read = LessonRead(
@@ -434,28 +471,45 @@ class TestCatalogService:
         content = Mock()
 
         # Create mock packages
+        from modules.content.package_models import QuizMetadata
+
         package1 = LessonPackage(
             meta=Meta(lesson_id="lesson-1", title="React Basics", learner_level="beginner"),
             unit_learning_objective_ids=["obj1"],
-            glossary={"terms": [GlossaryTerm(id="term1", term="JSX", definition="JSX definition"), GlossaryTerm(id="term2", term="Props", definition="Props definition")]},
+            concept_glossary=[
+                RefinedConcept(id="term1", term="JSX", slug="jsx", definition="JSX definition", canonical_answer="JSX", centrality=3, distinctiveness=3, transferability=3, clarity=3, assessment_potential=3, cognitive_domain="Knowledge"),
+                RefinedConcept(id="term2", term="Props", slug="props", definition="Props definition", canonical_answer="Props", centrality=3, distinctiveness=3, transferability=3, clarity=3, assessment_potential=3, cognitive_domain="Knowledge"),
+            ],
             mini_lesson="Test explanation",
-            exercises=[
-                MCQExercise(
+            exercise_bank=[
+                Exercise(
                     id="mcq1",
-                    lo_id="obj1",
+                    exercise_type="mcq",
+                    exercise_category="comprehension",
+                    aligned_learning_objective="obj1",
+                    cognitive_level="Recall",
+                    difficulty="easy",
                     stem="What is React?",
-                    options=[MCQOption(id="opt1", label="A", text="A framework"), MCQOption(id="opt2", label="B", text="A library"), MCQOption(id="opt3", label="C", text="A language")],
-                    answer_key=MCQAnswerKey(label="B"),
+                    options=[ExerciseOption(id="opt1", label="A", text="A framework"), ExerciseOption(id="opt2", label="B", text="A library"), ExerciseOption(id="opt3", label="C", text="A language")],
+                    answer_key=ExerciseAnswerKey(label="B"),
                 )
             ],
+            quiz=["mcq1"],
+            quiz_metadata=QuizMetadata(quiz_type="comprehensive", total_items=1, difficulty_distribution_target={}, difficulty_distribution_actual={}, cognitive_mix_target={}, cognitive_mix_actual={}),
         )
 
         package2 = LessonPackage(
             meta=Meta(lesson_id="lesson-2", title="Python Basics", learner_level="beginner"),
             unit_learning_objective_ids=["obj2"],
-            glossary={"terms": [GlossaryTerm(id="term3", term="Variables", definition="Variables definition")]},
+            concept_glossary=[
+                RefinedConcept(
+                    id="term3", term="Variables", slug="variables", definition="Variables definition", canonical_answer="Variables", centrality=3, distinctiveness=3, transferability=3, clarity=3, assessment_potential=3, cognitive_domain="Knowledge"
+                )
+            ],
             mini_lesson="Test explanation",
-            exercises=[],
+            exercise_bank=[],
+            quiz=[],
+            quiz_metadata=QuizMetadata(quiz_type="comprehensive", total_items=0, difficulty_distribution_target={}, difficulty_distribution_actual={}, cognitive_mix_target={}, cognitive_mix_actual={}),
         )
 
         mock_lessons = [
@@ -482,28 +536,38 @@ class TestCatalogService:
         content = Mock()
 
         # Create mock packages
+        from modules.content.package_models import QuizMetadata
+
         package1 = LessonPackage(
             meta=Meta(lesson_id="lesson-1", title="Lesson 1", learner_level="beginner"),
             unit_learning_objective_ids=["obj1"],
-            glossary={"terms": [GlossaryTerm(id="term1", term="Key", definition="Definition")]},
+            concept_glossary=[RefinedConcept(id="term1", term="Key", slug="key", definition="Definition", canonical_answer="Key", centrality=3, distinctiveness=3, transferability=3, clarity=3, assessment_potential=3, cognitive_domain="Knowledge")],
             mini_lesson="Test explanation",
-            exercises=[
-                MCQExercise(
+            exercise_bank=[
+                Exercise(
                     id="mcq1",
-                    lo_id="obj1",
+                    exercise_type="mcq",
+                    exercise_category="comprehension",
+                    aligned_learning_objective="obj1",
+                    cognitive_level="Recall",
+                    difficulty="easy",
                     stem="What is it?",
-                    options=[MCQOption(id="opt1", label="A", text="Answer A"), MCQOption(id="opt2", label="B", text="Answer B"), MCQOption(id="opt3", label="C", text="Answer C")],
-                    answer_key=MCQAnswerKey(label="A"),
+                    options=[ExerciseOption(id="opt1", label="A", text="Answer A"), ExerciseOption(id="opt2", label="B", text="Answer B"), ExerciseOption(id="opt3", label="C", text="Answer C")],
+                    answer_key=ExerciseAnswerKey(label="A"),
                 )
             ],
+            quiz=["mcq1"],
+            quiz_metadata=QuizMetadata(quiz_type="comprehensive", total_items=1, difficulty_distribution_target={}, difficulty_distribution_actual={}, cognitive_mix_target={}, cognitive_mix_actual={}),
         )
 
         package2 = LessonPackage(
             meta=Meta(lesson_id="lesson-2", title="Lesson 2", learner_level="intermediate"),
             unit_learning_objective_ids=["obj2"],
-            glossary={"terms": []},
+            concept_glossary=[],
             mini_lesson="Test explanation",
-            exercises=[],
+            exercise_bank=[],
+            quiz=[],
+            quiz_metadata=QuizMetadata(quiz_type="comprehensive", total_items=0, difficulty_distribution_target={}, difficulty_distribution_actual={}, cognitive_mix_target={}, cognitive_mix_actual={}),
         )
 
         mock_lessons = [

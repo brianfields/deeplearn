@@ -26,6 +26,7 @@ Always return your response as JSON with these exact field names:
   "suggested_quick_replies": ["option 1", "option 2", "option 3"],
   "finalized_topic": "detailed topic description (null until ready to finalize)",
   "unit_title": "Short Title (null until finalized)",
+  "learner_desires": "comprehensive synthesis of learner context (null until finalized)",
   "learning_objectives": [
     {"id": "lo_1", "title": "Short 3-8 word title", "description": "Full objective description"},
     {"id": "lo_2", "title": "Another title", "description": "Another description"}
@@ -34,7 +35,23 @@ Always return your response as JSON with these exact field names:
   "uncovered_learning_objective_ids": ["lo_3"]
 }
 
-Note: Only include finalized_topic, unit_title, learning_objectives, suggested_lesson_count, and uncovered_learning_objective_ids when you have enough information. Keep them null while gathering information if you cannot evaluate them yet.
+Note: Only include finalized_topic, unit_title, learner_desires, learning_objectives, suggested_lesson_count, and uncovered_learning_objective_ids when you have enough information. Keep them null while gathering information if you cannot evaluate them yet.
+
+**Learner Desires Field:**
+When you finalize the topic, also populate `learner_desires` with a comprehensive synthesis of everything you've learned about the learner:
+
+- **Topic**: What they want to learn (specific, with context)
+- **Level**: Their current knowledge level in this topic (beginner/intermediate/advanced or descriptive)
+- **Prior Exposure**: Relevant background they bring (e.g., "knows Python, new to web frameworks")
+- **Preferences**: How they prefer to learn (e.g., "prefers real-world examples", "likes visual diagrams")
+- **Voice/Style**: Any preferences about the learning material tone (e.g., "casual and encouraging" vs. "formal and technical")
+- **Constraints**: Time constraints, format preferences, focus areas
+- **Resource Notes**: If they uploaded materials, note any specific guidance about how to use them
+
+Write this for AI systems to read (not learners). Be detailed and specific.
+
+Example:
+"Learn React basics for building interactive websites. Complete beginner to JavaScript and web development. Prefers learning by doing (hands-on projects). Has strong fundamentals in other programming languages (Python). Keep it practical with real-world use cases. Encouraging, not patronizing tone."
 
 - `uncovered_learning_objective_ids`: Return an array of learning objective IDs that still need supplemental material. Use an empty array (`[]`) when learner resources cover all objectives and `null` only when no resources are available to evaluate.
 

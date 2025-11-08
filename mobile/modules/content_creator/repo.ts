@@ -30,10 +30,12 @@ export class ContentCreatorRepo {
       }>(url, {
         method: 'POST',
         body: JSON.stringify({
-          topic: request.topic,
-          difficulty: request.difficulty,
+          learner_desires: request.learnerDesires,
+          unit_title: request.unitTitle,
+          learning_objectives: request.learningObjectives,
           target_lesson_count: request.targetLessonCount,
-          conversation_id: request.conversationId ?? null,
+          conversation_id: request.conversationId,
+          owner_user_id: request.ownerUserId ?? null,
         }),
         headers: {
           'Content-Type': 'application/json',

@@ -71,15 +71,21 @@ async def test_unit_creation_flow_plan_and_chunks() -> None:
 
 
 @pytest.mark.asyncio
-@patch("modules.content_creator.flows.GenerateShortAnswerStep")
-@patch("modules.content_creator.flows.GenerateMCQStep")
+@patch("modules.content_creator.flows.GenerateQuizFromExercisesStep")
+@patch("modules.content_creator.flows.GenerateTransferExercisesStep")
+@patch("modules.content_creator.flows.GenerateComprehensionExercisesStep")
+@patch("modules.content_creator.flows.AnnotateConceptGlossaryStep")
+@patch("modules.content_creator.flows.ExtractConceptGlossaryStep")
 @patch("modules.content_creator.flows.ExtractLessonMetadataStep")
-async def test_lesson_creation_flow_generates_short_answers(
-    mock_extract_step: Mock,
-    mock_mcq_step: Mock,
-    mock_short_answer_step: Mock,
+async def test_lesson_creation_flow_runs_concept_pipeline(
+    mock_extract_lesson_step: Mock,
+    mock_extract_concepts_step: Mock,
+    mock_annotate_step: Mock,
+    mock_comprehension_step: Mock,
+    mock_transfer_step: Mock,
+    mock_quiz_step: Mock,
 ) -> None:
-    """Lesson creation flow should invoke the short-answer generator after MCQs."""
+    """Lesson creation flow should orchestrate the concept-driven pipeline."""
 
     class _FakeModel:
         def __init__(self, **payload: Any) -> None:
@@ -94,37 +100,105 @@ async def test_lesson_creation_flow_generates_short_answers(
         voice="Guide",
         learning_objectives=["Explain"],
         learning_objective_ids=["lo_1"],
-        misconceptions=[_FakeModel(id="m1")],
-        confusables=[_FakeModel(id="c1")],
-        glossary=[_FakeModel(term="Word", definition="Meaning")],
+        lesson_source_material="Scaffolded excerpt",
         mini_lesson="Body",
     )
-    mock_extract_step.return_value.execute = AsyncMock(return_value=SimpleNamespace(output_content=lesson_md))
+    mock_extract_lesson_step.return_value.execute = AsyncMock(return_value=SimpleNamespace(output_content=lesson_md))
 
-    mcq_items = [_FakeModel(stem="What is it?", options=[], answer_key=_FakeModel(label="A"))]
-    mock_mcq_step.return_value.execute = AsyncMock(return_value=SimpleNamespace(output_content=_FakeModel(mcqs=mcq_items)))
+    concept_items = [_FakeModel(id="c1", term="Mean", slug="mean", definition="Avg", aliases=[], example_from_source=None, source_span=None, related_terms=[], aligned_learning_objectives=["lo_1"])]
+    mock_extract_concepts_step.return_value.execute = AsyncMock(return_value=SimpleNamespace(output_content=_FakeModel(concepts=concept_items, meta=_FakeModel(total_concepts=1))))
 
-    short_answer_items = [
+    refined_concepts = [
         _FakeModel(
-            stem="Name it",
-            canonical_answer="term",
-            acceptable_answers=["the term"],
-            wrong_answers=[{"answer": "mistake", "explanation": "Not precise", "misconception_ids": ["m1"]}],
-            learning_objectives_covered=["lo_1"],
-            misconceptions_used=["m1"],
-            glossary_terms_used=["Word"],
-            cognitive_level="remember",
-            explanation_correct="Yes",
+            id="c1",
+            term="Mean",
+            slug="mean",
+            aliases=[],
+            definition="Average",
+            example_from_source=None,
+            source_span=None,
+            category="Technical",
+            centrality=5,
+            distinctiveness=4,
+            transferability=4,
+            clarity=5,
+            assessment_potential=5,
+            cognitive_domain="Knowledge",
+            difficulty_potential={"min_level": "Recall", "max_level": "Comprehension"},
+            learning_role="Core",
+            aligned_learning_objectives=["lo_1"],
+            canonical_answer="Mean",
+            accepted_phrases=["average"],
+            answer_type="closed",
+            closed_answer=True,
+            example_exercise_stem="Define mean",
+            plausible_distractors=["median"],
+            misconception_note=None,
+            contrast_with=["median"],
+            related_concepts=["median"],
+            review_notes=None,
+            source_reference=None,
+            version="v1",
         )
     ]
-    mock_short_answer_step.return_value.execute = AsyncMock(return_value=SimpleNamespace(output_content=_FakeModel(short_answers=short_answer_items)))
+    mock_annotate_step.return_value.execute = AsyncMock(return_value=SimpleNamespace(output_content=_FakeModel(refined_concepts=refined_concepts, meta=_FakeModel(total_retained=1))))
+
+    comprehension_exercises = [
+        _FakeModel(
+            id="ex-comp-sa-001",
+            exercise_category="comprehension",
+            type="short-answer",
+            concept_slug="mean",
+            concept_term="Mean",
+            stem="Define the mean",
+            canonical_answer="Mean",
+            acceptable_answers=["average"],
+            rationale_right="Explains the concept",
+            wrong_answers=[{"answer": "Median", "rationale_wrong": "Different measure"}],
+            answer_type="closed",
+            cognitive_level="Recall",
+            difficulty="easy",
+            aligned_learning_objective="lo_1",
+        )
+    ]
+    mock_comprehension_step.return_value.execute = AsyncMock(return_value=SimpleNamespace(output_content=_FakeModel(exercises=comprehension_exercises, meta=_FakeModel(exercise_category="comprehension"))))
+
+    transfer_exercises = [
+        _FakeModel(
+            id="ex-trans-mc-001",
+            exercise_category="transfer",
+            type="multiple-choice",
+            concept_slug="mean",
+            concept_term="Mean",
+            stem="Which concept fits?",
+            options=[{"label": "A", "text": "Mean", "rationale_wrong": None}],
+            answer_key={"label": "A", "rationale_right": "Matches scenario"},
+            cognitive_level="Application",
+            difficulty="medium",
+            aligned_learning_objective="lo_1",
+        )
+    ]
+    mock_transfer_step.return_value.execute = AsyncMock(return_value=SimpleNamespace(output_content=_FakeModel(exercises=transfer_exercises, meta=_FakeModel(exercise_category="transfer"))))
+
+    quiz_meta = _FakeModel(
+        quiz_type="Formative",
+        total_items=2,
+        difficulty_distribution_target={"easy": 0.5, "medium": 0.5, "hard": 0.0},
+        difficulty_distribution_actual={"easy": 0.5, "medium": 0.5, "hard": 0.0},
+        cognitive_mix_target={"Recall": 0.5, "Application": 0.5},
+        cognitive_mix_actual={"Recall": 0.5, "Application": 0.5},
+        coverage_by_LO={"lo_1": {"exercise_ids": ["ex-comp-sa-001"], "concepts": ["mean"]}},
+        coverage_by_concept={"mean": {"exercise_ids": ["ex-comp-sa-001"], "types": ["short-answer"]}},
+        normalizations_applied=[],
+        selection_rationale=[],
+        gaps_identified=[],
+    )
+    mock_quiz_step.return_value.execute = AsyncMock(return_value=SimpleNamespace(output_content=_FakeModel(quiz=["ex-comp-sa-001", "ex-trans-mc-001"], meta=quiz_meta)))
 
     flow = LessonCreationFlow()
     result = await flow._execute_flow_logic(
         {
-            "topic": "Lesson",
-            "learner_level": "beginner",
-            "voice": "Guide",
+            "learner_desires": "Beginner student learning Lesson with Guide voice",
             "learning_objectives": ["Explain"],
             "learning_objective_ids": ["lo_1"],
             "lesson_objective": "Explain it",
@@ -132,9 +206,16 @@ async def test_lesson_creation_flow_generates_short_answers(
         }
     )
 
-    mock_short_answer_step.return_value.execute.assert_awaited_once()
-    assert "short_answers" in result
-    assert result["short_answers"][0]["stem"] == "Name it"
+    mock_extract_concepts_step.return_value.execute.assert_awaited_once()
+    mock_annotate_step.return_value.execute.assert_awaited_once()
+    mock_comprehension_step.return_value.execute.assert_awaited_once()
+    mock_transfer_step.return_value.execute.assert_awaited_once()
+    mock_quiz_step.return_value.execute.assert_awaited_once()
+
+    assert result["concept_glossary"][0]["term"] == "Mean"
+    assert len(result["exercise_bank"]) == 2
+    assert result["quiz"] == ["ex-comp-sa-001", "ex-trans-mc-001"]
+    assert result["quiz_metadata"]["total_items"] == 2
 
 
 @pytest.mark.asyncio
@@ -321,7 +402,14 @@ class TestServiceFlows:
             }
             mock_lcf_cls.return_value = mock_lcf
 
-            result = await svc.create_unit(topic="Topic", target_lesson_count=1, learner_level="beginner", background=False)
+            result = await svc.create_unit(
+                learner_desires="Beginner learning Topic",
+                unit_title="Unit T",
+                learning_objectives=[{"id": "u_lo_1", "title": "Understand the Topic", "description": "Understand the topic"}],
+                target_lesson_count=1,
+                conversation_id="conv-123",
+                background=False,
+            )
         assert result.title == "Unit T"
         content.save_lesson.assert_awaited()
         content.assign_lessons_to_unit.assert_awaited_once()
@@ -435,7 +523,14 @@ class TestServiceFlows:
             }
             mock_lcf_cls.return_value = mock_lcf
 
-            await svc.create_unit(topic="Topic", target_lesson_count=1, learner_level="beginner", background=False)
+            await svc.create_unit(
+                learner_desires="Beginner learning Topic",
+                unit_title="Unit B",
+                learning_objectives=[{"id": "u_lo_1", "title": "Understand the Topic", "description": "Understand the topic"}],
+                target_lesson_count=1,
+                conversation_id="conv-456",
+                background=False,
+            )
 
             content.save_lesson.assert_awaited()
             content.assign_lessons_to_unit.assert_awaited()

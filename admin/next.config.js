@@ -7,7 +7,7 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'lantern-room.s3.amazonaws.com',
+        hostname: '**.s3.amazonaws.com',
       },
     ],
   },

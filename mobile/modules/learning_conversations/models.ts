@@ -36,6 +36,7 @@ export interface LearningCoachSessionState {
   readonly unitTitle?: string | null;
   readonly learningObjectives?: LearningCoachLearningObjective[] | null;
   readonly suggestedLessonCount?: number | null;
+  readonly learnerDesires?: string | null; // Unified learner context (topic, difficulty, preferences, etc.)
   readonly proposedBrief?: LearningCoachBrief | null; // Deprecated
   readonly acceptedBrief?: LearningCoachBrief | null; // Deprecated
   readonly resources?: ResourceSummary[];

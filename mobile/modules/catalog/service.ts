@@ -379,44 +379,31 @@ export class CatalogService {
     request: UnitCreationRequest
   ): Promise<UnitCreationResponse> {
     try {
-      // Validate request
-      if (!request.topic?.trim()) {
-        throw new Error('Topic is required');
+      // Validate coach-driven request
+      if (!request.learnerDesires?.trim()) {
+        throw new Error('Learner desires required');
       }
-
-      const validDifficulties = ['beginner', 'intermediate', 'advanced'];
-      if (!validDifficulties.includes(request.difficulty)) {
-        throw new Error('Invalid difficulty level');
+      if (!request.unitTitle?.trim()) {
+        throw new Error('Unit title required');
       }
-
       if (
-        request.targetLessonCount !== null &&
-        request.targetLessonCount !== undefined
+        !request.learningObjectives ||
+        request.learningObjectives.length === 0
       ) {
-        if (request.targetLessonCount < 1 || request.targetLessonCount > 20) {
-          throw new Error('Target lesson count must be between 1 and 20');
-        }
+        throw new Error('Learning objectives required');
+      }
+      if (
+        !request.targetLessonCount ||
+        request.targetLessonCount < 1 ||
+        request.targetLessonCount > 20
+      ) {
+        throw new Error('Target lesson count must be between 1 and 20');
+      }
+      if (!request.conversationId?.trim()) {
+        throw new Error('Conversation ID required');
       }
 
       const response = await this.deps.contentCreator.createUnit(request);
-
-      if (request.shareGlobally && request.ownerUserId) {
-        try {
-          await this.deps.content.updateUnitSharing(
-            response.unitId,
-            {
-              isGlobal: true,
-              actingUserId: request.ownerUserId,
-            },
-            request.ownerUserId
-          );
-        } catch (error) {
-          console.warn(
-            '[CatalogService] Failed to apply global sharing after creation',
-            error
-          );
-        }
-      }
 
       return response;
     } catch (error) {

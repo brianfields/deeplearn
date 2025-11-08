@@ -10,13 +10,13 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from modules.content.package_models import (
+    Exercise,
+    ExerciseAnswerKey,
+    ExerciseOption,
     LessonPackage,
-    MCQAnswerKey,
-    MCQExercise,
-    MCQOption,
     Meta,
-    ShortAnswerExercise,
-    WrongAnswer,
+    QuizMetadata,
+    WrongAnswerWithRationale,
 )
 
 from .models import LearningSessionModel, SessionStatus
@@ -52,8 +52,8 @@ class TestLearningSessionService:
         # Mock content with package structure (lesson exists)
         mock_content = Mock()
         mock_package = Mock()
-        mock_package.exercises = [1, 2]  # 2 exercises
-        mock_package.glossary.get.return_value = []  # 0 glossary terms
+        mock_package.quiz = ["ex1", "ex2"]
+        mock_package.exercise_bank = []
         mock_content.package = mock_package
         mock_content.unit_id = "unit-1"
         self.mock_content_provider.get_lesson.return_value = mock_content
@@ -98,33 +98,64 @@ class TestLearningSessionService:
     async def test_start_session_counts_short_answer_exercises(self) -> None:
         """Short-answer exercises contribute to total exercise count."""
 
+        exercises = [
+            Exercise(
+                id="ex1",
+                exercise_type="mcq",
+                exercise_category="comprehension",
+                aligned_learning_objective="lo_1",
+                cognitive_level="Recall",
+                difficulty="easy",
+                stem="What is X?",
+                options=[
+                    ExerciseOption(id="ex1_a", label="A", text="A"),
+                    ExerciseOption(id="ex1_b", label="B", text="B", rationale_wrong="Different"),
+                    ExerciseOption(id="ex1_c", label="C", text="C", rationale_wrong="Different"),
+                    ExerciseOption(id="ex1_d", label="D", text="D", rationale_wrong="Different"),
+                ],
+                answer_key=ExerciseAnswerKey(label="A", option_id="ex1_a", rationale_right="Definition"),
+            ),
+            Exercise(
+                id="ex2",
+                exercise_type="short_answer",
+                exercise_category="transfer",
+                aligned_learning_objective="lo_1",
+                cognitive_level="Application",
+                difficulty="medium",
+                stem="Name it",
+                canonical_answer="concept",
+                acceptable_answers=["the concept"],
+                wrong_answers=[
+                    WrongAnswerWithRationale(
+                        answer="idea",
+                        rationale_wrong="Too vague",
+                        misconception_ids=[],
+                    )
+                ],
+                explanation_correct="Nice work",
+            ),
+        ]
+
         package = LessonPackage(
             meta=Meta(lesson_id="lesson-1", title="Lesson", learner_level="beginner"),
             unit_learning_objective_ids=["lo_1"],
-            glossary={"terms": []},
             mini_lesson="Body",
-            exercises=[
-                MCQExercise(
-                    id="mcq_1",
-                    lo_id="lo_1",
-                    stem="What is X?",
-                    options=[
-                        MCQOption(id="opt_a", label="A", text="A"),
-                        MCQOption(id="opt_b", label="B", text="B"),
-                        MCQOption(id="opt_c", label="C", text="C"),
-                    ],
-                    answer_key=MCQAnswerKey(label="A"),
-                ),
-                ShortAnswerExercise(
-                    id="sa_1",
-                    lo_id="lo_1",
-                    stem="Name it",
-                    canonical_answer="concept",
-                    acceptable_answers=["the concept"],
-                    wrong_answers=[WrongAnswer(answer="idea", explanation="Too vague", misconception_ids=[])],
-                    explanation_correct="Nice work",
-                ),
-            ],
+            concept_glossary=[],
+            exercise_bank=exercises,
+            quiz=["ex1", "ex2"],
+            quiz_metadata=QuizMetadata(
+                quiz_type="Formative",
+                total_items=2,
+                difficulty_distribution_target={"easy": 0.5, "medium": 0.5, "hard": 0.0},
+                difficulty_distribution_actual={"easy": 0.5, "medium": 0.5, "hard": 0.0},
+                cognitive_mix_target={"Recall": 0.5, "Application": 0.5},
+                cognitive_mix_actual={"Recall": 0.5, "Application": 0.5},
+                coverage_by_LO={"lo_1": {"exercise_ids": ["ex1", "ex2"], "concepts": ["X"]}},
+                coverage_by_concept={"X": {"exercise_ids": ["ex1"], "types": ["mcq"]}},
+                normalizations_applied=[],
+                selection_rationale=[],
+                gaps_identified=[],
+            ),
         )
 
         lesson = Mock()
@@ -174,7 +205,7 @@ class TestLearningSessionService:
 
         request = StartSessionRequest(lesson_id="lesson-1", user_id="", unit_id="unit-1")
         # Content returns some lesson object
-        lesson = Mock(package=Mock(exercises=[]))
+        lesson = Mock(package=Mock(exercise_bank=[], quiz=[]))
         lesson.unit_id = "unit-1"
         self.mock_content_provider.get_lesson.return_value = lesson
 
@@ -196,7 +227,7 @@ class TestLearningSessionService:
         """Starting with mismatched unit should raise a validation error."""
 
         request = StartSessionRequest(lesson_id="lesson-1", user_id="user-1", unit_id="unit-1")
-        lesson = Mock(package=Mock(exercises=[]))
+        lesson = Mock(package=Mock(exercise_bank=[], quiz=[]))
         lesson.unit_id = "unit-2"
         self.mock_content_provider.get_lesson.return_value = lesson
 
@@ -471,13 +502,13 @@ class TestLearningSessionService:
 
         exercise_a = Mock()
         exercise_a.id = "ex_a"
-        exercise_a.lo_id = "lo_1"
+        exercise_a.aligned_learning_objective = "lo_1"
         exercise_b = Mock()
         exercise_b.id = "ex_b"
-        exercise_b.lo_id = "lo_2"
+        exercise_b.aligned_learning_objective = "lo_2"
         lesson = Mock()
         lesson.id = "lesson-1"
-        lesson.package = Mock(exercises=[exercise_a, exercise_b])
+        lesson.package = Mock(exercise_bank=[exercise_a, exercise_b], quiz=["ex_a", "ex_b"])
         self.mock_content_provider.get_lessons_by_unit.return_value = [lesson]
 
         session = Mock()
@@ -523,13 +554,13 @@ class TestLearningSessionService:
 
         exercise_a = Mock()
         exercise_a.id = "ex_a"
-        exercise_a.lo_id = "lo_1"
+        exercise_a.aligned_learning_objective = "lo_1"
         exercise_b = Mock()
         exercise_b.id = "ex_b"
-        exercise_b.lo_id = "lo_2"
+        exercise_b.aligned_learning_objective = "lo_2"
         lesson = Mock()
         lesson.id = "lesson-1"
-        lesson.package = Mock(exercises=[exercise_a, exercise_b])
+        lesson.package = Mock(exercise_bank=[exercise_a, exercise_b], quiz=["ex_a", "ex_b"])
         self.mock_content_provider.get_lessons_by_unit.return_value = [lesson]
 
         session = Mock()

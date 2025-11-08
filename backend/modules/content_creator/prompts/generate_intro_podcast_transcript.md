@@ -2,7 +2,7 @@
 
 You are an expert instructional storyteller crafting an energetic teaser podcast episode for a learning unit.
 
-**Goal**: Produce an approximately 500-word transcript that hooks the learner, builds excitement, and previews the key value of the unit without covering every detail.
+**Goal**: Produce an approximately 500-word transcript that hooks the learner, builds excitement, and previews the key value of the unit without covering every detail. **Draw on LEARNER_DESIRES** to personalize the hook and motivational framing—connect the unit's value directly to their stated interests, goals, and context.
 
 ## Requirements
 - Address the learner directly in a motivating, encouraging tone.
@@ -14,6 +14,8 @@ You are an expert instructional storyteller crafting an energetic teaser podcast
 - Keep the transcript single-voice narration with natural paragraphing (no headings or bullets).
 
 ## Unit Details
+
+**LEARNER_DESIRES**: {{learner_desires}}
 
 **Unit Title**: {{unit_title}}
 

@@ -433,69 +433,121 @@ export interface UnitLearningObjective {
   evidence_of_mastery?: string | null;
 }
 
-export interface GlossaryTerm {
+export interface RefinedConcept {
   id: string;
   term: string;
+  slug: string;
+  aliases: string[];
   definition: string;
-  micro_check: string | null;
+  example_from_source: string | null;
+  source_span: string | null;
+  category: string | null;
+  centrality: number;
+  distinctiveness: number;
+  transferability: number;
+  clarity: number;
+  assessment_potential: number;
+  cognitive_domain: string;
+  difficulty_potential: Record<string, string> | null;
+  learning_role: string | null;
+  aligned_learning_objectives: string[];
+  canonical_answer: string;
+  accepted_phrases: string[];
+  answer_type: string | null;
+  closed_answer: boolean;
+  example_question_stem: string | null;
+  plausible_distractors: string[];
+  misconception_note: string | null;
+  contrast_with: string[];
+  related_concepts: string[];
+  review_notes: string | null;
+  source_reference: string | null;
+  version: string | null;
 }
 
-export interface MCQOption {
+export interface ExerciseOption {
   id: string;
-  label: string; // "A", "B", "C", "D"
+  label: string;
   text: string;
   rationale_wrong: string | null;
 }
 
-export interface MCQAnswerKey {
+export interface ExerciseAnswerKey {
   label: string;
   option_id: string | null;
-  rationale_right?: string | null;
+  rationale_right: string | null;
 }
 
-// Base Exercise interface
-export interface Exercise {
-  id: string;
-  exercise_type: string; // "mcq", "short_answer", "coding", etc.
-  lo_id: string;
-  cognitive_level: string | null;
-  estimated_difficulty: 'Easy' | 'Medium' | 'Hard' | null;
-  misconceptions_used: string[];
-}
-
-// MCQ Exercise (extends Exercise)
-export interface MCQExercise extends Exercise {
-  exercise_type: 'mcq';
-  stem: string;
-  options: MCQOption[];
-  answer_key: MCQAnswerKey;
-}
-
-export interface ShortAnswerWrongAnswer {
+export interface WrongAnswerWithRationale {
   answer: string;
-  explanation: string;
+  rationale_wrong: string;
+  explanation?: string; // alias for rationale_wrong
   misconception_ids: string[];
 }
 
-export interface ShortAnswerExercise extends Exercise {
-  exercise_type: 'short_answer';
+interface LessonExerciseBase {
+  id: string;
+  exercise_type: 'mcq' | 'short_answer';
+  exercise_category: 'comprehension' | 'transfer';
+  aligned_learning_objective: string;
+  lo_id?: string; // alias for aligned_learning_objective
+  cognitive_level: 'Recall' | 'Comprehension' | 'Application' | 'Transfer';
+  difficulty: 'easy' | 'medium' | 'hard';
+  estimated_difficulty?: string; // alias for difficulty
   stem: string;
+}
+
+export interface MCQExercise extends LessonExerciseBase {
+  exercise_type: 'mcq';
+  options: ExerciseOption[];
+  answer_key: ExerciseAnswerKey;
+  misconceptions_used?: string[]; // derived from wrong_answers
+}
+
+export interface ShortAnswerExercise extends LessonExerciseBase {
+  exercise_type: 'short_answer';
   canonical_answer: string;
   acceptable_answers: string[];
-  wrong_answers: ShortAnswerWrongAnswer[];
+  wrong_answers: WrongAnswerWithRationale[];
   explanation_correct: string;
+  misconceptions_used?: string[]; // derived from wrong_answers
 }
 
 export type LessonExercise = MCQExercise | ShortAnswerExercise;
 
+export interface QuizCoverageByLO {
+  exercise_ids: string[];
+  concepts: string[];
+}
+
+export interface QuizCoverageByConcept {
+  exercise_ids: string[];
+  types: Array<'mcq' | 'short_answer'>;
+}
+
+export interface QuizMetadata {
+  quiz_type: string;
+  total_items: number;
+  difficulty_distribution_target: Record<string, number>;
+  difficulty_distribution_actual: Record<string, number>;
+  cognitive_mix_target: Record<string, number>;
+  cognitive_mix_actual: Record<string, number>;
+  coverage_by_LO: Record<string, QuizCoverageByLO>;
+  coverage_by_concept: Record<string, QuizCoverageByConcept>;
+  normalizations_applied: string[];
+  selection_rationale: string[];
+  gaps_identified: string[];
+}
+
 export interface LessonPackage {
   meta: Meta;
-  objectives: Objective[];
-  glossary: Record<string, GlossaryTerm[]>;
+  unit_learning_objective_ids: string[];
   mini_lesson: string;
-  exercises: LessonExercise[];
-  misconceptions: Record<string, string>[];
-  confusables: Record<string, string>[];
+  concept_glossary: RefinedConcept[];
+  exercise_bank: LessonExercise[];
+  exercises?: LessonExercise[]; // alias for exercise_bank
+  quiz: string[];
+  quiz_metadata: QuizMetadata;
 }
 
 // ---- Analytics Types ----

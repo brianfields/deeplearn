@@ -96,6 +96,15 @@ class CoachResponse(BaseModel):
         default=None,
         description=("When finalizing, suggest the number of lessons (2-10) to cover the learning objectives. Consider the breadth of objectives, the learner's level, and natural topic boundaries. Update if the learner requests changes."),
     )
+    learner_desires: str | None = Field(
+        default=None,
+        description=(
+            "When finalizing the topic, provide a comprehensive synthesis of the learner's goals, prior knowledge, "
+            "learning style preferences, and constraints. Include: specific topic, difficulty level, prior exposure, "
+            "presentation preferences, voice/tone, time constraints, and any other relevant context. "
+            "Write this for AI systems to read (not learners). This replaces the need for separate topic/difficulty/voice fields."
+        ),
+    )
     suggested_quick_replies: list[str] | None = Field(
         default=None,
         description=(
@@ -229,6 +238,7 @@ class LearningCoachConversation(BaseConversation):
             messages=[self._to_message(message) for message in history],
             metadata=metadata,
             finalized_topic=metadata.get("finalized_topic"),
+            learner_desires=metadata.get("learner_desires"),
             unit_title=metadata.get("unit_title"),
             learning_objectives=self._parse_learning_objectives(metadata.get("learning_objectives")),
             suggested_lesson_count=metadata.get("suggested_lesson_count"),
@@ -343,6 +353,8 @@ class LearningCoachConversation(BaseConversation):
             )
             if coach_response.unit_title is not None:
                 metadata_update["unit_title"] = coach_response.unit_title
+            if coach_response.learner_desires is not None:
+                metadata_update["learner_desires"] = coach_response.learner_desires
             if coach_response.learning_objectives is not None:
                 metadata_update["learning_objectives"] = [objective.model_dump() for objective in coach_response.learning_objectives]
             if coach_response.suggested_lesson_count is not None:

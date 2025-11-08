@@ -150,6 +150,7 @@ class LearningCoachService:
             messages=messages,
             metadata=metadata,
             finalized_topic=metadata.get("finalized_topic"),
+            learner_desires=metadata.get("learner_desires"),
             unit_title=metadata.get("unit_title"),
             learning_objectives=self._parse_learning_objectives(metadata.get("learning_objectives")),
             suggested_lesson_count=metadata.get("suggested_lesson_count"),

@@ -671,6 +671,15 @@ export class LearningSessionService {
         throw new Error('Lesson not found');
       }
 
+      // Debug logging
+      console.log('[getSessionExercises] Lesson detail:', {
+        lessonId: lessonDetail.id,
+        title: lessonDetail.title,
+        exerciseCount: lessonDetail.exerciseCount,
+        exercisesArrayLength: lessonDetail.exercises?.length ?? 0,
+        hasExercises: Array.isArray(lessonDetail.exercises),
+      });
+
       // Build exercise list from package (exclude non-assessment content)
       const exercises = (lessonDetail.exercises || [])
         .map((ex: LessonExercise, index: number): SessionExercise | null => {
@@ -708,7 +717,9 @@ export class LearningSessionService {
               ? ex.wrong_answers.map(
                   (wrong: any): WrongAnswerDTO => ({
                     answer: String(wrong.answer ?? ''),
-                    explanation: String(wrong.explanation ?? ''),
+                    explanation: String(
+                      wrong.rationale_wrong ?? wrong.explanation ?? ''
+                    ),
                     misconceptionIds: Array.isArray(wrong.misconception_ids)
                       ? wrong.misconception_ids.map(String)
                       : [],
@@ -743,6 +754,13 @@ export class LearningSessionService {
           return null;
         })
         .filter((e): e is SessionExercise => e !== null);
+
+      // Debug logging
+      console.log('[getSessionExercises] Mapped exercises:', {
+        totalMapped: exercises.length,
+        types: exercises.map(e => e.type),
+        ids: exercises.map(e => e.id),
+      });
 
       return exercises;
     } catch (error) {

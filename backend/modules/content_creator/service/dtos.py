@@ -13,6 +13,8 @@ class UnitCreationResult(BaseModel):
     target_lesson_count: int | None = None
     generated_from_topic: bool = False
     lesson_ids: list[str] | None = None
+    learning_objectives: list[dict] | None = None  # Coach-provided or generated LOs
+    lessons: list[dict] | None = None  # Lesson plan items
 
 
 class MobileUnitCreationResult(BaseModel):

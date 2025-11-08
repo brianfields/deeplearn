@@ -10,7 +10,7 @@ import uuid
 from pydantic import BaseModel, ConfigDict, Field
 
 from .config import LLMConfig, create_llm_config_from_env
-from .exceptions import LLMAuthenticationError
+from .exceptions import LLMAuthenticationError, LLMError
 from .providers.base import LLMProvider, LLMProviderKwargs
 from .providers.factory import create_llm_provider
 from .repo import LLMRequestRepo
@@ -484,8 +484,15 @@ class LLMService:
     async def generate_image(self, prompt: str, user_id: int | None = None, size: str = "1024x1024", quality: str = "standard", style: str | None = None, **kwargs: LLMProviderKwargs) -> tuple[ImageResponse, uuid.UUID]:
         """
         Generate an image from a text prompt.
+
+        Image generation always uses OpenAI's DALL-E, regardless of the default text generation provider.
         """
-        provider = self._select_provider(None)
+        # Always use OpenAI provider for image generation (DALL-E)
+        # This is explicit and doesn't depend on model name lookup
+        try:
+            provider = self._ensure_provider(LLMProviderType.OPENAI)
+        except Exception as e:
+            raise LLMError(f"OpenAI provider required for image generation but not available: {e}") from e
 
         # Create image request
         # Convert string parameters to enums

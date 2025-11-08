@@ -14,11 +14,14 @@ from pydantic import BaseModel
 from modules.flow_engine.public import BaseFlow
 
 from .steps import (
+    AnnotateConceptGlossaryStep,
+    ExtractConceptGlossaryStep,
     ExtractLessonMetadataStep,
     ExtractUnitMetadataStep,
+    GenerateComprehensionExercisesStep,
     GenerateLessonPodcastTranscriptStep,
-    GenerateMCQStep,
-    GenerateShortAnswerStep,
+    GenerateQuizFromExercisesStep,
+    GenerateTransferExercisesStep,
     GenerateUnitArtDescriptionStep,
     GenerateUnitArtImageStep,
     GenerateUnitPodcastTranscriptStep,
@@ -31,74 +34,123 @@ logger = logging.getLogger(__name__)
 
 
 class LessonCreationFlow(BaseFlow):
-    """Create a complete lesson using lesson metadata extraction + MCQs.
+    """Create a complete lesson using the concept-driven pipeline.
 
     Pipeline:
-    1) Extract lesson metadata and mini-lesson from unit source material
-    2) Generate 5 MCQs that cover the provided learning objectives
+    1) Extract lesson metadata and scoped source material
+    2) Build full learning objective objects
+    3) Extract and annotate the concept glossary
+    4) Generate comprehension and transfer exercises
+    5) Assemble a balanced quiz from the exercise bank
     """
 
     flow_name = "lesson_creation"
 
     class Inputs(BaseModel):
-        topic: str
-        learner_level: str
-        voice: str
-        learning_objectives: list[str]
+        learner_desires: str  # Replaces topic + learner_level + voice
+        learning_objectives: list[str] | list[dict]  # Now accepts full LO objects or strings
         learning_objective_ids: list[str]
         lesson_objective: str
         source_material: str
 
     async def _execute_flow_logic(self, inputs: dict[str, Any]) -> dict[str, Any]:
-        logger.info(f"🧪 Lesson Creation Flow - {inputs.get('topic', 'Unknown')}")
+        logger.info(f"🧪 Lesson Creation Flow - {inputs.get('learner_desires', 'Unknown')[:50]}")
 
-        # Step 1: Extract lesson metadata and mini-lesson
+        # Step 1: Build full lesson learning objective objects FIRST
+        lesson_lo_ids = list(inputs.get("learning_objective_ids", []))
+        raw_los = list(inputs.get("learning_objectives", []))
+        lesson_learning_objectives: list[dict[str, str]] = []
+        for idx, lo_id in enumerate(lesson_lo_ids):
+            raw_item = raw_los[idx] if idx < len(raw_los) else lo_id
+            if isinstance(raw_item, dict):
+                title = str(raw_item.get("title") or raw_item.get("name") or raw_item.get("short_title") or raw_item.get("description") or lo_id)
+                description = str(raw_item.get("description") or title)
+            else:
+                text_value = str(raw_item)
+                title = text_value
+                description = text_value
+            lesson_learning_objectives.append({"id": str(lo_id), "title": title, "description": description})
+
+        # Step 2: Extract lesson metadata and scoped source material
         md_result = await ExtractLessonMetadataStep().execute(
             {
-                "topic": inputs["topic"],
-                "learner_level": inputs["learner_level"],
-                "voice": inputs["voice"],
-                "learning_objectives": inputs["learning_objectives"],
-                "learning_objective_ids": inputs["learning_objective_ids"],
+                "learner_desires": inputs["learner_desires"],
+                "learning_objectives": lesson_learning_objectives,
+                "learning_objective_ids": lesson_lo_ids,
                 "lesson_objective": inputs["lesson_objective"],
                 "source_material": inputs["source_material"],
             }
         )
         lesson_md = md_result.output_content
 
-        # Step 2: Generate MCQs for this lesson
-        mcq_result = await GenerateMCQStep().execute(
+        # Step 3: Extract concept glossary
+        concept_result = await ExtractConceptGlossaryStep().execute(
             {
-                "learner_level": inputs["learner_level"],
-                "voice": inputs["voice"],
-                "lesson_title": inputs["topic"],
+                "learner_desires": inputs["learner_desires"],
+                "topic": lesson_md.topic,
                 "lesson_objective": inputs["lesson_objective"],
-                "learning_objectives": inputs["learning_objectives"],
-                "mini_lesson": lesson_md.mini_lesson,
-                "misconceptions": lesson_md.misconceptions,
-                "confusables": lesson_md.confusables,
-                "glossary": lesson_md.glossary,
+                "lesson_source_material": lesson_md.lesson_source_material,
+                "lesson_learning_objectives": lesson_learning_objectives,
             }
         )
-        mcq_out = mcq_result.output_content
+        concept_output = concept_result.output_content
+        concept_glossary_payload = [concept.model_dump() for concept in concept_output.concepts]
 
-        mcq_stems = [it.stem for it in mcq_out.mcqs]
-
-        short_answer_result = await GenerateShortAnswerStep().execute(
+        # Step 4: Annotate concept glossary
+        refined_result = await AnnotateConceptGlossaryStep().execute(
             {
-                "learner_level": inputs["learner_level"],
-                "voice": inputs["voice"],
-                "lesson_title": inputs["topic"],
+                "learner_desires": inputs["learner_desires"],
+                "topic": lesson_md.topic,
                 "lesson_objective": inputs["lesson_objective"],
-                "learning_objectives": inputs["learning_objectives"],
-                "learning_objective_ids": inputs["learning_objective_ids"],
-                "mini_lesson": lesson_md.mini_lesson,
-                "glossary": lesson_md.glossary,
-                "misconceptions": lesson_md.misconceptions,
-                "mcq_stems": mcq_stems,
+                "lesson_source_material": lesson_md.lesson_source_material,
+                "concept_glossary": concept_glossary_payload,
+                "lesson_learning_objectives": lesson_learning_objectives,
             }
         )
-        short_answers_out = short_answer_result.output_content
+        refined_output = refined_result.output_content
+        refined_concepts_payload = [concept.model_dump() for concept in refined_output.refined_concepts]
+
+        # Step 5: Generate comprehension exercises
+        comprehension_result = await GenerateComprehensionExercisesStep().execute(
+            {
+                "learner_desires": inputs["learner_desires"],
+                "topic": lesson_md.topic,
+                "lesson_objective": inputs["lesson_objective"],
+                "lesson_source_material": lesson_md.lesson_source_material,
+                "refined_concept_glossary": refined_concepts_payload,
+                "lesson_learning_objectives": lesson_learning_objectives,
+            }
+        )
+        comprehension_output = comprehension_result.output_content
+
+        # Step 6: Generate transfer exercises
+        transfer_result = await GenerateTransferExercisesStep().execute(
+            {
+                "learner_desires": inputs["learner_desires"],
+                "topic": lesson_md.topic,
+                "lesson_objective": inputs["lesson_objective"],
+                "lesson_source_material": lesson_md.lesson_source_material,
+                "refined_concept_glossary": refined_concepts_payload,
+                "lesson_learning_objectives": lesson_learning_objectives,
+            }
+        )
+        transfer_output = transfer_result.output_content
+
+        comprehension_payload = [exercise.model_dump() for exercise in comprehension_output.exercises]
+        transfer_payload = [exercise.model_dump() for exercise in transfer_output.exercises]
+        exercise_bank_payload = comprehension_payload + transfer_payload
+
+        # Step 7: Assemble quiz from combined exercise bank
+        quiz_result = await GenerateQuizFromExercisesStep().execute(
+            {
+                "learner_desires": inputs["learner_desires"],
+                "exercise_bank": exercise_bank_payload,
+                "refined_concept_glossary": refined_concepts_payload,
+                "lesson_learning_objectives": lesson_learning_objectives,
+                "target_question_count": len(exercise_bank_payload),
+            }
+        )
+        quiz_output = quiz_result.output_content
 
         return {
             "topic": lesson_md.topic,
@@ -106,12 +158,12 @@ class LessonCreationFlow(BaseFlow):
             "voice": lesson_md.voice,
             "learning_objectives": list(lesson_md.learning_objectives),
             "learning_objective_ids": list(lesson_md.learning_objective_ids),
-            "misconceptions": [m.model_dump() for m in lesson_md.misconceptions],
-            "confusables": [c.model_dump() for c in lesson_md.confusables],
-            "glossary": [g.model_dump() for g in lesson_md.glossary],
+            "lesson_source_material": lesson_md.lesson_source_material,
             "mini_lesson": lesson_md.mini_lesson,
-            "mcqs": [it.model_dump() for it in mcq_out.mcqs],
-            "short_answers": [it.model_dump() for it in short_answers_out.short_answers],
+            "concept_glossary": refined_concepts_payload,
+            "exercise_bank": exercise_bank_payload,
+            "quiz": list(quiz_output.quiz),
+            "quiz_metadata": quiz_output.meta.model_dump(),
         }
 
 
@@ -120,62 +172,67 @@ class UnitCreationFlow(BaseFlow):
 
     Pipeline:
     1) Generate unit source material if not provided
-    2) Extract unit-level metadata (title, objectives, lessons, count)
+    2) Extract unit-level metadata (title, lesson plan) using coach-provided LOs
     """
 
     flow_name = "unit_creation"
 
     class Inputs(BaseModel):
-        topic: str
+        learner_desires: str
+        coach_learning_objectives: list[dict]
         source_material: str | None = None
         target_lesson_count: int | None = None
-        learner_level: str = "beginner"
 
     async def _execute_flow_logic(self, inputs: dict[str, Any]) -> dict[str, Any]:
         """
         Execute the unit creation pipeline.
 
         Args:
-            inputs: Dictionary matching `Inputs` with optional `topic` or
-                `source_material`, plus user context and duration targets.
+            inputs: Dictionary with:
+              - learner_desires: str (unified learner context)
+              - coach_learning_objectives: list[dict] (LOs from coach)
+              - source_material: optional pre-generated material
+              - target_lesson_count: optional lesson count target
 
         Returns:
             Dict containing unit metadata and chunked lesson materials.
         """
         logger.info("🧱 Unit Creation Flow - Starting")
 
+        learner_desires: str = inputs.get("learner_desires") or ""
+        coach_learning_objectives: list[dict] = inputs.get("coach_learning_objectives") or []
+
         # Step 0: Ensure we have source material
         material: str | None = inputs.get("source_material")
-        topic: str | None = inputs.get("topic")
+
         if not material:
-            logger.info("📝 Generating source material from topic…")
+            logger.info("📝 Generating source material…")
             gen_result = await GenerateUnitSourceMaterialStep().execute(
                 {
-                    "topic": topic or "",
+                    "learner_desires": learner_desires,
                     "target_lesson_count": inputs.get("target_lesson_count"),
-                    "learner_level": inputs.get("learner_level", "beginner"),
                 }
             )
             material = str(gen_result.output_content)
 
         assert material is not None  # for type checkers
 
-        # Step 1: Extract unit metadata (LOs, lesson plan)
+        # Step 1: Extract unit metadata (lesson plan using coach LOs)
         logger.info("📋 Extracting unit metadata…")
         md_result = await ExtractUnitMetadataStep().execute(
             {
-                "topic": topic or "",
-                "learner_level": inputs.get("learner_level", "beginner"),
+                "learner_desires": learner_desires,
+                "coach_learning_objectives": coach_learning_objectives,
                 "target_lesson_count": inputs.get("target_lesson_count"),
                 "source_material": material,
             }
         )
         unit_md = md_result.output_content
 
-        # Final assembly (no chunking in active prompt set)
+        # Final assembly - use coach LOs directly (no regeneration)
         return {
             "unit_title": unit_md.unit_title,
-            "learning_objectives": [lo.model_dump() for lo in unit_md.learning_objectives],
+            "learning_objectives": coach_learning_objectives,
             "lessons": [ls.model_dump() for ls in unit_md.lessons],
             "lesson_count": int(unit_md.lesson_count),
             "source_material": material,
@@ -188,6 +245,7 @@ class LessonPodcastFlow(BaseFlow):
     flow_name = "lesson_podcast"
 
     class Inputs(BaseModel):
+        learner_desires: str
         lesson_number: int
         lesson_title: str
         lesson_objective: str
@@ -206,6 +264,7 @@ class LessonPodcastFlow(BaseFlow):
 
         transcript_result = await GenerateLessonPodcastTranscriptStep().execute(
             {
+                "learner_desires": inputs["learner_desires"],
                 "lesson_number": inputs["lesson_number"],
                 "lesson_title": inputs["lesson_title"],
                 "lesson_objective": inputs["lesson_objective"],
@@ -238,6 +297,7 @@ class UnitPodcastFlow(BaseFlow):
     flow_name = "unit_podcast"
 
     class Inputs(BaseModel):
+        learner_desires: str
         unit_title: str
         voice: str
         unit_summary: str
@@ -251,6 +311,7 @@ class UnitPodcastFlow(BaseFlow):
 
         transcript_result = await GenerateUnitPodcastTranscriptStep().execute(
             {
+                "learner_desires": inputs["learner_desires"],
                 "unit_title": inputs["unit_title"],
                 "voice": inputs["voice"],
                 "unit_summary": inputs["unit_summary"],
@@ -282,6 +343,7 @@ class UnitArtCreationFlow(BaseFlow):
     flow_name = "unit_art_creation"
 
     class Inputs(BaseModel):
+        learner_desires: str
         unit_title: str
         unit_description: str | None = None
         learning_objectives: list[str] = []
@@ -299,6 +361,7 @@ class UnitArtCreationFlow(BaseFlow):
         key_concepts_str = "\n".join(f"- {concept}" for concept in key_concepts) if key_concepts else "- (None specified)"
 
         description_inputs = {
+            "learner_desires": inputs.get("learner_desires", ""),
             "unit_title": inputs.get("unit_title", ""),
             "unit_description": inputs.get("unit_description"),
             "learning_objectives": learning_objectives_str,

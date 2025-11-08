@@ -216,7 +216,7 @@ class CatalogService:
             objective_texts = await self._map_objective_ids_to_text(getattr(lesson, "unit_id", None), objective_ids)
             if not objective_texts:
                 objective_texts = objective_ids
-            exercise_count = len(package.exercises)
+            exercise_count = len(package.exercise_bank)
 
             summaries.append(
                 LessonSummary(
@@ -250,8 +250,16 @@ class CatalogService:
 
         # Package-aligned fields
         mini_lesson = lesson.package.mini_lesson
+
+        # Build exercise map for quick lookup
+        exercise_map = {ex.id: ex for ex in lesson.package.exercise_bank}
+
+        # Filter exercises to only those in quiz, preserving quiz order
         exercises = []
-        for exercise in lesson.package.exercises:
+        for exercise_id in lesson.package.quiz:
+            exercise = exercise_map.get(exercise_id)
+            if not exercise:
+                continue
             if exercise.exercise_type == "mcq":
                 stem = getattr(exercise, "stem", "Question")
                 options = getattr(exercise, "options", [])
@@ -281,7 +289,7 @@ class CatalogService:
                         "wrong_answers": [
                             {
                                 "answer": wrong.answer,
-                                "explanation": wrong.explanation,
+                                "rationale_wrong": wrong.rationale_wrong,
                                 "misconception_ids": list(wrong.misconception_ids),
                             }
                             for wrong in getattr(exercise, "wrong_answers", [])
@@ -293,7 +301,7 @@ class CatalogService:
                     }
                 )
 
-        glossary_terms = [{"id": term.id, "term": term.term, "definition": term.definition} for term in lesson.package.glossary.get("terms", [])]
+        glossary_terms = [{"id": term.id, "term": term.term, "definition": term.definition} for term in lesson.package.concept_glossary]
 
         objective_ids = self._extract_lesson_objective_ids(lesson.package)
         objectives = await self._map_objective_ids_to_text(lesson.unit_id, objective_ids)
@@ -356,8 +364,8 @@ class CatalogService:
             objectives = await self._map_objective_ids_to_text(getattr(lesson, "unit_id", None), objective_ids)
             if not objectives:
                 objectives = objective_ids
-            key_concepts = [term.term for term in package.glossary.get("terms", [])]
-            exercise_count = len(package.exercises)
+            key_concepts = [term.term for term in package.concept_glossary]
+            exercise_count = len(package.exercise_bank)
 
             summaries.append(
                 LessonSummary(
@@ -404,9 +412,12 @@ class CatalogService:
         summaries = []
         for lesson in lessons:
             # Extract data from package
-            objectives = [obj.text for obj in lesson.package.objectives]
-            key_concepts = [term.term for term in lesson.package.glossary.get("terms", [])]
-            exercise_count = len(lesson.package.exercises)
+            objective_ids = self._extract_lesson_objective_ids(lesson.package)
+            objectives = await self._map_objective_ids_to_text(getattr(lesson, "unit_id", None), objective_ids)
+            if not objectives:
+                objectives = objective_ids
+            key_concepts = [term.term for term in lesson.package.concept_glossary]
+            exercise_count = len(lesson.package.exercise_bank)
 
             summaries.append(
                 LessonSummary(
@@ -448,7 +459,7 @@ class CatalogService:
         duration_distribution = {"0-15": 0, "15-30": 0, "30-60": 0, "60+": 0}
 
         for lesson in all_lessons:
-            exercise_count = len(lesson.package.exercises)
+            exercise_count = len(lesson.package.exercise_bank)
 
             # Readiness
             if exercise_count > 0:
@@ -628,9 +639,9 @@ class CatalogService:
 
         raw_ids = list(getattr(package, "unit_learning_objective_ids", []) or [])
         if not raw_ids:
-            exercises = getattr(package, "exercises", []) or []
+            exercises = getattr(package, "exercise_bank", []) or []
             for exercise in exercises:
-                lo_id = getattr(exercise, "lo_id", None)
+                lo_id = getattr(exercise, "aligned_learning_objective", None)
                 if lo_id:
                     raw_ids.append(lo_id)
 
@@ -749,8 +760,8 @@ class CatalogService:
             lesson_ids = self._extract_lesson_objective_ids(package)
             lesson_objective_ids.update(lesson_ids)
 
-            for exercise in getattr(package, "exercises", []) or []:
-                lo_id = getattr(exercise, "lo_id", None)
+            for exercise in getattr(package, "exercise_bank", []) or []:
+                lo_id = getattr(exercise, "aligned_learning_objective", None)
                 if not lo_id:
                     continue
                 exercise_to_objective[exercise.id] = lo_id

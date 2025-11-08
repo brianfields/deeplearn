@@ -5,6 +5,7 @@ import type {
   LessonSummary,
   ResourceWithUsage,
   UserDetail,
+  ShortAnswerExercise,
 } from './models';
 import { AdminService } from './service';
 
@@ -265,13 +266,112 @@ describe('AdminService resource-aware mappings', () => {
     expect(summary.podcast_generated_at).toEqual(new Date('2024-01-01T01:10:00Z'));
   });
 
-  it('maps lesson detail podcast metadata', async () => {
+  it('maps lesson detail package and podcast metadata', async () => {
     mocks.lessonById.mockResolvedValueOnce({
       id: 'lesson-1',
       title: 'Lesson One',
       learner_level: 'beginner',
       source_material: 'Source',
-      package: { exercises: [], mini_lesson: 'Mini lesson' },
+      package: {
+        meta: {
+          lesson_id: 'lesson-1',
+          title: 'Lesson One',
+          learner_level: 'beginner',
+          package_schema_version: 2,
+          content_version: 1,
+        },
+        unit_learning_objective_ids: ['lo-1'],
+        mini_lesson: 'Mini lesson',
+        concept_glossary: [
+          {
+            id: 'concept-1',
+            term: 'Photosynthesis',
+            slug: 'photosynthesis',
+            aliases: ['photosynthesis process'],
+            definition: 'Definition',
+            example_from_source: 'Excerpt',
+            source_span: 'lines 1-3',
+            category: 'science',
+            centrality: 5,
+            distinctiveness: 4,
+            transferability: 3,
+            clarity: 4,
+            assessment_potential: 5,
+            cognitive_domain: 'Recall',
+            difficulty_potential: { easy: 'direct recall' },
+            learning_role: 'core',
+            aligned_learning_objectives: ['lo-1'],
+            canonical_answer: 'Answer',
+            accepted_phrases: ['Answer'],
+            answer_type: 'short',
+            closed_answer: true,
+            example_question_stem: 'What is photosynthesis?',
+            plausible_distractors: ['respiration'],
+            misconception_note: 'Often confused with respiration',
+            contrast_with: ['respiration'],
+            related_concepts: ['energy'],
+            review_notes: 'Review annually',
+            source_reference: 'Textbook',
+            version: '1.0',
+          },
+        ],
+        exercise_bank: [
+          {
+            id: 'ex-1',
+            exercise_type: 'mcq',
+            exercise_category: 'comprehension',
+            aligned_learning_objective: 'lo-1',
+            cognitive_level: 'Recall',
+            difficulty: 'easy',
+            stem: 'What is 2 + 2?',
+            options: [
+              { id: 'opt-1', label: 'A', text: '4', rationale_wrong: null },
+              { id: 'opt-2', label: 'B', text: '3', rationale_wrong: 'Subtracting one' },
+            ],
+            answer_key: { label: 'A', option_id: 'opt-1', rationale_right: '2 + 2 equals 4' },
+          },
+          {
+            id: 'ex-2',
+            exercise_type: 'short_answer',
+            exercise_category: 'transfer',
+            aligned_learning_objective: 'lo-1',
+            cognitive_level: 'Application',
+            difficulty: 'medium',
+            stem: 'Explain photosynthesis in your own words.',
+            canonical_answer: 'Plants convert light into chemical energy.',
+            acceptable_answers: [
+              'Plants convert light into chemical energy.',
+              'Plants turn sunlight into food',
+            ],
+            wrong_answers: [
+              {
+                answer: 'Plants breathe oxygen',
+                rationale_wrong: 'Mixes up respiration',
+                misconception_ids: ['misc-1'],
+              },
+            ],
+            explanation_correct: 'Photosynthesis uses sunlight to create glucose.',
+          },
+        ],
+        quiz: ['ex-1', 'ex-2'],
+        quiz_metadata: {
+          quiz_type: 'standard',
+          total_items: 2,
+          difficulty_distribution_target: { easy: 0.5, medium: 0.5 },
+          difficulty_distribution_actual: { easy: 0.5, medium: 0.5 },
+          cognitive_mix_target: { Recall: 0.5, Application: 0.5 },
+          cognitive_mix_actual: { Recall: 0.5, Application: 0.5 },
+          coverage_by_LO: {
+            'lo-1': { exercise_ids: ['ex-1', 'ex-2'], concepts: ['concept-1'] },
+          },
+          coverage_by_concept: {
+            'concept-1': { exercise_ids: ['ex-1'], types: ['mcq'] },
+          },
+          normalizations_applied: ['Balanced difficulty'],
+          selection_rationale: ['Matches objectives'],
+          gaps_identified: [],
+        },
+      },
       package_version: 1,
       flow_run_id: null,
       created_at: '2024-01-01T00:00:00Z',
@@ -293,6 +393,15 @@ describe('AdminService resource-aware mappings', () => {
     expect(lesson?.podcast_audio_url).toBe('/audio/lesson-1.mp3');
     expect(lesson?.podcast_duration_seconds).toBe(200);
     expect(lesson?.podcast_generated_at).toEqual(new Date('2024-01-01T01:30:00Z'));
+    expect(lesson?.package.unit_learning_objective_ids).toEqual(['lo-1']);
+    expect(lesson?.package.concept_glossary[0].term).toBe('Photosynthesis');
+    expect(lesson?.package.exercise_bank[0].exercise_category).toBe('comprehension');
+    expect(lesson?.package.exercise_bank[1].exercise_type).toBe('short_answer');
+    const shortAnswerExercise = lesson?.package.exercise_bank[1] as ShortAnswerExercise;
+    expect(shortAnswerExercise?.wrong_answers[0].rationale_wrong).toBe('Mixes up respiration');
+    expect(lesson?.package.quiz).toEqual(['ex-1', 'ex-2']);
+    expect(lesson?.package.quiz_metadata.total_items).toBe(2);
+    expect(lesson?.package.quiz_metadata.coverage_by_LO['lo-1'].concepts).toContain('concept-1');
   });
 
   it('maps unit detail including associated resources', async () => {
