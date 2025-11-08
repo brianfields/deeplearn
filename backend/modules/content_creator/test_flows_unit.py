@@ -122,16 +122,12 @@ async def test_lesson_creation_flow_runs_podcast_pipeline(
     result = await flow._execute_flow_logic(
         {
             "learner_desires": "Curious adult",
-            "learning_objectives": [
-                {"id": "lo_1", "title": "Explain concept", "description": "Explain concept"}
-            ],
+            "learning_objectives": [{"id": "lo_1", "title": "Explain concept", "description": "Explain concept"}],
             "learning_objective_ids": ["lo_1"],
             "lesson_objective": "Explain it",
             "source_material": "Full source",
             "lesson_title": "Lesson One",
-            "sibling_lessons": [
-                {"title": "Lesson Two", "lesson_objective": "Do something else"}
-            ],
+            "sibling_lessons": [{"title": "Lesson Two", "lesson_objective": "Do something else"}],
         }
     )
 
@@ -142,6 +138,7 @@ async def test_lesson_creation_flow_runs_podcast_pipeline(
     assert result["podcast_transcript"] == "Transcript body"
     assert result["quiz"] == ["ex-comp-mc-001"]
     assert result["quiz_metadata"]["total_items"] == 1
+
 
 @pytest.mark.asyncio
 @patch("modules.content_creator.flows.GenerateLessonPodcastTranscriptStep")
@@ -338,13 +335,8 @@ class TestServiceFlows:
                         "cognitive_level": "Comprehension",
                         "difficulty": "medium",
                         "stem": "Question?",
-                        "options": [
-                            {"label": "A", "text": "Option A"},
-                            {"label": "B", "text": "Option B"},
-                            {"label": "C", "text": "Option C"},
-                            {"label": "D", "text": "Option D"}
-                        ],
-                        "answer_key": {"label": "A", "rationale_right": "Because"}
+                        "options": [{"label": "A", "text": "Option A"}, {"label": "B", "text": "Option B"}, {"label": "C", "text": "Option C"}, {"label": "D", "text": "Option D"}],
+                        "answer_key": {"label": "A", "rationale_right": "Because"},
                     }
                 ],
                 "quiz": ["ex-comp-mc-001"],
@@ -471,13 +463,8 @@ class TestServiceFlows:
                         "cognitive_level": "Comprehension",
                         "difficulty": "medium",
                         "stem": "Question?",
-                        "options": [
-                            {"label": "A", "text": "Option A"},
-                            {"label": "B", "text": "Option B"},
-                            {"label": "C", "text": "Option C"},
-                            {"label": "D", "text": "Option D"}
-                        ],
-                        "answer_key": {"label": "A", "rationale_right": "Because"}
+                        "options": [{"label": "A", "text": "Option A"}, {"label": "B", "text": "Option B"}, {"label": "C", "text": "Option C"}, {"label": "D", "text": "Option D"}],
+                        "answer_key": {"label": "A", "rationale_right": "Because"},
                     }
                 ],
                 "quiz": ["ex-comp-mc-001"],

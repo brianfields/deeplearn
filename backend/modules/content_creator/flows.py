@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 from modules.flow_engine.public import BaseFlow
 
 from .steps import (
+    ExtractUnitMetadataStep,
     GenerateLessonPodcastTranscriptStep,
     GenerateMCQsUnstructuredStep,
     GenerateUnitArtDescriptionStep,
@@ -24,7 +25,6 @@ from .steps import (
     PodcastLessonInput,
     SynthesizePodcastAudioStep,
     ValidateAndStructureMCQsStep,
-    ExtractUnitMetadataStep,
 )
 
 logger = logging.getLogger(__name__)
@@ -54,13 +54,7 @@ class LessonCreationFlow(BaseFlow):
         for idx, lo_id in enumerate(lesson_lo_ids):
             raw_item = raw_los[idx] if idx < len(raw_los) else lo_id
             if isinstance(raw_item, dict):
-                title = str(
-                    raw_item.get("title")
-                    or raw_item.get("name")
-                    or raw_item.get("short_title")
-                    or raw_item.get("description")
-                    or lo_id
-                )
+                title = str(raw_item.get("title") or raw_item.get("name") or raw_item.get("short_title") or raw_item.get("description") or lo_id)
                 description = str(raw_item.get("description") or title)
             else:
                 text_value = str(raw_item)
@@ -68,10 +62,7 @@ class LessonCreationFlow(BaseFlow):
                 description = text_value
             lesson_learning_objectives.append({"id": str(lo_id), "title": title, "description": description})
 
-        sibling_lessons = [
-            {"title": str(item.get("title", "")), "lesson_objective": str(item.get("lesson_objective", ""))}
-            for item in inputs.get("sibling_lessons", []) or []
-        ]
+        sibling_lessons = [{"title": str(item.get("title", "")), "lesson_objective": str(item.get("lesson_objective", ""))} for item in inputs.get("sibling_lessons", []) or []]
 
         lesson_title = str(inputs.get("lesson_title") or "Lesson")
         transcript_result = await GenerateLessonPodcastTranscriptStep().execute(

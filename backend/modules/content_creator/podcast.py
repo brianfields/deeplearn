@@ -80,10 +80,7 @@ class UnitPodcastGenerator:
 
         resolved_voice = voice_label or self.default_voice_id
         # Build plain-JSON lesson inputs to avoid Pydantic instances leaking into DB JSON columns
-        lesson_inputs = [
-            {"title": lesson.title, "podcast_transcript": lesson.podcast_transcript}
-            for lesson in lessons
-        ]
+        lesson_inputs = [{"title": lesson.title, "podcast_transcript": lesson.podcast_transcript} for lesson in lessons]
         flow_inputs = {
             "learner_desires": learner_desires,
             "unit_title": unit_title,

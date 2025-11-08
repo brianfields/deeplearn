@@ -308,10 +308,7 @@ class GeminiProvider(LLMProvider):
         cached_input_tokens = usage.get("cachedContentInputTokens")
         cache_creation_tokens = usage.get("cacheCreationInputTokens")
         if cached_input_tokens or cache_creation_tokens:
-            self._logger.debug(
-                f"Gemini cache stats - cached_input: {cached_input_tokens}, "
-                f"cache_creation: {cache_creation_tokens}"
-            )
+            self._logger.debug(f"Gemini cache stats - cached_input: {cached_input_tokens}, cache_creation: {cache_creation_tokens}")
 
         if total_tokens is None and (input_tokens is not None or output_tokens is not None):
             total_tokens = (input_tokens or 0) + (output_tokens or 0)
@@ -366,11 +363,7 @@ class GeminiProvider(LLMProvider):
         def remove_meta_fields(obj: Any) -> Any:
             """Remove $schema, $defs, and other meta fields."""
             if isinstance(obj, dict):
-                return {
-                    k: remove_meta_fields(v)
-                    for k, v in obj.items()
-                    if not k.startswith("$") and k not in {"examples", "default"}
-                }
+                return {k: remove_meta_fields(v) for k, v in obj.items() if not k.startswith("$") and k not in {"examples", "default"}}
             elif isinstance(obj, list):
                 return [remove_meta_fields(item) for item in obj]
             else:
@@ -523,11 +516,7 @@ class GeminiProvider(LLMProvider):
                 # Show context around the error position
                 context_start = max(0, exc.pos - 100)
                 context_end = min(len(content), exc.pos + 100)
-                self._logger.error(
-                    f"Context around error position:\n"
-                    f"  [chars {context_start}-{context_end}]:\n"
-                    f"  ...{content[context_start:context_end]}..."
-                )
+                self._logger.error(f"Context around error position:\n  [chars {context_start}-{context_end}]:\n  ...{content[context_start:context_end]}...")
                 self._logger.error(f"Full raw response:\n{content}")
 
                 # Try to extract JSON from markdown code block if present
@@ -547,18 +536,14 @@ class GeminiProvider(LLMProvider):
                         json_start = content.find("{")
                         json_end = content.rfind("}")
                         if json_start >= 0 and json_end > json_start:
-                            content = content[json_start:json_end + 1]
+                            content = content[json_start : json_end + 1]
                             parsed_payload = json.loads(content)
                             structured_obj = response_model(**parsed_payload)
                     except (json.JSONDecodeError, ValueError):
                         pass  # Fall through to main error below
 
                 # If we get here, JSON extraction failed
-                raise LLMValidationError(
-                    f"Failed to parse structured Gemini response: {exc.msg} at position {exc.pos}. "
-                    f"Total response length: {len(content)} chars. "
-                    f"Check logs for full response output."
-                ) from exc
+                raise LLMValidationError(f"Failed to parse structured Gemini response: {exc.msg} at position {exc.pos}. Total response length: {len(content)} chars. Check logs for full response output.") from exc
             except (TypeError, ValueError) as exc:
                 raise LLMValidationError(f"Failed to validate Gemini response model: {exc}") from exc
 

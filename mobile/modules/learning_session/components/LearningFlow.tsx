@@ -98,7 +98,9 @@ export default function LearningFlow({
 
   // Track whether the podcast transcript intro has been shown this session
   const [transcriptShown, setTranscriptShown] = useState(false);
-  const [podcastTranscript, setPodcastTranscript] = useState<string | null>(null);
+  const [podcastTranscript, setPodcastTranscript] = useState<string | null>(
+    null
+  );
 
   // Fetch podcast transcript from lesson details (package-aligned)
   useEffect(() => {
@@ -356,9 +358,13 @@ export default function LearningFlow({
         {shouldShowTranscript && podcastTranscript && (
           <View style={styles.transcriptContainer}>
             <View style={styles.transcriptHeader}>
-              <Text style={styles.transcriptLabel}>Lesson Podcast Transcript</Text>
+              <Text style={styles.transcriptLabel}>
+                Lesson Podcast Transcript
+              </Text>
               {session?.lessonTitle ? (
-                <Text style={styles.transcriptTitle}>{session.lessonTitle}</Text>
+                <Text style={styles.transcriptTitle}>
+                  {session.lessonTitle}
+                </Text>
               ) : null}
             </View>
             <ScrollView

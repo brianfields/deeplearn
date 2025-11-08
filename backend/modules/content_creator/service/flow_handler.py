@@ -138,10 +138,7 @@ class FlowHandler:
         )
         await self._content.commit_session()
 
-        unit_los: dict[str, dict] = {
-            lo.id: {"id": lo.id, "title": lo.title, "description": lo.description}
-            for lo in unit_learning_objectives
-        }
+        unit_los: dict[str, dict] = {lo.id: {"id": lo.id, "title": lo.title, "description": lo.description} for lo in unit_learning_objectives}
 
         lesson_ids: list[str] = []
         podcast_lessons: list[PodcastLesson] = []
@@ -343,10 +340,7 @@ class FlowHandler:
 
         lesson_title = lesson_plan.get("title") or f"Lesson {lesson_index + 1}"
         lesson_lo_ids: list[str] = list(lesson_plan.get("learning_objective_ids", []) or [])
-        lesson_lo_objects: list[dict] = [
-            unit_los.get(lid, {"id": lid, "title": lid, "description": lid})
-            for lid in lesson_lo_ids
-        ]
+        lesson_lo_objects: list[dict] = [unit_los.get(lid, {"id": lid, "title": lid, "description": lid}) for lid in lesson_lo_ids]
         lesson_objective_text: str = lesson_plan.get("lesson_objective", "")
 
         logger.info(f"      📝 Lesson {lesson_index + 1}: {lesson_title[:60]}{'...' if len(lesson_title) > 60 else ''}")
@@ -479,26 +473,22 @@ class FlowHandler:
         quiz_ids = [str(ex_id) for ex_id in md_res.get("quiz", []) or []]
         quiz_meta_payload = md_res.get("quiz_metadata") or {}
         difficulty_keys = ["easy", "medium", "hard"]
-        diff_counts: dict[str, int] = {key: 0 for key in difficulty_keys}
+        diff_counts: dict[str, int] = dict.fromkeys(difficulty_keys, 0)
         for exercise in exercise_bank:
             key = exercise.difficulty.lower()
             if key in diff_counts:
                 diff_counts[key] += 1
 
         total_exercises = len(exercise_bank) or 1
-        difficulty_distribution_actual = {
-            key: diff_counts[key] / total_exercises for key in difficulty_keys
-        }
+        difficulty_distribution_actual = {key: diff_counts[key] / total_exercises for key in difficulty_keys}
         difficulty_distribution_target = dict(difficulty_distribution_actual)
 
         cognitive_keys = ["Recall", "Comprehension", "Application", "Transfer"]
-        cognitive_counts: dict[str, int] = {key: 0 for key in cognitive_keys}
+        cognitive_counts: dict[str, int] = dict.fromkeys(cognitive_keys, 0)
         for exercise in exercise_bank:
             if exercise.cognitive_level in cognitive_counts:
                 cognitive_counts[exercise.cognitive_level] += 1
-        cognitive_mix_actual = {
-            key: cognitive_counts[key] / total_exercises for key in cognitive_keys
-        }
+        cognitive_mix_actual = {key: cognitive_counts[key] / total_exercises for key in cognitive_keys}
         cognitive_mix_target = dict(cognitive_mix_actual)
 
         coverage_by_lo: dict[str, QuizCoverageByLO] = {}
