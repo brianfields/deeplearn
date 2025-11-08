@@ -42,10 +42,7 @@ class LessonDetail(BaseModel):
     title: str
     learner_level: str
     learning_objectives: list[str]
-    key_concepts: list[str]
-    mini_lesson: str
     exercises: list[dict[str, Any]]
-    glossary_terms: list[dict[str, Any]]
     created_at: str
     exercise_count: int
     unit_id: str | None = None
@@ -248,9 +245,6 @@ class CatalogService:
         if not lesson:
             return None
 
-        # Package-aligned fields
-        mini_lesson = lesson.package.mini_lesson
-
         # Build exercise map for quick lookup
         exercise_map = {ex.id: ex for ex in lesson.package.exercise_bank}
 
@@ -301,8 +295,6 @@ class CatalogService:
                     }
                 )
 
-        glossary_terms = [{"id": term.id, "term": term.term, "definition": term.definition} for term in lesson.package.concept_glossary]
-
         objective_ids = self._extract_lesson_objective_ids(lesson.package)
         objectives = await self._map_objective_ids_to_text(lesson.unit_id, objective_ids)
         if not objectives:
@@ -313,10 +305,7 @@ class CatalogService:
             title=lesson.title,
             learner_level=lesson.learner_level,
             learning_objectives=objectives,
-            key_concepts=[],  # Key concepts are now in glossary terms
-            mini_lesson=mini_lesson,
             exercises=exercises,
-            glossary_terms=glossary_terms,
             created_at=str(lesson.created_at),
             exercise_count=len(exercises),
             unit_id=lesson.unit_id,
@@ -364,7 +353,7 @@ class CatalogService:
             objectives = await self._map_objective_ids_to_text(getattr(lesson, "unit_id", None), objective_ids)
             if not objectives:
                 objectives = objective_ids
-            key_concepts = [term.term for term in package.concept_glossary]
+            key_concepts: list[str] = []
             exercise_count = len(package.exercise_bank)
 
             summaries.append(
@@ -416,7 +405,7 @@ class CatalogService:
             objectives = await self._map_objective_ids_to_text(getattr(lesson, "unit_id", None), objective_ids)
             if not objectives:
                 objectives = objective_ids
-            key_concepts = [term.term for term in lesson.package.concept_glossary]
+            key_concepts: list[str] = []
             exercise_count = len(lesson.package.exercise_bank)
 
             summaries.append(

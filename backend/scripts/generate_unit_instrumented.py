@@ -361,6 +361,8 @@ class InstrumentedUnitGenerator:
 
         unit_los = {lo.id: {"id": lo.id, "title": lo.title, "description": lo.description} for lo in learning_objectives}
 
+        podcast_lessons: list[PodcastLesson] = []
+
         for i, lesson_plan in enumerate(lessons_plan):
             lesson_num = i + 1
             lesson_title = lesson_plan.get("title", f"Lesson {lesson_num}")
@@ -388,6 +390,9 @@ class InstrumentedUnitGenerator:
             )
             await self.track_step(f"lesson_{lesson_num}_creation")
 
+            podcast_transcript = str(lesson_result.get("podcast_transcript") or "")
+            podcast_lessons.append(PodcastLesson(title=lesson_title, podcast_transcript=podcast_transcript))
+
             # For now, we'll skip persisting lessons since the LLM output doesn't match
             # the strict LessonPackage schema (missing exercise_type, option IDs, etc.)
             # The main goal is LLM tracking which is working
@@ -404,15 +409,6 @@ class InstrumentedUnitGenerator:
         logger.info("\n🎙️ Phase 4: Media Generation")
         logger.info("   🎧 Generating unit intro podcast...")
 
-        # Build podcast lessons
-        podcast_lessons = [
-            PodcastLesson(
-                title=lessons_plan[i].get("title", f"Lesson {i + 1}"),
-                mini_lesson=lessons_plan[i].get("lesson_objective", ""),
-            )
-            for i in range(len(lessons_plan))
-        ]
-
         unit_podcast_flow = UnitPodcastFlow()
         await unit_podcast_flow.execute(
             {
@@ -420,7 +416,7 @@ class InstrumentedUnitGenerator:
                 "unit_title": unit_title,
                 "voice": "Plain",
                 "unit_summary": f"A {self.config.target_lessons}-lesson unit on {self.config.topic}",
-                "lessons": [{"title": pl.title, "mini_lesson": pl.mini_lesson} for pl in podcast_lessons],
+                "lessons": [{"title": pl.title, "podcast_transcript": pl.podcast_transcript} for pl in podcast_lessons],
             }
         )
         await self.track_step("unit_podcast_generation")
@@ -544,25 +540,20 @@ class InstrumentedUnitGenerator:
             # Extract titles for the flow
             lesson_lo_titles = [lo["title"] for lo in lesson_lo_objects]
 
-            # For regeneration, we need to infer the lesson objective
-            # from the existing mini_lesson or title
-            lesson_objective = f"Learn {lesson.title}"
-            mini_lesson = package.mini_lesson
-            if mini_lesson:
-                # Extract first sentence as objective
-                first_sentence = mini_lesson.split(".")[0] if "." in mini_lesson else mini_lesson[:100]
-                lesson_objective = first_sentence
+            # For regeneration, infer a concise lesson objective from LO titles
+            lesson_objective = lesson_lo_titles[0] if lesson_lo_titles else f"Learn {lesson.title}"
+            podcast_transcript = getattr(lesson, "podcast_transcript", None) or ""
 
             # We need the unit source material - try to get it from unit metadata
             # In a real system, this should be stored with the unit
             source_material = getattr(unit, "source_material", None) or ""
             if not source_material:
-                logger.warning("      ⚠️ No source material found, using mini_lesson as fallback")
-                source_material = mini_lesson
+                logger.warning("      ⚠️ No source material found, using podcast transcript as fallback")
+                source_material = podcast_transcript or lesson.title
 
             # Re-run lesson creation flow
             lesson_flow = LessonCreationFlow()
-            _lesson_result = await lesson_flow.execute(
+            await lesson_flow.execute(
                 {
                     "learner_desires": learner_desires,
                     "learning_objectives": lesson_lo_titles,  # Pass titles as strings
@@ -663,7 +654,7 @@ class InstrumentedUnitGenerator:
 
             # Generate lesson content
             lesson_flow = LessonCreationFlow()
-            lesson_result = await lesson_flow.execute(
+            await lesson_flow.execute(
                 {
                     "learner_desires": learner_desires,
                     "learning_objectives": lesson_lo_titles,
@@ -747,8 +738,16 @@ class InstrumentedUnitGenerator:
                 logger.warning("      ⚠️ Lesson %s has no package, skipping", lesson_num)
                 continue
 
-            mini_lesson = package.mini_lesson
-            lesson_objective = f"Learn {lesson.title}"
+            podcast_transcript = getattr(lesson, "podcast_transcript", None) or ""
+            lesson_learning_objectives = []
+            for lo_id in package.unit_learning_objective_ids:
+                unit_lo = next(
+                    (lo for lo in unit.learning_objectives if isinstance(lo, dict) and lo.get("id") == lo_id),
+                    None,
+                )
+                if unit_lo:
+                    lesson_learning_objectives.append(unit_lo)
+            lesson_objective = lesson_learning_objectives[0].get("title") if lesson_learning_objectives and isinstance(lesson_learning_objectives[0], dict) else f"Learn {lesson.title}"
 
             lesson_podcast_flow = LessonPodcastFlow()
             await lesson_podcast_flow.execute(
@@ -757,8 +756,10 @@ class InstrumentedUnitGenerator:
                     "lesson_number": lesson_num,
                     "lesson_title": lesson.title,
                     "lesson_objective": lesson_objective,
-                    "mini_lesson": mini_lesson,
+                    "podcast_transcript": podcast_transcript,
                     "voice": "Plain",
+                    "learning_objectives": lesson_learning_objectives,
+                    "source_material": unit.source_material,
                 }
             )
             await self.track_step(f"lesson_{lesson_num}_podcast")
@@ -769,7 +770,7 @@ class InstrumentedUnitGenerator:
         podcast_lessons = [
             PodcastLesson(
                 title=lesson.title,
-                mini_lesson=lesson.package.mini_lesson if lesson.package else "",
+                podcast_transcript=(lesson.podcast_transcript if hasattr(lesson, "podcast_transcript") else None) or lesson.title,
             )
             for lesson in lessons
             if lesson.package
@@ -782,7 +783,7 @@ class InstrumentedUnitGenerator:
                 "unit_title": unit.title,
                 "voice": "Plain",
                 "unit_summary": unit.description or f"A learning unit on {unit.title}",
-                "lessons": [{"title": pl.title, "mini_lesson": pl.mini_lesson} for pl in podcast_lessons],
+                "lessons": [{"title": pl.title, "podcast_transcript": pl.podcast_transcript} for pl in podcast_lessons],
             }
         )
         await self.track_step("unit_podcast")
@@ -833,9 +834,6 @@ class InstrumentedUnitGenerator:
         if not unit_with_lessons:
             raise ValueError(f"Unit {unit_id} not found in content service")
 
-        # Fetch lessons separately
-        lessons = await self.content.get_lessons_by_unit(unit_id)
-
         logger.info("\n🖼️ Unit: %s", unit.title)
 
         learner_desires = f"I want to learn about {unit.title}. I am a {self.config.learner_level} learner. Please use a plain, clear teaching voice."
@@ -849,14 +847,8 @@ class InstrumentedUnitGenerator:
                     if title:
                         learning_objectives.append(title)
 
-        # Extract key concepts from first lesson (if available)
-        key_concepts = []
-        if lessons:
-            first_lesson = lessons[0]
-            if first_lesson.package:
-                concept_glossary = first_lesson.package.concept_glossary
-                for concept in concept_glossary[:10]:  # Top 10 concepts
-                    key_concepts.append(concept.term)
+        # Derive key concept hints from learning objectives as a fallback
+        key_concepts = learning_objectives[:5]
 
         logger.info("   Learning Objectives: %s", len(learning_objectives))
         logger.info("   Key Concepts: %s", len(key_concepts))

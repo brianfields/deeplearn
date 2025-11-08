@@ -13,11 +13,8 @@ from modules.content.package_models import (
     ExerciseOption,
     LessonPackage,
     Meta,
-    QuizCoverageByConcept,
     QuizCoverageByLO,
     QuizMetadata,
-    RefinedConcept,
-    WrongAnswerWithRationale,
 )
 from modules.content.public import ContentProvider, LessonCreate, UnitStatus, content_provider
 from modules.infrastructure.public import infrastructure_provider
@@ -174,6 +171,7 @@ class FlowHandler:
                     unit_los=unit_los,
                     unit_material=unit_material,
                     learner_desires=learner_desires,
+                    lessons_plan=lessons_plan,
                     arq_task_id=arq_task_id,
                 )
                 for i, lp in enumerate(batch, start=batch_start)
@@ -338,6 +336,7 @@ class FlowHandler:
         unit_los: dict[str, str],
         unit_material: str,
         learner_desires: str,
+        lessons_plan: list[dict[str, Any]],
         arq_task_id: str | None,
     ) -> tuple[str, PodcastLesson, str, set[str]]:
         """Create a single lesson and return (lesson_id, podcast_lesson, voice, covered_lo_ids)."""
@@ -352,6 +351,15 @@ class FlowHandler:
 
         logger.info(f"      📝 Lesson {lesson_index + 1}: {lesson_title[:60]}{'...' if len(lesson_title) > 60 else ''}")
 
+        sibling_context = [
+            {
+                "title": str(item.get("title", "")),
+                "lesson_objective": str(item.get("lesson_objective", "")),
+            }
+            for item in lessons_plan
+            if item is not lesson_plan
+        ]
+
         md_res = await LessonCreationFlow().execute(
             {
                 "learner_desires": learner_desires,
@@ -359,17 +367,16 @@ class FlowHandler:
                 "learning_objective_ids": lesson_lo_ids,
                 "lesson_objective": lesson_objective_text,
                 "source_material": unit_material,
+                "lesson_title": lesson_title,
+                "lesson_number": lesson_index + 1,
+                "sibling_lessons": sibling_context,
             },
             arq_task_id=arq_task_id,
         )
 
         def _normalize_exercise_type(raw_type: str | None) -> str:
-            value = (raw_type or "").strip().lower().replace("_", "-")
-            if value in {"multiple-choice", "multiple choice", "mcq"}:
-                return "mcq"
-            if value in {"short-answer", "short answer", "sa"}:
-                return "short_answer"
-            return value or "short_answer"
+            value = (raw_type or "mcq").strip().lower().replace("_", "-")
+            return "mcq" if value != "short-answer" else "short_answer"
 
         def _normalize_category(raw_category: str | None) -> str:
             value = (raw_category or "comprehension").strip().lower()
@@ -377,7 +384,7 @@ class FlowHandler:
 
         db_lesson_id = str(uuid.uuid4())
         # Extract learner level from learner_desires or use value from flow response
-        extracted_learner_level = str(md_res.get("learner_level") or "intermediate")
+        extracted_learner_level = "intermediate"
         meta = Meta(
             lesson_id=db_lesson_id,
             title=lesson_title,
@@ -386,62 +393,26 @@ class FlowHandler:
             content_version=1,
         )
 
-        mini_lesson_text = str(md_res.get("mini_lesson") or "")
+        podcast_transcript = str(md_res.get("podcast_transcript") or "")
+        voice_label = "Plain"
         podcast_lesson, lesson_podcast_result = await self._media_handler.generate_lesson_podcast(
             learner_desires=learner_desires,
             lesson_index=lesson_index,
             lesson_title=lesson_title,
             lesson_objective=lesson_objective_text,
-            mini_lesson=mini_lesson_text,
-            voice_label=str(md_res.get("voice") or "Plain"),
+            voice_label=voice_label,
+            podcast_transcript=podcast_transcript,
+            learning_objectives=lesson_lo_objects,
+            sibling_lessons=sibling_context,
+            source_material=unit_material,
             arq_task_id=arq_task_id,
         )
-
-        concept_items = md_res.get("concept_glossary", []) or []
-        refined_concepts: list[RefinedConcept] = []
-        for idx, concept in enumerate(concept_items):
-            difficulty_potential = concept.get("difficulty_potential")
-            normalized_difficulty = {str(k): str(v) for k, v in difficulty_potential.items()} if isinstance(difficulty_potential, dict) else None
-
-            refined_concepts.append(
-                RefinedConcept(
-                    id=str(concept.get("id") or f"concept_{idx + 1}"),
-                    term=str(concept.get("term") or ""),
-                    slug=str(concept.get("slug") or ""),
-                    aliases=list(concept.get("aliases", []) or []),
-                    definition=str(concept.get("definition") or ""),
-                    example_from_source=concept.get("example_from_source"),
-                    source_span=concept.get("source_span"),
-                    category=concept.get("category"),
-                    centrality=int(concept.get("centrality") or 0),
-                    distinctiveness=int(concept.get("distinctiveness") or 0),
-                    transferability=int(concept.get("transferability") or 0),
-                    clarity=int(concept.get("clarity") or 0),
-                    assessment_potential=int(concept.get("assessment_potential") or 0),
-                    cognitive_domain=str(concept.get("cognitive_domain") or ""),
-                    difficulty_potential=normalized_difficulty,
-                    learning_role=concept.get("learning_role"),
-                    aligned_learning_objectives=list(concept.get("aligned_learning_objectives", []) or []),
-                    canonical_answer=str(concept.get("canonical_answer") or concept.get("term") or ""),
-                    accepted_phrases=list(concept.get("accepted_phrases", []) or []),
-                    answer_type=str(concept.get("answer_type") or "closed"),
-                    closed_answer=bool(concept.get("closed_answer", True)),
-                    example_question_stem=concept.get("example_question_stem") or concept.get("example_exercise_stem"),
-                    plausible_distractors=list(concept.get("plausible_distractors", []) or []),
-                    misconception_note=concept.get("misconception_note"),
-                    contrast_with=list(concept.get("contrast_with", []) or []),
-                    related_concepts=list(concept.get("related_concepts", []) or []),
-                    review_notes=concept.get("review_notes"),
-                    source_reference=concept.get("source_reference"),
-                    version=str(concept.get("version") or ""),
-                )
-            )
 
         exercise_items = md_res.get("exercise_bank", []) or []
         exercise_bank: list[Exercise] = []
         for idx, exercise_data in enumerate(exercise_items):
             exercise_id = str(exercise_data.get("id") or f"exercise_{idx + 1}")
-            exercise_type = _normalize_exercise_type(exercise_data.get("type"))
+            exercise_type = _normalize_exercise_type(exercise_data.get("exercise_type"))
             exercise_category = _normalize_category(exercise_data.get("exercise_category"))
             aligned_lo = str(exercise_data.get("aligned_learning_objective") or "")
             if aligned_lo not in lesson_lo_ids:
@@ -462,7 +433,7 @@ class FlowHandler:
                         lesson_index + 1,
                     )
 
-            cognitive_level = str(exercise_data.get("cognitive_level") or "Recall")
+            cognitive_level = str(exercise_data.get("cognitive_level") or "Comprehension")
             difficulty = str(exercise_data.get("difficulty") or "medium").lower()
 
             options: list[ExerciseOption] | None = None
@@ -491,19 +462,6 @@ class FlowHandler:
                     rationale_right=answer_key_data.get("rationale_right"),
                 )
 
-            wrong_answers_payload = exercise_data.get("wrong_answers", []) or []
-            wrong_answers = [
-                WrongAnswerWithRationale(
-                    answer=str(item.get("answer") or ""),
-                    rationale_wrong=str(item.get("rationale_wrong") or ""),
-                    misconception_ids=list(item.get("misconception_ids", []) or []),
-                )
-                for item in wrong_answers_payload
-            ]
-
-            acceptable_answers = list(exercise_data.get("acceptable_answers", []) or [])
-            explanation_correct = exercise_data.get("rationale_right")
-
             exercise_kwargs: dict[str, Any] = {
                 "id": exercise_id,
                 "exercise_type": exercise_type,
@@ -514,119 +472,61 @@ class FlowHandler:
                 "stem": str(exercise_data.get("stem") or ""),
                 "options": options,
                 "answer_key": answer_key_obj,
-                "canonical_answer": None,
-                "acceptable_answers": [],
-                "wrong_answers": [],
-                "explanation_correct": None,
             }
-
-            if exercise_type == "short_answer":
-                canonical_answer = str(exercise_data.get("canonical_answer") or exercise_data.get("concept_term") or "")
-                exercise_kwargs.update(
-                    {
-                        "canonical_answer": canonical_answer,
-                        "acceptable_answers": acceptable_answers,
-                        "wrong_answers": wrong_answers,
-                        "explanation_correct": str(explanation_correct or ""),
-                    }
-                )
 
             exercise_bank.append(Exercise(**exercise_kwargs))
 
         quiz_ids = [str(ex_id) for ex_id in md_res.get("quiz", []) or []]
         quiz_meta_payload = md_res.get("quiz_metadata") or {}
+        difficulty_keys = ["easy", "medium", "hard"]
+        diff_counts: dict[str, int] = {key: 0 for key in difficulty_keys}
+        for exercise in exercise_bank:
+            key = exercise.difficulty.lower()
+            if key in diff_counts:
+                diff_counts[key] += 1
 
-        # Convert structured distribution objects to dicts
-        dd_target = quiz_meta_payload.get("difficulty_distribution_target") or {}
-        difficulty_distribution_target = {
-            "easy": float(dd_target.get("easy", 0.0)),
-            "medium": float(dd_target.get("medium", 0.0)),
-            "hard": float(dd_target.get("hard", 0.0)),
-        }
-        dd_actual = quiz_meta_payload.get("difficulty_distribution_actual") or {}
+        total_exercises = len(exercise_bank) or 1
         difficulty_distribution_actual = {
-            "easy": float(dd_actual.get("easy", 0.0)),
-            "medium": float(dd_actual.get("medium", 0.0)),
-            "hard": float(dd_actual.get("hard", 0.0)),
+            key: diff_counts[key] / total_exercises for key in difficulty_keys
         }
+        difficulty_distribution_target = dict(difficulty_distribution_actual)
 
-        cm_target = quiz_meta_payload.get("cognitive_mix_target") or {}
-        cognitive_mix_target = {
-            "Recall": float(cm_target.get("Recall", 0.0)),
-            "Comprehension": float(cm_target.get("Comprehension", 0.0)),
-            "Application": float(cm_target.get("Application", 0.0)),
-            "Transfer": float(cm_target.get("Transfer", 0.0)),
-        }
-        cm_actual = quiz_meta_payload.get("cognitive_mix_actual") or {}
+        cognitive_keys = ["Recall", "Comprehension", "Application", "Transfer"]
+        cognitive_counts: dict[str, int] = {key: 0 for key in cognitive_keys}
+        for exercise in exercise_bank:
+            if exercise.cognitive_level in cognitive_counts:
+                cognitive_counts[exercise.cognitive_level] += 1
         cognitive_mix_actual = {
-            "Recall": float(cm_actual.get("Recall", 0.0)),
-            "Comprehension": float(cm_actual.get("Comprehension", 0.0)),
-            "Application": float(cm_actual.get("Application", 0.0)),
-            "Transfer": float(cm_actual.get("Transfer", 0.0)),
+            key: cognitive_counts[key] / total_exercises for key in cognitive_keys
         }
+        cognitive_mix_target = dict(cognitive_mix_actual)
 
-        # Convert list-based or dict-based coverage to dict-based coverage for package model
-        coverage_by_lo = {}
-        coverage_by_lo_data = quiz_meta_payload.get("coverage_by_LO")
-        if isinstance(coverage_by_lo_data, dict):
-            # Handle dict format: {"lo_id": {"exercise_ids": [...], "concepts": [...]}}
-            for lo_id, coverage_data in coverage_by_lo_data.items():
-                if isinstance(coverage_data, dict):
-                    coverage_by_lo[str(lo_id)] = QuizCoverageByLO(
-                        exercise_ids=[str(ex_id) for ex_id in coverage_data.get("exercise_ids", [])],
-                        concepts=[str(concept) for concept in coverage_data.get("concepts", [])],
-                    )
-        else:
-            # Handle list format: [{"learning_objective_id": "lo_1", "exercise_ids": [...], ...}]
-            for entry in coverage_by_lo_data or []:
-                lo_id = str(entry.get("learning_objective_id", ""))
-                if lo_id:
-                    coverage_by_lo[lo_id] = QuizCoverageByLO(
-                        exercise_ids=[str(ex_id) for ex_id in entry.get("exercise_ids", [])],
-                        concepts=[str(concept) for concept in entry.get("concepts", [])],
-                    )
+        coverage_by_lo: dict[str, QuizCoverageByLO] = {}
+        for exercise in exercise_bank:
+            lo_id = exercise.aligned_learning_objective
+            coverage_entry = coverage_by_lo.setdefault(lo_id, QuizCoverageByLO())
+            coverage_entry.exercise_ids.append(exercise.id)
 
-        coverage_by_concept = {}
-        coverage_by_concept_data = quiz_meta_payload.get("coverage_by_concept")
-        if isinstance(coverage_by_concept_data, dict):
-            # Handle dict format: {"concept_slug": {"exercise_ids": [...], "types": [...]}}
-            for concept_slug, coverage_data in coverage_by_concept_data.items():
-                if isinstance(coverage_data, dict):
-                    normalized_types = [_normalize_exercise_type(t) for t in coverage_data.get("types", [])]
-                    coverage_by_concept[str(concept_slug)] = QuizCoverageByConcept(
-                        exercise_ids=[str(ex_id) for ex_id in coverage_data.get("exercise_ids", [])],
-                        types=normalized_types,
-                    )
-        else:
-            # Handle list format: [{"concept_slug": "mean", "exercise_ids": [...], "types": [...]}]
-            for entry in coverage_by_concept_data or []:
-                concept_slug = str(entry.get("concept_slug", ""))
-                if concept_slug:
-                    normalized_types = [_normalize_exercise_type(t) for t in entry.get("types", [])]
-                    coverage_by_concept[concept_slug] = QuizCoverageByConcept(
-                        exercise_ids=[str(ex_id) for ex_id in entry.get("exercise_ids", [])],
-                        types=normalized_types,
-                    )
+        reasoning_note = str(quiz_meta_payload.get("reasoning") or "").strip()
+        selection_rationale = [reasoning_note] if reasoning_note else []
 
         quiz_metadata = QuizMetadata(
-            quiz_type=str(quiz_meta_payload.get("quiz_type") or "Formative"),
+            quiz_type=str(quiz_meta_payload.get("quiz_type") or "lesson_assessment"),
             total_items=int(quiz_meta_payload.get("total_items") or len(quiz_ids)),
             difficulty_distribution_target=difficulty_distribution_target,
             difficulty_distribution_actual=difficulty_distribution_actual,
             cognitive_mix_target=cognitive_mix_target,
             cognitive_mix_actual=cognitive_mix_actual,
             coverage_by_LO=coverage_by_lo,
-            coverage_by_concept=coverage_by_concept,
-            normalizations_applied=list(quiz_meta_payload.get("normalizations_applied", []) or []),
-            selection_rationale=list(quiz_meta_payload.get("selection_rationale", []) or []),
-            gaps_identified=list(quiz_meta_payload.get("gaps_identified", []) or []),
+            coverage_by_concept={},
+            normalizations_applied=[],
+            selection_rationale=selection_rationale,
+            gaps_identified=[],
         )
 
         lesson_package = LessonPackage(
             meta=meta,
             unit_learning_objective_ids=lesson_lo_ids,
-            mini_lesson=mini_lesson_text,
-            concept_glossary=refined_concepts,
             exercise_bank=exercise_bank,
             quiz=quiz_ids,
             quiz_metadata=quiz_metadata,

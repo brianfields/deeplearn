@@ -22,14 +22,9 @@ from modules.content.public import content_provider
 from modules.content_creator.public import content_creator_provider
 from modules.content_creator.service import ContentCreatorService
 from modules.content_creator.steps import (
-    AnnotateConceptGlossaryStep,
-    ExtractConceptGlossaryStep,
-    ExtractLessonMetadataStep,
     ExtractUnitMetadataStep,
-    GenerateComprehensionExercisesStep,
-    GenerateQuizFromExercisesStep,
-    GenerateTransferExercisesStep,
     GenerateUnitArtDescriptionStep,
+    ValidateAndStructureMCQsStep,
 )
 from modules.flow_engine.models import FlowRunModel
 from modules.infrastructure.public import infrastructure_provider
@@ -220,11 +215,6 @@ def _maybe_mock_llm() -> Generator[None, None, None]:
         ) -> tuple[Any, uuid.UUID | None, dict[str, Any]]:
             usage = {"tokens_used": 0, "cost_estimate": 0.0}
 
-            # Handle GenerateUnitSourceMaterialStep (but this is Unstructured, so shouldn't get here)
-            # Fallback in case it's called as structured anyway
-            if response_model.__name__ == "Outputs" and hasattr(response_model, "__module__") and "GenerateUnitSourceMaterialStep" in str(response_model.__module__ or ""):
-                return {"output_content": "Mock source material for unit generation."}, None, usage
-
             if response_model is ExtractUnitMetadataStep.Outputs:
                 payload = {
                     "unit_title": "Mocked",
@@ -258,223 +248,37 @@ def _maybe_mock_llm() -> Generator[None, None, None]:
                 }
                 return response_model.model_validate(payload), None, usage
 
-            if response_model is ExtractLessonMetadataStep.Outputs:
-                payload = {
-                    "topic": "Mocked Topic",
-                    "learner_level": "beginner",
-                    "voice": "Plain",
-                    "learning_objectives": ["Understand concept A"],
-                    "learning_objective_ids": ["lo_1"],
-                    "lesson_source_material": "Mocked lesson source excerpt.",
-                    "mini_lesson": "This is a concise mocked mini-lesson.",
-                }
-                return response_model.model_validate(payload), None, usage
-
-            if response_model is ExtractConceptGlossaryStep.Outputs:
-                payload = {
-                    "concepts": [
+            if response_model is ValidateAndStructureMCQsStep.Outputs:
+                exercises: list[dict[str, Any]] = []
+                for index in range(10):
+                    question_number = index + 1
+                    is_comprehension = index < 5
+                    category = "comprehension" if is_comprehension else "transfer"
+                    cognitive_level = "Comprehension" if is_comprehension else "Application"
+                    exercises.append(
                         {
-                            "id": "concept_1",
-                            "term": "Concept A",
-                            "slug": "concept-a",
-                            "aliases": ["Idea A"],
-                            "definition": "Definition of Concept A.",
-                            "example_from_source": "Example usage of Concept A.",
-                            "source_span": "Paragraph 1",
-                            "related_terms": ["Concept B"],
-                            "aligned_learning_objectives": ["lo_1"],
-                        }
-                    ],
-                    "meta": {
-                        "topic": "Mocked Topic",
-                        "lesson_objective": "Understand concept A",
-                        "total_concepts": 1,
-                        "selection_rationale": ["Seed concept based on mock data."],
-                        "selection_notes": [],
-                        "version": "seed.v1",
-                    },
-                }
-                return response_model.model_validate(payload), None, usage
-
-            if response_model is AnnotateConceptGlossaryStep.Outputs:
-                payload = {
-                    "refined_concepts": [
-                        {
-                            "id": "concept_1",
-                            "term": "Concept A",
-                            "slug": "concept-a",
-                            "definition": "Definition of Concept A.",
-                            "example_from_source": "Example usage of Concept A.",
-                            "source_span": "Paragraph 1",
-                            "category": "Key Concept",
-                            "centrality": 5,
-                            "distinctiveness": 4,
-                            "transferability": 4,
-                            "clarity": 5,
-                            "assessment_potential": 5,
-                            "cognitive_domain": "Knowledge",
-                            "difficulty_potential": {
-                                "min_level": "Recall",
-                                "max_level": "Application",
-                            },
-                            "learning_role": "Core",
-                            "aligned_learning_objectives": ["lo_1"],
-                            "canonical_answer": "Concept A definition",
-                            "accepted_phrases": ["Concept A", "Core idea A"],
-                            "answer_type": "definition",
-                            "closed_answer": True,
-                            "example_exercise_stem": "Define Concept A.",
-                            "plausible_distractors": ["Concept B"],
-                            "misconception_note": "Learners confuse Concept A with Concept B.",
-                            "contrast_with": ["Concept B"],
-                            "related_concepts": ["Concept B"],
-                            "review_notes": None,
-                            "source_reference": "Mock Source",
-                            "version": "seed.v1",
-                        }
-                    ],
-                    "meta": {
-                        "topic": "Mocked Topic",
-                        "lesson_objective": "Understand concept A",
-                        "total_retained": 1,
-                        "removed_or_merged": 0,
-                        "selection_rationale": ["All extracted concepts retained."],
-                        "selection_notes": [],
-                        "version": "seed.v1",
-                    },
-                }
-                return response_model.model_validate(payload), None, usage
-
-            if response_model is GenerateComprehensionExercisesStep.Outputs:
-                payload = {
-                    "exercises": [
-                        {
-                            "id": "comp_1",
-                            "exercise_category": "comprehension",
-                            "type": "mcq",
-                            "concept_slug": "concept-a",
-                            "concept_term": "Concept A",
-                            "stem": "What is Concept A?",
-                            "canonical_answer": None,
-                            "acceptable_answers": [],
-                            "rationale_right": "Concept A definition.",
-                            "wrong_answers": [],
-                            "answer_type": "multiple_choice",
-                            "cognitive_level": "Comprehension",
-                            "difficulty": "medium",
+                            "id": f"mcq_{question_number:02d}",
+                            "exercise_type": "mcq",
+                            "exercise_category": category,
                             "aligned_learning_objective": "lo_1",
+                            "cognitive_level": cognitive_level,
+                            "difficulty": "medium",
+                            "stem": f"Mock question {question_number}: What is concept {question_number}?",
                             "options": [
-                                {
-                                    "label": "A",
-                                    "text": "Definition of Concept A.",
-                                    "rationale_wrong": None,
-                                },
-                                {
-                                    "label": "B",
-                                    "text": "Different idea",
-                                    "rationale_wrong": "This describes a different concept.",
-                                },
-                                {
-                                    "label": "C",
-                                    "text": "Another distractor",
-                                    "rationale_wrong": "Does not align with Concept A.",
-                                },
-                                {
-                                    "label": "D",
-                                    "text": "Irrelevant option",
-                                    "rationale_wrong": "Irrelevant to the definition.",
-                                },
+                                {"label": "A", "text": "Correct answer", "rationale_wrong": None},
+                                {"label": "B", "text": "Distractor one", "rationale_wrong": "Misinterprets concept."},
+                                {"label": "C", "text": "Distractor two", "rationale_wrong": "Too general."},
+                                {"label": "D", "text": "Distractor three", "rationale_wrong": "Irrelevant detail."},
                             ],
                             "answer_key": {
                                 "label": "A",
-                                "rationale_right": "Concept A definition.",
+                                "rationale_right": "Directly matches the concept focus.",
                             },
                         }
-                    ],
-                    "meta": {
-                        "exercise_category": "comprehension",
-                        "exercise_count": 1,
-                        "generation_notes": ["Seed comprehension exercise."],
-                    },
-                }
-                return response_model.model_validate(payload), None, usage
-
-            if response_model is GenerateTransferExercisesStep.Outputs:
+                    )
                 payload = {
-                    "exercises": [
-                        {
-                            "id": "transfer_1",
-                            "exercise_category": "transfer",
-                            "type": "short_answer",
-                            "concept_slug": "concept-a",
-                            "concept_term": "Concept A",
-                            "stem": "Apply Concept A to a real scenario.",
-                            "canonical_answer": "Use Concept A to explain the outcome.",
-                            "acceptable_answers": ["Explain using Concept A"],
-                            "rationale_right": "Demonstrates transfer of Concept A.",
-                            "wrong_answers": [
-                                {
-                                    "answer": "Ignore Concept A",
-                                    "rationale_wrong": "Does not leverage Concept A.",
-                                    "misconception_ids": [],
-                                }
-                            ],
-                            "answer_type": "short_answer",
-                            "cognitive_level": "Application",
-                            "difficulty": "medium",
-                            "aligned_learning_objective": "lo_1",
-                            "options": None,
-                            "answer_key": None,
-                        }
-                    ],
-                    "meta": {
-                        "exercise_category": "transfer",
-                        "exercise_count": 1,
-                        "generation_notes": ["Seed transfer exercise."],
-                    },
-                }
-                return response_model.model_validate(payload), None, usage
-
-            if response_model is GenerateQuizFromExercisesStep.Outputs:
-                payload = {
-                    "quiz": ["comp_1", "transfer_1"],
-                    "meta": {
-                        "quiz_type": "formative",
-                        "total_items": 2,
-                        "difficulty_distribution_target": {"easy": 0.0, "medium": 1.0, "hard": 0.0},
-                        "difficulty_distribution_actual": {"easy": 0.0, "medium": 1.0, "hard": 0.0},
-                        "cognitive_mix_target": {
-                            "Recall": 0.0,
-                            "Comprehension": 0.5,
-                            "Application": 0.5,
-                            "Transfer": 0.0,
-                        },
-                        "cognitive_mix_actual": {
-                            "Recall": 0.0,
-                            "Comprehension": 0.5,
-                            "Application": 0.5,
-                            "Transfer": 0.0,
-                        },
-                        "coverage_by_LO": [
-                            {
-                                "learning_objective_id": "lo_1",
-                                "exercise_count": 2,
-                                "exercise_ids": ["comp_1", "transfer_1"],
-                                "concepts": ["concept_1"],
-                            }
-                        ],
-                        "coverage_by_concept": [
-                            {
-                                "concept_slug": "concept_1",
-                                "exercise_count": 2,
-                                "exercise_ids": ["comp_1", "transfer_1"],
-                                "types": ["mcq", "short_answer"],
-                            }
-                        ],
-                        "normalizations_applied": ["Seed selection"],
-                        "selection_rationale": ["Ensured coverage for LO lo_1."],
-                        "gaps_identified": [],
-                    },
+                    "reasoning": "Validated 10 MCQs covering comprehension and transfer skills.",
+                    "exercises": exercises,
                 }
                 return response_model.model_validate(payload), None, usage
 

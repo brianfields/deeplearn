@@ -26,7 +26,6 @@ from modules.content.package_models import (
     QuizCoverageByConcept,
     QuizCoverageByLO,
     QuizMetadata,
-    RefinedConcept,
     WrongAnswerWithRationale,
 )
 from modules.content.repo import ContentRepo
@@ -48,8 +47,6 @@ def _empty_package(lesson_id: str, lo_ids: list[str] | None = None) -> LessonPac
     return LessonPackage(
         meta=Meta(lesson_id=lesson_id, title=f"Lesson {lesson_id}", learner_level="beginner"),
         unit_learning_objective_ids=lo_ids,
-        mini_lesson="",
-        concept_glossary=[],
         exercise_bank=[],
         quiz=[],
         quiz_metadata=QuizMetadata(
@@ -105,39 +102,6 @@ class TestContentService:
         # Arrange
         repo = AsyncMock(spec=ContentRepo)
 
-        # Create a sample package
-        concept = RefinedConcept(
-            id="c1",
-            term="Mean",
-            slug="mean",
-            aliases=["average"],
-            definition="Sum divided by count",
-            example_from_source="Example",
-            source_span=None,
-            category="Technical",
-            centrality=5,
-            distinctiveness=4,
-            transferability=4,
-            clarity=5,
-            assessment_potential=5,
-            cognitive_domain="Knowledge",
-            difficulty_potential={"min_level": "Recall", "max_level": "Comprehension"},
-            learning_role="Core",
-            aligned_learning_objectives=["lo_1"],
-            canonical_answer="Mean",
-            accepted_phrases=["average"],
-            answer_type="closed",
-            closed_answer=True,
-            example_question_stem="Define the mean",
-            plausible_distractors=["median"],
-            misconception_note=None,
-            contrast_with=["median"],
-            related_concepts=["median"],
-            review_notes=None,
-            source_reference=None,
-            version="v1",
-        )
-
         exercise_mcq = Exercise(
             id="ex1",
             exercise_type="mcq",
@@ -192,8 +156,6 @@ class TestContentService:
         package = LessonPackage(
             meta=Meta(lesson_id="test-id", title="Test Lesson", learner_level="beginner"),
             unit_learning_objective_ids=["lo_1"],
-            mini_lesson="Test explanation",
-            concept_glossary=[concept],
             exercise_bank=[exercise_mcq, exercise_sa],
             quiz=["ex1"],
             quiz_metadata=quiz_metadata,
@@ -291,44 +253,6 @@ class TestContentService:
                 explanation_correct="",
             )
 
-    async def test_refined_concept_handles_numeric_ratings(self) -> None:
-        """RefinedConcept converts numeric ratings and retains metadata."""
-
-        concept = RefinedConcept(
-            id="c1",
-            term="Mean",
-            slug="mean",
-            aliases=[],
-            definition="Average",
-            example_from_source=None,
-            source_span=None,
-            category="Technical",
-            centrality=5,
-            distinctiveness=4,
-            transferability=4,
-            clarity=5,
-            assessment_potential=5,
-            cognitive_domain="Knowledge",
-            difficulty_potential={"min_level": "Recall", "max_level": "Comprehension"},
-            learning_role="Core",
-            aligned_learning_objectives=["lo_1"],
-            canonical_answer="Mean",
-            accepted_phrases=["average"],
-            answer_type="closed",
-            closed_answer=True,
-            example_question_stem="Define the mean",
-            plausible_distractors=["median"],
-            misconception_note=None,
-            contrast_with=["median"],
-            related_concepts=["median"],
-            review_notes=None,
-            source_reference=None,
-            version="v1",
-        )
-
-        assert concept.centrality == 5
-        assert concept.cognitive_domain == "Knowledge"
-
     async def test_lesson_package_validator_checks_quiz_ids(self) -> None:
         """LessonPackage ensures quiz IDs reference the exercise bank."""
 
@@ -366,8 +290,6 @@ class TestContentService:
         LessonPackage(
             meta=Meta(lesson_id="lesson", title="Lesson", learner_level="beginner"),
             unit_learning_objective_ids=["lo_1"],
-            mini_lesson="Body",
-            concept_glossary=[],
             exercise_bank=[exercise],
             quiz=["ex1"],
             quiz_metadata=quiz_metadata,
@@ -377,8 +299,6 @@ class TestContentService:
             LessonPackage(
                 meta=Meta(lesson_id="lesson", title="Lesson", learner_level="beginner"),
                 unit_learning_objective_ids=["lo_1"],
-                mini_lesson="Body",
-                concept_glossary=[],
                 exercise_bank=[exercise],
                 quiz=["missing"],
                 quiz_metadata=quiz_metadata,
@@ -462,7 +382,6 @@ class TestContentService:
         # Create a sample package
         package = _empty_package("test-id", ["lo_1"])
         package.meta.title = "Test Lesson"
-        package.mini_lesson = "Test explanation"
 
         lesson_data = LessonCreate(id="test-id", title="Test Lesson", learner_level="beginner", package=package, package_version=1)
 

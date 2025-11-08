@@ -40,9 +40,7 @@ interface ApiLessonDetail {
   learner_level: string;
   learning_objectives: string[];
   key_concepts: string[];
-  mini_lesson: string;
   exercises: any[];
-  glossary_terms: any[];
   created_at: string;
   exercise_count: number;
   unit_id?: string | null;
@@ -463,9 +461,7 @@ export class CatalogRepo {
               | 'advanced',
             learningObjectives,
             keyConcepts: lessonPackage.key_concepts || [],
-            miniLesson: lessonPackage.mini_lesson || '',
             exercises,
-            glossaryTerms: lessonPackage.glossary || {},
             exerciseCount: exercises.length || 0,
             createdAt: new Date(cachedLesson.updatedAt).toISOString(),
             estimatedDuration: payload.duration_minutes || 0,

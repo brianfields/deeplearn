@@ -185,98 +185,98 @@
 
 ### Phase 1: Backend - Content Creator Module
 
-- [ ] Create new prompt: `backend/modules/content_creator/prompts/generate_lesson_podcast_transcript_instructional.md`
+- [x] Create new prompt: `backend/modules/content_creator/prompts/generate_lesson_podcast_transcript_instructional.md`
   - Include inputs: learner_desires, source_material, lesson_objective, learning_objectives, sibling_lessons (titles + objectives)
   - Emphasize instructional style with New American Lecture hooks
   - Clear directive to focus on lesson objective, not entire source material
-- [ ] Create new prompt: `backend/modules/content_creator/prompts/generate_mcqs_unstructured.md`
+- [x] Create new prompt: `backend/modules/content_creator/prompts/generate_mcqs_unstructured.md`
   - Include inputs: learner_desires, source_material, podcast_transcript, lesson_objective, learning_objectives, sibling_lessons
   - Request 5 comprehension + 5 transfer questions in unstructured format
   - Emphasize testing content from podcast transcript
-- [ ] Create new prompt: `backend/modules/content_creator/prompts/validate_and_structure_mcqs.md`
+- [x] Create new prompt: `backend/modules/content_creator/prompts/validate_and_structure_mcqs.md`
   - Include input: unstructured MCQs from first pass
   - Validate: stems don't give away answers, options are plausible (semantically and syntactically)
   - Include reasoning field before MCQ array for LLM to document changes
   - Output structured JSON
-- [ ] Add `GenerateLessonPodcastTranscriptStep` class to `backend/modules/content_creator/steps.py`
-- [ ] Add `GenerateMCQsUnstructuredStep` class to `backend/modules/content_creator/steps.py`
-- [ ] Add `ValidateAndStructureMCQsStep` class to `backend/modules/content_creator/steps.py`
-- [ ] Remove old step classes from `backend/modules/content_creator/steps.py`: ExtractLessonMetadataStep, ExtractConceptGlossaryStep, AnnotateConceptGlossaryStep, GenerateComprehensionExercisesStep, GenerateTransferExercisesStep, GenerateQuizFromExercisesStep
-- [ ] Remove old model classes from `backend/modules/content_creator/steps.py`: LessonMetadata, ConceptGlossaryItem, ConceptGlossaryMeta, RefinedConceptItem, and related classes
-- [ ] Rewrite `LessonCreationFlow._execute_flow_logic()` in `backend/modules/content_creator/flows.py` to use new 3-step pipeline
-- [ ] Update `LessonCreationFlow.Inputs` to accept `sibling_lessons: list[dict]` parameter (with title and lesson_objective for each)
-- [ ] Update `LessonCreationFlow` to pass sibling context to new steps
-- [ ] Update flow return dict to exclude `mini_lesson`, `concept_glossary`, and `lesson_source_material`
-- [ ] Update `backend/modules/content_creator/service/flow_handler.py` to handle new flow outputs
-- [ ] Update `backend/modules/content_creator/service/flow_handler.py` to build sibling lesson context when calling LessonCreationFlow (extract titles and lesson_objectives from unit's lesson plan)
-- [ ] Remove old prompt files: extract_lesson_metadata.md, extract_concept_glossary.md, annotate_concept_glossary.md, generate_comprehension_exercises.md, generate_transfer_exercises.md, generate_quiz_from_exercises.md
-- [ ] Update `backend/modules/content_creator/test_flows_unit.py` with new mocks for 3-step flow
+- [x] Add `GenerateLessonPodcastTranscriptStep` class to `backend/modules/content_creator/steps.py`
+- [x] Add `GenerateMCQsUnstructuredStep` class to `backend/modules/content_creator/steps.py`
+- [x] Add `ValidateAndStructureMCQsStep` class to `backend/modules/content_creator/steps.py`
+- [x] Remove old step classes from `backend/modules/content_creator/steps.py`: ExtractLessonMetadataStep, ExtractConceptGlossaryStep, AnnotateConceptGlossaryStep, GenerateComprehensionExercisesStep, GenerateTransferExercisesStep, GenerateQuizFromExercisesStep
+- [x] Remove old model classes from `backend/modules/content_creator/steps.py`: LessonMetadata, ConceptGlossaryItem, ConceptGlossaryMeta, RefinedConceptItem, and related classes
+- [x] Rewrite `LessonCreationFlow._execute_flow_logic()` in `backend/modules/content_creator/flows.py` to use new 3-step pipeline
+- [x] Update `LessonCreationFlow.Inputs` to accept `sibling_lessons: list[dict]` parameter (with title and lesson_objective for each)
+- [x] Update `LessonCreationFlow` to pass sibling context to new steps
+- [x] Update flow return dict to exclude `mini_lesson`, `concept_glossary`, and `lesson_source_material`
+- [x] Update `backend/modules/content_creator/service/flow_handler.py` to handle new flow outputs
+- [x] Update `backend/modules/content_creator/service/flow_handler.py` to build sibling lesson context when calling LessonCreationFlow (extract titles and lesson_objectives from unit's lesson plan)
+- [x] Remove old prompt files: extract_lesson_metadata.md, extract_concept_glossary.md, annotate_concept_glossary.md, generate_comprehension_exercises.md, generate_transfer_exercises.md, generate_quiz_from_exercises.md
+- [x] Update `backend/modules/content_creator/test_flows_unit.py` with new mocks for 3-step flow
 
 ### Phase 2: Backend - Other Modules
 
-- [ ] Remove `mini_lesson: str` field from `LessonPackage` in `backend/modules/content/package_models.py`
-- [ ] Remove `concept_glossary: list[RefinedConcept]` field from `LessonPackage`
-- [ ] Remove `RefinedConcept` class and related models from `backend/modules/content/package_models.py`
-- [ ] Update `_cross_checks` validator in `LessonPackage` to remove glossary-related validations
-- [ ] Update `backend/modules/content/test_content_unit.py` test fixtures to remove mini_lesson and concept_glossary
-- [ ] Remove `mini_lesson` field from `LessonDetail` DTO in `backend/modules/catalog/service.py`
-- [ ] Remove glossary-related fields (e.g., `key_concepts`) from `LessonDetail` DTO
-- [ ] Update DTO mapping logic to not extract mini_lesson or glossary fields
-- [ ] Update `backend/modules/catalog/test_lesson_catalog_unit.py` test fixtures
-- [ ] Update `backend/modules/admin` services/DTOs to remove mini_lesson and concept_glossary references
-- [ ] Update `backend/modules/learning_session/test_learning_session_unit.py` test fixtures
+- [x] Remove `mini_lesson: str` field from `LessonPackage` in `backend/modules/content/package_models.py`
+- [x] Remove `concept_glossary: list[RefinedConcept]` field from `LessonPackage`
+- [x] Remove `RefinedConcept` class and related models from `backend/modules/content/package_models.py`
+- [x] Update `_cross_checks` validator in `LessonPackage` to remove glossary-related validations
+- [x] Update `backend/modules/content/test_content_unit.py` test fixtures to remove mini_lesson and concept_glossary
+- [x] Remove `mini_lesson` field from `LessonDetail` DTO in `backend/modules/catalog/service.py`
+- [x] Remove glossary-related fields (e.g., `key_concepts`) from `LessonDetail` DTO
+- [x] Update DTO mapping logic to not extract mini_lesson or glossary fields
+- [x] Update `backend/modules/catalog/test_lesson_catalog_unit.py` test fixtures
+- [x] Update `backend/modules/admin` services/DTOs to remove mini_lesson and concept_glossary references
+- [x] Update `backend/modules/learning_session/test_learning_session_unit.py` test fixtures
 
 ### Phase 3: Backend - Scripts, Seed Data, and Migration
 
-- [ ] Update `backend/scripts/create_seed_data.py`:
+- [x] Update `backend/scripts/create_seed_data.py`:
   - Remove mini_lesson and glossary_terms parameters from `build_lesson_package()`
   - Update all lesson spec builders to exclude these fields
   - Ensure podcast transcripts are generated using new flow
-- [ ] Update `backend/scripts/generate_unit_instrumented.py` to use new flow outputs
-- [ ] Update `backend/tests/test_lesson_creation_integration.py` mocks for new flow
-- [ ] Generate Alembic migration for any schema changes (if needed for podcast_transcript field adjustments)
-- [ ] Run migration: `cd backend && alembic upgrade head`
+- [x] Update `backend/scripts/generate_unit_instrumented.py` to use new flow outputs
+- [x] Update `backend/tests/test_lesson_creation_integration.py` mocks for new flow
+- [x] Generate Alembic migration for any schema changes (if needed for podcast_transcript field adjustments) *(not required for this phase)*
+- [x] Run migration: `cd backend && alembic upgrade head` *(not required – no schema changes)*
 
 ### Phase 4: Frontend - Mobile
 
-- [ ] Remove `miniLesson: string` from `LessonDetail` interface in `mobile/modules/catalog/models.ts`
-- [ ] Remove `glossaryTerms: any[]` from `LessonDetail` interface
-- [ ] Update `ApiLessonDetail` interface in `mobile/modules/catalog/models.ts`
-- [ ] Remove `miniLesson` and `glossaryTerms` mapping in `mobile/modules/catalog/repo.ts`
-- [ ] Update `mobile/modules/catalog/screens/UnitDetailScreen.tsx` to remove mini-lesson display logic
-- [ ] Update `mobile/modules/catalog/test_catalog_unit.ts` test fixtures
-- [ ] Replace `didacticData` usage with `podcastTranscript` in `mobile/modules/learning_session/components/LearningFlow.tsx`
-- [ ] Remove glossary skip logic from `mobile/modules/learning_session/components/LearningFlow.tsx` (lines ~28, ~489-495)
-- [ ] Update `mobile/modules/learning_session/screens/LearningFlowScreen.tsx` to display podcast transcript
-- [ ] Update `mobile/modules/learning_session/test_learning_session_unit.ts` test fixtures
+- [x] Remove `miniLesson: string` from `LessonDetail` interface in `mobile/modules/catalog/models.ts`
+- [x] Remove `glossaryTerms: any[]` from `LessonDetail` interface
+- [x] Update `ApiLessonDetail` interface in `mobile/modules/catalog/models.ts`
+- [x] Remove `miniLesson` and `glossaryTerms` mapping in `mobile/modules/catalog/repo.ts`
+- [x] Update `mobile/modules/catalog/screens/UnitDetailScreen.tsx` to remove mini-lesson display logic
+- [x] Update `mobile/modules/catalog/test_catalog_unit.ts` test fixtures
+- [x] Replace `didacticData` usage with `podcastTranscript` in `mobile/modules/learning_session/components/LearningFlow.tsx`
+- [x] Remove glossary skip logic from `mobile/modules/learning_session/components/LearningFlow.tsx` (lines ~28, ~489-495)
+- [x] Update `mobile/modules/learning_session/screens/LearningFlowScreen.tsx` to display podcast transcript
+- [x] Update `mobile/modules/learning_session/test_learning_session_unit.ts` test fixtures
 
 ### Phase 5: Frontend - Admin Dashboard
 
-- [ ] Remove mini-lesson display section from `admin/app/units/[id]/page.tsx` (lines ~139-145)
-- [ ] Remove concept glossary display section from `admin/app/units/[id]/page.tsx` (lines ~173-179)
-- [ ] Add podcast transcript display to admin unit detail page (if needed)
-- [ ] Remove `mini_lesson` and `concept_glossary` from `admin/modules/admin/models.ts` package types
-- [ ] Remove mapping for these fields in `admin/modules/admin/service.ts`
-- [ ] Update `admin/modules/admin/service.test.ts` test fixtures
+- [x] Remove mini-lesson display section from `admin/app/units/[id]/page.tsx` (lines ~139-145)
+- [x] Remove concept glossary display section from `admin/app/units/[id]/page.tsx` (lines ~173-179)
+- [x] Add podcast transcript display to admin unit detail page (if needed)
+- [x] Remove `mini_lesson` and `concept_glossary` from `admin/modules/admin/models.ts` package types
+- [x] Remove mapping for these fields in `admin/modules/admin/service.ts`
+- [x] Update `admin/modules/admin/service.test.ts` test fixtures
 
 ### Phase 6: Terminology Cleanup
 
-- [ ] Search entire codebase for "mini_lesson" and "miniLesson" and remove all remaining references
-- [ ] Search entire codebase for "concept_glossary", "glossary_terms", and "glossaryTerms" and remove all remaining references
-- [ ] Search entire codebase for "lesson_source_material" and remove all remaining references (replaced by full unit source_material)
-- [ ] Search entire codebase for "RefinedConcept" and remove all remaining references
-- [ ] Verify no imports of removed classes remain
+- [x] Search entire codebase for "mini_lesson" and "miniLesson" and remove all remaining references
+- [x] Search entire codebase for "concept_glossary", "glossary_terms", and "glossaryTerms" and remove all remaining references
+- [x] Search entire codebase for "lesson_source_material" and remove all remaining references (replaced by full unit source_material)
+- [x] Search entire codebase for "RefinedConcept" and remove all remaining references
+- [x] Verify no imports of removed classes remain
 
 ### Phase 7: Testing and Validation
 
-- [ ] Ensure lint passes, i.e. './format_code.sh --no-venv' runs clean.
-- [ ] Ensure backend unit tests pass, i.e. cd backend && scripts/run_unit.py
-- [ ] Ensure frontend unit tests pass, i.e. cd mobile && npm run test
-- [ ] Ensure integration tests pass, i.e. cd backend && scripts/run_integration.py runs clean.
-- [ ] Follow the instructions in codegen/prompts/trace.md to ensure the user story is implemented correctly.
-- [ ] Fix any issues documented during the tracing of the user story in docs/specs/redo-exercises-again/trace.md.
-- [ ] Follow the instructions in codegen/prompts/modulecheck.md to ensure the new code is following the modular architecture correctly.
-- [ ] Examine all new code that has been created and make sure all of it is being used; there is no dead code.
+- [x] Ensure lint passes, i.e. './format_code.sh --no-venv' runs clean.
+- [x] Ensure backend unit tests pass, i.e. cd backend && scripts/run_unit.py
+- [x] Ensure frontend unit tests pass, i.e. cd mobile && npm run test
+- [x] Ensure integration tests pass, i.e. cd backend && scripts/run_integration.py runs clean.
+- [x] Follow the instructions in codegen/prompts/trace.md to ensure the user story is implemented correctly.
+- [x] Fix any issues documented during the tracing of the user story in docs/specs/redo-exercises-again/trace.md.
+- [x] Follow the instructions in codegen/prompts/modulecheck.md to ensure the new code is following the modular architecture correctly.
+- [x] Examine all new code that has been created and make sure all of it is being used; there is no dead code.
 
 ---
 

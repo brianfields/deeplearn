@@ -82,9 +82,7 @@ describe('CatalogService', () => {
         learnerLevel: 'beginner',
         learningObjectives: ['Objective'],
         keyConcepts: ['Concept'],
-        miniLesson: 'Mini lesson content',
         exercises: [],
-        glossaryTerms: [],
         exerciseCount: 3,
         createdAt: new Date().toISOString(),
         estimatedDuration: 15,
@@ -145,7 +143,6 @@ describe('CatalogService', () => {
         learnerLevel: 'beginner',
         learningObjectives: ['Objective'],
         keyConcepts: ['Concept'],
-        miniLesson: 'Mini lesson content',
         exercises: [
           {
             exercise_type: 'mcq',
@@ -176,7 +173,6 @@ describe('CatalogService', () => {
             lo_id: 'lo-2',
           },
         ],
-        glossaryTerms: [],
         exerciseCount: 2,
         createdAt: new Date().toISOString(),
         estimatedDuration: 10,

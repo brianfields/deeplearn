@@ -139,8 +139,6 @@ class TestLearningSessionService:
         package = LessonPackage(
             meta=Meta(lesson_id="lesson-1", title="Lesson", learner_level="beginner"),
             unit_learning_objective_ids=["lo_1"],
-            mini_lesson="Body",
-            concept_glossary=[],
             exercise_bank=exercises,
             quiz=["ex1", "ex2"],
             quiz_metadata=QuizMetadata(

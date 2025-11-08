@@ -45,7 +45,6 @@ import type {
   LessonSummary,
   LessonPackage,
   LessonExercise,
-  RefinedConcept,
   ExerciseOption,
   WrongAnswerWithRationale,
   QuizCoverageByLO,
@@ -256,19 +255,6 @@ const normalizeStringArray = (value: unknown): string[] => {
   return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
 };
 
-const normalizeStringRecord = (value: unknown): Record<string, string> | null => {
-  if (!value || typeof value !== 'object') {
-    return null;
-  }
-
-  const entries = Object.entries(value as Record<string, unknown>)
-    .filter(([, val]) => typeof val === 'string');
-  if (entries.length === 0) {
-    return null;
-  }
-  return Object.fromEntries(entries as Array<[string, string]>);
-};
-
 const normalizeNumberRecord = (value: unknown): Record<string, number> => {
   if (!value || typeof value !== 'object') {
     return {};
@@ -277,46 +263,6 @@ const normalizeNumberRecord = (value: unknown): Record<string, number> => {
   const entries = Object.entries(value as Record<string, unknown>)
     .filter(([, val]) => typeof val === 'number' && Number.isFinite(val));
   return Object.fromEntries(entries as Array<[string, number]>);
-};
-
-const refinedConceptToDTO = (concept: any): RefinedConcept => {
-  const difficultyPotential = normalizeStringRecord(concept?.difficulty_potential);
-
-  return {
-    id: typeof concept?.id === 'string' ? concept.id : '',
-    term: typeof concept?.term === 'string' ? concept.term : '',
-    slug: typeof concept?.slug === 'string' ? concept.slug : '',
-    aliases: normalizeStringArray(concept?.aliases),
-    definition: typeof concept?.definition === 'string' ? concept.definition : '',
-    example_from_source:
-      typeof concept?.example_from_source === 'string' ? concept.example_from_source : null,
-    source_span: typeof concept?.source_span === 'string' ? concept.source_span : null,
-    category: typeof concept?.category === 'string' ? concept.category : null,
-    centrality: typeof concept?.centrality === 'number' ? concept.centrality : 0,
-    distinctiveness: typeof concept?.distinctiveness === 'number' ? concept.distinctiveness : 0,
-    transferability: typeof concept?.transferability === 'number' ? concept.transferability : 0,
-    clarity: typeof concept?.clarity === 'number' ? concept.clarity : 0,
-    assessment_potential:
-      typeof concept?.assessment_potential === 'number' ? concept.assessment_potential : 0,
-    cognitive_domain: typeof concept?.cognitive_domain === 'string' ? concept.cognitive_domain : '',
-    difficulty_potential: difficultyPotential,
-    learning_role: typeof concept?.learning_role === 'string' ? concept.learning_role : null,
-    aligned_learning_objectives: normalizeStringArray(concept?.aligned_learning_objectives),
-    canonical_answer: typeof concept?.canonical_answer === 'string' ? concept.canonical_answer : '',
-    accepted_phrases: normalizeStringArray(concept?.accepted_phrases),
-    answer_type: typeof concept?.answer_type === 'string' ? concept.answer_type : null,
-    closed_answer: typeof concept?.closed_answer === 'boolean' ? concept.closed_answer : true,
-    example_question_stem:
-      typeof concept?.example_question_stem === 'string' ? concept.example_question_stem : null,
-    plausible_distractors: normalizeStringArray(concept?.plausible_distractors),
-    misconception_note:
-      typeof concept?.misconception_note === 'string' ? concept.misconception_note : null,
-    contrast_with: normalizeStringArray(concept?.contrast_with),
-    related_concepts: normalizeStringArray(concept?.related_concepts),
-    review_notes: typeof concept?.review_notes === 'string' ? concept.review_notes : null,
-    source_reference: typeof concept?.source_reference === 'string' ? concept.source_reference : null,
-    version: typeof concept?.version === 'string' ? concept.version : null,
-  };
 };
 
 const normalizeWrongAnswers = (value: unknown): WrongAnswerWithRationale[] => {
@@ -460,10 +406,6 @@ const quizMetadataToDTO = (metadata: any): QuizMetadata => {
 const lessonPackageToDTO = (pkg: any): LessonPackage => {
   const meta = pkg?.meta ?? {};
 
-  const conceptGlossary = Array.isArray(pkg?.concept_glossary)
-    ? pkg.concept_glossary.map(refinedConceptToDTO)
-    : [];
-
   const exerciseBank = Array.isArray(pkg?.exercise_bank)
     ? pkg.exercise_bank.map(lessonExerciseToDTO)
     : [];
@@ -492,8 +434,6 @@ const lessonPackageToDTO = (pkg: any): LessonPackage => {
       content_version: typeof meta.content_version === 'number' ? meta.content_version : 1,
     },
     unit_learning_objective_ids: unitLearningObjectiveIds,
-    mini_lesson: typeof pkg?.mini_lesson === 'string' ? pkg.mini_lesson : '',
-    concept_glossary: conceptGlossary,
     exercise_bank: exerciseBank,
     quiz,
     quiz_metadata: quizMetadata,

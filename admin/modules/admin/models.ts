@@ -433,38 +433,6 @@ export interface UnitLearningObjective {
   evidence_of_mastery?: string | null;
 }
 
-export interface RefinedConcept {
-  id: string;
-  term: string;
-  slug: string;
-  aliases: string[];
-  definition: string;
-  example_from_source: string | null;
-  source_span: string | null;
-  category: string | null;
-  centrality: number;
-  distinctiveness: number;
-  transferability: number;
-  clarity: number;
-  assessment_potential: number;
-  cognitive_domain: string;
-  difficulty_potential: Record<string, string> | null;
-  learning_role: string | null;
-  aligned_learning_objectives: string[];
-  canonical_answer: string;
-  accepted_phrases: string[];
-  answer_type: string | null;
-  closed_answer: boolean;
-  example_question_stem: string | null;
-  plausible_distractors: string[];
-  misconception_note: string | null;
-  contrast_with: string[];
-  related_concepts: string[];
-  review_notes: string | null;
-  source_reference: string | null;
-  version: string | null;
-}
-
 export interface ExerciseOption {
   id: string;
   label: string;
@@ -542,8 +510,6 @@ export interface QuizMetadata {
 export interface LessonPackage {
   meta: Meta;
   unit_learning_objective_ids: string[];
-  mini_lesson: string;
-  concept_glossary: RefinedConcept[];
   exercise_bank: LessonExercise[];
   exercises?: LessonExercise[]; // alias for exercise_bank
   quiz: string[];

@@ -20,7 +20,7 @@ class PodcastLesson:
     """Lightweight container for lesson data fed into podcast generation."""
 
     title: str
-    mini_lesson: str
+    podcast_transcript: str
 
 
 @dataclass(slots=True)
@@ -80,7 +80,10 @@ class UnitPodcastGenerator:
 
         resolved_voice = voice_label or self.default_voice_id
         # Build plain-JSON lesson inputs to avoid Pydantic instances leaking into DB JSON columns
-        lesson_inputs = [{"title": lesson.title, "mini_lesson": lesson.mini_lesson} for lesson in lessons]
+        lesson_inputs = [
+            {"title": lesson.title, "podcast_transcript": lesson.podcast_transcript}
+            for lesson in lessons
+        ]
         flow_inputs = {
             "learner_desires": learner_desires,
             "unit_title": unit_title,
@@ -159,8 +162,11 @@ class LessonPodcastGenerator:
         lesson_index: int,
         lesson_title: str,
         lesson_objective: str,
-        mini_lesson: str,
         voice_label: str,
+        podcast_transcript: str | None = None,
+        learning_objectives: list[dict] | None = None,
+        sibling_lessons: list[dict] | None = None,
+        source_material: str | None = None,
         arq_task_id: str | None = None,
     ) -> LessonPodcastResult:
         """Generate transcript and audio for the specified lesson."""
@@ -171,8 +177,11 @@ class LessonPodcastGenerator:
             "lesson_number": lesson_index + 1,
             "lesson_title": lesson_title,
             "lesson_objective": lesson_objective,
-            "mini_lesson": mini_lesson,
             "voice": resolved_voice,
+            "podcast_transcript": podcast_transcript or "",
+            "learning_objectives": learning_objectives or [],
+            "sibling_lessons": sibling_lessons or [],
+            "source_material": source_material,
             "audio_model": self.audio_model,
             "audio_format": self.audio_format,
         }

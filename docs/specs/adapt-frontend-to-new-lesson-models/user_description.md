@@ -8,7 +8,7 @@ The user has made extensive changes to the naming and structure of lesson creati
 
 ## Specific Model Changes Identified
 - **Removed items**: `core_concept` has been removed
-- **Renamed items**: `didactic_snippet` → `mini_lesson`  
+- **Renamed items**: `didactic_snippet` → `podcast_transcript`
 - **Structural changes**: `didactic_snippet` is now a simple markdown string shown to users (previously more complex structure)
 
 ## Frontend Requirements

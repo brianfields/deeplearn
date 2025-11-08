@@ -17,7 +17,6 @@ from modules.content.package_models import (
     ExerciseOption,
     LessonPackage,
     Meta,
-    RefinedConcept,
     WrongAnswerWithRationale,
 )
 from modules.content.public import LessonRead
@@ -39,10 +38,6 @@ class TestCatalogService:
         package1 = LessonPackage(
             meta=Meta(lesson_id="lesson-1", title="Lesson 1", learner_level="beginner"),
             unit_learning_objective_ids=["obj1"],
-            concept_glossary=[
-                RefinedConcept(id="term1", term="Key A", slug="key-a", definition="Definition A", canonical_answer="Key A", centrality=3, distinctiveness=3, transferability=3, clarity=3, assessment_potential=3, cognitive_domain="Knowledge")
-            ],
-            mini_lesson="Test explanation",
             exercise_bank=[
                 Exercise(
                     id="mcq1",
@@ -76,8 +71,6 @@ class TestCatalogService:
         package2 = LessonPackage(
             meta=Meta(lesson_id="lesson-2", title="Lesson 2", learner_level="intermediate"),
             unit_learning_objective_ids=["obj2"],
-            concept_glossary=[],
-            mini_lesson="Test explanation",
             exercise_bank=[],
             quiz=[],
             quiz_metadata=QuizMetadata(quiz_type="comprehensive", total_items=0, difficulty_distribution_target={}, difficulty_distribution_actual={}, cognitive_mix_target={}, cognitive_mix_actual={}),
@@ -142,10 +135,6 @@ class TestCatalogService:
         package = LessonPackage(
             meta=Meta(lesson_id="lesson-1", title="Lesson 1", learner_level="beginner"),
             unit_learning_objective_ids=["obj1"],
-            concept_glossary=[
-                RefinedConcept(id="term1", term="Key A", slug="key-a", definition="Definition A", canonical_answer="Key A", centrality=3, distinctiveness=3, transferability=3, clarity=3, assessment_potential=3, cognitive_domain="Knowledge")
-            ],
-            mini_lesson="Test explanation",
             exercise_bank=[
                 Exercise(
                     id="mcq1",
@@ -281,8 +270,6 @@ class TestCatalogService:
         package = LessonPackage(
             meta=Meta(lesson_id="lesson-1", title="Lesson 1", learner_level="beginner"),
             unit_learning_objective_ids=["lo_1"],
-            concept_glossary=[],
-            mini_lesson="",
             exercise_bank=[
                 Exercise(
                     id="ex-1",
@@ -438,10 +425,7 @@ class TestCatalogService:
             title="Test Lesson",
             learner_level="beginner",
             learning_objectives=["Learn X"],
-            key_concepts=["Key X"],
-            mini_lesson="...",
             exercises=[{"exercise_type": "mcq", "stem": "test"}],
-            glossary_terms=[],
             created_at="2024-01-01T00:00:00",
             exercise_count=1,
         )
@@ -452,10 +436,7 @@ class TestCatalogService:
             title="Test Lesson 2",
             learner_level="beginner",
             learning_objectives=["Learn Y"],
-            key_concepts=["Key Y"],
-            mini_lesson="...",
             exercises=[],
-            glossary_terms=[],
             created_at="2024-01-01T00:00:00",
             exercise_count=0,
         )
@@ -476,11 +457,6 @@ class TestCatalogService:
         package1 = LessonPackage(
             meta=Meta(lesson_id="lesson-1", title="React Basics", learner_level="beginner"),
             unit_learning_objective_ids=["obj1"],
-            concept_glossary=[
-                RefinedConcept(id="term1", term="JSX", slug="jsx", definition="JSX definition", canonical_answer="JSX", centrality=3, distinctiveness=3, transferability=3, clarity=3, assessment_potential=3, cognitive_domain="Knowledge"),
-                RefinedConcept(id="term2", term="Props", slug="props", definition="Props definition", canonical_answer="Props", centrality=3, distinctiveness=3, transferability=3, clarity=3, assessment_potential=3, cognitive_domain="Knowledge"),
-            ],
-            mini_lesson="Test explanation",
             exercise_bank=[
                 Exercise(
                     id="mcq1",
@@ -501,12 +477,6 @@ class TestCatalogService:
         package2 = LessonPackage(
             meta=Meta(lesson_id="lesson-2", title="Python Basics", learner_level="beginner"),
             unit_learning_objective_ids=["obj2"],
-            concept_glossary=[
-                RefinedConcept(
-                    id="term3", term="Variables", slug="variables", definition="Variables definition", canonical_answer="Variables", centrality=3, distinctiveness=3, transferability=3, clarity=3, assessment_potential=3, cognitive_domain="Knowledge"
-                )
-            ],
-            mini_lesson="Test explanation",
             exercise_bank=[],
             quiz=[],
             quiz_metadata=QuizMetadata(quiz_type="comprehensive", total_items=0, difficulty_distribution_target={}, difficulty_distribution_actual={}, cognitive_mix_target={}, cognitive_mix_actual={}),
@@ -541,8 +511,6 @@ class TestCatalogService:
         package1 = LessonPackage(
             meta=Meta(lesson_id="lesson-1", title="Lesson 1", learner_level="beginner"),
             unit_learning_objective_ids=["obj1"],
-            concept_glossary=[RefinedConcept(id="term1", term="Key", slug="key", definition="Definition", canonical_answer="Key", centrality=3, distinctiveness=3, transferability=3, clarity=3, assessment_potential=3, cognitive_domain="Knowledge")],
-            mini_lesson="Test explanation",
             exercise_bank=[
                 Exercise(
                     id="mcq1",
@@ -563,8 +531,6 @@ class TestCatalogService:
         package2 = LessonPackage(
             meta=Meta(lesson_id="lesson-2", title="Lesson 2", learner_level="intermediate"),
             unit_learning_objective_ids=["obj2"],
-            concept_glossary=[],
-            mini_lesson="Test explanation",
             exercise_bank=[],
             quiz=[],
             quiz_metadata=QuizMetadata(quiz_type="comprehensive", total_items=0, difficulty_distribution_target={}, difficulty_distribution_actual={}, cognitive_mix_target={}, cognitive_mix_actual={}),

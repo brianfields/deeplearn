@@ -98,391 +98,95 @@ class ExtractUnitMetadataStep(StructuredStep):
         lesson_count: int
 
 
-# ---------- 3) Extract Lesson Metadata ----------
-class ExtractLessonMetadataStep(StructuredStep):
-    """Extract lesson metadata and produce a mini-lesson as strict JSON.
+# ---------- 3) Lesson Podcast & Assessment Steps ----------
+class GenerateLessonPodcastTranscriptStep(UnstructuredStep):
+    """Generate an instructional podcast transcript for a single lesson."""
 
-    Accepts learner_desires (unified context) instead of separate topic/learner_level/voice.
-    """
-
-    step_name = "extract_lesson_metadata"
-    prompt_file = "extract_lesson_metadata.md"
-    reasoning_effort = "low"
-    model = "gemini-2.5-flash"
+    step_name = "generate_lesson_podcast_transcript"
+    prompt_file = "generate_lesson_podcast_transcript_instructional.md"
+    reasoning_effort = "medium"
     verbosity = "low"
+    model = "gemini-2.0-flash-exp"
 
     class Inputs(BaseModel):
         learner_desires: str
-        learning_objectives: list[dict]  # Now receives full LO objects with id, title, description
-        learning_objective_ids: list[str]
+        lesson_title: str
         lesson_objective: str
+        learning_objectives: list[dict] = Field(default_factory=list)
+        source_material: str
+        sibling_lessons: list[dict] = Field(default_factory=list)
+        lesson_number: int | None = None
+        voice: str | None = None
+
+
+class GenerateMCQsUnstructuredStep(UnstructuredStep):
+    """Draft ten MCQs (5 comprehension, 5 transfer) prior to validation."""
+
+    step_name = "generate_mcqs_unstructured"
+    prompt_file = "generate_mcqs_unstructured.md"
+    reasoning_effort = "high"
+    verbosity = "low"
+    model = "gemini-2.0-flash-exp"
+
+    class Inputs(BaseModel):
+        learner_desires: str
+        lesson_objective: str
+        learning_objectives: list[dict] = Field(default_factory=list)
+        sibling_lessons: list[dict] = Field(default_factory=list)
+        podcast_transcript: str
         source_material: str
 
-    class Outputs(BaseModel):
-        topic: str
-        learner_level: str
-        voice: str
-        learning_objectives: list[str]
-        learning_objective_ids: list[str]
-        lesson_source_material: str
-        mini_lesson: str
 
-
-# ---------- Concept & Exercise Pipeline Steps ----------
-class ConceptGlossaryItem(BaseModel):
-    id: str
-    term: str
-    slug: str
-    aliases: list[str] = Field(default_factory=list)
-    definition: str
-    example_from_source: str | None = None
-    source_span: str | None = None
-    related_terms: list[str] = Field(default_factory=list)
-    aligned_learning_objectives: list[str] = Field(default_factory=list)
-
-
-class ConceptGlossaryMeta(BaseModel):
-    topic: str
-    lesson_objective: str
-    total_concepts: int
-    selection_rationale: list[str] = Field(default_factory=list)
-    selection_notes: list[str] = Field(default_factory=list)
-    version: str
-
-
-class ExtractConceptGlossaryStep(StructuredStep):
-    """Extract lesson-specific concept glossary entries."""
-
-    step_name = "extract_concept_glossary"
-    prompt_file = "extract_concept_glossary.md"
-    reasoning_effort = "medium"
-    verbosity = "low"
-    model = "gemini-2.5-flash"
-
-    class Inputs(BaseModel):
-        learner_desires: str
-        topic: str
-        lesson_objective: str
-        lesson_source_material: str
-        lesson_learning_objectives: list[dict]
-
-    class Outputs(BaseModel):
-        concepts: list[ConceptGlossaryItem]
-        meta: ConceptGlossaryMeta
-
-
-class RefinedConceptDifficultyRange(BaseModel):
-    min_level: str
-    max_level: str
-
-
-class RefinedConceptItem(BaseModel):
-    id: str
-    term: str
-    slug: str
-    aliases: list[str] = Field(default_factory=list)
-    definition: str
-    example_from_source: str | None = None
-    source_span: str | None = None
-    category: str | None = None
-    centrality: int
-    distinctiveness: int
-    transferability: int
-    clarity: int
-    assessment_potential: int
-    cognitive_domain: str
-    difficulty_potential: RefinedConceptDifficultyRange
-    learning_role: str | None = None
-    aligned_learning_objectives: list[str] = Field(default_factory=list)
-    canonical_answer: str
-    accepted_phrases: list[str] = Field(default_factory=list)
-    answer_type: str
-    closed_answer: bool
-    example_exercise_stem: str | None = None
-    plausible_distractors: list[str] = Field(default_factory=list)
-    misconception_note: str | None = None
-    contrast_with: list[str] = Field(default_factory=list)
-    related_concepts: list[str] = Field(default_factory=list)
-    review_notes: str | None = None
-    source_reference: str | None = None
-    version: str
-
-
-class RefinedConceptMeta(BaseModel):
-    topic: str
-    lesson_objective: str
-    total_retained: int
-    removed_or_merged: int
-    selection_rationale: list[str] = Field(default_factory=list)
-    selection_notes: list[str] = Field(default_factory=list)
-    version: str
-
-
-class AnnotateConceptGlossaryStep(StructuredStep):
-    """Refine and annotate concept glossary entries for assessment use."""
-
-    step_name = "annotate_concept_glossary"
-    prompt_file = "annotate_concept_glossary.md"
-    reasoning_effort = "medium"
-    verbosity = "low"
-    model = "gemini-2.5-flash"
-
-    class Inputs(BaseModel):
-        learner_desires: str
-        topic: str
-        lesson_objective: str
-        lesson_source_material: str
-        concept_glossary: list[dict]
-        lesson_learning_objectives: list[dict]
-
-    class Outputs(BaseModel):
-        refined_concepts: list[RefinedConceptItem]
-        meta: RefinedConceptMeta
-
-
-class ExerciseItemWrongAnswer(BaseModel):
-    answer: str
-    rationale_wrong: str
-    misconception_ids: list[str] = Field(default_factory=list)
-
-
-class ExerciseItemOption(BaseModel):
+class MCQOption(BaseModel):
     label: str
     text: str
     rationale_wrong: str | None = None
 
 
-class ExerciseItemAnswerKey(BaseModel):
+class MCQAnswerKey(BaseModel):
     label: str
-    rationale_right: str
-
-
-# Simplified model for LLM output (before adding metadata in code)
-class SimplifiedExerciseFromLLM(BaseModel):
-    concept_slug: str
-    concept_term: str
-    stem: str
-    options: list[ExerciseItemOption]
-    correct_answer: str
-    rationale_right: str
-    cognitive_level: str
-    difficulty: str
-    aligned_learning_objective: str
-
-
-# Full exercise model with metadata added in code
-class ExerciseItem(BaseModel):
-    id: str
-    exercise_category: str
-    type: str
-    concept_slug: str
-    concept_term: str
-    stem: str
-    canonical_answer: str | None = None
-    acceptable_answers: list[str] = Field(default_factory=list)
     rationale_right: str | None = None
-    wrong_answers: list[ExerciseItemWrongAnswer] = Field(default_factory=list)
-    answer_type: str | None = None
+
+
+class StructuredMCQExercise(BaseModel):
+    id: str
+    exercise_type: str
+    exercise_category: str
+    aligned_learning_objective: str
     cognitive_level: str
     difficulty: str
-    aligned_learning_objective: str
-    options: list[ExerciseItemOption] | None = None
-    answer_key: ExerciseItemAnswerKey | None = None
+    stem: str
+    options: list[MCQOption] = Field(default_factory=list)
+    answer_key: MCQAnswerKey
 
 
-class ExerciseBankMeta(BaseModel):
-    exercise_count: int
-    generation_notes: list[str] = Field(default_factory=list)
+class MCQValidationOutputs(BaseModel):
+    reasoning: str
+    exercises: list[StructuredMCQExercise] = Field(default_factory=list)
 
 
-class GenerateComprehensionExercisesStep(StructuredStep):
-    """Generate comprehension-focused exercises from refined concepts."""
+class ValidateAndStructureMCQsStep(StructuredStep):
+    """Validate MCQs and return structured quiz artifacts."""
 
-    step_name = "generate_comprehension_exercises"
-    prompt_file = "generate_comprehension_exercises.md"
-    reasoning_effort = "high"
-    verbosity = "low"
-    model = "gemini-2.5-flash"
-
-    class Inputs(BaseModel):
-        learner_desires: str
-        topic: str
-        lesson_objective: str
-        lesson_source_material: str
-        refined_concept_glossary: list[dict]
-        lesson_learning_objectives: list[dict]
-
-    class Outputs(BaseModel):
-        """Output from LLM - simplified schema."""
-
-        exercises: list[SimplifiedExerciseFromLLM]
-        meta: ExerciseBankMeta
-
-    async def _execute_step_logic(self, inputs: BaseModel, context: "FlowContext") -> tuple[BaseModel, uuid.UUID | None]:
-        """Execute structured LLM generation and add metadata to exercises."""
-        # Call parent to get LLM output with simplified schema
-        result = await super()._execute_step_logic(inputs, context)
-        llm_output = cast(GenerateComprehensionExercisesStep.Outputs, result[0])
-        request_id = result[1]
-
-        # Add metadata to each exercise
-        enriched_exercises = []
-        for idx, simple_ex in enumerate(llm_output.exercises):
-            # Create answer_key from correct_answer and rationale_right
-            answer_key = ExerciseItemAnswerKey(label=simple_ex.correct_answer, rationale_right=simple_ex.rationale_right)
-
-            enriched_exercises.append(
-                ExerciseItem(
-                    id=f"ex-comp-mc-{idx + 1:03d}",
-                    exercise_category="comprehension",
-                    type="multiple-choice",
-                    concept_slug=simple_ex.concept_slug,
-                    concept_term=simple_ex.concept_term,
-                    stem=simple_ex.stem,
-                    options=simple_ex.options,
-                    answer_key=answer_key,
-                    rationale_right=simple_ex.rationale_right,
-                    cognitive_level=simple_ex.cognitive_level,
-                    difficulty=simple_ex.difficulty,
-                    aligned_learning_objective=simple_ex.aligned_learning_objective,
-                )
-            )
-
-        # Create enriched output (reusing the Outputs model structure but with enriched exercises)
-        from pydantic import create_model
-
-        EnrichedOutputs = create_model("EnrichedOutputs", exercises=(list[ExerciseItem], ...), meta=(ExerciseBankMeta, ...))
-
-        return EnrichedOutputs(exercises=enriched_exercises, meta=llm_output.meta), request_id
-
-
-class GenerateTransferExercisesStep(StructuredStep):
-    """Generate transfer-focused exercises from refined concepts."""
-
-    step_name = "generate_transfer_exercises"
-    prompt_file = "generate_transfer_exercises.md"
-    reasoning_effort = "high"
-    verbosity = "low"
-    model = "gemini-2.5-flash"
-
-    class Inputs(BaseModel):
-        learner_desires: str
-        topic: str
-        lesson_objective: str
-        lesson_source_material: str
-        refined_concept_glossary: list[dict]
-        lesson_learning_objectives: list[dict]
-
-    class Outputs(BaseModel):
-        """Output from LLM - simplified schema."""
-
-        exercises: list[SimplifiedExerciseFromLLM]
-        meta: ExerciseBankMeta
-
-    async def _execute_step_logic(self, inputs: BaseModel, context: "FlowContext") -> tuple[BaseModel, uuid.UUID | None]:
-        """Execute structured LLM generation and add metadata to exercises."""
-        # Call parent to get LLM output with simplified schema
-        result = await super()._execute_step_logic(inputs, context)
-        llm_output = cast(GenerateTransferExercisesStep.Outputs, result[0])
-        request_id = result[1]
-
-        # Add metadata to each exercise
-        enriched_exercises = []
-        for idx, simple_ex in enumerate(llm_output.exercises):
-            # Create answer_key from correct_answer and rationale_right
-            answer_key = ExerciseItemAnswerKey(label=simple_ex.correct_answer, rationale_right=simple_ex.rationale_right)
-
-            enriched_exercises.append(
-                ExerciseItem(
-                    id=f"ex-trans-mc-{idx + 1:03d}",
-                    exercise_category="transfer",
-                    type="multiple-choice",
-                    concept_slug=simple_ex.concept_slug,
-                    concept_term=simple_ex.concept_term,
-                    stem=simple_ex.stem,
-                    options=simple_ex.options,
-                    answer_key=answer_key,
-                    rationale_right=simple_ex.rationale_right,
-                    cognitive_level=simple_ex.cognitive_level,
-                    difficulty=simple_ex.difficulty,
-                    aligned_learning_objective=simple_ex.aligned_learning_objective,
-                )
-            )
-
-        # Create enriched output (reusing the Outputs model structure but with enriched exercises)
-        from pydantic import create_model
-
-        EnrichedOutputs = create_model("EnrichedOutputs", exercises=(list[ExerciseItem], ...), meta=(ExerciseBankMeta, ...))
-
-        return EnrichedOutputs(exercises=enriched_exercises, meta=llm_output.meta), request_id
-
-
-class DifficultyDistribution(BaseModel):
-    easy: float
-    medium: float
-    hard: float
-
-
-class CognitiveMix(BaseModel):
-    Recall: float
-    Comprehension: float
-    Application: float
-    Transfer: float
-
-
-class QuizCoverageItem(BaseModel):
-    learning_objective_id: str
-    exercise_count: int
-    exercise_ids: list[str] = Field(default_factory=list)
-    concepts: list[str] = Field(default_factory=list)
-
-
-class QuizConceptCoverageItem(BaseModel):
-    concept_slug: str
-    exercise_count: int
-    exercise_ids: list[str] = Field(default_factory=list)
-    types: list[str] = Field(default_factory=list)
-
-
-class QuizMetadataOutput(BaseModel):
-    quiz_type: str
-    total_items: int
-    difficulty_distribution_target: DifficultyDistribution
-    difficulty_distribution_actual: DifficultyDistribution
-    cognitive_mix_target: CognitiveMix
-    cognitive_mix_actual: CognitiveMix
-    coverage_by_LO: list[QuizCoverageItem] = Field(default_factory=list)
-    coverage_by_concept: list[QuizConceptCoverageItem] = Field(default_factory=list)
-    normalizations_applied: list[str] = Field(default_factory=list)
-    selection_rationale: list[str] = Field(default_factory=list)
-    gaps_identified: list[str] = Field(default_factory=list)
-
-
-class GenerateQuizFromExercisesStep(StructuredStep):
-    """Assemble a quiz from the generated exercise bank."""
-
-    step_name = "generate_quiz_from_exercises"
-    prompt_file = "generate_quiz_from_exercises.md"
+    step_name = "validate_and_structure_mcqs"
+    prompt_file = "validate_and_structure_mcqs.md"
     reasoning_effort = "medium"
     verbosity = "low"
-    model = "gemini-2.5-flash"
+    model = "gemini-2.0-flash-exp"
 
     class Inputs(BaseModel):
-        learner_desires: str
-        exercise_bank: list[dict]
-        refined_concept_glossary: list[dict]
-        lesson_learning_objectives: list[dict]
-        target_question_count: int
+        unstructured_mcqs: str
+        podcast_transcript: str
+        learning_objectives: list[dict] = Field(default_factory=list)
 
-    class Outputs(BaseModel):
-        quiz: list[str]
-        meta: QuizMetadataOutput
+    class Outputs(MCQValidationOutputs):
+        pass
 
 
 # ---------- 5) Generate Unit Podcast Transcript ----------
 class PodcastLessonInput(BaseModel):
     title: str
-    mini_lesson: str
+    podcast_transcript: str
 
 
 class GenerateUnitPodcastTranscriptStep(UnstructuredStep):
@@ -500,24 +204,6 @@ class GenerateUnitPodcastTranscriptStep(UnstructuredStep):
         voice: str
         unit_summary: str
         lessons: list[PodcastLessonInput]
-
-
-class GenerateLessonPodcastTranscriptStep(UnstructuredStep):
-    """Generate a narrative podcast transcript for a single lesson."""
-
-    step_name = "generate_lesson_podcast_transcript"
-    prompt_file = "generate_lesson_podcast_transcript.md"
-    reasoning_effort = "medium"
-    verbosity = "low"
-    model = "gemini-2.5-flash"
-
-    class Inputs(BaseModel):
-        learner_desires: str
-        lesson_number: int
-        lesson_title: str
-        lesson_objective: str
-        mini_lesson: str
-        voice: str
 
 
 class SynthesizePodcastAudioStep(AudioStep):

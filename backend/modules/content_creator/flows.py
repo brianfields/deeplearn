@@ -9,61 +9,58 @@ Uses the previously fast behavior as the canonical default.
 import logging
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from modules.flow_engine.public import BaseFlow
 
 from .steps import (
-    AnnotateConceptGlossaryStep,
-    ExtractConceptGlossaryStep,
-    ExtractLessonMetadataStep,
-    ExtractUnitMetadataStep,
-    GenerateComprehensionExercisesStep,
     GenerateLessonPodcastTranscriptStep,
-    GenerateQuizFromExercisesStep,
-    GenerateTransferExercisesStep,
+    GenerateMCQsUnstructuredStep,
     GenerateUnitArtDescriptionStep,
     GenerateUnitArtImageStep,
     GenerateUnitPodcastTranscriptStep,
     GenerateUnitSourceMaterialStep,
+    MCQValidationOutputs,
     PodcastLessonInput,
     SynthesizePodcastAudioStep,
+    ValidateAndStructureMCQsStep,
+    ExtractUnitMetadataStep,
 )
 
 logger = logging.getLogger(__name__)
 
 
 class LessonCreationFlow(BaseFlow):
-    """Create a complete lesson using the concept-driven pipeline.
-
-    Pipeline:
-    1) Extract lesson metadata and scoped source material
-    2) Build full learning objective objects
-    3) Extract and annotate the concept glossary
-    4) Generate comprehension and transfer exercises
-    5) Assemble a balanced quiz from the exercise bank
-    """
+    """Create a lesson using the simplified podcast-first pipeline."""
 
     flow_name = "lesson_creation"
 
     class Inputs(BaseModel):
-        learner_desires: str  # Replaces topic + learner_level + voice
-        learning_objectives: list[str] | list[dict]  # Now accepts full LO objects or strings
+        learner_desires: str
+        learning_objectives: list[str] | list[dict]
         learning_objective_ids: list[str]
         lesson_objective: str
         source_material: str
+        lesson_title: str | None = None
+        lesson_number: int | None = None
+        sibling_lessons: list[dict] = Field(default_factory=list)
 
     async def _execute_flow_logic(self, inputs: dict[str, Any]) -> dict[str, Any]:
-        logger.info(f"🧪 Lesson Creation Flow - {inputs.get('learner_desires', 'Unknown')[:50]}")
+        logger.info("🧪 Lesson Creation Flow - podcast-first pipeline")
 
-        # Step 1: Build full lesson learning objective objects FIRST
         lesson_lo_ids = list(inputs.get("learning_objective_ids", []))
         raw_los = list(inputs.get("learning_objectives", []))
         lesson_learning_objectives: list[dict[str, str]] = []
         for idx, lo_id in enumerate(lesson_lo_ids):
             raw_item = raw_los[idx] if idx < len(raw_los) else lo_id
             if isinstance(raw_item, dict):
-                title = str(raw_item.get("title") or raw_item.get("name") or raw_item.get("short_title") or raw_item.get("description") or lo_id)
+                title = str(
+                    raw_item.get("title")
+                    or raw_item.get("name")
+                    or raw_item.get("short_title")
+                    or raw_item.get("description")
+                    or lo_id
+                )
                 description = str(raw_item.get("description") or title)
             else:
                 text_value = str(raw_item)
@@ -71,99 +68,66 @@ class LessonCreationFlow(BaseFlow):
                 description = text_value
             lesson_learning_objectives.append({"id": str(lo_id), "title": title, "description": description})
 
-        # Step 2: Extract lesson metadata and scoped source material
-        md_result = await ExtractLessonMetadataStep().execute(
+        sibling_lessons = [
+            {"title": str(item.get("title", "")), "lesson_objective": str(item.get("lesson_objective", ""))}
+            for item in inputs.get("sibling_lessons", []) or []
+        ]
+
+        lesson_title = str(inputs.get("lesson_title") or "Lesson")
+        transcript_result = await GenerateLessonPodcastTranscriptStep().execute(
             {
                 "learner_desires": inputs["learner_desires"],
-                "learning_objectives": lesson_learning_objectives,
-                "learning_objective_ids": lesson_lo_ids,
+                "lesson_title": lesson_title,
                 "lesson_objective": inputs["lesson_objective"],
+                "learning_objectives": lesson_learning_objectives,
+                "source_material": inputs["source_material"],
+                "sibling_lessons": sibling_lessons,
+                "lesson_number": inputs.get("lesson_number"),
+            }
+        )
+        podcast_transcript = str(transcript_result.output_content or "").strip()
+        if not podcast_transcript:
+            raise RuntimeError("Lesson podcast transcript generation returned empty content")
+
+        mcq_unstructured = await GenerateMCQsUnstructuredStep().execute(
+            {
+                "learner_desires": inputs["learner_desires"],
+                "lesson_objective": inputs["lesson_objective"],
+                "learning_objectives": lesson_learning_objectives,
+                "sibling_lessons": sibling_lessons,
+                "podcast_transcript": podcast_transcript,
                 "source_material": inputs["source_material"],
             }
         )
-        lesson_md = md_result.output_content
+        unstructured_mcqs = str(mcq_unstructured.output_content or "").strip()
 
-        # Step 3: Extract concept glossary
-        concept_result = await ExtractConceptGlossaryStep().execute(
+        validation_result = await ValidateAndStructureMCQsStep().execute(
             {
-                "learner_desires": inputs["learner_desires"],
-                "topic": lesson_md.topic,
-                "lesson_objective": inputs["lesson_objective"],
-                "lesson_source_material": lesson_md.lesson_source_material,
-                "lesson_learning_objectives": lesson_learning_objectives,
+                "unstructured_mcqs": unstructured_mcqs,
+                "podcast_transcript": podcast_transcript,
+                "learning_objectives": lesson_learning_objectives,
             }
         )
-        concept_output = concept_result.output_content
-        concept_glossary_payload = [concept.model_dump() for concept in concept_output.concepts]
+        structured_output = validation_result.output_content
+        if not isinstance(structured_output, MCQValidationOutputs):
+            structured_output = MCQValidationOutputs.model_validate(structured_output)
 
-        # Step 4: Annotate concept glossary
-        refined_result = await AnnotateConceptGlossaryStep().execute(
-            {
-                "learner_desires": inputs["learner_desires"],
-                "topic": lesson_md.topic,
-                "lesson_objective": inputs["lesson_objective"],
-                "lesson_source_material": lesson_md.lesson_source_material,
-                "concept_glossary": concept_glossary_payload,
-                "lesson_learning_objectives": lesson_learning_objectives,
-            }
-        )
-        refined_output = refined_result.output_content
-        refined_concepts_payload = [concept.model_dump() for concept in refined_output.refined_concepts]
-
-        # Step 5: Generate comprehension exercises
-        comprehension_result = await GenerateComprehensionExercisesStep().execute(
-            {
-                "learner_desires": inputs["learner_desires"],
-                "topic": lesson_md.topic,
-                "lesson_objective": inputs["lesson_objective"],
-                "lesson_source_material": lesson_md.lesson_source_material,
-                "refined_concept_glossary": refined_concepts_payload,
-                "lesson_learning_objectives": lesson_learning_objectives,
-            }
-        )
-        comprehension_output = comprehension_result.output_content
-
-        # Step 6: Generate transfer exercises
-        transfer_result = await GenerateTransferExercisesStep().execute(
-            {
-                "learner_desires": inputs["learner_desires"],
-                "topic": lesson_md.topic,
-                "lesson_objective": inputs["lesson_objective"],
-                "lesson_source_material": lesson_md.lesson_source_material,
-                "refined_concept_glossary": refined_concepts_payload,
-                "lesson_learning_objectives": lesson_learning_objectives,
-            }
-        )
-        transfer_output = transfer_result.output_content
-
-        comprehension_payload = [exercise.model_dump() for exercise in comprehension_output.exercises]
-        transfer_payload = [exercise.model_dump() for exercise in transfer_output.exercises]
-        exercise_bank_payload = comprehension_payload + transfer_payload
-
-        # Step 7: Assemble quiz from combined exercise bank
-        quiz_result = await GenerateQuizFromExercisesStep().execute(
-            {
-                "learner_desires": inputs["learner_desires"],
-                "exercise_bank": exercise_bank_payload,
-                "refined_concept_glossary": refined_concepts_payload,
-                "lesson_learning_objectives": lesson_learning_objectives,
-                "target_question_count": len(exercise_bank_payload),
-            }
-        )
-        quiz_output = quiz_result.output_content
+        exercises = list(structured_output.exercises)
+        exercise_bank_payload = [exercise.model_dump() for exercise in exercises]
+        quiz_ids = [exercise.id for exercise in exercises]
+        quiz_metadata = {
+            "quiz_type": "lesson_assessment",
+            "total_items": len(quiz_ids),
+            "reasoning": structured_output.reasoning,
+        }
 
         return {
-            "topic": lesson_md.topic,
-            "learner_level": lesson_md.learner_level,
-            "voice": lesson_md.voice,
-            "learning_objectives": list(lesson_md.learning_objectives),
-            "learning_objective_ids": list(lesson_md.learning_objective_ids),
-            "lesson_source_material": lesson_md.lesson_source_material,
-            "mini_lesson": lesson_md.mini_lesson,
-            "concept_glossary": refined_concepts_payload,
+            "podcast_transcript": podcast_transcript,
+            "learning_objectives": [item["title"] for item in lesson_learning_objectives],
+            "learning_objective_ids": lesson_lo_ids,
             "exercise_bank": exercise_bank_payload,
-            "quiz": list(quiz_output.quiz),
-            "quiz_metadata": quiz_output.meta.model_dump(),
+            "quiz": quiz_ids,
+            "quiz_metadata": quiz_metadata,
         }
 
 
@@ -246,11 +210,14 @@ class LessonPodcastFlow(BaseFlow):
 
     class Inputs(BaseModel):
         learner_desires: str
-        lesson_number: int
         lesson_title: str
         lesson_objective: str
-        mini_lesson: str
         voice: str
+        lesson_number: int | None = None
+        podcast_transcript: str | None = None
+        learning_objectives: list[dict] = Field(default_factory=list)
+        sibling_lessons: list[dict] = Field(default_factory=list)
+        source_material: str | None = None
         audio_model: str = "tts-1-hd"
         audio_format: str = "mp3"
         audio_speed: float | None = None
@@ -262,17 +229,20 @@ class LessonPodcastFlow(BaseFlow):
             inputs.get("lesson_title", "Unknown"),
         )
 
-        transcript_result = await GenerateLessonPodcastTranscriptStep().execute(
-            {
+        transcript_text = str(inputs.get("podcast_transcript") or "").strip()
+        if not transcript_text:
+            transcript_inputs = {
                 "learner_desires": inputs["learner_desires"],
-                "lesson_number": inputs["lesson_number"],
                 "lesson_title": inputs["lesson_title"],
                 "lesson_objective": inputs["lesson_objective"],
-                "mini_lesson": inputs["mini_lesson"],
-                "voice": inputs["voice"],
+                "learning_objectives": inputs.get("learning_objectives") or [],
+                "source_material": inputs.get("source_material") or "",
+                "sibling_lessons": inputs.get("sibling_lessons") or [],
+                "lesson_number": inputs.get("lesson_number"),
+                "voice": inputs.get("voice"),
             }
-        )
-        transcript_text = str(transcript_result.output_content or "").strip()
+            transcript_result = await GenerateLessonPodcastTranscriptStep().execute(transcript_inputs)
+            transcript_text = str(transcript_result.output_content or "").strip()
         if not transcript_text:
             raise RuntimeError("Lesson podcast transcript generation returned empty content")
 
