@@ -340,7 +340,21 @@ class FlowHandler:
 
         lesson_title = lesson_plan.get("title") or f"Lesson {lesson_index + 1}"
         lesson_lo_ids: list[str] = list(lesson_plan.get("learning_objective_ids", []) or [])
-        lesson_lo_objects: list[dict] = [unit_los.get(lid, {"id": lid, "title": lid, "description": lid}) for lid in lesson_lo_ids]
+
+        # Build lesson LO objects — require that all LO IDs exist in unit_los
+        lesson_lo_objects: list[dict] = []
+        missing_los = [lid for lid in lesson_lo_ids if lid not in unit_los]
+        if missing_los:
+            raise ValueError(
+                f"Lesson {lesson_index + 1} ({lesson_title}) references learning objectives "
+                f"{missing_los} that are not defined in the unit. "
+                f"Available LOs: {list(unit_los.keys())}. "
+                f"This indicates a mismatch between lesson plan and unit learning objectives."
+            )
+
+        for lid in lesson_lo_ids:
+            lesson_lo_objects.append(unit_los[lid])
+
         lesson_objective_text: str = lesson_plan.get("lesson_objective", "")
 
         logger.info(f"      📝 Lesson {lesson_index + 1}: {lesson_title[:60]}{'...' if len(lesson_title) > 60 else ''}")

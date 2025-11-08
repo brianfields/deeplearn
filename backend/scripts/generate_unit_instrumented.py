@@ -371,21 +371,30 @@ class InstrumentedUnitGenerator:
 
             logger.info("   📝 Lesson %s: %s", lesson_num, lesson_title)
 
-            # Build lesson LO objects (dicts for internal use)
+            # Build lesson LO objects (dicts with id, title, description)
             lesson_lo_objects = [unit_los.get(lid, {"id": lid, "title": lid, "description": lid}) for lid in lesson_lo_ids]
 
-            # Extract titles for the flow (which expects list[str] or list[dict])
-            lesson_lo_titles = [lo["title"] for lo in lesson_lo_objects]
+            # Build sibling lessons context (like flow_handler.py does)
+            sibling_context = [
+                {
+                    "title": str(other_plan.get("title", "")),
+                    "lesson_objective": str(other_plan.get("lesson_objective", "")),
+                }
+                for other_plan in lessons_plan
+                if other_plan is not lesson_plan
+            ]
 
             # Generate lesson content
             lesson_flow = LessonCreationFlow()
             lesson_result = await lesson_flow.execute(
                 {
                     "learner_desires": learner_desires,
-                    "learning_objectives": lesson_lo_titles,  # Pass titles as strings
+                    "learning_objectives": lesson_lo_objects,  # Pass full dicts with id, title, description
                     "learning_objective_ids": lesson_lo_ids,
                     "lesson_objective": lesson_objective,
                     "source_material": unit_source_material,
+                    "lesson_number": lesson_num,
+                    "sibling_lessons": sibling_context,
                 }
             )
             await self.track_step(f"lesson_{lesson_num}_creation")
@@ -537,11 +546,9 @@ class InstrumentedUnitGenerator:
             lesson_lo_ids = package.unit_learning_objective_ids
             lesson_lo_objects = [unit_los.get(lid, {"id": lid, "title": lid, "description": lid}) for lid in lesson_lo_ids]
 
-            # Extract titles for the flow
-            lesson_lo_titles = [lo["title"] for lo in lesson_lo_objects]
-
-            # For regeneration, infer a concise lesson objective from LO titles
-            lesson_objective = lesson_lo_titles[0] if lesson_lo_titles else f"Learn {lesson.title}"
+            # For regeneration, infer a concise lesson objective from first LO title
+            lesson_objective_from_los = [lo["title"] for lo in lesson_lo_objects]
+            lesson_objective = lesson_objective_from_los[0] if lesson_objective_from_los else f"Learn {lesson.title}"
             podcast_transcript = getattr(lesson, "podcast_transcript", None) or ""
 
             # We need the unit source material - try to get it from unit metadata
@@ -551,15 +558,22 @@ class InstrumentedUnitGenerator:
                 logger.warning("      ⚠️ No source material found, using podcast transcript as fallback")
                 source_material = podcast_transcript or lesson.title
 
+            # Build sibling lessons context (like flow_handler.py does)
+            # For regenerate_exercises, we don't have lessons_plan, so siblings will be empty
+            # This is acceptable since we're regenerating individual lessons
+            sibling_context: list[dict[str, str]] = []
+
             # Re-run lesson creation flow
             lesson_flow = LessonCreationFlow()
             await lesson_flow.execute(
                 {
                     "learner_desires": learner_desires,
-                    "learning_objectives": lesson_lo_titles,  # Pass titles as strings
+                    "learning_objectives": lesson_lo_objects,  # Pass full dicts with id, title, description
                     "learning_objective_ids": lesson_lo_ids,
                     "lesson_objective": lesson_objective,
                     "source_material": source_material,
+                    "lesson_number": lesson_num,
+                    "sibling_lessons": sibling_context,
                 }
             )
             await self.track_step(f"lesson_{lesson_num}_regeneration")
@@ -648,19 +662,30 @@ class InstrumentedUnitGenerator:
 
             logger.info(f"   📝 Lesson {lesson_num}: {lesson_title}")
 
-            # Build lesson LO objects
+            # Build lesson LO objects (dicts with id, title, description)
             lesson_lo_objects = [unit_los.get(lid, {"id": lid, "title": lid, "description": lid}) for lid in lesson_lo_ids]
-            lesson_lo_titles = [lo["title"] for lo in lesson_lo_objects]
+
+            # Build sibling lessons context (like flow_handler.py does)
+            sibling_context = [
+                {
+                    "title": str(other_plan.get("title", "")),
+                    "lesson_objective": str(other_plan.get("lesson_objective", "")),
+                }
+                for other_plan in lessons_plan
+                if other_plan is not lesson_plan
+            ]
 
             # Generate lesson content
             lesson_flow = LessonCreationFlow()
             await lesson_flow.execute(
                 {
                     "learner_desires": learner_desires,
-                    "learning_objectives": lesson_lo_titles,
+                    "learning_objectives": lesson_lo_objects,  # Pass full dicts with id, title, description
                     "learning_objective_ids": lesson_lo_ids,
                     "lesson_objective": lesson_objective,
                     "source_material": unit_source_material,
+                    "lesson_number": lesson_num,
+                    "sibling_lessons": sibling_context,
                 }
             )
             await self.track_step(f"lesson_{lesson_num}_creation")

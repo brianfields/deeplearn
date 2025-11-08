@@ -51,18 +51,44 @@ class LessonCreationFlow(BaseFlow):
         lesson_lo_ids = list(inputs.get("learning_objective_ids", []))
         raw_los = list(inputs.get("learning_objectives", []))
         lesson_learning_objectives: list[dict[str, str]] = []
+
+        # Check for placeholder LOs (e.g., {"id": "UO1", "title": "UO1", "description": "UO1"})
+        placeholder_los = []
         for idx, lo_id in enumerate(lesson_lo_ids):
             raw_item = raw_los[idx] if idx < len(raw_los) else lo_id
             if isinstance(raw_item, dict):
                 title = str(raw_item.get("title") or raw_item.get("name") or raw_item.get("short_title") or raw_item.get("description") or lo_id)
                 description = str(raw_item.get("description") or title)
+                # Detect placeholder pattern: title == id and description == id
+                if title == str(lo_id) and description == str(lo_id):
+                    placeholder_los.append(lo_id)
             else:
                 text_value = str(raw_item)
                 title = text_value
                 description = text_value
             lesson_learning_objectives.append({"id": str(lo_id), "title": title, "description": description})
 
+        # Warn or fail if placeholder LOs detected
+        if placeholder_los:
+            logger.error(
+                "⚠️  Placeholder learning objectives detected: %s. These LOs have no real description and will result in poor MCQ alignment. Please provide real learning objective data with id, title, and description fields.",
+                placeholder_los,
+            )
+            raise ValueError(
+                f"Learning objectives contain placeholders (e.g., {placeholder_los}). "
+                f"Please provide real learning objective data with meaningful descriptions. "
+                f"Example: {{'id': 'LO1', 'title': 'Understand X', 'description': 'The learner will understand Y because Z...'}}"
+            )
+
         sibling_lessons = [{"title": str(item.get("title", "")), "lesson_objective": str(item.get("lesson_objective", ""))} for item in inputs.get("sibling_lessons", []) or []]
+
+        # Warn if no sibling lessons provided and lesson_number > 1 (suggests missing context)
+        lesson_number = inputs.get("lesson_number")
+        if not sibling_lessons and lesson_number and lesson_number > 1:
+            logger.warning(
+                "⚠️  Lesson %s has no sibling lessons provided. This means the podcast transcript won't reference other lessons for scope context. Consider passing sibling lessons from the unit lesson plan to help the LLM understand scope.",
+                lesson_number,
+            )
 
         lesson_title = str(inputs.get("lesson_title") or "Lesson")
         transcript_result = await GenerateLessonPodcastTranscriptStep().execute(
@@ -103,7 +129,19 @@ class LessonCreationFlow(BaseFlow):
         if not isinstance(structured_output, MCQValidationOutputs):
             structured_output = MCQValidationOutputs.model_validate(structured_output)
 
+        # Generate IDs for exercises if not provided by LLM
         exercises = list(structured_output.exercises)
+        comp_counter = 1
+        trans_counter = 1
+        for exercise in exercises:
+            if not exercise.id:
+                category_prefix = "ex-comp-mc" if exercise.exercise_category == "comprehension" else "ex-trans-mc"
+                counter = comp_counter if exercise.exercise_category == "comprehension" else trans_counter
+                exercise.id = f"{category_prefix}-{counter:03d}"
+                if exercise.exercise_category == "comprehension":
+                    comp_counter += 1
+                else:
+                    trans_counter += 1
         exercise_bank_payload = [exercise.model_dump() for exercise in exercises]
         quiz_ids = [exercise.id for exercise in exercises]
         quiz_metadata = {
@@ -184,10 +222,13 @@ class UnitCreationFlow(BaseFlow):
         )
         unit_md = md_result.output_content
 
-        # Final assembly - use coach LOs directly (no regeneration)
+        # Always return the LLM-generated learning objectives (influenced by coach_learning_objectives if provided)
+        # The generated LOs are more detailed than coach LOs
+        final_learning_objectives = [lo.model_dump() for lo in unit_md.learning_objectives]
+
         return {
             "unit_title": unit_md.unit_title,
-            "learning_objectives": coach_learning_objectives,
+            "learning_objectives": final_learning_objectives,
             "lessons": [ls.model_dump() for ls in unit_md.lessons],
             "lesson_count": int(unit_md.lesson_count),
             "source_material": material,

@@ -53,7 +53,7 @@ class WrongAnswerWithRationale(BaseModel):
 ExerciseType = Literal["mcq", "short_answer"]
 ExerciseCategory = Literal["comprehension", "transfer"]
 DifficultyLevel = Literal["easy", "medium", "hard"]
-CognitiveLevel = Literal["Recall", "Comprehension", "Application", "Transfer"]
+CognitiveLevel = Literal["Recall", "Comprehension", "Application", "Analysis", "Evaluation", "Creation"]
 
 
 class Exercise(BaseModel):
