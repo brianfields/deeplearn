@@ -5,12 +5,11 @@
  * progress tracking, and session completion.
  */
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import { View, Text, StyleSheet, Alert, ScrollView } from 'react-native';
 import { Button, Progress, useHaptics } from '../../ui_system/public';
 import { uiSystemProvider } from '../../ui_system/public';
 import { useActiveLearningSession } from '../queries';
 import { useLearningSessionStore } from '../store';
-import MiniLesson from './MiniLesson';
 import MultipleChoice from './MultipleChoice';
 import ShortAnswer from './ShortAnswer';
 import type { MCQContentDTO, ShortAnswerContentDTO } from '../models';
@@ -24,9 +23,6 @@ interface LearningFlowProps {
   unitId?: string | null;
   hasPlayer?: boolean;
 }
-
-// Simple element to auto-skip glossary entries
-// Glossary content is no longer part of exercise flow
 
 export default function LearningFlow({
   sessionId,
@@ -100,39 +96,41 @@ export default function LearningFlow({
     return Math.min(1, completedExercisesCount / actualExercisesCount);
   }, [actualExercisesCount, completedExercisesCount]);
 
-  // Track whether didactic has been shown this session locally
-  const [didacticShown, setDidacticShown] = useState(false);
-  const [didacticData, setDidacticData] = useState<any | null>(null);
+  // Track whether the podcast transcript intro has been shown this session
+  const [transcriptShown, setTranscriptShown] = useState(false);
+  const [podcastTranscript, setPodcastTranscript] = useState<string | null>(
+    null
+  );
 
-  // Fetch mini lesson from lesson details (package-aligned)
+  // Fetch podcast transcript from lesson details (package-aligned)
   useEffect(() => {
     let isMounted = true;
-    const fetchDidactic = async () => {
+    const fetchTranscript = async () => {
       try {
         if (!session?.lessonId) return;
         const catalog = catalogProvider();
         const detail = await catalog.getLessonDetail(session.lessonId);
         if (!isMounted) return;
-        setDidacticData(detail?.miniLesson || null);
+        setPodcastTranscript(detail?.podcastTranscript ?? null);
       } catch (e) {
-        console.warn('Failed to load mini lesson:', e);
-        if (isMounted) setDidacticData(null);
+        console.warn('Failed to load podcast transcript:', e);
+        if (isMounted) setPodcastTranscript(null);
       }
     };
-    fetchDidactic();
+    fetchTranscript();
     return () => {
       isMounted = false;
     };
   }, [session?.lessonId]);
 
-  // Show didactic snippet first when session starts and no exercises completed yet
-  const shouldShowDidactic = useMemo(() => {
+  // Show podcast transcript first when session starts and no exercises completed yet
+  const shouldShowTranscript = useMemo(() => {
     return (
       !!session &&
       currentExerciseIndex === 0 &&
       completedExercisesCount === 0 &&
-      !didacticShown &&
-      !!didacticData &&
+      !transcriptShown &&
+      !!podcastTranscript &&
       Array.isArray(exercises) &&
       exercises.length > 0
     );
@@ -140,13 +138,13 @@ export default function LearningFlow({
     session,
     currentExerciseIndex,
     completedExercisesCount,
-    didacticData,
+    podcastTranscript,
     exercises,
-    didacticShown,
+    transcriptShown,
   ]);
 
   useEffect(() => {
-    if (!playlist || !session?.lessonId || !shouldShowDidactic) {
+    if (!playlist || !session?.lessonId || !shouldShowTranscript) {
       return;
     }
     const lessonTrack = playlist.tracks.find(
@@ -175,7 +173,7 @@ export default function LearningFlow({
   }, [
     playlist,
     session?.lessonId,
-    shouldShowDidactic,
+    shouldShowTranscript,
     loadTrack,
     autoplayEnabled,
     play,
@@ -357,21 +355,40 @@ export default function LearningFlow({
           hasPlayer ? styles.componentContainerWithMini : undefined,
         ]}
       >
-        {shouldShowDidactic && (
-          <MiniLesson
-            snippet={{
-              explanation: didacticData as string,
-            }}
-            lessonTitle={session?.lessonTitle}
-            onContinue={() => {
-              setDidacticShown(true);
-              setCurrentExercise(0);
-            }}
-            isLoading={isUpdatingProgress}
-            _hasPodcast={hasPlayer}
-          />
+        {shouldShowTranscript && podcastTranscript && (
+          <View style={styles.transcriptContainer}>
+            <View style={styles.transcriptHeader}>
+              <Text style={styles.transcriptLabel}>
+                Lesson Podcast Transcript
+              </Text>
+              {session?.lessonTitle ? (
+                <Text style={styles.transcriptTitle}>
+                  {session.lessonTitle}
+                </Text>
+              ) : null}
+            </View>
+            <ScrollView
+              style={styles.transcriptScroll}
+              contentContainerStyle={styles.transcriptScrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              <Text style={styles.transcriptText}>{podcastTranscript}</Text>
+            </ScrollView>
+            <Button
+              title="Start Exercises"
+              onPress={() => {
+                setTranscriptShown(true);
+                setCurrentExercise(0);
+                haptics.trigger('light');
+              }}
+              loading={isUpdatingProgress}
+              disabled={isUpdatingProgress}
+              style={styles.transcriptContinueButton}
+              testID="learning-flow-transcript-continue"
+            />
+          </View>
         )}
-        {!shouldShowDidactic && renderCurrentExercise()}
+        {!shouldShowTranscript && renderCurrentExercise()}
       </View>
 
       {/* Footer with session controls */}
@@ -486,15 +503,51 @@ const createStyles = (theme: any) =>
       textAlign: 'center',
       lineHeight: 22,
     },
-    glossarySkipContainer: {
+    transcriptContainer: {
       flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: theme.colors.background,
+      backgroundColor: theme.colors.surface,
+      borderRadius: theme.borderRadius?.lg || 16,
+      padding: theme.spacing?.lg || 16,
+      gap: theme.spacing?.md || 12,
+      shadowColor: theme.colors.shadow || '#000000',
+      shadowOpacity: 0.12,
+      shadowRadius: 12,
+      elevation: 3,
     },
-    glossarySkipText: {
-      fontSize: 16,
+    transcriptHeader: {
+      gap: theme.spacing?.xs || 6,
+    },
+    transcriptLabel: {
+      fontSize: 12,
+      fontWeight: '600',
+      textTransform: 'uppercase',
       color: theme.colors.textSecondary,
+      letterSpacing: 1,
+    },
+    transcriptTitle: {
+      fontSize: 20,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    transcriptScroll: {
+      flex: 1,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius?.md || 12,
+      paddingHorizontal: theme.spacing?.md || 16,
+      paddingVertical: theme.spacing?.sm || 12,
+      backgroundColor: theme.colors.surfaceSubdued,
+    },
+    transcriptScrollContent: {
+      paddingBottom: theme.spacing?.lg || 16,
+    },
+    transcriptText: {
+      fontSize: 16,
+      lineHeight: 24,
+      color: theme.colors.text,
+    },
+    transcriptContinueButton: {
+      marginTop: theme.spacing?.sm || 12,
     },
     completingOverlay: {
       position: 'absolute',

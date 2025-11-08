@@ -15,10 +15,6 @@ import {
   UnitPodcastList,
   derivePodcastPropsFromUnit,
 } from '@/modules/admin/components/content/UnitPodcastList';
-import { ConceptGlossaryView } from '@/modules/admin/components/content/ConceptGlossaryView';
-import { ExerciseBankView } from '@/modules/admin/components/content/ExerciseBankView';
-import { QuizStructureView } from '@/modules/admin/components/content/QuizStructureView';
-import { QuizMetadataView } from '@/modules/admin/components/content/QuizMetadataView';
 import { LoadingSpinner } from '@/modules/admin/components/shared/LoadingSpinner';
 import { ErrorMessage } from '@/modules/admin/components/shared/ErrorMessage';
 import { ReloadButton } from '@/modules/admin/components/shared/ReloadButton';
@@ -76,8 +72,6 @@ function LessonExpandedDetails({ lessonId }: { lessonId: string }) {
   }
 
   const exerciseBank = lesson.package.exercise_bank || [];
-  const quizIds = new Set(lesson.package.quiz || []);
-  const quizExercises = exerciseBank.filter((ex) => quizIds.has(ex.id));
 
   const mcqExercises = exerciseBank.filter(
     (ex): ex is MCQExercise => ex.exercise_type === 'mcq'
@@ -89,11 +83,12 @@ function LessonExpandedDetails({ lessonId }: { lessonId: string }) {
 
   const allExercises = exerciseBank;
   const lessonAudioHref = resolveAudioHref(lesson.podcast_audio_url ?? null);
+  const hasPodcastContent = lesson.has_podcast || Boolean(lesson.podcast_transcript);
 
   return (
     <div className="px-6 pb-4 pt-2 bg-gray-50 border-t border-gray-100 space-y-6 max-h-[70vh] overflow-y-auto">
       {/* Lesson Podcast */}
-      {lesson.has_podcast && (
+      {hasPodcastContent && (
         <div className="border-b border-gray-200 pb-6">
           <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
             <h3 className="text-xs font-semibold text-gray-700 uppercase">Lesson Podcast</h3>
@@ -135,20 +130,6 @@ function LessonExpandedDetails({ lessonId }: { lessonId: string }) {
         </div>
       )}
 
-      {/* Mini Lesson */}
-      {lesson.package.mini_lesson && (
-        <div>
-          <h3 className="text-xs font-semibold text-gray-700 uppercase mb-1.5">Mini Lesson</h3>
-          <div className="border border-gray-200 rounded">
-            <ResizablePanel defaultHeight={192} minHeight={96} maxHeight={600}>
-              <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap bg-white p-3">
-                {lesson.package.mini_lesson}
-              </div>
-            </ResizablePanel>
-          </div>
-        </div>
-      )}
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Quiz Info */}
         {lesson.package.quiz && lesson.package.quiz.length > 0 && (
@@ -169,25 +150,6 @@ function LessonExpandedDetails({ lessonId }: { lessonId: string }) {
           </div>
         )}
 
-        {/* Key Concepts from Glossary */}
-        {lesson.package.concept_glossary && lesson.package.concept_glossary.length > 0 && (
-          <div>
-            <h3 className="text-xs font-semibold text-gray-700 uppercase mb-1.5">
-              Key Concepts ({lesson.package.concept_glossary.length})
-            </h3>
-            <div className="flex flex-wrap gap-1.5">
-              {lesson.package.concept_glossary.map((concept) => (
-                  <span
-                    key={concept.id}
-                    className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
-                    title={concept.definition}
-                  >
-                    {concept.term}
-                  </span>
-                ))}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* All Exercises - Unified Section */}

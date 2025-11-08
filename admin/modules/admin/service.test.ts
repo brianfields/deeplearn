@@ -281,40 +281,6 @@ describe('AdminService resource-aware mappings', () => {
           content_version: 1,
         },
         unit_learning_objective_ids: ['lo-1'],
-        mini_lesson: 'Mini lesson',
-        concept_glossary: [
-          {
-            id: 'concept-1',
-            term: 'Photosynthesis',
-            slug: 'photosynthesis',
-            aliases: ['photosynthesis process'],
-            definition: 'Definition',
-            example_from_source: 'Excerpt',
-            source_span: 'lines 1-3',
-            category: 'science',
-            centrality: 5,
-            distinctiveness: 4,
-            transferability: 3,
-            clarity: 4,
-            assessment_potential: 5,
-            cognitive_domain: 'Recall',
-            difficulty_potential: { easy: 'direct recall' },
-            learning_role: 'core',
-            aligned_learning_objectives: ['lo-1'],
-            canonical_answer: 'Answer',
-            accepted_phrases: ['Answer'],
-            answer_type: 'short',
-            closed_answer: true,
-            example_question_stem: 'What is photosynthesis?',
-            plausible_distractors: ['respiration'],
-            misconception_note: 'Often confused with respiration',
-            contrast_with: ['respiration'],
-            related_concepts: ['energy'],
-            review_notes: 'Review annually',
-            source_reference: 'Textbook',
-            version: '1.0',
-          },
-        ],
         exercise_bank: [
           {
             id: 'ex-1',
@@ -394,7 +360,6 @@ describe('AdminService resource-aware mappings', () => {
     expect(lesson?.podcast_duration_seconds).toBe(200);
     expect(lesson?.podcast_generated_at).toEqual(new Date('2024-01-01T01:30:00Z'));
     expect(lesson?.package.unit_learning_objective_ids).toEqual(['lo-1']);
-    expect(lesson?.package.concept_glossary[0].term).toBe('Photosynthesis');
     expect(lesson?.package.exercise_bank[0].exercise_category).toBe('comprehension');
     expect(lesson?.package.exercise_bank[1].exercise_type).toBe('short_answer');
     const shortAnswerExercise = lesson?.package.exercise_bank[1] as ShortAnswerExercise;

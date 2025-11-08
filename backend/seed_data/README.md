@@ -90,13 +90,7 @@ Each unit JSON file contains:
           "bloom_level": null
         }
       ],
-      "glossary_terms": [
-        {
-          "term": "Term",
-          "definition": "Definition"
-        }
-      ],
-      "mini_lesson": "Lesson content text...",
+      "podcast_transcript": "Lesson content text...",
       "mcqs": [
         {
           "stem": "Question text?",

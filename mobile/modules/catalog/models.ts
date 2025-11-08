@@ -32,9 +32,7 @@ interface ApiLessonDetail {
   learner_level: string;
   learning_objectives: string[];
   key_concepts: string[];
-  mini_lesson: string;
   exercises: any[];
-  glossary_terms: any[];
   created_at: string;
   exercise_count: number;
   unit_id?: string | null;
@@ -76,9 +74,7 @@ export interface LessonDetail {
   readonly learnerLevel: 'beginner' | 'intermediate' | 'advanced';
   readonly learningObjectives: string[];
   readonly keyConcepts: string[];
-  readonly miniLesson: string;
   readonly exercises: LessonExercise[];
-  readonly glossaryTerms: any[];
   readonly exerciseCount: number;
   readonly createdAt: string;
   readonly estimatedDuration: number;
@@ -274,9 +270,7 @@ export function toLessonDetailDTO(api: ApiLessonDetail): LessonDetail {
     learnerLevel: api.learner_level as 'beginner' | 'intermediate' | 'advanced',
     learningObjectives: api.learning_objectives,
     keyConcepts: api.key_concepts,
-    miniLesson: api.mini_lesson,
     exercises,
-    glossaryTerms: api.glossary_terms,
     exerciseCount: api.exercise_count,
     createdAt: api.created_at,
     estimatedDuration,

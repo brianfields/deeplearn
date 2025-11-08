@@ -45,21 +45,6 @@
           "bloom_level": "Understand"
         }
       ],
-      "glossary_terms": [
-        {
-          "term": "Learning Rate",
-          "definition": "Scalar that scales the gradient step during optimization."
-        },
-        {
-          "term": "Loss Landscape",
-          "definition": "Surface describing how the loss changes with model parameters."
-        },
-        {
-          "term": "Convergence",
-          "definition": "Process of iteratively approaching an optimum."
-        }
-      ],
-      "mini_lesson": "Gradient descent walks downhill on a loss landscape by following the negative gradient. Choosing the learning rate balances progress with stability. Too small and updates crawl; too large and the algorithm overshoots the valley. Visualizing contour plots helps practitioners tune the step size and anticipate oscillations.",
       "mcqs": [
         {
           "stem": "What happens when the learning rate is set too high?",
@@ -312,7 +297,8 @@
           ],
           "cognitive_level": "Understand"
         }
-      ]
+      ],
+      "podcast_transcript": "Gradient descent walks downhill on a loss landscape by following the negative gradient. Choosing the learning rate balances progress with stability. Too small and updates crawl; too large and the algorithm overshoots the valley. Visualizing contour plots helps practitioners tune the step size and anticipate oscillations."
     },
     {
       "id": "c91e9256-26f8-45aa-8390-3f80a903824f",
@@ -333,21 +319,6 @@
           "bloom_level": "Analyze"
         }
       ],
-      "glossary_terms": [
-        {
-          "term": "Batch Gradient Descent",
-          "definition": "Optimization that uses the full dataset each update."
-        },
-        {
-          "term": "Stochastic Gradient Descent",
-          "definition": "Optimization using one example per update."
-        },
-        {
-          "term": "Mini-Batch",
-          "definition": "Subset of examples used per update to balance variance and efficiency."
-        }
-      ],
-      "mini_lesson": "Mini-batches blend the stability of batch training with the responsiveness of stochastic updates. Smaller batches introduce gradient noise that can escape shallow minima, while larger batches leverage hardware parallelism. Practitioners often start with powers of two (32, 64, 128) and adjust based on validation loss curves.",
       "mcqs": [
         {
           "stem": "Why choose mini-batch gradient descent over pure stochastic descent?",
@@ -595,7 +566,8 @@
           ],
           "cognitive_level": "Understand"
         }
-      ]
+      ],
+      "podcast_transcript": "Mini-batches blend the stability of batch training with the responsiveness of stochastic updates. Smaller batches introduce gradient noise that can escape shallow minima, while larger batches leverage hardware parallelism. Practitioners often start with powers of two (32, 64, 128) and adjust based on validation loss curves."
     }
   ],
   "resources": [

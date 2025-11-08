@@ -33,7 +33,7 @@ Each entry includes:
 **Backend MyPy Issues (6 original + 3 new = 9 total):**
 1. **var-annotated**: Missing type annotations for list variables - Fixed by adding explicit type annotations:
    - `objectives: list[Objective] = []`
-   - `glossary_terms: list[GlossaryTerm] = []` 
+   - `transcripts: list[str] = []`
    - `exercises: list[MCQExercise] = []`
    - `self._background_tasks: set[asyncio.Task[Any]] = ...`
    - `self._background_futures: set[asyncio.Future[Any]] = ...`

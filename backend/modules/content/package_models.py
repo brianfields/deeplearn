@@ -25,40 +25,6 @@ class Meta(BaseModel):
     content_version: int = 1
 
 
-class RefinedConcept(BaseModel):
-    """Concept glossary entry enriched with pedagogical metadata."""
-
-    id: str
-    term: str
-    slug: str
-    aliases: list[str] = Field(default_factory=list)
-    definition: str
-    example_from_source: str | None = None
-    source_span: str | None = None
-    category: str | None = None
-    centrality: int
-    distinctiveness: int
-    transferability: int
-    clarity: int
-    assessment_potential: int
-    cognitive_domain: str
-    difficulty_potential: dict[str, str] | None = None
-    learning_role: str | None = None
-    aligned_learning_objectives: list[str] = Field(default_factory=list)
-    canonical_answer: str
-    accepted_phrases: list[str] = Field(default_factory=list)
-    answer_type: str | None = None
-    closed_answer: bool = True
-    example_question_stem: str | None = None
-    plausible_distractors: list[str] = Field(default_factory=list)
-    misconception_note: str | None = None
-    contrast_with: list[str] = Field(default_factory=list)
-    related_concepts: list[str] = Field(default_factory=list)
-    review_notes: str | None = None
-    source_reference: str | None = None
-    version: str | None = None
-
-
 class ExerciseOption(BaseModel):
     """Multiple choice option presented within an exercise."""
 
@@ -87,7 +53,7 @@ class WrongAnswerWithRationale(BaseModel):
 ExerciseType = Literal["mcq", "short_answer"]
 ExerciseCategory = Literal["comprehension", "transfer"]
 DifficultyLevel = Literal["easy", "medium", "hard"]
-CognitiveLevel = Literal["Recall", "Comprehension", "Application", "Transfer"]
+CognitiveLevel = Literal["Recall", "Comprehension", "Application", "Analysis", "Evaluation", "Creation"]
 
 
 class Exercise(BaseModel):
@@ -160,8 +126,6 @@ class LessonPackage(BaseModel):
 
     meta: Meta
     unit_learning_objective_ids: list[str]
-    mini_lesson: str  # Single lesson-wide explanation
-    concept_glossary: list[RefinedConcept]
     exercise_bank: list[Exercise]
     quiz: list[str]
     quiz_metadata: QuizMetadata

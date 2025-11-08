@@ -94,6 +94,8 @@
 
 ---
 
+> Phase 7 (redo-exercises-again): Verified the podcast-first flow changes stayed within existing module boundaries; addressed lint feedback by removing unused variables in `backend/scripts/create_seed_data.py` and `backend/scripts/generate_unit_instrumented.py` so the seed tooling reflects the updated flow without dead assignments.
+
 ## Quick Hygiene Greps
 
 ```bash

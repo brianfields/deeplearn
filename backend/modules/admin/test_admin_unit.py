@@ -651,8 +651,6 @@ class TestAdminService:
             package=LessonPackage(
                 meta=Meta(lesson_id="lesson-1", title="Lesson 1", learner_level="beginner"),
                 unit_learning_objective_ids=["obj1"],
-                concept_glossary=[],
-                mini_lesson="",
                 exercise_bank=[],
                 quiz=[],
                 quiz_metadata=QuizMetadata(quiz_type="comprehensive", total_items=0, difficulty_distribution_target={}, difficulty_distribution_actual={}, cognitive_mix_target={}, cognitive_mix_actual={}),
@@ -697,8 +695,6 @@ class TestAdminService:
             package=LessonPackage(
                 meta=Meta(lesson_id="lesson-1", title="Lesson 1", learner_level="beginner"),
                 unit_learning_objective_ids=["obj1"],
-                concept_glossary=[],
-                mini_lesson="",
                 exercise_bank=[],
                 quiz=[],
                 quiz_metadata=QuizMetadata(quiz_type="comprehensive", total_items=0, difficulty_distribution_target={}, difficulty_distribution_actual={}, cognitive_mix_target={}, cognitive_mix_actual={}),

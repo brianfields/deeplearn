@@ -128,6 +128,8 @@
 
 ---
 
+> Phase 7 (redo-exercises-again): Audited the transcript-first mobile flow and admin updates; no additional frontend architecture edits were needed beyond confirming lint/test coverage remains green.
+
 ## Quick Hygiene Greps
 
 ```bash

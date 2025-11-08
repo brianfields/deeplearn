@@ -101,9 +101,8 @@ async def export_unit(db_session: Any, unit_id: str, output_dir: Path) -> None:
             "title": lesson.title,
             "learner_level": lesson.learner_level,
             "source_material": lesson.source_material,
+            "podcast_transcript": lesson.podcast_transcript or "",
             "objectives": [],
-            "glossary_terms": [],
-            "mini_lesson": "",
             "mcqs": [],
             "misconceptions": [],
             "confusables": [],
@@ -120,9 +119,6 @@ async def export_unit(db_session: Any, unit_id: str, output_dir: Path) -> None:
                 matching_obj = next((obj for obj in unit.learning_objectives if obj.get("id") == obj_id), None)
                 if matching_obj:
                     lesson_dict["objectives"].append(matching_obj)
-
-            lesson_dict["glossary_terms"] = [{"term": t.get("term"), "definition": t.get("definition")} for t in package.get("glossary", {}).get("terms", [])]
-            lesson_dict["mini_lesson"] = package.get("mini_lesson", "")
 
             for exercise in package.get("exercises", []):
                 mcq = {

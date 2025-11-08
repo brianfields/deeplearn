@@ -111,8 +111,11 @@ class MediaHandler:
         lesson_index: int,
         lesson_title: str,
         lesson_objective: str,
-        mini_lesson: str,
         voice_label: str,
+        podcast_transcript: str | None = None,
+        learning_objectives: list[dict] | None = None,
+        sibling_lessons: list[dict] | None = None,
+        source_material: str | None = None,
         arq_task_id: str | None = None,
     ) -> tuple[PodcastLesson, LessonPodcastResult]:
         """Create a narrated podcast for a single lesson."""
@@ -124,11 +127,17 @@ class MediaHandler:
             lesson_index=lesson_index,
             lesson_title=lesson_title,
             lesson_objective=lesson_objective,
-            mini_lesson=mini_lesson,
             voice_label=voice_label,
+            podcast_transcript=podcast_transcript,
+            learning_objectives=learning_objectives,
+            sibling_lessons=sibling_lessons,
+            source_material=source_material,
             arq_task_id=arq_task_id,
         )
-        podcast_lesson = PodcastLesson(title=lesson_title, mini_lesson=mini_lesson)
+        podcast_lesson = PodcastLesson(
+            title=lesson_title,
+            podcast_transcript=podcast_transcript or podcast.transcript,
+        )
         return podcast_lesson, podcast
 
     async def generate_unit_podcast(

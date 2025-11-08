@@ -69,37 +69,6 @@
           "bloom_level": null
         }
       ],
-      "glossary_terms": [
-        {
-          "term": "Managed commons",
-          "definition": "A shared urban space where cats persist through community care and municipal services under social norms."
-        },
-        {
-          "term": "Seasonality",
-          "definition": "Predictable shifts across the year in breeding, disease, and resource needs."
-        },
-        {
-          "term": "Microhabitat",
-          "definition": "A 50\u2013100 m patch of urban features that shape food, shelter, and risk."
-        },
-        {
-          "term": "Stray",
-          "definition": "Formerly owned or human-acclimated cat living outdoors."
-        },
-        {
-          "term": "Feral",
-          "definition": "Minimally socialized cat that avoids close human contact."
-        },
-        {
-          "term": "Trap\u2013Neuter\u2013Return (TNR)",
-          "definition": "Capture, sterilize, vaccinate when possible, ear-tip, and return to territory."
-        },
-        {
-          "term": "Ear-tipping",
-          "definition": "Small surgical notch marking a sterilized free-roaming cat."
-        }
-      ],
-      "mini_lesson": "Istanbul's street kittens live in a managed commons: survival and population stability come from residents, feeders, and municipal clinics working together. Classify cats first: strays accept human proximity; ferals avoid it. Note kitten life stages\u2014neonate (0\u20132 w), infant (2\u20134 w), transitional (4\u20138 w), juvenile (8\u201324 w)\u2014because feeding, sheltering, and TNR timing depend on age. Seasonality matters: expect kitten surges in spring and late summer; prepare for thermal stress in winter.\n\nMap a 50\u2013100 m microhabitat. Mark on a sketch: 1) food sources (dumpsters, cafes, feeder spots), 2) shelters (nooks, basements, existing \"cat houses\"), 3) risks (traffic lanes, dogs, flood paths, conflicts), 4) human\u2013cat interfaces (markets, tourist hubs, schools). Add actors: who feeds, who complains, nearest mobile clinic.\n\nRecommendations:\n- Place micro-shelters elevated, dry, wind-sheltered, with two exits; anchor and keep clean. Add insulation before winter; add shade and water in heat.\n- Keep feeding stations consistent and tidy away from doorways; separate them from discreet pre-baited trap sites.\n- Schedule intensified trapping 4\u20136 weeks before spring/late-summer surges; prioritize juveniles at surgical weight and visibly intact adults; same-day return for lactating queens.\n\nThis map plus rationale guides shelter placement and trap cycles while respecting site fidelity and social license.",
       "mcqs": [
         {
           "stem": "Which observation best indicates an outdoor cat is a stray rather than feral?",
@@ -408,7 +377,8 @@
           ],
           "cognitive_level": "Understand"
         }
-      ]
+      ],
+      "podcast_transcript": "Istanbul's street kittens live in a managed commons: survival and population stability come from residents, feeders, and municipal clinics working together. Classify cats first: strays accept human proximity; ferals avoid it. Note kitten life stages\u2014neonate (0\u20132 w), infant (2\u20134 w), transitional (4\u20138 w), juvenile (8\u201324 w)\u2014because feeding, sheltering, and TNR timing depend on age. Seasonality matters: expect kitten surges in spring and late summer; prepare for thermal stress in winter.\n\nMap a 50\u2013100 m microhabitat. Mark on a sketch: 1) food sources (dumpsters, cafes, feeder spots), 2) shelters (nooks, basements, existing \"cat houses\"), 3) risks (traffic lanes, dogs, flood paths, conflicts), 4) human\u2013cat interfaces (markets, tourist hubs, schools). Add actors: who feeds, who complains, nearest mobile clinic.\n\nRecommendations:\n- Place micro-shelters elevated, dry, wind-sheltered, with two exits; anchor and keep clean. Add insulation before winter; add shade and water in heat.\n- Keep feeding stations consistent and tidy away from doorways; separate them from discreet pre-baited trap sites.\n- Schedule intensified trapping 4\u20136 weeks before spring/late-summer surges; prioritize juveniles at surgical weight and visibly intact adults; same-day return for lactating queens.\n\nThis map plus rationale guides shelter placement and trap cycles while respecting site fidelity and social license."
     },
     {
       "id": "c0a8dc23-f59e-48f0-b8e4-86dae4b0b758",
@@ -441,37 +411,6 @@
           "bloom_level": null
         }
       ],
-      "glossary_terms": [
-        {
-          "term": "Triage",
-          "definition": "A prioritization sequence: warmth, hydration, respiration, then nutrition."
-        },
-        {
-          "term": "Kitten Milk Replacer (KMR)",
-          "definition": "Formula designed to substitute for queen's milk."
-        },
-        {
-          "term": "Micro-shelter",
-          "definition": "Simple, weather-resistant housing that reduces exposure to cold, heat, wind, and rain."
-        },
-        {
-          "term": "Ear-tipping",
-          "definition": "Small surgical removal of the ear tip to mark a sterilized free-roaming cat."
-        },
-        {
-          "term": "Trap\u2013Neuter\u2013Return (TNR)",
-          "definition": "Humane population control: trap, sterilize, vaccinate when possible, and return to territory."
-        },
-        {
-          "term": "Socialization Window",
-          "definition": "Peak period (~2\u20137 weeks) when handling most effectively builds tameness."
-        },
-        {
-          "term": "Herd Effect",
-          "definition": "Lower disease spread when enough individuals are immunized."
-        }
-      ],
-      "mini_lesson": "Start with triage. Sequence needs: warmth \u2192 hydration \u2192 respiration \u2192 nutrition. Urgent: cold, lethargic, or labored breathing; warm to safe temperature before any feeding. Priority: ocular/nasal discharge or low weight but stable breathing. Routine: active, eating, normal vitals.\n\nMatch care to age. Neonates (0\u20132 wks): KMR by bottle, tiny frequent feeds; keep dry, draft-free, and warmed. 2\u20134 wks: introduce gruel; 4\u20138 wks: transition to wet food; 8+ wks: high-protein wet/dry. Micro-shelter: elevated, insulated box with wind break, dual exits, shade and airflow in heat; straw (not fabric) for winter moisture.\n\nDisease prevention: begin core vaccines around weaning (e.g., 8\u20139 wks) with a booster in 3\u20134 weeks; deworm by weight; add flea control to cut vector risks and build herd effect.\n\nTNR workflow: pre-bait, trap, sterilize, ear-tip, vaccinate as possible, recover, return to the same spot within 24\u201348 hours. Plan campaigns late winter and late summer to blunt kitten surges; log photos, location, ear-tip status, sex, dates, and interventions.\n\nEdge-case adjustments: lactating queens\u2014same-day return or delay surgery; late pregnancy\u2014postpone when feasible; panleukopenia\u2014isolate and pause mixing; heatwaves\u2014shade and water stations; winter\u2014elevate shelters, use straw.",
       "mcqs": [
         {
           "stem": "Triage a 3-week-old kitten: cold, lethargic, shallow breathing. What is the priority action?",
@@ -784,7 +723,8 @@
           ],
           "cognitive_level": "Analyze"
         }
-      ]
+      ],
+      "podcast_transcript": "Start with triage. Sequence needs: warmth \u2192 hydration \u2192 respiration \u2192 nutrition. Urgent: cold, lethargic, or labored breathing; warm to safe temperature before any feeding. Priority: ocular/nasal discharge or low weight but stable breathing. Routine: active, eating, normal vitals.\n\nMatch care to age. Neonates (0\u20132 wks): KMR by bottle, tiny frequent feeds; keep dry, draft-free, and warmed. 2\u20134 wks: introduce gruel; 4\u20138 wks: transition to wet food; 8+ wks: high-protein wet/dry. Micro-shelter: elevated, insulated box with wind break, dual exits, shade and airflow in heat; straw (not fabric) for winter moisture.\n\nDisease prevention: begin core vaccines around weaning (e.g., 8\u20139 wks) with a booster in 3\u20134 weeks; deworm by weight; add flea control to cut vector risks and build herd effect.\n\nTNR workflow: pre-bait, trap, sterilize, ear-tip, vaccinate as possible, recover, return to the same spot within 24\u201348 hours. Plan campaigns late winter and late summer to blunt kitten surges; log photos, location, ear-tip status, sex, dates, and interventions.\n\nEdge-case adjustments: lactating queens\u2014same-day return or delay surgery; late pregnancy\u2014postpone when feasible; panleukopenia\u2014isolate and pause mixing; heatwaves\u2014shade and water stations; winter\u2014elevate shelters, use straw."
     }
   ],
   "resources": [

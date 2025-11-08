@@ -99,7 +99,7 @@
 ### Mobile Frontend Tasks
 
 #### Catalog Module Updates
-- [x] Update `mobile/modules/catalog/models.ts` wire types: eliminate `core_concept`, repace `user_level`, with `learner_level`, `didactic_snippet` with `mini_lesson`
+- [x] Update `mobile/modules/catalog/models.ts` wire types: eliminate `core_concept`, repace `user_level`, with `learner_level`, `didactic_snippet` with `podcast_transcript`
 - [x] Update `mobile/modules/catalog/repo.ts` API interface definitions to match backend exactly
 - [x] Update `mobile/modules/catalog/service.ts` to remove core_concept search logic and use title-based search
 - [x] Update `mobile/modules/catalog/queries.ts` React Query hooks for new field names
@@ -107,25 +107,25 @@
 - [x] Update `mobile/modules/catalog/test_catalog_unit.ts` test data to use new model structure
 
 #### Learning Session Module Updates
-- [x] Rename `mobile/modules/learning_session/components/DidacticSnippet.tsx` to `MiniLesson.tsx`
-- [x] Restructure MiniLesson component to render markdown string instead of complex snippet object
-- [x] Update `mobile/modules/learning_session/components/LearningFlow.tsx` to import and use MiniLesson component
+- [x] Rename `mobile/modules/learning_session/components/DidacticSnippet.tsx` to `LessonTranscript.tsx`
+- [x] Restructure LessonTranscript component to render markdown string instead of complex snippet object
+- [x] Update `mobile/modules/learning_session/components/LearningFlow.tsx` to import and use LessonTranscript component
 - [x] Update `mobile/modules/learning_session/models.ts` to match new lesson package structure
 - [x] Update `mobile/modules/learning_session/test_learning_session_unit.ts` to test MiniLesson instead of DidacticSnippet
 
 ### Admin Frontend Tasks
 
 #### Admin Module Updates
-- [x] Update `admin/modules/admin/models.ts` all lesson and unit interfaces: eliminate `core_concept`, repace `user_level`, with `learner_level`, `didactic_snippet` with `mini_lesson`
-- [x] Update `admin/modules/admin/models.ts` package interfaces: replace `didactic_snippet` with `mini_lesson`
+- [x] Update `admin/modules/admin/models.ts` all lesson and unit interfaces: eliminate `core_concept`, repace `user_level`, with `learner_level`, `didactic_snippet` with `podcast_transcript`
+- [x] Update `admin/modules/admin/models.ts` package interfaces: replace `didactic_snippet` with `podcast_transcript`
 - [x] Update `admin/modules/admin/service.ts` DTO conversion functions to use new field names
 - [x] Update `admin/modules/admin/components/lessons/LessonsList.tsx` filtering to use learner_level instead of user_level
-- [x] Update `admin/modules/admin/components/lessons/LessonDetails.tsx` to display learner_level and mini_lesson fields
-- [x] Update `admin/modules/admin/components/lessons/LessonPackageViewer.tsx` to render mini_lesson markdown instead of complex didactic_snippet
+- [x] Update `admin/modules/admin/components/lessons/LessonDetails.tsx` to display learner_level and podcast transcript fields
+- [x] Update `admin/modules/admin/components/lessons/LessonPackageViewer.tsx` to render podcast transcript markdown instead of complex didactic_snippet
 
 ### Testing and Validation Tasks
 - [x] Fix any issues identified during implementation
-- [x] Update existing maestro tests in mobile/e2e to work with MiniLesson component, adding testID attributes as needed
+- [x] Update existing maestro tests in mobile/e2e to work with the LessonTranscript component, adding testID attributes as needed
 - [x] Ensure lint passes, i.e. ./format_code.sh runs clean
 - [x] Ensure unit tests pass, i.e. (in backend) scripts/run_unit.py and (in mobile) npm run test both run clean
 - [x] Follow the instructions in codegen/prompts/trace.md to ensure the user story is implemented correctly

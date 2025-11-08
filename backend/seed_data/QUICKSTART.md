@@ -97,8 +97,7 @@ python scripts/export_seed_data.py --users
     {
       "title": "Lesson Title",
       "objectives": [...],
-      "glossary_terms": [...],
-      "mini_lesson": "Content...",
+      "podcast_transcript": "Content...",
       "mcqs": [...]
     }
   ]
