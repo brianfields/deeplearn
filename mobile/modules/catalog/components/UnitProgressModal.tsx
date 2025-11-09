@@ -103,8 +103,8 @@ export function UnitProgressModal({
             <Box px="lg" mt="lg">
               <Card variant="outlined" style={localStyles.noMargin}>
                 <Text variant="body" color={theme.colors.textSecondary}>
-                  No learning objective progress is available yet. Complete lesson
-                  exercises to start tracking your mastery.
+                  No learning objective progress is available yet. Complete
+                  lesson exercises to start tracking your mastery.
                 </Text>
               </Card>
             </Box>

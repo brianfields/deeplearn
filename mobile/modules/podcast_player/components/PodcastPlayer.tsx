@@ -10,9 +10,9 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
-  PanResponder,
   Modal,
   SafeAreaView,
+  Switch,
 } from 'react-native';
 import {
   Event,
@@ -32,7 +32,7 @@ import { RotateCcw, RotateCw } from 'lucide-react-native';
 import { usePodcastPlayer } from '../hooks/usePodcastPlayer';
 import { usePodcastState } from '../hooks/usePodcastState';
 import type { PodcastTrack } from '../models';
-import { PLAYBACK_SPEEDS, usePodcastStore } from '../store';
+import { usePodcastStore } from '../store';
 
 interface PodcastPlayerProps {
   readonly track: PodcastTrack;
@@ -74,9 +74,6 @@ export function PodcastPlayer({
 
   const isCurrentTrack = currentTrack?.unitId === unitId;
 
-  const [isSeekingPosition, setIsSeekingPosition] = useState(false);
-  const [pendingSeekPosition, setPendingSeekPosition] = useState(0);
-
   const playlistLength = playlist?.tracks.length ?? 0;
   const currentPlaylistIndex = playlist?.currentTrackIndex ?? 0;
   const hasPlaylist = playlistLength > 0;
@@ -109,11 +106,9 @@ export function PodcastPlayer({
     return currentTrack.title;
   }, [playlist, currentTrack]);
 
-  // Speed slider drag state
-  const sliderWidth = useRef(0);
-  const sliderX = useRef(0);
-  const [isDraggingSpeed, setIsDraggingSpeed] = useState(false);
-  const [dragSpeedPosition, setDragSpeedPosition] = useState(0);
+  // Seeking state
+  const [isSeekingPosition, setIsSeekingPosition] = useState(false);
+  const [pendingSeekPosition, setPendingSeekPosition] = useState(0);
   const lastLoadedTrackIdRef = useRef<string | null>(null);
   const autoplayTriggeredRef = useRef<boolean>(false);
 
@@ -253,51 +248,6 @@ export function PodcastPlayer({
   const sliderMaximum = Math.max(duration || 0, track.durationSeconds);
   const displayedPosition = isSeekingPosition ? pendingSeekPosition : position;
 
-  // Debug logging for playlist state
-  useEffect(() => {
-    console.log('[PodcastPlayer] 🎵 Playlist state:', {
-      hasPlaylist,
-      playlistLength,
-      currentPlaylistIndex,
-      isPreviousDisabled,
-      isNextDisabled,
-      unitId,
-      playlistUnitId: playlist?.unitId,
-      tracksCount: playlist?.tracks.length,
-      autoplayEnabled,
-      isPlaying,
-    });
-  }, [
-    hasPlaylist,
-    playlistLength,
-    currentPlaylistIndex,
-    isPreviousDisabled,
-    isNextDisabled,
-    unitId,
-    playlist,
-    autoplayEnabled,
-    isPlaying,
-  ]);
-
-  // Map speed to slider position (0-1)
-  const getSpeedPosition = (speed: number): number => {
-    const index = PLAYBACK_SPEEDS.indexOf(speed as any);
-    return index / (PLAYBACK_SPEEDS.length - 1);
-  };
-
-  // Map slider position to speed
-  const getSpeedFromPosition = useCallback((positionRatio: number): number => {
-    const index = Math.round(positionRatio * (PLAYBACK_SPEEDS.length - 1));
-    return PLAYBACK_SPEEDS[
-      Math.max(0, Math.min(PLAYBACK_SPEEDS.length - 1, index))
-    ];
-  }, []);
-
-  const speedPosition = getSpeedPosition(globalSpeed);
-  const displaySpeedPosition = isDraggingSpeed
-    ? dragSpeedPosition
-    : speedPosition;
-
   const formatTime = (seconds: number | null | undefined): string => {
     if (!Number.isFinite(seconds)) {
       return '0:00';
@@ -359,6 +309,22 @@ export function PodcastPlayer({
     toggleAutoplay();
   };
 
+  const handleIncreaseSpeed = (): void => {
+    const newSpeed = Math.min(3.0, Math.round((globalSpeed + 0.1) * 10) / 10);
+    if (newSpeed !== globalSpeed) {
+      haptics.trigger('light');
+      setSpeed(newSpeed as any).catch(() => {});
+    }
+  };
+
+  const handleDecreaseSpeed = (): void => {
+    const newSpeed = Math.max(0.5, Math.round((globalSpeed - 0.1) * 10) / 10);
+    if (newSpeed !== globalSpeed) {
+      haptics.trigger('light');
+      setSpeed(newSpeed as any).catch(() => {});
+    }
+  };
+
   const handleToggleExpand = (): void => {
     haptics.trigger('medium');
     setIsExpanded(!isExpanded);
@@ -407,48 +373,6 @@ export function PodcastPlayer({
       setPendingSeekPosition(clampSeekPosition(position));
     }
   }, [clampSeekPosition, isSeekingPosition, position]);
-
-  const handleSpeedChange = useCallback(
-    (speed: number): void => {
-      haptics.trigger('light');
-      setSpeed(speed as any).catch(() => {});
-    },
-    [haptics, setSpeed]
-  );
-
-  // Create pan responder for draggable speed slider
-  const speedPanResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: () => true,
-        onPanResponderGrant: () => {
-          setIsDraggingSpeed(true);
-          haptics.trigger('light');
-        },
-        onPanResponderMove: (_, gestureState) => {
-          if (sliderWidth.current > 0 && sliderX.current !== undefined) {
-            // Calculate position relative to slider start
-            const relativeX = gestureState.moveX - sliderX.current;
-            const position = Math.max(
-              0,
-              Math.min(1, relativeX / sliderWidth.current)
-            );
-            setDragSpeedPosition(position);
-          }
-        },
-        onPanResponderRelease: () => {
-          const newSpeed = getSpeedFromPosition(dragSpeedPosition);
-          handleSpeedChange(newSpeed);
-          setIsDraggingSpeed(false);
-          haptics.trigger('medium');
-        },
-        onPanResponderTerminate: () => {
-          setIsDraggingSpeed(false);
-        },
-      }),
-    [dragSpeedPosition, getSpeedFromPosition, handleSpeedChange, haptics]
-  );
 
   if (!isCurrentTrack) {
     return <View />;
@@ -567,11 +491,6 @@ export function PodcastPlayer({
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.expandedInner}>
-              {/* Title above slider */}
-              <Text variant="h2" style={styles.expandedTitle}>
-                {track.title}
-              </Text>
-
               {/* Time Labels */}
               <View style={styles.timeRow}>
                 <Text variant="caption" color={theme.colors.textSecondary}>
@@ -702,104 +621,77 @@ export function PodcastPlayer({
                 </Pressable>
               </View>
 
-              {/* Speed Controls - Overcast Style */}
-              <View style={styles.speedSection}>
-                <Text
-                  variant="caption"
-                  color={theme.colors.textSecondary}
-                  style={styles.sectionLabel}
-                >
-                  Playback Speed
-                </Text>
-
-                {/* Speed markers */}
-                <View style={styles.speedMarkers}>
-                  <Text style={[styles.speedMarker, styles.speedMarkerMuted]}>
-                    −
+              {/* Compact Speed and Autoplay Controls */}
+              <View style={styles.controlsRow}>
+                {/* Speed Control */}
+                <View style={styles.controlGroup}>
+                  <Text
+                    variant="caption"
+                    color={theme.colors.textSecondary}
+                    style={styles.controlLabel}
+                  >
+                    Speed
                   </Text>
-                  <Text style={styles.speedMarkerMain}>1×</Text>
-                  <Text style={styles.speedMarkerMuted}>+</Text>
-                  <Text style={styles.speedMarkerMuted}>+</Text>
-                  <Text style={styles.speedMarkerMuted}>+</Text>
-                  <Text style={styles.speedMarkerMuted}>+</Text>
-                  <Text style={styles.speedMarkerMuted}>+</Text>
-                  <Text style={styles.speedMarkerMain}>2×</Text>
-                  <Text style={styles.speedMarkerMuted}>+</Text>
-                  <Text style={styles.speedMarkerMain}>3×</Text>
-                </View>
-
-                {/* Speed slider */}
-                <View
-                  style={styles.speedSliderContainer}
-                  onLayout={e => {
-                    sliderWidth.current = e.nativeEvent.layout.width;
-                    e.currentTarget.measure((x, y, width, height, pageX) => {
-                      sliderX.current = pageX;
-                    });
-                  }}
-                >
-                  <View style={styles.speedSliderTrack}>
-                    <View
+                  <View style={styles.speedControls}>
+                    <Pressable
+                      onPress={handleDecreaseSpeed}
                       style={[
-                        styles.speedSliderFill,
-                        {
-                          width: `${displaySpeedPosition * 100}%`,
-                          backgroundColor: theme.colors.primary,
-                        },
+                        styles.speedButton,
+                        globalSpeed <= 0.5 && styles.speedButtonDisabled,
                       ]}
-                    />
-                  </View>
-                  <View
-                    style={styles.speedSliderTouchable}
-                    {...speedPanResponder.panHandlers}
-                  >
-                    <View
-                      style={[
-                        styles.speedSliderThumb,
-                        isDraggingSpeed && styles.speedSliderThumbActive,
-                        {
-                          left: `${displaySpeedPosition * 100}%`,
-                        },
-                      ]}
-                    />
-                  </View>
-                </View>
-
-                {/* Current speed display */}
-                <Text style={styles.currentSpeedText}>{globalSpeed}×</Text>
-              </View>
-
-              <View style={styles.autoplaySection}>
-                <Text
-                  variant="caption"
-                  color={theme.colors.textSecondary}
-                  style={styles.sectionLabel}
-                >
-                  Autoplay
-                </Text>
-                <Pressable
-                  onPress={handleToggleAutoplay}
-                  style={styles.autoplayToggle}
-                  accessibilityLabel="Toggle autoplay"
-                  accessibilityRole="button"
-                  testID="podcast-autoplay-toggle"
-                >
-                  <View
-                    style={[
-                      styles.autoplayToggleIndicator,
-                      autoplayEnabled && styles.autoplayToggleIndicatorActive,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.autoplayToggleText,
-                        autoplayEnabled && styles.autoplayToggleTextActive,
-                      ]}
+                      accessibilityLabel="Decrease speed"
+                      accessibilityRole="button"
+                      disabled={globalSpeed <= 0.5}
+                      testID="podcast-decrease-speed"
                     >
-                      {autoplayEnabled ? 'On' : 'Off'}
-                    </Text>
+                      <Text style={styles.speedButtonText}>−</Text>
+                    </Pressable>
+                    <View style={styles.speedDisplay}>
+                      <Text style={styles.speedDisplayText}>
+                        {globalSpeed}×
+                      </Text>
+                    </View>
+                    <Pressable
+                      onPress={handleIncreaseSpeed}
+                      style={[
+                        styles.speedButton,
+                        globalSpeed >= 3.0 && styles.speedButtonDisabled,
+                      ]}
+                      accessibilityLabel="Increase speed"
+                      accessibilityRole="button"
+                      disabled={globalSpeed >= 3.0}
+                      testID="podcast-increase-speed"
+                    >
+                      <Text style={styles.speedButtonText}>+</Text>
+                    </Pressable>
                   </View>
-                </Pressable>
+                </View>
+
+                {/* Autoplay Control */}
+                <View
+                  style={[styles.controlGroup, styles.autoplayControlGroup]}
+                >
+                  <Text
+                    variant="caption"
+                    color={theme.colors.textSecondary}
+                    style={styles.controlLabel}
+                  >
+                    Autoplay
+                  </Text>
+                  <View style={styles.autoplayControl}>
+                    <Switch
+                      value={autoplayEnabled}
+                      onValueChange={handleToggleAutoplay}
+                      trackColor={{
+                        false: theme.colors.border,
+                        true: theme.colors.primary,
+                      }}
+                      thumbColor={theme.colors.surface}
+                      ios_backgroundColor={theme.colors.border}
+                      testID="podcast-autoplay-switch"
+                    />
+                  </View>
+                </View>
               </View>
 
               {/* Transcript */}
@@ -1071,112 +963,70 @@ const createStyles = (theme: any) =>
       fontWeight: '600',
       color: theme.colors.text,
     },
-    speedSection: {
-      marginBottom: theme.spacing?.lg || 20,
+    controlsRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      marginBottom: theme.spacing?.xl || 32,
+      gap: 24,
+    },
+    controlGroup: {
+      flex: 0,
+    },
+    autoplayControlGroup: {
+      marginLeft: 'auto',
+    },
+    controlLabel: {
+      marginBottom: theme.spacing?.sm || 8,
+      textTransform: 'uppercase',
+      fontWeight: '600',
+      fontSize: 12,
+    },
+    speedControls: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    speedButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      borderWidth: 2,
+      borderColor: theme.colors.primary,
+      backgroundColor: theme.colors.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    speedButtonDisabled: {
+      opacity: 0.3,
+      borderColor: theme.colors.border,
+    },
+    speedButtonText: {
+      fontSize: 24,
+      fontWeight: '600',
+      color: theme.colors.primary,
+    },
+    speedDisplay: {
+      minWidth: 50,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 8,
+    },
+    speedDisplayText: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: theme.colors.text,
+    },
+    autoplayControl: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'flex-start',
+      height: 44,
     },
     sectionLabel: {
       marginBottom: theme.spacing?.md || 12,
       textTransform: 'uppercase',
       fontWeight: '600',
-    },
-    speedMarkers: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: theme.spacing?.xs || 4,
-      paddingHorizontal: 16, // Match half the thumb width (32px / 2)
-    },
-    speedMarker: {
-      fontSize: 14,
-      fontWeight: '400',
-      color: theme.colors.text,
-    },
-    speedMarkerMain: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: theme.colors.text,
-    },
-    speedMarkerMuted: {
-      fontSize: 14,
-      fontWeight: '300',
-      color: theme.colors.textSecondary,
-      opacity: 0.5,
-    },
-    speedSliderContainer: {
-      height: 44,
-      justifyContent: 'center',
-      marginBottom: theme.spacing?.sm || 8,
-      marginHorizontal: 16, // Inset to align with markers
-    },
-    speedSliderTrack: {
-      height: 6,
-      backgroundColor: theme.colors.border,
-      borderRadius: 3,
-      overflow: 'hidden',
-    },
-    speedSliderFill: {
-      height: '100%',
-      borderRadius: 3,
-    },
-    speedSliderTouchable: {
-      position: 'absolute',
-      left: 0,
-      right: 0,
-      top: 0,
-      bottom: 0,
-      justifyContent: 'center',
-    },
-    speedSliderThumb: {
-      position: 'absolute',
-      width: 32,
-      height: 32,
-      borderRadius: 16,
-      backgroundColor: theme.colors.surface,
-      shadowColor: theme.colors.text,
-      shadowOpacity: 0.3,
-      shadowRadius: 4,
-      shadowOffset: { width: 0, height: 2 },
-      elevation: 4,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-      transform: [{ translateX: -16 }], // Center the thumb on the position
-    },
-    speedSliderThumbActive: {
-      transform: [{ translateX: -16 }, { scale: 1.2 }], // Keep centered while scaling
-      shadowOpacity: 0.5,
-      shadowRadius: 6,
-      elevation: 8,
-    },
-    currentSpeedText: {
-      textAlign: 'center',
-      fontSize: 16,
-      fontWeight: '600',
-      color: theme.colors.text,
-    },
-    autoplaySection: {
-      marginBottom: theme.spacing?.lg || 20,
-    },
-    autoplayToggle: {
-      alignSelf: 'flex-start',
-    },
-    autoplayToggleIndicator: {
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderRadius: 20,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-      backgroundColor: theme.colors.surface,
-    },
-    autoplayToggleIndicatorActive: {
-      backgroundColor: theme.colors.primary,
-      borderColor: theme.colors.primary,
-    },
-    autoplayToggleText: {
-      fontWeight: '600',
-      color: theme.colors.text,
-    },
-    autoplayToggleTextActive: {
-      color: theme.colors.surface,
     },
     transcriptSection: {
       marginBottom: theme.spacing?.lg || 20,
