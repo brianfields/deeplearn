@@ -218,43 +218,43 @@ result, request_id, usage = await llm.generate_structured_response(
 
 ### Phase 1: Core Provider Implementation
 
-- [ ] Add `OPENROUTER = "openrouter"` to `LLMProviderType` enum in `backend/modules/llm_services/types.py`
-- [ ] Add OpenRouter configuration fields to `LLMConfig` in `backend/modules/llm_services/config.py`
-- [ ] Update `create_llm_config_from_env()` in `backend/modules/llm_services/config.py` to read OpenRouter environment variables
-- [ ] Create `backend/modules/llm_services/providers/openrouter.py` with `OpenRouterProvider` class skeleton
-- [ ] Implement `OpenRouterProvider.__init__()` to setup HTTP client for OpenRouter API
-- [ ] Implement `OpenRouterProvider.generate_response()` for text generation
-- [ ] Implement `OpenRouterProvider.generate_structured_response()` for structured outputs
-- [ ] Implement stub methods that raise `NotImplementedError`: `generate_image()`, `generate_audio()`, `search_recent_news()`
-- [ ] Add OpenRouter response parsing logic for cost, tokens, and caching stats
-- [ ] Update `backend/modules/llm_services/providers/factory.py` to import and instantiate `OpenRouterProvider`
-- [ ] Add `LLMProviderType.OPENROUTER` to `get_available_providers()` in factory
-- [ ] Update `_select_provider()` in `backend/modules/llm_services/service.py` to handle `openrouter/` prefix
-- [ ] Add error handling in `_select_provider()` for unconfigured OpenRouter provider
+- [x] Add `OPENROUTER = "openrouter"` to `LLMProviderType` enum in `backend/modules/llm_services/types.py`
+- [x] Add OpenRouter configuration fields to `LLMConfig` in `backend/modules/llm_services/config.py`
+- [x] Update `create_llm_config_from_env()` in `backend/modules/llm_services/config.py` to read OpenRouter environment variables
+- [x] Create `backend/modules/llm_services/providers/openrouter.py` with `OpenRouterProvider` class skeleton
+- [x] Implement `OpenRouterProvider.__init__()` to setup HTTP client for OpenRouter API
+- [x] Implement `OpenRouterProvider.generate_response()` for text generation
+- [x] Implement `OpenRouterProvider.generate_structured_response()` for structured outputs
+- [x] Implement stub methods that raise `NotImplementedError`: `generate_image()`, `generate_audio()`, `search_recent_news()`
+- [x] Add OpenRouter response parsing logic for cost, tokens, and caching stats
+- [x] Update `backend/modules/llm_services/providers/factory.py` to import and instantiate `OpenRouterProvider`
+- [x] Add `LLMProviderType.OPENROUTER` to `get_available_providers()` in factory
+- [x] Update `_select_provider()` in `backend/modules/llm_services/service.py` to handle `openrouter/` prefix
+- [x] Add error handling in `_select_provider()` for unconfigured OpenRouter provider
 
 ### Phase 2: Error Handling & Edge Cases & Testing
 
-- [ ] Add OpenRouter-specific error handling (authentication, rate limits, invalid models)
-- [ ] Add validation in `create_llm_config_from_env()` for OpenRouter configuration
-- [ ] Ensure cost estimation works (or returns 0.0 if not available)
-- [ ] Test with missing/invalid API keys
-- [ ] Create unit tests for `OpenRouterProvider.generate_response()` with mocked responses
-- [ ] Create unit tests for `OpenRouterProvider.generate_structured_response()` with mocked responses
-- [ ] Ensure all mocks use `AsyncMock` for async methods
+- [x] Add OpenRouter-specific error handling (authentication, rate limits, invalid models)
+- [x] Add validation in `create_llm_config_from_env()` for OpenRouter configuration
+- [x] Ensure cost estimation works (or returns 0.0 if not available)
+- [x] Test with missing/invalid API keys
+- [x] Create unit tests for `OpenRouterProvider.generate_response()` with mocked responses
+- [x] Create unit tests for `OpenRouterProvider.generate_structured_response()` with mocked responses
+- [x] Ensure all mocks use `AsyncMock` for async methods
 
 ### Phase 3: Documentation & Validation
 
-- [ ] Add docstrings to `OpenRouterProvider` class and all methods
-- [ ] Add inline comments explaining OpenRouter-specific response parsing
-- [ ] Update type hints to be explicit on all methods
-- [ ] Document OpenRouter configuration in `config.py` docstrings
-- [ ] Ensure lint passes, i.e. './format_code.sh --no-venv' runs clean
+- [x] Add docstrings to `OpenRouterProvider` class and all methods
+- [x] Add inline comments explaining OpenRouter-specific response parsing
+- [x] Update type hints to be explicit on all methods
+- [x] Document OpenRouter configuration in `config.py` docstrings
+- [x] Ensure lint passes, i.e. './format_code.sh --no-venv' runs clean
 - [ ] Ensure backend unit tests pass, i.e. cd backend && scripts/run_unit.py
-- [ ] Ensure integration tests pass, i.e. cd backend && scripts/run_integration.py runs clean
-- [ ] Follow the instructions in codegen/prompts/trace.md to ensure the user story is implemented correctly
-- [ ] Fix any issues documented during the tracing of the user story in docs/specs/openrouter-llm-service-provider/trace.md
-- [ ] Follow the instructions in codegen/prompts/modulecheck.md to ensure the new code is following the modular architecture correctly
-- [ ] Examine all new code that has been created and make sure all of it is being used; there is no dead code
+- [x] Ensure integration tests pass, i.e. cd backend && scripts/run_integration.py runs clean
+- [x] Follow the instructions in codegen/prompts/trace.md to ensure the user story is implemented correctly
+- [x] Fix any issues documented during the tracing of the user story in docs/specs/openrouter-llm-service-provider/trace.md
+- [x] Follow the instructions in codegen/prompts/modulecheck.md to ensure the new code is following the modular architecture correctly
+- [x] Examine all new code that has been created and make sure all of it is being used; there is no dead code
 
 ---
 

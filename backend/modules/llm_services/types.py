@@ -34,6 +34,7 @@ class LLMProviderType(str, Enum):
     AZURE_OPENAI = "azure_openai"
     BEDROCK = "bedrock"
     GEMINI = "gemini"
+    OPENROUTER = "openrouter"
 
 
 class LLMRequestMode(str, Enum):

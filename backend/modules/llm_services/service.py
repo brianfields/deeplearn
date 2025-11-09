@@ -338,6 +338,14 @@ class LLMService:
             self._logger.debug(f"No model specified, using default provider: {self._default_provider_type.value}")
             return self._ensure_provider(self._default_provider_type)
 
+        if model.startswith("openrouter/"):
+            try:
+                provider = self._ensure_provider(LLMProviderType.OPENROUTER)
+                self._logger.info(f"Using openrouter provider for model: {model}")
+                return provider
+            except (RuntimeError, LLMAuthenticationError) as exc:
+                raise RuntimeError(f"Model '{model}' requires OpenRouter provider, but it is not configured. Please set OPENROUTER_API_KEY and optionally OPENROUTER_BASE_URL environment variables.") from exc
+
         # Check if model is in the explicit model map
         if model not in MODEL_PROVIDER_MAP:
             available_models = ", ".join(sorted(MODEL_PROVIDER_MAP.keys()))
