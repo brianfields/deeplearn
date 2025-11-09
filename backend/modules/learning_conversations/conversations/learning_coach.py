@@ -49,15 +49,17 @@ async def _fetch_resources(resource_ids: Sequence[uuid.UUID]) -> list[ResourceRe
 class CoachLearningObjective(BaseModel):
     """Learning objective emitted by the structured coach response."""
 
-    id: str = Field(..., min_length=1, description="Stable identifier for the unit learning objective")
+    id: str = Field(..., min_length=1, max_length=50, description="Stable identifier for the unit learning objective")
     title: str = Field(
         ...,
         min_length=3,
+        max_length=200,
         description="Short 3-8 word title that summarizes the learning objective",
     )
     description: str = Field(
         ...,
         min_length=1,
+        max_length=1000,
         description="Full explanation of the learning objective for learner-facing surfaces",
     )
 
@@ -65,9 +67,10 @@ class CoachLearningObjective(BaseModel):
 class CoachResponse(BaseModel):
     """Structured response from the learning coach."""
 
-    message: str = Field(description="The coach's response message to the learner (max ~100 words)")
+    message: str = Field(max_length=1000, description="The coach's response message to the learner (max ~100 words)")
     finalized_topic: str | None = Field(
         default=None,
+        max_length=2000,
         description=(
             "When you have clarity on both WHAT they want to learn and their current knowledge level, "
             "provide a detailed topic description including: specific topics/concepts, starting level "
@@ -78,6 +81,7 @@ class CoachResponse(BaseModel):
     )
     unit_title: str | None = Field(
         default=None,
+        max_length=100,
         description=(
             "When finalizing, provide a short, engaging unit title (1-6 words) that captures the essence "
             "of what they'll learn. Examples: 'React Native with Expo', 'Python Data Structures', "
@@ -98,6 +102,7 @@ class CoachResponse(BaseModel):
     )
     learner_desires: str | None = Field(
         default=None,
+        max_length=2000,
         description=(
             "When finalizing the topic, provide a comprehensive synthesis of the learner's goals, prior knowledge, "
             "learning style preferences, and constraints. Include: specific topic, difficulty level, prior exposure, "
@@ -107,6 +112,7 @@ class CoachResponse(BaseModel):
     )
     suggested_quick_replies: list[str] | None = Field(
         default=None,
+        max_length=5,
         description=(
             "Provide 2-5 contextually relevant quick reply options based on the conversation state. "
             "These should be natural follow-ups to help guide the learner to the next step. "
