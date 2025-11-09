@@ -66,6 +66,7 @@ import {
 } from '../../learning_conversations/queries';
 import type { TeachingAssistantStateRequest } from '../../learning_conversations/models';
 import { layoutStyles } from '../../ui_system/styles/layout';
+import { UnitProgressModal } from '../components/UnitProgressModal';
 
 type UnitDetailScreenNavigationProp = NativeStackNavigationProp<
   LearningStackParamList,
@@ -106,6 +107,9 @@ export function UnitDetailScreen() {
   >(null);
   const [assistantRequest, setAssistantRequest] =
     useState<TeachingAssistantStateRequest | null>(null);
+
+  // Progress modal state
+  const [isProgressModalOpen, setProgressModalOpen] = useState(false);
 
   const startTeachingAssistant = useStartTeachingAssistant();
   const submitTeachingAssistantQuestion = useSubmitTeachingAssistantQuestion();
@@ -946,10 +950,7 @@ export function UnitDetailScreen() {
                     if (!unit?.id) {
                       return;
                     }
-                    navigation.navigate('UnitLODetail', {
-                      unitId: unit.id,
-                      unitTitle: unit.title,
-                    });
+                    setProgressModalOpen(true);
                   }}
                   style={localStyles.loDetailButton}
                   testID="view-detailed-progress"
@@ -1073,6 +1074,14 @@ export function UnitDetailScreen() {
         context={assistantContext}
         isLoading={isAssistantLoading}
         onClose={handleAssistantClose}
+      />
+      <UnitProgressModal
+        visible={isProgressModalOpen}
+        onClose={() => setProgressModalOpen(false)}
+        unitTitle={unit.title}
+        progressItems={unitLOProgressQuery.data?.items ?? []}
+        isLoading={unitLOProgressQuery.isLoading}
+        isFetching={unitLOProgressQuery.isFetching}
       />
     </SafeAreaView>
   );

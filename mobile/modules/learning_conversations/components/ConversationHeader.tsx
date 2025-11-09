@@ -30,7 +30,11 @@ export function ConversationHeader({
   return (
     <View>
       <View style={styles.header}>
-        <Text style={styles.title}>{title}</Text>
+        <View style={styles.titleContainer}>
+          <Text style={styles.title} numberOfLines={2} ellipsizeMode="tail">
+            {title}
+          </Text>
+        </View>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Close ${title}`}
@@ -62,6 +66,10 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border ?? 'rgba(0,0,0,0.1)',
+  },
+  titleContainer: {
+    flex: 1,
+    marginRight: 8,
   },
   title: {
     fontSize: 17,

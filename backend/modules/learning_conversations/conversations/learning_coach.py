@@ -322,7 +322,7 @@ class LearningCoachConversation(BaseConversation):
 
         coach_response, request_id, raw_response = await self.generate_structured_reply(
             CoachResponse,
-            model="claude-haiku-4-5",
+            model="gemini-2.5-flash",
             system_prompt=system_prompt,
         )
 

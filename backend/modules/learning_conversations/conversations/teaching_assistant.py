@@ -140,7 +140,7 @@ class TeachingAssistantConversation(BaseConversation):
         try:
             assistant_response, request_id, raw_response = await self.generate_structured_reply(
                 TeachingAssistantResponse,
-                model="claude-haiku-4-5",
+                model="gemini-2.5-flash",
                 system_prompt=system_prompt,
             )
             quick_replies = self._normalize_quick_replies(assistant_response.suggested_quick_replies)
@@ -175,6 +175,8 @@ class TeachingAssistantConversation(BaseConversation):
         """Combine the base system prompt with dynamic lesson context."""
 
         base_prompt = self.get_system_prompt()
+        if base_prompt is None:
+            raise ValueError("Base system prompt is None")
         context_block = self._render_context_block(context)
         prompt = base_prompt.replace("{{CONTEXT}}", context_block)
         event_note = "The learner just opened the teaching assistant. Offer a contextual greeting that references their current progress." if event == "introduction" else "Respond to the latest learner message while maintaining continuity."
