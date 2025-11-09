@@ -11,6 +11,8 @@ import {
   Pressable,
   ScrollView,
   PanResponder,
+  Modal,
+  SafeAreaView,
 } from 'react-native';
 import {
   Event,
@@ -25,6 +27,8 @@ import {
   useHaptics,
   Slider,
 } from '../../ui_system/public';
+import { reducedMotion } from '../../ui_system/utils/motion';
+import { RotateCcw, RotateCw } from 'lucide-react-native';
 import { usePodcastPlayer } from '../hooks/usePodcastPlayer';
 import { usePodcastState } from '../hooks/usePodcastState';
 import type { PodcastTrack } from '../models';
@@ -111,6 +115,7 @@ export function PodcastPlayer({
   const [isDraggingSpeed, setIsDraggingSpeed] = useState(false);
   const [dragSpeedPosition, setDragSpeedPosition] = useState(0);
   const lastLoadedTrackIdRef = useRef<string | null>(null);
+  const autoplayTriggeredRef = useRef<boolean>(false);
 
   // Load track when component mounts (same as FullPlayer)
   useEffect(() => {
@@ -126,6 +131,7 @@ export function PodcastPlayer({
     }
 
     lastLoadedTrackIdRef.current = trackId;
+    autoplayTriggeredRef.current = false; // Reset autoplay trigger when loading new track
     loadTrack(track).catch(error => {
       console.warn('[PodcastPlayer] Failed to load track', error);
       lastLoadedTrackIdRef.current = null; // Reset on error to allow retry
@@ -158,12 +164,58 @@ export function PodcastPlayer({
       buffered: trackProgress.buffered,
       duration,
     });
+
+    // Check if track has ended and autoplay should advance to next track
+    const isNearEnd = duration > 0 && trackProgress.position >= duration - 1;
+    const isCurrentlyPlaying = playbackState.isPlaying;
+    if (
+      isNearEnd &&
+      isCurrentlyPlaying &&
+      autoplayEnabled &&
+      playlist &&
+      !autoplayTriggeredRef.current
+    ) {
+      const nextIndex = playlist.currentTrackIndex + 1;
+      if (nextIndex < playlist.tracks.length) {
+        console.log(
+          '[PodcastPlayer] 🎵 Track ended, autoplay advancing to next track',
+          {
+            currentIndex: playlist.currentTrackIndex,
+            nextIndex,
+            position: trackProgress.position,
+            duration,
+          }
+        );
+        autoplayTriggeredRef.current = true;
+
+        // Use setTimeout to ensure we don't trigger multiple times
+        setTimeout(() => {
+          skipToNext().catch(error => {
+            console.warn(
+              '[PodcastPlayer] Failed to advance to next track',
+              error
+            );
+            autoplayTriggeredRef.current = false; // Reset on error to allow retry
+          });
+        }, 100);
+      }
+    }
+
+    // Reset autoplay trigger flag when position resets (new track loaded)
+    if (trackProgress.position < 1 && autoplayTriggeredRef.current) {
+      console.log('[PodcastPlayer] Resetting autoplay trigger flag');
+      autoplayTriggeredRef.current = false;
+    }
   }, [
     trackProgress.position,
     trackProgress.duration,
     trackProgress.buffered,
     isCurrentTrack,
     track.durationSeconds,
+    playbackState.isPlaying,
+    autoplayEnabled,
+    playlist,
+    skipToNext,
   ]);
 
   // Sync TrackPlayer playback state to our store
@@ -200,6 +252,32 @@ export function PodcastPlayer({
   const duration = playbackState.duration || track.durationSeconds;
   const sliderMaximum = Math.max(duration || 0, track.durationSeconds);
   const displayedPosition = isSeekingPosition ? pendingSeekPosition : position;
+
+  // Debug logging for playlist state
+  useEffect(() => {
+    console.log('[PodcastPlayer] 🎵 Playlist state:', {
+      hasPlaylist,
+      playlistLength,
+      currentPlaylistIndex,
+      isPreviousDisabled,
+      isNextDisabled,
+      unitId,
+      playlistUnitId: playlist?.unitId,
+      tracksCount: playlist?.tracks.length,
+      autoplayEnabled,
+      isPlaying,
+    });
+  }, [
+    hasPlaylist,
+    playlistLength,
+    currentPlaylistIndex,
+    isPreviousDisabled,
+    isNextDisabled,
+    unitId,
+    playlist,
+    autoplayEnabled,
+    isPlaying,
+  ]);
 
   // Map speed to slider position (0-1)
   const getSpeedPosition = (speed: number): number => {
@@ -388,24 +466,21 @@ export function PodcastPlayer({
           testID="podcast-expand-toggle"
         >
           <Text variant="h2" style={styles.expandIcon}>
-            {isExpanded ? '⌄' : '⌃'}
+            {'⌃'}
           </Text>
         </Pressable>
 
         <Pressable
-          onPress={handlePreviousTrack}
-          style={[
-            styles.trackSkipButton,
-            isPreviousDisabled && styles.trackSkipButtonDisabled,
-          ]}
-          accessibilityLabel="Previous podcast"
+          onPress={handleSkipBackward}
+          style={styles.skipButton}
+          accessibilityLabel="Rewind 30 seconds"
           accessibilityRole="button"
-          disabled={isPreviousDisabled}
-          testID="podcast-prev-track"
+          testID="podcast-rewind-30"
         >
-          <View style={styles.trackSkipCircle}>
-            <Text variant="caption" style={styles.trackSkipIcon}>
-              ⏮
+          <View style={styles.skipIconContainer}>
+            <RotateCcw size={42} color={theme.colors.primary} strokeWidth={2} />
+            <Text variant="caption" style={styles.skipSecondsInside}>
+              30
             </Text>
           </View>
         </Pressable>
@@ -430,42 +505,19 @@ export function PodcastPlayer({
         </Pressable>
 
         <Pressable
-          onPress={handleNextTrack}
-          style={[
-            styles.trackSkipButton,
-            isNextDisabled && styles.trackSkipButtonDisabled,
-          ]}
-          accessibilityLabel="Next podcast"
+          onPress={handleSkipForward}
+          style={styles.skipButton}
+          accessibilityLabel="Forward 30 seconds"
           accessibilityRole="button"
-          disabled={isNextDisabled}
-          testID="podcast-next-track"
+          testID="podcast-forward-30"
         >
-          <View style={styles.trackSkipCircle}>
-            <Text variant="caption" style={styles.trackSkipIcon}>
-              ⏭
+          <View style={styles.skipIconContainer}>
+            <RotateCw size={42} color={theme.colors.primary} strokeWidth={2} />
+            <Text variant="caption" style={styles.skipSecondsInside}>
+              30
             </Text>
           </View>
         </Pressable>
-
-        <View style={styles.trackSummary}>
-          {trackIndicatorText ? (
-            <Text
-              variant="caption"
-              style={styles.trackIndicatorCollapsed}
-              testID="podcast-track-indicator"
-            >
-              {trackIndicatorText}
-            </Text>
-          ) : null}
-          <Text
-            variant="body"
-            numberOfLines={1}
-            style={styles.trackTitleCollapsed}
-            accessibilityLabel={`Now playing ${track.title}`}
-          >
-            {track.title}
-          </Text>
-        </View>
 
         <View style={styles.artworkContainer}>
           <ArtworkImage
@@ -477,171 +529,280 @@ export function PodcastPlayer({
         </View>
       </View>
 
-      {/* Expanded Player Content */}
-      {isExpanded && (
-        <ScrollView
-          style={styles.expandedContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.expandedInner}>
-            {/* Title */}
-            <Text variant="h2" style={styles.title}>
-              {track.title}
-            </Text>
-
-            {trackIndicatorText ? (
-              <Text variant="caption" style={styles.trackIndicatorExpanded}>
-                {trackIndicatorText}
+      {/* Expanded Player Content - Full Screen Modal */}
+      <Modal
+        animationType={reducedMotion.enabled ? 'none' : 'slide'}
+        visible={isExpanded}
+        presentationStyle="pageSheet"
+        onRequestClose={handleToggleExpand}
+        testID="podcast-expanded-modal"
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Pressable
+              onPress={handleToggleExpand}
+              style={styles.modalCloseButton}
+              accessibilityLabel="Close player"
+              accessibilityRole="button"
+              testID="podcast-modal-close"
+            >
+              <Text variant="h2" style={styles.modalCloseIcon}>
+                ⌄
               </Text>
-            ) : null}
-
-            {/* Time Labels */}
-            <View style={styles.timeRow}>
-              <Text variant="caption" color={theme.colors.textSecondary}>
-                {formatTime(displayedPosition)}
-              </Text>
-              <Text variant="caption" color={theme.colors.textSecondary}>
-                {formatTime(sliderMaximum)}
-              </Text>
-            </View>
-
-            <Slider
-              value={displayedPosition}
-              minimumValue={0}
-              maximumValue={sliderMaximum > 0 ? sliderMaximum : 0}
-              step={0.1}
-              onSlidingStart={handleSeekStart}
-              onValueChange={handleSeekChange}
-              onSlidingComplete={handleSeekComplete}
-              disabled={sliderMaximum <= 0}
-              containerStyle={styles.sliderContainer}
-              showValueLabels={false}
-              testID="podcast-player-slider"
-            />
-
-            <View style={styles.secondaryControls}>
-              <Pressable
-                onPress={handleSkipBackward}
-                style={styles.secondaryControlButton}
-                accessibilityLabel="Rewind 15 seconds"
-                accessibilityRole="button"
-                testID="podcast-rewind-15"
-              >
-                <Text style={styles.secondaryControlText}>−15s</Text>
-              </Pressable>
-              <Pressable
-                onPress={handleSkipForward}
-                style={styles.secondaryControlButton}
-                accessibilityLabel="Forward 15 seconds"
-                accessibilityRole="button"
-                testID="podcast-forward-15"
-              >
-                <Text style={styles.secondaryControlText}>+15s</Text>
-              </Pressable>
-            </View>
-
-            {/* Speed Controls - Overcast Style */}
-            <View style={styles.speedSection}>
-              <Text
-                variant="caption"
-                color={theme.colors.textSecondary}
-                style={styles.sectionLabel}
-              >
-                Playback Speed
-              </Text>
-
-              {/* Speed markers */}
-              <View style={styles.speedMarkers}>
-                <Text style={[styles.speedMarker, styles.speedMarkerMuted]}>
-                  −
+            </Pressable>
+            <View style={styles.modalHeaderContent}>
+              {trackIndicatorText ? (
+                <Text variant="caption" style={styles.modalTrackIndicator}>
+                  {trackIndicatorText}
                 </Text>
-                <Text style={styles.speedMarkerMain}>1×</Text>
-                <Text style={styles.speedMarkerMuted}>+</Text>
-                <Text style={styles.speedMarkerMuted}>+</Text>
-                <Text style={styles.speedMarkerMuted}>+</Text>
-                <Text style={styles.speedMarkerMuted}>+</Text>
-                <Text style={styles.speedMarkerMuted}>+</Text>
-                <Text style={styles.speedMarkerMain}>2×</Text>
-                <Text style={styles.speedMarkerMuted}>+</Text>
-                <Text style={styles.speedMarkerMain}>3×</Text>
-              </View>
-
-              {/* Speed slider */}
-              <View
-                style={styles.speedSliderContainer}
-                onLayout={e => {
-                  sliderWidth.current = e.nativeEvent.layout.width;
-                  e.currentTarget.measure((x, y, width, height, pageX) => {
-                    sliderX.current = pageX;
-                  });
-                }}
-              >
-                <View style={styles.speedSliderTrack}>
-                  <View
-                    style={[
-                      styles.speedSliderFill,
-                      {
-                        width: `${displaySpeedPosition * 100}%`,
-                        backgroundColor: theme.colors.primary,
-                      },
-                    ]}
-                  />
-                </View>
-                <View
-                  style={styles.speedSliderTouchable}
-                  {...speedPanResponder.panHandlers}
-                >
-                  <View
-                    style={[
-                      styles.speedSliderThumb,
-                      isDraggingSpeed && styles.speedSliderThumbActive,
-                      {
-                        left: `${displaySpeedPosition * 100}%`,
-                      },
-                    ]}
-                  />
-                </View>
-              </View>
-
-              {/* Current speed display */}
-              <Text style={styles.currentSpeedText}>{globalSpeed}×</Text>
-            </View>
-
-            <View style={styles.autoplaySection}>
-              <Text
-                variant="caption"
-                color={theme.colors.textSecondary}
-                style={styles.sectionLabel}
-              >
-                Autoplay
+              ) : null}
+              <Text variant="h2" style={styles.modalTitle}>
+                {track.title}
               </Text>
-              <Pressable
-                onPress={handleToggleAutoplay}
-                style={styles.autoplayToggle}
-                accessibilityLabel="Toggle autoplay"
-                accessibilityRole="button"
-                testID="podcast-autoplay-toggle"
-              >
-                <View
-                  style={[
-                    styles.autoplayToggleIndicator,
-                    autoplayEnabled && styles.autoplayToggleIndicatorActive,
-                  ]}
+            </View>
+          </View>
+
+          <ScrollView
+            style={styles.expandedContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.expandedInner}>
+              {/* Title above slider */}
+              <Text variant="h2" style={styles.expandedTitle}>
+                {track.title}
+              </Text>
+
+              {/* Time Labels */}
+              <View style={styles.timeRow}>
+                <Text variant="caption" color={theme.colors.textSecondary}>
+                  {formatTime(displayedPosition)}
+                </Text>
+                <Text
+                  variant="body"
+                  color={theme.colors.text}
+                  style={styles.timeRemaining}
                 >
-                  <Text
+                  {formatTime(sliderMaximum - displayedPosition)} left (
+                  {globalSpeed}×)
+                </Text>
+                <Text variant="caption" color={theme.colors.textSecondary}>
+                  -{formatTime(sliderMaximum)}
+                </Text>
+              </View>
+
+              <Slider
+                value={displayedPosition}
+                minimumValue={0}
+                maximumValue={sliderMaximum > 0 ? sliderMaximum : 0}
+                step={0.1}
+                onSlidingStart={handleSeekStart}
+                onValueChange={handleSeekChange}
+                onSlidingComplete={handleSeekComplete}
+                disabled={sliderMaximum <= 0}
+                containerStyle={styles.sliderContainer}
+                showValueLabels={false}
+                testID="podcast-player-slider"
+              />
+
+              {/* Compact control layout inspired by image */}
+              <View style={styles.compactControls}>
+                <Pressable
+                  onPress={handlePreviousTrack}
+                  style={[
+                    styles.compactControlButton,
+                    isPreviousDisabled && styles.compactControlButtonDisabled,
+                  ]}
+                  accessibilityLabel="Previous lesson"
+                  accessibilityRole="button"
+                  disabled={isPreviousDisabled}
+                  testID="podcast-prev-track-expanded"
+                >
+                  <Text variant="h2" style={styles.compactControlIcon}>
+                    ⏮
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={handleSkipBackward}
+                  style={styles.compactControlButton}
+                  accessibilityLabel="Rewind 30 seconds"
+                  accessibilityRole="button"
+                  testID="podcast-rewind-30-expanded"
+                >
+                  <View style={styles.skipIconContainer}>
+                    <RotateCcw
+                      size={44}
+                      color={theme.colors.text}
+                      strokeWidth={2}
+                    />
+                    <Text
+                      variant="caption"
+                      style={styles.skipSecondsInsideExpanded}
+                    >
+                      30
+                    </Text>
+                  </View>
+                </Pressable>
+
+                <Pressable
+                  onPress={handleTogglePlay}
+                  style={styles.compactPlayButton}
+                  accessibilityLabel={isPlaying ? 'Pause' : 'Play'}
+                  accessibilityRole="button"
+                  testID="podcast-play-toggle-expanded"
+                >
+                  <View
                     style={[
-                      styles.autoplayToggleText,
-                      autoplayEnabled && styles.autoplayToggleTextActive,
+                      styles.compactPlayCircle,
+                      { backgroundColor: theme.colors.primary },
                     ]}
                   >
-                    {autoplayEnabled ? 'On' : 'Off'}
-                  </Text>
-                </View>
-              </Pressable>
-            </View>
+                    <Text variant="h1" style={styles.compactPlayIcon}>
+                      {isPlaying ? '❚❚' : '▶'}
+                    </Text>
+                  </View>
+                </Pressable>
 
-            {/* Transcript */}
-            {track.transcript && (
+                <Pressable
+                  onPress={handleSkipForward}
+                  style={styles.compactControlButton}
+                  accessibilityLabel="Forward 30 seconds"
+                  accessibilityRole="button"
+                  testID="podcast-forward-30-expanded"
+                >
+                  <View style={styles.skipIconContainer}>
+                    <RotateCw
+                      size={44}
+                      color={theme.colors.text}
+                      strokeWidth={2}
+                    />
+                    <Text
+                      variant="caption"
+                      style={styles.skipSecondsInsideExpanded}
+                    >
+                      30
+                    </Text>
+                  </View>
+                </Pressable>
+
+                <Pressable
+                  onPress={handleNextTrack}
+                  style={[
+                    styles.compactControlButton,
+                    isNextDisabled && styles.compactControlButtonDisabled,
+                  ]}
+                  accessibilityLabel="Next lesson"
+                  accessibilityRole="button"
+                  disabled={isNextDisabled}
+                  testID="podcast-next-track-expanded"
+                >
+                  <Text variant="h2" style={styles.compactControlIcon}>
+                    ⏭
+                  </Text>
+                </Pressable>
+              </View>
+
+              {/* Speed Controls - Overcast Style */}
+              <View style={styles.speedSection}>
+                <Text
+                  variant="caption"
+                  color={theme.colors.textSecondary}
+                  style={styles.sectionLabel}
+                >
+                  Playback Speed
+                </Text>
+
+                {/* Speed markers */}
+                <View style={styles.speedMarkers}>
+                  <Text style={[styles.speedMarker, styles.speedMarkerMuted]}>
+                    −
+                  </Text>
+                  <Text style={styles.speedMarkerMain}>1×</Text>
+                  <Text style={styles.speedMarkerMuted}>+</Text>
+                  <Text style={styles.speedMarkerMuted}>+</Text>
+                  <Text style={styles.speedMarkerMuted}>+</Text>
+                  <Text style={styles.speedMarkerMuted}>+</Text>
+                  <Text style={styles.speedMarkerMuted}>+</Text>
+                  <Text style={styles.speedMarkerMain}>2×</Text>
+                  <Text style={styles.speedMarkerMuted}>+</Text>
+                  <Text style={styles.speedMarkerMain}>3×</Text>
+                </View>
+
+                {/* Speed slider */}
+                <View
+                  style={styles.speedSliderContainer}
+                  onLayout={e => {
+                    sliderWidth.current = e.nativeEvent.layout.width;
+                    e.currentTarget.measure((x, y, width, height, pageX) => {
+                      sliderX.current = pageX;
+                    });
+                  }}
+                >
+                  <View style={styles.speedSliderTrack}>
+                    <View
+                      style={[
+                        styles.speedSliderFill,
+                        {
+                          width: `${displaySpeedPosition * 100}%`,
+                          backgroundColor: theme.colors.primary,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <View
+                    style={styles.speedSliderTouchable}
+                    {...speedPanResponder.panHandlers}
+                  >
+                    <View
+                      style={[
+                        styles.speedSliderThumb,
+                        isDraggingSpeed && styles.speedSliderThumbActive,
+                        {
+                          left: `${displaySpeedPosition * 100}%`,
+                        },
+                      ]}
+                    />
+                  </View>
+                </View>
+
+                {/* Current speed display */}
+                <Text style={styles.currentSpeedText}>{globalSpeed}×</Text>
+              </View>
+
+              <View style={styles.autoplaySection}>
+                <Text
+                  variant="caption"
+                  color={theme.colors.textSecondary}
+                  style={styles.sectionLabel}
+                >
+                  Autoplay
+                </Text>
+                <Pressable
+                  onPress={handleToggleAutoplay}
+                  style={styles.autoplayToggle}
+                  accessibilityLabel="Toggle autoplay"
+                  accessibilityRole="button"
+                  testID="podcast-autoplay-toggle"
+                >
+                  <View
+                    style={[
+                      styles.autoplayToggleIndicator,
+                      autoplayEnabled && styles.autoplayToggleIndicatorActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.autoplayToggleText,
+                        autoplayEnabled && styles.autoplayToggleTextActive,
+                      ]}
+                    >
+                      {autoplayEnabled ? 'On' : 'Off'}
+                    </Text>
+                  </View>
+                </Pressable>
+              </View>
+
+              {/* Transcript */}
               <View style={styles.transcriptSection}>
                 <Text
                   variant="caption"
@@ -650,18 +811,28 @@ export function PodcastPlayer({
                 >
                   Transcript
                 </Text>
-                <Text
-                  variant="body"
-                  color={theme.colors.text}
-                  style={styles.transcriptText}
-                >
-                  {track.transcript}
-                </Text>
+                {track.transcript ? (
+                  <Text
+                    variant="body"
+                    color={theme.colors.text}
+                    style={styles.transcriptText}
+                  >
+                    {track.transcript}
+                  </Text>
+                ) : (
+                  <Text
+                    variant="body"
+                    color={theme.colors.textSecondary}
+                    style={styles.transcriptUnavailable}
+                  >
+                    Transcript not available for this podcast
+                  </Text>
+                )}
               </View>
-            )}
-          </View>
-        </ScrollView>
-      )}
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </View>
   );
 }
@@ -681,50 +852,52 @@ const createStyles = (theme: any) =>
       shadowRadius: 8,
       shadowOffset: { width: 0, height: -2 },
       elevation: 16,
-      paddingBottom: theme.spacing?.md || 16,
+      paddingBottom: 16,
+      paddingHorizontal: 8,
     },
     collapsedBar: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: theme.spacing?.md || 16,
+      justifyContent: 'center',
+      paddingHorizontal: theme.spacing?.lg || 20,
       paddingVertical: theme.spacing?.sm || 12,
-      minHeight: 72,
+      height: 72,
+      gap: 20,
     },
     expandButton: {
-      width: 44,
-      height: 44,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    expandIcon: {
-      fontSize: 24,
-      color: theme.colors.text,
-    },
-    trackSkipButton: {
-      width: 44,
-      height: 44,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginHorizontal: 4,
-    },
-    trackSkipButtonDisabled: {
-      opacity: 0.4,
-    },
-    trackSkipCircle: {
       width: 40,
       height: 40,
-      borderRadius: 20,
-      borderWidth: 2,
-      borderColor: theme.colors.text,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: theme.colors.surface,
+      position: 'absolute',
+      left: theme.spacing?.md || 16,
     },
-    trackSkipIcon: {
-      fontSize: 14,
-      fontWeight: '600',
+    expandIcon: {
+      paddingTop: 8,
+      fontSize: 32,
       color: theme.colors.text,
+    },
+    skipButton: {
+      width: 48,
+      height: 48,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    skipIconContainer: {
+      width: 48,
+      height: 48,
+      alignItems: 'center',
+      justifyContent: 'center',
+      position: 'relative',
+    },
+    skipSecondsInside: {
+      position: 'absolute',
+      fontSize: 12,
+      fontWeight: '700',
+      color: theme.colors.primary,
+      top: '50%',
+      left: '50%',
+      transform: [{ translateX: -8 }, { translateY: -7 }],
     },
     playButton: {
       width: 56,
@@ -740,7 +913,7 @@ const createStyles = (theme: any) =>
       justifyContent: 'center',
     },
     playIcon: {
-      fontSize: 20,
+      fontSize: 18,
       color: theme.colors.surface,
       fontWeight: 'bold',
     },
@@ -749,36 +922,64 @@ const createStyles = (theme: any) =>
       height: 48,
       borderRadius: 4,
       overflow: 'hidden',
+      position: 'absolute',
+      right: theme.spacing?.md || 16,
     },
     artwork: {
       width: 48,
       height: 48,
       borderRadius: 4,
     },
-    trackSummary: {
+    modalContainer: {
       flex: 1,
-      marginHorizontal: theme.spacing?.sm || 8,
-      justifyContent: 'center',
+      backgroundColor: theme.colors.background,
     },
-    trackIndicatorCollapsed: {
+    modalHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: theme.spacing?.md || 16,
+      paddingVertical: theme.spacing?.sm || 12,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    modalCloseButton: {
+      width: 44,
+      height: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: theme.spacing?.sm || 8,
+    },
+    modalCloseIcon: {
+      paddingBottom: 8,
+      fontSize: 32,
+      color: theme.colors.text,
+    },
+    modalHeaderContent: {
+      flex: 1,
+    },
+    modalTrackIndicator: {
       color: theme.colors.textSecondary,
       marginBottom: 2,
       textTransform: 'uppercase',
       fontSize: 12,
       fontWeight: '600',
     },
-    trackTitleCollapsed: {
+    modalTitle: {
       color: theme.colors.text,
       fontWeight: '600',
-      fontSize: 14,
+      fontSize: 18,
     },
     expandedContent: {
-      maxHeight: 400,
-      borderTopWidth: 1,
-      borderTopColor: theme.colors.border,
+      flex: 1,
     },
     expandedInner: {
       padding: theme.spacing?.lg || 20,
+    },
+    expandedTitle: {
+      marginBottom: theme.spacing?.md || 16,
+      fontWeight: '600',
+      textAlign: 'center',
+      fontSize: 24,
     },
     title: {
       marginBottom: theme.spacing?.md || 16,
@@ -793,10 +994,62 @@ const createStyles = (theme: any) =>
     timeRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
+      alignItems: 'center',
       marginBottom: theme.spacing?.xs || 8,
     },
+    timeRemaining: {
+      fontWeight: '600',
+    },
     sliderContainer: {
-      marginBottom: theme.spacing?.lg || 20,
+      marginBottom: theme.spacing?.xl || 32,
+    },
+    compactControls: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: theme.spacing?.xl || 32,
+      gap: 8,
+    },
+    compactControlButton: {
+      width: 56,
+      height: 56,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    compactControlButtonDisabled: {
+      opacity: 0.3,
+    },
+    compactControlIcon: {
+      fontSize: 28,
+      color: theme.colors.text,
+    },
+    compactPlayButton: {
+      width: 80,
+      height: 80,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginHorizontal: 8,
+    },
+    compactPlayCircle: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    compactPlayIcon: {
+      fontSize: 26,
+      color: theme.colors.surface,
+      fontWeight: 'bold',
+    },
+    skipSecondsInsideExpanded: {
+      position: 'absolute',
+      fontSize: 13,
+      fontWeight: '700',
+      color: theme.colors.text,
+      top: '50%',
+      left: '50%',
+      transform: [{ translateX: -9 }, { translateY: -8 }],
     },
     secondaryControls: {
       flexDirection: 'row',
@@ -930,5 +1183,9 @@ const createStyles = (theme: any) =>
     },
     transcriptText: {
       lineHeight: 22,
+    },
+    transcriptUnavailable: {
+      lineHeight: 22,
+      fontStyle: 'italic',
     },
   });

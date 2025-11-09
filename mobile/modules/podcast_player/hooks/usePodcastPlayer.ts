@@ -25,7 +25,7 @@ interface PodcastPlayerHook {
   readonly toggleAutoplay: () => void;
 }
 
-const DEFAULT_SKIP_SECONDS = 15;
+const DEFAULT_SKIP_SECONDS = 30;
 
 export function usePodcastPlayer(): PodcastPlayerHook {
   const service = useMemo(() => getPodcastPlayerService(), []);
