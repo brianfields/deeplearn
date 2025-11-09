@@ -66,7 +66,7 @@ class OpenRouterProvider(LLMProvider):
 
         self._api_key = api_key
         self._base_url = (config.openrouter_base_url or config.base_url or "https://openrouter.ai/api/v1").rstrip("/")
-        self._timeout = httpx.Timeout(config.timeout) if isinstance(config.timeout, (int, float)) else config.timeout
+        self._timeout = httpx.Timeout(config.timeout) if isinstance(config.timeout, int | float) else config.timeout
 
     async def generate_response(
         self,
@@ -331,7 +331,7 @@ class OpenRouterProvider(LLMProvider):
 
         created_ts = data.get("created")
         created_dt: datetime | None = None
-        if isinstance(created_ts, (int, float)):
+        if isinstance(created_ts, int | float):
             created_dt = datetime.fromtimestamp(created_ts, tz=UTC)
 
         response = LLMResponse(
@@ -393,7 +393,7 @@ class OpenRouterProvider(LLMProvider):
     def _parse_cost(raw_cost: Any) -> float:
         """Normalise OpenRouter cost metadata to a float, defaulting to zero."""
 
-        if isinstance(raw_cost, (int, float)):
+        if isinstance(raw_cost, int | float):
             return float(raw_cost)
         if isinstance(raw_cost, str):
             stripped = raw_cost.strip()

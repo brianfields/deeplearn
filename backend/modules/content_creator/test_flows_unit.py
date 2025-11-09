@@ -312,7 +312,7 @@ class TestServiceFlows:
                 "lessons": [
                     {
                         "title": "L1",
-                        "learning_objective_ids": ["lo_1"],
+                        "learning_objective_ids": ["u_lo_1"],
                         "lesson_objective": "Learn about L1",
                     }
                 ],
@@ -442,7 +442,7 @@ class TestServiceFlows:
                 "lessons": [
                     {
                         "title": "L1",
-                        "learning_objective_ids": ["lo_1"],
+                        "learning_objective_ids": ["u_lo_1"],
                         "lesson_objective": "Learn about L1",
                     }
                 ],
@@ -453,13 +453,13 @@ class TestServiceFlows:
             mock_lcf.execute.return_value = {
                 "podcast_transcript": "Transcript body",
                 "learning_objectives": ["Learn about A"],
-                "learning_objective_ids": ["lo_1"],
+                "learning_objective_ids": ["u_lo_1"],
                 "exercise_bank": [
                     {
                         "id": "ex-comp-mc-001",
                         "exercise_type": "mcq",
                         "exercise_category": "comprehension",
-                        "aligned_learning_objective": "lo_1",
+                        "aligned_learning_objective": "u_lo_1",
                         "cognitive_level": "Comprehension",
                         "difficulty": "medium",
                         "stem": "Question?",

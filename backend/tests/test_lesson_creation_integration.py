@@ -205,7 +205,7 @@ def _maybe_mock_llm() -> Generator[None, None, None]:
 
         async def generate_structured_response(
             self,
-            _messages: list[Any],
+            messages: list[Any],
             response_model: type[Any],
             _user_id: Any | None = None,
             _model: str | None = None,
@@ -216,36 +216,80 @@ def _maybe_mock_llm() -> Generator[None, None, None]:
             usage = {"tokens_used": 0, "cost_estimate": 0.0}
 
             if response_model is ExtractUnitMetadataStep.Outputs:
-                payload = {
-                    "unit_title": "Mocked",
-                    "learning_objectives": [
-                        {
-                            "id": "lo_1",
-                            "title": "Understand Concept A",
-                            "description": "Understand concept A",
-                            "bloom_level": "Understand",
-                        },
-                        {
-                            "id": "lo_2",
-                            "title": "Apply Concept B",
-                            "description": "Apply concept B",
-                            "bloom_level": "Apply",
-                        },
-                    ],
-                    "lessons": [
-                        {
-                            "title": "Lesson 1",
-                            "lesson_objective": "Intro to A",
-                            "learning_objective_ids": ["lo_1"],
-                        },
-                        {
-                            "title": "Lesson 2",
-                            "lesson_objective": "Intro to B",
-                            "learning_objective_ids": ["lo_2"],
-                        },
-                    ],
-                    "lesson_count": 2,
-                }
+                # Check if coach learning objectives were provided in the messages
+                has_coach_los = False
+                for message in messages:
+                    msg_content = str(getattr(message, "content", ""))
+                    if "COACH_LEARNING_OBJECTIVES" in msg_content and "coach_lo" in msg_content:
+                        has_coach_los = True
+                        break
+
+                # If coach LOs are provided, use them; otherwise use generated LO IDs
+                if has_coach_los:
+                    # Extract coach LO IDs and details from the message
+                    # For simplicity, use coach_lo_1 and coach_lo_2 format
+                    payload = {
+                        "unit_title": "Mocked",
+                        "learning_objectives": [
+                            {
+                                "id": "coach_lo_1",
+                                "title": "Understand gradient descent mechanics",
+                                "description": "Comprehend how gradient descent algorithm works in optimization",
+                                "bloom_level": "Understand",
+                            },
+                            {
+                                "id": "coach_lo_2",
+                                "title": "Apply gradient descent to training",
+                                "description": "Apply gradient descent concepts to train neural networks",
+                                "bloom_level": "Apply",
+                            },
+                        ],
+                        "lessons": [
+                            {
+                                "title": "Lesson 1",
+                                "lesson_objective": "Intro to A",
+                                "learning_objective_ids": ["coach_lo_1"],
+                            },
+                            {
+                                "title": "Lesson 2",
+                                "lesson_objective": "Intro to B",
+                                "learning_objective_ids": ["coach_lo_2"],
+                            },
+                        ],
+                        "lesson_count": 2,
+                    }
+                else:
+                    # Use generated LO IDs when no coach LOs provided
+                    payload = {
+                        "unit_title": "Mocked",
+                        "learning_objectives": [
+                            {
+                                "id": "UO1",
+                                "title": "Understand Concept A",
+                                "description": "Understand concept A",
+                                "bloom_level": "Understand",
+                            },
+                            {
+                                "id": "UO2",
+                                "title": "Apply Concept B",
+                                "description": "Apply concept B",
+                                "bloom_level": "Apply",
+                            },
+                        ],
+                        "lessons": [
+                            {
+                                "title": "Lesson 1",
+                                "lesson_objective": "Intro to A",
+                                "learning_objective_ids": ["UO1"],
+                            },
+                            {
+                                "title": "Lesson 2",
+                                "lesson_objective": "Intro to B",
+                                "learning_objective_ids": ["UO2"],
+                            },
+                        ],
+                        "lesson_count": 2,
+                    }
                 return response_model.model_validate(payload), None, usage
 
             if response_model is ValidateAndStructureMCQsStep.Outputs:

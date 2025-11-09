@@ -21,7 +21,7 @@ You are an expert instructional designer. Extract a **structured unit plan** fro
 1) Derive a **concise, specific unit title** that clearly reflects the learner's desires and intended learning scope.
 
 2) **Handle learning objectives based on COACH_LEARNING_OBJECTIVES:**
-   - **IF coach_learning_objectives provided:** Use them as-is; do not regenerate. Map them to the provided IDs and ensure lesson plans cover all of them.
+   - **IF coach_learning_objectives provided (non-empty):** Use them **exactly as-is**; do not regenerate, do not change IDs. Return them in the `learning_objectives` array with their original `id` fields (e.g., `coach_lo_1`, `coach_lo_2`). In the lesson plans, reference these SAME IDs in `learning_objective_ids` (e.g., `["coach_lo_1"]`). Ensure all coach-provided LOs are covered by at least one lesson.
    - **IF coach_learning_objectives is empty or null:** Define **3–8 unit-level learning objectives** from the source material. For each, include:
      - `id` in the form **"UO1"**, **"UO2"** … (sequential, no gaps)
      - `title` (3–8 word, scannable headline)
@@ -141,3 +141,35 @@ Top-level keys in this **exact order**:
   ],
   "lesson_count": 6
 }
+
+# Example with Coach-Provided Learning Objectives
+
+When COACH_LEARNING_OBJECTIVES are provided (non-empty), the output structure is identical, **but with coach IDs**:
+
+```json
+{
+  "unit_title": "Gradient Descent Fundamentals",
+  "learning_objectives": [
+    { "id": "coach_lo_1", "title": "Understand gradient descent mechanics", "description": "Comprehend how gradient descent algorithm works in optimization", "bloom_level": "Understand", "evidence_of_mastery": "Implement basic gradient descent step on a toy problem." },
+    { "id": "coach_lo_2", "title": "Apply gradient descent to training", "description": "Apply gradient descent concepts to train neural networks", "bloom_level": "Apply", "evidence_of_mastery": "Train a simple model using gradient descent and interpret convergence." }
+  ],
+  "lessons": [
+    {
+      "title": "How Gradient Descent Works",
+      "lesson_objective": "Explain the core mechanics of gradient descent: direction, step size, and convergence criteria.",
+      "learning_objective_ids": ["coach_lo_1"]
+    },
+    {
+      "title": "Gradient Descent in Practice: Training Models",
+      "lesson_objective": "Apply gradient descent to train a neural network model and interpret learning curves.",
+      "learning_objective_ids": ["coach_lo_1", "coach_lo_2"]
+    }
+  ],
+  "lesson_count": 2
+}
+```
+
+**Key differences:**
+- The `learning_objectives` array contains the EXACT coach LOs (same `id` fields: `coach_lo_1`, `coach_lo_2`).
+- The lessons reference ONLY those coach LO IDs in `learning_objective_ids`.
+- Do NOT generate new UO IDs like `UO1`, `UO2` when coach LOs are provided.
