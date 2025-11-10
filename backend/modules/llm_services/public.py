@@ -13,6 +13,7 @@ from ..infrastructure.public import infrastructure_provider
 from .providers.base import LLMProviderKwargs
 from .repo import LLMRequestRepo
 from .service import AudioResponse, ImageResponse, LLMMessage, LLMRequest, LLMResponse, LLMService, WebSearchResponse
+from .types import ToolCall, ToolDefinition
 
 # Type variable for structured responses
 T = TypeVar("T", bound=BaseModel)
@@ -25,6 +26,8 @@ __all__ = [
     "LLMResponse",
     "LLMServicesAdminProvider",
     "LLMServicesProvider",
+    "ToolCall",
+    "ToolDefinition",
     "WebSearchResponse",
     "llm_services_admin_provider",
     "llm_services_provider",
@@ -86,6 +89,30 @@ class LLMServicesProvider(Protocol):
         Raises:
             LLMError: If the request fails
             LLMValidationError: If response doesn't match the model
+        """
+        ...
+
+    async def generate_response_with_tools(
+        self, messages: list[LLMMessage], tools: list[ToolDefinition], user_id: int | None = None, model: str | None = None, temperature: float | None = None, max_output_tokens: int | None = None, **kwargs: LLMProviderKwargs
+    ) -> tuple[LLMResponse, list[ToolCall] | None, uuid.UUID]:
+        """
+        Generate response with tool calling capability.
+
+        Args:
+            messages: List of conversation messages
+            tools: Available tools the LLM can call
+            user_id: Optional user identifier for tracking
+            model: Override default model
+            temperature: Override default temperature
+            max_output_tokens: Override maximum output tokens
+            **kwargs: Additional provider-specific parameters
+
+        Returns:
+            Tuple of (response, tool_calls_if_any, request_id)
+
+        Raises:
+            LLMError: If the request fails
+            NotImplementedError: If provider doesn't support tool calling
         """
         ...
 

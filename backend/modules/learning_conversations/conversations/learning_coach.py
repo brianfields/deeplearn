@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 import uuid
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from modules.conversation_engine.public import (
     BaseConversation,
@@ -47,7 +47,7 @@ async def _fetch_resources(resource_ids: Sequence[uuid.UUID]) -> list[ResourceRe
 
 
 class CoachLearningObjective(BaseModel):
-    """Learning objective emitted by the structured coach response."""
+    """Learning objective emitted by finalization extraction."""
 
     id: str = Field(..., min_length=1, max_length=50, description="Stable identifier for the unit learning objective")
     title: str = Field(
@@ -65,51 +65,9 @@ class CoachLearningObjective(BaseModel):
 
 
 class CoachResponse(BaseModel):
-    """Structured response from the learning coach."""
+    """Structured response from the learning coach (conversational turn)."""
 
-    message: str = Field(max_length=1000, description="The coach's response message to the learner (max ~100 words)")
-    finalized_topic: str | None = Field(
-        default=None,
-        max_length=2000,
-        description=(
-            "When you have clarity on both WHAT they want to learn and their current knowledge level, "
-            "provide a detailed topic description including: specific topics/concepts, starting level "
-            "(e.g., 'beginner', 'intermediate with Python basics'), focus areas, scope for 2-10 "
-            "mini-lessons, and the learning objectives (listed out). Update this if they request changes. "
-            "Leave null only while still gathering information."
-        ),
-    )
-    unit_title: str | None = Field(
-        default=None,
-        max_length=100,
-        description=(
-            "When finalizing, provide a short, engaging unit title (1-6 words) that captures the essence "
-            "of what they'll learn. Examples: 'React Native with Expo', 'Python Data Structures', "
-            "'Web API Design Basics'. Update if the learner requests changes."
-        ),
-    )
-    learning_objectives: list[CoachLearningObjective] | None = Field(
-        default=None,
-        description=(
-            "When finalizing the topic, provide 3-8 clear, specific learning objectives. Each must include "
-            "a stable identifier (e.g., 'lo_1'), a short 3-8 word title, and a full description. Objectives "
-            "should be measurable, action-oriented, and appropriate for the learner's level. Update if the learner requests changes."
-        ),
-    )
-    suggested_lesson_count: int | None = Field(
-        default=None,
-        description=("When finalizing, suggest the number of lessons (2-10) to cover the learning objectives. Consider the breadth of objectives, the learner's level, and natural topic boundaries. Update if the learner requests changes."),
-    )
-    learner_desires: str | None = Field(
-        default=None,
-        max_length=2000,
-        description=(
-            "When finalizing the topic, provide a comprehensive synthesis of the learner's goals, prior knowledge, "
-            "learning style preferences, and constraints. Include: specific topic, difficulty level, prior exposure, "
-            "presentation preferences, voice/tone, time constraints, and any other relevant context. "
-            "Write this for AI systems to read (not learners). This replaces the need for separate topic/difficulty/voice fields."
-        ),
-    )
+    text: str = Field(max_length=1000, description="The coach's response message to the learner (max ~100 words)")
     suggested_quick_replies: list[str] | None = Field(
         default=None,
         max_length=5,
@@ -120,10 +78,62 @@ class CoachResponse(BaseModel):
             "Keep each under 40 characters. Tailor to what you need to know next or what the learner might want to say."
         ),
     )
+    ready_to_finalize: bool = Field(
+        description=(
+            "REQUIRED: Set to true when you have clarity on BOTH what they want to learn AND their current knowledge level. "
+            "When true, a separate extraction step will gather detailed metadata (topic, title, objectives, etc.). "
+            "Set to false while still gathering information or clarifying their needs. "
+            "IMPORTANT: You MUST explicitly include this field in every response (true or false)."
+        ),
+    )
     uncovered_learning_objective_ids: list[str] | None = Field(
         default=None,
         description=("Learning objective identifiers that are not adequately covered by the learner's shared resources. Return an empty list when resources cover every objective and null when no resources are available to evaluate."),
     )
+
+
+class FinalizationExtraction(BaseModel):
+    """Metadata extracted when ready to finalize the learning unit."""
+
+    finalized_topic: str = Field(
+        max_length=2000,
+        description=("A detailed topic description including: specific topics/concepts, starting level (e.g., 'beginner', 'intermediate with Python basics'), focus areas, scope for 2-10 mini-lessons, and the learning objectives (listed out)."),
+    )
+    unit_title: str = Field(
+        max_length=80,
+        description=(
+            "A short, engaging unit title (3-10 words max, 80 chars max) that captures "
+            "the essence of what they'll learn. Examples: 'React Native with Expo', 'Python Data Structures', "
+            "'Web API Design Basics', 'Introduction to Roman Republic'. Keep it concise!"
+        ),
+    )
+    learning_objectives: list[CoachLearningObjective] = Field(
+        description=(
+            "3-8 clear, specific learning objectives. Each must include a stable identifier (e.g., 'lo_1'), a short 3-8 word title, and a full description. Objectives should be measurable, action-oriented, and appropriate for the learner's level."
+        ),
+    )
+    suggested_lesson_count: int = Field(
+        ge=2,
+        le=10,
+        description=("The number of lessons (2-10) to cover the learning objectives. Consider the breadth of objectives, the learner's level, and natural topic boundaries."),
+    )
+    learner_desires: str = Field(
+        max_length=2000,
+        description=(
+            "A comprehensive synthesis of the learner's goals, prior knowledge, "
+            "learning style preferences, and constraints. Include: specific topic, difficulty level, prior exposure, "
+            "presentation preferences, voice/tone, time constraints, and any other relevant context. "
+            "Write this for AI systems to read (not learners)."
+        ),
+    )
+
+    @field_validator("unit_title", mode="before")
+    @classmethod
+    def truncate_unit_title(cls, v: str | None) -> str | None:
+        """Truncate unit_title if it exceeds the limit."""
+        if v and len(v) > 80:
+            return v[:77] + "..."
+        return v
 
 
 class LearningCoachConversation(BaseConversation):
@@ -131,6 +141,7 @@ class LearningCoachConversation(BaseConversation):
 
     conversation_type = "learning_coach"
     system_prompt_file = "../prompts/system_prompt.md"
+    finalization_prompt_file = "../prompts/finalization_extraction.md"
 
     @conversation_session
     async def add_resource(
@@ -326,6 +337,7 @@ class LearningCoachConversation(BaseConversation):
         resource_context = build_resource_context_prompt(resources)
         system_prompt = self._merge_system_prompt(base_prompt, resource_context)
 
+        # Step 1: Generate conversational response with ready_to_finalize flag
         coach_response, request_id, raw_response = await self.generate_structured_reply(
             CoachResponse,
             model="gemini-2.5-flash",
@@ -339,34 +351,96 @@ class LearningCoachConversation(BaseConversation):
         if coach_response.suggested_quick_replies is not None:
             message_metadata["suggested_quick_replies"] = coach_response.suggested_quick_replies
         await self.record_assistant_message(
-            coach_response.message,
+            coach_response.text,
             metadata=message_metadata,
             llm_request_id=request_id,
             tokens_used=raw_response.get("usage", {}).get("total_tokens"),
             cost_estimate=raw_response.get("cost_estimate"),
         )
 
-        # If topic is finalized, update conversation metadata
-        metadata_update: dict[str, Any] = {
-            "uncovered_learning_objective_ids": coach_response.uncovered_learning_objective_ids,
-        }
-        if coach_response.finalized_topic:
+        # Update uncovered_learning_objective_ids if present
+        metadata_update: dict[str, Any] = {}
+        if coach_response.uncovered_learning_objective_ids is not None:
+            metadata_update["uncovered_learning_objective_ids"] = coach_response.uncovered_learning_objective_ids
+
+        # Step 2: If ready to finalize, extract detailed metadata using a separate LLM call
+        if coach_response.ready_to_finalize:
+            finalization_data = await self._extract_finalization_metadata(system_prompt)
+
+            # Update conversation metadata with finalization data
             metadata_update.update(
                 {
-                    "finalized_topic": coach_response.finalized_topic,
+                    "finalized_topic": finalization_data.finalized_topic,
+                    "unit_title": finalization_data.unit_title,
+                    "learning_objectives": [obj.model_dump() for obj in finalization_data.learning_objectives],
+                    "suggested_lesson_count": finalization_data.suggested_lesson_count,
+                    "learner_desires": finalization_data.learner_desires,
                     "finalized_at": datetime.now(UTC).isoformat(),
                 }
             )
-            if coach_response.unit_title is not None:
-                metadata_update["unit_title"] = coach_response.unit_title
-            if coach_response.learner_desires is not None:
-                metadata_update["learner_desires"] = coach_response.learner_desires
-            if coach_response.learning_objectives is not None:
-                metadata_update["learning_objectives"] = [objective.model_dump() for objective in coach_response.learning_objectives]
-            if coach_response.suggested_lesson_count is not None:
-                metadata_update["suggested_lesson_count"] = coach_response.suggested_lesson_count
 
-        await self.update_conversation_metadata(metadata_update)
+            # Inject finalization into conversation history for context
+            await self._inject_finalization_into_history(finalization_data)
+
+        if metadata_update:
+            await self.update_conversation_metadata(metadata_update)
+
+    async def _extract_finalization_metadata(self, conversation_context: str | None) -> FinalizationExtraction:
+        """Extract finalization metadata using a separate LLM call with gemini-2.5-pro."""
+
+        # Load finalization prompt
+        finalization_prompt = self._load_prompt_file(self.finalization_prompt_file)
+
+        # Build system prompt with conversation context
+        system_prompt = finalization_prompt
+        if conversation_context:
+            system_prompt = f"{finalization_prompt}\n\n## Conversation Context\n\n{conversation_context}"
+
+        # Use gemini-2.5-pro for better reasoning on metadata extraction
+        extraction_result, _request_id, _raw = await self.generate_structured_reply(
+            FinalizationExtraction,
+            model="gemini-2.5-pro",
+            system_prompt=system_prompt,
+        )
+
+        return extraction_result
+
+    async def _inject_finalization_into_history(self, finalization_data: FinalizationExtraction) -> None:
+        """Inject finalization metadata into conversation history for context."""
+
+        # Format learning objectives for display
+        objectives_text = "\n".join([f"  - {obj.id}: {obj.title} - {obj.description}" for obj in finalization_data.learning_objectives])
+
+        # Create a system message documenting the finalization
+        finalization_message = f"""[FINALIZATION EXTRACTED]
+
+Unit Title: {finalization_data.unit_title}
+Suggested Lesson Count: {finalization_data.suggested_lesson_count}
+
+Topic Description:
+{finalization_data.finalized_topic}
+
+Learning Objectives:
+{objectives_text}
+
+Learner Context:
+{finalization_data.learner_desires}"""
+
+        # Record as a system message
+        await self.record_system_message(finalization_message)
+
+    def _load_prompt_file(self, relative_path: str) -> str:
+        """Load a prompt file relative to this module."""
+        from pathlib import Path
+
+        # Get the directory containing this file
+        current_dir = Path(__file__).parent
+        prompt_path = (current_dir / relative_path).resolve()
+
+        if not prompt_path.exists():
+            raise FileNotFoundError(f"Prompt file not found: {prompt_path}")
+
+        return prompt_path.read_text(encoding="utf-8")
 
     async def _load_conversation_resources(self) -> list[ResourceRead]:
         """Return resources referenced by the current conversation metadata."""

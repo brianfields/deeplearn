@@ -38,6 +38,8 @@ from ..types import (
     LLMProviderType,
     LLMResponse,
     MessageRole,
+    ToolCall,
+    ToolDefinition,
     WebSearchResponse,
 )
 from .base import LLMProvider
@@ -101,7 +103,19 @@ class GeminiProvider(LLMProvider):
 
         url = f"{self._base_url}/models/{model}:{endpoint}"
         params = {"key": self.config.api_key}
-        timeout = httpx.Timeout(self.config.timeout) if isinstance(self.config.timeout, int | float) else self.config.timeout
+
+        # Explicitly set all timeout components to prevent httpx defaults from causing silent 30s timeouts
+        if isinstance(self.config.timeout, int | float):
+            timeout = httpx.Timeout(
+                connect=30.0,  # 30s to establish connection
+                read=self.config.timeout,  # Full timeout for reading response
+                write=30.0,  # 30s to send request body
+                pool=30.0,  # 30s to get connection from pool
+            )
+        else:
+            timeout = self.config.timeout
+
+        self._logger.warning(f"🔍 GEMINI TIMEOUT CONFIG: config.timeout={self.config.timeout}, httpx timeout={timeout}")
 
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
@@ -110,6 +124,7 @@ class GeminiProvider(LLMProvider):
         except httpx.HTTPStatusError as exc:  # pragma: no cover - http failure
             raise self._convert_http_error(exc) from exc
         except httpx.TimeoutException as exc:  # pragma: no cover - timeout
+            self._logger.error(f"❌ GEMINI TIMEOUT after {self.config.timeout}s: {exc}", exc_info=True)
             raise LLMTimeoutError(f"Gemini request timed out: {exc}") from exc
         except httpx.RequestError as exc:  # pragma: no cover - network failure
             raise LLMError(f"Gemini request failed: {exc}") from exc
@@ -451,6 +466,7 @@ class GeminiProvider(LLMProvider):
             raise
         except Exception as exc:
             execution_time_ms = int((datetime.now(UTC) - start_time).total_seconds() * 1000)
+            self._logger.error(f"❌ GEMINI CALL FAILED after {execution_time_ms}ms: {type(exc).__name__}: {exc}", exc_info=True)
             if "llm_request" in locals():
                 self._update_llm_request_error(llm_request, exc, execution_time_ms)
             if isinstance(exc, LLMError | LLMAuthenticationError | LLMRateLimitError | LLMTimeoutError | LLMValidationError):
@@ -593,11 +609,129 @@ class GeminiProvider(LLMProvider):
             raise
         except Exception as exc:
             execution_time_ms = int((datetime.now(UTC) - start_time).total_seconds() * 1000)
+            self._logger.error(f"❌ GEMINI STRUCTURED CALL FAILED after {execution_time_ms}ms: {type(exc).__name__}: {exc}", exc_info=True)
             if "llm_request" in locals():
                 self._update_llm_request_error(llm_request, exc, execution_time_ms)
             if isinstance(exc, LLMError | LLMAuthenticationError | LLMRateLimitError | LLMTimeoutError | LLMValidationError):
                 raise
             raise LLMError(f"Gemini structured generation failed: {exc}") from exc
+
+    async def generate_response_with_tools(
+        self,
+        messages: list[LLMMessage],
+        tools: list[ToolDefinition],
+        user_id: int | None = None,
+        **kwargs: Any,
+    ) -> tuple[LLMResponse, list[ToolCall] | None, uuid.UUID]:
+        """Generate response with tool calling capability using Gemini function calling."""
+        start_time = datetime.now(UTC)
+        model = kwargs.pop("model", None) or self.config.model
+        temperature = kwargs.pop("temperature", None)
+        max_output_tokens = kwargs.pop("max_output_tokens", None)
+        extra_generation, payload_overrides = self._split_generation_kwargs(kwargs)
+
+        try:
+            llm_request = self._create_llm_request(
+                messages=messages,
+                user_id=user_id,
+                model=model,
+                temperature=temperature,
+                max_output_tokens=max_output_tokens,
+            )
+            if llm_request.id is None:  # pragma: no cover - defensive guard
+                raise LLMError("Failed to create LLM request record")
+            request_id: uuid.UUID = llm_request.id
+
+            payload = self._build_payload(
+                messages,
+                temperature,
+                max_output_tokens,
+                extra_generation,
+                payload_overrides,
+            )
+
+            # Add tools to payload in Gemini format
+            if tools:
+                gemini_tools: list[dict[str, Any]] = []
+                for tool in tools:
+                    function_declaration = {
+                        "name": tool.name,
+                        "description": tool.description,
+                        "parameters": tool.parameters,
+                    }
+                    gemini_tools.append({"functionDeclarations": [function_declaration]})
+                payload["tools"] = gemini_tools
+
+            response_data = await self._post(model, payload)
+
+            content, response_parts = self._extract_text_response(response_data)
+            total_tokens, input_tokens, output_tokens = self._extract_usage(response_data)
+            cost_estimate = self.estimate_cost(input_tokens or 0, output_tokens or 0, model)
+            created_at = self._parse_timestamp(response_data.get("createTime"))
+
+            # Extract cache token information if available
+            usage = response_data.get("usageMetadata") or {}
+            cached_input_tokens = usage.get("cachedContentInputTokens")
+            cache_creation_tokens = usage.get("cacheCreationInputTokens")
+
+            # Extract tool calls if present
+            tool_calls: list[ToolCall] | None = None
+            candidates = response_data.get("candidates") or []
+            for candidate in candidates:
+                candidate_content = candidate.get("content") or {}
+                parts = candidate_content.get("parts") or []
+                for part in parts:
+                    if "functionCall" in part:
+                        function_call = part["functionCall"]
+                        if tool_calls is None:
+                            tool_calls = []
+                        tool_calls.append(
+                            ToolCall(
+                                id=f"call_{len(tool_calls)}",
+                                name=function_call.get("name", ""),
+                                arguments=function_call.get("args", {}),
+                            )
+                        )
+
+            llm_response = LLMResponse(
+                content=content,
+                provider=LLMProviderType.GEMINI,
+                model=model,
+                tokens_used=total_tokens,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                cost_estimate=cost_estimate,
+                response_time_ms=int((datetime.now(UTC) - start_time).total_seconds() * 1000),
+                cached=cached_input_tokens is not None and cached_input_tokens > 0,
+                provider_response_id=response_data.get("responseId"),
+                response_output=response_parts,
+                response_created_at=created_at,
+                cached_input_tokens=cached_input_tokens,
+                cache_creation_tokens=cache_creation_tokens,
+            )
+
+            with contextlib.suppress(Exception):  # pragma: no cover - best effort persistence
+                llm_request.request_payload = payload
+                llm_request.response_raw = response_data
+
+            self._update_llm_request_success(
+                llm_request,
+                llm_response,
+                llm_response.response_time_ms or 0,
+            )
+
+            return llm_response, tool_calls, request_id
+
+        except asyncio.CancelledError:  # pragma: no cover - cooperative cancellation
+            raise
+        except Exception as exc:
+            execution_time_ms = int((datetime.now(UTC) - start_time).total_seconds() * 1000)
+            self._logger.error(f"❌ GEMINI TOOL CALLING FAILED after {execution_time_ms}ms: {type(exc).__name__}: {exc}", exc_info=True)
+            if "llm_request" in locals():
+                self._update_llm_request_error(llm_request, exc, execution_time_ms)
+            if isinstance(exc, LLMError | LLMAuthenticationError | LLMRateLimitError | LLMTimeoutError | LLMValidationError):
+                raise
+            raise LLMError(f"Gemini tool calling failed: {exc}") from exc
 
     # ------------------------------------------------------------------
     # Image generation
@@ -673,6 +807,7 @@ class GeminiProvider(LLMProvider):
             raise
         except Exception as exc:
             execution_time_ms = int((datetime.now(UTC) - start_time).total_seconds() * 1000)
+            self._logger.error(f"❌ GEMINI IMAGE GENERATION FAILED after {execution_time_ms}ms: {type(exc).__name__}: {exc}", exc_info=True)
             if "llm_request" in locals():
                 self._update_llm_request_error(llm_request, exc, execution_time_ms)
             if isinstance(exc, LLMError | LLMAuthenticationError | LLMRateLimitError | LLMTimeoutError | LLMValidationError):
@@ -765,6 +900,7 @@ class GeminiProvider(LLMProvider):
             raise
         except Exception as exc:
             execution_time_ms = int((datetime.now(UTC) - start_time).total_seconds() * 1000)
+            self._logger.error(f"❌ GEMINI AUDIO GENERATION FAILED after {execution_time_ms}ms: {type(exc).__name__}: {exc}", exc_info=True)
             if "llm_request" in locals():
                 self._update_llm_request_error(llm_request, exc, execution_time_ms)
             if isinstance(exc, LLMError | LLMAuthenticationError | LLMRateLimitError | LLMTimeoutError | LLMValidationError):

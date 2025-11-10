@@ -321,7 +321,7 @@ from sqlalchemy.orm import Session
 from ..llm_services.public import LLMMessage, LLMResponse, LLMServicesProvider, llm_services_provider
 
 # Export framework components for building conversations
-from .base_conversation import BaseConversation, conversation_session
+from .base_conversation import BaseConversation, ToolHandler, conversation_session
 from .context import ConversationContext
 from .repo import ConversationMessageRepo, ConversationRepo
 from .service import (
@@ -343,6 +343,7 @@ __all__ = [
     "ConversationMessageDTO",
     "ConversationSummaryDTO",
     "PaginatedConversationsDTO",
+    "ToolHandler",
     "conversation_engine_provider",
     "conversation_session",
 ]

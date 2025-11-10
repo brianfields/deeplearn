@@ -5,19 +5,20 @@ from __future__ import annotations
 from collections.abc import Callable
 import functools
 import inspect
+import json
 from pathlib import Path
-from typing import Any, ParamSpec, TypeVar
+from typing import Any, ParamSpec, Protocol, TypeVar
 import uuid
 
 from pydantic import BaseModel
 
 from ..infrastructure.public import infrastructure_provider
-from ..llm_services.public import llm_services_provider
+from ..llm_services.public import llm_services_provider, ToolCall, ToolDefinition
 from .context import ConversationContext
 from .repo import ConversationMessageRepo, ConversationRepo
 from .service import ConversationEngineService, ConversationMessageDTO, ConversationSummaryDTO
 
-__all__ = ["BaseConversation", "conversation_session"]
+__all__ = ["BaseConversation", "ToolHandler", "conversation_session"]
 
 P = ParamSpec("P")
 T = TypeVar("T", bound=BaseModel)
@@ -143,6 +144,21 @@ def conversation_session(func: Callable[P, Any]) -> Callable[P, Any]:
     return wrapper
 
 
+class ToolHandler(Protocol):
+    """Protocol for tool implementations."""
+
+    async def execute(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        """Execute the tool with the given arguments.
+
+        Args:
+            arguments: Tool arguments from the LLM
+
+        Returns:
+            Tool execution result (should be JSON-serializable)
+        """
+        ...
+
+
 class BaseConversation:
     """Base helper for implementing conversational experiences."""
 
@@ -207,6 +223,16 @@ class BaseConversation:
         if self.system_prompt_file is None:
             return None
         return self._load_prompt_from_file(self.system_prompt_file)
+
+    def get_available_tools(self) -> dict[str, tuple[ToolDefinition, ToolHandler]]:
+        """Return available tools for this conversation type.
+
+        Subclasses should override this to register tools.
+
+        Returns:
+            Dict mapping tool name to (definition, handler)
+        """
+        return {}
 
     async def record_user_message(self, content: str, *, metadata: dict[str, Any] | None = None) -> ConversationMessageDTO:
         """Record a user message against the active conversation."""
@@ -339,6 +365,98 @@ class BaseConversation:
             max_output_tokens=max_output_tokens,
             **kwargs,
         )
+
+    async def generate_with_tools(
+        self,
+        *,
+        system_prompt: str | None = None,
+        model: str | None = None,
+        temperature: float | None = None,
+        max_output_tokens: int | None = None,
+        max_tool_iterations: int = 5,
+        **kwargs: Any,
+    ) -> ConversationMessageDTO:
+        """Generate response with automatic tool execution loop.
+
+        This handles the full tool calling cycle:
+        1. LLM generates response (may include tool calls)
+        2. Execute tool calls
+        3. Feed results back to LLM
+        4. Repeat until LLM returns text (or max iterations hit)
+
+        Args:
+            system_prompt: Override system prompt (uses self.get_system_prompt() if None)
+            model: LLM model to use
+            temperature: Temperature for generation
+            max_output_tokens: Maximum output tokens
+            max_tool_iterations: Maximum number of tool execution cycles (default 5)
+            **kwargs: Additional LLM provider parameters
+
+        Returns:
+            The final assistant message after tool execution completes
+
+        Raises:
+            RuntimeError: If tool execution exceeds max iterations
+        """
+        from ..llm_services.types import MessageRole
+
+        ctx = ConversationContext.current()
+        tools = self.get_available_tools()
+        tool_definitions = [defn for defn, _ in tools.values()]
+
+        # Build message history
+        prompt = system_prompt or self.get_system_prompt()
+        llm_messages = await ctx.service.build_llm_messages(
+            ctx.conversation_id,
+            system_prompt=prompt,
+            include_system=False,
+        )
+
+        # Tool execution loop
+        for iteration in range(max_tool_iterations):
+            response, tool_calls, request_id = await ctx.service.llm_services.generate_response_with_tools(
+                messages=llm_messages,
+                tools=tool_definitions,
+                user_id=ctx.user_id,
+                model=model,
+                temperature=temperature,
+                max_output_tokens=max_output_tokens,
+                **kwargs,
+            )
+
+            if not tool_calls:
+                # LLM returned final text response
+                return await self.record_assistant_message(
+                    response.content,
+                    llm_request_id=request_id,
+                    tokens_used=response.tokens_used,
+                    cost_estimate=response.cost_estimate,
+                )
+
+            # Execute tool calls
+            for tool_call in tool_calls:
+                if tool_call.name not in tools:
+                    # Tool not found - record error
+                    result = {"error": f"Tool {tool_call.name} not found"}
+                else:
+                    _, handler = tools[tool_call.name]
+                    try:
+                        result = await handler.execute(tool_call.arguments)
+                    except Exception as e:
+                        result = {"error": str(e)}
+
+                # Add tool result to message history
+                from ..llm_services.service import LLMMessage as LLMMessageDTO
+
+                llm_messages.append(
+                    LLMMessageDTO(
+                        role=MessageRole.TOOL.value,
+                        content=json.dumps(result),
+                        name=tool_call.name,
+                    )
+                )
+
+        raise RuntimeError(f"Tool execution exceeded max iterations ({max_tool_iterations})")
 
     async def update_conversation_metadata(
         self,

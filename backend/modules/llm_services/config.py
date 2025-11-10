@@ -211,6 +211,7 @@ def create_llm_config_from_env(
     max_output_tokens_env = os.getenv("MAX_OUTPUT_TOKENS")
     max_output_tokens = int(max_output_tokens_env) if max_output_tokens_env is not None else None
     request_timeout = int(os.getenv("REQUEST_TIMEOUT", "180"))
+    print(f"🔍 LOADED REQUEST_TIMEOUT FROM ENV: {request_timeout} seconds")
     max_retries = int(os.getenv("MAX_RETRIES", "3"))
 
     # Image generation settings

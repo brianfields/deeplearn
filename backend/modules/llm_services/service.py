@@ -21,6 +21,8 @@ from .types import (
     ImageSize,
     LLMProviderType,
     MessageRole,
+    ToolCall,
+    ToolDefinition,
 )
 from .types import (
     AudioResponse as AudioResponseInternal,
@@ -421,7 +423,11 @@ class LLMService:
         internal_messages = [msg.to_llm_message() for msg in messages]
 
         # Call provider
-        internal_response, request_id = await provider.generate_response(messages=internal_messages, user_id=user_id, model=model, temperature=temperature, max_output_tokens=max_output_tokens, **kwargs)  # type: ignore[arg-type]
+        try:
+            internal_response, request_id = await provider.generate_response(messages=internal_messages, user_id=user_id, model=model, temperature=temperature, max_output_tokens=max_output_tokens, **kwargs)  # type: ignore[arg-type]
+        except Exception as e:
+            self._logger.error(f"❌ LLM SERVICE CALL FAILED: {type(e).__name__}: {e}", exc_info=True)
+            raise
 
         # Convert back to DTO
         response_dto = LLMResponse.from_llm_response(internal_response)
@@ -450,10 +456,49 @@ class LLMService:
             provider_kwargs["temperature"] = temperature
         if max_output_tokens is not None:
             provider_kwargs["max_output_tokens"] = max_output_tokens
-        structured_obj, request_id, usage_info = await provider.generate_structured_object(messages=internal_messages, response_model=response_model, user_id=user_id, **provider_kwargs, **kwargs)
+
+        try:
+            structured_obj, request_id, usage_info = await provider.generate_structured_object(messages=internal_messages, response_model=response_model, user_id=user_id, **provider_kwargs, **kwargs)
+        except Exception as e:
+            self._logger.error(f"❌ LLM SERVICE STRUCTURED CALL FAILED: {type(e).__name__}: {e}", exc_info=True)
+            raise
 
         self._ensure_request_user(request_id, user_id)
         return structured_obj, request_id, usage_info
+
+    async def generate_response_with_tools(
+        self, messages: list[LLMMessage], tools: list[ToolDefinition], user_id: int | None = None, model: str | None = None, temperature: float | None = None, max_output_tokens: int | None = None, **kwargs: LLMProviderKwargs
+    ) -> tuple[LLMResponse, list[ToolCall] | None, uuid.UUID]:
+        """
+        Generate response with tool calling capability.
+
+        Returns:
+            Tuple of (response, tool_calls_if_any, request_id)
+        """
+        provider = self._select_provider(model)
+
+        # Convert DTOs to internal types
+        internal_messages = [msg.to_llm_message() for msg in messages]
+
+        # Call provider
+        try:
+            internal_response, tool_calls, request_id = await provider.generate_response_with_tools(
+                messages=internal_messages,
+                tools=tools,
+                user_id=user_id,
+                model=model,
+                temperature=temperature,
+                max_output_tokens=max_output_tokens,
+                **kwargs,  # type: ignore[arg-type]
+            )
+        except Exception as e:
+            self._logger.error(f"❌ LLM SERVICE TOOL CALL FAILED: {type(e).__name__}: {e}", exc_info=True)
+            raise
+
+        # Convert back to DTO
+        response_dto = LLMResponse.from_llm_response(internal_response)
+        self._ensure_request_user(request_id, user_id)
+        return response_dto, tool_calls, request_id
 
     async def generate_audio(
         self,

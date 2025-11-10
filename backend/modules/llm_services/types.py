@@ -21,6 +21,8 @@ __all__ = [
     "LLMResponse",
     "MessageRole",
     "SearchResult",
+    "ToolCall",
+    "ToolDefinition",
     "WebSearchConfig",
     "WebSearchResponse",
 ]
@@ -302,4 +304,38 @@ class WebSearchResponse:
             "results": [result.to_dict() for result in self.results],
             "total_results": self.total_results,
             "search_time_ms": self.search_time_ms,
+        }
+
+
+@dataclass
+class ToolDefinition:
+    """Definition of a tool the LLM can call."""
+
+    name: str
+    description: str
+    parameters: dict[str, Any]  # JSON Schema
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary format"""
+        return {
+            "name": self.name,
+            "description": self.description,
+            "parameters": self.parameters,
+        }
+
+
+@dataclass
+class ToolCall:
+    """A tool invocation from the LLM."""
+
+    id: str
+    name: str
+    arguments: dict[str, Any]
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary format"""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "arguments": self.arguments,
         }

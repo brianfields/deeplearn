@@ -18,6 +18,8 @@ from ..types import (
     ImageResponse,
     LLMMessage,
     LLMResponse,
+    ToolCall,
+    ToolDefinition,
     WebSearchResponse,
 )
 
@@ -197,6 +199,30 @@ class LLMProvider(ABC):
     ) -> tuple[LLMResponse, uuid.UUID]:
         """Generate a completion from the LLM provider."""
         raise NotImplementedError
+
+    async def generate_response_with_tools(
+        self,
+        messages: list[LLMMessage],
+        tools: list[ToolDefinition],
+        user_id: int | None = None,
+        **kwargs: LLMProviderKwargs,
+    ) -> tuple[LLMResponse, list[ToolCall] | None, uuid.UUID]:
+        """Generate response with tool calling capability.
+
+        Args:
+            messages: Conversation history
+            tools: Available tools the LLM can call
+            user_id: Optional user identifier
+            **kwargs: Additional provider-specific parameters
+
+        Returns:
+            (response, tool_calls_if_any, request_id)
+
+        Note:
+            Providers should override this to support tool calling.
+            Default implementation raises NotImplementedError.
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} does not support tool calling yet")
 
     async def generate_structured_object(
         self,
