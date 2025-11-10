@@ -136,12 +136,8 @@ class GenerateMCQsUnstructuredStep(UnstructuredStep):
 class MCQOption(BaseModel):
     label: str
     text: str
-    rationale_wrong: str | None = None
-
-
-class MCQAnswerKey(BaseModel):
-    label: str
-    rationale_right: str | None = None
+    is_correct: bool
+    rationale: str | None = None
 
 
 class StructuredMCQExercise(BaseModel):
@@ -154,7 +150,6 @@ class StructuredMCQExercise(BaseModel):
     thinking: str | None = None  # LLM's reasoning about the question quality
     stem: str
     options: list[MCQOption] = Field(default_factory=list)
-    answer_key: MCQAnswerKey
 
 
 class MCQValidationOutputs(BaseModel):

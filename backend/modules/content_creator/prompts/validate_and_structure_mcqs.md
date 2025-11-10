@@ -32,12 +32,11 @@ Return strict JSON in the following schema:
       "thinking": "What problems, if any, exist in the original question? How will you address them?",
       "stem": "Question text",
       "options": [
-        {"label": "A", "text": "...", "rationale_wrong": "Why this distractor is plausible but incorrect"},
-        {"label": "B", "text": "...", "rationale_wrong": "Why this distractor is plausible but incorrect"},
-        {"label": "C", "text": "...", "rationale_wrong": "Why this distractor is plausible but incorrect"},
-        {"label": "D", "text": "...", "rationale_wrong": "Why this distractor is plausible but incorrect"}
-      ],
-      "answer_key": {"label": "B", "rationale_right": "Why the answer is correct"}
+        {"label": "A", "text": "...", "is_correct": false, "rationale": "Why this distractor is plausible but incorrect"},
+        {"label": "B", "text": "...", "is_correct": true, "rationale": "Why this answer is correct"},
+        {"label": "C", "text": "...", "is_correct": false, "rationale": "Why this distractor is plausible but incorrect"},
+        {"label": "D", "text": "...", "is_correct": false, "rationale": "Why this distractor is plausible but incorrect"}
+      ]
     }
   ]
 }
@@ -57,8 +56,8 @@ Return strict JSON in the following schema:
 
   Do NOT use other terms like "Remember", "Understanding", "Analyze", etc. Stick to the exact values above.
 - **difficulty**: Must be exactly "easy", "medium", or "hard".
-- **option labels**: Must be capital letters A–D (exactly one correct answer).
-- **rationale_wrong**: Provide for **all distractors** (all incorrect options). Explain why each is plausible based on the podcast but incorrect.
-- **rationale_right**: Provide for the correct answer only (in answer_key). Explain why it is the best answer.
+- **options**: Must be exactly four options with capital letter labels A–D.
+- **is_correct**: EXACTLY ONE option must have "is_correct": true. All other options must have "is_correct": false.
+- **rationale**: Provide for **every option**. For correct answers, explain why it's correct. For incorrect options (distractors), explain why each is plausible based on the podcast but incorrect.
 
 ## Your Output based on the Inputs above (JSON)

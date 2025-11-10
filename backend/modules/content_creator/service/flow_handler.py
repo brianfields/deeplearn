@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
+from typing import Any, cast
 import uuid
+
+from pydantic import ValidationError
 
 from modules.content.package_models import (
     Exercise,
@@ -122,7 +124,7 @@ class FlowHandler:
                 unit_learning_objectives.append(UnitLearningObjective.model_validate(payload))
             else:
                 text_value = str(item)
-                unit_learning_objectives.append(UnitLearningObjective(id=str(item), title=text_value, description=text_value))
+                unit_learning_objectives.append(UnitLearningObjective.model_validate({"id": str(item), "title": text_value, "description": text_value}))
 
         await self._content.update_unit_metadata(
             unit_id,
@@ -138,7 +140,7 @@ class FlowHandler:
         )
         await self._content.commit_session()
 
-        unit_los: dict[str, dict] = {lo.id: {"id": lo.id, "title": lo.title, "description": lo.description} for lo in unit_learning_objectives}
+        unit_los: dict[str, dict[str, Any]] = {lo.id: {"id": lo.id, "title": lo.title, "description": lo.description} for lo in unit_learning_objectives}
 
         lesson_ids: list[str] = []
         podcast_lessons: list[PodcastLesson] = []
@@ -162,7 +164,7 @@ class FlowHandler:
             logger.info(f"   📦 Batch {batch_num}/{total_batches}: Processing lessons {batch_start + 1}-{batch_end}")
 
             tasks = [
-                self._create_single_lesson(
+                self._create_single_lesson_with_retry(
                     lesson_plan=lp,
                     lesson_index=i,
                     unit_los=unit_los,
@@ -170,6 +172,7 @@ class FlowHandler:
                     learner_desires=learner_desires,
                     lessons_plan=lessons_plan,
                     arq_task_id=arq_task_id,
+                    max_retries=3,
                 )
                 for i, lp in enumerate(batch, start=batch_start)
             ]
@@ -195,7 +198,8 @@ class FlowHandler:
                     )
                     continue
 
-                lesson_id, podcast_lesson, podcast_voice, lesson_covered_los = result
+                # Type narrowing: result is now tuple[str, PodcastLesson, str, list[str]]
+                lesson_id, podcast_lesson, podcast_voice, lesson_covered_los = cast(tuple[str, PodcastLesson, str, list[str]], result)
                 lesson_ids.append(lesson_id)
                 podcast_lessons.append(podcast_lesson)
                 if podcast_voice_label is None:
@@ -290,14 +294,29 @@ class FlowHandler:
         await asyncio.gather(_generate_podcast(), _generate_art(), return_exceptions=True)
 
         completion_message = "Unit creation completed"
+        final_status = UnitStatus.COMPLETED.value
+
         if failed_lessons:
             completion_message += f" with {len(failed_lessons)} lesson failure(s)"
+            # Mark as partial if some but not all lessons failed
+            if len(lesson_ids) > 0:
+                final_status = "partial"
+                logger.warning(
+                    "⚠️  Unit %s marked as 'partial' - %s/%s lessons succeeded",
+                    unit_id,
+                    len(lesson_ids),
+                    len(lessons_plan),
+                )
+            else:
+                # All lessons failed
+                final_status = UnitStatus.FAILED.value
+                completion_message = "Unit creation failed - all lessons failed"
 
         await self._content.update_unit_status(
             unit_id,
-            UnitStatus.COMPLETED.value,
+            final_status,
             creation_progress={
-                "stage": "completed",
+                "stage": "completed" if final_status == UnitStatus.COMPLETED.value else "partial" if final_status == "partial" else "failed",
                 "message": completion_message,
                 "lesson_failures": failed_lessons if failed_lessons else None,
             },
@@ -321,21 +340,86 @@ class FlowHandler:
             target_lesson_count=unit_plan.get("lesson_count"),
             generated_from_topic=(source_material is None),
             lesson_ids=lesson_ids,
-            learning_objectives=[lo.model_dump() if hasattr(lo, "model_dump") else lo for lo in unit_learning_objectives],
+            learning_objectives=cast(list[dict[str, Any]], [lo.model_dump() for lo in unit_learning_objectives]),
             lessons=lessons_plan,
         )
+
+    async def _create_single_lesson_with_retry(
+        self,
+        *,
+        lesson_plan: dict[str, Any],
+        lesson_index: int,
+        unit_los: dict[str, dict[str, Any]],
+        unit_material: str,
+        learner_desires: str,
+        lessons_plan: list[dict],
+        arq_task_id: str | None = None,
+        max_retries: int = 3,
+    ) -> tuple[str, PodcastLesson, str, list[str]]:
+        """Wrapper for _create_single_lesson with retry logic for validation errors."""
+        lesson_num = lesson_index + 1
+        lesson_title = lesson_plan.get("title") or f"Lesson {lesson_num}"
+
+        for attempt in range(1, max_retries + 1):
+            try:
+                return await self._create_single_lesson(
+                    lesson_plan=lesson_plan,
+                    lesson_index=lesson_index,
+                    unit_los=unit_los,
+                    unit_material=unit_material,
+                    learner_desires=learner_desires,
+                    lessons_plan=lessons_plan,
+                    arq_task_id=arq_task_id,
+                )
+            except ValidationError as exc:
+                # Extract validation error details for logging
+                error_details = []
+                for error in exc.errors():
+                    error_details.append(f"{error['loc']}: {error['msg']}")
+                error_summary = "; ".join(error_details)
+
+                if attempt < max_retries:
+                    logger.warning(
+                        "⚠️  Validation error in lesson %s (attempt %s/%s): %s. Retrying...",
+                        lesson_num,
+                        attempt,
+                        max_retries,
+                        error_summary,
+                    )
+                    # Add a small delay before retrying
+                    await asyncio.sleep(1.0)
+                else:
+                    logger.error(
+                        "❌ Validation error in lesson %s after %s attempts: %s",
+                        lesson_num,
+                        max_retries,
+                        error_summary,
+                    )
+                    raise ValueError(f"Lesson {lesson_num} ({lesson_title}) failed validation after {max_retries} attempts: {error_summary}") from exc
+            except Exception as exc:
+                # For non-validation errors, don't retry - fail immediately
+                logger.error(
+                    "❌ Non-validation error in lesson %s: %s",
+                    lesson_num,
+                    exc,
+                    exc_info=True,
+                )
+                raise
+
+        # Should never reach here, but satisfy type checker
+        raise RuntimeError(f"Lesson {lesson_num} ({lesson_title}) creation failed unexpectedly")
 
     async def _create_single_lesson(
         self,
         *,
         lesson_plan: dict[str, Any],
         lesson_index: int,
-        unit_los: dict[str, str],
+        unit_los: dict[str, dict[str, Any]],
         unit_material: str,
         learner_desires: str,
         lessons_plan: list[dict[str, Any]],
         arq_task_id: str | None,
-    ) -> tuple[str, PodcastLesson, str, set[str]]:
+    ) -> tuple[str, PodcastLesson, str, list[str]]:
         """Create a single lesson and return (lesson_id, podcast_lesson, voice, covered_lo_ids)."""
 
         lesson_title = lesson_plan.get("title") or f"Lesson {lesson_index + 1}"
@@ -449,26 +533,50 @@ class FlowHandler:
             if exercise_type == "mcq":
                 option_id_map: dict[str, str] = {}
                 options = []
+                correct_option_label: str | None = None
+                correct_option_id: str | None = None
+                rationale_right: str | None = None
+
                 for opt_index, opt in enumerate(exercise_data.get("options", []) or []):
                     label = str(opt.get("label") or chr(65 + opt_index)).upper()
                     option_id = f"{exercise_id}_{label.lower()}"
                     option_id_map[label] = option_id
+                    is_correct = opt.get("is_correct", False)
+
+                    # Track the correct answer
+                    if is_correct:
+                        correct_option_label = label
+                        correct_option_id = option_id
+                        rationale_right = opt.get("rationale")
+
                     options.append(
                         ExerciseOption(
                             id=option_id,
                             label=label,
                             text=str(opt.get("text") or ""),
-                            rationale_wrong=opt.get("rationale_wrong"),
+                            rationale_wrong=opt.get("rationale") if not is_correct else None,
                         )
                     )
 
-                answer_key_data = exercise_data.get("answer_key") or {}
-                key_label = str(answer_key_data.get("label") or "A").upper()
-                answer_key_obj = ExerciseAnswerKey(
-                    label=key_label,
-                    option_id=option_id_map.get(key_label),
-                    rationale_right=answer_key_data.get("rationale_right"),
-                )
+                # Build answer_key from the correct option
+                if correct_option_label:
+                    answer_key_obj = ExerciseAnswerKey(
+                        label=correct_option_label,
+                        option_id=correct_option_id,
+                        rationale_right=rationale_right,
+                    )
+                else:
+                    # Fallback: no correct answer found, default to A
+                    logger.warning(
+                        "Exercise %s in lesson %s has no option marked is_correct=true, defaulting to A",
+                        exercise_id,
+                        lesson_index + 1,
+                    )
+                    answer_key_obj = ExerciseAnswerKey(
+                        label="A",
+                        option_id=option_id_map.get("A"),
+                        rationale_right=None,
+                    )
 
             exercise_kwargs: dict[str, Any] = {
                 "id": exercise_id,
@@ -558,4 +666,4 @@ class FlowHandler:
             len(exercise_bank),
             len(covered_lo_ids),
         )
-        return created_lesson.id, podcast_lesson, lesson_podcast_result.voice, covered_lo_ids
+        return created_lesson.id, podcast_lesson, lesson_podcast_result.voice, list(covered_lo_ids)
