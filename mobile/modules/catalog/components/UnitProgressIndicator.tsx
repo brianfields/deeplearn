@@ -51,6 +51,12 @@ export function UnitProgressIndicator({
             <Text style={styles.statusText}>✅</Text>
           </View>
         );
+      case 'partial':
+        return (
+          <View style={[styles.statusIcon, styles.partialIcon]}>
+            <Text style={styles.statusText}>⚠️</Text>
+          </View>
+        );
       case 'failed':
         return (
           <View style={[styles.statusIcon, styles.failedIcon]}>
@@ -73,6 +79,8 @@ export function UnitProgressIndicator({
         return progress?.message || 'Creating unit content...';
       case 'completed':
         return 'Ready to learn';
+      case 'partial':
+        return 'Some content was created, but not all lessons were generated';
       case 'failed':
         return errorMessage || 'Creation failed';
       default:
@@ -88,6 +96,8 @@ export function UnitProgressIndicator({
         return isStale ? theme.colors.warning : theme.colors.primary;
       case 'completed':
         return theme.colors.success;
+      case 'partial':
+        return theme.colors.warning;
       case 'failed':
         return theme.colors.error;
       default:
@@ -130,6 +140,7 @@ function getStatusLabel(status: UnitStatus, isStale?: boolean): string {
     draft: 'Draft',
     in_progress: 'Creating...',
     completed: 'Ready',
+    partial: 'Partial',
     failed: 'Failed',
   };
   return statusMap[status] ?? 'Unknown';
@@ -165,6 +176,9 @@ function getStyles(size: 'small' | 'large', theme: any) {
     },
     completedIcon: {
       backgroundColor: `${theme.colors.success}1A`,
+    },
+    partialIcon: {
+      backgroundColor: `${theme.colors.warning}1A`,
     },
     failedIcon: {
       backgroundColor: `${theme.colors.error}1A`,

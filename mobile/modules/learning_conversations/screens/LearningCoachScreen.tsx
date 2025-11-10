@@ -55,7 +55,9 @@ export function LearningCoachScreen({
     null
   );
   const attachingResourceRef = useRef<string | null>(null);
-  const resourcesQuery = useUserResources(user?.id ?? null, { enabled: !!user?.id });
+  const resourcesQuery = useUserResources(user?.id ?? null, {
+    enabled: !!user?.id,
+  });
 
   useEffect(() => {
     if (!conversationId && !startSession.isPending && !startSession.isSuccess) {
@@ -127,7 +129,7 @@ export function LearningCoachScreen({
     startSession.isPending,
     learnerTurn.isPending,
     attachResource.isPending,
-    sessionQuery.isFetching
+    sessionQuery.isFetching,
   ]);
 
   const conversationResources = sessionState?.resources ?? [];
@@ -206,7 +208,8 @@ export function LearningCoachScreen({
     // Create optimistic message showing the resource is being shared
     const resource = resourcesQuery.data?.find(r => r.id === pendingResourceId);
     if (resource) {
-      const resourceName = resource.filename || resource.sourceUrl || 'resource';
+      const resourceName =
+        resource.filename || resource.sourceUrl || 'resource';
       const optimistic: LearningCoachMessage = {
         id: `optimistic-resource-${Date.now()}`,
         role: 'user',
@@ -250,7 +253,13 @@ export function LearningCoachScreen({
         },
       }
     );
-  }, [conversationId, pendingResourceId, user, attachResource, resourcesQuery.data]);
+  }, [
+    conversationId,
+    pendingResourceId,
+    user,
+    attachResource,
+    resourcesQuery.data,
+  ]);
 
   const handleSend = (message: string) => {
     if (!conversationId) {

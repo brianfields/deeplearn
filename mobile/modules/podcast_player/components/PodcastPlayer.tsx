@@ -33,6 +33,7 @@ import { usePodcastPlayer } from '../hooks/usePodcastPlayer';
 import { usePodcastState } from '../hooks/usePodcastState';
 import type { PodcastTrack } from '../models';
 import { usePodcastStore } from '../store';
+import { catalogProvider } from '../../catalog/public';
 
 interface PodcastPlayerProps {
   readonly track: PodcastTrack;
@@ -304,6 +305,45 @@ export function PodcastPlayer({
     skipToNext().catch(() => {});
   };
 
+  // Fetch transcript for current track if it's missing
+  useEffect(() => {
+    const lessonId = currentTrack?.lessonId;
+    const hasTranscript = currentTrack?.transcript !== null;
+
+    if (!lessonId || hasTranscript) {
+      return;
+    }
+
+    const fetchTranscript = async (): Promise<void> => {
+      try {
+        const catalog = catalogProvider();
+        const lessonDetail = await catalog.getLessonDetail(lessonId);
+        if (!lessonDetail) {
+          console.log(
+            '[PodcastPlayer] Could not fetch lesson detail for transcript'
+          );
+          return;
+        }
+
+        // Update the currentTrack in the store with the fetched transcript
+        const track = usePodcastStore.getState().currentTrack;
+        if (!track) {
+          return;
+        }
+
+        const updatedTrack: PodcastTrack = {
+          ...track,
+          transcript: lessonDetail.podcastTranscript ?? null,
+        };
+        usePodcastStore.getState().setCurrentTrack(updatedTrack);
+      } catch (error) {
+        console.warn('[PodcastPlayer] Failed to fetch transcript:', error);
+      }
+    };
+
+    void fetchTranscript();
+  }, [currentTrack?.lessonId, currentTrack?.transcript]);
+
   const handleToggleAutoplay = (): void => {
     haptics.trigger('light');
     toggleAutoplay();
@@ -481,7 +521,7 @@ export function PodcastPlayer({
                 </Text>
               ) : null}
               <Text variant="h2" style={styles.modalTitle}>
-                {track.title}
+                {currentTrack?.title || track.title}
               </Text>
             </View>
           </View>
@@ -501,23 +541,42 @@ export function PodcastPlayer({
                   color={theme.colors.text}
                   style={styles.timeRemaining}
                 >
-                  {formatTime(sliderMaximum - displayedPosition)} left (
-                  {globalSpeed}×)
+                  {formatTime(
+                    (currentTrack
+                      ? currentTrack.durationSeconds
+                      : sliderMaximum) - displayedPosition
+                  )}{' '}
+                  left ({globalSpeed}×)
                 </Text>
                 <Text variant="caption" color={theme.colors.textSecondary}>
-                  -{formatTime(sliderMaximum)}
+                  -
+                  {formatTime(
+                    currentTrack ? currentTrack.durationSeconds : sliderMaximum
+                  )}
                 </Text>
               </View>
 
               <Slider
                 value={displayedPosition}
                 minimumValue={0}
-                maximumValue={sliderMaximum > 0 ? sliderMaximum : 0}
+                maximumValue={
+                  currentTrack
+                    ? currentTrack.durationSeconds > 0
+                      ? currentTrack.durationSeconds
+                      : 0
+                    : sliderMaximum > 0
+                      ? sliderMaximum
+                      : 0
+                }
                 step={0.1}
                 onSlidingStart={handleSeekStart}
                 onValueChange={handleSeekChange}
                 onSlidingComplete={handleSeekComplete}
-                disabled={sliderMaximum <= 0}
+                disabled={
+                  (currentTrack
+                    ? currentTrack.durationSeconds
+                    : sliderMaximum) <= 0
+                }
                 containerStyle={styles.sliderContainer}
                 showValueLabels={false}
                 testID="podcast-player-slider"
@@ -703,13 +762,13 @@ export function PodcastPlayer({
                 >
                   Transcript
                 </Text>
-                {track.transcript ? (
+                {currentTrack?.transcript || track.transcript ? (
                   <Text
                     variant="body"
                     color={theme.colors.text}
                     style={styles.transcriptText}
                   >
-                    {track.transcript}
+                    {currentTrack?.transcript || track.transcript}
                   </Text>
                 ) : (
                   <Text

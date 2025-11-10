@@ -134,9 +134,7 @@ class FlowEngineService:
 
         return created_run.id
 
-    async def create_step_run_record(
-        self, flow_run_id: uuid.UUID, step_name: str, step_order: int, inputs: dict[str, Any], retry_attempt: int = 0, retry_of_step_run_id: uuid.UUID | None = None
-    ) -> uuid.UUID:
+    async def create_step_run_record(self, flow_run_id: uuid.UUID, step_name: str, step_order: int, inputs: dict[str, Any], retry_attempt: int = 0, retry_of_step_run_id: uuid.UUID | None = None) -> uuid.UUID:
         """Create a new step run record (internal use)."""
         step_run = FlowStepRunModel(
             flow_run_id=flow_run_id,

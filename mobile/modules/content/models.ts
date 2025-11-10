@@ -83,7 +83,12 @@ export interface ApiUnitDetail {
 
 export type UnitId = string;
 export type Difficulty = 'beginner' | 'intermediate' | 'advanced';
-export type UnitStatus = 'draft' | 'in_progress' | 'completed' | 'partial' | 'failed';
+export type UnitStatus =
+  | 'draft'
+  | 'in_progress'
+  | 'completed'
+  | 'partial'
+  | 'failed';
 
 export interface UnitCreationProgress {
   readonly stage: string;
@@ -385,6 +390,7 @@ function formatUnitStatusLabel(status: UnitStatus): string {
     draft: 'Draft',
     in_progress: 'Creating...',
     completed: 'Ready',
+    partial: 'Partial',
     failed: 'Failed',
   };
   return statusMap[status] ?? 'Unknown';
@@ -402,6 +408,8 @@ function formatUnitProgressMessage(
       return progress?.message ?? 'Creating unit content...';
     case 'completed':
       return 'Ready to learn';
+    case 'partial':
+      return 'Partially created';
     case 'failed':
       return errorMessage ?? 'Creation failed';
     default:

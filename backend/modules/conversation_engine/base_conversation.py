@@ -13,7 +13,7 @@ import uuid
 from pydantic import BaseModel
 
 from ..infrastructure.public import infrastructure_provider
-from ..llm_services.public import llm_services_provider, ToolCall, ToolDefinition
+from ..llm_services.public import ToolDefinition, llm_services_provider
 from .context import ConversationContext
 from .repo import ConversationMessageRepo, ConversationRepo
 from .service import ConversationEngineService, ConversationMessageDTO, ConversationSummaryDTO
@@ -413,7 +413,7 @@ class BaseConversation:
         )
 
         # Tool execution loop
-        for iteration in range(max_tool_iterations):
+        for _iteration in range(max_tool_iterations):
             response, tool_calls, request_id = await ctx.service.llm_services.generate_response_with_tools(
                 messages=llm_messages,
                 tools=tool_definitions,

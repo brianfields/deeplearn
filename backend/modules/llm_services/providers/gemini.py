@@ -105,15 +105,16 @@ class GeminiProvider(LLMProvider):
         params = {"key": self.config.api_key}
 
         # Explicitly set all timeout components to prevent httpx defaults from causing silent 30s timeouts
-        if isinstance(self.config.timeout, int | float):
-            timeout = httpx.Timeout(
+        timeout = (
+            httpx.Timeout(
                 connect=30.0,  # 30s to establish connection
                 read=self.config.timeout,  # Full timeout for reading response
                 write=30.0,  # 30s to send request body
                 pool=30.0,  # 30s to get connection from pool
             )
-        else:
-            timeout = self.config.timeout
+            if isinstance(self.config.timeout, int | float)
+            else self.config.timeout
+        )
 
         self._logger.warning(f"🔍 GEMINI TIMEOUT CONFIG: config.timeout={self.config.timeout}, httpx timeout={timeout}")
 
