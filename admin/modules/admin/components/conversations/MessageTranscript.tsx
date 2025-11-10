@@ -2,11 +2,13 @@
  * Message Transcript Component
  *
  * Renders the full transcript for a learning coach conversation.
+ * Automatically scrolls to the latest message when the conversation is updated.
  */
 
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useRef } from 'react';
 import type { ConversationMessage } from '../../models';
 import { formatCost, formatDate, formatJSON, formatTokens } from '@/lib/utils';
 import { ResizablePanel } from '../shared/ResizablePanel';
@@ -21,14 +23,44 @@ const ROLE_STYLES: Record<ConversationMessage['role'], string> = {
   system: 'bg-slate-100 text-slate-600 border-slate-200',
 };
 
-export function MessageTranscript({ messages }: MessageTranscriptProps) {
+export function MessageTranscript({ messages }: MessageTranscriptProps): React.ReactElement {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to the bottom when messages change
+  useEffect(() => {
+    if (containerRef.current) {
+      // Use multiple scroll attempts to handle race conditions where layout is still settling
+      // (e.g., new message content and quick replies rendering at the same time)
+      const scrollToBottom = (): void => {
+        if (containerRef.current) {
+          containerRef.current.scrollTo({
+            top: containerRef.current.scrollHeight,
+            behavior: 'smooth',
+          });
+        }
+      };
+
+      // Initial scroll after a small delay for DOM updates
+      const timer1 = setTimeout(scrollToBottom, 50);
+
+      // Secondary scroll after layout has settled to catch any race conditions
+      const timer2 = setTimeout(scrollToBottom, 200);
+
+      return () => {
+        clearTimeout(timer1);
+        clearTimeout(timer2);
+      };
+    }
+  }, [messages]);
+
   if (!messages || messages.length === 0) {
     return <p className="text-sm text-gray-500">No messages recorded for this conversation.</p>;
   }
 
   return (
-    <div className="space-y-4">
-      {messages.map((message, index) => {
+    <div ref={containerRef} className="max-h-[600px] overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-4">
+      <div className="space-y-4">
+        {messages.map((message, index) => {
         const orderLabel = message.message_order ?? index + 1;
         const hasMetadata = Object.keys(message.metadata ?? {}).length > 0;
 
@@ -83,6 +115,7 @@ export function MessageTranscript({ messages }: MessageTranscriptProps) {
           </article>
         );
       })}
+      </div>
     </div>
   );
 }

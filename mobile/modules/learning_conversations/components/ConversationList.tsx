@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   FlatList,
   View,
@@ -26,12 +26,33 @@ export function ConversationList({
   isLoading,
   loadingMessage,
 }: Props): React.ReactElement {
+  const flatListRef = useRef<FlatList<ConversationMessage>>(null);
+
+  // Auto-scroll to the end when messages change or loading state changes
+  useEffect(() => {
+    if (flatListRef.current && (messages.length > 0 || isLoading)) {
+      // Use a small delay to ensure the FlatList has finished rendering
+      const timer = setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [messages, isLoading]);
+
+  // Also scroll on content size change (for streaming responses)
+  const handleContentSizeChange = (): void => {
+    flatListRef.current?.scrollToEnd({ animated: true });
+  };
+
   return (
     <FlatList
+      ref={flatListRef}
       data={messages}
       renderItem={({ item }) => <MessageBubble message={item} />}
       keyExtractor={item => item.id}
       contentContainerStyle={styles.container}
+      maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+      onContentSizeChange={handleContentSizeChange}
       ListFooterComponent={
         <View style={styles.footer}>
           {isLoading ? (
@@ -50,7 +71,14 @@ export function ConversationList({
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    // Add substantial bottom padding to ensure messages aren't covered by
+    // QuickReplies and Composer when scrolling to end. This accounts for:
+    // - QuickReplies (~60px)
+    // - Composer (~60px)
+    // - Safe area and margin (~40px)
+    paddingBottom: 200,
   },
   footer: {
     minHeight: 32,
