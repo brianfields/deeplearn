@@ -22,6 +22,8 @@ const DEFAULT_PLAYBACK_STATE: PlaybackState = {
   isLoading: false,
 };
 
+export type PlaybackUIState = 'idle' | 'playing' | 'paused';
+
 interface PodcastPlayerState {
   readonly currentTrack: PodcastTrack | null;
   readonly playlist: UnitPodcastPlaylist | null;
@@ -29,12 +31,18 @@ interface PodcastPlayerState {
   readonly globalSpeed: PlaybackSpeed;
   readonly isMinimized: boolean;
   readonly autoplayEnabled: boolean;
+  readonly playbackUIState: PlaybackUIState;
+  // The lessonId that the user manually skipped away from via audio controls
+  // (prevents that specific lesson page from forcing the track back)
+  readonly lessonIdSkippedFrom: string | null;
   setCurrentTrack: (track: PodcastTrack | null) => void;
   setPlaylist: (playlist: UnitPodcastPlaylist | null) => void;
   setCurrentTrackIndex: (index: number) => void;
   updatePlaybackState: (state: Partial<PlaybackState>) => void;
   setGlobalSpeed: (speed: PlaybackSpeed) => void;
   setMinimized: (minimized: boolean) => void;
+  setPlaybackUIState: (state: PlaybackUIState) => void;
+  setLessonIdSkippedFrom: (lessonId: string | null) => void;
   toggleAutoplay: () => void;
   reset: () => void;
 }
@@ -46,6 +54,8 @@ export const usePodcastStore = create<PodcastPlayerState>((set, get) => ({
   globalSpeed: DEFAULT_SPEED,
   isMinimized: false,
   autoplayEnabled: true,
+  playbackUIState: 'idle',
+  lessonIdSkippedFrom: null,
   setCurrentTrack: (track: PodcastTrack | null) => {
     set({ currentTrack: track });
   },
@@ -112,6 +122,12 @@ export const usePodcastStore = create<PodcastPlayerState>((set, get) => ({
   setMinimized: (minimized: boolean) => {
     set({ isMinimized: minimized });
   },
+  setPlaybackUIState: (state: PlaybackUIState) => {
+    set({ playbackUIState: state });
+  },
+  setLessonIdSkippedFrom: (lessonId: string | null) => {
+    set({ lessonIdSkippedFrom: lessonId });
+  },
   toggleAutoplay: () => {
     set(state => ({ autoplayEnabled: !state.autoplayEnabled }));
   },
@@ -123,6 +139,8 @@ export const usePodcastStore = create<PodcastPlayerState>((set, get) => ({
       globalSpeed: DEFAULT_SPEED,
       isMinimized: false,
       autoplayEnabled: true,
+      playbackUIState: 'idle',
+      lessonIdSkippedFrom: null,
     });
   },
 }));

@@ -51,10 +51,7 @@ export function UnitProgressModal({
   isLoading = false,
   isFetching = false,
 }: Props): React.ReactElement {
-  const statusMeta = useMemo(
-    () => createStatusMeta(theme.colors),
-    [theme.colors]
-  );
+  const statusMeta = useMemo(() => createStatusMeta(theme.colors), []);
   const items = progressItems ?? [];
 
   // Use no animation if reduced motion is enabled

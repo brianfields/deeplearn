@@ -52,7 +52,7 @@ import { uiSystemProvider } from '../../ui_system/public';
 import { useStartSession } from '../queries';
 import {
   usePodcastPlayer,
-  PodcastPlayer,
+  MiniPlayer,
   usePodcastState,
 } from '../../podcast_player/public';
 import { catalogProvider } from '../../catalog/public';
@@ -238,6 +238,11 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
 
         const tracks: PodcastTrack[] = [];
 
+        // Resolve artwork URL once for all tracks in this unit
+        const artworkUrl = detail?.artImageUrl
+          ? await resolveAssetUrl(null, detail.artImageUrl)
+          : null;
+
         // Intro podcast
         if (detail?.podcastAudioUrl) {
           const introPodcastUrl = await resolveAssetUrl(
@@ -253,6 +258,7 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
               transcript: detail.podcastTranscript ?? null,
               lessonId: null,
               lessonIndex: null,
+              artworkUrl: artworkUrl ?? undefined,
             });
           }
         }
@@ -275,6 +281,7 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
             }
 
             const isCurrentLesson = lessonSummary.id === lesson.id;
+
             tracks.push({
               unitId: detail.id,
               title: `Lesson ${index + 1}: ${lessonSummary.title}`,
@@ -285,6 +292,7 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
                 : null,
               lessonId: lessonSummary.id,
               lessonIndex: index,
+              artworkUrl: artworkUrl ?? undefined,
             });
           }
         }
@@ -595,13 +603,7 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
             unitId={unitId}
             hasPlayer={hasPlayer}
           />
-          {hasPlayer && currentTrack && unitId ? (
-            <PodcastPlayer
-              track={currentTrack}
-              unitId={unitId}
-              defaultExpanded={false}
-            />
-          ) : null}
+          <MiniPlayer />
           <View style={styles.assistantButtonWrapper} pointerEvents="box-none">
             <TeachingAssistantButton
               onPress={handleOpenAssistant}

@@ -5,7 +5,7 @@ import type {
   PodcastTrack,
   UnitPodcastPlaylist,
 } from '../models';
-import { usePodcastStore } from '../store';
+import { usePodcastStore, type PlaybackUIState } from '../store';
 
 export interface PodcastStateSnapshot {
   readonly currentTrack: PodcastTrack | null;
@@ -15,6 +15,8 @@ export interface PodcastStateSnapshot {
   readonly setMinimized: (minimized: boolean) => void;
   readonly playlist: UnitPodcastPlaylist | null;
   readonly autoplayEnabled: boolean;
+  readonly playbackUIState: PlaybackUIState;
+  readonly lessonIdSkippedFrom: string | null;
 }
 
 export function usePodcastState(): PodcastStateSnapshot {
@@ -25,6 +27,10 @@ export function usePodcastState(): PodcastStateSnapshot {
   const setMinimized = usePodcastStore(state => state.setMinimized);
   const playlist = usePodcastStore(state => state.playlist);
   const autoplayEnabled = usePodcastStore(state => state.autoplayEnabled);
+  const playbackUIState = usePodcastStore(state => state.playbackUIState);
+  const lessonIdSkippedFrom = usePodcastStore(
+    state => state.lessonIdSkippedFrom
+  );
 
   return useMemo(
     () => ({
@@ -35,6 +41,8 @@ export function usePodcastState(): PodcastStateSnapshot {
       setMinimized,
       playlist,
       autoplayEnabled,
+      playbackUIState,
+      lessonIdSkippedFrom,
     }),
     [
       currentTrack,
@@ -44,6 +52,8 @@ export function usePodcastState(): PodcastStateSnapshot {
       setMinimized,
       playlist,
       autoplayEnabled,
+      playbackUIState,
+      lessonIdSkippedFrom,
     ]
   );
 }

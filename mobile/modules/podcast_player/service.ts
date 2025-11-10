@@ -231,7 +231,7 @@ export class PodcastPlayerService {
       return;
     }
 
-    await this.loadTrack(targetTrack);
+    await this.loadTrack(targetTrack, false);
     const shouldAutoplay =
       typeof autoplayOverride === 'boolean'
         ? autoplayOverride
@@ -241,8 +241,27 @@ export class PodcastPlayerService {
     }
   }
 
-  async loadTrack(track: PodcastTrack): Promise<void> {
+  async loadTrack(
+    track: PodcastTrack,
+    clearSkipFlag: boolean = true
+  ): Promise<void> {
     const trackKey = this.getTrackKey(track);
+
+    // Only clear the lessonIdSkippedFrom flag when explicitly loading a track from the UI
+    // Don't clear it during internal skip operations (clearSkipFlag = false)
+    if (clearSkipFlag) {
+      const store = getPodcastStoreState();
+      console.log(
+        '[PodcastPlayerService] ✅ loadTrack clearing lessonIdSkippedFrom (was:',
+        store.lessonIdSkippedFrom,
+        ')'
+      );
+      store.setLessonIdSkippedFrom(null);
+    } else {
+      console.log(
+        '[PodcastPlayerService] 🔒 loadTrack preserving lessonIdSkippedFrom (internal skip operation)'
+      );
+    }
 
     // If we're already loading this exact track, wait for that operation
     if (this.loadTrackPromise && this.currentTrackId === trackKey) {
@@ -457,11 +476,41 @@ export class PodcastPlayerService {
       return;
     }
 
+    const currentTrack = playlist.tracks[playlist.currentTrackIndex];
+    const currentLessonId = currentTrack?.lessonId;
     const nextIndex = playlist.currentTrackIndex + 1;
     if (nextIndex >= playlist.tracks.length) {
       await this.seekTo(0);
       store.updatePlaybackState({ isPlaying: false });
       return;
+    }
+
+    const nextTrack = playlist.tracks[nextIndex];
+    const nextLessonId = nextTrack?.lessonId;
+
+    // If skipping from one lesson to a different lesson, record which lesson we're leaving
+    // This MUST happen before advanceToIndex to prevent race conditions
+    if (currentLessonId && nextLessonId && currentLessonId !== nextLessonId) {
+      console.log(
+        '[PodcastPlayerService] 🚫 Setting lessonIdSkippedFrom:',
+        currentLessonId,
+        '→',
+        nextLessonId
+      );
+      store.setLessonIdSkippedFrom(currentLessonId);
+    } else if (currentLessonId && !nextLessonId) {
+      // Skipping from a lesson to intro - still block the current lesson from reloading
+      console.log(
+        '[PodcastPlayerService] 🚫 Setting lessonIdSkippedFrom (to intro):',
+        currentLessonId
+      );
+      store.setLessonIdSkippedFrom(currentLessonId);
+    } else if (!currentLessonId && nextLessonId) {
+      // Skipping from intro to a lesson - clear the flag so the lesson can load
+      console.log(
+        '[PodcastPlayerService] ✅ Clearing lessonIdSkippedFrom (from intro)'
+      );
+      store.setLessonIdSkippedFrom(null);
     }
 
     await this.advanceToIndex(nextIndex, true);
@@ -481,8 +530,43 @@ export class PodcastPlayerService {
       return;
     }
 
+    const currentTrack = playlist.tracks[playlist.currentTrackIndex];
+    const currentLessonId = currentTrack?.lessonId;
     const previousIndex = playlist.currentTrackIndex - 1;
+
     if (previousIndex >= 0) {
+      const previousTrack = playlist.tracks[previousIndex];
+      const previousLessonId = previousTrack?.lessonId;
+
+      // If skipping from one lesson to a different lesson, record which lesson we're leaving
+      // This MUST happen before advanceToIndex to prevent race conditions
+      if (
+        currentLessonId &&
+        previousLessonId &&
+        currentLessonId !== previousLessonId
+      ) {
+        console.log(
+          '[PodcastPlayerService] 🚫 Setting lessonIdSkippedFrom:',
+          currentLessonId,
+          '→',
+          previousLessonId
+        );
+        store.setLessonIdSkippedFrom(currentLessonId);
+      } else if (currentLessonId && !previousLessonId) {
+        // Skipping from a lesson to intro - still block the current lesson from reloading
+        console.log(
+          '[PodcastPlayerService] 🚫 Setting lessonIdSkippedFrom (to intro):',
+          currentLessonId
+        );
+        store.setLessonIdSkippedFrom(currentLessonId);
+      } else if (!currentLessonId && previousLessonId) {
+        // Skipping from intro to a lesson - clear the flag so the lesson can load
+        console.log(
+          '[PodcastPlayerService] ✅ Clearing lessonIdSkippedFrom (from intro)'
+        );
+        store.setLessonIdSkippedFrom(null);
+      }
+
       await this.advanceToIndex(previousIndex, true);
     }
   }
@@ -530,6 +614,7 @@ export class PodcastPlayerService {
         isPlaying: true,
         isLoading: false,
       });
+      usePodcastStore.getState().setPlaybackUIState('playing');
       console.log('[PodcastPlayerService] ✅ Play state updated');
     } catch (error) {
       console.error('[PodcastPlayerService] ❌ Play failed:', error);
@@ -553,6 +638,7 @@ export class PodcastPlayerService {
     usePodcastStore.getState().updatePlaybackState({
       isPlaying: false,
     });
+    usePodcastStore.getState().setPlaybackUIState('paused');
     console.log('[PodcastPlayerService] ✅ Pause state updated');
   }
 

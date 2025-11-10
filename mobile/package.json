@@ -23,7 +23,7 @@
     "typecheck:file": "tsc --noEmit --jsx react-jsx --module esnext --moduleResolution bundler --allowImportingTsExtensions --skipLibCheck \"$@\"",
     "lint": "eslint \"$@\"",
     "lint:fix": "eslint \"$@\" --fix",
-    "format": "prettier --write .",
+    "format": "prettier --write --cache --log-level silent .",
     "format:check": "prettier --check \"$@\"",
     "test": "jest",
     "test:watch": "jest --watch",

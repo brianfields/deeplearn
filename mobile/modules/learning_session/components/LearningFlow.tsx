@@ -36,7 +36,7 @@ export default function LearningFlow({
   const styles = createStyles(theme);
   const haptics = useHaptics();
   const { loadTrack, play } = usePodcastPlayer();
-  const { playlist, currentTrack, autoplayEnabled } = usePodcastState();
+  const { playlist, currentTrack, lessonIdSkippedFrom } = usePodcastState();
 
   // Session data and actions
   const {
@@ -143,41 +143,82 @@ export default function LearningFlow({
     transcriptShown,
   ]);
 
+  // Load lesson track when transcript is shown, but don't autoplay
+  // (User must click play button to start podcast - no autoplay on navigation)
   useEffect(() => {
+    console.log('[LearningFlow] 🔍 Effect triggered. State:', {
+      hasPlaylist: !!playlist,
+      sessionLessonId: session?.lessonId,
+      shouldShowTranscript,
+      currentTrackLessonId: currentTrack?.lessonId,
+      lessonIdSkippedFrom,
+    });
+
     if (!playlist || !session?.lessonId || !shouldShowTranscript) {
+      console.log('[LearningFlow] ⏭️ Skipping: missing prerequisites');
       return;
     }
+
+    // Don't auto-load the track if the user manually skipped away from this lesson
+    if (lessonIdSkippedFrom === session.lessonId) {
+      console.log(
+        '[LearningFlow] 🚫 Skipping auto-load for lesson',
+        session.lessonId,
+        '(user skipped away from it)'
+      );
+      return;
+    }
+
+    // Don't interfere if audio is playing a completely different lesson (user skipped around)
+    // Only load our track if:
+    // 1. No current track, OR
+    // 2. Current track is already this lesson, OR
+    // 3. No lessonIdSkippedFrom set (normal state)
+    if (
+      currentTrack?.lessonId &&
+      currentTrack.lessonId !== session.lessonId &&
+      lessonIdSkippedFrom !== null
+    ) {
+      console.log(
+        '[LearningFlow] 🎵 Audio is on different lesson, not interfering. Current:',
+        currentTrack.lessonId,
+        'This lesson:',
+        session.lessonId
+      );
+      return;
+    }
+
     const lessonTrack = playlist.tracks.find(
       track => track.lessonId === session.lessonId
     );
     if (!lessonTrack) {
+      console.log(
+        '[LearningFlow] ⚠️ No track found for lesson',
+        session.lessonId
+      );
       return;
     }
     if (currentTrack && currentTrack.lessonId === session.lessonId) {
+      console.log(
+        '[LearningFlow] ✅ Already on correct track for lesson',
+        session.lessonId
+      );
       return;
     }
 
-    loadTrack(lessonTrack)
-      .then(() => {
-        if (autoplayEnabled) {
-          return play();
-        }
-        return undefined;
-      })
-      .catch(error => {
-        console.warn(
-          '[LearningFlow] Failed to load lesson podcast track',
-          error
-        );
-      });
+    // Load the track but don't play it automatically
+    // User can click the play button to start
+    console.log('[LearningFlow] 📥 Loading track for lesson', session.lessonId);
+    loadTrack(lessonTrack).catch(error => {
+      console.warn('[LearningFlow] Failed to load lesson podcast track', error);
+    });
   }, [
     playlist,
     session?.lessonId,
     shouldShowTranscript,
     loadTrack,
-    autoplayEnabled,
-    play,
     currentTrack,
+    lessonIdSkippedFrom,
   ]);
 
   // Handle exercise completion
@@ -239,6 +280,32 @@ export default function LearningFlow({
         'Failed to complete the session. Please try again.',
         [{ text: 'OK' }]
       );
+    }
+  };
+
+  // Handle playing lesson podcast
+  const handlePlayLessonPodcast = (): void => {
+    if (currentTrack && currentTrack.lessonId === session?.lessonId) {
+      // Track is already loaded, just play it
+      play().catch(error => {
+        console.warn('[LearningFlow] Failed to play lesson podcast:', error);
+        Alert.alert('Error', 'Failed to play podcast. Please try again.');
+      });
+    } else {
+      // Find and load the lesson track
+      const lessonTrack = playlist?.tracks.find(
+        track => track.lessonId === session?.lessonId
+      );
+      if (!lessonTrack) {
+        Alert.alert('Error', 'Podcast for this lesson is not available.');
+        return;
+      }
+      loadTrack(lessonTrack)
+        .then(() => play())
+        .catch(error => {
+          console.warn('[LearningFlow] Failed to play lesson podcast:', error);
+          Alert.alert('Error', 'Failed to play podcast. Please try again.');
+        });
     }
   };
 
@@ -374,18 +441,29 @@ export default function LearningFlow({
             >
               <Text style={styles.transcriptText}>{podcastTranscript}</Text>
             </ScrollView>
-            <Button
-              title="Start Exercises"
-              onPress={() => {
-                setTranscriptShown(true);
-                setCurrentExercise(0);
-                haptics.trigger('light');
-              }}
-              loading={isUpdatingProgress}
-              disabled={isUpdatingProgress}
-              style={styles.transcriptContinueButton}
-              testID="learning-flow-transcript-continue"
-            />
+            <View style={styles.transcriptButtonContainer}>
+              <Button
+                title="Play Lesson Podcast"
+                onPress={handlePlayLessonPodcast}
+                variant="secondary"
+                size="medium"
+                testID="learning-flow-play-podcast-button"
+              />
+              <Button
+                title="Start Exercises"
+                onPress={() => {
+                  setTranscriptShown(true);
+                  setCurrentExercise(0);
+                  haptics.trigger('light');
+                }}
+                loading={isUpdatingProgress}
+                disabled={isUpdatingProgress}
+                variant="primary"
+                size="medium"
+                style={styles.transcriptContinueButton}
+                testID="learning-flow-transcript-continue"
+              />
+            </View>
           </View>
         )}
         {!shouldShowTranscript && renderCurrentExercise()}
@@ -546,8 +624,11 @@ const createStyles = (theme: any) =>
       lineHeight: 24,
       color: theme.colors.text,
     },
+    transcriptButtonContainer: {
+      gap: theme.spacing?.sm || 12,
+    },
     transcriptContinueButton: {
-      marginTop: theme.spacing?.sm || 12,
+      marginTop: 0,
     },
     completingOverlay: {
       position: 'absolute',

@@ -46,6 +46,7 @@ import {
   type CacheOverview,
   type DownloadStatus,
 } from '../../offline_cache/public';
+import { MiniPlayer } from '../../podcast_player/public';
 import { layoutStyles } from '../../ui_system/styles/layout';
 
 type LessonListScreenNavigationProp = NativeStackNavigationProp<
@@ -525,6 +526,7 @@ export function LessonListScreen() {
         maxToRenderPerBatch={10}
         windowSize={10}
       />
+      <MiniPlayer />
     </SafeAreaView>
   );
 }

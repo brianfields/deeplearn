@@ -50,7 +50,11 @@ import {
 } from '../../ui_system/public';
 import { useAuth } from '../../user/public';
 import { infrastructureProvider } from '../../infrastructure/public';
-import { PodcastPlayer, type PodcastTrack } from '../../podcast_player/public';
+import {
+  usePodcastPlayer,
+  MiniPlayer,
+  type PodcastTrack,
+} from '../../podcast_player/public';
 import {
   offlineCacheProvider,
   type DownloadStatus,
@@ -79,6 +83,7 @@ export function UnitDetailScreen() {
   const navigation = useNavigation<UnitDetailScreenNavigationProp>();
   const { user } = useAuth();
   const currentUserId = user?.id ?? null;
+  const { loadTrack, play } = usePodcastPlayer();
   const { data: unit, refetch } = useCatalogUnitDetail(unitId || '', {
     currentUserId: currentUserId ?? undefined,
   });
@@ -289,91 +294,6 @@ export function UnitDetailScreen() {
   }, [loProgressById, unit?.learningObjectives]);
 
   // Teaching Assistant handlers
-  const handleOpenAssistant = useCallback(() => {
-    if (!unitId) {
-      Alert.alert('Unavailable', 'Unit context is required to ask questions.');
-      return;
-    }
-
-    setAssistantOpen(true);
-
-    if (assistantConversationId) {
-      setAssistantRequest(prev => {
-        if (!prev || prev.conversationId !== assistantConversationId) {
-          return {
-            conversationId: assistantConversationId,
-            unitId,
-            lessonId: null,
-            sessionId: null,
-            userId: user ? String(user.id) : null,
-          };
-        }
-        return prev;
-      });
-      assistantSessionQuery.refetch();
-      return;
-    }
-
-    startTeachingAssistant.mutate(
-      {
-        unitId,
-        lessonId: null,
-        sessionId: null,
-        userId: user ? String(user.id) : null,
-      },
-      {
-        onSuccess: state => {
-          setAssistantConversationId(state.conversationId);
-          setAssistantRequest({
-            conversationId: state.conversationId,
-            unitId,
-            lessonId: null,
-            sessionId: null,
-            userId: user ? String(user.id) : null,
-          });
-        },
-        onError: () => {
-          setAssistantOpen(false);
-        },
-      }
-    );
-  }, [
-    assistantConversationId,
-    assistantSessionQuery,
-    startTeachingAssistant,
-    unitId,
-    user,
-  ]);
-
-  const handleAssistantClose = useCallback(() => {
-    setAssistantOpen(false);
-  }, []);
-
-  const handleAssistantSend = useCallback(
-    (message: string) => {
-      if (!assistantConversationId || !unitId) {
-        return;
-      }
-
-      submitTeachingAssistantQuestion.mutate({
-        conversationId: assistantConversationId,
-        message,
-        unitId,
-        lessonId: null,
-        sessionId: null,
-        userId: user ? String(user.id) : null,
-      });
-    },
-    [assistantConversationId, submitTeachingAssistantQuestion, unitId, user]
-  );
-
-  const handleAssistantQuickReply = useCallback(
-    (reply: string) => {
-      handleAssistantSend(reply);
-    },
-    [handleAssistantSend]
-  );
-
   // Resolve absolute podcast URL against API base if backend returned a relative path
   const infra = infrastructureProvider();
   const apiBase = useMemo(() => {
@@ -515,6 +435,104 @@ export function UnitDetailScreen() {
       transcript: unit.podcastTranscript ?? null,
     };
   }, [hasPodcast, resolvedPodcastUrl, isDownloaded, unit]);
+
+  const handleOpenAssistant = useCallback(() => {
+    if (!unitId) {
+      Alert.alert('Unavailable', 'Unit context is required to ask questions.');
+      return;
+    }
+
+    setAssistantOpen(true);
+
+    if (assistantConversationId) {
+      setAssistantRequest(prev => {
+        if (!prev || prev.conversationId !== assistantConversationId) {
+          return {
+            conversationId: assistantConversationId,
+            unitId,
+            lessonId: null,
+            sessionId: null,
+            userId: user ? String(user.id) : null,
+          };
+        }
+        return prev;
+      });
+      assistantSessionQuery.refetch();
+      return;
+    }
+
+    startTeachingAssistant.mutate(
+      {
+        unitId,
+        lessonId: null,
+        sessionId: null,
+        userId: user ? String(user.id) : null,
+      },
+      {
+        onSuccess: state => {
+          setAssistantConversationId(state.conversationId);
+          setAssistantRequest({
+            conversationId: state.conversationId,
+            unitId,
+            lessonId: null,
+            sessionId: null,
+            userId: user ? String(user.id) : null,
+          });
+        },
+        onError: () => {
+          setAssistantOpen(false);
+        },
+      }
+    );
+  }, [
+    assistantConversationId,
+    assistantSessionQuery,
+    startTeachingAssistant,
+    unitId,
+    user,
+  ]);
+
+  const handleAssistantClose = useCallback(() => {
+    setAssistantOpen(false);
+  }, []);
+
+  const handleAssistantSend = useCallback(
+    (message: string) => {
+      if (!assistantConversationId || !unitId) {
+        return;
+      }
+
+      submitTeachingAssistantQuestion.mutate({
+        conversationId: assistantConversationId,
+        message,
+        unitId,
+        lessonId: null,
+        sessionId: null,
+        userId: user ? String(user.id) : null,
+      });
+    },
+    [assistantConversationId, submitTeachingAssistantQuestion, unitId, user]
+  );
+
+  const handleAssistantQuickReply = useCallback(
+    (reply: string) => {
+      handleAssistantSend(reply);
+    },
+    [handleAssistantSend]
+  );
+
+  const handlePlayIntroPodcast = useCallback((): void => {
+    if (!podcastTrack) {
+      return;
+    }
+    haptics.trigger('light');
+    loadTrack(podcastTrack)
+      .then(() => play())
+      .catch(error => {
+        console.warn('[UnitDetailScreen] Failed to play intro podcast:', error);
+        Alert.alert('Error', 'Failed to play podcast. Please try again.');
+      });
+  }, [podcastTrack, loadTrack, play, haptics]);
 
   // Note: PodcastPlayer component now handles loadTrack, no need to do it here
 
@@ -858,6 +876,19 @@ export function UnitDetailScreen() {
           />
         </Box>
 
+        {hasPodcast && podcastTrack && (
+          <Box px="lg" mb="lg">
+            <Button
+              title="Play Intro Podcast"
+              onPress={handlePlayIntroPodcast}
+              variant="secondary"
+              size="medium"
+              fullWidth
+              testID="unit-detail-play-intro-button"
+            />
+          </Box>
+        )}
+
         <Box px="lg">
           <Card variant="default" style={localStyles.noMargin}>
             {nextLessonTitle && (
@@ -1046,25 +1077,7 @@ export function UnitDetailScreen() {
           </Box>
         )}
       </ScrollView>
-      {hasPodcast && podcastTrack && (
-        <Fragment>
-          <Box px="lg" mb="xs" mt="md">
-            <Text
-              variant="caption"
-              color={theme.colors.textSecondary}
-              accessibilityRole="text"
-            >
-              Intro Podcast
-            </Text>
-          </Box>
-          <PodcastPlayer
-            track={podcastTrack}
-            unitId={unit.id}
-            artworkUrl={unit.artImageUrl ?? undefined}
-            defaultExpanded={false}
-          />
-        </Fragment>
-      )}
+      <MiniPlayer />
       <TeachingAssistantModal
         visible={isAssistantOpen}
         messages={assistantMessages}
