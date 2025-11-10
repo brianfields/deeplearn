@@ -25,6 +25,7 @@ import type { LearningStackParamList } from '../../../types';
 import { useCreateUnit } from '../../catalog/queries';
 import { LearningCoachMessage } from '../models';
 import { useRef } from 'react';
+import { useUserResources } from '../../resource/queries';
 
 const uiSystem = uiSystemProvider();
 const theme = uiSystem.getCurrentTheme();
@@ -54,6 +55,7 @@ export function LearningCoachScreen({
     null
   );
   const attachingResourceRef = useRef<string | null>(null);
+  const resourcesQuery = useUserResources(user?.id ?? null, { enabled: !!user?.id });
 
   useEffect(() => {
     if (!conversationId && !startSession.isPending && !startSession.isSuccess) {
@@ -116,9 +118,17 @@ export function LearningCoachScreen({
 
   const isCoachLoading = useMemo(() => {
     return (
-      startSession.isPending || learnerTurn.isPending || sessionQuery.isFetching
+      startSession.isPending ||
+      learnerTurn.isPending ||
+      attachResource.isPending ||
+      sessionQuery.isFetching
     );
-  }, [startSession.isPending, learnerTurn.isPending, sessionQuery.isFetching]);
+  }, [
+    startSession.isPending,
+    learnerTurn.isPending,
+    attachResource.isPending,
+    sessionQuery.isFetching
+  ]);
 
   const conversationResources = sessionState?.resources ?? [];
   const hasLearnerMessage = useMemo(() => {
@@ -192,6 +202,21 @@ export function LearningCoachScreen({
     }
 
     attachingResourceRef.current = pendingResourceId;
+
+    // Create optimistic message showing the resource is being shared
+    const resource = resourcesQuery.data?.find(r => r.id === pendingResourceId);
+    if (resource) {
+      const resourceName = resource.filename || resource.sourceUrl || 'resource';
+      const optimistic: LearningCoachMessage = {
+        id: `optimistic-resource-${Date.now()}`,
+        role: 'user',
+        content: `[shared ${resourceName}]`,
+        metadata: {},
+        createdAt: new Date().toISOString(),
+      };
+      setOptimisticMessage(optimistic);
+    }
+
     console.log('[LearningCoach] Calling attachResource.mutate:', {
       conversationId,
       resourceId: pendingResourceId,
@@ -204,8 +229,14 @@ export function LearningCoachScreen({
         userId: user ? String(user.id) : null,
       },
       {
+        onSuccess: () => {
+          // Clear optimistic message when real message arrives
+          setOptimisticMessage(null);
+        },
         onError: error => {
           console.error('[LearningCoach] attachResource error:', error);
+          // Clear optimistic message on error
+          setOptimisticMessage(null);
           const message =
             error instanceof Error
               ? error.message
@@ -219,7 +250,7 @@ export function LearningCoachScreen({
         },
       }
     );
-  }, [conversationId, pendingResourceId, user, attachResource]);
+  }, [conversationId, pendingResourceId, user, attachResource, resourcesQuery.data]);
 
   const handleSend = (message: string) => {
     if (!conversationId) {

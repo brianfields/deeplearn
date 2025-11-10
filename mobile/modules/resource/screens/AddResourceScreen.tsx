@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { CommonActions } from '@react-navigation/native';
 import DocumentPicker, {
   types as DocumentPickerTypes,
 } from 'react-native-document-picker';
@@ -79,15 +80,21 @@ export function AddResourceScreen({
       if (!attachToConversation || !conversationId) {
         return;
       }
-      // Update the LearningCoach screen params and go back to it
-      navigation.navigate({
-        name: 'LearningCoach',
-        params: {
-          conversationId: conversationId,
-          attachResourceId: resourceId,
-        },
-        merge: true, // Merge with existing params instead of replacing
-      } as any);
+      // Use CommonActions.setParams to update the LearningCoach screen params
+      // We need to find the LearningCoach route key first
+      const state = navigation.getState();
+      const learningCoachRoute = state.routes.find(
+        (r: any) => r.name === 'LearningCoach'
+      );
+
+      if (learningCoachRoute) {
+        navigation.dispatch({
+          ...CommonActions.setParams({
+            attachResourceId: resourceId,
+          }),
+          source: learningCoachRoute.key,
+        });
+      }
     },
     [attachToConversation, conversationId, navigation]
   );
@@ -237,11 +244,12 @@ export function AddResourceScreen({
 
         // Attach the resource
         handleResourceAttached(resource.id);
+        // Dismiss the modal
+        navigation.goBack();
         Alert.alert(
           'Resource selected',
           'Sharing this with your learning coach now.'
         );
-        // Don't call goBack - handleResourceAttached already navigates back
         return;
       }
       // When not attaching to conversation, just go back
