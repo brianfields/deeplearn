@@ -9,6 +9,7 @@ import {
   ScrollView,
   Switch,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Event,
   useProgress,
@@ -41,6 +42,7 @@ import type { PodcastTrack } from '../models';
 export function MiniPlayer(): React.ReactElement {
   const ui = uiSystemProvider();
   const theme = ui.getCurrentTheme();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const haptics = useHaptics();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -308,7 +310,12 @@ export function MiniPlayer(): React.ReactElement {
     <>
       {/* Mini Player Bar */}
       <Pressable onPress={handleExpand} style={styles.container}>
-        <View style={styles.innerContainer}>
+        <View
+          style={[
+            styles.innerContainer,
+            { paddingBottom: Math.max(8, insets.bottom) },
+          ]}
+        >
           {/* Artwork thumbnail */}
           <View style={styles.artworkContainer}>
             <ArtworkImage
@@ -684,11 +691,16 @@ export function MiniPlayer(): React.ReactElement {
 const createStyles = (theme: any) =>
   StyleSheet.create({
     container: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
       backgroundColor: theme.colors.surface,
       borderTopWidth: 1,
       borderTopColor: theme.colors.border,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
+      paddingHorizontal: 16,
+      paddingBottom: 16,
+      paddingTop: 24,
     },
     innerContainer: {
       flexDirection: 'row',

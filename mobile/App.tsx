@@ -10,6 +10,7 @@ import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import type { Theme as NavigationTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
@@ -247,20 +248,22 @@ export default function App(): React.ReactElement {
   return (
     // eslint-disable-next-line react-native/no-inline-styles
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <NavigationContainer theme={navigationTheme}>
-            <StatusBar
-              style={
-                uiSystem.isLightColor(theme.colors.surface) ? 'dark' : 'light'
-              }
-              backgroundColor={theme.colors.surface}
-              translucent={false}
-            />
-            <RootNavigator />
-          </NavigationContainer>
-        </AuthProvider>
-      </QueryClientProvider>
+      <SafeAreaProvider>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <NavigationContainer theme={navigationTheme}>
+              <StatusBar
+                style={
+                  uiSystem.isLightColor(theme.colors.surface) ? 'dark' : 'light'
+                }
+                backgroundColor={theme.colors.surface}
+                translucent={false}
+              />
+              <RootNavigator />
+            </NavigationContainer>
+          </AuthProvider>
+        </QueryClientProvider>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }
