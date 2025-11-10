@@ -29,7 +29,6 @@ Return strict JSON in the following schema:
       "aligned_learning_objective": "LO1",
       "cognitive_level": "Recall" | "Comprehension" | "Application" | "Analysis" | "Evaluation" | "Creation",
       "difficulty": "easy" | "medium" | "hard",
-      "thinking": "What problems, if any, exist in the original question? How will you address them?",
       "stem": "Question text",
       "options": [
         {"label": "A", "text": "...", "is_correct": false, "rationale": "Why this distractor is plausible but incorrect"},

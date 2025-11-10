@@ -103,6 +103,7 @@ class GenerateLessonPodcastTranscriptStep(UnstructuredStep):
     reasoning_effort = "medium"
     verbosity = "low"
     model = "gemini-2.5-flash"
+    max_retries = 0  # Too expensive to retry
 
     class Inputs(BaseModel):
         learner_desires: str
@@ -147,7 +148,6 @@ class StructuredMCQExercise(BaseModel):
     aligned_learning_objective: str
     cognitive_level: str
     difficulty: str
-    thinking: str | None = None  # LLM's reasoning about the question quality
     stem: str
     options: list[MCQOption] = Field(default_factory=list)
 
@@ -165,6 +165,7 @@ class ValidateAndStructureMCQsStep(StructuredStep):
     reasoning_effort = "medium"
     verbosity = "low"
     model = "gemini-2.5-flash"
+    max_output_tokens = 12000
 
     class Inputs(BaseModel):
         unstructured_mcqs: str
@@ -189,6 +190,7 @@ class GenerateUnitPodcastTranscriptStep(UnstructuredStep):
     reasoning_effort = "medium"
     verbosity = "low"
     model = "gemini-2.5-flash"
+    max_retries = 0  # Too expensive to retry
 
     class Inputs(BaseModel):
         learner_desires: str

@@ -122,7 +122,7 @@ class UnitModel(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
 
     # Add constraint for status enum
-    __table_args__ = (CheckConstraint("status IN ('draft', 'in_progress', 'completed', 'failed')", name="check_unit_status"),)
+    __table_args__ = (CheckConstraint("status IN ('draft', 'in_progress', 'completed', 'partial', 'failed')", name="check_unit_status"),)
 
     def __repr__(self) -> str:  # pragma: no cover - repr convenience only
         return f"<UnitModel(id={self.id}, title='{self.title}', learner_level='{self.learner_level}')>"

@@ -16,6 +16,7 @@ class UnitStatus(str, Enum):
     DRAFT = "draft"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
+    PARTIAL = "partial"
     FAILED = "failed"
 
 

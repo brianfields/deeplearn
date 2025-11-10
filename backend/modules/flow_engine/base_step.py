@@ -95,6 +95,10 @@ class BaseStep(ABC):
     # Optional GPT-5 configuration (can be overridden by subclasses)
     reasoning_effort: str | None = None  # "minimal", "low", "medium", "high"
     verbosity: str | None = None  # "low", "medium", "high"
+    max_output_tokens: int | None = None  # Maximum tokens to generate (prevents runaway)
+
+    # Retry configuration (can be overridden by subclasses)
+    max_retries: int = 1  # Number of retries for transient failures (default: 1)
 
     @property
     @abstractmethod
@@ -133,6 +137,9 @@ class BaseStep(ABC):
         if self.verbosity:
             config["verbosity"] = self.verbosity
 
+        if self.max_output_tokens:
+            config["max_output_tokens"] = self.max_output_tokens
+
         return config
 
     @staticmethod
@@ -162,75 +169,121 @@ class BaseStep(ABC):
         Execute the step with the given inputs.
 
         This is the main entry point that provides consistent interface
-        and handles infrastructure concerns.
+        and handles infrastructure concerns including automatic retries.
         """
-        start_time = time.time()
-
         # Validate inputs
         validated_inputs = self.inputs_model(**inputs)
 
-        try:
-            # Get infrastructure from context (will be implemented in flows/base.py)
-            context = FlowContext.current()
+        # Get infrastructure from context
+        context = FlowContext.current()
 
-            logger.info(f"🔧 Starting step: {self.step_name}")
-            logger.debug(f"Step inputs: {list(validated_inputs.model_dump().keys())}")
+        # Import error types for retry logic
+        import httpx
 
-            # Create step run record
-            step_run_id = await context.service.create_step_run_record(flow_run_id=context.flow_run_id, step_name=self.step_name, step_order=context.get_next_step_order(), inputs=validated_inputs.model_dump())
+        from modules.llm_services.exceptions import LLMTimeoutError, LLMValidationError
 
-            # Execute step-specific logic
-            logger.debug(f"Executing step logic: {self.step_name}")
-            logger.debug(f"Step inputs: {_truncate_for_logging(validated_inputs.model_dump())}")
-            output_content, llm_request_id = await self._execute_step_logic(validated_inputs, context)
-            logger.debug(f"Step output type: {type(output_content).__name__}")
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(f"Step output (truncated): {_truncate_for_logging(output_content)}")
+        # Retry loop for transient failures
+        last_error: Exception | None = None
+        first_step_run_id: uuid.UUID | None = None
 
-            # Calculate execution time
-            execution_time_ms = int((time.time() - start_time) * 1000)
+        for attempt in range(self.max_retries + 1):
+            start_time = time.time()
+            step_run_id: uuid.UUID | None = None
 
-            # Prepare outputs for database
-            if hasattr(output_content, "model_dump"):
-                outputs = output_content.model_dump()
-            elif isinstance(output_content, dict):
-                outputs = output_content
-            else:
-                outputs = {"content": str(output_content)}
+            try:
+                logger.info(f"🔧 Starting step: {self.step_name}" + (f" (attempt {attempt + 1}/{self.max_retries + 1})" if attempt > 0 else ""))
+                logger.debug(f"Step inputs: {list(validated_inputs.model_dump().keys())}")
 
-            # Update step run with success
-            await context.service.update_step_run_success(step_run_id=step_run_id, outputs=outputs, tokens_used=context.last_tokens_used, cost_estimate=context.last_cost_estimate, execution_time_ms=execution_time_ms, llm_request_id=llm_request_id)
+                # Create step run record (with retry tracking)
+                step_run_id = await context.service.create_step_run_record(
+                    flow_run_id=context.flow_run_id,
+                    step_name=self.step_name,
+                    step_order=context.get_next_step_order(),
+                    inputs=validated_inputs.model_dump(),
+                    retry_attempt=attempt,
+                    retry_of_step_run_id=first_step_run_id,
+                )
 
-            # Update flow progress
-            await context.service.update_flow_progress(flow_run_id=context.flow_run_id, current_step=self.step_name, step_progress=context.step_counter)
+                # Track first attempt for retry linking
+                if attempt == 0:
+                    first_step_run_id = step_run_id
 
-            logger.info(f"✅ Step completed: {self.step_name} - Time: {execution_time_ms}ms, Tokens: {context.last_tokens_used or 0}")
+                # Execute step-specific logic
+                logger.debug(f"Executing step logic: {self.step_name}")
+                logger.debug(f"Step inputs: {_truncate_for_logging(validated_inputs.model_dump())}")
+                output_content, llm_request_id = await self._execute_step_logic(validated_inputs, context)
+                logger.debug(f"Step output type: {type(output_content).__name__}")
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(f"Step output (truncated): {_truncate_for_logging(output_content)}")
 
-            # Create result
-            return StepResult(
-                step_name=self.step_name,
-                output_content=output_content,
-                metadata={
-                    "step_run_id": str(step_run_id),
-                    "tokens_used": context.last_tokens_used,
-                    "cost_estimate": context.last_cost_estimate,
-                    "execution_time_ms": execution_time_ms,
-                    "llm_request_id": str(llm_request_id) if llm_request_id else None,
-                    "step_type": self.step_type.value,
-                    "prompt_file": self.prompt_file,
-                },
-            )
+                # Calculate execution time
+                execution_time_ms = int((time.time() - start_time) * 1000)
 
-        except Exception as e:
-            # Calculate execution time for error case
-            execution_time_ms = int((time.time() - start_time) * 1000)
+                # Prepare outputs for database
+                if hasattr(output_content, "model_dump"):
+                    outputs = output_content.model_dump()
+                elif isinstance(output_content, dict):
+                    outputs = output_content
+                else:
+                    outputs = {"content": str(output_content)}
 
-            # Update step run with error if we have step_run_id
-            if "step_run_id" in locals():
-                await context.service.update_step_run_error(step_run_id=step_run_id, error_message=str(e), execution_time_ms=execution_time_ms)
+                # Update step run with success
+                await context.service.update_step_run_success(
+                    step_run_id=step_run_id, outputs=outputs, tokens_used=context.last_tokens_used, cost_estimate=context.last_cost_estimate, execution_time_ms=execution_time_ms, llm_request_id=llm_request_id
+                )
 
-            # Re-raise the exception
-            raise
+                # Update flow progress
+                await context.service.update_flow_progress(flow_run_id=context.flow_run_id, current_step=self.step_name, step_progress=context.step_counter)
+
+                logger.info(f"✅ Step completed: {self.step_name} - Time: {execution_time_ms}ms, Tokens: {context.last_tokens_used or 0}" + (f" (succeeded on attempt {attempt + 1})" if attempt > 0 else ""))
+
+                # Create result
+                return StepResult(
+                    step_name=self.step_name,
+                    output_content=output_content,
+                    metadata={
+                        "step_run_id": str(step_run_id),
+                        "tokens_used": context.last_tokens_used,
+                        "cost_estimate": context.last_cost_estimate,
+                        "execution_time_ms": execution_time_ms,
+                        "llm_request_id": str(llm_request_id) if llm_request_id else None,
+                        "step_type": self.step_type.value,
+                        "prompt_file": self.prompt_file,
+                        "retry_attempt": attempt,
+                    },
+                )
+
+            except (LLMValidationError, LLMTimeoutError, httpx.TimeoutException) as e:
+                # Transient errors that should be retried
+                last_error = e
+                execution_time_ms = int((time.time() - start_time) * 1000)
+
+                if step_run_id and attempt < self.max_retries:
+                    # Mark for retry
+                    logger.warning(f"⚠️ Step {self.step_name} failed with {type(e).__name__}: {e} (attempt {attempt + 1}/{self.max_retries + 1}), will retry...")
+                    await context.service.mark_step_run_retry(step_run_id=step_run_id, error_message=str(e))
+                    continue  # Retry
+                else:
+                    # Final attempt failed or no step_run_id
+                    if step_run_id:
+                        await context.service.update_step_run_error(step_run_id=step_run_id, error_message=str(e), execution_time_ms=execution_time_ms)
+                    logger.error(f"❌ Step {self.step_name} failed after {attempt + 1} attempt(s): {type(e).__name__}: {e}")
+                    raise
+
+            except Exception as e:
+                # Non-retriable errors (auth, validation, programming errors)
+                execution_time_ms = int((time.time() - start_time) * 1000)
+
+                if step_run_id:
+                    await context.service.update_step_run_error(step_run_id=step_run_id, error_message=str(e), execution_time_ms=execution_time_ms)
+
+                logger.error(f"❌ Step {self.step_name} failed with non-retriable error: {type(e).__name__}: {e}")
+                raise
+
+        # Should never reach here, but in case the loop exits without returning
+        if last_error:
+            raise last_error
+        raise RuntimeError(f"Step {self.step_name} failed without raising an exception")
 
     def _load_prompt_from_file(self, filename: str, context: "FlowContext") -> str:  # noqa: ARG002
         """

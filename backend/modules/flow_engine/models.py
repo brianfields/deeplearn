@@ -139,8 +139,12 @@ class FlowStepRunModel(Base):
     step_name: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     step_order: Mapped[int] = mapped_column(Integer, nullable=False)
 
+    # Retry tracking
+    retry_attempt: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # 0 = first attempt, 1 = first retry
+    retry_of_step_run_id: Mapped[uuid.UUID | None] = mapped_column(PostgresUUID(), ForeignKey("flow_step_runs.id"), nullable=True, index=True)
+
     # Execution status
-    status: Mapped[str] = mapped_column(String(50), nullable=False, default="pending", index=True)  # pending, running, completed, failed
+    status: Mapped[str] = mapped_column(String(50), nullable=False, default="pending", index=True)  # pending, running, completed, failed, retrying
 
     # Data capture
     inputs: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)

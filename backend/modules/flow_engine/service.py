@@ -134,9 +134,19 @@ class FlowEngineService:
 
         return created_run.id
 
-    async def create_step_run_record(self, flow_run_id: uuid.UUID, step_name: str, step_order: int, inputs: dict[str, Any]) -> uuid.UUID:
+    async def create_step_run_record(
+        self, flow_run_id: uuid.UUID, step_name: str, step_order: int, inputs: dict[str, Any], retry_attempt: int = 0, retry_of_step_run_id: uuid.UUID | None = None
+    ) -> uuid.UUID:
         """Create a new step run record (internal use)."""
-        step_run = FlowStepRunModel(flow_run_id=flow_run_id, step_name=step_name, step_order=step_order, inputs=inputs, status="running")
+        step_run = FlowStepRunModel(
+            flow_run_id=flow_run_id,
+            step_name=step_name,
+            step_order=step_order,
+            inputs=inputs,
+            status="running",
+            retry_attempt=retry_attempt,
+            retry_of_step_run_id=retry_of_step_run_id,
+        )
 
         created_step = self.step_run_repo.create(step_run)
         assert created_step.id is not None
@@ -145,6 +155,18 @@ class FlowEngineService:
         self._commit_changes()
 
         return created_step.id
+
+    async def mark_step_run_retry(self, step_run_id: uuid.UUID, error_message: str) -> None:
+        """Mark step run as retrying after a failure (internal use)."""
+        step_run = self.step_run_repo.by_id(step_run_id)
+        if step_run:
+            step_run.error_message = error_message
+            step_run.status = "retrying"
+            step_run.completed_at = datetime.now(UTC)
+            self.step_run_repo.save(step_run)
+
+            # Commit immediately so retry status is visible
+            self._commit_changes()
 
     async def update_step_run_success(self, step_run_id: uuid.UUID, outputs: dict[str, Any], tokens_used: int, cost_estimate: float, execution_time_ms: int, llm_request_id: uuid.UUID | None = None) -> None:
         """Update step run with success data (internal use)."""

@@ -83,7 +83,7 @@ export interface ApiUnitDetail {
 
 export type UnitId = string;
 export type Difficulty = 'beginner' | 'intermediate' | 'advanced';
-export type UnitStatus = 'draft' | 'in_progress' | 'completed' | 'failed';
+export type UnitStatus = 'draft' | 'in_progress' | 'completed' | 'partial' | 'failed';
 
 export interface UnitCreationProgress {
   readonly stage: string;

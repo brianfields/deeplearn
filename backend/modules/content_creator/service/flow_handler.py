@@ -300,7 +300,7 @@ class FlowHandler:
             completion_message += f" with {len(failed_lessons)} lesson failure(s)"
             # Mark as partial if some but not all lessons failed
             if len(lesson_ids) > 0:
-                final_status = "partial"
+                final_status = UnitStatus.PARTIAL.value
                 logger.warning(
                     "⚠️  Unit %s marked as 'partial' - %s/%s lessons succeeded",
                     unit_id,
@@ -316,7 +316,7 @@ class FlowHandler:
             unit_id,
             final_status,
             creation_progress={
-                "stage": "completed" if final_status == UnitStatus.COMPLETED.value else "partial" if final_status == "partial" else "failed",
+                "stage": "completed" if final_status == UnitStatus.COMPLETED.value else "partial" if final_status == UnitStatus.PARTIAL.value else "failed",
                 "message": completion_message,
                 "lesson_failures": failed_lessons if failed_lessons else None,
             },
