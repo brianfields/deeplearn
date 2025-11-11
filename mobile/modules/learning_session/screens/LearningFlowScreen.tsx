@@ -50,11 +50,7 @@ import { uiSystemProvider } from '../../ui_system/public';
 
 // Hooks
 import { useStartSession } from '../queries';
-import {
-  usePodcastPlayer,
-  MiniPlayer,
-  usePodcastState,
-} from '../../podcast_player/public';
+import { usePodcastPlayer, usePodcastState } from '../../podcast_player/public';
 import { catalogProvider } from '../../catalog/public';
 import { infrastructureProvider } from '../../infrastructure/public';
 import { offlineCacheProvider } from '../../offline_cache/public';
@@ -603,7 +599,6 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
             unitId={unitId}
             hasPlayer={hasPlayer}
           />
-          <MiniPlayer />
           <View style={styles.assistantButtonWrapper} pointerEvents="box-none">
             <TeachingAssistantButton
               onPress={handleOpenAssistant}

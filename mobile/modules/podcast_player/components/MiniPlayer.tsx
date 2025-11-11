@@ -309,13 +309,14 @@ export function MiniPlayer(): React.ReactElement {
   return (
     <>
       {/* Mini Player Bar */}
-      <Pressable onPress={handleExpand} style={styles.container}>
-        <View
-          style={[
-            styles.innerContainer,
-            { paddingBottom: Math.max(8, insets.bottom) },
-          ]}
-        >
+      <Pressable
+        onPress={handleExpand}
+        style={[
+          styles.container,
+          { paddingBottom: Math.max(16, insets.bottom) },
+        ]}
+      >
+        <View style={styles.innerContainer}>
           {/* Artwork thumbnail */}
           <View style={styles.artworkContainer}>
             <ArtworkImage
@@ -698,9 +699,9 @@ const createStyles = (theme: any) =>
       backgroundColor: theme.colors.surface,
       borderTopWidth: 1,
       borderTopColor: theme.colors.border,
-      paddingHorizontal: 16,
+      paddingHorizontal: 20,
       paddingBottom: 16,
-      paddingTop: 24,
+      paddingTop: 12,
     },
     innerContainer: {
       flexDirection: 'row',

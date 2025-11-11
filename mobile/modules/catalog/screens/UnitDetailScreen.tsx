@@ -52,7 +52,6 @@ import { useAuth } from '../../user/public';
 import { infrastructureProvider } from '../../infrastructure/public';
 import {
   usePodcastPlayer,
-  MiniPlayer,
   type PodcastTrack,
 } from '../../podcast_player/public';
 import {
@@ -321,10 +320,14 @@ export function UnitDetailScreen() {
   const [resolvedPodcastUrl, setResolvedPodcastUrl] = useState<string | null>(
     null
   );
+  const [resolvedArtworkUrl, setResolvedArtworkUrl] = useState<string | null>(
+    null
+  );
 
   useEffect(() => {
     if (!unit || !isDownloaded || !unit.hasPodcast) {
       setResolvedPodcastUrl(null);
+      setResolvedArtworkUrl(null);
       return;
     }
 
@@ -337,6 +340,13 @@ export function UnitDetailScreen() {
             unitId: unit.id,
           });
           setResolvedPodcastUrl(podcastAudioUrl);
+          // Resolve artwork URL as absolute URL
+          if (unit.artImageUrl) {
+            const artUrl = /^https?:\/\//i.test(unit.artImageUrl)
+              ? unit.artImageUrl
+              : `${apiBase}${unit.artImageUrl.startsWith('/') ? '' : '/'}${unit.artImageUrl}`;
+            setResolvedArtworkUrl(artUrl);
+          }
           return;
         }
 
@@ -359,6 +369,25 @@ export function UnitDetailScreen() {
         const audioAsset = unitDetail.assets.find(
           asset => asset.type === 'audio'
         );
+
+        // Find the image asset (artwork)
+        const imageAsset = unitDetail.assets.find(
+          asset => asset.type === 'image'
+        );
+
+        // Resolve artwork URL
+        if (imageAsset?.localPath) {
+          console.info('[UnitDetail] Resolved artwork to local path', {
+            unitId: unit.id,
+            localPath: imageAsset.localPath,
+          });
+          setResolvedArtworkUrl(imageAsset.localPath);
+        } else if (unit.artImageUrl) {
+          const artUrl = /^https?:\/\//i.test(unit.artImageUrl)
+            ? unit.artImageUrl
+            : `${apiBase}${unit.artImageUrl.startsWith('/') ? '' : '/'}${unit.artImageUrl}`;
+          setResolvedArtworkUrl(artUrl);
+        }
 
         if (audioAsset) {
           if (audioAsset.localPath) {
@@ -420,7 +449,7 @@ export function UnitDetailScreen() {
     };
 
     resolvePodcastAsset();
-  }, [unit, isDownloaded, podcastAudioUrl]);
+  }, [unit, isDownloaded, podcastAudioUrl, apiBase]);
 
   const podcastTrack = useMemo<PodcastTrack | null>(() => {
     if (!unit || !hasPodcast || !resolvedPodcastUrl || !isDownloaded) {
@@ -433,8 +462,9 @@ export function UnitDetailScreen() {
       audioUrl: resolvedPodcastUrl,
       durationSeconds: unit.podcastDurationSeconds ?? 0,
       transcript: unit.podcastTranscript ?? null,
+      artworkUrl: resolvedArtworkUrl ?? undefined,
     };
-  }, [hasPodcast, resolvedPodcastUrl, isDownloaded, unit]);
+  }, [hasPodcast, resolvedPodcastUrl, resolvedArtworkUrl, isDownloaded, unit]);
 
   const handleOpenAssistant = useCallback(() => {
     if (!unitId) {
@@ -1077,7 +1107,6 @@ export function UnitDetailScreen() {
           </Box>
         )}
       </ScrollView>
-      <MiniPlayer />
       <TeachingAssistantModal
         visible={isAssistantOpen}
         messages={assistantMessages}

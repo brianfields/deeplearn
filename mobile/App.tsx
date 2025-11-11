@@ -37,7 +37,7 @@ import type { RootStackParamList, LearningStackParamList } from './types';
 import { uiSystemProvider } from './modules/ui_system/public';
 import { reducedMotion } from './modules/ui_system/utils/motion';
 import { AuthProvider, useAuth } from './modules/user/public';
-import { useTrackPlayer } from './modules/podcast_player/public';
+import { useTrackPlayer, MiniPlayer } from './modules/podcast_player/public';
 import { getScreenOptions } from './utils/navigationOptions';
 import { getDevScreenOptions } from './utils/devToolsNavigation';
 
@@ -251,16 +251,21 @@ export default function App(): React.ReactElement {
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
-            <NavigationContainer theme={navigationTheme}>
-              <StatusBar
-                style={
-                  uiSystem.isLightColor(theme.colors.surface) ? 'dark' : 'light'
-                }
-                backgroundColor={theme.colors.surface}
-                translucent={false}
-              />
-              <RootNavigator />
-            </NavigationContainer>
+            <View style={styles.appContainer}>
+              <NavigationContainer theme={navigationTheme}>
+                <StatusBar
+                  style={
+                    uiSystem.isLightColor(theme.colors.surface)
+                      ? 'dark'
+                      : 'light'
+                  }
+                  backgroundColor={theme.colors.surface}
+                  translucent={false}
+                />
+                <RootNavigator />
+              </NavigationContainer>
+              <MiniPlayer />
+            </View>
           </AuthProvider>
         </QueryClientProvider>
       </SafeAreaProvider>
@@ -269,6 +274,9 @@ export default function App(): React.ReactElement {
 }
 
 const styles = StyleSheet.create({
+  appContainer: {
+    flex: 1,
+  },
   loadingContainer: {
     flex: 1,
     alignItems: 'center',
