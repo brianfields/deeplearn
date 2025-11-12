@@ -53,11 +53,11 @@
       <true/>
     </dict>
     <key>NSCameraUsageDescription</key>
-    <string>DeepLearn uses your camera to capture images of learning materials, documents, and resources to enhance your learning experience.</string>
-    <key>NSPhotoLibraryUsageDescription</key>
-    <string>DeepLearn needs access to your photo library to select images of learning materials and resources.</string>
+    <string>The learning coach needs camera access to capture study materials.</string>
     <key>NSPhotoLibraryAddUsageDescription</key>
-    <string>DeepLearn needs access to save images to your photo library.</string>
+    <string>Allow saving analyzed study photos back to your library.</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Allow access to choose study photos to share with your coach.</string>
     <key>UIBackgroundModes</key>
     <array>
       <string>audio</string>
