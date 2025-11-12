@@ -4,7 +4,7 @@
  * Sets up navigation, providers, and global app state
  */
 
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import type { Theme as NavigationTheme } from '@react-navigation/native';
@@ -13,6 +13,12 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
+
+// Prevent the splash screen from auto-hiding
+SplashScreen.preventAutoHideAsync().catch(() => {
+  // Ignore errors if splash screen is already hidden
+});
 
 // Screens (using new modular structure)
 import { LessonListScreen } from './modules/catalog/screens/UnitListScreen';
@@ -220,16 +226,49 @@ function RootNavigator(): React.ReactElement {
   );
 }
 
-export default function App(): React.ReactElement {
+export default function App(): React.ReactElement | null {
   // Get theme from ui_system module
   const uiSystem = uiSystemProvider();
   const theme = uiSystem.getCurrentTheme();
   const { isDarkMode } = uiSystem.getThemeState();
 
+  // State to track if app is ready
+  const [appIsReady, setAppIsReady] = useState(false);
+
   // Initialize reduced motion once at app start (guarded for tests)
-  (reducedMotion as any).initialize?.();
+  useEffect(() => {
+    (reducedMotion as any).initialize?.();
+  }, []);
 
   useTrackPlayer();
+
+  // Prepare app resources and hide splash screen when ready
+  useEffect(() => {
+    async function prepare(): Promise<void> {
+      try {
+        // Add any async initialization here (e.g., loading fonts, assets, etc.)
+        // For now, we'll just wait a brief moment for the app to stabilize
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } catch (e) {
+        console.warn(e);
+      } finally {
+        setAppIsReady(true);
+      }
+    }
+
+    prepare();
+  }, []);
+
+  const onLayoutRootView = useCallback(async (): Promise<void> => {
+    if (appIsReady) {
+      // Hide the splash screen once the app is ready
+      await SplashScreen.hideAsync();
+    }
+  }, [appIsReady]);
+
+  if (!appIsReady) {
+    return null;
+  }
 
   const navigationTheme: NavigationTheme = {
     ...DefaultTheme,
@@ -247,7 +286,7 @@ export default function App(): React.ReactElement {
 
   return (
     // eslint-disable-next-line react-native/no-inline-styles
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>

@@ -53,6 +53,7 @@
     "expo-haptics": "^14.1.4",
     "expo-image-picker": "^17.0.8",
     "expo-linear-gradient": "^14.1.5",
+    "expo-splash-screen": "^31.0.10",
     "expo-sqlite": "~15.0.2",
     "expo-status-bar": "~2.2.3",
     "expo-system-ui": "^5.0.10",
