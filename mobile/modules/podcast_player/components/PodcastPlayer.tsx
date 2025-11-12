@@ -1,23 +1,18 @@
-import React, {
-  useState,
-  useMemo,
-  useEffect,
-  useRef,
-  useCallback,
-} from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
   View,
   StyleSheet,
   Pressable,
-  ScrollView,
+  ActivityIndicator,
   Modal,
   SafeAreaView,
+  ScrollView,
   Switch,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Event,
   useProgress,
-  usePlaybackState,
   useTrackPlayerEvents,
 } from 'react-native-track-player';
 import {
@@ -31,37 +26,40 @@ import { reducedMotion } from '../../ui_system/utils/motion';
 import { RotateCcw, RotateCw } from 'lucide-react-native';
 import { usePodcastPlayer } from '../hooks/usePodcastPlayer';
 import { usePodcastState } from '../hooks/usePodcastState';
-import type { PodcastTrack } from '../models';
 import { usePodcastStore } from '../store';
 import { catalogProvider } from '../../catalog/public';
+import type { PodcastTrack } from '../models';
 
-interface PodcastPlayerProps {
-  readonly track: PodcastTrack;
-  readonly unitId: string;
-  readonly artworkUrl?: string;
-  readonly defaultExpanded?: boolean;
-}
-
-export function PodcastPlayer({
-  track,
-  unitId,
-  artworkUrl,
-  defaultExpanded = false,
-}: PodcastPlayerProps): React.ReactElement {
+/**
+ * PodcastPlayer Component
+ *
+ * A compact, fixed-position player that appears at the bottom of the screen
+ * when a podcast is playing or paused. Shows playback controls and basic info.
+ * Tapping on it expands to show the full player.
+ *
+ * Renders nothing when in 'idle' state (no podcast has been played yet).
+ */
+export function PodcastPlayer(): React.ReactElement {
   const ui = uiSystemProvider();
   const theme = ui.getCurrentTheme();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const haptics = useHaptics();
-  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  // Seeking state
+  const [isSeekingPosition, setIsSeekingPosition] = useState(false);
+  const [pendingSeekPosition, setPendingSeekPosition] = useState(0);
+
   const {
-    playbackState,
     currentTrack,
-    globalSpeed,
+    playbackUIState,
     playlist,
     autoplayEnabled,
+    globalSpeed,
+    playbackState,
   } = usePodcastState();
   const {
-    loadTrack,
     play,
     pause,
     skipBackward,
@@ -73,85 +71,17 @@ export function PodcastPlayer({
     toggleAutoplay,
   } = usePodcastPlayer();
 
-  const isCurrentTrack = currentTrack?.unitId === unitId;
-
-  const playlistLength = playlist?.tracks.length ?? 0;
-  const currentPlaylistIndex = playlist?.currentTrackIndex ?? 0;
-  const hasPlaylist = playlistLength > 0;
-  const isPreviousDisabled = !hasPlaylist || currentPlaylistIndex <= 0;
-  const isNextDisabled =
-    !hasPlaylist || currentPlaylistIndex >= playlistLength - 1;
-
-  const trackIndicatorText = useMemo(() => {
-    if (!playlist || !currentTrack) {
-      return null;
-    }
-    if (!currentTrack.lessonId) {
-      return 'Intro';
-    }
-
-    const lessonTracks = playlist.tracks.filter(
-      trackItem => trackItem.lessonId
-    );
-    const lessonIndex =
-      typeof currentTrack.lessonIndex === 'number'
-        ? currentTrack.lessonIndex
-        : lessonTracks.findIndex(
-            trackItem => trackItem.lessonId === currentTrack.lessonId
-          );
-
-    if (lessonIndex >= 0 && lessonTracks.length > 0) {
-      return `Lesson ${lessonIndex + 1} of ${lessonTracks.length}`;
-    }
-
-    return currentTrack.title;
-  }, [playlist, currentTrack]);
-
-  // Seeking state
-  const [isSeekingPosition, setIsSeekingPosition] = useState(false);
-  const [pendingSeekPosition, setPendingSeekPosition] = useState(0);
-  const lastLoadedTrackIdRef = useRef<string | null>(null);
-  const autoplayTriggeredRef = useRef<boolean>(false);
-
-  // Load track when component mounts (same as FullPlayer)
-  useEffect(() => {
-    if (!track || isCurrentTrack) {
-      return;
-    }
-
-    // Prevent duplicate loads of the same track
-    const trackId = track.lessonId || `${track.unitId}:intro`;
-    if (lastLoadedTrackIdRef.current === trackId) {
-      console.log('[PodcastPlayer] Track already loaded, skipping:', trackId);
-      return;
-    }
-
-    lastLoadedTrackIdRef.current = trackId;
-    autoplayTriggeredRef.current = false; // Reset autoplay trigger when loading new track
-    loadTrack(track).catch(error => {
-      console.warn('[PodcastPlayer] Failed to load track', error);
-      lastLoadedTrackIdRef.current = null; // Reset on error to allow retry
-    });
-  }, [isCurrentTrack, loadTrack, track]);
-
-  // Use built-in hooks from react-native-track-player for real-time updates
-  const trackProgress = useProgress(1000); // Poll every 1 second
-  const trackPlaybackState = usePlaybackState();
+  // Use TrackPlayer's useProgress hook for real-time position updates
+  const trackProgress = useProgress(1000);
 
   // Sync TrackPlayer progress to our store
   useEffect(() => {
-    if (!isCurrentTrack) {
+    if (!currentTrack) {
       return;
     }
 
-    console.log('[PodcastPlayer] 📊 Progress from useProgress hook:', {
-      position: trackProgress.position.toFixed(1),
-      duration: trackProgress.duration,
-      buffered: trackProgress.buffered,
-    });
-
     const store = usePodcastStore.getState();
-    const fallbackDuration = track.durationSeconds ?? 0;
+    const fallbackDuration = currentTrack.durationSeconds ?? 0;
     const duration =
       trackProgress.duration > 0 ? trackProgress.duration : fallbackDuration;
 
@@ -160,150 +90,19 @@ export function PodcastPlayer({
       buffered: trackProgress.buffered,
       duration,
     });
-
-    // Check if track has ended and autoplay should advance to next track
-    const isNearEnd = duration > 0 && trackProgress.position >= duration - 1;
-    const isCurrentlyPlaying = playbackState.isPlaying;
-    if (
-      isNearEnd &&
-      isCurrentlyPlaying &&
-      autoplayEnabled &&
-      playlist &&
-      !autoplayTriggeredRef.current
-    ) {
-      const nextIndex = playlist.currentTrackIndex + 1;
-      if (nextIndex < playlist.tracks.length) {
-        console.log(
-          '[PodcastPlayer] 🎵 Track ended, autoplay advancing to next track',
-          {
-            currentIndex: playlist.currentTrackIndex,
-            nextIndex,
-            position: trackProgress.position,
-            duration,
-          }
-        );
-        autoplayTriggeredRef.current = true;
-
-        // Use setTimeout to ensure we don't trigger multiple times
-        setTimeout(() => {
-          skipToNext().catch(error => {
-            console.warn(
-              '[PodcastPlayer] Failed to advance to next track',
-              error
-            );
-            autoplayTriggeredRef.current = false; // Reset on error to allow retry
-          });
-        }, 100);
-      }
-    }
-
-    // Reset autoplay trigger flag when position resets (new track loaded)
-    if (trackProgress.position < 1 && autoplayTriggeredRef.current) {
-      console.log('[PodcastPlayer] Resetting autoplay trigger flag');
-      autoplayTriggeredRef.current = false;
-    }
   }, [
     trackProgress.position,
     trackProgress.duration,
     trackProgress.buffered,
-    isCurrentTrack,
-    track.durationSeconds,
-    playbackState.isPlaying,
-    autoplayEnabled,
-    playlist,
-    skipToNext,
+    currentTrack,
   ]);
 
-  // Sync TrackPlayer playback state to our store
-  useEffect(() => {
-    if (!isCurrentTrack) {
-      return;
-    }
-
-    console.log(
-      '[PodcastPlayer] 🎵 State from usePlaybackState hook:',
-      trackPlaybackState
-    );
-
-    const isPlaying = trackPlaybackState.state === 'playing';
-    const isLoading =
-      trackPlaybackState.state === 'buffering' ||
-      trackPlaybackState.state === 'loading';
-
-    usePodcastStore.getState().updatePlaybackState({
-      isPlaying,
-      isLoading,
-    });
-  }, [trackPlaybackState, isCurrentTrack]);
-
-  // Listen for errors
+  // Listen for playback errors
   useTrackPlayerEvents([Event.PlaybackError], async event => {
     if (event.type === Event.PlaybackError) {
       console.error('[PodcastPlayer] 🚨 Playback error:', event);
     }
   });
-
-  const isPlaying = playbackState.isPlaying;
-  const position = playbackState.position ?? 0;
-  const duration = playbackState.duration || track.durationSeconds;
-  const sliderMaximum = Math.max(duration || 0, track.durationSeconds);
-  const displayedPosition = isSeekingPosition ? pendingSeekPosition : position;
-
-  const formatTime = (seconds: number | null | undefined): string => {
-    if (!Number.isFinite(seconds)) {
-      return '0:00';
-    }
-    const safeSeconds = Math.max(0, seconds ?? 0);
-    const mins = Math.floor(safeSeconds / 60);
-    const secs = Math.floor(safeSeconds % 60)
-      .toString()
-      .padStart(2, '0');
-    return `${mins}:${secs}`;
-  };
-
-  const handleTogglePlay = (): void => {
-    console.log(
-      '[PodcastPlayer UI] Play button pressed, current isPlaying:',
-      isPlaying
-    );
-    console.log('[PodcastPlayer UI] Current track:', currentTrack?.title);
-    haptics.trigger('light');
-    if (isPlaying) {
-      console.log('[PodcastPlayer UI] Calling pause()');
-      pause().catch(() => {});
-    } else {
-      console.log('[PodcastPlayer UI] Calling play()');
-      play().catch(error => {
-        console.error('[PodcastPlayer UI] Play error:', error);
-      });
-    }
-  };
-
-  const handleSkipBackward = (): void => {
-    haptics.trigger('light');
-    skipBackward().catch(() => {});
-  };
-
-  const handleSkipForward = (): void => {
-    haptics.trigger('light');
-    skipForward().catch(() => {});
-  };
-
-  const handlePreviousTrack = (): void => {
-    if (isPreviousDisabled) {
-      return;
-    }
-    haptics.trigger('light');
-    skipToPrevious().catch(() => {});
-  };
-
-  const handleNextTrack = (): void => {
-    if (isNextDisabled) {
-      return;
-    }
-    haptics.trigger('light');
-    skipToNext().catch(() => {});
-  };
 
   // Fetch transcript for current track if it's missing
   useEffect(() => {
@@ -344,6 +143,73 @@ export function PodcastPlayer({
     void fetchTranscript();
   }, [currentTrack?.lessonId, currentTrack?.transcript]);
 
+  // Debug logging for artwork
+  useEffect(() => {
+    console.log('[PodcastPlayer] 🎨 Current track artwork:', {
+      title: currentTrack?.title,
+      artworkUrl: currentTrack?.artworkUrl,
+      hasArtwork: Boolean(currentTrack?.artworkUrl),
+      artworkLength: currentTrack?.artworkUrl?.length,
+    });
+  }, [currentTrack?.artworkUrl, currentTrack?.title]);
+
+  const isPlaying = playbackState.isPlaying;
+  const isLoading = playbackState.isLoading;
+  const position = playbackState.position ?? 0;
+  const duration =
+    playbackState.duration || (currentTrack?.durationSeconds ?? 0);
+  const displayedPosition = isSeekingPosition ? pendingSeekPosition : position;
+
+  const playlistLength = playlist?.tracks.length ?? 0;
+  const currentPlaylistIndex = playlist?.currentTrackIndex ?? 0;
+  const hasPlaylist = playlistLength > 0;
+  // Previous button is never disabled if we have a playlist - it either seeks to 0 or goes to previous track
+  const isPreviousDisabled = !hasPlaylist;
+  const isNextDisabled =
+    !hasPlaylist || currentPlaylistIndex >= playlistLength - 1;
+
+  const handleTogglePlay = (): void => {
+    haptics.trigger('light');
+    if (isPlaying) {
+      pause().catch(() => {});
+    } else {
+      play().catch(() => {});
+    }
+  };
+
+  const handleSkipBackward = (): void => {
+    haptics.trigger('light');
+    skipBackward().catch(() => {});
+  };
+
+  const handleSkipForward = (): void => {
+    haptics.trigger('light');
+    skipForward().catch(() => {});
+  };
+
+  const handleExpand = (): void => {
+    haptics.trigger('medium');
+    setIsExpanded(true);
+  };
+
+  const handleCollapse = (): void => {
+    haptics.trigger('medium');
+    setIsExpanded(false);
+  };
+
+  const handlePreviousTrack = (): void => {
+    haptics.trigger('light');
+    skipToPrevious().catch(() => {});
+  };
+
+  const handleNextTrack = (): void => {
+    if (isNextDisabled) {
+      return;
+    }
+    haptics.trigger('light');
+    skipToNext().catch(() => {});
+  };
+
   const handleToggleAutoplay = (): void => {
     haptics.trigger('light');
     toggleAutoplay();
@@ -365,9 +231,16 @@ export function PodcastPlayer({
     }
   };
 
-  const handleToggleExpand = (): void => {
-    haptics.trigger('medium');
-    setIsExpanded(!isExpanded);
+  const formatTime = (seconds: number | null | undefined): string => {
+    if (!Number.isFinite(seconds)) {
+      return '0:00';
+    }
+    const safeSeconds = Math.max(0, seconds ?? 0);
+    const mins = Math.floor(safeSeconds / 60);
+    const secs = Math.floor(safeSeconds % 60)
+      .toString()
+      .padStart(2, '0');
+    return `${mins}:${secs}`;
   };
 
   const clampSeekPosition = useCallback(
@@ -375,140 +248,190 @@ export function PodcastPlayer({
       if (!Number.isFinite(value)) {
         return 0;
       }
-      const max = sliderMaximum > 0 ? sliderMaximum : 0;
+      const max = duration > 0 ? duration : 0;
       return Math.min(Math.max(value, 0), max);
     },
-    [sliderMaximum]
+    [duration]
   );
 
-  const handleSeekStart = useCallback(
-    (value: number): void => {
-      setIsSeekingPosition(true);
-      setPendingSeekPosition(clampSeekPosition(value));
-      haptics.trigger('light');
-    },
-    [clampSeekPosition, haptics]
-  );
+  const handleSeekStart = (value: number): void => {
+    setIsSeekingPosition(true);
+    setPendingSeekPosition(clampSeekPosition(value));
+    haptics.trigger('light');
+  };
 
-  const handleSeekChange = useCallback(
-    (value: number): void => {
-      setPendingSeekPosition(clampSeekPosition(value));
-    },
-    [clampSeekPosition]
-  );
+  const handleSeekChange = (value: number): void => {
+    setPendingSeekPosition(clampSeekPosition(value));
+  };
 
-  const handleSeekComplete = useCallback(
-    (value: number): void => {
-      const nextValue = clampSeekPosition(value);
-      setPendingSeekPosition(nextValue);
-      setIsSeekingPosition(false);
-      haptics.trigger('medium');
-      seekTo(nextValue).catch(() => {});
-    },
-    [clampSeekPosition, haptics, seekTo]
-  );
+  const handleSeekComplete = (value: number): void => {
+    const nextValue = clampSeekPosition(value);
+    setPendingSeekPosition(nextValue);
+    setIsSeekingPosition(false);
+    haptics.trigger('medium');
+    seekTo(nextValue).catch(() => {});
+  };
 
+  // Sync pending seek position with actual position when not seeking
   useEffect(() => {
     if (!isSeekingPosition && Number.isFinite(position)) {
       setPendingSeekPosition(clampSeekPosition(position));
     }
-  }, [clampSeekPosition, isSeekingPosition, position]);
+  }, [isSeekingPosition, position, duration, clampSeekPosition]);
 
-  if (!isCurrentTrack) {
+  const displayTitle = useMemo(() => {
+    if (!currentTrack?.lessonId) {
+      return 'Intro Podcast';
+    }
+    return currentTrack.title || 'Lesson Podcast';
+  }, [currentTrack]);
+
+  const trackIndicatorText = useMemo(() => {
+    if (!playlist || !currentTrack) {
+      return null;
+    }
+    if (!currentTrack.lessonId) {
+      return 'Intro';
+    }
+
+    const lessonTracks = playlist.tracks.filter(
+      trackItem => trackItem.lessonId
+    );
+    const lessonIndex =
+      typeof currentTrack.lessonIndex === 'number'
+        ? currentTrack.lessonIndex
+        : lessonTracks.findIndex(
+            trackItem => trackItem.lessonId === currentTrack.lessonId
+          );
+
+    if (lessonIndex >= 0 && lessonTracks.length > 0) {
+      return `Lesson ${lessonIndex + 1} of ${lessonTracks.length}`;
+    }
+
+    return currentTrack.title;
+  }, [playlist, currentTrack]);
+
+  // Don't render anything if in idle state or no track
+  if (playbackUIState === 'idle' || !currentTrack) {
     return <View />;
   }
 
   return (
-    <View style={styles.container}>
-      {/* Collapsed Player Bar */}
-      <View style={styles.collapsedBar}>
-        <Pressable
-          onPress={handleToggleExpand}
-          style={styles.expandButton}
-          accessibilityLabel={isExpanded ? 'Collapse player' : 'Expand player'}
-          accessibilityRole="button"
-          testID="podcast-expand-toggle"
-        >
-          <Text variant="h2" style={styles.expandIcon}>
-            {'⌃'}
-          </Text>
-        </Pressable>
+    <>
+      {/* Mini Player Bar */}
+      <Pressable
+        onPress={handleExpand}
+        style={[
+          styles.container,
+          { paddingBottom: Math.max(16, insets.bottom) },
+        ]}
+      >
+        <View style={styles.innerContainer}>
+          {/* Artwork thumbnail */}
+          <View style={styles.artworkContainer}>
+            <ArtworkImage
+              title={displayTitle}
+              imageUrl={currentTrack.artworkUrl || undefined}
+              variant="thumbnail"
+              style={styles.artwork}
+            />
+          </View>
 
-        <Pressable
-          onPress={handleSkipBackward}
-          style={styles.skipButton}
-          accessibilityLabel="Rewind 30 seconds"
-          accessibilityRole="button"
-          testID="podcast-rewind-30"
-        >
-          <View style={styles.skipIconContainer}>
-            <RotateCcw size={42} color={theme.colors.primary} strokeWidth={2} />
-            <Text variant="caption" style={styles.skipSecondsInside}>
-              30
+          {/* Title and info */}
+          <View style={styles.infoContainer}>
+            <Text variant="body" numberOfLines={1} style={styles.title}>
+              {displayTitle}
+            </Text>
+            <Text
+              variant="caption"
+              color={theme.colors.textSecondary}
+              numberOfLines={1}
+            >
+              {playbackState.isPlaying ? 'Playing' : 'Paused'}
             </Text>
           </View>
-        </Pressable>
 
-        <Pressable
-          onPress={handleTogglePlay}
-          style={styles.playButton}
-          accessibilityLabel={isPlaying ? 'Pause' : 'Play'}
-          accessibilityRole="button"
-          testID="podcast-play-toggle"
-        >
-          <View
-            style={[
-              styles.playCircle,
-              { backgroundColor: theme.colors.primary },
-            ]}
-          >
-            <Text variant="h2" style={styles.playIcon}>
-              {isPlaying ? '❚❚' : '▶'}
-            </Text>
+          {/* Control buttons */}
+          <View style={styles.controlsContainer}>
+            <Pressable
+              onPress={e => {
+                e.stopPropagation();
+                handleSkipBackward();
+              }}
+              style={styles.controlButton}
+              accessibilityLabel="Rewind 30 seconds"
+              accessibilityRole="button"
+              testID="mini-player-rewind"
+            >
+              <RotateCcw
+                size={18}
+                color={theme.colors.primary}
+                strokeWidth={2}
+              />
+            </Pressable>
+
+            <Pressable
+              onPress={e => {
+                e.stopPropagation();
+                handleTogglePlay();
+              }}
+              style={[
+                styles.playButton,
+                { backgroundColor: theme.colors.primary },
+              ]}
+              accessibilityLabel={isPlaying ? 'Pause' : 'Play'}
+              accessibilityRole="button"
+              disabled={isLoading}
+              testID="mini-player-play-toggle"
+            >
+              {isLoading ? (
+                <ActivityIndicator color="white" size="small" />
+              ) : (
+                <Text style={styles.playIcon}>{isPlaying ? '❚❚' : '▶'}</Text>
+              )}
+            </Pressable>
+
+            <Pressable
+              onPress={e => {
+                e.stopPropagation();
+                handleSkipForward();
+              }}
+              style={styles.controlButton}
+              accessibilityLabel="Forward 30 seconds"
+              accessibilityRole="button"
+              testID="mini-player-forward"
+            >
+              <RotateCw
+                size={18}
+                color={theme.colors.primary}
+                strokeWidth={2}
+              />
+            </Pressable>
           </View>
-        </Pressable>
-
-        <Pressable
-          onPress={handleSkipForward}
-          style={styles.skipButton}
-          accessibilityLabel="Forward 30 seconds"
-          accessibilityRole="button"
-          testID="podcast-forward-30"
-        >
-          <View style={styles.skipIconContainer}>
-            <RotateCw size={42} color={theme.colors.primary} strokeWidth={2} />
-            <Text variant="caption" style={styles.skipSecondsInside}>
-              30
-            </Text>
-          </View>
-        </Pressable>
-
-        <View style={styles.artworkContainer}>
-          <ArtworkImage
-            title={track.title}
-            imageUrl={artworkUrl}
-            variant="thumbnail"
-            style={styles.artwork}
-          />
         </View>
-      </View>
+      </Pressable>
 
-      {/* Expanded Player Content - Full Screen Modal */}
+      {/* Expanded Player Modal */}
       <Modal
         animationType={reducedMotion.enabled ? 'none' : 'slide'}
         visible={isExpanded}
         presentationStyle="pageSheet"
-        onRequestClose={handleToggleExpand}
-        testID="podcast-expanded-modal"
+        onRequestClose={handleCollapse}
+        testID="mini-player-expanded-modal"
       >
-        <SafeAreaView style={styles.modalContainer}>
+        <SafeAreaView
+          style={[
+            styles.modalContainer,
+            { backgroundColor: theme.colors.background },
+          ]}
+        >
           <View style={styles.modalHeader}>
             <Pressable
-              onPress={handleToggleExpand}
+              onPress={handleCollapse}
               style={styles.modalCloseButton}
               accessibilityLabel="Close player"
               accessibilityRole="button"
-              testID="podcast-modal-close"
+              testID="mini-player-modal-close"
             >
               <Text variant="h2" style={styles.modalCloseIcon}>
                 ⌄
@@ -516,12 +439,21 @@ export function PodcastPlayer({
             </Pressable>
             <View style={styles.modalHeaderContent}>
               {trackIndicatorText ? (
-                <Text variant="caption" style={styles.modalTrackIndicator}>
+                <Text
+                  variant="caption"
+                  style={[
+                    styles.modalTrackIndicator,
+                    { color: theme.colors.textSecondary },
+                  ]}
+                >
                   {trackIndicatorText}
                 </Text>
               ) : null}
-              <Text variant="h2" style={styles.modalTitle}>
-                {currentTrack?.title || track.title}
+              <Text
+                variant="h2"
+                style={[styles.modalTitle, { color: theme.colors.text }]}
+              >
+                {currentTrack?.title || 'Podcast'}
               </Text>
             </View>
           </View>
@@ -541,48 +473,29 @@ export function PodcastPlayer({
                   color={theme.colors.text}
                   style={styles.timeRemaining}
                 >
-                  {formatTime(
-                    (currentTrack
-                      ? currentTrack.durationSeconds
-                      : sliderMaximum) - displayedPosition
-                  )}{' '}
-                  left ({globalSpeed}×)
+                  {formatTime(duration - displayedPosition)} left ({globalSpeed}
+                  ×)
                 </Text>
                 <Text variant="caption" color={theme.colors.textSecondary}>
-                  -
-                  {formatTime(
-                    currentTrack ? currentTrack.durationSeconds : sliderMaximum
-                  )}
+                  -{formatTime(duration)}
                 </Text>
               </View>
 
               <Slider
                 value={displayedPosition}
                 minimumValue={0}
-                maximumValue={
-                  currentTrack
-                    ? currentTrack.durationSeconds > 0
-                      ? currentTrack.durationSeconds
-                      : 0
-                    : sliderMaximum > 0
-                      ? sliderMaximum
-                      : 0
-                }
+                maximumValue={duration > 0 ? duration : 0}
                 step={0.1}
                 onSlidingStart={handleSeekStart}
                 onValueChange={handleSeekChange}
                 onSlidingComplete={handleSeekComplete}
-                disabled={
-                  (currentTrack
-                    ? currentTrack.durationSeconds
-                    : sliderMaximum) <= 0
-                }
+                disabled={duration <= 0}
                 containerStyle={styles.sliderContainer}
                 showValueLabels={false}
-                testID="podcast-player-slider"
+                testID="mini-player-slider"
               />
 
-              {/* Compact control layout inspired by image */}
+              {/* Compact control layout */}
               <View style={styles.compactControls}>
                 <Pressable
                   onPress={handlePreviousTrack}
@@ -593,9 +506,19 @@ export function PodcastPlayer({
                   accessibilityLabel="Previous lesson"
                   accessibilityRole="button"
                   disabled={isPreviousDisabled}
-                  testID="podcast-prev-track-expanded"
+                  testID="mini-player-prev-track-expanded"
                 >
-                  <Text variant="h2" style={styles.compactControlIcon}>
+                  <Text
+                    variant="h2"
+                    style={[
+                      styles.compactControlIcon,
+                      {
+                        color: isPreviousDisabled
+                          ? theme.colors.textSecondary
+                          : theme.colors.text,
+                      },
+                    ]}
+                  >
                     ⏮
                   </Text>
                 </Pressable>
@@ -605,7 +528,7 @@ export function PodcastPlayer({
                   style={styles.compactControlButton}
                   accessibilityLabel="Rewind 30 seconds"
                   accessibilityRole="button"
-                  testID="podcast-rewind-30-expanded"
+                  testID="mini-player-rewind-30-expanded"
                 >
                   <View style={styles.skipIconContainer}>
                     <RotateCcw
@@ -627,7 +550,7 @@ export function PodcastPlayer({
                   style={styles.compactPlayButton}
                   accessibilityLabel={isPlaying ? 'Pause' : 'Play'}
                   accessibilityRole="button"
-                  testID="podcast-play-toggle-expanded"
+                  testID="mini-player-play-toggle-expanded"
                 >
                   <View
                     style={[
@@ -646,7 +569,7 @@ export function PodcastPlayer({
                   style={styles.compactControlButton}
                   accessibilityLabel="Forward 30 seconds"
                   accessibilityRole="button"
-                  testID="podcast-forward-30-expanded"
+                  testID="mini-player-forward-30-expanded"
                 >
                   <View style={styles.skipIconContainer}>
                     <RotateCw
@@ -672,85 +595,73 @@ export function PodcastPlayer({
                   accessibilityLabel="Next lesson"
                   accessibilityRole="button"
                   disabled={isNextDisabled}
-                  testID="podcast-next-track-expanded"
+                  testID="mini-player-next-track-expanded"
                 >
-                  <Text variant="h2" style={styles.compactControlIcon}>
+                  <Text
+                    variant="h2"
+                    style={[
+                      styles.compactControlIcon,
+                      {
+                        color: isNextDisabled
+                          ? theme.colors.textSecondary
+                          : theme.colors.text,
+                      },
+                    ]}
+                  >
                     ⏭
                   </Text>
                 </Pressable>
               </View>
 
-              {/* Compact Speed and Autoplay Controls */}
-              <View style={styles.controlsRow}>
-                {/* Speed Control */}
-                <View style={styles.controlGroup}>
-                  <Text
-                    variant="caption"
-                    color={theme.colors.textSecondary}
-                    style={styles.controlLabel}
-                  >
-                    Speed
-                  </Text>
-                  <View style={styles.speedControls}>
-                    <Pressable
-                      onPress={handleDecreaseSpeed}
-                      style={[
-                        styles.speedButton,
-                        globalSpeed <= 0.5 && styles.speedButtonDisabled,
-                      ]}
-                      accessibilityLabel="Decrease speed"
-                      accessibilityRole="button"
-                      disabled={globalSpeed <= 0.5}
-                      testID="podcast-decrease-speed"
-                    >
-                      <Text style={styles.speedButtonText}>−</Text>
-                    </Pressable>
-                    <View style={styles.speedDisplay}>
-                      <Text style={styles.speedDisplayText}>
-                        {globalSpeed}×
-                      </Text>
-                    </View>
-                    <Pressable
-                      onPress={handleIncreaseSpeed}
-                      style={[
-                        styles.speedButton,
-                        globalSpeed >= 3.0 && styles.speedButtonDisabled,
-                      ]}
-                      accessibilityLabel="Increase speed"
-                      accessibilityRole="button"
-                      disabled={globalSpeed >= 3.0}
-                      testID="podcast-increase-speed"
-                    >
-                      <Text style={styles.speedButtonText}>+</Text>
-                    </Pressable>
-                  </View>
-                </View>
-
-                {/* Autoplay Control */}
-                <View
-                  style={[styles.controlGroup, styles.autoplayControlGroup]}
+              {/* Playback speed controls */}
+              <View style={styles.speedContainer}>
+                <Text
+                  variant="body"
+                  color={theme.colors.text}
+                  style={styles.speedLabel}
                 >
-                  <Text
-                    variant="caption"
-                    color={theme.colors.textSecondary}
-                    style={styles.controlLabel}
+                  Playback Speed
+                </Text>
+                <View style={styles.speedButtons}>
+                  <Pressable
+                    onPress={handleDecreaseSpeed}
+                    style={styles.speedButton}
+                    accessibilityLabel="Decrease speed"
+                    accessibilityRole="button"
                   >
-                    Autoplay
+                    <Text variant="body" color={theme.colors.primary}>
+                      -
+                    </Text>
+                  </Pressable>
+                  <Text
+                    variant="body"
+                    color={theme.colors.text}
+                    style={styles.speedValue}
+                  >
+                    {globalSpeed.toFixed(2)}×
                   </Text>
-                  <View style={styles.autoplayControl}>
-                    <Switch
-                      value={autoplayEnabled}
-                      onValueChange={handleToggleAutoplay}
-                      trackColor={{
-                        false: theme.colors.border,
-                        true: theme.colors.primary,
-                      }}
-                      thumbColor={theme.colors.surface}
-                      ios_backgroundColor={theme.colors.border}
-                      testID="podcast-autoplay-switch"
-                    />
-                  </View>
+                  <Pressable
+                    onPress={handleIncreaseSpeed}
+                    style={styles.speedButton}
+                    accessibilityLabel="Increase speed"
+                    accessibilityRole="button"
+                  >
+                    <Text variant="body" color={theme.colors.primary}>
+                      +
+                    </Text>
+                  </Pressable>
                 </View>
+              </View>
+
+              {/* Autoplay toggle */}
+              <View style={styles.autoplayContainer}>
+                <Text variant="body" color={theme.colors.text}>
+                  Autoplay next lesson
+                </Text>
+                <Switch
+                  value={autoplayEnabled}
+                  onValueChange={handleToggleAutoplay}
+                />
               </View>
 
               {/* Transcript */}
@@ -762,13 +673,13 @@ export function PodcastPlayer({
                 >
                   Transcript
                 </Text>
-                {currentTrack?.transcript || track.transcript ? (
+                {currentTrack?.transcript ? (
                   <Text
                     variant="body"
                     color={theme.colors.text}
                     style={styles.transcriptText}
                   >
-                    {currentTrack?.transcript || track.transcript}
+                    {currentTrack.transcript}
                   </Text>
                 ) : (
                   <Text
@@ -784,7 +695,7 @@ export function PodcastPlayer({
           </ScrollView>
         </SafeAreaView>
       </Modal>
-    </View>
+    </>
   );
 }
 
@@ -792,309 +703,215 @@ const createStyles = (theme: any) =>
   StyleSheet.create({
     container: {
       position: 'absolute',
+      bottom: 0,
       left: 0,
       right: 0,
-      bottom: 0,
       backgroundColor: theme.colors.surface,
       borderTopWidth: 1,
       borderTopColor: theme.colors.border,
-      shadowColor: theme.colors.text,
-      shadowOpacity: 0.1,
-      shadowRadius: 8,
-      shadowOffset: { width: 0, height: -2 },
-      elevation: 16,
+      paddingHorizontal: 20,
       paddingBottom: 16,
-      paddingHorizontal: 8,
+      paddingTop: 12,
     },
-    collapsedBar: {
+    innerContainer: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: theme.spacing?.lg || 20,
-      paddingVertical: theme.spacing?.sm || 12,
-      height: 72,
-      gap: 20,
-    },
-    expandButton: {
-      width: 40,
-      height: 40,
-      alignItems: 'center',
-      justifyContent: 'center',
-      position: 'absolute',
-      left: theme.spacing?.md || 16,
-    },
-    expandIcon: {
-      paddingTop: 8,
-      fontSize: 32,
-      color: theme.colors.text,
-    },
-    skipButton: {
-      width: 48,
-      height: 48,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    skipIconContainer: {
-      width: 48,
-      height: 48,
-      alignItems: 'center',
-      justifyContent: 'center',
-      position: 'relative',
-    },
-    skipSecondsInside: {
-      position: 'absolute',
-      fontSize: 12,
-      fontWeight: '700',
-      color: theme.colors.primary,
-      top: '50%',
-      left: '50%',
-      transform: [{ translateX: -8 }, { translateY: -7 }],
-    },
-    playButton: {
-      width: 56,
-      height: 56,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    playCircle: {
-      width: 56,
-      height: 56,
-      borderRadius: 28,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    playIcon: {
-      fontSize: 18,
-      color: theme.colors.surface,
-      fontWeight: 'bold',
+      height: 60,
     },
     artworkContainer: {
-      width: 48,
-      height: 48,
-      borderRadius: 4,
-      overflow: 'hidden',
-      position: 'absolute',
-      right: theme.spacing?.md || 16,
+      marginRight: 12,
     },
     artwork: {
       width: 48,
       height: 48,
       borderRadius: 4,
     },
-    modalContainer: {
+    infoContainer: {
       flex: 1,
-      backgroundColor: theme.colors.background,
+      marginRight: 12,
     },
-    modalHeader: {
+    title: {
+      marginBottom: 2,
+    },
+    controlsContainer: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: theme.spacing?.md || 16,
-      paddingVertical: theme.spacing?.sm || 12,
+      gap: 8,
+    },
+    controlButton: {
+      width: 32,
+      height: 32,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    playButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    playIcon: {
+      fontSize: 16,
+      color: 'white',
+      fontWeight: 'bold',
+    },
+    // Expanded modal styles
+    modalContainer: {
+      flex: 1,
+    },
+    modalHeader: {
+      paddingHorizontal: 16,
+      paddingTop: 8,
+      paddingBottom: 16,
       borderBottomWidth: 1,
       borderBottomColor: theme.colors.border,
     },
     modalCloseButton: {
-      width: 44,
-      height: 44,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginRight: theme.spacing?.sm || 8,
+      alignSelf: 'flex-start',
+      padding: 8,
+      marginLeft: -8,
     },
     modalCloseIcon: {
-      paddingBottom: 8,
       fontSize: 32,
       color: theme.colors.text,
     },
     modalHeaderContent: {
-      flex: 1,
+      marginTop: 8,
     },
     modalTrackIndicator: {
-      color: theme.colors.textSecondary,
-      marginBottom: 2,
-      textTransform: 'uppercase',
       fontSize: 12,
-      fontWeight: '600',
+      textTransform: 'uppercase',
+      letterSpacing: 1,
+      marginBottom: 4,
     },
     modalTitle: {
-      color: theme.colors.text,
+      fontSize: 24,
       fontWeight: '600',
-      fontSize: 18,
     },
     expandedContent: {
       flex: 1,
     },
     expandedInner: {
-      padding: theme.spacing?.lg || 20,
-    },
-    expandedTitle: {
-      marginBottom: theme.spacing?.md || 16,
-      fontWeight: '600',
-      textAlign: 'center',
-      fontSize: 24,
-    },
-    title: {
-      marginBottom: theme.spacing?.md || 16,
-      fontWeight: '600',
-    },
-    trackIndicatorExpanded: {
-      marginBottom: theme.spacing?.sm || 8,
-      color: theme.colors.textSecondary,
-      textTransform: 'uppercase',
-      fontWeight: '600',
+      padding: 16,
+      gap: 24,
     },
     timeRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: theme.spacing?.xs || 8,
     },
     timeRemaining: {
-      fontWeight: '600',
+      textAlign: 'center',
     },
     sliderContainer: {
-      marginBottom: theme.spacing?.xl || 32,
+      marginVertical: 8,
     },
     compactControls: {
       flexDirection: 'row',
-      justifyContent: 'center',
       alignItems: 'center',
-      marginBottom: theme.spacing?.xl || 32,
-      gap: 8,
+      justifyContent: 'center',
+      gap: 16,
+      paddingVertical: 16,
     },
     compactControlButton: {
-      width: 56,
-      height: 56,
-      alignItems: 'center',
+      width: 48,
+      height: 48,
       justifyContent: 'center',
+      alignItems: 'center',
     },
     compactControlButtonDisabled: {
       opacity: 0.3,
     },
     compactControlIcon: {
-      fontSize: 28,
-      color: theme.colors.text,
+      fontSize: 32,
     },
-    compactPlayButton: {
-      width: 80,
-      height: 80,
-      alignItems: 'center',
+    skipIconContainer: {
+      position: 'relative',
+      width: 44,
+      height: 44,
       justifyContent: 'center',
-      marginHorizontal: 8,
-    },
-    compactPlayCircle: {
-      width: 80,
-      height: 80,
-      borderRadius: 40,
       alignItems: 'center',
-      justifyContent: 'center',
-    },
-    compactPlayIcon: {
-      fontSize: 26,
-      color: theme.colors.surface,
-      fontWeight: 'bold',
     },
     skipSecondsInsideExpanded: {
       position: 'absolute',
-      fontSize: 13,
-      fontWeight: '700',
-      color: theme.colors.text,
-      top: '50%',
-      left: '50%',
-      transform: [{ translateX: -9 }, { translateY: -8 }],
-    },
-    secondaryControls: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginBottom: theme.spacing?.md || 16,
-    },
-    secondaryControlButton: {
-      flex: 1,
-      marginHorizontal: 8,
-      paddingVertical: 12,
-      borderRadius: 24,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-      backgroundColor: theme.colors.surface,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    secondaryControlText: {
-      fontWeight: '600',
-      color: theme.colors.text,
-    },
-    controlsRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'flex-start',
-      marginBottom: theme.spacing?.xl || 32,
-      gap: 24,
-    },
-    controlGroup: {
-      flex: 0,
-    },
-    autoplayControlGroup: {
-      marginLeft: 'auto',
-    },
-    controlLabel: {
-      marginBottom: theme.spacing?.sm || 8,
-      textTransform: 'uppercase',
-      fontWeight: '600',
       fontSize: 12,
+      fontWeight: '600',
+      color: theme.colors.text,
     },
-    speedControls: {
+    compactPlayButton: {
+      width: 72,
+      height: 72,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    compactPlayCircle: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    compactPlayIcon: {
+      fontSize: 28,
+      color: 'white',
+      fontWeight: 'bold',
+    },
+    speedContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 12,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.border,
+    },
+    speedLabel: {
+      fontSize: 16,
+    },
+    speedButtons: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12,
+      gap: 16,
     },
     speedButton: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      borderWidth: 2,
-      borderColor: theme.colors.primary,
-      backgroundColor: theme.colors.surface,
-      alignItems: 'center',
+      width: 36,
+      height: 36,
       justifyContent: 'center',
-    },
-    speedButtonDisabled: {
-      opacity: 0.3,
+      alignItems: 'center',
+      borderWidth: 1,
       borderColor: theme.colors.border,
+      borderRadius: 18,
     },
-    speedButtonText: {
-      fontSize: 24,
-      fontWeight: '600',
-      color: theme.colors.primary,
+    speedValue: {
+      fontSize: 16,
+      minWidth: 60,
+      textAlign: 'center',
     },
-    speedDisplay: {
-      minWidth: 50,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: 8,
-    },
-    speedDisplayText: {
-      fontSize: 20,
-      fontWeight: '700',
-      color: theme.colors.text,
-    },
-    autoplayControl: {
+    autoplayContainer: {
       flexDirection: 'row',
-      alignItems: 'flex-start',
-      justifyContent: 'flex-start',
-      height: 44,
-    },
-    sectionLabel: {
-      marginBottom: theme.spacing?.md || 12,
-      textTransform: 'uppercase',
-      fontWeight: '600',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 12,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.border,
     },
     transcriptSection: {
-      marginBottom: theme.spacing?.lg || 20,
+      paddingTop: 16,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.border,
+    },
+    sectionLabel: {
+      fontSize: 12,
+      textTransform: 'uppercase',
+      letterSpacing: 1,
+      marginBottom: 8,
     },
     transcriptText: {
-      lineHeight: 22,
+      fontSize: 15,
+      lineHeight: 24,
     },
     transcriptUnavailable: {
-      lineHeight: 22,
+      fontSize: 15,
       fontStyle: 'italic',
     },
   });

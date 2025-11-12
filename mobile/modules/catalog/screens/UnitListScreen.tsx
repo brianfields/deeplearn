@@ -501,7 +501,7 @@ export function LessonListScreen() {
         contentContainerStyle={[
           styles.listContainer,
           !hasResults && styles.listContainerEmpty,
-          { paddingBottom: 120 }, // Add space for MiniPlayer
+          styles.listContainerPadding,
         ]}
         refreshing={isLoading}
         onRefresh={handleRefresh}
@@ -590,6 +590,9 @@ const styles = StyleSheet.create({
   listContainerEmpty: {
     flex: 1,
     justifyContent: 'center',
+  },
+  listContainerPadding: {
+    paddingBottom: 120, // Add space for PodcastPlayer
   },
   listItemContainer: {
     marginBottom: 0,

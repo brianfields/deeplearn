@@ -58,6 +58,19 @@ export const ArtworkImage: React.FC<ArtworkImageProps> = ({
   const normalizedUrl = typeof imageUrl === 'string' ? imageUrl.trim() : '';
   const shouldShowImage = normalizedUrl.length > 0 && !loadError;
 
+  // Debug logging for artwork loading
+  React.useEffect(() => {
+    if (normalizedUrl) {
+      console.log('[ArtworkImage] 🖼️  Loading artwork:', {
+        title,
+        url: normalizedUrl,
+        urlLength: normalizedUrl.length,
+        variant,
+        hasError: loadError,
+      });
+    }
+  }, [normalizedUrl, title, variant, loadError]);
+
   const initials = useMemo(() => computeInitials(title), [title]);
   const preset = VARIANT_PRESETS[variant] ?? VARIANT_PRESETS.thumbnail;
   const shadowStyle =
@@ -84,7 +97,14 @@ export const ArtworkImage: React.FC<ArtworkImageProps> = ({
           accessibilityLabel={description || `${title} artwork`}
           source={{ uri: normalizedUrl }}
           resizeMode="cover"
-          onError={() => setLoadError(true)}
+          onError={e => {
+            console.warn('[ArtworkImage] ❌ Failed to load artwork:', {
+              title,
+              url: normalizedUrl,
+              error: e.nativeEvent.error,
+            });
+            setLoadError(true);
+          }}
           style={[
             StyleSheet.absoluteFill,
             { borderRadius: preset.borderRadius },

@@ -299,6 +299,8 @@ export class PodcastPlayerService {
       title: track.title,
       audioUrl: track.audioUrl,
       durationSeconds: track.durationSeconds,
+      artworkUrl: track.artworkUrl,
+      hasArtwork: Boolean(track.artworkUrl),
     });
 
     await this.initialize();

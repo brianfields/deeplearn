@@ -77,6 +77,11 @@ export interface ApiUnitDetail {
   podcast_duration_seconds?: number | null;
   podcast_transcript?: string | null;
   podcast_audio_url?: string | null;
+  intro_podcast_audio_url?: string | null;
+  intro_podcast_transcript?: string | null;
+  intro_podcast_voice?: string | null;
+  intro_podcast_duration_seconds?: number | null;
+  intro_podcast_generated_at?: string | null;
   art_image_url?: string | null;
   art_image_description?: string | null;
 }
@@ -189,6 +194,11 @@ export interface UnitDetail {
   readonly podcastDurationSeconds: number | null;
   readonly podcastTranscript: string | null;
   readonly podcastAudioUrl: string | null;
+  readonly introPodcastAudioUrl: string | null;
+  readonly introPodcastTranscript: string | null;
+  readonly introPodcastVoice: string | null;
+  readonly introPodcastDurationSeconds: number | null;
+  readonly introPodcastGeneratedAt: string | null;
   readonly artImageUrl: string | null;
   readonly artImageDescription: string | null;
   readonly cacheMode?: CacheMode;
@@ -335,6 +345,11 @@ export function toUnitDetailDTO(
     podcastDurationSeconds: api.podcast_duration_seconds ?? null,
     podcastTranscript: api.podcast_transcript ?? null,
     podcastAudioUrl: api.podcast_audio_url ?? null,
+    introPodcastAudioUrl: api.intro_podcast_audio_url ?? null,
+    introPodcastTranscript: api.intro_podcast_transcript ?? null,
+    introPodcastVoice: api.intro_podcast_voice ?? null,
+    introPodcastDurationSeconds: api.intro_podcast_duration_seconds ?? null,
+    introPodcastGeneratedAt: api.intro_podcast_generated_at ?? null,
     artImageUrl: api.art_image_url ?? null,
     artImageDescription: api.art_image_description ?? null,
     resources,

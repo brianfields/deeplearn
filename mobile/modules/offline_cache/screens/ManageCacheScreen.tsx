@@ -111,9 +111,11 @@ export function ManageCacheScreen(): React.ReactElement {
         console.warn('[ManageCache] Failed to get AsyncStorage info:', error);
       }
 
-      // Get file system info
+      // Get file system info - enumerate actual files on disk
       let totalFileSize = 0;
       let fileCount = 0;
+      let dbTrackedFiles = 0;
+      let orphanedFiles = 0;
       const cacheDir = (FileSystem.documentDirectory ?? 'file://documents')
         .replace(/\/$/, '')
         .concat('/offline-cache');
@@ -121,9 +123,71 @@ export function ManageCacheScreen(): React.ReactElement {
       try {
         const dirInfo = await FileSystem.getInfoAsync(cacheDir);
         if (dirInfo.exists) {
-          // Note: expo-file-system doesn't provide readDirectoryAsync
-          // We can only track the cache directory existence
           console.log('[ManageCache] Cache directory exists:', cacheDir);
+
+          // Get list of files tracked by the database
+          const offlineCache = offlineCacheProvider();
+          const units = await offlineCache.listDownloadedUnits();
+          const trackedPaths = new Set<string>();
+
+          for (const unit of units) {
+            const unitDetail = await offlineCache.getUnitDetail(unit.id);
+            if (unitDetail?.assets) {
+              for (const asset of unitDetail.assets) {
+                if (asset.localPath && asset.status === 'completed') {
+                  trackedPaths.add(asset.localPath);
+                  dbTrackedFiles++;
+                }
+              }
+            }
+          }
+
+          // Now enumerate actual files on disk
+          try {
+            const files = await FileSystem.readDirectoryAsync(cacheDir);
+            console.log(`[ManageCache] Found ${files.length} files on disk`);
+
+            for (const filename of files) {
+              const filePath = `${cacheDir}/${filename}`;
+              try {
+                const fileInfo = await FileSystem.getInfoAsync(filePath);
+                if (fileInfo.exists && !fileInfo.isDirectory) {
+                  fileCount++;
+                  if ('size' in fileInfo) {
+                    totalFileSize += fileInfo.size || 0;
+                  }
+
+                  // Check if this file is tracked by the database
+                  if (!trackedPaths.has(filePath)) {
+                    orphanedFiles++;
+                    console.warn('[ManageCache] Orphaned file found:', {
+                      filename,
+                      path: filePath,
+                      size: 'size' in fileInfo ? fileInfo.size : 'unknown',
+                    });
+                  }
+                }
+              } catch (err) {
+                console.warn(
+                  '[ManageCache] Failed to stat file:',
+                  filename,
+                  err
+                );
+              }
+            }
+
+            console.log('[ManageCache] File system summary:', {
+              filesOnDisk: fileCount,
+              filesInDatabase: dbTrackedFiles,
+              orphanedFiles,
+              totalFileSize,
+              totalFileSizeMB: (totalFileSize / (1024 * 1024)).toFixed(2),
+            });
+          } catch (err) {
+            console.warn('[ManageCache] Failed to read directory:', err);
+            // Fall back to database-only count
+            fileCount = dbTrackedFiles;
+          }
         }
       } catch (error) {
         console.warn('[ManageCache] Failed to get file system info:', error);

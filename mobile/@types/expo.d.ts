@@ -60,6 +60,7 @@ declare module 'expo-file-system' {
     size?: number;
     modificationTime?: number;
     md5?: string | null;
+    isDirectory?: boolean;
   }
 
   export interface DownloadOptions {
@@ -76,6 +77,7 @@ declare module 'expo-file-system' {
   }
 
   export function getInfoAsync(uri: string): Promise<FileInfo>;
+  export function readDirectoryAsync(uri: string): Promise<string[]>;
   export function makeDirectoryAsync(
     uri: string,
     options?: { intermediates?: boolean }

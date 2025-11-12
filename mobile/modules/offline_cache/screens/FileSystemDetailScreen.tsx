@@ -37,6 +37,7 @@ interface FileItem {
   name: string;
   path: string;
   size: number;
+  sizeFormatted: string;
   modificationTime?: number;
 }
 
@@ -72,10 +73,48 @@ export function FileSystemDetailScreen(): React.ReactElement {
       try {
         const dirInfo = await FileSystem.getInfoAsync(cacheDir);
         if (dirInfo.exists) {
-          // Note: expo-file-system doesn't provide readDirectoryAsync
-          // We can only check if specific files exist
-          // For now, we'll just show the cache directory info
           console.log('[FileSystemDetail] Cache directory exists:', cacheDir);
+
+          // Enumerate all files in the cache directory
+          try {
+            const filenames = await FileSystem.readDirectoryAsync(cacheDir);
+            console.log(`[FileSystemDetail] Found ${filenames.length} files`);
+
+            for (const filename of filenames) {
+              const filePath = `${cacheDir}/${filename}`;
+              try {
+                const fileInfo = await FileSystem.getInfoAsync(filePath);
+                if (fileInfo.exists && !fileInfo.isDirectory) {
+                  const size = 'size' in fileInfo ? fileInfo.size || 0 : 0;
+                  totalFileSize += size;
+
+                  fileItems.push({
+                    name: filename,
+                    path: filePath,
+                    size,
+                    sizeFormatted: formatBytes(size),
+                  });
+                }
+              } catch (err) {
+                console.warn(
+                  '[FileSystemDetail] Failed to stat file:',
+                  filename,
+                  err
+                );
+              }
+            }
+
+            // Sort by size descending
+            fileItems.sort((a, b) => b.size - a.size);
+
+            console.log('[FileSystemDetail] File system loaded:', {
+              fileCount: fileItems.length,
+              totalSize: totalFileSize,
+              totalSizeMB: (totalFileSize / (1024 * 1024)).toFixed(2),
+            });
+          } catch (err) {
+            console.error('[FileSystemDetail] Failed to read directory:', err);
+          }
         }
       } catch (error) {
         console.warn(

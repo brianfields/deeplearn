@@ -786,6 +786,31 @@ export class ContentService {
       podcastDurationSeconds: summary.podcastDurationSeconds,
       podcastTranscript: cached.unitPayload?.podcast_transcript ?? null,
       podcastAudioUrl: cached.unitPayload?.podcast_audio_url ?? null,
+      introPodcastAudioUrl:
+        (cached.unitPayload?.intro_podcast_audio_url as
+          | string
+          | null
+          | undefined) ?? null,
+      introPodcastTranscript:
+        (cached.unitPayload?.intro_podcast_transcript as
+          | string
+          | null
+          | undefined) ?? null,
+      introPodcastVoice:
+        (cached.unitPayload?.intro_podcast_voice as
+          | string
+          | null
+          | undefined) ?? null,
+      introPodcastDurationSeconds:
+        (cached.unitPayload?.intro_podcast_duration_seconds as
+          | number
+          | null
+          | undefined) ?? null,
+      introPodcastGeneratedAt:
+        (cached.unitPayload?.intro_podcast_generated_at as
+          | string
+          | null
+          | undefined) ?? null,
       artImageUrl: summary.artImageUrl,
       artImageDescription: summary.artImageDescription,
       cacheMode: cached.cacheMode,

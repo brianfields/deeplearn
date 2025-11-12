@@ -250,7 +250,7 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
               unitId: detail.id,
               title: 'Intro Podcast',
               audioUrl: introPodcastUrl,
-              durationSeconds: detail.podcastDurationSeconds ?? 0,
+              durationSeconds: detail.introPodcastDurationSeconds ?? 0,
               transcript: detail.podcastTranscript ?? null,
               lessonId: null,
               lessonIndex: null,

@@ -39,6 +39,37 @@ module.exports = {
     return { exists: false };
   },
 
+  async readDirectoryAsync(uri) {
+    const normalized = normalizeUri(uri);
+    const result = [];
+
+    // Add files in this directory
+    for (const filePath of files.keys()) {
+      const fileNormalized = normalizeUri(filePath);
+      const fileParent = ensureParentDirectory(fileNormalized);
+      if (fileParent === normalized) {
+        const filename = fileNormalized.substring(
+          fileNormalized.lastIndexOf('/') + 1
+        );
+        result.push(filename);
+      }
+    }
+
+    // Add subdirectories in this directory
+    for (const dirPath of directories) {
+      const dirNormalized = normalizeUri(dirPath);
+      const dirParent = ensureParentDirectory(dirNormalized);
+      if (dirParent === normalized) {
+        const dirname = dirNormalized.substring(
+          dirNormalized.lastIndexOf('/') + 1
+        );
+        result.push(dirname);
+      }
+    }
+
+    return result;
+  },
+
   async makeDirectoryAsync(uri, options = {}) {
     const normalized = normalizeUri(uri);
     if (!directories.has(normalized)) {

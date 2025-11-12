@@ -37,7 +37,7 @@ import type { RootStackParamList, LearningStackParamList } from './types';
 import { uiSystemProvider } from './modules/ui_system/public';
 import { reducedMotion } from './modules/ui_system/utils/motion';
 import { AuthProvider, useAuth } from './modules/user/public';
-import { useTrackPlayer, MiniPlayer } from './modules/podcast_player/public';
+import { useTrackPlayer, PodcastPlayer } from './modules/podcast_player/public';
 import { getScreenOptions } from './utils/navigationOptions';
 import { getDevScreenOptions } from './utils/devToolsNavigation';
 
@@ -264,7 +264,7 @@ export default function App(): React.ReactElement {
                 />
                 <RootNavigator />
               </NavigationContainer>
-              <MiniPlayer />
+              <PodcastPlayer />
             </View>
           </AuthProvider>
         </QueryClientProvider>

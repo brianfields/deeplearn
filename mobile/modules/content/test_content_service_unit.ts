@@ -86,6 +86,9 @@ describe('ContentService (offline cache integration)', () => {
       listUnits: jest
         .fn<OfflineCacheProvider['listUnits']>()
         .mockResolvedValue([baseUnit]),
+      listDownloadedUnits: jest
+        .fn<OfflineCacheProvider['listDownloadedUnits']>()
+        .mockResolvedValue([baseUnit]),
       getUnitDetail: jest
         .fn<OfflineCacheProvider['getUnitDetail']>()
         .mockResolvedValue(null),

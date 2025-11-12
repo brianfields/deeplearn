@@ -375,13 +375,23 @@ export function UnitDetailScreen() {
           asset => asset.type === 'image'
         );
 
-        // Resolve artwork URL
-        if (imageAsset?.localPath) {
-          console.info('[UnitDetail] Resolved artwork to local path', {
-            unitId: unit.id,
-            localPath: imageAsset.localPath,
-          });
-          setResolvedArtworkUrl(imageAsset.localPath);
+        // Resolve artwork URL - use resolveAsset to validate file exists
+        if (imageAsset) {
+          const resolvedImageAsset = await offlineCache.resolveAsset(
+            imageAsset.id
+          );
+          if (resolvedImageAsset?.localPath) {
+            console.info('[UnitDetail] Resolved artwork to local path', {
+              unitId: unit.id,
+              localPath: resolvedImageAsset.localPath,
+            });
+            setResolvedArtworkUrl(resolvedImageAsset.localPath);
+          } else if (unit.artImageUrl) {
+            const artUrl = /^https?:\/\//i.test(unit.artImageUrl)
+              ? unit.artImageUrl
+              : `${apiBase}${unit.artImageUrl.startsWith('/') ? '' : '/'}${unit.artImageUrl}`;
+            setResolvedArtworkUrl(artUrl);
+          }
         } else if (unit.artImageUrl) {
           const artUrl = /^https?:\/\//i.test(unit.artImageUrl)
             ? unit.artImageUrl
@@ -460,7 +470,7 @@ export function UnitDetailScreen() {
       unitId: unit.id,
       title: 'Intro Podcast',
       audioUrl: resolvedPodcastUrl,
-      durationSeconds: unit.podcastDurationSeconds ?? 0,
+      durationSeconds: unit.introPodcastDurationSeconds ?? 0,
       transcript: unit.podcastTranscript ?? null,
       artworkUrl: resolvedArtworkUrl ?? undefined,
     };

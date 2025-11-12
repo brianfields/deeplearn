@@ -25,6 +25,7 @@ import type {
 
 export interface OfflineCacheProvider {
   listUnits(): Promise<CachedUnit[]>;
+  listDownloadedUnits(): Promise<CachedUnit[]>;
   getUnitDetail(unitId: string): Promise<CachedUnitDetail | null>;
   cacheMinimalUnits(units: OfflineUnitPayload[]): Promise<void>;
   cacheFullUnit(
@@ -89,6 +90,10 @@ async function initializeService(): Promise<OfflineCacheService> {
 export function offlineCacheProvider(): OfflineCacheProvider {
   return {
     async listUnits() {
+      const service = await ensureService();
+      return service.listUnits();
+    },
+    async listDownloadedUnits() {
       const service = await ensureService();
       return service.listUnits();
     },
