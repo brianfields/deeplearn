@@ -23,9 +23,26 @@
   "is_global": false,
   "owner_key": "brian",
   "art_image_description": "Weimar Edge illustration of Gradient Descent Mastery highlighting Explain Gradient Updates, Compare Descent Strategies with petrol blue geometry and gilt accents.",
-  "podcast_transcript": "Welcome to Gradient Descent Mastery. This intro podcast previews the lessons and invites learners into the unit's narrative arc.",
-  "podcast_voice": "Plain",
   "lessons": [
+    {
+      "id": "intro-lesson-2a3f6162",
+      "title": "Unit Introduction: Gradient Descent Mastery",
+      "learner_level": "intermediate",
+      "is_intro": true,
+      "podcast_transcript": "Welcome to Gradient Descent Mastery. This intro podcast previews the lessons and invites learners into the unit's narrative arc.",
+      "podcast_voice": "Plain",
+      "podcast_duration_seconds": 180,
+      "objectives": [
+        {
+          "id": "grad_unit_lo_1",
+          "title": "Explain Gradient Updates",
+          "description": "Explain how gradient descent updates parameters",
+          "bloom_level": "Understand"
+        }
+      ],
+      "mcqs": [],
+      "short_answers": []
+    },
     {
       "id": "94e348bf-0a0e-4bd6-8d71-1112ced6326e",
       "title": "Gradient Descent Fundamentals",

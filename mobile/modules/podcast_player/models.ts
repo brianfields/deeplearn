@@ -24,6 +24,7 @@ export interface PodcastTrack {
   readonly transcript?: string | null;
   readonly lessonId?: string | null;
   readonly lessonIndex?: number | null;
+  readonly lessonType?: 'standard' | 'intro';
   readonly artworkUrl?: string | null;
 }
 

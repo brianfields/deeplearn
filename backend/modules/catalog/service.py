@@ -23,6 +23,7 @@ class LessonSummary(BaseModel):
     id: str
     title: str
     learner_level: str
+    lesson_type: str = "standard"  # 'standard' or 'intro'
     learning_objectives: list[str]
     key_concepts: list[str]
     exercise_count: int
@@ -46,6 +47,7 @@ class LessonDetail(BaseModel):
     created_at: str
     exercise_count: int
     unit_id: str | None = None
+    lesson_type: str = "standard"  # 'standard' or 'intro'
     podcast_transcript: str | None = None
     podcast_audio_url: str | None = None
     podcast_duration_seconds: int | None = None
@@ -132,18 +134,8 @@ class UnitDetail(BaseModel):
     # Flow type used to generate the unit
     flow_type: str = "standard"
     learning_objective_progress: list["LearningObjectiveProgress"] | None = None
-    has_podcast: bool = False
-    podcast_voice: str | None = None
-    podcast_duration_seconds: int | None = None
-    podcast_transcript: str | None = None
-    podcast_audio_url: str | None = None
     art_image_url: str | None = None
     art_image_description: str | None = None
-    intro_podcast_audio_url: str | None = None
-    intro_podcast_transcript: str | None = None
-    intro_podcast_voice: str | None = None
-    intro_podcast_duration_seconds: int | None = None
-    intro_podcast_generated_at: str | None = None
 
 
 class LearningObjectiveProgress(BaseModel):
@@ -220,6 +212,7 @@ class CatalogService:
                     id=lesson.id,
                     title=lesson.title,
                     learner_level=lesson.learner_level,
+                    lesson_type=getattr(lesson, "lesson_type", "standard"),
                     learning_objectives=objective_texts,
                     key_concepts=[],  # Key concepts are now in glossary terms
                     exercise_count=exercise_count,
@@ -309,6 +302,7 @@ class CatalogService:
             created_at=str(lesson.created_at),
             exercise_count=len(exercises),
             unit_id=lesson.unit_id,
+            lesson_type=getattr(lesson, "lesson_type", "standard"),
             podcast_transcript=getattr(lesson, "podcast_transcript", None),
             podcast_audio_url=getattr(lesson, "podcast_audio_url", None),
             podcast_duration_seconds=getattr(lesson, "podcast_duration_seconds", None),
@@ -361,6 +355,7 @@ class CatalogService:
                     id=lesson.id,
                     title=lesson.title,
                     learner_level=lesson.learner_level,
+                    lesson_type=getattr(lesson, "lesson_type", "standard"),
                     learning_objectives=objectives,
                     key_concepts=key_concepts,
                     exercise_count=exercise_count,
@@ -413,6 +408,7 @@ class CatalogService:
                     id=lesson.id,
                     title=lesson.title,
                     learner_level=lesson.learner_level,
+                    lesson_type=getattr(lesson, "lesson_type", "standard"),
                     learning_objectives=objectives,
                     key_concepts=key_concepts,
                     exercise_count=exercise_count,
@@ -520,6 +516,7 @@ class CatalogService:
                 id=lesson.id,
                 title=lesson.title,
                 learner_level=lesson.learner_level,
+                lesson_type=getattr(lesson, "lesson_type", "standard"),
                 learning_objectives=lesson.learning_objectives,
                 key_concepts=lesson.key_concepts,
                 exercise_count=lesson.exercise_count,
@@ -531,8 +528,6 @@ class CatalogService:
         ]
 
         objective_progress = await self._build_learning_objective_progress(unit_id, detail)
-
-        podcast_generated_at_value = getattr(detail, "podcast_generated_at", None)
 
         return UnitDetail(
             id=detail.id,
@@ -547,19 +542,8 @@ class CatalogService:
             generated_from_topic=detail.generated_from_topic,
             flow_type=detail.flow_type,
             learning_objective_progress=objective_progress,
-            has_podcast=bool(getattr(detail, "has_podcast", False)),
-            podcast_voice=getattr(detail, "podcast_voice", None),
-            podcast_duration_seconds=getattr(detail, "podcast_duration_seconds", None),
-            podcast_transcript=getattr(detail, "podcast_transcript", None),
-            podcast_audio_url=getattr(detail, "podcast_audio_url", None),
-            intro_podcast_audio_url=getattr(detail, "podcast_audio_url", None),
-            intro_podcast_transcript=getattr(detail, "podcast_transcript", None),
-            intro_podcast_voice=getattr(detail, "podcast_voice", None),
-            intro_podcast_duration_seconds=getattr(detail, "podcast_duration_seconds", None),
-            intro_podcast_generated_at=self._format_datetime(podcast_generated_at_value),
             art_image_url=getattr(detail, "art_image_url", None),
             art_image_description=getattr(detail, "art_image_description", None),
-            podcast_generated_at=podcast_generated_at_value,
         )
 
     async def browse_units_for_user(

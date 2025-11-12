@@ -20,6 +20,7 @@ from modules.learning_conversations.public import (
 from modules.resource.public import ResourceProvider, ResourceRead
 
 from ..podcast import LessonPodcastGenerator, UnitPodcastGenerator
+from .content_service import ContentService
 from .dtos import MobileUnitCreationResult, UnitCreationResult
 from .flow_handler import FlowHandler
 from .media_handler import MediaHandler
@@ -50,11 +51,18 @@ class ContentCreatorService:
         self._resource_factory = resource_factory
         self._resource_service: ResourceProvider | None = None
         self._prompt_handler = PromptHandler()
+
+        # Initialize content service for intro lesson creation
+        # Note: ContentService needs repo access; we construct it here with content provider
+        # ContentService will use content provider methods; repo access deferred to content service
+        self._content_service = ContentService(content, None)  # Will inject repo if needed
+
         self._media_handler = MediaHandler(
             content,
             self._prompt_handler,
             podcast_generator=podcast_generator,
             lesson_podcast_generator=lesson_podcast_generator,
+            content_service=self._content_service,
         )
         self._flow_handler = FlowHandler(content, self._prompt_handler, self._media_handler)
         self._status_handler = StatusHandler(content)

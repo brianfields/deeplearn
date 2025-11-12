@@ -333,19 +333,6 @@ export function ManageCacheScreen(): React.ReactElement {
         showsVerticalScrollIndicator={false}
       >
         <Box p="lg" pb="sm">
-          <TouchableOpacity
-            onPress={() => {
-              haptics.trigger('light');
-              navigation.navigate('LessonList');
-            }}
-            accessibilityRole="button"
-            accessibilityLabel="Go to unit list"
-            style={styles.backButton}
-          >
-            <Text variant="body" color={theme.colors.primary}>
-              {'‹ Units'}
-            </Text>
-          </TouchableOpacity>
           <Text variant="h1" style={styles.title}>
             Manage Cache
           </Text>

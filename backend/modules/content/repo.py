@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from modules.resource.models import ResourceModel
 
-from .models import LessonModel, UnitModel, UnitResourceModel, UserMyUnitModel
+from .models import LessonModel, LessonType, UnitModel, UnitResourceModel, UserMyUnitModel
 
 
 class ContentRepo:
@@ -101,10 +101,39 @@ class ContentRepo:
         result = await self.s.execute(stmt)
         return result.scalar_one_or_none() is not None
 
+    async def get_intro_lesson_for_unit(self, unit_id: str) -> LessonModel | None:
+        """Get the intro lesson (if any) for a unit by checking lesson_type='intro'."""
+        stmt = select(LessonModel).filter(and_(LessonModel.unit_id == unit_id, LessonModel.lesson_type == LessonType.INTRO))
+        result = await self.s.execute(stmt)
+        return result.scalar_one_or_none()
+
     # Unit operations (moved from modules.units.repo)
     async def get_unit_by_id(self, unit_id: str) -> UnitModel | None:
         """Get unit by ID."""
         return await self.s.get(UnitModel, unit_id)
+
+    async def get_unit_detail(self, unit_id: str) -> tuple[UnitModel, list[LessonModel]] | None:
+        """Get unit with ordered lessons (by lesson_order), including lesson_type for all lessons.
+
+        Returns:
+            Tuple of (UnitModel, list[LessonModel]) ordered by unit.lesson_order, or None if unit not found.
+        """
+        unit = await self.get_unit_by_id(unit_id)
+        if unit is None:
+            return None
+
+        # Get all lessons for this unit
+        lessons = await self.get_lessons_by_unit(unit_id, limit=1000)
+
+        # Sort lessons by lesson_order if present
+        lesson_order = list(getattr(unit, "lesson_order", []) or [])
+        if lesson_order:
+            lesson_map = {lesson.id: lesson for lesson in lessons}
+            ordered_lessons = [lesson_map[lid] for lid in lesson_order if lid in lesson_map]
+        else:
+            ordered_lessons = lessons
+
+        return unit, ordered_lessons
 
     async def list_units(self, limit: int = 100, offset: int = 0) -> list[UnitModel]:
         """List units with pagination, ordered by updated_at descending (newest first)."""

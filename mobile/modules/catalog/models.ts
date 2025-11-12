@@ -36,6 +36,7 @@ interface ApiLessonDetail {
   created_at: string;
   exercise_count: number;
   unit_id?: string | null;
+  lesson_type?: 'standard' | 'intro';
   podcast_transcript?: string | null;
   podcast_audio_url?: string | null;
   podcast_duration_seconds?: number | null;
@@ -84,6 +85,7 @@ export interface LessonDetail {
   readonly readinessStatus: string;
   readonly tags: string[];
   readonly unitId?: string | null;
+  readonly lessonType: 'standard' | 'intro';
   readonly podcastTranscript?: string | null;
   readonly podcastAudioUrl?: string | null;
   readonly podcastDurationSeconds?: number | null;
@@ -264,6 +266,16 @@ export function toLessonDetailDTO(api: ApiLessonDetail): LessonDetail {
     types: exercises.map(e => e.exercise_type),
   });
 
+  // Fail fast if lesson_type is missing
+  if (!api.lesson_type) {
+    console.error('[toLessonDetailDTO] Missing lesson_type:', {
+      lessonId: api.id,
+      title: api.title,
+      api: JSON.stringify(api, null, 2),
+    });
+    throw new Error(`Missing lesson_type for lesson ${api.id}: ${api.title}`);
+  }
+
   return {
     id: api.id,
     title: api.title,
@@ -283,6 +295,7 @@ export function toLessonDetailDTO(api: ApiLessonDetail): LessonDetail {
     ),
     tags: api.key_concepts.slice(0, 3),
     unitId: api.unit_id ?? null,
+    lessonType: api.lesson_type as 'standard' | 'intro',
     podcastTranscript: api.podcast_transcript ?? null,
     podcastAudioUrl: api.podcast_audio_url ?? null,
     podcastDurationSeconds: api.podcast_duration_seconds ?? null,

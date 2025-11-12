@@ -22,6 +22,10 @@ interface LearningFlowProps {
   onBack: () => void;
   unitId?: string | null;
   hasPlayer?: boolean;
+  isIntroLesson?: boolean;
+  nextLessonId?: string | null;
+  nextLessonTitle?: string | null;
+  onNextLesson?: (lessonId: string) => void;
 }
 
 export default function LearningFlow({
@@ -30,6 +34,10 @@ export default function LearningFlow({
   onBack,
   unitId: initialUnitId,
   hasPlayer = false,
+  isIntroLesson = false,
+  nextLessonId = null,
+  nextLessonTitle = null,
+  onNextLesson,
 }: LearningFlowProps) {
   const uiSystem = uiSystemProvider();
   const theme = uiSystem.getCurrentTheme();
@@ -68,13 +76,23 @@ export default function LearningFlow({
   );
 
   // Initialize session in store
+  /* eslint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
+    console.log('[LearningFlow] Props received:', {
+      sessionId,
+      isIntroLesson,
+      nextLessonId,
+      nextLessonTitle,
+      hasOnNextLesson: !!onNextLesson,
+      exerciseCount: exercises?.length ?? 0,
+    });
     const resolvedUnitId = session?.unitId ?? initialUnitId ?? null;
     setCurrentSession(sessionId, resolvedUnitId);
     return () => {
       // Don't reset session on unmount - user might navigate back
     };
   }, [sessionId, session?.unitId, initialUnitId, setCurrentSession]);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   // Current exercise data
   const currentExercise = useMemo(() => {
@@ -124,22 +142,20 @@ export default function LearningFlow({
   }, [session?.lessonId]);
 
   // Show podcast transcript first when session starts and no exercises completed yet
+  // (Show even if no exercises - intro lessons don't have exercises but should show transcript)
   const shouldShowTranscript = useMemo(() => {
     return (
       !!session &&
       currentExerciseIndex === 0 &&
       completedExercisesCount === 0 &&
       !transcriptShown &&
-      !!podcastTranscript &&
-      Array.isArray(exercises) &&
-      exercises.length > 0
+      !!podcastTranscript
     );
   }, [
     session,
     currentExerciseIndex,
     completedExercisesCount,
     podcastTranscript,
-    exercises,
     transcriptShown,
   ]);
 
@@ -450,11 +466,41 @@ export default function LearningFlow({
                 testID="learning-flow-play-podcast-button"
               />
               <Button
-                title="Start Exercises"
+                title={
+                  isIntroLesson
+                    ? `Begin ${nextLessonTitle || 'Lesson 1'}`
+                    : exercises && exercises.length === 0
+                      ? 'Complete Lesson'
+                      : 'Start Exercises'
+                }
                 onPress={() => {
-                  setTranscriptShown(true);
-                  setCurrentExercise(0);
-                  haptics.trigger('light');
+                  console.log('[LearningFlow] Button pressed:', {
+                    isIntroLesson,
+                    nextLessonId,
+                    nextLessonTitle,
+                    hasOnNextLesson: !!onNextLesson,
+                    exerciseCount: exercises?.length ?? 0,
+                  });
+                  if (isIntroLesson && nextLessonId && onNextLesson) {
+                    // Intro lesson - proceed to next lesson
+                    console.log(
+                      '[LearningFlow] Navigating to next lesson:',
+                      nextLessonId
+                    );
+                    onNextLesson(nextLessonId);
+                  } else if (exercises && exercises.length === 0) {
+                    // No exercises (non-intro) - complete immediately
+                    console.log(
+                      '[LearningFlow] Completing lesson (no exercises)'
+                    );
+                    handleSessionComplete();
+                  } else {
+                    // Has exercises - proceed to exercises
+                    console.log('[LearningFlow] Starting exercises');
+                    setTranscriptShown(true);
+                    setCurrentExercise(0);
+                    haptics.trigger('light');
+                  }
                 }}
                 loading={isUpdatingProgress}
                 disabled={isUpdatingProgress}

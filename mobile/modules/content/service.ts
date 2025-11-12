@@ -781,36 +781,6 @@ export class ContentService {
       ownershipLabel: summary.ownershipLabel,
       isOwnedByCurrentUser: summary.isOwnedByCurrentUser,
       learningObjectiveProgress: null,
-      hasPodcast: summary.hasPodcast,
-      podcastVoice: summary.podcastVoice,
-      podcastDurationSeconds: summary.podcastDurationSeconds,
-      podcastTranscript: cached.unitPayload?.podcast_transcript ?? null,
-      podcastAudioUrl: cached.unitPayload?.podcast_audio_url ?? null,
-      introPodcastAudioUrl:
-        (cached.unitPayload?.intro_podcast_audio_url as
-          | string
-          | null
-          | undefined) ?? null,
-      introPodcastTranscript:
-        (cached.unitPayload?.intro_podcast_transcript as
-          | string
-          | null
-          | undefined) ?? null,
-      introPodcastVoice:
-        (cached.unitPayload?.intro_podcast_voice as
-          | string
-          | null
-          | undefined) ?? null,
-      introPodcastDurationSeconds:
-        (cached.unitPayload?.intro_podcast_duration_seconds as
-          | number
-          | null
-          | undefined) ?? null,
-      introPodcastGeneratedAt:
-        (cached.unitPayload?.intro_podcast_generated_at as
-          | string
-          | null
-          | undefined) ?? null,
       artImageUrl: summary.artImageUrl,
       artImageDescription: summary.artImageDescription,
       cacheMode: cached.cacheMode,
@@ -997,6 +967,11 @@ export class ContentService {
               rawPodcastVoice
           );
 
+    const lessonType =
+      typeof payload?.lesson_type === 'string'
+        ? (payload.lesson_type as 'standard' | 'intro')
+        : 'standard';
+
     return {
       id: lesson.id,
       title: lesson.title,
@@ -1004,6 +979,7 @@ export class ContentService {
         (payload?.learner_level as string) ??
         (lesson.payload as Record<string, any> | undefined)?.learner_level ??
         'beginner',
+      lesson_type: lessonType,
       learning_objective_ids: unitLearningObjectiveIds,
       learning_objectives: learningObjectives,
       key_concepts: keyConcepts,

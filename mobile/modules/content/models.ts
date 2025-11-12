@@ -49,10 +49,23 @@ export interface ApiUnitDetail {
     id: string;
     title: string;
     learner_level: string;
-    learning_objective_ids: string[];
-    learning_objectives: string[];
-    key_concepts: string[];
-    exercise_count: number;
+    lesson_type: 'standard' | 'intro'; // Required field - no optional
+    core_concept?: string | null;
+    unit_id?: string | null;
+    source_material?: string | null;
+    source_domain?: string | null;
+    source_level?: string | null;
+    refined_material?: any;
+    package?: any;
+    package_version?: number;
+    flow_run_id?: string | null;
+    created_at?: string;
+    updated_at?: string;
+    schema_version?: number;
+    learning_objective_ids?: string[];
+    learning_objectives?: string[];
+    key_concepts?: string[];
+    exercise_count?: number;
     has_podcast?: boolean;
     podcast_voice?: string | null;
     podcast_duration_seconds?: number | null;
@@ -112,11 +125,13 @@ export interface UnitLessonSummary {
   readonly isReadyForLearning: boolean;
   readonly estimatedDuration: number;
   readonly learnerLevelLabel: string;
+  readonly lessonType: 'standard' | 'intro';
   readonly hasPodcast: boolean;
   readonly podcastVoice: string | null;
   readonly podcastDurationSeconds: number | null;
   readonly podcastGeneratedAt: string | null;
   readonly podcastAudioUrl: string | null;
+  readonly podcastTranscript?: string | null;
 }
 
 export interface Lesson {
@@ -126,6 +141,7 @@ export interface Lesson {
   readonly learningObjectives: string[];
   readonly keyConcepts: string[];
   readonly exerciseCount: number;
+  readonly lessonType: 'standard' | 'intro';
   readonly podcastTranscript?: string | null;
   readonly podcastAudioUrl?: string | null;
   readonly podcastDurationSeconds?: number | null;
@@ -189,16 +205,6 @@ export interface UnitDetail {
   readonly ownershipLabel: string;
   readonly isOwnedByCurrentUser: boolean;
   readonly learningObjectiveProgress?: LearningObjectiveProgress[] | null;
-  readonly hasPodcast: boolean;
-  readonly podcastVoice: string | null;
-  readonly podcastDurationSeconds: number | null;
-  readonly podcastTranscript: string | null;
-  readonly podcastAudioUrl: string | null;
-  readonly introPodcastAudioUrl: string | null;
-  readonly introPodcastTranscript: string | null;
-  readonly introPodcastVoice: string | null;
-  readonly introPodcastDurationSeconds: number | null;
-  readonly introPodcastGeneratedAt: string | null;
   readonly artImageUrl: string | null;
   readonly artImageDescription: string | null;
   readonly cacheMode?: CacheMode;
@@ -340,16 +346,6 @@ export function toUnitDetailDTO(
           progressPercentage: progress.progress_percentage,
         }))
       : null,
-    hasPodcast: Boolean(api.has_podcast),
-    podcastVoice: api.podcast_voice ?? null,
-    podcastDurationSeconds: api.podcast_duration_seconds ?? null,
-    podcastTranscript: api.podcast_transcript ?? null,
-    podcastAudioUrl: api.podcast_audio_url ?? null,
-    introPodcastAudioUrl: api.intro_podcast_audio_url ?? null,
-    introPodcastTranscript: api.intro_podcast_transcript ?? null,
-    introPodcastVoice: api.intro_podcast_voice ?? null,
-    introPodcastDurationSeconds: api.intro_podcast_duration_seconds ?? null,
-    introPodcastGeneratedAt: api.intro_podcast_generated_at ?? null,
     artImageUrl: api.art_image_url ?? null,
     artImageDescription: api.art_image_description ?? null,
     resources,
@@ -360,7 +356,7 @@ function toUnitLessonSummaryDTO(
   lesson: ApiUnitDetail['lessons'][number]
 ): UnitLessonSummary {
   const learnerLevel = (lesson.learner_level as Difficulty) ?? 'beginner';
-  const componentCount = lesson.exercise_count;
+  const componentCount = lesson.exercise_count ?? 0;
   const isReadyForLearning = componentCount > 0;
   const estimatedDuration = Math.max(5, componentCount * 3);
   const hasPodcast =
@@ -371,6 +367,7 @@ function toUnitLessonSummaryDTO(
             lesson.podcast_duration_seconds ||
             lesson.podcast_voice
         );
+  const lessonType = lesson.lesson_type; // Now guaranteed by type system
   return {
     id: lesson.id,
     title: lesson.title,
@@ -383,11 +380,13 @@ function toUnitLessonSummaryDTO(
     isReadyForLearning,
     estimatedDuration,
     learnerLevelLabel: formatLearnerLevel(learnerLevel),
+    lessonType,
     hasPodcast,
     podcastVoice: lesson.podcast_voice ?? null,
     podcastDurationSeconds: lesson.podcast_duration_seconds ?? null,
     podcastGeneratedAt: lesson.podcast_generated_at ?? null,
     podcastAudioUrl: lesson.podcast_audio_url ?? null,
+    podcastTranscript: (lesson as any).podcast_transcript ?? null,
   };
 }
 

@@ -28,6 +28,7 @@ from sqlalchemy import delete
 
 from modules.content.models import (
     LessonModel,
+    LessonType,
     UnitModel,
     UnitResourceModel,
 )
@@ -736,11 +737,8 @@ async def process_unit_from_json(
         user_id=owner_id,
         is_global=unit_spec.get("is_global", False),
         art_image_description=unit_spec.get("art_image_description"),
-        podcast_transcript=unit_spec.get("podcast_transcript"),
-        podcast_voice=unit_spec.get("podcast_voice"),
-        podcast_generated_at=seed_timestamp,
+        # Note: Unit-level podcast fields are deprecated; intros are now lessons with lesson_type='intro'
         art_image_id=art_image_id,
-        podcast_audio_object_id=podcast_audio_id,
     )
     db_session.add(unit_model)
     await db_session.flush()
@@ -798,11 +796,16 @@ async def process_unit_from_json(
         lesson_db_dict["podcast_generated_at"] = seed_timestamp
         lesson_db_dict["podcast_duration_seconds"] = lesson_spec.get("podcast_duration_seconds", 180)
 
+        # Set lesson_type: if is_intro flag is present, use 'intro', otherwise 'standard'
+        is_intro = lesson_spec.get("is_intro", False)
+        lesson_db_dict["lesson_type"] = LessonType.INTRO if is_intro else LessonType.STANDARD
+
         db_session.add(LessonModel(**lesson_db_dict))
         await db_session.flush()
 
         if args.verbose:
-            print(f"   • Created lesson: {lesson_spec['title']}")
+            lesson_type_label = "intro" if is_intro else "standard"
+            print(f"   • Created lesson: {lesson_spec['title']} ({lesson_type_label})")
 
     # Process resources if provided
     photo_resource_ids: list[uuid.UUID] = []

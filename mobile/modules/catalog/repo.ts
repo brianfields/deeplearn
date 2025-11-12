@@ -476,6 +476,8 @@ export class CatalogRepo {
             readinessStatus: 'ready',
             tags: payload.tags || [],
             unitId: cachedLesson.unitId,
+            lessonType:
+              (payload.lesson_type as 'standard' | 'intro') ?? 'standard',
             podcastTranscript,
             podcastAudioUrl,
             podcastDurationSeconds:

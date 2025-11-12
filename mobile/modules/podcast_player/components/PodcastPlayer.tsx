@@ -280,18 +280,19 @@ export function PodcastPlayer(): React.ReactElement {
   }, [isSeekingPosition, position, duration, clampSeekPosition]);
 
   const displayTitle = useMemo(() => {
-    if (!currentTrack?.lessonId) {
-      return 'Intro Podcast';
-    }
-    return currentTrack.title || 'Lesson Podcast';
+    if (!currentTrack) return 'Podcast';
+    // Use track title directly (already set by caller)
+    return currentTrack.title || 'Podcast';
   }, [currentTrack]);
 
   const trackIndicatorText = useMemo(() => {
     if (!playlist || !currentTrack) {
       return null;
     }
-    if (!currentTrack.lessonId) {
-      return 'Intro';
+    // Check if this is an intro lesson (lessonType === 'intro')
+    const isIntroLesson = (currentTrack as any).lessonType === 'intro';
+    if (isIntroLesson) {
+      return 'Introduction';
     }
 
     const lessonTracks = playlist.tracks.filter(

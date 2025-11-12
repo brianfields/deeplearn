@@ -29,9 +29,26 @@
   "is_global": true,
   "owner_key": "eylem",
   "art_image_description": "Weimar Edge illustration of Community First Aid Playbook highlighting Stabilize a conscious patient, Decide when to escalate with petrol blue geometry and gilt accents.",
-  "podcast_transcript": "Welcome to Community First Aid Playbook. This intro podcast previews the lessons and invites learners into the unit's narrative arc.",
-  "podcast_voice": "Plain",
   "lessons": [
+    {
+      "id": "intro-lesson-56104810",
+      "title": "Unit Introduction: Community First Aid Playbook",
+      "learner_level": "beginner",
+      "is_intro": true,
+      "podcast_transcript": "Welcome to Community First Aid Playbook. This intro podcast previews the lessons and invites learners into the unit's narrative arc.",
+      "podcast_voice": "Plain",
+      "podcast_duration_seconds": 180,
+      "objectives": [
+        {
+          "id": "first_aid_lo_1",
+          "title": "Stabilize a conscious patient",
+          "description": "Stabilize a conscious patient while awaiting emergency services",
+          "bloom_level": "Apply"
+        }
+      ],
+      "mcqs": [],
+      "short_answers": []
+    },
     {
       "id": "f5c228b1-e255-45bb-a56f-c6c99ff8cf3e",
       "title": "Stabilize and Signal",

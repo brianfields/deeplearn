@@ -32,11 +32,13 @@ class MediaHandler:
         prompt_handler: PromptHandler,
         podcast_generator: UnitPodcastGenerator | None = None,
         lesson_podcast_generator: LessonPodcastGenerator | None = None,
+        content_service: Any | None = None,  # ContentService injected by facade
     ) -> None:
         self._content = content
         self._prompt_handler = prompt_handler
         self._podcast_generator = podcast_generator
         self._lesson_podcast_generator = lesson_podcast_generator
+        self._content_service = content_service
 
     async def create_unit_art(self, unit_id: str, *, arq_task_id: str | None = None) -> UnitRead:
         """Generate and persist hero artwork for the specified unit."""
@@ -164,16 +166,31 @@ class MediaHandler:
         )
 
     async def save_unit_podcast(self, unit_id: str, podcast: UnitPodcast) -> None:
-        """Persist the generated unit podcast if audio is available."""
+        """Delegate unit podcast persistence to content service intro lesson creation.
 
-        if getattr(podcast, "audio_bytes", None):
-            await self._content.save_unit_podcast_from_bytes(
-                unit_id,
-                transcript=podcast.transcript,
-                audio_bytes=podcast.audio_bytes,
-                mime_type=podcast.mime_type,
-                voice=podcast.voice,
+        Note: Unit-level podcast storage is deprecated. Intros are now created as lessons.
+        """
+        if self._content_service is None:
+            logger.warning("ContentService not available; cannot create intro lesson from podcast")
+            return
+
+        if not getattr(podcast, "audio_bytes", None):
+            logger.warning("No audio bytes available for intro lesson creation")
+            return
+
+        try:
+            unit = await self._content.get_unit(unit_id)
+            if unit is None:
+                raise ValueError(f"Unit {unit_id} not found")
+
+            intro_lesson_id, _ = await self._content_service.create_intro_lesson(
+                unit_id=unit_id,
+                podcast=podcast,
+                learner_level=getattr(unit, "learner_level", "beginner"),
             )
+            logger.info(f"✓ Intro lesson created from podcast: {intro_lesson_id}")
+        except Exception as exc:
+            logger.warning(f"Failed to create intro lesson from podcast: {exc}")
 
     async def save_lesson_podcast(
         self,

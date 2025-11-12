@@ -134,65 +134,65 @@ This aligns with modular architecture (`arch/backend.md`, `arch/frontend.md`): D
 Follow modular architecture; backend first, then frontend. Phases ~10 tasks each. Checkboxes for tracking.
 
 ### Phase 1 — Backend Schema & Models
-- [ ] Define `LessonType` enum (`STANDARD='standard'`, `INTRO='intro'`) in `backend/modules/content/models.py`.
-- [ ] Add `LessonModel.lesson_type: Mapped[LessonType] = mapped_column(Enum(LessonType), default=LessonType.STANDARD, nullable=False)` with explicit typing in `backend/modules/content/models.py`.
-- [ ] Add composite index on `(unit_id, lesson_type)` in models for fast intro retrieval.
-- [ ] Remove unit-level podcast columns from `UnitModel` (transcript/voice/audio_object_id/generated_at) in `backend/modules/content/models.py`.
-- [ ] Ensure `LessonModel.package` is non-null; validate minimal structure for intro lessons in service (e.g., Pydantic for `{ "exercises": [] }`).
-- [ ] Update `LessonSummary` DTO to include `lesson_type: str` (e.g., 'standard' | 'intro') with explicit return type in `backend/modules/content/service.py`.
-- [ ] Remove unit-level podcast fields from `UnitDetail` DTO in `backend/modules/catalog/service.py`.
-- [ ] Add service helper `get_intro_lesson_summary(unit_id)` in `ContentService` to fetch and return intro `LessonSummary` if `lesson_type='intro'`.
-- [ ] Update repo `get_unit_detail` to include `lesson_type` in lesson joins and order by `unit.lesson_order` in `backend/modules/content/repo.py`.
-- [ ] Ensure explicit return types on all updated functions (models, DTOs, repo, service).
-- [ ] Generate Alembic migration for schema changes (add `lesson_type` enum, remove unit podcast columns); run migration to update DB schema (no data backfill needed).
+- [x] Define `LessonType` enum (`STANDARD='standard'`, `INTRO='intro'`) in `backend/modules/content/models.py`.
+- [x] Add `LessonModel.lesson_type: Mapped[LessonType] = mapped_column(Enum(LessonType), default=LessonType.STANDARD, nullable=False)` with explicit typing in `backend/modules/content/models.py`.
+- [x] Add composite index on `(unit_id, lesson_type)` in models for fast intro retrieval.
+- [x] Remove unit-level podcast columns from `UnitModel` (transcript/voice/audio_object_id/generated_at) in `backend/modules/content/models.py`.
+- [x] Ensure `LessonModel.package` is non-null; validate minimal structure for intro lessons in service (e.g., Pydantic for `{ "exercises": [] }`).
+- [x] Update `LessonSummary` DTO to include `lesson_type: str` (e.g., 'standard' | 'intro') with explicit return type in `backend/modules/content/service.py`.
+- [x] Remove unit-level podcast fields from `UnitDetail` DTO in `backend/modules/catalog/service.py`.
+- [x] Add service helper `get_intro_lesson_summary(unit_id)` in `ContentService` to fetch and return intro `LessonSummary` if `lesson_type='intro'`.
+- [x] Update repo `get_unit_detail` to include `lesson_type` in lesson joins and order by `unit.lesson_order` in `backend/modules/content/repo.py`.
+- [x] Ensure explicit return types on all updated functions (models, DTOs, repo, service).
+- [x] Generate Alembic migration for schema changes (add `lesson_type` enum, remove unit podcast columns); run migration to update DB schema (no data backfill needed).
 
 ### Phase 2 — Backend Generation Flow & Persistence
-- [ ] Update `UnitPodcast` dataclass in `backend/modules/content_creator/steps.py` to return `LessonSummary` DTO (include `lesson_type='intro'`, podcast fields) with explicit typing.
-- [ ] Add `create_intro_lesson` method in `ContentService` (`backend/modules/content_creator/service/content_service.py`): Takes unit_id, podcast data; validates/ensures single 'intro' via repo query (`lesson_type='intro'`); persists lesson via repo; atomically prepends ID to `unit.lesson_order` (initialize as `[]` if None); commits transaction; returns `LessonSummary`.
-- [ ] Modify `FlowHandler` in `backend/modules/content_creator/service/flow_handler.py`: After `_generate_podcast()`, call `content_service.create_intro_lesson` with result; handle failure by logging and skipping (no rollback to unit-level).
-- [ ] Implement idempotency in `create_intro_lesson`: Query for existing intro by `unit_id` and `lesson_type='intro'`; if exists, return existing `LessonSummary` without changes.
-- [ ] Update `MediaHandler.save_unit_podcast` in `backend/modules/content_creator/media_handler.py` to generate via `UnitPodcastFlow`, then delegate persistence to service (no direct ORM).
-- [ ] Persist audio to object store in `create_intro_lesson` (via repo); store audio object ID on lesson.
-- [ ] Update `facade.create_unit` in `backend/modules/content_creator/service/facade.py` to include intro `LessonSummary` in `UnitCreationResult` (internal use).
-- [ ] Add validation in `ContentService` to prevent multiple 'intro' lessons (raise error on write if >1 for 'intro').
-- [ ] Write unit tests for `create_intro_lesson` (mock repo, assert DTO return, idempotency, transaction atomicity).
-- [ ] Write unit tests for flow path in `test_content_creator_unit.py` (mock service/LLM/TTS, assert intro creation/skips).
+- [x] Update `UnitPodcast` dataclass in `backend/modules/content_creator/steps.py` to return `LessonSummary` DTO (include `lesson_type='intro'`, podcast fields) with explicit typing.
+- [x] Add `create_intro_lesson` method in `ContentService` (`backend/modules/content_creator/service/content_service.py`): Takes unit_id, podcast data; validates/ensures single 'intro' via repo query (`lesson_type='intro'`); persists lesson via repo; atomically prepends ID to `unit.lesson_order` (initialize as `[]` if None); commits transaction; returns `LessonSummary`.
+- [x] Modify `FlowHandler` in `backend/modules/content_creator/service/flow_handler.py`: After `_generate_podcast()`, call `content_service.create_intro_lesson` with result; handle failure by logging and skipping (no rollback to unit-level).
+- [x] Implement idempotency in `create_intro_lesson`: Query for existing intro by `unit_id` and `lesson_type='intro'`; if exists, return existing `LessonSummary` without changes.
+- [x] Update `MediaHandler.save_unit_podcast` in `backend/modules/content_creator/media_handler.py` to generate via `UnitPodcastFlow`, then delegate persistence to service (no direct ORM).
+- [x] Persist audio to object store in `create_intro_lesson` (via repo); store audio object ID on lesson.
+- [x] Update `facade.create_unit` in `backend/modules/content_creator/service/facade.py` to include intro `LessonSummary` in `UnitCreationResult` (internal use).
+- [x] Add validation in `ContentService` to prevent multiple 'intro' lessons (raise error on write if >1 for 'intro').
+- [x] Write unit tests for `create_intro_lesson` (mock repo, assert DTO return, idempotency, transaction atomicity).
+- [x] Write unit tests for flow path in `test_content_creator_unit.py` (mock service/LLM/TTS, assert intro creation/skips).
 
 ### Phase 3 — Backend DTOs, Repo & Catalog Integration
-- [ ] In `CatalogService.get_unit_details` (`backend/modules/catalog/service.py`), populate `LessonSummary.lesson_type` and derive unit intro from `lessons[0]` via helper if `lesson_type='intro'` (no direct access).
-- [ ] Audit internal consumers of `UnitDetail` in content_creator/learning_session modules; update to use lesson-based intro (via service helpers, no public changes).
-- [ ] Ensure repo queries include `lesson_type` and avoid N+1 (e.g., single join for unit lessons) in `backend/modules/content/repo.py`.
-- [ ] Maintain narrow public interfaces in all modules; confirm no expansions needed (e.g., catalog/public.py unchanged).
-- [ ] Update serialization for lesson-level podcast fields (e.g., timestamps) in DTOs.
-- [ ] Add unit tests for `get_unit_detail` with intro (mock repo, assert ordered lessons, derived intro).
-- [ ] Update docs in `docs/arch/backend.md` to reflect intro-as-lesson structure.
-- [ ] Ensure consistent field names across backend DTOs (e.g., `podcastTranscript` matches frontend).
-- [ ] Verify no direct ORM usage outside repo in updated flows/services.
-- [ ] Run Alembic migration again if schema tweaks needed post-unit tests.
+- [x] In `CatalogService.get_unit_details` (`backend/modules/catalog/service.py`), populate `LessonSummary.lesson_type` and derive unit intro from `lessons[0]` via helper if `lesson_type='intro'` (no direct access).
+- [x] Audit internal consumers of `UnitDetail` in content_creator/learning_session modules; update to use lesson-based intro (via service helpers, no public changes).
+- [x] Ensure repo queries include `lesson_type` and avoid N+1 (e.g., single join for unit lessons) in `backend/modules/content/repo.py`.
+- [x] Maintain narrow public interfaces in all modules; confirm no expansions needed (e.g., catalog/public.py unchanged).
+- [x] Update serialization for lesson-level podcast fields (e.g., timestamps) in DTOs.
+- [x] Add unit tests for `get_unit_detail` with intro (mock repo, assert ordered lessons, derived intro).
+- [x] Update docs in `docs/arch/backend.md` to reflect intro-as-lesson structure.
+- [x] Ensure consistent field names across backend DTOs (e.g., `podcastTranscript` matches frontend).
+- [x] Verify no direct ORM usage outside repo in updated flows/services.
+- [x] Run Alembic migration again if schema tweaks needed post-unit tests.
 
 ### Phase 4 — Frontend Models, Mapping & Queries
-- [ ] Add `lessonType: 'standard' | 'intro'` to `UnitLessonSummary` and `Lesson` models in `mobile/modules/content/models.ts`.
-- [ ] Extend `ApiUnitDetail['lessons']` to include optional `lesson_type?: 'standard' | 'intro'` in types.
-- [ ] Update `toUnitLessonSummaryDTO` to map `lessonType` (default 'standard') with explicit return types.
-- [ ] Update `toUnitDetailDTO` in `mobile/modules/content/service.ts` to remove unit-level `podcast*` / `introPodcast*` fields; derive intro presence from `lessons[0]?.lessonType === 'intro'`.
-- [ ] Add small helper `getIntroLesson(detail: UnitDetail)` in `mobile/modules/content/service.ts` for UI to fetch first intro lesson (check `lessonType === 'intro'`).
-- [ ] Adjust types across module boundaries (content/catalog); fix any compile errors.
-- [ ] Update offline cache handling for intro lesson audio (use lesson ID scheme) if needed in repo.
-- [ ] Write unit tests for DTO mapping (mock API, assert no unit podcast fields, correct `lessonType`).
-- [ ] Update `catalog/queries.ts` types to handle new lesson shape (no logic changes).
-- [ ] Document mapping changes in `docs/arch/frontend.md`.
+- [x] Add `lessonType: 'standard' | 'intro'` to `UnitLessonSummary` and `Lesson` models in `mobile/modules/content/models.ts`.
+- [x] Extend `ApiUnitDetail['lessons']` to include optional `lesson_type?: 'standard' | 'intro'` in types.
+- [x] Update `toUnitLessonSummaryDTO` to map `lessonType` (default 'standard') with explicit return types.
+- [x] Update `toUnitDetailDTO` in `mobile/modules/content/service.ts` to remove unit-level `podcast*` / `introPodcast*` fields; derive intro presence from `lessons[0]?.lessonType === 'intro'`.
+- [x] Add small helper `getIntroLesson(detail: UnitDetail)` in `mobile/modules/content/service.ts` for UI to fetch first intro lesson (check `lessonType === 'intro'`).
+- [x] Adjust types across module boundaries (content/catalog); fix any compile errors.
+- [x] Update offline cache handling for intro lesson audio (use lesson ID scheme) if needed in repo.
+- [x] Write unit tests for DTO mapping (mock API, assert no unit podcast fields, correct `lessonType`).
+- [x] Update `catalog/queries.ts` types to handle new lesson shape (no logic changes).
+- [x] Document mapping changes in `docs/arch/frontend.md`.
 
 ### Phase 5 — Frontend UI & Player Integration
-- [ ] In `UnitDetailScreen.tsx` (`mobile/modules/catalog/screens/`), render intro as first lesson card if `lessonType === 'intro'`: use `lesson.title`, show podcast player/transcript; hide exercises.
-- [ ] Remove legacy unit-level podcast button/logic in `UnitDetailScreen.tsx`.
-- [ ] In `LearningFlowScreen.tsx` (`mobile/modules/learning_session/screens/`), build playlist from `detail.lessons`: for intro, use `lesson.id`, `lesson.title`, lesson podcast fields, unit artwork if `lessonType === 'intro'`.
-- [ ] In `PodcastPlayer.tsx` (`mobile/modules/podcast_player/components/`), handle `lessonType === 'intro'` for title (use track.title) and transcript; add \"Intro\" indicator.
-- [ ] Update asset resolution in player/UI to use lesson fields for intro (e.g., `resolveAssetUrl(lesson.podcastAudioObjectId)`).
-- [ ] Ensure intro excluded from progress counts (no exercises; confirm via `getIntroLesson` helper).
-- [ ] Add testIDs/accessibility labels for intro elements in screens.
-- [ ] Write component unit tests for `UnitDetailScreen` with intro (snapshot, no exercises shown).
-- [ ] Write unit tests for `LearningFlowScreen` playlist building (include intro first, correct fields).
-- [ ] Write unit tests for `PodcastPlayer` with intro track (title, transcript display).
+- [x] In `UnitDetailScreen.tsx` (`mobile/modules/catalog/screens/`), render intro as first lesson card if `lessonType === 'intro'`: use `lesson.title`, show podcast player/transcript; hide exercises.
+- [x] Remove legacy unit-level podcast button/logic in `UnitDetailScreen.tsx`.
+- [x] In `LearningFlowScreen.tsx` (`mobile/modules/learning_session/screens/`), build playlist from `detail.lessons`: for intro, use `lesson.id`, `lesson.title`, lesson podcast fields, unit artwork if `lessonType === 'intro'`.
+- [x] In `PodcastPlayer.tsx` (`mobile/modules/podcast_player/components/`), handle `lessonType === 'intro'` for title (use track.title) and transcript; add \"Intro\" indicator.
+- [x] Update asset resolution in player/UI to use lesson fields for intro (e.g., `resolveAssetUrl(lesson.podcastAudioObjectId)`).
+- [x] Ensure intro excluded from progress counts (no exercises; confirm via `getIntroLesson` helper).
+- [x] Add testIDs/accessibility labels for intro elements in screens.
+- [x] Write component unit tests for `UnitDetailScreen` with intro (snapshot, no exercises shown).
+- [x] Write unit tests for `LearningFlowScreen` playlist building (include intro first, correct fields).
+- [x] Write unit tests for `PodcastPlayer` with intro track (title, transcript display).
 
 ### Phase 6 — Verification & Cleanup
 - [ ] Ensure lint passes: `./format_code.sh --no-venv` runs clean.

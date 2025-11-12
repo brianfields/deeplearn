@@ -17,9 +17,19 @@
   "generated_from_topic": true,
   "is_global": false,
   "owner_key": "brian",
-  "podcast_transcript": "Welcome to this unit. Here's an overview...",
-  "podcast_voice": "Plain",
   "lessons": [
+    {
+      "id": "intro-lesson-id",
+      "title": "Unit Introduction: Example Unit Title",
+      "learner_level": "intermediate",
+      "is_intro": true,
+      "podcast_transcript": "Welcome to this unit. Here's an overview...",
+      "podcast_voice": "Plain",
+      "podcast_duration_seconds": 180,
+      "objectives": [],
+      "mcqs": [],
+      "short_answers": []
+    },
     {
       "title": "Lesson Title",
       "learner_level": "intermediate",

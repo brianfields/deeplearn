@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from datetime import datetime
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ..models import LessonModel
 from ..repo import ContentRepo
 from .dtos import LessonCreate, LessonPodcastAudio, LessonRead
 from .media import MediaHelper
+
+if TYPE_CHECKING:
+    from modules.catalog.service import LessonSummary
 
 logger = logging.getLogger(__name__)
 
@@ -38,10 +41,22 @@ class LessonHandler:
             )
             raise
 
+        # Map lesson_type enum to string (default to "standard" if not set or invalid)
+        lesson_type_raw = getattr(lesson, "lesson_type", None)
+        if lesson_type_raw:
+            # Handle both enum and string values
+            lesson_type_str = str(lesson_type_raw).lower()
+            logger.info(f"[lesson_to_read] Lesson {lesson.id} ({lesson.title}): lesson_type_raw={lesson_type_raw!r} ({type(lesson_type_raw).__name__}), lesson_type_str={lesson_type_str!r}")
+            lesson_type_str = "intro" if "intro" in lesson_type_str else "standard"
+        else:
+            logger.warning(f"[lesson_to_read] Lesson {lesson.id} ({lesson.title}): lesson_type_raw is None/missing! Defaulting to 'standard'")
+            lesson_type_str = "standard"
+
         lesson_dict: dict[str, Any] = {
             "id": lesson.id,
             "title": lesson.title,
             "learner_level": lesson.learner_level,
+            "lesson_type": lesson_type_str,
             "unit_id": getattr(lesson, "unit_id", None),
             "source_material": lesson.source_material,
             "source_domain": getattr(lesson, "source_domain", None),
@@ -105,14 +120,23 @@ class LessonHandler:
         return result
 
     async def save_lesson(self, lesson_data: LessonCreate) -> LessonRead:
-        from ..models import LessonModel
+        from ..models import LessonModel, LessonType
+
+        # Validate intro lesson has minimal package (no exercises)
+        if lesson_data.lesson_type == "intro" and (lesson_data.package.exercise_bank or lesson_data.package.quiz):
+            raise ValueError("Intro lessons must have empty exercise_bank and quiz")
 
         package_dict = lesson_data.package.model_dump()
         now = datetime.utcnow()
+
+        # Map lesson_type string to enum
+        lesson_type_enum = LessonType.INTRO if lesson_data.lesson_type == "intro" else LessonType.STANDARD
+
         lesson_model = LessonModel(
             id=lesson_data.id,
             title=lesson_data.title,
             learner_level=lesson_data.learner_level,
+            lesson_type=lesson_type_enum,
             source_material=lesson_data.source_material,
             package=package_dict,
             package_version=lesson_data.package_version,
@@ -140,6 +164,39 @@ class LessonHandler:
 
     async def lesson_exists(self, lesson_id: str) -> bool:
         return await self.repo.lesson_exists(lesson_id)
+
+    async def get_intro_lesson_summary(self, unit_id: str) -> LessonSummary | None:
+        """Fetch and return the intro lesson summary for a unit, if it exists."""
+        from modules.catalog.service import LessonSummary
+
+        intro_lesson = await self.repo.get_intro_lesson_for_unit(unit_id)
+        if intro_lesson is None:
+            return None
+
+        # Convert intro lesson ORM to LessonSummary
+        # Extract package info for summary
+        try:
+            from ..package_models import LessonPackage
+
+            package = LessonPackage.model_validate(intro_lesson.package)
+        except Exception:
+            return None
+
+        exercise_count = len(package.exercise_bank) if package.exercise_bank else 0
+        learning_objectives = list(package.unit_learning_objective_ids or [])
+
+        return LessonSummary(
+            id=intro_lesson.id,
+            title=intro_lesson.title,
+            learner_level=intro_lesson.learner_level,
+            lesson_type="intro",
+            learning_objectives=learning_objectives,
+            key_concepts=[],
+            exercise_count=exercise_count,
+            has_podcast=bool(getattr(intro_lesson, "podcast_audio_object_id", None)),
+            podcast_duration_seconds=getattr(intro_lesson, "podcast_duration_seconds", None),
+            podcast_voice=getattr(intro_lesson, "podcast_voice", None),
+        )
 
     # ------------------------------------------------------------------
     # Podcast helpers

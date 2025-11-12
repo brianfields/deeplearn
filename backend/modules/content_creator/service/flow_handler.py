@@ -266,11 +266,12 @@ class FlowHandler:
                     lessons=podcast_lessons,
                     arq_task_id=arq_task_id,
                 )
+                # Delegate intro lesson creation to content service via media handler
                 await self._media_handler.save_unit_podcast(unit_id, podcast)
-                logger.info("   ✓ Unit podcast complete")
+                logger.info("   ✓ Unit podcast + intro lesson complete")
             except Exception as exc:  # pragma: no cover - podcast generation should not block unit creation
                 logger.warning(
-                    "   ⚠️ Failed to generate unit podcast: %s",
+                    "   ⚠️ Failed to generate unit podcast/intro lesson: %s",
                     str(exc)[:100],
                 )
 

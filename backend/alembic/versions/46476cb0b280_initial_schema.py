@@ -1,8 +1,8 @@
 """initial_schema
 
-Revision ID: d8cc3fa711f1
-Revises: 
-Create Date: 2025-11-05 14:59:39.512848
+Revision ID: 46476cb0b280
+Revises:
+Create Date: 2025-11-12 16:28:13.472579
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'd8cc3fa711f1'
+revision: str = '46476cb0b280'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -185,6 +185,8 @@ def upgrade() -> None:
     sa.Column('llm_request_id', sa.UUID(), nullable=True),
     sa.Column('step_name', sa.String(length=100), nullable=False),
     sa.Column('step_order', sa.Integer(), nullable=False),
+    sa.Column('retry_attempt', sa.Integer(), nullable=False),
+    sa.Column('retry_of_step_run_id', sa.UUID(), nullable=True),
     sa.Column('status', sa.String(length=50), nullable=False),
     sa.Column('inputs', sa.JSON(), nullable=False),
     sa.Column('outputs', sa.JSON(), nullable=True),
@@ -198,10 +200,12 @@ def upgrade() -> None:
     sa.Column('completed_at', sa.DateTime(timezone=True), nullable=True),
     sa.ForeignKeyConstraint(['flow_run_id'], ['flow_runs.id'], ),
     sa.ForeignKeyConstraint(['llm_request_id'], ['llm_requests.id'], ),
+    sa.ForeignKeyConstraint(['retry_of_step_run_id'], ['flow_step_runs.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_flow_step_runs_flow_run_id'), 'flow_step_runs', ['flow_run_id'], unique=False)
     op.create_index(op.f('ix_flow_step_runs_llm_request_id'), 'flow_step_runs', ['llm_request_id'], unique=False)
+    op.create_index(op.f('ix_flow_step_runs_retry_of_step_run_id'), 'flow_step_runs', ['retry_of_step_run_id'], unique=False)
     op.create_index(op.f('ix_flow_step_runs_status'), 'flow_step_runs', ['status'], unique=False)
     op.create_index(op.f('ix_flow_step_runs_step_name'), 'flow_step_runs', ['step_name'], unique=False)
     op.create_table('images',
@@ -280,15 +284,11 @@ def upgrade() -> None:
     sa.Column('status', sa.String(length=20), nullable=False),
     sa.Column('creation_progress', sa.JSON(), nullable=True),
     sa.Column('error_message', sa.Text(), nullable=True),
-    sa.Column('podcast_transcript', sa.Text(), nullable=True),
-    sa.Column('podcast_voice', sa.String(length=100), nullable=True),
-    sa.Column('podcast_audio_object_id', sa.UUID(), nullable=True),
-    sa.Column('podcast_generated_at', sa.DateTime(), nullable=True),
     sa.Column('art_image_id', sa.UUID(), nullable=True),
     sa.Column('art_image_description', sa.Text(), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=False),
-    sa.CheckConstraint("status IN ('draft', 'in_progress', 'completed', 'failed')", name='check_unit_status'),
+    sa.CheckConstraint("status IN ('draft', 'in_progress', 'completed', 'partial', 'failed')", name='check_unit_status'),
     sa.ForeignKeyConstraint(['art_image_id'], ['images.id'], ondelete='SET NULL'),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id')
@@ -321,6 +321,7 @@ def upgrade() -> None:
     sa.Column('id', sa.String(length=36), nullable=False),
     sa.Column('title', sa.String(length=255), nullable=False),
     sa.Column('learner_level', sa.String(length=50), nullable=False),
+    sa.Column('lesson_type', sa.Enum('standard', 'intro', name='lessontype'), nullable=False),
     sa.Column('source_material', sa.Text(), nullable=True),
     sa.Column('package', sa.JSON(), nullable=False),
     sa.Column('package_version', sa.Integer(), nullable=False),
@@ -339,6 +340,7 @@ def upgrade() -> None:
     )
     op.create_index(op.f('ix_lessons_flow_run_id'), 'lessons', ['flow_run_id'], unique=False)
     op.create_index(op.f('ix_lessons_unit_id'), 'lessons', ['unit_id'], unique=False)
+    op.create_index('ix_lessons_unit_id_lesson_type', 'lessons', ['unit_id', 'lesson_type'], unique=False)
     op.create_table('unit_resources',
     sa.Column('unit_id', sa.String(length=36), nullable=False),
     sa.Column('resource_id', sa.UUID(), nullable=False),
@@ -387,6 +389,7 @@ def downgrade() -> None:
     op.drop_index('ix_unit_resources_unit_id', table_name='unit_resources')
     op.drop_index('ix_unit_resources_resource_id', table_name='unit_resources')
     op.drop_table('unit_resources')
+    op.drop_index('ix_lessons_unit_id_lesson_type', table_name='lessons')
     op.drop_index(op.f('ix_lessons_unit_id'), table_name='lessons')
     op.drop_index(op.f('ix_lessons_flow_run_id'), table_name='lessons')
     op.drop_table('lessons')
@@ -412,6 +415,7 @@ def downgrade() -> None:
     op.drop_table('images')
     op.drop_index(op.f('ix_flow_step_runs_step_name'), table_name='flow_step_runs')
     op.drop_index(op.f('ix_flow_step_runs_status'), table_name='flow_step_runs')
+    op.drop_index(op.f('ix_flow_step_runs_retry_of_step_run_id'), table_name='flow_step_runs')
     op.drop_index(op.f('ix_flow_step_runs_llm_request_id'), table_name='flow_step_runs')
     op.drop_index(op.f('ix_flow_step_runs_flow_run_id'), table_name='flow_step_runs')
     op.drop_table('flow_step_runs')

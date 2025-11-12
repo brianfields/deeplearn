@@ -261,6 +261,20 @@ export function UnitDetailScreen() {
     return unit.lessons.find(l => l.id === nextLessonId)?.title ?? null;
   }, [isDownloaded, nextLessonId, unit]);
 
+  // Extract intro lesson (if present) separately from regular lessons
+  const introLesson = useMemo(() => {
+    console.log('[UnitDetailScreen] Looking for intro lesson:', {
+      firstLessonId: unit?.lessons?.[0]?.id,
+      firstLessonTitle: unit?.lessons?.[0]?.title,
+      firstLessonType: unit?.lessons?.[0]?.lessonType,
+      allLessonTypes: unit?.lessons?.map(l => ({
+        id: l.id,
+        lessonType: l.lessonType,
+      })),
+    });
+    return unit?.lessons?.[0]?.lessonType === 'intro' ? unit.lessons[0] : null;
+  }, [unit?.lessons]);
+
   const loProgressById = useMemo(() => {
     const items = unitLOProgressQuery.data?.items ?? [];
     const map = new Map<string, LOProgressItem>();
@@ -303,18 +317,25 @@ export function UnitDetailScreen() {
     return typeof base === 'string' ? base.replace(/\/$/, '') : '';
   }, [infra]);
 
+  // Podcast URL is now derived from intro lesson
   const podcastAudioUrl = useMemo(() => {
-    const url = unit?.podcastAudioUrl || null;
+    const url = introLesson?.podcastAudioUrl || null;
     if (!url) return null;
     if (/^https?:\/\//i.test(url)) return url;
     const path = url.startsWith('/') ? url : `/${url}`;
     return `${apiBase}${path}`;
-  }, [unit?.podcastAudioUrl, apiBase]);
+  }, [introLesson?.podcastAudioUrl, apiBase]);
 
-  const hasPodcast = useMemo(
-    () => Boolean(unit?.hasPodcast && isDownloaded),
-    [isDownloaded, unit?.hasPodcast]
-  );
+  const _hasPodcast = useMemo(() => {
+    const result = Boolean(introLesson?.hasPodcast && isDownloaded);
+    console.log('[UnitDetailScreen] hasPodcast check:', {
+      introLessonId: introLesson?.id,
+      introLessonHasPodcast: introLesson?.hasPodcast,
+      isDownloaded,
+      result,
+    });
+    return result;
+  }, [isDownloaded, introLesson?.hasPodcast, introLesson?.id]);
 
   // Resolve podcast audio asset to get local path when downloaded
   const [resolvedPodcastUrl, setResolvedPodcastUrl] = useState<string | null>(
@@ -325,7 +346,7 @@ export function UnitDetailScreen() {
   );
 
   useEffect(() => {
-    if (!unit || !isDownloaded || !unit.hasPodcast) {
+    if (!unit || !isDownloaded || !introLesson?.hasPodcast) {
       setResolvedPodcastUrl(null);
       setResolvedArtworkUrl(null);
       return;
@@ -365,10 +386,15 @@ export function UnitDetailScreen() {
           })),
         });
 
-        // Find the audio asset (podcast)
-        const audioAsset = unitDetail.assets.find(
-          asset => asset.type === 'audio'
-        );
+        // Find the audio asset (intro lesson podcast)
+        const introLessonPodcastAssetId = introLesson?.id
+          ? `lesson-podcast-${introLesson.id}`
+          : null;
+        const audioAsset = introLessonPodcastAssetId
+          ? unitDetail.assets.find(
+              asset => asset.id === introLessonPodcastAssetId
+            )
+          : null;
 
         // Find the image asset (artwork)
         const imageAsset = unitDetail.assets.find(
@@ -459,22 +485,53 @@ export function UnitDetailScreen() {
     };
 
     resolvePodcastAsset();
-  }, [unit, isDownloaded, podcastAudioUrl, apiBase]);
+  }, [
+    unit,
+    isDownloaded,
+    podcastAudioUrl,
+    apiBase,
+    introLesson?.hasPodcast,
+    introLesson?.id,
+  ]);
 
   const podcastTrack = useMemo<PodcastTrack | null>(() => {
-    if (!unit || !hasPodcast || !resolvedPodcastUrl || !isDownloaded) {
+    if (
+      !introLesson ||
+      !introLesson.hasPodcast ||
+      !resolvedPodcastUrl ||
+      !isDownloaded
+    ) {
+      console.log('[UnitDetailScreen] podcastTrack is null:', {
+        hasIntroLesson: !!introLesson,
+        hasPodcast: introLesson?.hasPodcast,
+        hasResolvedUrl: !!resolvedPodcastUrl,
+        isDownloaded,
+      });
       return null;
     }
 
-    return {
-      unitId: unit.id,
-      title: 'Intro Podcast',
+    const track = {
+      unitId: unit?.id ?? '',
+      title: 'Unit Introduction',
       audioUrl: resolvedPodcastUrl,
-      durationSeconds: unit.introPodcastDurationSeconds ?? 0,
-      transcript: unit.podcastTranscript ?? null,
+      durationSeconds: introLesson.podcastDurationSeconds ?? 0,
+      transcript: introLesson.podcastTranscript ?? null,
       artworkUrl: resolvedArtworkUrl ?? undefined,
     };
-  }, [hasPodcast, resolvedPodcastUrl, resolvedArtworkUrl, isDownloaded, unit]);
+    console.log('[UnitDetailScreen] podcastTrack created:', {
+      unitId: track.unitId,
+      title: track.title,
+      hasAudioUrl: !!track.audioUrl,
+      durationSeconds: track.durationSeconds,
+    });
+    return track;
+  }, [
+    introLesson,
+    resolvedPodcastUrl,
+    resolvedArtworkUrl,
+    isDownloaded,
+    unit?.id,
+  ]);
 
   const handleOpenAssistant = useCallback(() => {
     if (!unitId) {
@@ -561,7 +618,7 @@ export function UnitDetailScreen() {
     [handleAssistantSend]
   );
 
-  const handlePlayIntroPodcast = useCallback((): void => {
+  const _handlePlayIntroPodcast = useCallback((): void => {
     if (!podcastTrack) {
       return;
     }
@@ -916,19 +973,6 @@ export function UnitDetailScreen() {
           />
         </Box>
 
-        {hasPodcast && podcastTrack && (
-          <Box px="lg" mb="lg">
-            <Button
-              title="Play Intro Podcast"
-              onPress={handlePlayIntroPodcast}
-              variant="secondary"
-              size="medium"
-              fullWidth
-              testID="unit-detail-play-intro-button"
-            />
-          </Box>
-        )}
-
         <Box px="lg">
           <Card variant="default" style={localStyles.noMargin}>
             {nextLessonTitle && (
@@ -1037,36 +1081,43 @@ export function UnitDetailScreen() {
           </Text>
         </Box>
 
-        {unit.lessons.map(item => (
-          <Box key={item.id} px="lg" testID="lesson-card">
-            <Card
-              variant="outlined"
-              style={localStyles.noMargin}
-              onPress={() => {
-                haptics.trigger('light');
-                handleLessonPress(item.id);
-              }}
-            >
-              <View style={localStyles.lessonRowInner}>
-                <Text
-                  variant="body"
-                  style={[layoutStyles.flex1, localStyles.marginRight12]}
-                >
-                  {item.title}
-                </Text>
-                <View style={localStyles.lessonRight}>
-                  {item.hasPodcast ? (
-                    <Headphones
-                      size={18}
-                      color={theme.colors.textSecondary}
-                      accessibilityLabel="Lesson podcast available"
-                    />
-                  ) : null}
+        {unit.lessons.map((item, _index) => {
+          const isIntro = item.lessonType === 'intro';
+          return (
+            <Box key={item.id} px="lg" testID="lesson-card">
+              <Card
+                variant="outlined"
+                style={localStyles.noMargin}
+                onPress={() => {
+                  haptics.trigger('light');
+                  handleLessonPress(item.id);
+                }}
+              >
+                <View style={localStyles.lessonRowInner}>
+                  <Text
+                    variant="body"
+                    style={[layoutStyles.flex1, localStyles.marginRight12]}
+                  >
+                    {item.title}
+                  </Text>
+                  <View style={localStyles.lessonRight}>
+                    {item.hasPodcast ? (
+                      <Headphones
+                        size={18}
+                        color={theme.colors.textSecondary}
+                        accessibilityLabel={
+                          isIntro
+                            ? 'Intro podcast available'
+                            : 'Lesson podcast available'
+                        }
+                      />
+                    ) : null}
+                  </View>
                 </View>
-              </View>
-            </Card>
-          </Box>
-        ))}
+              </Card>
+            </Box>
+          );
+        })}
 
         {!unit.isOwnedByCurrentUser && unit.isGlobal && currentUserId && (
           <Box px="lg" mt="lg">

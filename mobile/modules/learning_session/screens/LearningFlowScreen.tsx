@@ -77,12 +77,76 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 type Props = NativeStackScreenProps<LearningStackParamList, 'LearningFlow'>;
 
 export default function LearningFlowScreen({ navigation, route }: Props) {
-  const { lesson, unitId: routeUnitId } = route.params;
+  const {
+    lesson,
+    lessonId: initialLessonId,
+    unitId: routeUnitId,
+  } = route.params;
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const unitId = routeUnitId;
 
   const { user } = useAuth();
+
+  const [lessonType, setLessonType] = useState<'intro' | 'standard' | null>(
+    lesson?.lessonType ?? null
+  );
+
+  useEffect(() => {
+    if (lesson?.lessonType && lesson.lessonType !== lessonType) {
+      setLessonType(lesson.lessonType);
+    }
+  }, [lesson?.lessonType, lessonType]);
+
+  // Ensure we know lesson type (fallback fetch if not provided)
+  useEffect(() => {
+    if (lessonType || !initialLessonId) {
+      console.log(
+        '[LearningFlowScreen] Skip fetch - lessonType already set or no lessonId:',
+        { lessonType, initialLessonId }
+      );
+      return;
+    }
+    let mounted = true;
+    const fetchLessonType = async () => {
+      try {
+        const catalog = catalogProvider();
+        const detail = await catalog.getLessonDetail(initialLessonId);
+        console.log('[LearningFlowScreen] Fetched lesson detail:', {
+          lessonId: detail?.id,
+          title: detail?.title,
+          lessonType: detail?.lessonType,
+        });
+        if (!mounted) {
+          return;
+        }
+        if (detail?.lessonType) {
+          console.log(
+            '[LearningFlowScreen] Setting lessonType to:',
+            detail.lessonType
+          );
+          setLessonType(detail.lessonType);
+        }
+      } catch (err) {
+        console.warn('[LearningFlowScreen] Failed to fetch lesson type:', err);
+      }
+    };
+    fetchLessonType();
+    return () => {
+      mounted = false;
+    };
+  }, [initialLessonId, lessonType]);
+
+  // Detect if this is an intro lesson (should show podcast, then navigate to next lesson)
+  const isIntroLesson = lessonType === 'intro';
+
+  console.log('[LearningFlowScreen] Lesson type check:', {
+    lessonId: lesson?.id,
+    lessonTitle: lesson?.title,
+    lessonType,
+    isIntroLesson,
+    lessonFromRoute: lesson?.lessonType,
+  });
 
   const uiSystem = uiSystemProvider();
   const theme = uiSystem.getCurrentTheme();
@@ -107,6 +171,55 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
     unitId && playlist?.unitId === unitId && (playlist?.tracks.length ?? 0) > 0
   );
   const [_isPlaylistLoading, setIsPlaylistLoading] = useState(false);
+
+  const [nextLessonId, setNextLessonId] = useState<string | null>(null);
+  const [nextLessonTitle, setNextLessonTitle] = useState<string | null>(null);
+
+  // Load next lesson info when this is an intro lesson
+  useEffect(() => {
+    if (!isIntroLesson || !unitId) return;
+
+    let isMounted = true;
+    const loadNextLesson = async () => {
+      try {
+        const catalog = catalogProvider();
+        const detail = await catalog.getUnitDetail(unitId);
+        if (!isMounted) return;
+
+        console.log(
+          '[LearningFlowScreen] Unit detail lessons for next lesson lookup:',
+          detail?.lessons?.map((l: any) => ({
+            id: l.id,
+            title: l.title,
+            lessonType: l.lessonType,
+          }))
+        );
+
+        // Find first non-intro lesson
+        const nextLesson = detail?.lessons?.find(
+          (l: any) => l.lessonType !== 'intro'
+        );
+
+        console.log('[LearningFlowScreen] Found next lesson:', {
+          id: nextLesson?.id,
+          title: nextLesson?.title,
+          lessonType: nextLesson?.lessonType,
+        });
+
+        if (nextLesson) {
+          setNextLessonId(nextLesson.id);
+          setNextLessonTitle(nextLesson.title);
+        }
+      } catch (err) {
+        console.warn('Failed to load next lesson:', err);
+      }
+    };
+
+    loadNextLesson();
+    return () => {
+      isMounted = false;
+    };
+  }, [isIntroLesson, unitId]);
 
   const [isAssistantOpen, setAssistantOpen] = useState(false);
   const [assistantConversationId, setAssistantConversationId] = useState<
@@ -239,29 +352,39 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
           ? await resolveAssetUrl(null, detail.artImageUrl)
           : null;
 
-        // Intro podcast
-        if (detail?.podcastAudioUrl) {
+        // Intro podcast (from intro lesson if present)
+        const introLesson =
+          detail && detail.lessons?.[0]?.lessonType === 'intro'
+            ? detail.lessons[0]
+            : null;
+        if (introLesson?.podcastAudioUrl) {
           const introPodcastUrl = await resolveAssetUrl(
             unitDetail?.assets.find(a => a.type === 'audio')?.id ?? null,
-            detail.podcastAudioUrl
+            introLesson.podcastAudioUrl
           );
-          if (introPodcastUrl) {
+          if (introPodcastUrl && detail) {
             tracks.push({
               unitId: detail.id,
-              title: 'Intro Podcast',
+              title: 'Unit Introduction',
               audioUrl: introPodcastUrl,
-              durationSeconds: detail.introPodcastDurationSeconds ?? 0,
-              transcript: detail.podcastTranscript ?? null,
-              lessonId: null,
-              lessonIndex: null,
+              durationSeconds: introLesson.podcastDurationSeconds ?? 0,
+              transcript: introLesson.podcastTranscript ?? null,
+              lessonId: introLesson.id,
+              lessonIndex: 0,
+              lessonType: 'intro',
               artworkUrl: artworkUrl ?? undefined,
             });
           }
         }
 
-        // Lesson podcasts
+        // Lesson podcasts (exclude intro lessons)
         if (detail) {
           for (const [index, lessonSummary] of detail.lessons.entries()) {
+            // Skip intro lessons - they're already handled above
+            if (lessonSummary.lessonType === 'intro') {
+              continue;
+            }
+
             if (!lessonSummary.podcastAudioUrl) {
               continue;
             }
@@ -288,6 +411,7 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
                 : null,
               lessonId: lessonSummary.id,
               lessonIndex: index,
+              lessonType: 'standard',
               artworkUrl: artworkUrl ?? undefined,
             });
           }
@@ -497,6 +621,49 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
     navigation.replace('Results', { results, unitId: resolvedUnitId });
   };
 
+  const handleNextLesson = async (nextLessonId: string) => {
+    // Navigate to next lesson in learning flow
+    console.log(
+      '[LearningFlowScreen] handleNextLesson called with:',
+      nextLessonId
+    );
+    haptics.trigger('light');
+
+    // Fetch full lesson detail before navigating
+    try {
+      const catalog = catalogProvider();
+      console.log(
+        '[LearningFlowScreen] Fetching lesson detail for:',
+        nextLessonId
+      );
+      const nextLessonDetail = await catalog.getLessonDetail(nextLessonId);
+
+      console.log('[LearningFlowScreen] Fetched lesson detail:', {
+        id: nextLessonDetail?.id,
+        title: nextLessonDetail?.title,
+        exerciseCount: nextLessonDetail?.exercises?.length ?? 0,
+        lessonType: nextLessonDetail?.lessonType,
+      });
+
+      if (!nextLessonDetail) {
+        console.error(
+          '[LearningFlowScreen] Next lesson not found:',
+          nextLessonId
+        );
+        return;
+      }
+
+      console.log('[LearningFlowScreen] Navigating to next lesson');
+      navigation.push('LearningFlow', {
+        lessonId: nextLessonId,
+        lesson: nextLessonDetail,
+        unitId,
+      });
+    } catch (error) {
+      console.error('[LearningFlowScreen] Failed to load next lesson:', error);
+    }
+  };
+
   const handleBack = () => {
     haptics.trigger('light');
     // Navigate back to lesson list
@@ -598,6 +765,10 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
             onBack={handleBack}
             unitId={unitId}
             hasPlayer={hasPlayer}
+            isIntroLesson={isIntroLesson}
+            nextLessonId={nextLessonId}
+            nextLessonTitle={nextLessonTitle}
+            onNextLesson={handleNextLesson}
           />
           <View style={styles.assistantButtonWrapper} pointerEvents="box-none">
             <TeachingAssistantButton

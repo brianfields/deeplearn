@@ -15,6 +15,7 @@ class UnitCreationResult(BaseModel):
     lesson_ids: list[str] | None = None
     learning_objectives: list[dict] | None = None  # Coach-provided or generated LOs
     lessons: list[dict] | None = None  # Lesson plan items
+    intro_lesson_id: str | None = None  # ID of created intro lesson (if successful)
 
 
 class MobileUnitCreationResult(BaseModel):

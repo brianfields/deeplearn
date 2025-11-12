@@ -26,6 +26,7 @@ class LessonRead(BaseModel):
     id: str
     title: str
     learner_level: str
+    lesson_type: str = "standard"  # 'standard' or 'intro'
     core_concept: str | None = None  # For admin compatibility
     unit_id: str | None = None
     source_material: str | None = None
@@ -54,6 +55,7 @@ class LessonCreate(BaseModel):
     id: str
     title: str
     learner_level: str
+    lesson_type: str = "standard"  # 'standard' or 'intro'
     source_material: str | None = None
     source_domain: str | None = None
     source_level: str | None = None

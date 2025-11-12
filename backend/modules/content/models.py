@@ -7,6 +7,7 @@ Uses single lessons table with JSON package field.
 """
 
 from datetime import datetime
+from enum import Enum as PyEnum
 from typing import Any
 import uuid
 
@@ -16,6 +17,7 @@ from sqlalchemy import (
     CheckConstraint,
     Column,
     DateTime,
+    Enum,
     ForeignKey,
     Index,
     Integer,
@@ -29,6 +31,13 @@ from modules.shared_models import Base, PostgresUUID
 from modules.user.models import UserModel  # noqa: F401  # Ensure users table registered for FK
 
 
+class LessonType(PyEnum):
+    """Enum for lesson types (standard or intro podcast)."""
+
+    STANDARD = "standard"
+    INTRO = "intro"
+
+
 class LessonModel(Base):
     """SQLAlchemy model for educational lessons with embedded package content."""
 
@@ -37,6 +46,7 @@ class LessonModel(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     learner_level: Mapped[str] = mapped_column(String(50), nullable=False)
+    lesson_type: Mapped[LessonType] = mapped_column(Enum(LessonType, values_callable=lambda x: [e.value for e in x]), default=LessonType.STANDARD, nullable=False)
 
     source_material: Mapped[str | None] = mapped_column(Text)
 
@@ -58,6 +68,8 @@ class LessonModel(Base):
 
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+
+    __table_args__ = (Index("ix_lessons_unit_id_lesson_type", "unit_id", "lesson_type"),)
 
 
 class UnitModel(Base):
@@ -102,12 +114,6 @@ class UnitModel(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="completed")
     creation_progress: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
-
-    # Intro podcast fields - transcript + generated audio asset (intro only)
-    podcast_transcript = Column(Text, nullable=True)
-    podcast_voice = Column(String(100), nullable=True)
-    podcast_audio_object_id = Column(PostgresUUID(), nullable=True)
-    podcast_generated_at = Column(DateTime, nullable=True)
 
     # Artwork metadata - generated unit art asset reference
     art_image_id = Column(

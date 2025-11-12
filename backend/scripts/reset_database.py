@@ -248,7 +248,7 @@ def drop_all_tables(verbose: bool = False) -> None:
 
 
 def reset_alembic_version(verbose: bool = False) -> None:
-    """Reset the Alembic version table."""
+    """Reset the Alembic version table and drop any stale enums."""
     print("🔄 Resetting Alembic migration state...")
 
     try:
@@ -260,6 +260,14 @@ def reset_alembic_version(verbose: bool = False) -> None:
                 print("   Dropping alembic_version table...")
 
             session.execute(text("DROP TABLE IF EXISTS alembic_version"))
+
+            # Drop any stale PostgreSQL enums that might cause conflicts during migration
+            # (enums can persist even after tables are dropped)
+            if verbose:
+                print("   Dropping stale PostgreSQL enums...")
+
+            session.execute(text("DROP TYPE IF EXISTS lessontype CASCADE"))
+
             print("✅ Alembic migration state reset")
 
     except Exception as e:

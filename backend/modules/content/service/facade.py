@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 import uuid
 
 from modules.flow_engine.public import FlowRunSummaryDTO
 from modules.object_store.public import ObjectStoreProvider
+
+if TYPE_CHECKING:
+    from modules.catalog.service import LessonSummary
 
 from ..repo import ContentRepo
 from .dtos import (
@@ -84,6 +87,9 @@ class ContentService:
 
     async def get_lessons_by_unit(self, unit_id: str, limit: int = 100, offset: int = 0) -> list[LessonRead]:
         return await self._lessons.get_lessons_by_unit(unit_id, limit=limit, offset=offset)
+
+    async def get_intro_lesson_summary(self, unit_id: str) -> LessonSummary | None:
+        return await self._lessons.get_intro_lesson_summary(unit_id)
 
     async def save_lesson(self, lesson_data: LessonCreate) -> LessonRead:
         return await self._lessons.save_lesson(lesson_data)
