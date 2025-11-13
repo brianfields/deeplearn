@@ -28,7 +28,12 @@ import { usePodcastPlayer } from '../hooks/usePodcastPlayer';
 import { usePodcastState } from '../hooks/usePodcastState';
 import { usePodcastStore } from '../store';
 import { catalogProvider } from '../../catalog/public';
-import type { PodcastTrack } from '../models';
+import type { PodcastTrack, TranscriptSegment } from '../models';
+
+interface NormalizedTranscriptSegment extends TranscriptSegment {
+  readonly start: number;
+  readonly end: number;
+}
 
 /**
  * PodcastPlayer Component
@@ -107,9 +112,13 @@ export function PodcastPlayer(): React.ReactElement {
   // Fetch transcript for current track if it's missing
   useEffect(() => {
     const lessonId = currentTrack?.lessonId;
-    const hasTranscript = currentTrack?.transcript !== null;
+    const transcriptLoaded =
+      currentTrack?.transcript !== undefined && currentTrack?.transcript !== null;
+    const segmentsLoaded =
+      Array.isArray(currentTrack?.transcriptSegments) &&
+      (currentTrack?.transcriptSegments?.length ?? 0) > 0;
 
-    if (!lessonId || hasTranscript) {
+    if (!lessonId || transcriptLoaded || segmentsLoaded) {
       return;
     }
 
@@ -133,6 +142,7 @@ export function PodcastPlayer(): React.ReactElement {
         const updatedTrack: PodcastTrack = {
           ...track,
           transcript: lessonDetail.podcastTranscript ?? null,
+          transcriptSegments: lessonDetail.podcastTranscriptSegments ?? null,
         };
         usePodcastStore.getState().setCurrentTrack(updatedTrack);
       } catch (error) {
@@ -141,7 +151,7 @@ export function PodcastPlayer(): React.ReactElement {
     };
 
     void fetchTranscript();
-  }, [currentTrack?.lessonId, currentTrack?.transcript]);
+  }, [currentTrack?.lessonId, currentTrack?.transcript, currentTrack?.transcriptSegments]);
 
   // Debug logging for artwork
   useEffect(() => {
@@ -159,6 +169,65 @@ export function PodcastPlayer(): React.ReactElement {
   const duration =
     playbackState.duration || (currentTrack?.durationSeconds ?? 0);
   const displayedPosition = isSeekingPosition ? pendingSeekPosition : position;
+
+  const transcriptSegments = useMemo<NormalizedTranscriptSegment[] | null>(() => {
+    const segments = currentTrack?.transcriptSegments;
+    if (!segments || segments.length === 0) {
+      return null;
+    }
+
+    const normalized = segments
+      .map(segment => {
+        const safeStart = Number.isFinite(segment.start)
+          ? Math.max(0, segment.start)
+          : 0;
+        const safeEndRaw = Number.isFinite(segment.end)
+          ? Math.max(segment.end, safeStart)
+          : safeStart;
+        return {
+          ...segment,
+          start: safeStart,
+          end: safeEndRaw,
+        };
+      })
+      .sort((a, b) => a.start - b.start);
+
+    return normalized;
+  }, [currentTrack?.transcriptSegments]);
+
+  const transcriptFallbackText = useMemo(() => {
+    if (transcriptSegments && transcriptSegments.length > 0) {
+      return transcriptSegments.map(segment => segment.text).join(' ');
+    }
+    return currentTrack?.transcript ?? null;
+  }, [currentTrack?.transcript, transcriptSegments]);
+
+  const activeTranscriptIndex = useMemo(() => {
+    if (!transcriptSegments || transcriptSegments.length === 0) {
+      return -1;
+    }
+
+    if (!Number.isFinite(displayedPosition)) {
+      return -1;
+    }
+
+    let candidateIndex = -1;
+    for (let index = 0; index < transcriptSegments.length; index += 1) {
+      const segment = transcriptSegments[index];
+      if (displayedPosition < segment.start) {
+        break;
+      }
+
+      candidateIndex = index;
+
+      // If the playback position is before the segment end we can stop searching early
+      if (displayedPosition <= segment.end) {
+        break;
+      }
+    }
+
+    return candidateIndex;
+  }, [displayedPosition, transcriptSegments]);
 
   const playlistLength = playlist?.tracks.length ?? 0;
   const currentPlaylistIndex = playlist?.currentTrackIndex ?? 0;
@@ -674,13 +743,34 @@ export function PodcastPlayer(): React.ReactElement {
                 >
                   Transcript
                 </Text>
-                {currentTrack?.transcript ? (
+                {transcriptSegments && transcriptSegments.length > 0 ? (
                   <Text
                     variant="body"
                     color={theme.colors.text}
                     style={styles.transcriptText}
                   >
-                    {currentTrack.transcript}
+                    {transcriptSegments.map((segment, index) => (
+                      <Text
+                        key={`${segment.start}-${index}`}
+                        style={[
+                          styles.transcriptSegmentText,
+                          index === activeTranscriptIndex
+                            ? styles.transcriptSegmentTextActive
+                            : null,
+                        ]}
+                      >
+                        {segment.text}
+                        {index < transcriptSegments.length - 1 ? ' ' : ''}
+                      </Text>
+                    ))}
+                  </Text>
+                ) : transcriptFallbackText ? (
+                  <Text
+                    variant="body"
+                    color={theme.colors.text}
+                    style={styles.transcriptText}
+                  >
+                    {transcriptFallbackText}
                   </Text>
                 ) : (
                   <Text
@@ -910,6 +1000,17 @@ const createStyles = (theme: any) =>
     transcriptText: {
       fontSize: 15,
       lineHeight: 24,
+    },
+    transcriptSegmentText: {
+      color: theme.colors.text,
+    },
+    transcriptSegmentTextActive: {
+      color: theme.colors.primary,
+      fontWeight: '600',
+      backgroundColor: theme.colors.surfaceSubdued,
+      borderRadius: 6,
+      paddingHorizontal: 4,
+      paddingVertical: 2,
     },
     transcriptUnavailable: {
       fontSize: 15,

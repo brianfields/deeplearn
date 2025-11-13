@@ -32,6 +32,8 @@ from ..exceptions import (
 from ..types import (
     AudioGenerationRequest,
     AudioResponse,
+    AudioTranscriptionRequest,
+    AudioTranscriptionResult,
     ImageGenerationRequest,
     ImageResponse,
     LLMMessage,
@@ -907,6 +909,14 @@ class GeminiProvider(LLMProvider):
             if isinstance(exc, LLMError | LLMAuthenticationError | LLMRateLimitError | LLMTimeoutError | LLMValidationError):
                 raise
             raise LLMError(f"Gemini audio generation failed: {exc}") from exc
+
+    async def transcribe_audio(
+        self,
+        request: AudioTranscriptionRequest,
+        user_id: int | None = None,
+        **kwargs: Any,
+    ) -> tuple[AudioTranscriptionResult, uuid.UUID]:  # pragma: no cover - not supported
+        raise NotImplementedError("Gemini provider does not yet support audio transcription")
 
     # ------------------------------------------------------------------
     # Optional interfaces

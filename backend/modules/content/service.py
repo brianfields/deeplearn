@@ -11,7 +11,7 @@ Handles content operations and data transformation.
 from datetime import UTC, datetime
 from enum import Enum
 import logging
-from typing import Any, Literal
+from typing import Any, Literal, Sequence
 import uuid
 
 from pydantic import BaseModel, ConfigDict
@@ -62,6 +62,7 @@ class LessonRead(BaseModel):
     podcast_generated_at: datetime | None = None
     podcast_audio_url: str | None = None
     has_podcast: bool = False
+    podcast_transcript_segments: list["PodcastTranscriptSegment"] | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -79,6 +80,14 @@ class LessonCreate(BaseModel):
     package: LessonPackage
     package_version: int = 1
     flow_run_id: uuid.UUID | None = None
+
+
+class PodcastTranscriptSegment(BaseModel):
+    """Timed transcript segment for synchronised playback highlighting."""
+
+    text: str
+    start: float
+    end: float
 
 
 class UnitLearningObjective(BaseModel):
@@ -149,18 +158,52 @@ class ContentService:
     ) -> dict[str, Any]:
         audio_identifier = getattr(lesson, "podcast_audio_object_id", None)
         transcript = getattr(lesson, "podcast_transcript", None)
+        segments_raw = getattr(lesson, "podcast_transcript_segments", None)
+        segments = self._normalise_transcript_segments(segments_raw)
         payload: dict[str, Any] = {
             "has_podcast": bool(audio_identifier or transcript),
             "podcast_voice": getattr(lesson, "podcast_voice", None),
             "podcast_duration_seconds": getattr(lesson, "podcast_duration_seconds", None),
             "podcast_generated_at": getattr(lesson, "podcast_generated_at", None),
             "podcast_audio_url": self._build_lesson_podcast_audio_url(lesson) if audio_identifier else None,
+            "podcast_transcript_segments": segments,
         }
 
         if include_transcript:
             payload["podcast_transcript"] = transcript
 
         return payload
+
+    def _normalise_transcript_segments(
+        self,
+        raw_segments: Any,
+    ) -> list["PodcastTranscriptSegment"] | None:
+        """Coerce stored transcript segments into DTO instances."""
+
+        if not raw_segments:
+            return None
+
+        segments: list[PodcastTranscriptSegment] = []
+        if isinstance(raw_segments, list):
+            for entry in raw_segments:
+                if not isinstance(entry, dict):
+                    continue
+                text = str(entry.get("text") or "").strip()
+                if not text:
+                    continue
+                try:
+                    start = float(entry.get("start", 0.0))
+                except Exception:
+                    start = 0.0
+                try:
+                    end = float(entry.get("end", start))
+                except Exception:
+                    end = start
+                segments.append(
+                    PodcastTranscriptSegment(text=text, start=start, end=end)
+                )
+
+        return segments or None
 
     async def get_lesson(self, lesson_id: str) -> LessonRead | None:
         """Get lesson with package by ID."""
@@ -813,6 +856,7 @@ class ContentService:
         mime_type: str | None,
         voice: str | None,
         duration_seconds: int | None = None,
+        transcript_segments: Sequence[PodcastTranscriptSegment | dict[str, Any]] | None = None,
     ) -> LessonRead:
         """Upload lesson podcast audio and persist metadata."""
 
@@ -847,12 +891,43 @@ class ContentService:
         resolved_duration = duration_seconds if duration_seconds is not None else getattr(audio_file, "duration_seconds", None)
         resolved_voice = voice if voice is not None else getattr(audio_file, "voice", None)
 
+        serialised_segments: list[dict[str, Any]] | None = None
+        if transcript_segments:
+            serialised_segments = []
+            for segment in transcript_segments:
+                if isinstance(segment, dict):
+                    text = str(segment.get("text") or "").strip()
+                    try:
+                        start = float(segment.get("start", 0.0))
+                    except Exception:
+                        start = 0.0
+                    try:
+                        end = float(segment.get("end", start))
+                    except Exception:
+                        end = start
+                else:
+                    text = str(getattr(segment, "text", "")).strip()
+                    try:
+                        start = float(getattr(segment, "start", 0.0))
+                    except Exception:
+                        start = 0.0
+                    try:
+                        end = float(getattr(segment, "end", start))
+                    except Exception:
+                        end = start
+                if not text:
+                    continue
+                serialised_segments.append({"text": text, "start": start, "end": end})
+            if not serialised_segments:
+                serialised_segments = None
+
         updated_lesson = await self.repo.set_lesson_podcast(
             lesson_id,
             transcript=transcript,
             audio_object_id=audio_object_id,
             voice=resolved_voice,
             duration_seconds=resolved_duration,
+            transcript_segments=serialised_segments,
         )
         if updated_lesson is None:
             raise ValueError("Failed to persist lesson podcast metadata")

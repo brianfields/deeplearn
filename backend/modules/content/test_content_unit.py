@@ -335,11 +335,13 @@ class TestContentService:
             audio_object_id: uuid.UUID,
             voice: str | None,
             duration_seconds: int | None,
+            transcript_segments: list[dict[str, Any]] | None,
         ) -> LessonModel:
             lesson_model.podcast_transcript = transcript
             lesson_model.podcast_audio_object_id = audio_object_id
             lesson_model.podcast_voice = voice
             lesson_model.podcast_duration_seconds = duration_seconds
+            lesson_model.podcast_transcript_segments = transcript_segments
             lesson_model.podcast_generated_at = now
             lesson_model.updated_at = now
             return lesson_model
@@ -354,6 +356,7 @@ class TestContentService:
             mime_type="audio/mpeg",
             voice="Guide",
             duration_seconds=120,
+            transcript_segments=[{"text": "Lesson 1.", "start": 0.0, "end": 4.2}],
         )
 
         object_store.upload_audio.assert_awaited_once()
@@ -363,8 +366,12 @@ class TestContentService:
             audio_object_id=upload_file.id,
             voice="Guide",
             duration_seconds=120,
+            transcript_segments=[{"text": "Lesson 1.", "start": 0.0, "end": 4.2}],
         )
         assert result.podcast_transcript == "Lesson 1. Lesson"
+        assert result.podcast_transcript_segments is not None
+        assert len(result.podcast_transcript_segments) == 1
+        assert result.podcast_transcript_segments[0].text == "Lesson 1."
         assert result.has_podcast is True
         assert result.podcast_voice == "Guide"
         assert result.podcast_duration_seconds == 120

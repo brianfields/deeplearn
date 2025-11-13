@@ -369,6 +369,7 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
               audioUrl: introPodcastUrl,
               durationSeconds: introLesson.podcastDurationSeconds ?? 0,
               transcript: introLesson.podcastTranscript ?? null,
+              transcriptSegments: introLesson.podcastTranscriptSegments ?? null,
               lessonId: introLesson.id,
               lessonIndex: 0,
               lessonType: 'intro',
@@ -409,6 +410,9 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
               transcript: isCurrentLesson
                 ? (lesson.podcastTranscript ?? null)
                 : null,
+              transcriptSegments: isCurrentLesson
+                ? lesson.podcastTranscriptSegments ?? null
+                : lessonSummary.podcastTranscriptSegments ?? null,
               lessonId: lessonSummary.id,
               lessonIndex: index,
               lessonType: 'standard',

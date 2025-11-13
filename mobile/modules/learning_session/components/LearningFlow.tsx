@@ -15,6 +15,7 @@ import ShortAnswer from './ShortAnswer';
 import type { MCQContentDTO, ShortAnswerContentDTO } from '../models';
 import { catalogProvider } from '../../catalog/public';
 import { usePodcastPlayer, usePodcastState } from '../../podcast_player/public';
+import type { TranscriptSegment } from '../../podcast_player/models';
 
 interface LearningFlowProps {
   sessionId: string;
@@ -119,6 +120,9 @@ export default function LearningFlow({
   const [podcastTranscript, setPodcastTranscript] = useState<string | null>(
     null
   );
+  const [podcastTranscriptSegments, setPodcastTranscriptSegments] = useState<
+    TranscriptSegment[] | null
+  >(null);
 
   // Fetch podcast transcript from lesson details (package-aligned)
   useEffect(() => {
@@ -130,9 +134,13 @@ export default function LearningFlow({
         const detail = await catalog.getLessonDetail(session.lessonId);
         if (!isMounted) return;
         setPodcastTranscript(detail?.podcastTranscript ?? null);
+        setPodcastTranscriptSegments(detail?.podcastTranscriptSegments ?? null);
       } catch (e) {
         console.warn('Failed to load podcast transcript:', e);
-        if (isMounted) setPodcastTranscript(null);
+        if (isMounted) {
+          setPodcastTranscript(null);
+          setPodcastTranscriptSegments(null);
+        }
       }
     };
     fetchTranscript();
@@ -140,6 +148,13 @@ export default function LearningFlow({
       isMounted = false;
     };
   }, [session?.lessonId]);
+
+  const transcriptContent = useMemo(() => {
+    if (podcastTranscriptSegments && podcastTranscriptSegments.length > 0) {
+      return podcastTranscriptSegments.map(segment => segment.text).join(' ');
+    }
+    return podcastTranscript;
+  }, [podcastTranscript, podcastTranscriptSegments]);
 
   // Show podcast transcript first when session starts and no exercises completed yet
   // (Show even if no exercises - intro lessons don't have exercises but should show transcript)
@@ -149,13 +164,13 @@ export default function LearningFlow({
       currentExerciseIndex === 0 &&
       completedExercisesCount === 0 &&
       !transcriptShown &&
-      !!podcastTranscript
+      !!transcriptContent
     );
   }, [
     session,
     currentExerciseIndex,
     completedExercisesCount,
-    podcastTranscript,
+    transcriptContent,
     transcriptShown,
   ]);
 
@@ -438,7 +453,7 @@ export default function LearningFlow({
           hasPlayer ? styles.componentContainerWithMini : undefined,
         ]}
       >
-        {shouldShowTranscript && podcastTranscript && (
+        {shouldShowTranscript && transcriptContent && (
           <View style={styles.transcriptContainer}>
             <View style={styles.transcriptHeader}>
               <Text style={styles.transcriptLabel}>
@@ -455,7 +470,7 @@ export default function LearningFlow({
               contentContainerStyle={styles.transcriptScrollContent}
               showsVerticalScrollIndicator={false}
             >
-              <Text style={styles.transcriptText}>{podcastTranscript}</Text>
+              <Text style={styles.transcriptText}>{transcriptContent}</Text>
             </ScrollView>
             <View style={styles.transcriptButtonContainer}>
               <Button

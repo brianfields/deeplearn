@@ -256,12 +256,14 @@ class MediaHelper:
     ) -> dict[str, Any]:
         audio_identifier = getattr(lesson, "podcast_audio_object_id", None)
         transcript = getattr(lesson, "podcast_transcript", None)
+        segments = getattr(lesson, "podcast_transcript_segments", None)
         payload: dict[str, Any] = {
             "has_podcast": bool(audio_identifier or transcript),
             "podcast_voice": getattr(lesson, "podcast_voice", None),
             "podcast_duration_seconds": getattr(lesson, "podcast_duration_seconds", None),
             "podcast_generated_at": getattr(lesson, "podcast_generated_at", None),
             "podcast_audio_url": self.build_lesson_podcast_audio_url(lesson) if audio_identifier else None,
+            "podcast_transcript_segments": segments,
         }
 
         if include_transcript:

@@ -65,6 +65,7 @@ class LessonModel(Base):
     podcast_audio_object_id: Mapped[uuid.UUID | None] = mapped_column(PostgresUUID(), nullable=True)
     podcast_generated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     podcast_duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    podcast_transcript_segments: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)

@@ -45,6 +45,7 @@ class LessonRead(BaseModel):
     podcast_generated_at: datetime | None = None
     podcast_audio_url: str | None = None
     has_podcast: bool = False
+    podcast_transcript_segments: list["PodcastTranscriptSegment"] | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -63,6 +64,12 @@ class LessonCreate(BaseModel):
     package: LessonPackage
     package_version: int = 1
     flow_run_id: uuid.UUID | None = None
+
+
+class PodcastTranscriptSegment(BaseModel):
+    text: str
+    start: float
+    end: float
 
 
 class UnitLearningObjective(BaseModel):

@@ -8,7 +8,7 @@ import logging
 import math
 import re
 
-from modules.llm_services.public import AudioResponse
+from modules.llm_services.public import AudioResponse, llm_services_provider
 
 from .flows import LessonPodcastFlow, UnitPodcastFlow
 
@@ -24,6 +24,15 @@ class PodcastLesson:
 
 
 @dataclass(slots=True)
+class PodcastTranscriptSegment:
+    """Timed transcript segment for synchronised highlighting."""
+
+    text: str
+    start: float
+    end: float
+
+
+@dataclass(slots=True)
 class LessonPodcastResult:
     """Result of lesson podcast generation."""
 
@@ -32,6 +41,7 @@ class LessonPodcastResult:
     mime_type: str
     voice: str
     duration_seconds: int | None
+    transcript_segments: list[PodcastTranscriptSegment] | None = None
 
 
 @dataclass(slots=True)
@@ -43,6 +53,50 @@ class UnitPodcast:
     mime_type: str
     voice: str
     duration_seconds: int | None
+    transcript_segments: list[PodcastTranscriptSegment] | None = None
+
+
+async def _transcribe_podcast_audio(
+    audio_bytes: bytes,
+    *,
+    mime_type: str | None,
+    filename: str,
+) -> list[PodcastTranscriptSegment] | None:
+    """Leverage Whisper/Gemini STT to produce timed transcript segments."""
+
+    if not audio_bytes:
+        return None
+
+    try:
+        llm_service = llm_services_provider()
+    except Exception as exc:  # pragma: no cover - defensive guard
+        logger.warning("Unable to initialise LLM service for transcription: %s", exc)
+        return None
+
+    try:
+        transcription, _ = await llm_service.transcribe_audio(
+            audio_bytes,
+            mime_type=mime_type,
+            filename=filename,
+        )
+    except Exception as exc:  # pragma: no cover - provider failure
+        logger.warning("Podcast transcription failed; proceeding without timed segments: %s", exc)
+        return None
+
+    segments: list[PodcastTranscriptSegment] = []
+    for segment in transcription.segments:
+        text = segment.text.strip()
+        if not text:
+            continue
+        segments.append(
+            PodcastTranscriptSegment(
+                text=text,
+                start=max(0.0, segment.start),
+                end=max(segment.start, segment.end),
+            )
+        )
+
+    return segments or None
 
 
 class UnitPodcastGenerator:
@@ -103,6 +157,7 @@ class UnitPodcastGenerator:
         mime_type = "audio/mpeg" if self.audio_format == "mp3" else f"audio/{self.audio_format}"
         playback_voice = resolved_voice
         duration_seconds: int | None = None
+        transcript_segments: list[PodcastTranscriptSegment] | None = None
 
         if audio_payload:
             parsed_audio = AudioResponse.model_validate(audio_payload)
@@ -117,12 +172,21 @@ class UnitPodcastGenerator:
         if duration_seconds is None:
             duration_seconds = self._estimate_duration_seconds(transcript_text)
 
+        if audio_bytes:
+            filename = f"unit-{unit_title.replace(' ', '-').lower()}-podcast.{self.audio_format}"
+            transcript_segments = await _transcribe_podcast_audio(
+                audio_bytes,
+                mime_type=mime_type,
+                filename=filename,
+            )
+
         return UnitPodcast(
             transcript=transcript_text,
             audio_bytes=audio_bytes,
             mime_type=mime_type,
             voice=playback_voice,
             duration_seconds=duration_seconds,
+            transcript_segments=transcript_segments,
         )
 
     def _estimate_duration_seconds(self, transcript: str) -> int:
@@ -195,6 +259,7 @@ class LessonPodcastGenerator:
         mime_type = "audio/mpeg" if self.audio_format == "mp3" else f"audio/{self.audio_format}"
         playback_voice = resolved_voice
         duration_seconds: int | None = None
+        transcript_segments: list[PodcastTranscriptSegment] | None = None
 
         if audio_payload:
             parsed_audio = AudioResponse.model_validate(audio_payload)
@@ -217,10 +282,19 @@ class LessonPodcastGenerator:
                 estimated_minutes = len(words) / 165
                 duration_seconds = max(1, math.ceil(estimated_minutes * 60))
 
+        if audio_bytes:
+            filename = f"lesson-{lesson_index + 1}-podcast.{self.audio_format}"
+            transcript_segments = await _transcribe_podcast_audio(
+                audio_bytes,
+                mime_type=mime_type,
+                filename=filename,
+            )
+
         return LessonPodcastResult(
             transcript=transcript_text,
             audio_bytes=audio_bytes,
             mime_type=mime_type,
             voice=playback_voice,
             duration_seconds=duration_seconds,
+            transcript_segments=transcript_segments,
         )

@@ -207,6 +207,7 @@ class MediaHandler:
             mime_type=podcast.mime_type,
             voice=podcast.voice,
             duration_seconds=podcast.duration_seconds,
+            transcript_segments=podcast.transcript_segments,
         )
 
     async def _download_image(self, url: str) -> tuple[bytes, str | None]:

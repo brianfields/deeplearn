@@ -12,7 +12,17 @@ from sqlalchemy.orm import Session
 from ..infrastructure.public import infrastructure_provider
 from .providers.base import LLMProviderKwargs
 from .repo import LLMRequestRepo
-from .service import AudioResponse, ImageResponse, LLMMessage, LLMRequest, LLMResponse, LLMService, WebSearchResponse
+from .service import (
+    AudioResponse,
+    AudioTranscription,
+    AudioTranscriptionSegmentDTO,
+    ImageResponse,
+    LLMMessage,
+    LLMRequest,
+    LLMResponse,
+    LLMService,
+    WebSearchResponse,
+)
 from .types import ToolCall, ToolDefinition
 
 # Type variable for structured responses
@@ -20,6 +30,8 @@ T = TypeVar("T", bound=BaseModel)
 
 __all__ = [
     "AudioResponse",
+    "AudioTranscription",
+    "AudioTranscriptionSegmentDTO",
     "ImageResponse",
     "LLMMessage",
     "LLMRequest",
@@ -147,6 +159,22 @@ class LLMServicesProvider(Protocol):
         **kwargs: LLMProviderKwargs,
     ) -> tuple[AudioResponse, uuid.UUID]:
         """Synthesize narrated audio from text content."""
+        ...
+
+    async def transcribe_audio(
+        self,
+        audio_bytes: bytes,
+        *,
+        user_id: int | None = None,
+        model: str | None = None,
+        mime_type: str | None = None,
+        language: str | None = None,
+        prompt: str | None = None,
+        response_format: str | None = None,
+        filename: str | None = None,
+        **kwargs: LLMProviderKwargs,
+    ) -> tuple[AudioTranscription, uuid.UUID]:
+        """Transcribe narrated audio into timed transcript segments."""
         ...
 
     async def search_web(self, queries: list[str], user_id: int | None = None, max_results: int = 10, **kwargs: LLMProviderKwargs) -> tuple[WebSearchResponse, uuid.UUID]:

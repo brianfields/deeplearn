@@ -69,6 +69,7 @@ class ContentRepo:
         audio_object_id: uuid.UUID,
         voice: str | None,
         duration_seconds: int | None,
+        transcript_segments: list[dict[str, Any]] | None,
     ) -> LessonModel | None:
         """Persist podcast metadata for a lesson."""
 
@@ -80,6 +81,7 @@ class ContentRepo:
         lesson.podcast_audio_object_id = audio_object_id  # type: ignore[assignment]
         lesson.podcast_voice = voice  # type: ignore[assignment]
         lesson.podcast_duration_seconds = duration_seconds  # type: ignore[assignment]
+        lesson.podcast_transcript_segments = transcript_segments  # type: ignore[assignment]
         lesson.podcast_generated_at = datetime.utcnow()  # type: ignore[assignment]
         lesson.updated_at = datetime.utcnow()  # type: ignore[assignment]
 

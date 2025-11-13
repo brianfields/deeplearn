@@ -25,6 +25,8 @@ from ..exceptions import (
 from ..types import (
     AudioGenerationRequest,
     AudioResponse,
+    AudioTranscriptionRequest,
+    AudioTranscriptionResult,
     ImageGenerationRequest,
     ImageResponse,
     LLMMessage,
@@ -401,6 +403,14 @@ class ClaudeProviderBase(LLMProvider):
         **kwargs: Any,
     ) -> tuple[AudioResponse, uuid.UUID]:  # pragma: no cover - not supported
         raise NotImplementedError("Claude providers do not support audio generation")
+
+    async def transcribe_audio(
+        self,
+        request: AudioTranscriptionRequest,
+        user_id: int | None = None,
+        **kwargs: Any,
+    ) -> tuple[AudioTranscriptionResult, uuid.UUID]:  # pragma: no cover - not supported
+        raise NotImplementedError("Claude providers do not support audio transcription")
 
     async def search_recent_news(
         self,

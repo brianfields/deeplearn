@@ -1,7 +1,7 @@
 """Protocol definition and dependency injection provider for the content module."""
 
 from datetime import datetime
-from typing import Any, Protocol
+from typing import Any, Protocol, Sequence
 import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -128,6 +128,7 @@ class ContentProvider(Protocol):
         mime_type: str | None,
         voice: str | None,
         duration_seconds: int | None = None,
+        transcript_segments: Sequence[dict[str, Any]] | None = None,
     ) -> LessonRead: ...
     async def save_unit_art_from_bytes(
         self,

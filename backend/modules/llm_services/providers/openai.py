@@ -3,6 +3,7 @@
 import asyncio
 import base64
 import contextlib
+import io
 from datetime import UTC, datetime
 import importlib
 import json
@@ -50,6 +51,9 @@ from ..exceptions import (
 from ..types import (
     AudioGenerationRequest,
     AudioResponse,
+    AudioTranscriptionRequest,
+    AudioTranscriptionResult,
+    AudioTranscriptionSegment,
     ImageGenerationRequest,
     ImageResponse,
     LLMMessage,
@@ -853,6 +857,127 @@ class OpenAIProvider(LLMProvider):
 
             raise self._convert_exception(e) from e
 
+    async def transcribe_audio(
+        self,
+        request: AudioTranscriptionRequest,
+        user_id: int | None = None,
+        **kwargs: Any,
+    ) -> tuple[AudioTranscriptionResult, uuid.UUID]:
+        """Transcribe narrated audio into timed segments using Whisper."""
+
+        start_time = datetime.now(UTC)
+
+        try:
+            messages = [
+                LLMMessage(
+                    role=MessageRole.USER,
+                    content="Transcribe podcast audio into text with timestamps.",
+                )
+            ]
+            llm_request = self._create_llm_request(
+                messages=messages,
+                user_id=user_id,
+                model=request.model,
+                temperature=0.0,
+            )
+            if llm_request.id is None:
+                raise LLMError("Failed to create LLM request record")
+            request_id: uuid.UUID = llm_request.id
+
+            transcription_client = getattr(getattr(self.client, "audio", None), "transcriptions", None)
+            if transcription_client is None:
+                raise LLMError("OpenAI transcription API is not available in this environment")
+
+            create_method = getattr(transcription_client, "create", None)
+            if not callable(create_method):
+                raise LLMError("OpenAI transcription API does not expose a create() method")
+
+            audio_buffer = io.BytesIO(request.audio_bytes)
+            audio_buffer.name = request.filename or self._derive_transcription_filename(request.mime_type)
+
+            request_kwargs: dict[str, Any] = {
+                "model": request.model,
+                "file": audio_buffer,
+                "response_format": request.response_format,
+            }
+            if request.language:
+                request_kwargs["language"] = request.language
+            if request.prompt:
+                request_kwargs["prompt"] = request.prompt
+            request_kwargs.update({k: v for k, v in kwargs.items() if v is not None})
+
+            response = await cast(Any, create_method)(**request_kwargs)
+            response_payload = self._to_jsonable(response)
+
+            text = str(response_payload.get("text") or "").strip()
+            language = response_payload.get("language")
+            segments_payload = response_payload.get("segments") or []
+            segments: list[AudioTranscriptionSegment] = []
+            for raw_segment in segments_payload:
+                if not isinstance(raw_segment, dict):
+                    continue
+                segment_text = str(raw_segment.get("text") or "").strip()
+                if not segment_text:
+                    continue
+                try:
+                    start_ts = float(raw_segment.get("start", 0.0))
+                except Exception:
+                    start_ts = 0.0
+                try:
+                    end_ts = float(raw_segment.get("end", start_ts))
+                except Exception:
+                    end_ts = start_ts
+                segments.append(
+                    AudioTranscriptionSegment(
+                        text=segment_text,
+                        start=start_ts,
+                        end=end_ts,
+                    )
+                )
+
+            if not segments and text:
+                try:
+                    duration_estimate = float(response_payload.get("duration", 0.0) or 0.0)
+                except Exception:
+                    duration_estimate = 0.0
+                segments = [AudioTranscriptionSegment(text=text, start=0.0, end=duration_estimate)]
+
+            transcription = AudioTranscriptionResult(
+                text=text,
+                segments=segments,
+                language=str(language) if language else None,
+            )
+
+            execution_time_ms = int((datetime.now(UTC) - start_time).total_seconds() * 1000)
+
+            with contextlib.suppress(Exception):
+                llm_request.request_payload = request.to_dict()
+                llm_request.additional_params = {
+                    "mime_type": request.mime_type,
+                    "language": request.language,
+                    "response_format": request.response_format,
+                }
+
+            llm_response = LLMResponse(
+                content=transcription.text,
+                provider=self.config.provider,
+                model=request.model,
+                response_output=transcription.to_dict(),
+            )
+
+            self._update_llm_request_success(llm_request, llm_response, execution_time_ms)
+
+            logger.info(
+                "Transcribed audio narration - Model: %s Segments: %d", request.model, len(transcription.segments)
+            )
+            return transcription, request_id
+
+        except Exception as e:
+            execution_time_ms = int((datetime.now(UTC) - start_time).total_seconds() * 1000)
+            if "llm_request" in locals():
+                self._update_llm_request_error(llm_request, e, execution_time_ms)
+            raise self._convert_exception(e) from e
+
     async def search_recent_news(
         self,
         search_queries: list[str],
@@ -959,6 +1084,25 @@ class OpenAIProvider(LLMProvider):
 
         estimated_minutes = len(words) / 165  # Approximate spoken words per minute
         return max(1, math.ceil(estimated_minutes * 60))
+
+    @staticmethod
+    def _derive_transcription_filename(mime_type: str | None) -> str:
+        """Return a deterministic filename for Whisper transcription uploads."""
+
+        extension_map = {
+            "audio/mpeg": "mp3",
+            "audio/mp3": "mp3",
+            "audio/mp4": "mp4",
+            "audio/m4a": "m4a",
+            "audio/wav": "wav",
+            "audio/x-wav": "wav",
+            "audio/webm": "webm",
+            "audio/ogg": "ogg",
+            "audio/flac": "flac",
+        }
+        normalized = (mime_type or "").strip().lower()
+        extension = extension_map.get(normalized, "mp3")
+        return f"podcast-transcription.{extension}"
 
     async def _make_api_call_with_retry(self, api_call_func: Any) -> Any:
         """Make API call with retry logic for rate limits and transient errors."""

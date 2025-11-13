@@ -584,6 +584,8 @@ export class ContentService {
       podcast_duration_seconds: summary.podcast_duration_seconds ?? null,
       podcast_audio_url: (summary as any).podcast_audio_url ?? null,
       podcast_transcript: (summary as any).podcast_transcript ?? null,
+      podcast_transcript_segments:
+        (summary as any).podcast_transcript_segments ?? null,
       art_image_url: summary.art_image_url ?? null,
       art_image_description: summary.art_image_description ?? null,
       created_at: summary.created_at ?? undefined,
@@ -931,6 +933,9 @@ export class ContentService {
       typeof payload?.podcast_transcript === 'string'
         ? payload.podcast_transcript
         : null;
+    const rawPodcastSegments = Array.isArray(payload?.podcast_transcript_segments)
+      ? payload.podcast_transcript_segments
+      : null;
     const rawPodcastVoice =
       typeof payload?.podcast_voice === 'string' ? payload.podcast_voice : null;
     const rawPodcastAudioUrl =
@@ -990,6 +995,7 @@ export class ContentService {
       podcast_generated_at: podcastGeneratedAt,
       podcast_audio_url: rawPodcastAudioUrl,
       podcast_transcript: rawPodcastTranscript,
+      podcast_transcript_segments: rawPodcastSegments,
     };
   }
 

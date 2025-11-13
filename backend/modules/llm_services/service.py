@@ -16,6 +16,8 @@ from .providers.factory import create_llm_provider
 from .repo import LLMRequestRepo
 from .types import (
     AudioGenerationRequest,
+    AudioTranscriptionRequest,
+    AudioTranscriptionResult,
     ImageGenerationRequest,
     ImageQuality,
     ImageSize,
@@ -24,22 +26,12 @@ from .types import (
     ToolCall,
     ToolDefinition,
 )
-from .types import (
-    AudioResponse as AudioResponseInternal,
-)
+from .types import AudioResponse as AudioResponseInternal
 from .types import (
     ImageResponse as ImageResponseInternal,
-)
-from .types import (
     LLMMessage as LLMMessageInternal,
-)
-from .types import (
     LLMResponse as LLMResponseInternal,
-)
-from .types import (
     SearchResult as SearchResultInternal,
-)
-from .types import (
     WebSearchResponse as WebSearchResponseInternal,
 )
 
@@ -48,6 +40,8 @@ T = TypeVar("T", bound=BaseModel)
 
 __all__ = [
     "AudioResponse",
+    "AudioTranscription",
+    "AudioTranscriptionSegmentDTO",
     "ImageRequest",
     "ImageResponse",
     "LLMMessage",
@@ -224,6 +218,33 @@ class AudioResponse(BaseModel):
             model=response.model,
             cost_estimate=response.cost_estimate,
             duration_seconds=response.duration_seconds,
+        )
+
+
+class AudioTranscriptionSegmentDTO(BaseModel):
+    """DTO representing a timed transcript segment."""
+
+    text: str
+    start: float
+    end: float
+
+
+class AudioTranscription(BaseModel):
+    """DTO wrapping timed transcript output."""
+
+    text: str
+    segments: list[AudioTranscriptionSegmentDTO]
+    language: str | None = None
+
+    @classmethod
+    def from_transcription(cls, transcription: AudioTranscriptionResult) -> "AudioTranscription":
+        return cls(
+            text=transcription.text,
+            language=transcription.language,
+            segments=[
+                AudioTranscriptionSegmentDTO(text=segment.text, start=segment.start, end=segment.end)
+                for segment in transcription.segments
+            ],
         )
 
 
@@ -533,6 +554,48 @@ class LLMService:
         response_dto = AudioResponse.from_audio_response(internal_response)
         self._ensure_request_user(request_id, user_id)
         return response_dto, request_id
+
+    async def transcribe_audio(
+        self,
+        audio_bytes: bytes,
+        *,
+        user_id: int | None = None,
+        model: str | None = None,
+        mime_type: str | None = None,
+        language: str | None = None,
+        prompt: str | None = None,
+        response_format: str | None = None,
+        filename: str | None = None,
+        **kwargs: LLMProviderKwargs,
+    ) -> tuple[AudioTranscription, uuid.UUID]:
+        """Transcribe narrated audio and return timed transcript segments."""
+
+        provider = self._select_provider(model)
+        resolved_model = (
+            model
+            or getattr(provider.config, "audio_transcription_model", None)
+            or ("whisper-1" if provider.config.provider == LLMProviderType.OPENAI else provider.config.model)
+        )
+
+        request = AudioTranscriptionRequest(
+            audio_bytes=audio_bytes,
+            model=resolved_model,
+            mime_type=mime_type,
+            language=language,
+            prompt=prompt,
+            response_format=response_format or "verbose_json",
+            filename=filename,
+        )
+
+        internal_response, request_id = await provider.transcribe_audio(
+            request=request,
+            user_id=user_id,
+            **kwargs,
+        )
+
+        transcription_dto = AudioTranscription.from_transcription(internal_response)
+        self._ensure_request_user(request_id, user_id)
+        return transcription_dto, request_id
 
     async def generate_image(self, prompt: str, user_id: int | None = None, size: str = "1024x1024", quality: str = "standard", style: str | None = None, **kwargs: LLMProviderKwargs) -> tuple[ImageResponse, uuid.UUID]:
         """
