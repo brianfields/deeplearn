@@ -165,12 +165,25 @@ class MediaHandler:
             arq_task_id=arq_task_id,
         )
 
-    async def save_unit_podcast(self, unit_id: str, podcast: UnitPodcast) -> None:
+    async def save_unit_podcast(
+        self,
+        unit_id: str,
+        podcast: UnitPodcast,
+        unit_learning_objective_ids: list[str] | None = None,
+        content_service: Any | None = None,
+    ) -> None:
         """Delegate unit podcast persistence to content service intro lesson creation.
 
         Note: Unit-level podcast storage is deprecated. Intros are now created as lessons.
+
+        Args:
+            unit_id: The unit ID
+            podcast: The generated unit podcast
+            unit_learning_objective_ids: List of unit learning objective IDs to associate with intro lesson
+            content_service: Optional ContentService instance to use (if not provided, uses self._content_service)
         """
-        if self._content_service is None:
+        svc = content_service or self._content_service
+        if svc is None:
             logger.warning("ContentService not available; cannot create intro lesson from podcast")
             return
 
@@ -183,10 +196,11 @@ class MediaHandler:
             if unit is None:
                 raise ValueError(f"Unit {unit_id} not found")
 
-            intro_lesson_id, _ = await self._content_service.create_intro_lesson(
+            intro_lesson_id, _ = await svc.create_intro_lesson(
                 unit_id=unit_id,
                 podcast=podcast,
                 learner_level=getattr(unit, "learner_level", "beginner"),
+                unit_learning_objective_ids=unit_learning_objective_ids or [],
             )
             logger.info(f"✓ Intro lesson created from podcast: {intro_lesson_id}")
         except Exception as exc:
@@ -200,6 +214,9 @@ class MediaHandler:
     ) -> None:
         """Persist lesson podcast audio for the provided lesson identifier."""
 
+        segment_count = len(podcast.transcript_segments) if podcast.transcript_segments else 0
+        logger.debug(f"📝 MediaHandler.save_lesson_podcast: Saving lesson {lesson_id} with {len(podcast.transcript)} chars transcript, {segment_count} segments")
+
         await content_service.save_lesson_podcast_from_bytes(
             lesson_id,
             transcript=podcast.transcript,
@@ -207,7 +224,10 @@ class MediaHandler:
             mime_type=podcast.mime_type,
             voice=podcast.voice,
             duration_seconds=podcast.duration_seconds,
+            transcript_segments=podcast.transcript_segments,
         )
+
+        logger.info(f"✅ MediaHandler: Successfully saved lesson podcast for {lesson_id}")
 
     async def _download_image(self, url: str) -> tuple[bytes, str | None]:
         """Fetch binary image data from the generated image URL."""

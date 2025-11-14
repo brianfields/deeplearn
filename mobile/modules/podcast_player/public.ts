@@ -17,4 +17,5 @@ export type {
   PodcastTrack,
   PlaybackSpeed,
   UnitPodcastPlaylist,
+  TranscriptSegment,
 } from './models';

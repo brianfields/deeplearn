@@ -5,6 +5,7 @@
  */
 
 import type { CacheMode, DownloadStatus } from '../offline_cache/public';
+import type { TranscriptSegment } from '../podcast_player/models';
 import type { ResourceSummary } from '../resource/public';
 
 // Backend API wire types (private to module)
@@ -72,6 +73,7 @@ export interface ApiUnitDetail {
     podcast_generated_at?: string | null;
     podcast_audio_url?: string | null;
     podcast_transcript?: string | null;
+    podcast_transcript_segments?: unknown;
   }>;
   learning_objectives?: ApiUnitLearningObjective[] | null;
   target_lesson_count?: number | null;
@@ -89,6 +91,7 @@ export interface ApiUnitDetail {
   podcast_voice?: string | null;
   podcast_duration_seconds?: number | null;
   podcast_transcript?: string | null;
+  podcast_transcript_segments?: unknown;
   podcast_audio_url?: string | null;
   intro_podcast_audio_url?: string | null;
   intro_podcast_transcript?: string | null;
@@ -132,6 +135,7 @@ export interface UnitLessonSummary {
   readonly podcastGeneratedAt: string | null;
   readonly podcastAudioUrl: string | null;
   readonly podcastTranscript?: string | null;
+  readonly podcastTranscriptSegments?: TranscriptSegment[] | null;
 }
 
 export interface Lesson {
@@ -143,6 +147,7 @@ export interface Lesson {
   readonly exerciseCount: number;
   readonly lessonType: 'standard' | 'intro';
   readonly podcastTranscript?: string | null;
+  readonly podcastTranscriptSegments?: TranscriptSegment[] | null;
   readonly podcastAudioUrl?: string | null;
   readonly podcastDurationSeconds?: number | null;
   readonly podcastVoice?: string | null;
@@ -387,6 +392,9 @@ function toUnitLessonSummaryDTO(
     podcastGeneratedAt: lesson.podcast_generated_at ?? null,
     podcastAudioUrl: lesson.podcast_audio_url ?? null,
     podcastTranscript: (lesson as any).podcast_transcript ?? null,
+    podcastTranscriptSegments: mapTranscriptSegments(
+      (lesson as any).podcast_transcript_segments ?? null
+    ),
   };
 }
 
@@ -397,6 +405,31 @@ function formatLearnerLevel(level: string): string {
     advanced: 'Advanced',
   };
   return map[level] ?? 'Unknown';
+}
+
+function mapTranscriptSegments(raw: unknown): TranscriptSegment[] | null {
+  if (!Array.isArray(raw)) {
+    return null;
+  }
+
+  const segments: TranscriptSegment[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object') {
+      continue;
+    }
+    const source = entry as Record<string, unknown>;
+    const text = String(source.text ?? '').trim();
+    if (!text) {
+      continue;
+    }
+    const startRaw = Number(source.start ?? 0);
+    const endRaw = Number(source.end ?? startRaw);
+    const start = Number.isFinite(startRaw) ? startRaw : 0;
+    const end = Number.isFinite(endRaw) ? endRaw : start;
+    segments.push({ text, start, end });
+  }
+
+  return segments.length > 0 ? segments : null;
 }
 
 function formatUnitStatusLabel(status: UnitStatus): string {

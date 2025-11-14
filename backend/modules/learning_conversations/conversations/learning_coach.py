@@ -62,6 +62,16 @@ class CoachLearningObjective(BaseModel):
         max_length=1000,
         description="Full explanation of the learning objective for learner-facing surfaces",
     )
+    bloom_level: str = Field(
+        ...,
+        max_length=20,
+        description="Bloom's taxonomy level: Remember, Understand, Apply, Analyze, Evaluate, or Create",
+    )
+    evidence_of_mastery: str = Field(
+        ...,
+        max_length=300,
+        description="Short, concrete indicator of what demonstrates mastery of this objective",
+    )
 
 
 class CoachResponse(BaseModel):
@@ -301,6 +311,9 @@ class LearningCoachConversation(BaseConversation):
             lo_id = str(payload.get("id") or "").strip()
             title = str(payload.get("title") or payload.get("short_title") or payload.get("description") or "").strip()
             description = str(payload.get("description") or title).strip()
+            bloom_level = payload.get("bloom_level")
+            evidence_of_mastery = payload.get("evidence_of_mastery")
+
             if not title and description:
                 title = description[:50]
             if lo_id and title and description:
@@ -309,6 +322,8 @@ class LearningCoachConversation(BaseConversation):
                         id=lo_id,
                         title=title,
                         description=description,
+                        bloom_level=str(bloom_level) if bloom_level else None,
+                        evidence_of_mastery=str(evidence_of_mastery) if evidence_of_mastery else None,
                     )
                 )
 

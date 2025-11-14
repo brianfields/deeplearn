@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 import uuid
@@ -109,6 +110,7 @@ class ContentService:
         mime_type: str | None,
         voice: str | None,
         duration_seconds: int | None = None,
+        transcript_segments: Sequence[dict[str, Any]] | None = None,
     ) -> LessonRead:
         return await self._lessons.save_lesson_podcast_from_bytes(
             lesson_id,
@@ -117,6 +119,7 @@ class ContentService:
             mime_type=mime_type,
             voice=voice,
             duration_seconds=duration_seconds,
+            transcript_segments=transcript_segments,
         )
 
     async def get_lesson_podcast_audio(self, lesson_id: str) -> LessonPodcastAudio | None:

@@ -3,6 +3,12 @@
 Seed Data Creation Script (JSON-based)
 
 Loads seed data from JSON files in the seed_data directory and creates database records.
+The JSON format matches the database structure exactly: exported seed data can be directly imported.
+
+Canonical format:
+- units.json: List of complete unit specs with lessons, resources, conversations
+- Each lesson includes a full 'package' field (LessonPackage with exercise_bank, quiz, quiz_metadata)
+- Flow runs, step runs, and LLM requests are stored alongside lessons if present
 
 Usage:
     python scripts/create_seed_data.py --verbose
@@ -10,8 +16,7 @@ Usage:
 """
 
 import argparse
-from collections import defaultdict
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 import json
 import logging
 import os
@@ -32,16 +37,7 @@ from modules.content.models import (
     UnitModel,
     UnitResourceModel,
 )
-from modules.content.package_models import (
-    Exercise,
-    ExerciseAnswerKey,
-    ExerciseOption,
-    LessonPackage,
-    Meta,
-    QuizCoverageByLO,
-    QuizMetadata,
-    WrongAnswerWithRationale,
-)
+from modules.content.package_models import LessonPackage
 from modules.conversation_engine.models import ConversationMessageModel, ConversationModel
 from modules.flow_engine.models import FlowRunModel, FlowStepRunModel
 from modules.infrastructure.public import infrastructure_provider
@@ -52,519 +48,33 @@ from modules.user.repo import UserRepo
 from modules.user.service import UserService
 
 
-def _map_cognitive_level(raw: str | None) -> str:
-    """Map legacy cognitive level strings to the new taxonomy."""
-
-    if not raw:
-        return "Comprehension"
-
-    normalized = raw.strip().lower()
-    mapping = {
-        "remember": "Recall",
-        "recall": "Recall",
-        "understand": "Comprehension",
-        "comprehension": "Comprehension",
-        "analyze": "Application",
-        "apply": "Application",
-        "application": "Application",
-        "evaluate": "Transfer",
-        "synthesize": "Transfer",
-        "transfer": "Transfer",
-    }
-    return mapping.get(normalized, "Transfer")
-
-
-def _map_difficulty(raw: str | None) -> str:
-    """Normalize difficulty labels to easy/medium/hard."""
-
-    if not raw:
-        return "medium"
-
-    normalized = raw.strip().lower()
-    if normalized in {"easy", "medium", "hard"}:
-        return normalized
-    mapping = {
-        "beginner": "easy",
-        "basic": "easy",
-        "intermediate": "medium",
-        "moderate": "medium",
-        "advanced": "hard",
-        "challenging": "hard",
-    }
-    return mapping.get(normalized, "medium")
-
-
-def _choose_aligned_lo(candidate_ids: list[str] | None, unit_lo_ids: list[str]) -> str:
-    """Pick the first valid learning objective id for an exercise."""
-
-    candidates = candidate_ids or []
-    for candidate in candidates:
-        if candidate in unit_lo_ids:
-            return candidate
-    return unit_lo_ids[0] if unit_lo_ids else "lesson_lo_1"
-
-
-def _build_exercise_bank_from_specs(
-    lesson_id: str,
-    mcqs: list[dict[str, Any]],
-    short_answers: list[dict[str, Any]],
-    unit_lo_ids: list[str],
-) -> list[Exercise]:
-    """Construct unified Exercise models from legacy MCQ/short answer specs."""
-
-    exercises: list[Exercise] = []
-
-    for index, mcq in enumerate(mcqs, start=1):
-        exercise_id = mcq.get("id") or f"{lesson_id}_mcq_{index}"
-        mapped_cognitive = _map_cognitive_level(mcq.get("cognitive_level"))
-        exercise_category = "comprehension" if mapped_cognitive in {"Recall", "Comprehension"} else "transfer"
-        options: list[ExerciseOption] = []
-        option_specs = mcq.get("options", [])
-        for option_index, option_spec in enumerate(option_specs):
-            label = option_spec.get("label") or chr(ord("A") + option_index)
-            option_id = option_spec.get("id") or f"{exercise_id}_{label.lower()}"
-            options.append(
-                ExerciseOption(
-                    id=option_id,
-                    label=label,
-                    text=option_spec.get("text", ""),
-                    rationale_wrong=option_spec.get("rationale_wrong"),
-                )
-            )
-
-        correct_index = mcq.get("correct_index", 0)
-        if not isinstance(correct_index, int) or not (0 <= correct_index < len(options)):
-            correct_index = 0
-        answer_option = options[correct_index] if options else None
-        answer_label = answer_option.label if answer_option else "A"
-        answer_option_id = answer_option.id if answer_option else None
-
-        exercises.append(
-            Exercise(
-                id=exercise_id,
-                exercise_type="mcq",
-                exercise_category=exercise_category,
-                aligned_learning_objective=_choose_aligned_lo(mcq.get("learning_objectives_covered"), unit_lo_ids),
-                cognitive_level=mapped_cognitive,
-                difficulty=_map_difficulty(mcq.get("difficulty")),
-                stem=mcq.get("stem", ""),
-                options=options,
-                answer_key=ExerciseAnswerKey(
-                    label=answer_label,
-                    option_id=answer_option_id,
-                    rationale_right=mcq.get("correct_rationale"),
-                ),
-            )
-        )
-
-    for index, short_answer in enumerate(short_answers, start=1):
-        exercise_id = short_answer.get("id") or f"{lesson_id}_sa_{index}"
-        mapped_cognitive = _map_cognitive_level(short_answer.get("cognitive_level"))
-        wrong_answers_specs = short_answer.get("wrong_answers", [])
-        wrong_answers: list[WrongAnswerWithRationale] = []
-        for wrong_spec in wrong_answers_specs:
-            wrong_answers.append(
-                WrongAnswerWithRationale(
-                    answer=wrong_spec.get("answer", ""),
-                    rationale_wrong=wrong_spec.get("rationale_wrong") or wrong_spec.get("explanation") or "Review the concept again.",
-                    misconception_ids=list(wrong_spec.get("misconception_ids", [])),
-                )
-            )
-
-        exercises.append(
-            Exercise(
-                id=exercise_id,
-                exercise_type="short_answer",
-                exercise_category="transfer",
-                aligned_learning_objective=_choose_aligned_lo(short_answer.get("learning_objectives_covered"), unit_lo_ids),
-                cognitive_level=mapped_cognitive,
-                difficulty=_map_difficulty(short_answer.get("difficulty")),
-                stem=short_answer.get("stem", ""),
-                canonical_answer=short_answer.get("canonical_answer", ""),
-                acceptable_answers=list(short_answer.get("acceptable_answers", [])),
-                wrong_answers=wrong_answers,
-                explanation_correct=short_answer.get("explanation_correct") or "Great job!",
-            )
-        )
-
-    return exercises
-
-
-def _build_quiz_metadata_from_bank(
-    quiz_ids: list[str],
-    exercise_bank: list[Exercise],
-) -> QuizMetadata:
-    """Assemble quiz metadata summaries from seed exercises."""
-
-    exercise_map = {exercise.id: exercise for exercise in exercise_bank}
-    total_items = len(quiz_ids)
-
-    difficulty_counts: defaultdict[str, int] = defaultdict(int)
-    cognitive_counts: defaultdict[str, int] = defaultdict(int)
-
-    coverage_by_lo: dict[str, QuizCoverageByLO] = {}
-
-    for exercise_id in quiz_ids:
-        exercise = exercise_map.get(exercise_id)
-        if exercise is None:
-            continue
-
-        difficulty_counts[exercise.difficulty] += 1
-        cognitive_counts[exercise.cognitive_level] += 1
-
-        lo_entry = coverage_by_lo.setdefault(exercise.aligned_learning_objective, QuizCoverageByLO())
-        lo_entry.exercise_ids.append(exercise.id)
-
-    difficulty_keys = ["easy", "medium", "hard"]
-    cognitive_keys = ["Recall", "Comprehension", "Application", "Transfer"]
-
-    difficulty_distribution_actual = {key: (difficulty_counts[key] / total_items if total_items else 0.0) for key in difficulty_keys}
-    cognitive_mix_actual = {key: (cognitive_counts[key] / total_items if total_items else 0.0) for key in cognitive_keys}
-
-    return QuizMetadata(
-        quiz_type="formative_seed",
-        total_items=total_items,
-        difficulty_distribution_target=difficulty_distribution_actual,
-        difficulty_distribution_actual=difficulty_distribution_actual,
-        cognitive_mix_target=cognitive_mix_actual,
-        cognitive_mix_actual=cognitive_mix_actual,
-        coverage_by_LO=coverage_by_lo,
-        coverage_by_concept={},
-        normalizations_applied=["Seed data curated for demo"],
-        selection_rationale=["Exercises selected from curated seed dataset."],
-        gaps_identified=[],
-    )
-
-
 def load_json_file(file_path: Path) -> Any:
     """Load and parse a JSON file."""
     with file_path.open("r") as f:
         return json.load(f)
 
 
-def build_lesson_package(
-    lesson_id: str,
-    *,
-    title: str,
-    learner_level: str,
-    objectives: list[dict[str, str]],
-    mcqs: list[dict[str, Any]] | None = None,
-    short_answers: list[dict[str, Any]] | None = None,
-    exercise_bank: list[dict[str, Any]] | None = None,
-    quiz: list[str] | None = None,
-    quiz_metadata: dict[str, Any] | None = None,
-) -> LessonPackage:
-    """Build a structured lesson package from declarative descriptors."""
-
-    meta = Meta(
-        lesson_id=lesson_id,
-        title=title,
-        learner_level=learner_level,
-        package_schema_version=2,
-        content_version=1,
-    )
-
-    unit_lo_ids: list[str] = []
-    for idx, obj in enumerate(objectives, start=1):
-        lo_id = obj.get("id") or f"{lesson_id}_lo_{idx}"
-        unit_lo_ids.append(lo_id)
-
-    mcqs = mcqs or []
-    short_answers = short_answers or []
-
-    exercises = [Exercise.model_validate(item) for item in exercise_bank] if exercise_bank else _build_exercise_bank_from_specs(lesson_id, mcqs, short_answers, unit_lo_ids)
-
-    quiz_ids = quiz or [exercise.id for exercise in exercises]
-
-    quiz_meta = QuizMetadata.model_validate(quiz_metadata) if quiz_metadata else _build_quiz_metadata_from_bank(quiz_ids, exercises)
-
-    return LessonPackage(
-        meta=meta,
-        unit_learning_objective_ids=unit_lo_ids,
-        exercise_bank=exercises,
-        quiz=quiz_ids,
-        quiz_metadata=quiz_meta,
-    )
+def _parse_datetime(value: str | None) -> datetime | None:
+    """Parse ISO datetime string to datetime object."""
+    if not value:
+        return None
+    try:
+        # Handle ISO format with timezone
+        if isinstance(value, str):
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return value
+    except (ValueError, AttributeError):
+        return None
 
 
-def create_lesson_data(
-    lesson_id: str,
-    *,
-    title: str,
-    learner_level: str,
-    source_material: str,
-    podcast_transcript: str | None,
-    package: LessonPackage,
-    flow_run_id: uuid.UUID | None = None,
-    unit_learning_objectives: list[dict[str, Any]] | None = None,
-) -> dict[str, Any]:
-    """Create an ORM-ready lesson dictionary from a package."""
-
-    return {
-        "id": lesson_id,
-        "flow_run_id": flow_run_id,
-        "title": title,
-        "learner_level": learner_level,
-        "source_material": source_material,
-        "podcast_transcript": podcast_transcript,
-        "package": package.model_dump(),
-        "package_version": 1,
-        "unit_learning_objectives": unit_learning_objectives,
-    }
-
-
-def create_sample_flow_run(
-    flow_run_id: uuid.UUID,
-    lesson_id: str,
-    lesson_data: dict[str, Any],
-    *,
-    user_id: uuid.UUID | None = None,
-) -> dict[str, Any]:
-    """Create a completed flow run record for a lesson."""
-
-    now = datetime.now(UTC)
-    package = lesson_data["package"]
-    raw_unit_objectives = lesson_data.get("unit_learning_objectives", []) or []
-    objectives = [obj.get("text") if isinstance(obj, dict) else str(obj) for obj in raw_unit_objectives]
-    objective_ids = [obj.get("id") for obj in raw_unit_objectives if isinstance(obj, dict) and obj.get("id") is not None]
-    exercise_bank = package.get("exercise_bank", []) or []
-    quiz_ids = list(package.get("quiz", []) or [])
-    quiz_metadata = package.get("quiz_metadata", {}) or {}
-    comprehension_count = sum(1 for exercise in exercise_bank if exercise.get("exercise_category") == "comprehension")
-    transfer_count = sum(1 for exercise in exercise_bank if exercise.get("exercise_category") == "transfer")
-    source_material = lesson_data.get("source_material") or ""
-    podcast_transcript = lesson_data.get("podcast_transcript") or ""
-
-    return {
-        "id": flow_run_id,
-        "user_id": user_id,
-        "flow_name": "lesson_creation",
-        "status": "completed",
-        "execution_mode": "sync",
-        "current_step": None,
-        "step_progress": 3,
-        "total_steps": 3,
-        "progress_percentage": 100.0,
-        "created_at": now,
-        "updated_at": now,
-        "started_at": now,
-        "completed_at": now,
-        "last_heartbeat": now,
-        "total_tokens": 8420,
-        "total_cost": 0.0415,
-        "execution_time_ms": 21000,
-        "inputs": {
-            "topic": lesson_data["title"],
-            "source_material": source_material,
-            "learner_level": lesson_data["learner_level"],
-            "learning_objectives": objectives,
-            "lesson_objective": objectives[0] if objectives else "",
-            "learning_objective_ids": objective_ids,
-            "sibling_lessons": lesson_data.get("sibling_lessons", []),
-        },
-        "outputs": {
-            "topic": lesson_data["title"],
-            "learner_level": lesson_data["learner_level"],
-            "learning_objectives": objectives,
-            "learning_objective_ids": objective_ids,
-            "podcast_transcript": podcast_transcript,
-            "exercise_bank": exercise_bank,
-            "quiz": quiz_ids,
-            "quiz_metadata": quiz_metadata,
-            "exercise_summary": {
-                "comprehension": comprehension_count,
-                "transfer": transfer_count,
-            },
-        },
-        "flow_metadata": {"lesson_id": lesson_id, "package_version": lesson_data.get("package_version", 1)},
-        "error_message": None,
-    }
-
-
-def create_sample_step_runs(flow_run_id: uuid.UUID, lesson_data: dict[str, Any]) -> list[dict[str, Any]]:
-    """Create representative step run records for a completed flow."""
-
-    now = datetime.now(UTC)
-    package = lesson_data["package"]
-    raw_unit_objectives = lesson_data.get("unit_learning_objectives", []) or []
-    objectives = [obj.get("text") if isinstance(obj, dict) else str(obj) for obj in raw_unit_objectives]
-    lesson_objective = objectives[0] if objectives else ""
-    source_material = lesson_data.get("source_material") or ""
-    exercise_bank = package.get("exercise_bank", []) or []
-    quiz_ids = list(package.get("quiz", []) or [])
-    quiz_metadata = package.get("quiz_metadata", {}) or {}
-    podcast_transcript = lesson_data.get("podcast_transcript") or ""
-    sibling_lessons = lesson_data.get("sibling_lessons", [])
-
-    comprehension_exercises = [ex for ex in exercise_bank if ex.get("exercise_category") == "comprehension"]
-    transfer_exercises = [ex for ex in exercise_bank if ex.get("exercise_category") == "transfer"]
-
-    unstructured_mcqs = (
-        "\n\n".join(f"Q{index}: {exercise.get('stem', '')}\nA. {', '.join(option.get('text', '') for option in exercise.get('options', []) or [])}" for index, exercise in enumerate(exercise_bank, start=1)) or "Generated MCQs for seeding."
-    )
-
-    structured_payload = {
-        "reasoning": "Seed data validated for quality and structure.",
-        "exercises": exercise_bank,
-        "quiz": quiz_ids,
-        "quiz_metadata": quiz_metadata,
-    }
-
-    step_definitions = [
-        {
-            "step_name": "generate_lesson_podcast_transcript_instructional",
-            "step_order": 1,
-            "inputs": {
-                "topic": lesson_data["title"],
-                "learner_level": lesson_data["learner_level"],
-                "lesson_objective": lesson_objective,
-                "learning_objectives": objectives,
-                "source_material": source_material,
-                "sibling_lessons": sibling_lessons,
-            },
-            "outputs": {"podcast_transcript": podcast_transcript},
-            "prompt_file": "generate_lesson_podcast_transcript_instructional.md",
-            "tokens_used": 3200,
-            "cost_estimate": 0.016,
-            "execution_time_ms": 5200,
-        },
-        {
-            "step_name": "generate_mcqs_unstructured",
-            "step_order": 2,
-            "inputs": {
-                "topic": lesson_data["title"],
-                "lesson_objective": lesson_objective,
-                "learning_objectives": objectives,
-                "source_material": source_material,
-                "podcast_transcript": podcast_transcript,
-                "sibling_lessons": sibling_lessons,
-            },
-            "outputs": {"unstructured_mcqs": unstructured_mcqs},
-            "prompt_file": "generate_mcqs_unstructured.md",
-            "tokens_used": 2800,
-            "cost_estimate": 0.014,
-            "execution_time_ms": 4800,
-        },
-        {
-            "step_name": "validate_and_structure_mcqs",
-            "step_order": 3,
-            "inputs": {
-                "unstructured_mcqs": unstructured_mcqs,
-                "podcast_transcript": podcast_transcript,
-                "learning_objectives": objectives,
-            },
-            "outputs": {
-                "reasoning": structured_payload["reasoning"],
-                "exercises": structured_payload["exercises"],
-                "metadata": {
-                    "comprehension_items": len(comprehension_exercises),
-                    "transfer_items": len(transfer_exercises),
-                },
-                "quiz": structured_payload["quiz"],
-                "quiz_metadata": structured_payload["quiz_metadata"],
-            },
-            "prompt_file": "validate_and_structure_mcqs.md",
-            "tokens_used": 2420,
-            "cost_estimate": 0.011,
-            "execution_time_ms": 4300,
-        },
-    ]
-
-    step_runs: list[dict[str, Any]] = []
-    for definition in step_definitions:
-        step_runs.append(
-            {
-                "id": uuid.uuid4(),
-                "flow_run_id": flow_run_id,
-                "llm_request_id": uuid.uuid4(),
-                "step_name": definition["step_name"],
-                "step_order": definition["step_order"],
-                "status": "completed",
-                "inputs": definition["inputs"],
-                "outputs": definition["outputs"],
-                "tokens_used": definition["tokens_used"],
-                "cost_estimate": definition["cost_estimate"],
-                "execution_time_ms": definition["execution_time_ms"],
-                "error_message": None,
-                "step_metadata": {"prompt_file": definition["prompt_file"]},
-                "created_at": now,
-                "updated_at": now,
-                "completed_at": now,
-            }
-        )
-
-    return step_runs
-
-
-def create_sample_llm_requests(
-    step_runs: list[dict[str, Any]],
-    *,
-    user_id: uuid.UUID | None = None,
-    lesson_title: str,
-) -> list[dict[str, Any]]:
-    """Create LLM request records that mirror the step runs."""
-
-    now = datetime.now(UTC)
-    llm_requests: list[dict[str, Any]] = []
-
-    prompt_map = {
-        "generate_lesson_podcast_transcript_instructional": "Create an instructional podcast transcript anchored in the lesson objective and unit context.",
-        "generate_mcqs_unstructured": "Draft 10 multiple-choice questions (5 comprehension, 5 transfer) from the podcast transcript.",
-        "validate_and_structure_mcqs": "Validate question quality, fix issues, and return structured MCQ JSON with reasoning.",
-    }
-
-    for step_run in step_runs:
-        llm_request_id = step_run["llm_request_id"]
-        if not llm_request_id:
-            continue
-
-        step_name = step_run["step_name"]
-        description = prompt_map.get(step_name, f"Process step: {step_name}.")
-        user_message = f"Lesson title: {lesson_title}. {description} Use the latest inputs and maintain a helpful tone."
-
-        messages = [
-            {"role": "system", "content": "You are an expert educational content creator."},
-            {"role": "user", "content": user_message},
-        ]
-
-        llm_requests.append(
-            {
-                "id": llm_request_id,
-                "user_id": user_id,
-                "api_variant": "responses",
-                "provider": "openai",
-                "model": "gpt-5-nano",
-                "provider_response_id": f"chatcmpl-{uuid.uuid4().hex[:20]}",
-                "system_fingerprint": "fp_" + uuid.uuid4().hex[:10],
-                "temperature": 0.7,
-                "max_output_tokens": 2000,
-                "messages": messages,
-                "additional_params": {},
-                "request_payload": {
-                    "model": "gpt-5-nano",
-                    "messages": messages,
-                    "temperature": 0.7,
-                    "max_tokens": 2000,
-                },
-                "response_content": json.dumps(step_run["outputs"]),
-                "response_raw": step_run["outputs"],
-                "tokens_used": step_run.get("tokens_used", 0),
-                "input_tokens": None,
-                "output_tokens": None,
-                "cost_estimate": step_run.get("cost_estimate", 0.0),
-                "status": "completed",
-                "execution_time_ms": step_run.get("execution_time_ms", 0),
-                "error_message": None,
-                "error_type": None,
-                "retry_attempt": 1,
-                "cached": False,
-                "response_created_at": now,
-                "created_at": now,
-                "updated_at": now,
-            }
-        )
-
-    return llm_requests
+def _serialize_value(value: Any) -> Any:
+    """Convert non-JSON-serializable values to strings."""
+    if value is None:
+        return None
+    if isinstance(value, str | int | float | bool | list | dict):
+        return value
+    # Convert UUID and datetime to string
+    return str(value)
 
 
 async def load_and_create_users(db_session: Any, users_file: Path, args: Any) -> tuple[dict[str, int], dict[str, dict[str, Any]]]:
@@ -620,7 +130,17 @@ async def process_unit_from_json(
     user_ids: dict[str, int],
     args: Any,
 ) -> dict[str, Any]:
-    """Process a single unit from JSON spec and create all related records."""
+    """Process a single unit from JSON spec and create all related records.
+
+    The JSON format matches the database structure exactly:
+    - unit: Complete unit record with all metadata
+    - lessons: Array of lesson records, each with full 'package' field
+    - flow_runs: Optional flow run records (indexed by lesson id)
+    - step_runs: Optional step run records
+    - llm_requests: Optional LLM request records
+    - resources: Optional resource records
+    - learning_conversations: Optional conversations (both 'coach' and 'assistant')
+    """
 
     if args.verbose:
         print(f"\n📦 Processing unit: {unit_spec['title']}")
@@ -743,68 +263,86 @@ async def process_unit_from_json(
     db_session.add(unit_model)
     await db_session.flush()
 
-    # Process lessons
+    # Process lessons - JSON must include full 'package' (LessonPackage)
     for lesson_spec in unit_spec.get("lessons", []):
         lesson_id = lesson_spec.get("id") or str(uuid.uuid4())
-        flow_run_id = uuid.uuid4()
+        flow_run_id = lesson_spec.get("flow_run_id") or str(uuid.uuid4())
 
-        package = build_lesson_package(
-            lesson_id,
-            title=lesson_spec["title"],
-            learner_level=lesson_spec["learner_level"],
-            objectives=lesson_spec.get("objectives", []),
-            mcqs=lesson_spec.get("mcqs", []),
-            short_answers=lesson_spec.get("short_answers", []),
-            exercise_bank=lesson_spec.get("exercise_bank"),
-            quiz=lesson_spec.get("quiz"),
-            quiz_metadata=lesson_spec.get("quiz_metadata"),
-        )
+        # Validate and deserialize package - must be complete
+        if not lesson_spec.get("package"):
+            raise ValueError(f"Lesson {lesson_id} missing required 'package' field. Each lesson must include a complete LessonPackage.")
 
-        lesson_data = create_lesson_data(
-            lesson_id,
-            title=lesson_spec["title"],
-            learner_level=lesson_spec["learner_level"],
-            source_material=lesson_spec.get("source_material"),
-            podcast_transcript=lesson_spec.get("podcast_transcript"),
-            package=package,
-            flow_run_id=flow_run_id,
-            unit_learning_objectives=lesson_spec.get("objectives"),
-        )
+        # Validate package structure by deserializing (this will raise if invalid)
+        try:
+            LessonPackage.model_validate(lesson_spec["package"])
+        except Exception as e:
+            raise ValueError(f"Lesson {lesson_id} package validation failed: {e}") from e
 
-        # Create flow run, step runs, and LLM requests
-        flow_run_data = create_sample_flow_run(flow_run_id, lesson_id, lesson_data, user_id=None)
-        step_runs = create_sample_step_runs(flow_run_id, lesson_data)
-        llm_requests = create_sample_llm_requests(step_runs, user_id=None, lesson_title=lesson_spec["title"])
+        # Build lesson record from spec - use values directly from JSON
+        lesson_db_dict: dict[str, Any] = {
+            "id": lesson_id,
+            "title": lesson_spec["title"],
+            "learner_level": lesson_spec["learner_level"],
+            "unit_id": unit_id,
+            "source_material": lesson_spec.get("source_material"),
+            "podcast_transcript": lesson_spec.get("podcast_transcript"),
+            "package": lesson_spec["package"],
+            "package_version": lesson_spec.get("package_version", 1),
+            "flow_run_id": flow_run_id,
+            "podcast_voice": lesson_spec.get("podcast_voice") or unit_spec.get("podcast_voice"),
+            "podcast_audio_object_id": lesson_spec.get("podcast_audio_object_id") or podcast_audio_id,
+            "podcast_generated_at": _parse_datetime(lesson_spec.get("podcast_generated_at")) or seed_timestamp,
+            "podcast_duration_seconds": lesson_spec.get("podcast_duration_seconds", 180),
+            "podcast_transcript_segments": lesson_spec.get("podcast_transcript_segments"),
+            "lesson_type": LessonType.INTRO if lesson_spec.get("lesson_type") == "intro" else LessonType.STANDARD,
+        }
 
-        db_session.add(FlowRunModel(**flow_run_data))
-        await db_session.flush()
+        # Handle timestamps
+        if lesson_spec.get("created_at"):
+            lesson_db_dict["created_at"] = _parse_datetime(lesson_spec["created_at"])
+        if lesson_spec.get("updated_at"):
+            lesson_db_dict["updated_at"] = _parse_datetime(lesson_spec["updated_at"])
 
-        for llm_data in llm_requests:
-            db_session.add(LLMRequestModel(**llm_data))
-        await db_session.flush()
+        # Create flow run if provided in the JSON
+        if lesson_spec.get("flow_run"):
+            flow_run_data = dict(lesson_spec["flow_run"])
+            flow_run_data["id"] = flow_run_id
+            # Parse datetime fields
+            for dt_field in ["created_at", "updated_at", "started_at", "completed_at", "last_heartbeat"]:
+                if dt_field in flow_run_data:
+                    flow_run_data[dt_field] = _parse_datetime(flow_run_data[dt_field])
+            db_session.add(FlowRunModel(**flow_run_data))
+            await db_session.flush()
 
-        for step_data in step_runs:
-            db_session.add(FlowStepRunModel(**step_data))
-        await db_session.flush()
+        # Create step runs if provided
+        if lesson_spec.get("step_runs"):
+            for step_data in lesson_spec["step_runs"]:
+                step_dict = dict(step_data)
+                step_dict["flow_run_id"] = flow_run_id
+                # Parse datetime fields
+                for dt_field in ["created_at", "updated_at", "completed_at"]:
+                    if dt_field in step_dict:
+                        step_dict[dt_field] = _parse_datetime(step_dict[dt_field])
+                db_session.add(FlowStepRunModel(**step_dict))
+            await db_session.flush()
+
+        # Create LLM requests if provided
+        if lesson_spec.get("llm_requests"):
+            for llm_data in lesson_spec["llm_requests"]:
+                llm_dict = dict(llm_data)
+                # Parse datetime fields
+                for dt_field in ["response_created_at", "created_at", "updated_at"]:
+                    if dt_field in llm_dict:
+                        llm_dict[dt_field] = _parse_datetime(llm_dict[dt_field])
+                db_session.add(LLMRequestModel(**llm_dict))
+            await db_session.flush()
 
         # Create lesson
-        lesson_db_dict = {key: value for key, value in lesson_data.items() if key != "unit_learning_objectives"}
-        lesson_db_dict["unit_id"] = unit_id
-        lesson_db_dict.setdefault("podcast_transcript", lesson_spec.get("podcast_transcript"))
-        lesson_db_dict["podcast_voice"] = lesson_spec.get("podcast_voice") or unit_spec.get("podcast_voice")
-        lesson_db_dict["podcast_audio_object_id"] = podcast_audio_id
-        lesson_db_dict["podcast_generated_at"] = seed_timestamp
-        lesson_db_dict["podcast_duration_seconds"] = lesson_spec.get("podcast_duration_seconds", 180)
-
-        # Set lesson_type: if is_intro flag is present, use 'intro', otherwise 'standard'
-        is_intro = lesson_spec.get("is_intro", False)
-        lesson_db_dict["lesson_type"] = LessonType.INTRO if is_intro else LessonType.STANDARD
-
         db_session.add(LessonModel(**lesson_db_dict))
         await db_session.flush()
 
+        lesson_type_label = "intro" if lesson_spec.get("lesson_type") == "intro" else "standard"
         if args.verbose:
-            lesson_type_label = "intro" if is_intro else "standard"
             print(f"   • Created lesson: {lesson_spec['title']} ({lesson_type_label})")
 
     # Process resources if provided

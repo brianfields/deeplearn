@@ -34,20 +34,26 @@ A short, engaging title (3-10 words, 80 chars max) that captures what they'll le
 Provide 3-8 clear, specific learning objectives. Each objective must have:
 - **id**: A stable identifier (e.g., "lo_1", "lo_2", "lo_3")
 - **title**: A short 3-8 word scannable headline
-- **description**: A full learner-facing explanation of what they'll be able to do
+- **description**: A full learner-facing explanation of what they'll be able to do (max 500 chars)
+- **bloom_level**: The Bloom's taxonomy level - MUST be one of: **Remember**, **Understand**, **Apply**, **Analyze**, **Evaluate**, or **Create**
+- **evidence_of_mastery**: A short, concrete indicator of what demonstrates mastery (max 300 chars)
 
 **Requirements:**
 - Objectives must be measurable and action-oriented
 - Appropriate for the learner's stated level
 - Cover the key outcomes from the unit
 - Use specific, concrete language
+- Choose appropriate Bloom level based on the objective's cognitive demand
+- Evidence of mastery should be observable and specific
 
 **Example:**
 ```json
 {
   "id": "lo_1",
   "title": "Compare Mean and Median",
-  "description": "Explain how outliers affect mean and median differently, and identify when each measure is more appropriate to use."
+  "description": "Explain how outliers affect mean and median differently, and identify when each measure is more appropriate to use.",
+  "bloom_level": "Analyze",
+  "evidence_of_mastery": "Choose and justify the appropriate measure for three different datasets with varying outlier patterns."
 }
 ```
 

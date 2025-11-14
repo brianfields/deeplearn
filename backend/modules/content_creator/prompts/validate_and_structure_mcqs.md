@@ -44,7 +44,7 @@ Return strict JSON in the following schema:
 
 - **reasoning**: Always provide a summary of changes made or confirmation that questions met validation criteria. Include this at the top level, not inside exercises.
 - **exercise_category**: "comprehension" for recall/understanding; "transfer" for application/analysis.
-- **aligned_learning_objective**: Use the LO `id` field from the provided Learning Objectives (e.g., "LO1", "UO2").
+- **aligned_learning_objective**: Use the LO `id` field from the provided Learning Objectives (e.g., "lo_1", "lo_2").
 - **cognitive_level**: Must be EXACTLY ONE of these Bloom's taxonomy levels:
   - "Recall" (basic fact retrieval)
   - "Comprehension" (understanding meaning)

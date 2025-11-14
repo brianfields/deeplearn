@@ -64,7 +64,12 @@ class ContentCreatorService:
             lesson_podcast_generator=lesson_podcast_generator,
             content_service=self._content_service,
         )
-        self._flow_handler = FlowHandler(content, self._prompt_handler, self._media_handler)
+        self._flow_handler = FlowHandler(
+            content,
+            self._prompt_handler,
+            self._media_handler,
+            content_service=self._content_service,
+        )
         self._status_handler = StatusHandler(content)
 
     @property

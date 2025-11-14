@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
 import logging
 from typing import TYPE_CHECKING, Any
 
 from ..models import LessonModel
 from ..repo import ContentRepo
-from .dtos import LessonCreate, LessonPodcastAudio, LessonRead
+from .dtos import LessonCreate, LessonPodcastAudio, LessonRead, PodcastTranscriptSegment
 from .media import MediaHelper
 
 if TYPE_CHECKING:
@@ -137,6 +138,7 @@ class LessonHandler:
             title=lesson_data.title,
             learner_level=lesson_data.learner_level,
             lesson_type=lesson_type_enum,
+            unit_id=lesson_data.unit_id,
             source_material=lesson_data.source_material,
             package=package_dict,
             package_version=lesson_data.package_version,
@@ -210,6 +212,7 @@ class LessonHandler:
         mime_type: str | None,
         voice: str | None,
         duration_seconds: int | None = None,
+        transcript_segments: Sequence[dict[str, Any] | PodcastTranscriptSegment] | None = None,
     ) -> LessonRead:
         if self.media.object_store is None:
             raise RuntimeError("Object store is not configured; cannot persist lesson podcast audio.")
@@ -239,15 +242,52 @@ class LessonHandler:
         resolved_duration = duration_seconds if duration_seconds is not None else getattr(audio_file, "duration_seconds", None)
         resolved_voice = voice if voice is not None else getattr(audio_file, "voice", None)
 
+        serialised_segments: list[dict[str, Any]] | None = None
+        if transcript_segments:
+            logger.debug(f"📝 LessonHandler: Processing {len(transcript_segments)} transcript segments for lesson {lesson_id}")
+            serialised_segments = []
+            for segment in transcript_segments:
+                if isinstance(segment, dict):
+                    text = str(segment.get("text") or "").strip()
+                    try:
+                        start = float(segment.get("start", 0.0))
+                    except Exception:
+                        start = 0.0
+                    try:
+                        end = float(segment.get("end", start))
+                    except Exception:
+                        end = start
+                else:
+                    text = str(getattr(segment, "text", "")).strip()
+                    try:
+                        start = float(getattr(segment, "start", 0.0))
+                    except Exception:
+                        start = 0.0
+                    try:
+                        end = float(getattr(segment, "end", start))
+                    except Exception:
+                        end = start
+                if not text:
+                    continue
+                serialised_segments.append({"text": text, "start": start, "end": end})
+            if not serialised_segments:
+                logger.warning(f"⚠️ LessonHandler: All {len(transcript_segments)} segments were empty/skipped for lesson {lesson_id}")
+                serialised_segments = None
+            else:
+                logger.info(f"✅ LessonHandler: Serialized {len(serialised_segments)} transcript segments for lesson {lesson_id}")
+
         updated_lesson = await self.repo.set_lesson_podcast(
             lesson_id,
             transcript=transcript,
             audio_object_id=audio_object_id,
             voice=resolved_voice,
             duration_seconds=resolved_duration,
+            transcript_segments=serialised_segments,
         )
         if updated_lesson is None:
             raise ValueError("Failed to persist lesson podcast metadata")
+
+        logger.info(f"✅ LessonHandler: Successfully persisted lesson podcast metadata for {lesson_id} (transcript_segments={'enabled' if serialised_segments else 'disabled'})")
 
         self.media.clear_audio_cache(audio_object_id)
         return self.lesson_to_read(updated_lesson)

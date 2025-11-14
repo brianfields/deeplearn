@@ -24,6 +24,15 @@ class PodcastLesson:
 
 
 @dataclass(slots=True)
+class PodcastTranscriptSegment:
+    """Timed transcript segment for synchronised highlighting."""
+
+    text: str
+    start: float
+    end: float
+
+
+@dataclass(slots=True)
 class LessonPodcastResult:
     """Result of lesson podcast generation."""
 
@@ -32,6 +41,7 @@ class LessonPodcastResult:
     mime_type: str
     voice: str
     duration_seconds: int | None
+    transcript_segments: list[PodcastTranscriptSegment] | None = None
 
 
 @dataclass(slots=True)
@@ -43,6 +53,7 @@ class UnitPodcast:
     mime_type: str
     voice: str
     duration_seconds: int | None
+    transcript_segments: list[PodcastTranscriptSegment] | None = None
 
 
 class UnitPodcastGenerator:
@@ -103,6 +114,7 @@ class UnitPodcastGenerator:
         mime_type = "audio/mpeg" if self.audio_format == "mp3" else f"audio/{self.audio_format}"
         playback_voice = resolved_voice
         duration_seconds: int | None = None
+        transcript_segments: list[PodcastTranscriptSegment] | None = None
 
         if audio_payload:
             parsed_audio = AudioResponse.model_validate(audio_payload)
@@ -117,12 +129,29 @@ class UnitPodcastGenerator:
         if duration_seconds is None:
             duration_seconds = self._estimate_duration_seconds(transcript_text)
 
+        # Get transcript segments from flow result (already transcribed within the flow)
+        segments_data = flow_result.get("transcript_segments")
+        if segments_data:
+            logger.debug(f"📝 UnitPodcastGenerator: Processing {len(segments_data)} segments from flow result")
+            transcript_segments = [
+                PodcastTranscriptSegment(
+                    text=seg["text"],
+                    start=seg["start"],
+                    end=seg["end"],
+                )
+                for seg in segments_data
+            ]
+            logger.info(f"✅ UnitPodcastGenerator: Created UnitPodcast with {len(transcript_segments)} transcript segments")
+        else:
+            logger.warning("⚠️ UnitPodcastGenerator: No transcript segments received from flow")
+
         return UnitPodcast(
             transcript=transcript_text,
             audio_bytes=audio_bytes,
             mime_type=mime_type,
             voice=playback_voice,
             duration_seconds=duration_seconds,
+            transcript_segments=transcript_segments,
         )
 
     def _estimate_duration_seconds(self, transcript: str) -> int:
@@ -195,6 +224,7 @@ class LessonPodcastGenerator:
         mime_type = "audio/mpeg" if self.audio_format == "mp3" else f"audio/{self.audio_format}"
         playback_voice = resolved_voice
         duration_seconds: int | None = None
+        transcript_segments: list[PodcastTranscriptSegment] | None = None
 
         if audio_payload:
             parsed_audio = AudioResponse.model_validate(audio_payload)
@@ -217,10 +247,27 @@ class LessonPodcastGenerator:
                 estimated_minutes = len(words) / 165
                 duration_seconds = max(1, math.ceil(estimated_minutes * 60))
 
+        # Get transcript segments from flow result (already transcribed within the flow)
+        segments_data = flow_result.get("transcript_segments")
+        if segments_data:
+            logger.debug(f"📝 LessonPodcastGenerator: Processing {len(segments_data)} segments from flow result")
+            transcript_segments = [
+                PodcastTranscriptSegment(
+                    text=seg["text"],
+                    start=seg["start"],
+                    end=seg["end"],
+                )
+                for seg in segments_data
+            ]
+            logger.info(f"✅ LessonPodcastGenerator: Created LessonPodcastResult with {len(transcript_segments)} transcript segments")
+        else:
+            logger.warning("⚠️ LessonPodcastGenerator: No transcript segments received from flow")
+
         return LessonPodcastResult(
             transcript=transcript_text,
             audio_bytes=audio_bytes,
             mime_type=mime_type,
             voice=playback_voice,
             duration_seconds=duration_seconds,
+            transcript_segments=transcript_segments,
         )

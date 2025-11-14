@@ -31,6 +31,8 @@ from ..models import LLMRequestModel
 from ..types import (
     AudioGenerationRequest,
     AudioResponse,
+    AudioTranscriptionRequest,
+    AudioTranscriptionResult,
     ImageGenerationRequest,
     ImageResponse,
     LLMMessage,
@@ -200,6 +202,14 @@ class OpenRouterProvider(LLMProvider):
     ) -> tuple[AudioResponse, uuid.UUID]:  # pragma: no cover - unsupported in Phase 1
         """Raise a placeholder error because OpenRouter audio support is future work."""
         raise NotImplementedError("OpenRouter audio generation is not implemented")
+
+    async def transcribe_audio(
+        self,
+        request: AudioTranscriptionRequest,
+        user_id: int | None = None,
+        **kwargs: Any,
+    ) -> tuple[AudioTranscriptionResult, uuid.UUID]:  # pragma: no cover - unsupported in Phase 1
+        raise NotImplementedError("OpenRouter audio transcription is not implemented")
 
     async def search_recent_news(
         self,

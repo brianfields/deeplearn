@@ -15,6 +15,60 @@ import ShortAnswer from './ShortAnswer';
 import type { MCQContentDTO, ShortAnswerContentDTO } from '../models';
 import { catalogProvider } from '../../catalog/public';
 import { usePodcastPlayer, usePodcastState } from '../../podcast_player/public';
+import { usePodcastStore } from '../../podcast_player/store';
+import type { TranscriptSegment } from '../../podcast_player/models';
+
+/**
+ * Component to render transcript segments with real-time highlighting
+ */
+function TranscriptWithHighlight({
+  segments,
+  isPlaying,
+  position,
+  styles,
+}: {
+  segments: TranscriptSegment[];
+  isPlaying: boolean;
+  position: number;
+  styles: any;
+}): React.ReactElement {
+  // Find the active segment based on current position
+  const activeIndex = useMemo(() => {
+    if (!isPlaying || !Number.isFinite(position)) {
+      return -1;
+    }
+
+    let candidateIndex = -1;
+    for (let i = 0; i < segments.length; i += 1) {
+      const segment = segments[i];
+      if (position < segment.start) {
+        break;
+      }
+      candidateIndex = i;
+      if (position <= segment.end) {
+        break;
+      }
+    }
+    return candidateIndex;
+  }, [position, isPlaying, segments]);
+
+  return (
+    <Text style={styles.transcriptText}>
+      {segments.map((segment, index) => (
+        <Text
+          key={`${segment.start}-${index}`}
+          style={[
+            styles.transcriptSegmentText,
+            index === activeIndex ? styles.transcriptSegmentActive : null,
+          ]}
+        >
+          {segment.text}
+          {index < segments.length - 1 ? ' ' : ''}
+        </Text>
+      ))}
+    </Text>
+  );
+}
 
 interface LearningFlowProps {
   sessionId: string;
@@ -45,6 +99,7 @@ export default function LearningFlow({
   const haptics = useHaptics();
   const { loadTrack, play } = usePodcastPlayer();
   const { playlist, currentTrack, lessonIdSkippedFrom } = usePodcastState();
+  const playbackState = usePodcastStore(state => state.playbackState);
 
   // Session data and actions
   const {
@@ -119,20 +174,79 @@ export default function LearningFlow({
   const [podcastTranscript, setPodcastTranscript] = useState<string | null>(
     null
   );
+  const [podcastTranscriptSegments, setPodcastTranscriptSegments] = useState<
+    TranscriptSegment[] | null
+  >(null);
 
   // Fetch podcast transcript from lesson details (package-aligned)
   useEffect(() => {
     let isMounted = true;
     const fetchTranscript = async () => {
       try {
-        if (!session?.lessonId) return;
+        if (!session?.lessonId) {
+          console.log(
+            '[LearningFlow] 📻 No lessonId yet, skipping transcript fetch'
+          );
+          return;
+        }
+        console.log(
+          '[LearningFlow] 📻 Fetching lesson detail for lesson:',
+          session.lessonId
+        );
         const catalog = catalogProvider();
         const detail = await catalog.getLessonDetail(session.lessonId);
         if (!isMounted) return;
+
+        const hasSegments =
+          detail?.podcastTranscriptSegments &&
+          detail.podcastTranscriptSegments.length > 0;
+        console.log('[LearningFlow] 📻 Lesson detail fetched:', {
+          lessonId: session.lessonId,
+          hasTranscript: !!detail?.podcastTranscript,
+          hasSegments,
+          segmentCount: detail?.podcastTranscriptSegments?.length ?? 0,
+          firstSegment: hasSegments
+            ? detail.podcastTranscriptSegments[0]
+            : null,
+        });
+
         setPodcastTranscript(detail?.podcastTranscript ?? null);
+        setPodcastTranscriptSegments(detail?.podcastTranscriptSegments ?? null);
+
+        // Update the current track in the podcast player with the segments
+        // so they're available for highlighting as the podcast plays
+        if (
+          detail?.podcastTranscriptSegments &&
+          detail.podcastTranscriptSegments.length > 0
+        ) {
+          console.log(
+            '[LearningFlow] 🎙️ Updating podcast track with segments from lesson detail'
+          );
+          const currentTrackInStore = usePodcastStore.getState().currentTrack;
+          if (
+            currentTrackInStore &&
+            currentTrackInStore.lessonId === session.lessonId
+          ) {
+            const updatedTrack = {
+              ...currentTrackInStore,
+              transcriptSegments: detail.podcastTranscriptSegments,
+              transcript:
+                detail.podcastTranscript ?? currentTrackInStore.transcript,
+            };
+            usePodcastStore.getState().setCurrentTrack(updatedTrack);
+            console.log(
+              '[LearningFlow] ✅ Track updated with',
+              detail.podcastTranscriptSegments.length,
+              'segments'
+            );
+          }
+        }
       } catch (e) {
-        console.warn('Failed to load podcast transcript:', e);
-        if (isMounted) setPodcastTranscript(null);
+        console.warn('[LearningFlow] ❌ Failed to load podcast transcript:', e);
+        if (isMounted) {
+          setPodcastTranscript(null);
+          setPodcastTranscriptSegments(null);
+        }
       }
     };
     fetchTranscript();
@@ -140,6 +254,13 @@ export default function LearningFlow({
       isMounted = false;
     };
   }, [session?.lessonId]);
+
+  const transcriptContent = useMemo(() => {
+    if (podcastTranscriptSegments && podcastTranscriptSegments.length > 0) {
+      return podcastTranscriptSegments.map(segment => segment.text).join(' ');
+    }
+    return podcastTranscript;
+  }, [podcastTranscript, podcastTranscriptSegments]);
 
   // Show podcast transcript first when session starts and no exercises completed yet
   // (Show even if no exercises - intro lessons don't have exercises but should show transcript)
@@ -149,13 +270,13 @@ export default function LearningFlow({
       currentExerciseIndex === 0 &&
       completedExercisesCount === 0 &&
       !transcriptShown &&
-      !!podcastTranscript
+      !!transcriptContent
     );
   }, [
     session,
     currentExerciseIndex,
     completedExercisesCount,
-    podcastTranscript,
+    transcriptContent,
     transcriptShown,
   ]);
 
@@ -438,7 +559,7 @@ export default function LearningFlow({
           hasPlayer ? styles.componentContainerWithMini : undefined,
         ]}
       >
-        {shouldShowTranscript && podcastTranscript && (
+        {shouldShowTranscript && transcriptContent && (
           <View style={styles.transcriptContainer}>
             <View style={styles.transcriptHeader}>
               <Text style={styles.transcriptLabel}>
@@ -455,7 +576,17 @@ export default function LearningFlow({
               contentContainerStyle={styles.transcriptScrollContent}
               showsVerticalScrollIndicator={false}
             >
-              <Text style={styles.transcriptText}>{podcastTranscript}</Text>
+              {podcastTranscriptSegments &&
+              podcastTranscriptSegments.length > 0 ? (
+                <TranscriptWithHighlight
+                  segments={podcastTranscriptSegments}
+                  isPlaying={playbackState.isPlaying}
+                  position={playbackState.position ?? 0}
+                  styles={styles}
+                />
+              ) : (
+                <Text style={styles.transcriptText}>{transcriptContent}</Text>
+              )}
             </ScrollView>
             <View style={styles.transcriptButtonContainer}>
               <Button
@@ -669,6 +800,17 @@ const createStyles = (theme: any) =>
       fontSize: 16,
       lineHeight: 24,
       color: theme.colors.text,
+    },
+    transcriptSegmentText: {
+      color: theme.colors.text,
+    },
+    transcriptSegmentActive: {
+      color: theme.colors.primary,
+      fontWeight: '600',
+      backgroundColor: theme.colors.surfaceSubdued,
+      borderRadius: 6,
+      paddingHorizontal: 4,
+      paddingVertical: 2,
     },
     transcriptButtonContainer: {
       gap: theme.spacing?.sm || 12,

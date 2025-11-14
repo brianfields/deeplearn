@@ -36,6 +36,7 @@ export interface OfflineUnitSummaryPayload {
   podcast_duration_seconds?: number | null;
   podcast_audio_url?: string | null;
   podcast_transcript?: string | null;
+  podcast_transcript_segments?: unknown;
   intro_podcast_audio_url?: string | null;
   intro_podcast_transcript?: string | null;
   intro_podcast_voice?: string | null;

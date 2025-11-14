@@ -11,6 +11,9 @@ from typing import Any, Literal
 __all__ = [
     "AudioGenerationRequest",
     "AudioResponse",
+    "AudioTranscriptionRequest",
+    "AudioTranscriptionResult",
+    "AudioTranscriptionSegment",
     "ImageGenerationRequest",
     "ImageQuality",
     "ImageResponse",
@@ -185,6 +188,60 @@ class AudioResponse:
     def audio_bytes(self) -> bytes:
         """Decode the base64 audio payload into raw bytes."""
         return base64.b64decode(self.audio_base64)
+
+
+@dataclass
+class AudioTranscriptionSegment:
+    """Timed transcript segment returned from speech-to-text APIs."""
+
+    text: str
+    start: float
+    end: float
+
+
+@dataclass
+class AudioTranscriptionResult:
+    """Full transcription output including per-segment timings."""
+
+    text: str
+    segments: list[AudioTranscriptionSegment]
+    language: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert transcription to a serialisable structure."""
+
+        return {
+            "text": self.text,
+            "language": self.language,
+            "segments": [{"text": segment.text, "start": segment.start, "end": segment.end} for segment in self.segments],
+        }
+
+
+@dataclass
+class AudioTranscriptionRequest:
+    """Speech-to-text request payload."""
+
+    audio_bytes: bytes
+    model: str
+    mime_type: str | None = None
+    language: str | None = None
+    prompt: str | None = None
+    response_format: str = "verbose_json"
+    filename: str | None = None
+    timestamp_granularities: list[str] | None = None  # e.g., ["segment", "word"]
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return metadata only (binary omitted)."""
+
+        return {
+            "model": self.model,
+            "mime_type": self.mime_type,
+            "language": self.language,
+            "prompt": self.prompt,
+            "response_format": self.response_format,
+            "filename": self.filename,
+            "timestamp_granularities": self.timestamp_granularities,
+        }
 
 
 class ImageSize(str, Enum):

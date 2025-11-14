@@ -22,10 +22,17 @@ export interface PodcastTrack {
   readonly audioUrl: string;
   readonly durationSeconds: number;
   readonly transcript?: string | null;
+  readonly transcriptSegments?: TranscriptSegment[] | null;
   readonly lessonId?: string | null;
   readonly lessonIndex?: number | null;
   readonly lessonType?: 'standard' | 'intro';
   readonly artworkUrl?: string | null;
+}
+
+export interface TranscriptSegment {
+  readonly text: string;
+  readonly start: number;
+  readonly end: number;
 }
 
 export interface UnitPodcastPlaylist {

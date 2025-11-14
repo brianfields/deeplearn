@@ -14,6 +14,8 @@ from ..models import LLMRequestModel
 from ..types import (
     AudioGenerationRequest,
     AudioResponse,
+    AudioTranscriptionRequest,
+    AudioTranscriptionResult,
     ImageGenerationRequest,
     ImageResponse,
     LLMMessage,
@@ -252,6 +254,16 @@ class LLMProvider(ABC):
         **kwargs: LLMProviderKwargs,
     ) -> tuple[AudioResponse, uuid.UUID]:
         """Synthesize narrated audio from the provider."""
+        raise NotImplementedError
+
+    @abstractmethod
+    async def transcribe_audio(
+        self,
+        request: AudioTranscriptionRequest,
+        user_id: int | None = None,
+        **kwargs: LLMProviderKwargs,
+    ) -> tuple[AudioTranscriptionResult, uuid.UUID]:
+        """Transcribe narrated audio into timed segments."""
         raise NotImplementedError
 
     @abstractmethod

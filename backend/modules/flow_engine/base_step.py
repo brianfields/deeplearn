@@ -55,6 +55,7 @@ __all__ = [
     "StepResult",
     "StepType",
     "StructuredStep",
+    "TranscribeAudioStep",
     "UnstructuredStep",
 ]
 
@@ -66,6 +67,7 @@ class StepType(Enum):
     STRUCTURED_LLM = "structured_llm"  # Returns typed Pydantic object
     IMAGE_GENERATION = "image_generation"  # Generates images
     AUDIO_SYNTHESIS = "audio_synthesis"  # Generates narrated audio
+    AUDIO_TRANSCRIPTION = "audio_transcription"  # Transcribes audio into timed segments
     NEWS_GATHERING = "news_gathering"  # Fetches web data
 
 
@@ -491,3 +493,71 @@ class AudioStep(BaseStep):
         context.last_cost_estimate = audio_response.cost_estimate or 0.0
 
         return audio_response.model_dump(), request_id
+
+
+class TranscribeAudioStep(BaseStep):
+    """Base class for steps that transcribe audio into timed segments."""
+
+    @property
+    def step_type(self) -> StepType:
+        return StepType.AUDIO_TRANSCRIPTION
+
+    async def _execute_step_logic(self, inputs: BaseModel, context: "FlowContext") -> tuple[dict[str, Any], uuid.UUID | None]:
+        """Execute audio transcription using the configured LLM provider."""
+
+        inputs_dict = inputs.model_dump()
+        audio_bytes = inputs_dict.get("audio_bytes")
+        model = inputs_dict.get("model")
+        # Fallback to class-level model attribute if not provided in inputs
+        if not model and hasattr(self, "model") and self.model:
+            model = self.model
+        language = inputs_dict.get("language")
+        prompt = inputs_dict.get("prompt")
+        audio_format = inputs_dict.get("audio_format", "mp3")
+
+        if not audio_bytes:
+            raise ValueError("TranscribeAudioStep requires 'audio_bytes' input to transcribe")
+
+        # Generate filename hint from audio format
+        filename = f"audio.{audio_format}"
+
+        # Derive mime_type from format
+        mime_type_map = {
+            "mp3": "audio/mpeg",
+            "mp4": "audio/mp4",
+            "m4a": "audio/m4a",
+            "aac": "audio/aac",
+            "wav": "audio/wav",
+            "webm": "audio/webm",
+        }
+        mime_type = mime_type_map.get(audio_format, f"audio/{audio_format}")
+
+        llm_services = context.service.get_llm_services()
+        transcription_response, request_id = await llm_services.transcribe_audio(
+            audio_bytes,
+            user_id=context.user_id,
+            model=model,
+            mime_type=mime_type,
+            language=language,
+            prompt=prompt,
+            response_format="verbose_json",  # Always use verbose_json to get timed segments
+            timestamp_granularities=["segment"],  # Request segment-level timestamps
+            filename=filename,
+        )
+
+        # Estimate cost based on audio duration
+        # OpenAI Whisper pricing: $0.006 per minute
+        from ..llm_services.providers.openai import OPENAI_WHISPER_PRICE_PER_MINUTE
+
+        duration_minutes = 0.0
+        segments = transcription_response.segments
+        if segments and len(segments) > 0:
+            # Use the end time of the last segment as duration
+            duration_minutes = segments[-1].end / 60.0
+
+        cost_estimate = duration_minutes * OPENAI_WHISPER_PRICE_PER_MINUTE
+
+        context.last_tokens_used = 0  # Audio transcription does not report tokens
+        context.last_cost_estimate = cost_estimate
+
+        return transcription_response.model_dump(), request_id

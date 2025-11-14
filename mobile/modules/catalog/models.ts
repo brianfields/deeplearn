@@ -5,6 +5,8 @@
  * Matches backend/modules/lesson_catalog/service.py DTOs.
  */
 
+import type { TranscriptSegment } from '../podcast_player/models';
+
 // ================================
 // Backend API Wire Types (Private)
 // ================================
@@ -38,6 +40,7 @@ interface ApiLessonDetail {
   unit_id?: string | null;
   lesson_type?: 'standard' | 'intro';
   podcast_transcript?: string | null;
+  podcast_transcript_segments?: unknown;
   podcast_audio_url?: string | null;
   podcast_duration_seconds?: number | null;
   podcast_voice?: string | null;
@@ -87,6 +90,7 @@ export interface LessonDetail {
   readonly unitId?: string | null;
   readonly lessonType: 'standard' | 'intro';
   readonly podcastTranscript?: string | null;
+  readonly podcastTranscriptSegments?: TranscriptSegment[] | null;
   readonly podcastAudioUrl?: string | null;
   readonly podcastDurationSeconds?: number | null;
   readonly podcastVoice?: string | null;
@@ -230,7 +234,7 @@ export function toLessonSummaryDTO(api: ApiLessonSummary): LessonSummary {
       isReadyForLearning,
       api.exercise_count
     ),
-    tags: api.key_concepts.slice(0, 3), // Use first 3 key concepts as tags
+    tags: (api.key_concepts ?? []).slice(0, 3), // Use first 3 key concepts as tags
     hasPodcast: Boolean(api.has_podcast),
     podcastDurationSeconds: api.podcast_duration_seconds ?? null,
     podcastVoice: api.podcast_voice ?? null,
@@ -252,6 +256,8 @@ export function toLessonDetailDTO(api: ApiLessonDetail): LessonDetail {
     exercisesArrayLength: api.exercises?.length ?? 0,
     hasExercises: Array.isArray(api.exercises),
     firstExercise: api.exercises?.[0],
+    hasKeyConcepts: Array.isArray(api.key_concepts),
+    keyConceptsLength: api.key_concepts?.length ?? 0,
   });
 
   const exercises = Array.isArray(api.exercises)
@@ -293,10 +299,13 @@ export function toLessonDetailDTO(api: ApiLessonDetail): LessonDetail {
       isReadyForLearning,
       api.exercise_count
     ),
-    tags: api.key_concepts.slice(0, 3),
+    tags: (api.key_concepts ?? []).slice(0, 3),
     unitId: api.unit_id ?? null,
     lessonType: api.lesson_type as 'standard' | 'intro',
     podcastTranscript: api.podcast_transcript ?? null,
+    podcastTranscriptSegments: mapTranscriptSegments(
+      api.podcast_transcript_segments ?? null
+    ),
     podcastAudioUrl: api.podcast_audio_url ?? null,
     podcastDurationSeconds: api.podcast_duration_seconds ?? null,
     podcastVoice: api.podcast_voice ?? null,
@@ -350,6 +359,36 @@ function formatDuration(minutes: number): string {
   }
 
   return `${hours} hr ${remainingMinutes} min`;
+}
+
+export function mapTranscriptSegments(
+  raw: unknown
+): TranscriptSegment[] | null {
+  if (!Array.isArray(raw)) {
+    return null;
+  }
+
+  const segments: TranscriptSegment[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object') {
+      continue;
+    }
+
+    const source = entry as Record<string, unknown>;
+    const text = String(source.text ?? '').trim();
+    if (!text) {
+      continue;
+    }
+
+    const startRaw = Number(source.start ?? 0);
+    const endRaw = Number(source.end ?? startRaw);
+    const start = Number.isFinite(startRaw) ? startRaw : 0;
+    const end = Number.isFinite(endRaw) ? endRaw : start;
+
+    segments.push({ text, start, end });
+  }
+
+  return segments.length > 0 ? segments : null;
 }
 
 function formatReadinessStatus(

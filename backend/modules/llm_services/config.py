@@ -46,6 +46,10 @@ class LLMConfig(BaseModel):
     image_model: str = Field(default="dall-e-3", description="Image generation model")
     image_quality: ImageQuality = Field(default=ImageQuality.STANDARD, description="Image quality setting")
     audio_model: str | None = Field(default=None, description="Default audio generation model")
+    audio_transcription_model: str | None = Field(
+        default=None,
+        description="Default speech-to-text model for podcast transcription",
+    )
 
     # Web search settings
     web_search_config: WebSearchConfig = Field(default_factory=WebSearchConfig, description="Web search configuration")
@@ -232,6 +236,9 @@ def create_llm_config_from_env(
     cache_dir = os.getenv("LLM_CACHE_DIR", ".llm_cache")
 
     audio_model_env = os.getenv("AUDIO_MODEL")
+    audio_transcription_model_env = os.getenv("AUDIO_TRANSCRIPTION_MODEL")
+    openai_transcription_model = os.getenv("OPENAI_TRANSCRIPTION_MODEL")
+    gemini_transcription_model = os.getenv("GEMINI_TRANSCRIPTION_MODEL")
 
     # Logging settings
     log_level = os.getenv("LOG_LEVEL", "INFO")
@@ -354,9 +361,14 @@ def create_llm_config_from_env(
     # Always use OpenAI's DALL-E for image generation (don't use Gemini)
     resolved_image_model = image_model
     resolved_audio_model = audio_model_env
+    resolved_transcription_model = audio_transcription_model_env
     # Note: Gemini audio model can still be used if explicitly configured
     if provider == LLMProviderType.GEMINI and audio_model_env is None:
         resolved_audio_model = gemini_tts_model
+    if provider == LLMProviderType.OPENAI:
+        resolved_transcription_model = audio_transcription_model_env or openai_transcription_model or "whisper-1"
+    elif provider == LLMProviderType.GEMINI:
+        resolved_transcription_model = audio_transcription_model_env or gemini_transcription_model
 
     config = LLMConfig(
         provider=provider,
@@ -380,6 +392,7 @@ def create_llm_config_from_env(
         image_model=resolved_image_model,
         image_quality=image_quality,
         audio_model=resolved_audio_model,
+        audio_transcription_model=resolved_transcription_model,
         web_search_config=web_search_config,
         cache_enabled=cache_enabled,
         cache_dir=cache_dir,

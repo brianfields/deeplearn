@@ -1,8 +1,8 @@
 # Your Role
 
-You are an expert instructional designer. Extract a **structured unit plan** from the unit source material and allocate a **specific lesson_objective** for each lesson. Your output is **for an LLM to read**, not for learners directly.
+You are an expert instructional designer. Create a **structured lesson plan** from the unit source material that covers the learning objectives provided by the coach. Your output is **for an LLM to read**, not for learners directly.
 
-# Inputs (use these when generating Your Output below)
+# Inputs
 
 - **LEARNER_DESIRES:**
   {{learner_desires}}
@@ -10,31 +10,24 @@ You are an expert instructional designer. Extract a **structured unit plan** fro
 - **TARGET_LESSON_COUNT:**
   {{target_lesson_count}}   // optional; if absent, target 5–10 lessons
 
-- **COACH_LEARNING_OBJECTIVES (from learning coach conversation):**
-  {{coach_learning_objectives}}   // Optional; if provided, use these as-is; otherwise generate from material
+- **COACH_LEARNING_OBJECTIVES:**
+  {{coach_learning_objectives}}   // Complete learning objectives from the coach - DO NOT modify
 
 - **SOURCE_MATERIAL:**
   {{source_material}}
 
-# Your Task in Detail
+# Your Task
 
 1) Derive a **concise, specific unit title** that clearly reflects the learner's desires and intended learning scope.
 
-2) **Handle learning objectives based on COACH_LEARNING_OBJECTIVES:**
-   - **IF coach_learning_objectives provided (non-empty):** Use them **exactly as-is**; do not regenerate, do not change IDs. Return them in the `learning_objectives` array with their original `id` fields (e.g., `coach_lo_1`, `coach_lo_2`). In the lesson plans, reference these SAME IDs in `learning_objective_ids` (e.g., `["coach_lo_1"]`). Ensure all coach-provided LOs are covered by at least one lesson.
-   - **IF coach_learning_objectives is empty or null:** Define **3–8 unit-level learning objectives** from the source material. For each, include:
-     - `id` in the form **"UO1"**, **"UO2"** … (sequential, no gaps)
-     - `title` (3–8 word, scannable headline)
-     - `description` (precise, observable outcome written for learners)
-     - `bloom_level` (one of: **Remember, Understand, Apply, Analyze, Evaluate, Create**)
-     - `evidence_of_mastery` (short, concrete indicator; may be omitted only if truly redundant)
+2) **Return the coach learning objectives EXACTLY as provided** - do not modify, reorder, or add fields. These are complete and final.
 
-3) Propose an **ordered list of 1–20 lessons** (use `{{target_lesson_count}}` if provided; otherwise 5–10) that **coherently covers the unit**. For each lesson, provide:
+3) Propose an **ordered list of 1–20 lessons** (use `{{target_lesson_count}}` if provided; otherwise 5–10) that **coherently covers all learning objectives**. For each lesson, provide:
    - `title` (unique, concrete, non-overlapping)
    - `lesson_objective` (**one** precise, measurable objective for the lesson; 1–2 sentences; plain text; no questions)
-   - `learning_objective_ids` (array of **UO ids** this lesson advances; at least one per lesson; all UOs must be covered)
+   - `learning_objective_ids` (array of coach LO ids, e.g., `["lo_1"]`, that this lesson advances; at least one per lesson; all LOs must be covered)
 
-# Output (JSON schema and key order — return **only** this JSON)
+# Output Schema (JSON only - no markdown, no explanations)
 
 Top-level keys in this **exact order**:
 1. `unit_title`
@@ -42,37 +35,37 @@ Top-level keys in this **exact order**:
 3. `lessons`
 4. `lesson_count`
 
-### Schema (JSON)
+```json
 {
   "unit_title": "string",
   "learning_objectives": [
-   {
-      "id": "UO1",
-      "title": "3-8 word title",
-      "description": "string",
-      "bloom_level": "Understand",
-      "evidence_of_mastery": "string"
-   }
+    {
+      "id": "lo_1",
+      "title": "string (from coach)",
+      "description": "string (from coach)",
+      "bloom_level": "string (from coach)",
+      "evidence_of_mastery": "string (from coach)"
+    }
   ],
   "lessons": [
-   {
+    {
       "title": "Lesson 1 title",
-      "lesson_objective": "<One precise, measurable lesson-level objective (1–2 sentences). No questions.>",
-      "learning_objective_ids": ["UO1", "UO2"]
+      "lesson_objective": "One precise, measurable lesson-level objective (1–2 sentences). No questions.",
+      "learning_objective_ids": ["lo_1", "lo_2"]
     }
   ],
   "lesson_count": 1
 }
+```
 
-# Field Definitions & Rules
+# Field Rules
 
 * **unit\_title:** Short, specific, aligned to learner desires and intended learning scope.
-* **learning\_objectives (unit-level):** 3–8 items; `id` must be sequential (`UO1…UOn`). `title` is a concise 3–8 word phrase. `description` is action-oriented and measurable. `bloom_level` ∈ (Remember, Understand, Apply, Analyze, Evaluate, Create).
-* **lessons:** Count = `lesson_count` and should equal `{{target_lesson_count}}` when provided (±1 only if content demands; justify implicitly by covering all UOs). Each lesson:
-
+* **learning\_objectives:** Return the coach-provided array EXACTLY as-is. Do not modify any fields.
+* **lessons:** Count = `lesson_count` and should equal `{{target_lesson_count}}` when provided (±1 only if content demands). Each lesson:
   * **title:** Unique and concrete; implies the core skill/knowledge.
-  * **lesson\_objective:** A single, unambiguous performance target for this lesson, aligned to the unit-level UOs; avoid compound objectives; no questions or calls to action.
-  * **learning\_objective\_ids:** Reference **UO ids** only (e.g., `"UO2"`). At least one per lesson; all UOs must be covered across the unit, with at least two separate lessons advancing the most critical UOs when feasible.
+  * **lesson\_objective:** A single, unambiguous performance target for this lesson, aligned to the unit-level LOs; avoid compound objectives; no questions or calls to action.
+  * **learning\_objective\_ids:** Reference coach LO ids only (e.g., `["lo_1", "lo_2"]`). At least one per lesson; all LOs must be covered across the unit, with at least two separate lessons advancing the most critical LOs when feasible.
 * **lesson\_count:** Integer in \[1, 20]; must equal `lessons.length`.
 
 # Constraints
@@ -85,91 +78,61 @@ Top-level keys in this **exact order**:
   - No markdown, no code fences, no extra text outside the JSON object
   - Valid UTF-8 throughout
 * **Style inside lesson\_objective:** concise, measurable, and consistent with terminology from the source.
-* Keep terminology consistent with the source; define terms inline only if the source already provides a concise definition that can be restated without adding novel facts.
+* Keep terminology consistent with the source.
 * If `{{target_lesson_count}}` is absent, produce **5–10** lessons.
 
-# Quality & Validation Check (self-check before finalizing)
+# Quality Checklist (self-check before finalizing)
 
 * Top-level keys are **exactly**: `unit_title`, `learning_objectives`, `lessons`, `lesson_count` — in that order.
-* `learning_objectives.length` is between **3 and 8**. `id`s are sequential with no gaps.
+* `learning_objectives` array is IDENTICAL to the coach-provided array (same objects, same order, no modifications).
 * `lessons.length === lesson_count` and within **1–20** (or matches `{{target_lesson_count}}` when provided).
-* Every lesson lists at least one UO; every UO is covered by ≥1 lesson.
+* Every lesson lists at least one coach LO id; every coach LO is covered by ≥1 lesson.
 * Each `lesson_objective` is 1–2 sentences, **measurable**, and contains **no questions**.
-* JSON validates (no extra fields, no comments, no markdown).
+* JSON validates (no extra fields, no comments, no markdown, no meta-commentary).
 
-# Example Output (for structure & intent; example inputs: TOPIC = "Mean vs. Median (Choosing the Right Average)", LEARNER\_LEVEL = "beginner", TARGET\_LESSON\_COUNT = 6)
+# Example Output
 
+```json
 {
   "unit_title": "Choosing the Right Average: Mean vs. Median for Real-World Data",
   "learning_objectives": [
-    { "id": "UO1", "title": "Define Mean and Median", "description": "Define mean and median precisely and distinguish their computation.", "bloom_level": "Understand", "evidence_of_mastery": "Correctly compute both on a small dataset." },
-    { "id": "UO2", "title": "Explain Outlier Effects", "description": "Explain how outliers and skew affect mean and median differently.", "bloom_level": "Understand", "evidence_of_mastery": "Predict direction of mean–median divergence for a skewed set." },
-    { "id": "UO3", "title": "Select Representative Measure", "description": "Select the more representative center measure for a dataset based on its shape.", "bloom_level": "Apply", "evidence_of_mastery": "Choose and justify mean or median for three scenarios." },
-    { "id": "UO4", "title": "Report with Transparency", "description": "Report center with appropriate context and transparency about outliers.", "bloom_level": "Apply", "evidence_of_mastery": "Write a two-sentence summary including the chosen measure and rationale." }
+    { "id": "lo_1", "title": "Define Mean and Median", "description": "Define mean and median precisely and distinguish their computation.", "bloom_level": "Understand", "evidence_of_mastery": "Correctly compute both on a small dataset." },
+    { "id": "lo_2", "title": "Explain Outlier Effects", "description": "Explain how outliers and skew affect mean and median differently.", "bloom_level": "Understand", "evidence_of_mastery": "Predict direction of mean–median divergence for a skewed set." },
+    { "id": "lo_3", "title": "Select Representative Measure", "description": "Select the more representative center measure for a dataset based on its shape.", "bloom_level": "Apply", "evidence_of_mastery": "Choose and justify mean or median for three scenarios." },
+    { "id": "lo_4", "title": "Report with Transparency", "description": "Report center with appropriate context and transparency about outliers.", "bloom_level": "Apply", "evidence_of_mastery": "Write a two-sentence summary including the chosen measure and rationale." }
   ],
   "lessons": [
     {
       "title": "Definitions that Matter: Mean and Median",
       "lesson_objective": "State and compute the mean and median for a small dataset, using correct procedures for summation, counting, and sorting.",
-      "learning_objective_ids": ["UO1"]
+      "learning_objective_ids": ["lo_1"]
     },
     {
       "title": "When Extremes Scream: Outliers and Skew",
       "lesson_objective": "Describe how a single extreme value shifts the mean and leaves the median comparatively stable, using source examples to justify the distinction.",
-      "learning_objective_ids": ["UO2"]
+      "learning_objective_ids": ["lo_2"]
     },
     {
       "title": "Picking the Representative: Mean or Median?",
       "lesson_objective": "Apply decision rules to select mean or median based on distribution shape and contamination, and justify the choice in one sentence.",
-      "learning_objective_ids": ["UO2", "UO3"]
+      "learning_objective_ids": ["lo_2", "lo_3"]
     },
     {
       "title": "Reading the Signals: Simple Visual Diagnostics",
-      "lesson_objective": "Interpret basic visuals (e.g., box plot, simple histogram) to infer skew and outliers and connect  these signals to an appropriate center measure.",
-      "learning_objective_ids": ["UO2", "UO3"]
+      "lesson_objective": "Interpret basic visuals (e.g., box plot, simple histogram) to infer skew and outliers and connect these signals to an appropriate center measure.",
+      "learning_objective_ids": ["lo_2", "lo_3"]
     },
     {
       "title": "Say It Clearly: Transparent Reporting",
       "lesson_objective": "Compose a brief report that names the chosen center, pairs it with a spread measure, and notes any outliers without deletion.",
-      "learning_objective_ids": ["UO4"]
+      "learning_objective_ids": ["lo_4"]
     },
     {
       "title": "Mini Case Study: From Data Shape to Justified Summary",
       "lesson_objective": "Execute the full chain—inspect shape, select a center, and justify the choice—using terms and examples consistent with the unit source.",
-      "learning_objective_ids": ["UO1", "UO2", "UO3", "UO4"]
+      "learning_objective_ids": ["lo_1", "lo_2", "lo_3", "lo_4"]
     }
   ],
   "lesson_count": 6
 }
-
-# Example with Coach-Provided Learning Objectives
-
-When COACH_LEARNING_OBJECTIVES are provided (non-empty), the output structure is identical, **but with coach IDs**:
-
-```json
-{
-  "unit_title": "Gradient Descent Fundamentals",
-  "learning_objectives": [
-    { "id": "coach_lo_1", "title": "Understand gradient descent mechanics", "description": "Comprehend how gradient descent algorithm works in optimization", "bloom_level": "Understand", "evidence_of_mastery": "Implement basic gradient descent step on a toy problem." },
-    { "id": "coach_lo_2", "title": "Apply gradient descent to training", "description": "Apply gradient descent concepts to train neural networks", "bloom_level": "Apply", "evidence_of_mastery": "Train a simple model using gradient descent and interpret convergence." }
-  ],
-  "lessons": [
-    {
-      "title": "How Gradient Descent Works",
-      "lesson_objective": "Explain the core mechanics of gradient descent: direction, step size, and convergence criteria.",
-      "learning_objective_ids": ["coach_lo_1"]
-    },
-    {
-      "title": "Gradient Descent in Practice: Training Models",
-      "lesson_objective": "Apply gradient descent to train a neural network model and interpret learning curves.",
-      "learning_objective_ids": ["coach_lo_1", "coach_lo_2"]
-    }
-  ],
-  "lesson_count": 2
-}
 ```
-
-**Key differences:**
-- The `learning_objectives` array contains the EXACT coach LOs (same `id` fields: `coach_lo_1`, `coach_lo_2`).
-- The lessons reference ONLY those coach LO IDs in `learning_objective_ids`.
-- Do NOT generate new UO IDs like `UO1`, `UO2` when coach LOs are provided.
