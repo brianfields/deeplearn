@@ -3,9 +3,9 @@
 import asyncio
 import base64
 import contextlib
-import io
 from datetime import UTC, datetime
 import importlib
+import io
 import json
 import logging
 import math
@@ -69,6 +69,15 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T", bound=BaseModel)
 
 __all__ = ["OpenAIProvider"]
+
+# OpenAI Pricing Constants (as of 2024-2025)
+# Text generation pricing is handled per model in estimate_cost()
+# Audio/media pricing:
+OPENAI_WHISPER_PRICE_PER_MINUTE = 0.006  # $0.006 per minute of audio transcription
+OPENAI_TTS_PRICE_PER_MILLION_CHARS = {
+    "tts-1": 15.00,
+    "tts-1-hd": 30.00,
+}
 
 
 class OpenAIProvider(LLMProvider):
@@ -904,6 +913,13 @@ class OpenAIProvider(LLMProvider):
                 request_kwargs["language"] = request.language
             if request.prompt:
                 request_kwargs["prompt"] = request.prompt
+
+            # Add timestamp_granularities for getting timed segments
+            # This parameter is required to get segments in verbose_json format
+            timestamp_granularities = request.timestamp_granularities or ["segment"]
+            if request.response_format == "verbose_json" and timestamp_granularities:
+                request_kwargs["timestamp_granularities"] = timestamp_granularities
+
             request_kwargs.update({k: v for k, v in kwargs.items() if v is not None})
 
             response = await cast(Any, create_method)(**request_kwargs)
@@ -967,9 +983,7 @@ class OpenAIProvider(LLMProvider):
 
             self._update_llm_request_success(llm_request, llm_response, execution_time_ms)
 
-            logger.info(
-                "Transcribed audio narration - Model: %s Segments: %d", request.model, len(transcription.segments)
-            )
+            logger.info("Transcribed audio narration - Model: %s Segments: %d", request.model, len(transcription.segments))
             return transcription, request_id
 
         except Exception as e:
@@ -1059,15 +1073,8 @@ class OpenAIProvider(LLMProvider):
         # Default to tts-1 if not specified
         model_name = (model or "tts-1").lower()
 
-        # Pricing per 1M characters
-        pricing_map: dict[str, float] = {
-            "tts-1": 15.00,
-            "tts-1-hd": 30.00,
-            "gpt-4o-mini-tts": 15.00,  # Default TTS model maps to tts-1
-        }
-
         # Get pricing, with tts-1 as default
-        price_per_million = pricing_map.get(model_name, 15.00)
+        price_per_million = OPENAI_TTS_PRICE_PER_MILLION_CHARS.get(model_name, 15.00)
 
         # Calculate cost based on character count
         character_count = len(text)

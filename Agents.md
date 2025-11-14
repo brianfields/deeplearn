@@ -107,3 +107,26 @@ For deeper details, always refer to:
 
 - Frontend architecture: `docs/arch/frontend.md`
 - Backend architecture: `docs/arch/backend.md`
+
+## LLM calls
+
+Generally (with some exceptions), LLM calls go through the flow_engine module so that there is tracking of each step. If that pattern is not followed, there should be a good documented reason explaining why.
+
+---
+
+## Mobile Offline Cache: Data Extraction Pattern
+
+**Critical Pattern**: When adding new fields to lesson data, you must extract them in TWO places:
+
+1. **API DTO Mapping** (`mobile/modules/catalog/models.ts` - `toLessonDetailDTO`): Maps fresh API responses
+2. **Offline Cache Extraction** (`mobile/modules/catalog/repo.ts` - `findLessonInOfflineCache`): Extracts from SQLite cache
+
+**Common Pitfall**: The offline cache extraction is easy to miss. If a new podcast-related field (like `podcast_transcript_segments`) is added to the API, you must explicitly extract it from the cached lesson payload or it will silently be lost when users play cached content.
+
+**Example**: Fixed twice already - `podcast_transcript_segments` was being returned by API but not extracted from SQLite cache, causing segment highlighting to fail for offline lessons. Solution: Add extraction with `mapTranscriptSegments()` and include it in the returned lesson object.
+
+**Checklist for new lesson fields**:
+- [ ] Added to API response mapping in `toLessonDetailDTO`
+- [ ] Added to offline cache extraction in `findLessonInOfflineCache`
+- [ ] Added to the lesson object returned by `findLessonInOfflineCache`
+- [ ] Use `mapTranscriptSegments()` or equivalent validation for complex fields

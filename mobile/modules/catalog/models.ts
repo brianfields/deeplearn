@@ -234,7 +234,7 @@ export function toLessonSummaryDTO(api: ApiLessonSummary): LessonSummary {
       isReadyForLearning,
       api.exercise_count
     ),
-    tags: api.key_concepts.slice(0, 3), // Use first 3 key concepts as tags
+    tags: (api.key_concepts ?? []).slice(0, 3), // Use first 3 key concepts as tags
     hasPodcast: Boolean(api.has_podcast),
     podcastDurationSeconds: api.podcast_duration_seconds ?? null,
     podcastVoice: api.podcast_voice ?? null,
@@ -256,6 +256,8 @@ export function toLessonDetailDTO(api: ApiLessonDetail): LessonDetail {
     exercisesArrayLength: api.exercises?.length ?? 0,
     hasExercises: Array.isArray(api.exercises),
     firstExercise: api.exercises?.[0],
+    hasKeyConcepts: Array.isArray(api.key_concepts),
+    keyConceptsLength: api.key_concepts?.length ?? 0,
   });
 
   const exercises = Array.isArray(api.exercises)
@@ -297,7 +299,7 @@ export function toLessonDetailDTO(api: ApiLessonDetail): LessonDetail {
       isReadyForLearning,
       api.exercise_count
     ),
-    tags: api.key_concepts.slice(0, 3),
+    tags: (api.key_concepts ?? []).slice(0, 3),
     unitId: api.unit_id ?? null,
     lessonType: api.lesson_type as 'standard' | 'intro',
     podcastTranscript: api.podcast_transcript ?? null,
@@ -359,7 +361,9 @@ function formatDuration(minutes: number): string {
   return `${hours} hr ${remainingMinutes} min`;
 }
 
-function mapTranscriptSegments(raw: unknown): TranscriptSegment[] | null {
+export function mapTranscriptSegments(
+  raw: unknown
+): TranscriptSegment[] | null {
   if (!Array.isArray(raw)) {
     return null;
   }

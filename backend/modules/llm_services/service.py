@@ -29,9 +29,17 @@ from .types import (
 from .types import AudioResponse as AudioResponseInternal
 from .types import (
     ImageResponse as ImageResponseInternal,
+)
+from .types import (
     LLMMessage as LLMMessageInternal,
+)
+from .types import (
     LLMResponse as LLMResponseInternal,
+)
+from .types import (
     SearchResult as SearchResultInternal,
+)
+from .types import (
     WebSearchResponse as WebSearchResponseInternal,
 )
 
@@ -80,6 +88,8 @@ MODEL_PROVIDER_MAP: dict[str, LLMProviderType] = {
     "tts-1": LLMProviderType.OPENAI,
     "tts-1-hd": LLMProviderType.OPENAI,
     "gpt-4o-mini-tts": LLMProviderType.OPENAI,  # Alias for tts-1-hd
+    # OpenAI Whisper (Audio Transcription) models
+    "whisper-1": LLMProviderType.OPENAI,
     # OpenAI DALL-E (Image Generation) models
     "dall-e-2": LLMProviderType.OPENAI,
     "dall-e-3": LLMProviderType.OPENAI,
@@ -241,10 +251,7 @@ class AudioTranscription(BaseModel):
         return cls(
             text=transcription.text,
             language=transcription.language,
-            segments=[
-                AudioTranscriptionSegmentDTO(text=segment.text, start=segment.start, end=segment.end)
-                for segment in transcription.segments
-            ],
+            segments=[AudioTranscriptionSegmentDTO(text=segment.text, start=segment.start, end=segment.end) for segment in transcription.segments],
         )
 
 
@@ -566,16 +573,13 @@ class LLMService:
         prompt: str | None = None,
         response_format: str | None = None,
         filename: str | None = None,
+        timestamp_granularities: list[str] | None = None,
         **kwargs: LLMProviderKwargs,
     ) -> tuple[AudioTranscription, uuid.UUID]:
         """Transcribe narrated audio and return timed transcript segments."""
 
         provider = self._select_provider(model)
-        resolved_model = (
-            model
-            or getattr(provider.config, "audio_transcription_model", None)
-            or ("whisper-1" if provider.config.provider == LLMProviderType.OPENAI else provider.config.model)
-        )
+        resolved_model = model or getattr(provider.config, "audio_transcription_model", None) or ("whisper-1" if provider.config.provider == LLMProviderType.OPENAI else provider.config.model)
 
         request = AudioTranscriptionRequest(
             audio_bytes=audio_bytes,
@@ -585,6 +589,7 @@ class LLMService:
             prompt=prompt,
             response_format=response_format or "verbose_json",
             filename=filename,
+            timestamp_granularities=timestamp_granularities or ["segment"],
         )
 
         internal_response, request_id = await provider.transcribe_audio(

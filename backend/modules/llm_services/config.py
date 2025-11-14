@@ -366,11 +366,7 @@ def create_llm_config_from_env(
     if provider == LLMProviderType.GEMINI and audio_model_env is None:
         resolved_audio_model = gemini_tts_model
     if provider == LLMProviderType.OPENAI:
-        resolved_transcription_model = (
-            audio_transcription_model_env
-            or openai_transcription_model
-            or "whisper-1"
-        )
+        resolved_transcription_model = audio_transcription_model_env or openai_transcription_model or "whisper-1"
     elif provider == LLMProviderType.GEMINI:
         resolved_transcription_model = audio_transcription_model_env or gemini_transcription_model
 

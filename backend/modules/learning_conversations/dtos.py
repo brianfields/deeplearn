@@ -25,6 +25,8 @@ class LearningCoachObjective:
     id: str
     title: str
     description: str
+    bloom_level: str | None = None
+    evidence_of_mastery: str | None = None
 
 
 @dataclass(slots=True)

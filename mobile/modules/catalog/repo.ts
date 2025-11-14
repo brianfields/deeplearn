@@ -13,7 +13,7 @@ import type {
   CatalogError,
   LessonDetail,
 } from './models';
-import { toLessonDetailDTO } from './models';
+import { toLessonDetailDTO, mapTranscriptSegments } from './models';
 
 // Backend API endpoints
 const LESSON_CATALOG_BASE = '/api/v1/catalog';
@@ -111,14 +111,25 @@ export class CatalogRepo {
       return null;
     }
 
+    console.log(
+      '[CatalogRepo] 🔍 Looking for lesson in offline cache:',
+      lessonId
+    );
     const cachedLesson = await this.findLessonInOfflineCache(lessonId);
     if (cachedLesson) {
-      console.info(`[CatalogRepo] Found lesson ${lessonId} in offline cache`);
+      console.info(
+        `[CatalogRepo] ✅ Found lesson ${lessonId} in offline cache`
+      );
       return cachedLesson;
     }
 
     try {
+      console.log(
+        '[CatalogRepo] 📡 Lesson not in cache, fetching from API:',
+        lessonId
+      );
       const apiResponse = await this.getLessonDetail(lessonId);
+      console.log('[CatalogRepo] 📥 API response received, mapping to DTO');
       return toLessonDetailDTO(apiResponse);
     } catch (error: any) {
       if (error && typeof error === 'object' && 'statusCode' in error) {
@@ -429,6 +440,18 @@ export class CatalogRepo {
               : rawGeneratedAt instanceof Date
                 ? rawGeneratedAt.toISOString()
                 : null;
+          const podcastTranscriptSegments = mapTranscriptSegments(
+            payload.podcast_transcript_segments ?? null
+          );
+          console.log('[CatalogRepo] 🎙️ Loaded podcast from cache:', {
+            lessonId: cachedLesson.id,
+            hasTranscript: !!podcastTranscript,
+            hasSegments:
+              !!podcastTranscriptSegments &&
+              podcastTranscriptSegments.length > 0,
+            segmentCount: podcastTranscriptSegments?.length ?? 0,
+            firstSegment: podcastTranscriptSegments?.[0],
+          });
           const hasPodcast =
             typeof payload.has_podcast === 'boolean'
               ? payload.has_podcast
@@ -479,6 +502,7 @@ export class CatalogRepo {
             lessonType:
               (payload.lesson_type as 'standard' | 'intro') ?? 'standard',
             podcastTranscript,
+            podcastTranscriptSegments,
             podcastAudioUrl,
             podcastDurationSeconds:
               typeof podcastDurationSeconds === 'number' &&

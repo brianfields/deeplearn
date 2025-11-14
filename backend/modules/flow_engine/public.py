@@ -227,7 +227,7 @@ from ..llm_services.public import LLMServicesProvider
 
 # For public interface
 from .base_flow import BaseFlow
-from .base_step import AudioStep, BaseStep, ImageStep, StepResult, StepType, StructuredStep, UnstructuredStep
+from .base_step import AudioStep, BaseStep, ImageStep, StepResult, StepType, StructuredStep, TranscribeAudioStep, UnstructuredStep
 from .context import FlowContext
 from .repo import FlowRunRepo, FlowStepRunRepo
 from .service import FlowRunDetailsDTO, FlowRunQueryService, FlowRunSummaryDTO, FlowStepDetailsDTO
@@ -342,6 +342,7 @@ __all__ = [
     "StepResult",
     "StepType",
     "StructuredStep",
+    "TranscribeAudioStep",
     "UnstructuredStep",
     "flow_engine_admin_provider",  # For admin module only
     "flow_engine_worker_provider",  # For task_queue worker only

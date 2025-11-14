@@ -32,11 +32,19 @@ class ContentService:
         unit_id: str,
         podcast: UnitPodcast,
         learner_level: str = "beginner",
+        unit_learning_objective_ids: list[str] | None = None,
     ) -> tuple[str, LessonSummary]:
         """Create an intro lesson from generated podcast and return lesson_id + summary DTO.
 
         Validates that no intro lesson already exists (idempotency), creates minimal lesson
         package, persists podcast audio/metadata, and prepends lesson to unit.lesson_order.
+
+        Args:
+            unit_id: The unit ID
+            podcast: The generated unit podcast
+            learner_level: The learner level for the lesson
+            unit_learning_objective_ids: List of unit learning objective IDs to associate with intro lesson.
+                                        If not provided, fetches from unit.
 
         Returns:
             Tuple of (lesson_id, lesson_summary_dto)
@@ -63,17 +71,52 @@ class ContentService:
         if unit is None:
             raise ValueError(f"Unit {unit_id} not found")
 
+        # Get learning objective IDs from unit if not provided
+        if unit_learning_objective_ids is None:
+            # Extract LO IDs from unit's learning_objectives
+            raw_los = getattr(unit, "learning_objectives", None) or []
+            unit_learning_objective_ids = []
+            for lo in raw_los:
+                if isinstance(lo, dict):
+                    lo_id = lo.get("id") or lo.get("lo_id")
+                    if lo_id:
+                        unit_learning_objective_ids.append(str(lo_id))
+                else:
+                    # Fallback: treat as string ID
+                    unit_learning_objective_ids.append(str(lo))
+
+        # If still no LOs, raise error (intro lesson requires at least one LO per validation)
+        if not unit_learning_objective_ids:
+            logger.error(f"Cannot create intro lesson for unit {unit_id}: no learning objectives found. Intro lesson requires unit_learning_objective_ids to pass LessonPackage validation.")
+            raise ValueError(f"Unit {unit_id} has no learning objectives; cannot create intro lesson")
+
         # Generate consistent lesson ID
         intro_lesson_id = f"{unit_id}-intro"
 
-        # Create minimal valid package for intro lesson (no exercises)
-        from modules.content.package_models import LessonPackage
+        # Create minimal valid package for intro lesson (no exercises) with unit LOs
+        from modules.content.package_models import LessonPackage, Meta, QuizMetadata
+
+        meta = Meta(
+            lesson_id=intro_lesson_id,
+            title="Unit Introduction",
+            learner_level=learner_level,
+        )
+
+        quiz_metadata = QuizMetadata(
+            quiz_type="intro",
+            total_items=0,
+            difficulty_distribution_target={},
+            difficulty_distribution_actual={},
+            cognitive_mix_target={},
+            cognitive_mix_actual={},
+        )
 
         empty_package = LessonPackage(
             exercise_bank=[],
             quiz=[],
-            meta={"title": "Unit Introduction", "version": 1},
-            unit_learning_objective_ids=[],
+            meta=meta,
+            quiz_metadata=quiz_metadata,
+            unit_learning_objective_ids=unit_learning_objective_ids,
         )
 
         # Create the intro lesson via content service
@@ -84,6 +127,7 @@ class ContentService:
             title="Unit Introduction",
             learner_level=learner_level,
             lesson_type="intro",  # Mark as intro lesson
+            unit_id=unit_id,  # Associate intro lesson with unit
             package=empty_package,
             package_version=1,
         )
@@ -102,6 +146,7 @@ class ContentService:
             mime_type=podcast.mime_type,
             voice=podcast.voice,
             duration_seconds=podcast.duration_seconds,
+            transcript_segments=[seg.model_dump() if hasattr(seg, "model_dump") else seg for seg in podcast.transcript_segments] if podcast.transcript_segments else None,
         )
 
         logger.info(f"✓ Intro lesson created: {intro_lesson_id} for unit {unit_id}")

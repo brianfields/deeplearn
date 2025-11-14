@@ -113,29 +113,61 @@ export function PodcastPlayer(): React.ReactElement {
   useEffect(() => {
     const lessonId = currentTrack?.lessonId;
     const transcriptLoaded =
-      currentTrack?.transcript !== undefined && currentTrack?.transcript !== null;
+      currentTrack?.transcript !== undefined &&
+      currentTrack?.transcript !== null;
     const segmentsLoaded =
       Array.isArray(currentTrack?.transcriptSegments) &&
       (currentTrack?.transcriptSegments?.length ?? 0) > 0;
 
+    console.log('[PodcastPlayer] 📡 Transcript fetch effect triggered:', {
+      lessonId,
+      transcriptLoaded,
+      segmentsLoaded,
+      transcriptLength: currentTrack?.transcript?.length ?? 0,
+      segmentCount: Array.isArray(currentTrack?.transcriptSegments)
+        ? currentTrack.transcriptSegments.length
+        : 0,
+      shouldFetch: !!(lessonId && !transcriptLoaded && !segmentsLoaded),
+    });
+
     if (!lessonId || transcriptLoaded || segmentsLoaded) {
+      if (lessonId && (transcriptLoaded || segmentsLoaded)) {
+        console.log(
+          '[PodcastPlayer] ✅ Transcript already loaded, skipping fetch'
+        );
+      }
       return;
     }
 
     const fetchTranscript = async (): Promise<void> => {
       try {
+        console.log(
+          '[PodcastPlayer] 🔄 Fetching transcript from lesson detail for lessonId:',
+          lessonId
+        );
         const catalog = catalogProvider();
         const lessonDetail = await catalog.getLessonDetail(lessonId);
         if (!lessonDetail) {
-          console.log(
-            '[PodcastPlayer] Could not fetch lesson detail for transcript'
+          console.warn(
+            '[PodcastPlayer] ❌ Could not fetch lesson detail for transcript'
           );
           return;
         }
 
+        console.log('[PodcastPlayer] 📥 Lesson detail fetched:', {
+          hasTranscript: !!lessonDetail.podcastTranscript,
+          hasSegments:
+            Array.isArray(lessonDetail.podcastTranscriptSegments) &&
+            lessonDetail.podcastTranscriptSegments.length > 0,
+          segmentCount: lessonDetail.podcastTranscriptSegments?.length ?? 0,
+          transcriptLength: lessonDetail.podcastTranscript?.length ?? 0,
+          firstSegment: lessonDetail.podcastTranscriptSegments?.[0],
+        });
+
         // Update the currentTrack in the store with the fetched transcript
         const track = usePodcastStore.getState().currentTrack;
         if (!track) {
+          console.warn('[PodcastPlayer] ⚠️ Current track lost during fetch');
           return;
         }
 
@@ -144,14 +176,24 @@ export function PodcastPlayer(): React.ReactElement {
           transcript: lessonDetail.podcastTranscript ?? null,
           transcriptSegments: lessonDetail.podcastTranscriptSegments ?? null,
         };
+        console.log('[PodcastPlayer] 💾 Updating track with transcript:', {
+          hasSegments:
+            Array.isArray(updatedTrack.transcriptSegments) &&
+            updatedTrack.transcriptSegments.length > 0,
+          segmentCount: updatedTrack.transcriptSegments?.length ?? 0,
+        });
         usePodcastStore.getState().setCurrentTrack(updatedTrack);
       } catch (error) {
-        console.warn('[PodcastPlayer] Failed to fetch transcript:', error);
+        console.warn('[PodcastPlayer] ❌ Failed to fetch transcript:', error);
       }
     };
 
     void fetchTranscript();
-  }, [currentTrack?.lessonId, currentTrack?.transcript, currentTrack?.transcriptSegments]);
+  }, [
+    currentTrack?.lessonId,
+    currentTrack?.transcript,
+    currentTrack?.transcriptSegments,
+  ]);
 
   // Debug logging for artwork
   useEffect(() => {
@@ -170,9 +212,22 @@ export function PodcastPlayer(): React.ReactElement {
     playbackState.duration || (currentTrack?.durationSeconds ?? 0);
   const displayedPosition = isSeekingPosition ? pendingSeekPosition : position;
 
-  const transcriptSegments = useMemo<NormalizedTranscriptSegment[] | null>(() => {
+  const transcriptSegments = useMemo<
+    NormalizedTranscriptSegment[] | null
+  >(() => {
     const segments = currentTrack?.transcriptSegments;
+    console.log('[PodcastPlayer] 📝 Transcript segments check:', {
+      hasSegments: !!segments,
+      segmentCount: segments?.length ?? 0,
+      currentTrackUnitId: currentTrack?.unitId,
+      currentLessonId: currentTrack?.lessonId,
+      firstSegment: segments?.[0],
+    });
+
     if (!segments || segments.length === 0) {
+      console.log(
+        '[PodcastPlayer] ⏭️ No transcript segments available, will use fallback'
+      );
       return null;
     }
 
@@ -192,8 +247,17 @@ export function PodcastPlayer(): React.ReactElement {
       })
       .sort((a, b) => a.start - b.start);
 
+    console.log(
+      '[PodcastPlayer] ✅ Normalized',
+      normalized.length,
+      'transcript segments'
+    );
     return normalized;
-  }, [currentTrack?.transcriptSegments]);
+  }, [
+    currentTrack?.transcriptSegments,
+    currentTrack?.lessonId,
+    currentTrack?.unitId,
+  ]);
 
   const transcriptFallbackText = useMemo(() => {
     if (transcriptSegments && transcriptSegments.length > 0) {
@@ -224,6 +288,17 @@ export function PodcastPlayer(): React.ReactElement {
       if (displayedPosition <= segment.end) {
         break;
       }
+    }
+
+    if (candidateIndex !== -1) {
+      const activeSegment = transcriptSegments[candidateIndex];
+      console.log('[PodcastPlayer] 🎯 Active segment updated:', {
+        index: candidateIndex,
+        position: displayedPosition,
+        segmentText: activeSegment.text.substring(0, 50) + '...',
+        segmentStart: activeSegment.start,
+        segmentEnd: activeSegment.end,
+      });
     }
 
     return candidateIndex;
@@ -744,42 +819,82 @@ export function PodcastPlayer(): React.ReactElement {
                   Transcript
                 </Text>
                 {transcriptSegments && transcriptSegments.length > 0 ? (
-                  <Text
-                    variant="body"
-                    color={theme.colors.text}
-                    style={styles.transcriptText}
-                  >
-                    {transcriptSegments.map((segment, index) => (
-                      <Text
-                        key={`${segment.start}-${index}`}
-                        style={[
-                          styles.transcriptSegmentText,
-                          index === activeTranscriptIndex
-                            ? styles.transcriptSegmentTextActive
-                            : null,
-                        ]}
-                      >
-                        {segment.text}
-                        {index < transcriptSegments.length - 1 ? ' ' : ''}
-                      </Text>
-                    ))}
-                  </Text>
+                  <>
+                    {
+                      (console.log(
+                        '[PodcastPlayer] 🎨 Rendering with',
+                        transcriptSegments.length,
+                        'segments, activeIndex:',
+                        activeTranscriptIndex
+                      ),
+                      null)
+                    }
+                    <Text
+                      variant="body"
+                      color={theme.colors.text}
+                      style={styles.transcriptText}
+                    >
+                      {transcriptSegments.map((segment, index) => {
+                        const isActive = index === activeTranscriptIndex;
+                        if (isActive) {
+                          console.log('[PodcastPlayer] 🔴 SEGMENT ACTIVE:', {
+                            index,
+                            fullText: segment.text,
+                            start: segment.start,
+                            end: segment.end,
+                            hasActiveStyle:
+                              !!styles.transcriptSegmentTextActive,
+                          });
+                        }
+                        return (
+                          <Text
+                            key={`${segment.start}-${index}`}
+                            style={[
+                              styles.transcriptSegmentText,
+                              isActive
+                                ? styles.transcriptSegmentTextActive
+                                : null,
+                            ]}
+                          >
+                            {segment.text}
+                            {index < transcriptSegments.length - 1 ? ' ' : ''}
+                          </Text>
+                        );
+                      })}
+                    </Text>
+                  </>
                 ) : transcriptFallbackText ? (
-                  <Text
-                    variant="body"
-                    color={theme.colors.text}
-                    style={styles.transcriptText}
-                  >
-                    {transcriptFallbackText}
-                  </Text>
+                  <>
+                    {
+                      (console.log(
+                        '[PodcastPlayer] 📄 Using fallback transcript'
+                      ),
+                      null)
+                    }
+                    <Text
+                      variant="body"
+                      color={theme.colors.text}
+                      style={styles.transcriptText}
+                    >
+                      {transcriptFallbackText}
+                    </Text>
+                  </>
                 ) : (
-                  <Text
-                    variant="body"
-                    color={theme.colors.textSecondary}
-                    style={styles.transcriptUnavailable}
-                  >
-                    Transcript not available for this podcast
-                  </Text>
+                  <>
+                    {
+                      (console.log(
+                        '[PodcastPlayer] ⚠️ No transcript available'
+                      ),
+                      null)
+                    }
+                    <Text
+                      variant="body"
+                      color={theme.colors.textSecondary}
+                      style={styles.transcriptUnavailable}
+                    >
+                      Transcript not available for this podcast
+                    </Text>
+                  </>
                 )}
               </View>
             </View>

@@ -411,8 +411,8 @@ export default function LearningFlowScreen({ navigation, route }: Props) {
                 ? (lesson.podcastTranscript ?? null)
                 : null,
               transcriptSegments: isCurrentLesson
-                ? lesson.podcastTranscriptSegments ?? null
-                : lessonSummary.podcastTranscriptSegments ?? null,
+                ? (lesson.podcastTranscriptSegments ?? null)
+                : (lessonSummary.podcastTranscriptSegments ?? null),
               lessonId: lessonSummary.id,
               lessonIndex: index,
               lessonType: 'standard',

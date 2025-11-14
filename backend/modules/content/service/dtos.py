@@ -45,7 +45,7 @@ class LessonRead(BaseModel):
     podcast_generated_at: datetime | None = None
     podcast_audio_url: str | None = None
     has_podcast: bool = False
-    podcast_transcript_segments: list["PodcastTranscriptSegment"] | None = None
+    podcast_transcript_segments: list[PodcastTranscriptSegment] | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -57,6 +57,7 @@ class LessonCreate(BaseModel):
     title: str
     learner_level: str
     lesson_type: str = "standard"  # 'standard' or 'intro'
+    unit_id: str | None = None
     source_material: str | None = None
     source_domain: str | None = None
     source_level: str | None = None

@@ -41,10 +41,12 @@ class FlowHandler:
         content: ContentProvider,
         prompt_handler: PromptHandler,
         media_handler: MediaHandler,
+        content_service: Any | None = None,
     ) -> None:
         self._content = content
         self._prompt_handler = prompt_handler
         self._media_handler = media_handler
+        self._content_service = content_service
 
     async def execute_unit_creation_pipeline(
         self,
@@ -267,7 +269,15 @@ class FlowHandler:
                     arq_task_id=arq_task_id,
                 )
                 # Delegate intro lesson creation to content service via media handler
-                await self._media_handler.save_unit_podcast(unit_id, podcast)
+                # Pass all unit learning objective IDs so intro lesson can reference them
+                # Use existing content service to avoid creating a new session (prevents deadlock)
+                lo_ids = [lo.id for lo in unit_learning_objectives]
+                await self._media_handler.save_unit_podcast(
+                    unit_id,
+                    podcast,
+                    unit_learning_objective_ids=lo_ids,
+                    content_service=self._content_service,
+                )
                 logger.info("   ✓ Unit podcast + intro lesson complete")
             except Exception as exc:  # pragma: no cover - podcast generation should not block unit creation
                 logger.warning(
@@ -657,7 +667,10 @@ class FlowHandler:
                     package=lesson_package,
                 )
             )
+            segment_count = len(lesson_podcast_result.transcript_segments) if lesson_podcast_result.transcript_segments else 0
+            logger.debug(f"         📝 Saving lesson podcast for lesson {created_lesson.id}: duration={lesson_podcast_result.duration_seconds}s, segments={segment_count}")
             await self._media_handler.save_lesson_podcast(content, created_lesson.id, lesson_podcast_result)
+            logger.debug(f"         ✓ Lesson podcast saved with {segment_count} transcript segments")
 
         covered_lo_ids = {str(exercise.aligned_learning_objective) for exercise in exercise_bank if getattr(exercise, "aligned_learning_objective", None)}
 

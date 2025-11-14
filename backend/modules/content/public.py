@@ -1,7 +1,8 @@
 """Protocol definition and dependency injection provider for the content module."""
 
+from collections.abc import Sequence
 from datetime import datetime
-from typing import Any, Protocol, Sequence
+from typing import Any, Protocol
 import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession

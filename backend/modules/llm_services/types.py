@@ -213,10 +213,7 @@ class AudioTranscriptionResult:
         return {
             "text": self.text,
             "language": self.language,
-            "segments": [
-                {"text": segment.text, "start": segment.start, "end": segment.end}
-                for segment in self.segments
-            ],
+            "segments": [{"text": segment.text, "start": segment.start, "end": segment.end} for segment in self.segments],
         }
 
 
@@ -231,6 +228,7 @@ class AudioTranscriptionRequest:
     prompt: str | None = None
     response_format: str = "verbose_json"
     filename: str | None = None
+    timestamp_granularities: list[str] | None = None  # e.g., ["segment", "word"]
 
     def to_dict(self) -> dict[str, Any]:
         """Return metadata only (binary omitted)."""
@@ -242,6 +240,7 @@ class AudioTranscriptionRequest:
             "prompt": self.prompt,
             "response_format": self.response_format,
             "filename": self.filename,
+            "timestamp_granularities": self.timestamp_granularities,
         }
 
 

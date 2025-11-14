@@ -172,6 +172,7 @@ class LLMServicesProvider(Protocol):
         prompt: str | None = None,
         response_format: str | None = None,
         filename: str | None = None,
+        timestamp_granularities: list[str] | None = None,
         **kwargs: LLMProviderKwargs,
     ) -> tuple[AudioTranscription, uuid.UUID]:
         """Transcribe narrated audio into timed transcript segments."""

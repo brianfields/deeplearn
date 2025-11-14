@@ -933,7 +933,9 @@ export class ContentService {
       typeof payload?.podcast_transcript === 'string'
         ? payload.podcast_transcript
         : null;
-    const rawPodcastSegments = Array.isArray(payload?.podcast_transcript_segments)
+    const rawPodcastSegments = Array.isArray(
+      payload?.podcast_transcript_segments
+    )
       ? payload.podcast_transcript_segments
       : null;
     const rawPodcastVoice =

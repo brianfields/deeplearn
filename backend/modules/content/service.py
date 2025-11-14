@@ -8,10 +8,11 @@ Handles content operations and data transformation.
 """
 
 # Import inside methods when needed to avoid circular imports with public/providers
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from enum import Enum
 import logging
-from typing import Any, Literal, Sequence
+from typing import Any, Literal
 import uuid
 
 from pydantic import BaseModel, ConfigDict
@@ -62,7 +63,7 @@ class LessonRead(BaseModel):
     podcast_generated_at: datetime | None = None
     podcast_audio_url: str | None = None
     has_podcast: bool = False
-    podcast_transcript_segments: list["PodcastTranscriptSegment"] | None = None
+    podcast_transcript_segments: list[PodcastTranscriptSegment] | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -177,7 +178,7 @@ class ContentService:
     def _normalise_transcript_segments(
         self,
         raw_segments: Any,
-    ) -> list["PodcastTranscriptSegment"] | None:
+    ) -> list[PodcastTranscriptSegment] | None:
         """Coerce stored transcript segments into DTO instances."""
 
         if not raw_segments:
@@ -199,9 +200,7 @@ class ContentService:
                     end = float(entry.get("end", start))
                 except Exception:
                     end = start
-                segments.append(
-                    PodcastTranscriptSegment(text=text, start=start, end=end)
-                )
+                segments.append(PodcastTranscriptSegment(text=text, start=start, end=end))
 
         return segments or None
 
@@ -262,12 +261,23 @@ class ContentService:
 
     async def save_lesson(self, lesson_data: LessonCreate) -> LessonRead:
         """Create new lesson with package."""
+        from .models import LessonType
+
+        # Validate intro lesson has minimal package (no exercises)
+        if lesson_data.lesson_type == "intro" and (lesson_data.package.exercise_bank or lesson_data.package.quiz):
+            raise ValueError("Intro lessons must have empty exercise_bank and quiz")
+
         package_dict = lesson_data.package.model_dump()
+
+        # Map lesson_type string to enum
+        lesson_type_enum = LessonType.INTRO if lesson_data.lesson_type == "intro" else LessonType.STANDARD
 
         lesson_model = LessonModel(
             id=lesson_data.id,
             title=lesson_data.title,
             learner_level=lesson_data.learner_level,
+            lesson_type=lesson_type_enum,
+            unit_id=lesson_data.unit_id,
             source_material=lesson_data.source_material,
             package=package_dict,
             package_version=lesson_data.package_version,

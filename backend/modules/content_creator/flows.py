@@ -24,6 +24,7 @@ from .steps import (
     MCQValidationOutputs,
     PodcastLessonInput,
     SynthesizePodcastAudioStep,
+    TranscribePodcastStep,
     ValidateAndStructureMCQsStep,
 )
 
@@ -222,9 +223,9 @@ class UnitCreationFlow(BaseFlow):
         )
         unit_md = md_result.output_content
 
-        # Always return the LLM-generated learning objectives (influenced by coach_learning_objectives if provided)
-        # The generated LOs are more detailed than coach LOs
-        final_learning_objectives = [lo.model_dump() for lo in unit_md.learning_objectives]
+        # Always return the coach-provided learning objectives (not LLM-generated ones)
+        # The coach LOs are complete with bloom_level and evidence_of_mastery
+        final_learning_objectives = coach_learning_objectives
 
         return {
             "unit_title": unit_md.unit_title,
@@ -287,9 +288,65 @@ class LessonPodcastFlow(BaseFlow):
         }
         audio_result = await SynthesizePodcastAudioStep().execute(audio_inputs)
 
+        # Extract audio bytes from the audio response
+        audio_payload = audio_result.output_content or {}
+        audio_bytes = b""
+        if isinstance(audio_payload, dict):
+            # Audio response contains base64-encoded audio in 'audio_base64' field
+            audio_data = audio_payload.get("audio_base64")
+            if audio_data:
+                import base64
+
+                audio_bytes = base64.b64decode(audio_data)
+                logger.debug(f"✓ Audio synthesis succeeded: decoded {len(audio_bytes)} bytes from base64")
+            else:
+                logger.warning("⚠️ Audio synthesis returned no audio_base64 data")
+
+        # Transcribe audio to get timed segments
+        transcript_segments: list[dict[str, Any]] | None = None
+        if audio_bytes:
+            audio_format = inputs.get("audio_format", "mp3")
+            logger.debug(f"🎙️ Transcribing lesson podcast audio (format={audio_format}, size={len(audio_bytes)} bytes)")
+
+            try:
+                transcription_result = await TranscribePodcastStep().execute(
+                    {
+                        "audio_bytes": audio_bytes,
+                        "audio_format": audio_format,
+                    }
+                )
+                transcription_payload = transcription_result.output_content or {}
+                segments_data = transcription_payload.get("segments", [])
+                logger.debug(f"✓ Transcription step returned {len(segments_data)} raw segments")
+
+                if segments_data:
+                    transcript_segments = [
+                        {
+                            "text": str(seg.get("text", "")).strip(),
+                            "start": max(0.0, float(seg.get("start", 0.0))),
+                            "end": max(float(seg.get("start", 0.0)), float(seg.get("end", 0.0))),
+                        }
+                        for seg in segments_data
+                        if str(seg.get("text", "")).strip()
+                    ]
+                    logger.info(f"✅ Lesson podcast: {len(transcript_segments)} transcript segments extracted (filtering empty segments)")
+                else:
+                    logger.warning("⚠️ Transcription returned empty segments list - lesson will be created without timed transcript highlighting")
+            except Exception as exc:
+                logger.error(
+                    f"❌ TRANSCRIPTION FAILED for lesson podcast - continuing lesson creation without timed segments. Error: {type(exc).__name__}: {exc}",
+                    exc_info=True,
+                    extra={
+                        "audio_size_bytes": len(audio_bytes),
+                        "audio_format": audio_format,
+                        "error_type": type(exc).__name__,
+                    },
+                )
+
         return {
             "transcript": transcript_text,
             "audio": audio_result.output_content,
+            "transcript_segments": transcript_segments,
         }
 
 
@@ -333,9 +390,65 @@ class UnitPodcastFlow(BaseFlow):
         }
         audio_result = await SynthesizePodcastAudioStep().execute(audio_inputs)
 
+        # Extract audio bytes from the audio response
+        audio_payload = audio_result.output_content or {}
+        audio_bytes = b""
+        if isinstance(audio_payload, dict):
+            # Audio response contains base64-encoded audio in 'audio_base64' field
+            audio_data = audio_payload.get("audio_base64")
+            if audio_data:
+                import base64
+
+                audio_bytes = base64.b64decode(audio_data)
+                logger.debug(f"✓ Audio synthesis succeeded: decoded {len(audio_bytes)} bytes from base64")
+            else:
+                logger.warning("⚠️ Audio synthesis returned no audio_base64 data")
+
+        # Transcribe audio to get timed segments
+        transcript_segments: list[dict[str, Any]] | None = None
+        if audio_bytes:
+            audio_format = inputs.get("audio_format", "mp3")
+            logger.debug(f"🎙️ Transcribing unit podcast audio (format={audio_format}, size={len(audio_bytes)} bytes)")
+
+            try:
+                transcription_result = await TranscribePodcastStep().execute(
+                    {
+                        "audio_bytes": audio_bytes,
+                        "audio_format": audio_format,
+                    }
+                )
+                transcription_payload = transcription_result.output_content or {}
+                segments_data = transcription_payload.get("segments", [])
+                logger.debug(f"✓ Transcription step returned {len(segments_data)} raw segments")
+
+                if segments_data:
+                    transcript_segments = [
+                        {
+                            "text": str(seg.get("text", "")).strip(),
+                            "start": max(0.0, float(seg.get("start", 0.0))),
+                            "end": max(float(seg.get("start", 0.0)), float(seg.get("end", 0.0))),
+                        }
+                        for seg in segments_data
+                        if str(seg.get("text", "")).strip()
+                    ]
+                    logger.info(f"✅ Unit podcast: {len(transcript_segments)} transcript segments extracted (filtering empty segments)")
+                else:
+                    logger.warning("⚠️ Transcription returned empty segments list - unit will be created without timed transcript highlighting")
+            except Exception as exc:
+                logger.error(
+                    f"❌ TRANSCRIPTION FAILED for unit podcast - continuing unit creation without timed segments. Error: {type(exc).__name__}: {exc}",
+                    exc_info=True,
+                    extra={
+                        "audio_size_bytes": len(audio_bytes),
+                        "audio_format": audio_format,
+                        "error_type": type(exc).__name__,
+                    },
+                )
+
         return {
             "transcript": transcript_text,
             "audio": audio_result.output_content,
+            "transcript_segments": transcript_segments,
         }
 
 
